@@ -72,15 +72,18 @@ def _write_symlinked_base_weights(root: Path, store: Path) -> list[str]:
     return shards
 
 
-def test_smash_help_exposes_exactly_five_verbs() -> None:
+def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
     parser = _parser()
     action = next(action for action in parser._actions if getattr(action, "choices", None))
-    assert list(action.choices) == [
+    choices = list(action.choices or {})
+    assert choices[:4] == [
         "export",
         "verify",
         "serve-check",
         "validate",
     ]
+    assert {"bank", "evaluate"} <= set(choices)
+    # Additive command families must not displace the lifecycle prefix.
 
 
 def test_smash_validate_pack_compatibility_alias(tmp_path: Path, capsys) -> None:
