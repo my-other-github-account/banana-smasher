@@ -91,8 +91,10 @@ TENSOR_RE = re.compile(
 )
 BANANA_SMASHER_LAYER_RE = re.compile(r"^layer_(\d{3})$")
 BANANA_SMASHER_PLANE_RE = re.compile(
-    r"^(d4_k(256|1024|2048|4096))\.(down|fused13)\."
-    r"(codebook\.fp16|codes\.le(8|10|11|12)|expert_ids\.i16|scales\.e8m0)\.bin$"
+    r"^(?P<tier>d4_k(?:256|1024|2048|4096)|d8_k256|native_mxfp4)\."
+    r"(?P<projection>down|fused13)\."
+    r"(?P<role>codebook\.fp16|codes\.le(?:8|10|11|12)|expert_ids\.i16|"
+    r"scales\.e8m0|weights\.mxfp4)\.bin$"
 )
 BANANA_SMASHER_SUBTIERS = (256, 1024, 2048, 4096)
 BANANA_SMASHER_PROJECTIONS = ("down", "fused13")
@@ -568,16 +570,50 @@ def _banana_smasher_plane_descriptor(path: Path, *, layer: int) -> dict[str, Any
     match = BANANA_SMASHER_PLANE_RE.fullmatch(path.name)
     if match is None:
         raise PackValidationError(f"unsupported banana_smasher plane name: {path.name}")
-    tier_name = match.group(1)
-    subtier = int(match.group(2))
-    projection = match.group(3)
-    encoded_role = match.group(4)
+    tier_name = match.group("tier")
+    projection = match.group("projection")
+    encoded_role = match.group("role")
+    if tier_name.startswith("d4_k"):
+        family = "truevq_d4"
+        subtier = int(tier_name.removeprefix("d4_k"))
+        dimension = 4
+        expected_roles = {
+            "codebook.fp16",
+            f"codes.le{subtier.bit_length() - 1}",
+            "expert_ids.i16",
+            "scales.e8m0",
+        }
+    elif tier_name == "d8_k256":
+        family = "truevq_d8"
+        subtier = 0
+        dimension = 8
+        expected_roles = {
+            "codebook.fp16",
+            "codes.le8",
+            "expert_ids.i16",
+            "scales.e8m0",
+        }
+    else:
+        family = "native_mxfp4"
+        subtier = 0
+        dimension = 0
+        expected_roles = {
+            "expert_ids.i16",
+            "scales.e8m0",
+            "weights.mxfp4",
+        }
+    if encoded_role not in expected_roles:
+        raise PackValidationError(
+            f"unsupported {tier_name} receipt role {encoded_role!r}: {path}"
+        )
     if encoded_role.startswith("codebook"):
         role = "codebooks"
         dtype = np.dtype("<f2")
-        if path.stat().st_size % (4 * dtype.itemsize):
-            raise PackValidationError(f"d4 codebook is not [K,4] fp16: {path}")
-        shape = [path.stat().st_size // (4 * dtype.itemsize), 4]
+        if path.stat().st_size % (dimension * dtype.itemsize):
+            raise PackValidationError(
+                f"{tier_name} codebook is not [K,{dimension}] fp16: {path}"
+            )
+        shape = [path.stat().st_size // (dimension * dtype.itemsize), dimension]
     elif encoded_role.startswith("codes"):
         role = "codes"
         dtype = np.dtype("uint8")
@@ -592,7 +628,7 @@ def _banana_smasher_plane_descriptor(path: Path, *, layer: int) -> dict[str, Any
         if path.stat().st_size % dtype.itemsize:
             raise PackValidationError(f"unaligned int16 expert ids: {path}")
         shape = [path.stat().st_size // dtype.itemsize]
-    else:
+    elif encoded_role.startswith("scales"):
         role = "scales"
         dtype = np.dtype("uint8")
         expert_ids = path.with_name(f"{tier_name}.{projection}.expert_ids.i16.bin")
@@ -600,10 +636,21 @@ def _banana_smasher_plane_descriptor(path: Path, *, layer: int) -> dict[str, Any
         if expert_count <= 0 or path.stat().st_size % expert_count:
             raise PackValidationError(f"scales do not partition by selected expert: {path}")
         shape = [expert_count, path.stat().st_size // expert_count]
+    else:
+        role = "packed"
+        dtype = np.dtype("uint8")
+        expert_ids = path.with_name(f"{tier_name}.{projection}.expert_ids.i16.bin")
+        expert_count = expert_ids.stat().st_size // np.dtype("<i2").itemsize
+        if expert_count <= 0 or path.stat().st_size % expert_count:
+            raise PackValidationError(
+                f"MXFP4 weights do not partition by selected expert: {path}"
+            )
+        shape = [expert_count, path.stat().st_size // expert_count]
     encoding = encoded_role.split(".", 1)[1]
-    name = f"layers.{layer}.truevq_d4.{tier_name}.{projection}.{role}"
+    name = f"layers.{layer}.{family}.{tier_name}.{projection}.{role}"
     return {
         "name": name,
+        "family": family,
         "tier": tier_name,
         "subtier": subtier,
         "projection": projection,
@@ -852,12 +899,15 @@ def _materialized_wire_runtime_contract(
 
 
 def _banana_smasher_tier_maps(planes: list[Path]) -> tuple[np.ndarray, np.ndarray]:
-    tier_map = np.full(256, TIER_CODES["truevq_d4"], dtype=np.uint8)
-    subtier_map = np.zeros(256, dtype=np.uint16)
-    seen_by_projection: dict[str, set[int]] = {
-        projection: set() for projection in BANANA_SMASHER_PROJECTIONS
+    tier_maps = {
+        projection: np.full(256, 255, dtype=np.uint8)
+        for projection in BANANA_SMASHER_PROJECTIONS
     }
-    ids_by_tier_projection: dict[tuple[int, str], np.ndarray] = {}
+    subtier_maps = {
+        projection: np.zeros(256, dtype=np.uint16)
+        for projection in BANANA_SMASHER_PROJECTIONS
+    }
+    ids_by_tier_projection: dict[tuple[str, str, str], np.ndarray] = {}
     for path in planes:
         descriptor = _banana_smasher_plane_descriptor(path, layer=0)
         if descriptor["role"] != "expert_ids":
@@ -866,32 +916,43 @@ def _banana_smasher_tier_maps(planes: list[Path]) -> tuple[np.ndarray, np.ndarra
         if np.any(ids < 0) or np.any(ids >= 256) or len(np.unique(ids)) != len(ids):
             raise PackValidationError(f"invalid/duplicate banana_smasher expert ids: {path}")
         projection = str(descriptor["projection"])
-        overlap = seen_by_projection[projection].intersection(
-            int(value) for value in ids
-        )
+        tier_map = tier_maps[projection]
+        overlap = {int(value) for value in ids if tier_map[int(value)] != 255}
         if overlap:
             raise PackValidationError(
                 f"banana_smasher tier expert overlap for {projection}: {sorted(overlap)}"
             )
-        seen_by_projection[projection].update(int(value) for value in ids)
-        key = (int(descriptor["subtier"]), projection)
+        family = str(descriptor["family"])
+        tier = str(descriptor["tier"])
+        tier_map[ids] = TIER_CODES[family]
+        if family == "truevq_d4":
+            subtier_maps[projection][ids] = int(descriptor["subtier"])
+        key = (family, tier, projection)
+        if key in ids_by_tier_projection:
+            raise PackValidationError(
+                f"duplicate banana_smasher expert partition for {family}/{tier}/{projection}"
+            )
         ids_by_tier_projection[key] = ids
-        subtier_map[ids] = int(descriptor["subtier"])
-    expected_ids = set(range(256))
-    for projection, seen in seen_by_projection.items():
-        if seen != expected_ids:
+    for projection, tier_map in tier_maps.items():
+        missing = np.flatnonzero(tier_map == 255).tolist()
+        if missing:
             raise PackValidationError(
                 f"banana_smasher {projection} expert partition is incomplete: "
-                f"missing={sorted(expected_ids - seen)}, extras={sorted(seen - expected_ids)}"
+                f"missing={missing}"
             )
-    for subtier in BANANA_SMASHER_SUBTIERS:
-        down = ids_by_tier_projection.get((subtier, "down"))
-        fused = ids_by_tier_projection.get((subtier, "fused13"))
+    partitions = {(family, tier) for family, tier, _projection in ids_by_tier_projection}
+    for family, tier in partitions:
+        down = ids_by_tier_projection.get((family, tier, "down"))
+        fused = ids_by_tier_projection.get((family, tier, "fused13"))
         if down is None or fused is None or not np.array_equal(down, fused):
             raise PackValidationError(
-                f"banana_smasher expert ids disagree across projections for d4_k{subtier}"
+                f"banana_smasher expert ids disagree across projections for {tier}"
             )
-    return tier_map, subtier_map
+    if not np.array_equal(tier_maps["down"], tier_maps["fused13"]):
+        raise PackValidationError("banana_smasher family routes disagree across projections")
+    if not np.array_equal(subtier_maps["down"], subtier_maps["fused13"]):
+        raise PackValidationError("banana_smasher D4 subtier routes disagree across projections")
+    return tier_maps["down"], subtier_maps["down"]
 
 
 def _file_entry(root: Path, relative: Path, role: str) -> dict[str, Any]:
@@ -1613,7 +1674,7 @@ def export_pack(
                         Path("planes")
                         / "layers"
                         / f"layer_{current_layer:03d}"
-                        / "truevq_d4"
+                        / str(descriptor["family"])
                         / source.name
                     )
                     repair_row = None
@@ -2166,7 +2227,8 @@ def _verify_tensors(root: Path, manifest: dict[str, Any]) -> tuple[int, list[int
                     f"{name} must be uint16[256], got {array.dtype}{tuple(array.shape)}"
                 )
             invalid = sorted(
-                {int(value) for value in np.unique(array)} - set(BANANA_SMASHER_SUBTIERS)
+                {int(value) for value in np.unique(array)}
+                - ({0} | set(BANANA_SMASHER_SUBTIERS))
             )
             if invalid:
                 raise PackValidationError(
@@ -2206,6 +2268,24 @@ def _verify_tensors(root: Path, manifest: dict[str, Any]) -> tuple[int, list[int
                 missing = sorted(expected - fields)
                 if not layer_fields[layer].get("__subtier_map__"):
                     missing.append("experts.subtier_map")
+            elif family == "truevq_d8" and any(
+                field.startswith("d8_k") for field in fields
+            ):
+                expected = {
+                    f"d8_k256.{projection}.{role}"
+                    for projection in BANANA_SMASHER_PROJECTIONS
+                    for role in BANANA_SMASHER_ROLES
+                }
+                missing = sorted(expected - fields)
+            elif family == "native_mxfp4" and any(
+                field.startswith("native_mxfp4") for field in fields
+            ):
+                expected = {
+                    f"native_mxfp4.{projection}.{role}"
+                    for projection in BANANA_SMASHER_PROJECTIONS
+                    for role in ("expert_ids", "scales", "packed")
+                }
+                missing = sorted(expected - fields)
             else:
                 missing = sorted(REQUIRED_FAMILY_FIELDS[family] - fields)
             if missing:

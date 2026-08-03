@@ -68,6 +68,85 @@ def _write_banana_smasher_layer(root: Path, *, layer: int = 0) -> Path:
     return root
 
 
+def _write_mixed_substrate_layer(root: Path, *, layer: int = 0) -> Path:
+    root.mkdir(parents=True)
+    rows: list[dict[str, object]] = []
+    families = {
+        "d4_k256": {
+            "experts": [0],
+            "planes": {
+                "codebook.fp16": np.zeros((256, 4), dtype="<f2").tobytes(),
+                "codes.le8": b"\x01" * 3,
+                "scales.e8m0": b"\x02" * 2,
+            },
+        },
+        "d4_k1024": {
+            "experts": [1],
+            "planes": {
+                "codebook.fp16": np.zeros((1024, 4), dtype="<f2").tobytes(),
+                "codes.le10": b"\x01" * 3,
+                "scales.e8m0": b"\x02" * 2,
+            },
+        },
+        "d4_k2048": {
+            "experts": [2],
+            "planes": {
+                "codebook.fp16": np.zeros((2048, 4), dtype="<f2").tobytes(),
+                "codes.le11": b"\x01" * 3,
+                "scales.e8m0": b"\x02" * 2,
+            },
+        },
+        "d4_k4096": {
+            "experts": [3],
+            "planes": {
+                "codebook.fp16": np.zeros((4096, 4), dtype="<f2").tobytes(),
+                "codes.le12": b"\x01" * 3,
+                "scales.e8m0": b"\x02" * 2,
+            },
+        },
+        "d8_k256": {
+            "experts": [4],
+            "planes": {
+                "codebook.fp16": np.zeros((256, 8), dtype="<f2").tobytes(),
+                "codes.le8": b"\x03" * 5,
+                "scales.e8m0": b"\x04" * 2,
+            },
+        },
+        "native_mxfp4": {
+            "experts": list(range(5, 256)),
+            "planes": {
+                "weights.mxfp4": b"\x05" * (251 * 7),
+                "scales.e8m0": b"\x06" * (251 * 2),
+            },
+        },
+    }
+    for tier, spec in families.items():
+        experts = spec["experts"]
+        for projection in ("down", "fused13"):
+            for role, payload in spec["planes"].items():
+                rows.append(_write_file(root / f"{tier}.{projection}.{role}.bin", payload))
+            rows.append(
+                _write_file(
+                    root / f"{tier}.{projection}.expert_ids.i16.bin",
+                    np.asarray(experts, dtype="<i2").tobytes(),
+                )
+            )
+    (root / "LAYER_RECEIPT.json").write_text(
+        json.dumps(
+            {
+                "schema": "banana_smasher-materialized-layer-v1",
+                "status": "PASS",
+                "layer": layer,
+                "files": rows,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    return root
+
+
 def _write_serving_root(root: Path) -> Path:
     root.mkdir()
     (root / "config.json").write_text(
@@ -258,6 +337,47 @@ def test_banana_smasher_wire_export_and_safetensors_roundtrip_are_byte_exact(
     with safe_open(pack / "bs-pack.safetensors", framework="np") as handle:
         key = "layers.0.truevq_d4.d4_k2048.down.codes"
         assert handle.get_tensor(key).tobytes() == source_codes.read_bytes()
+
+
+def test_mixed_substrate_receipt_exports_d8_and_native_mxfp4_planes(
+    tmp_path: Path,
+) -> None:
+    source = _write_mixed_substrate_layer(tmp_path / "layer_000")
+
+    manifest = export_pack(
+        source_root=source,
+        output=tmp_path / "pack",
+        model_id="mixed-substrate-fixture",
+        instance_id="mixed-substrate-0001",
+        link_mode="hardlink",
+    )
+
+    tensors = manifest["tensor_index"]
+    d8 = tensors["layers.0.truevq_d8.d8_k256.down.codebooks"]
+    assert d8["shape"] == [256, 8]
+    assert d8["storage"]["path"].startswith(
+        "planes/layers/layer_000/truevq_d8/"
+    )
+    native = tensors["layers.0.native_mxfp4.native_mxfp4.down.packed"]
+    assert native["shape"] == [251, 7]
+    assert native["storage"]["path"].startswith(
+        "planes/layers/layer_000/native_mxfp4/"
+    )
+    tier_map = np.load(
+        tmp_path / "pack/planes/layers/layer_000/experts/tier_map.npy"
+    )
+    subtier_map = np.load(
+        tmp_path / "pack/planes/layers/layer_000/experts/subtier_map.npy"
+    )
+    assert tier_map.tolist() == [
+        TIER_CODES["truevq_d4"],
+        TIER_CODES["truevq_d4"],
+        TIER_CODES["truevq_d4"],
+        TIER_CODES["truevq_d4"],
+        TIER_CODES["truevq_d8"],
+        *([TIER_CODES["native_mxfp4"]] * 251),
+    ]
+    assert subtier_map.tolist() == [256, 1024, 2048, 4096, *([0] * 252)]
 
 
 def test_banana_smasher_wire_export_refuses_receipt_drift(tmp_path: Path) -> None:
