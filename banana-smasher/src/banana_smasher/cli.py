@@ -22,7 +22,7 @@ from .validation import ValidationError, validate_artifact
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="smash",
-        description="Five fail-closed bs-pack lifecycle verbs.",
+        description="Fail-closed bs-pack lifecycle commands.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -99,6 +99,29 @@ def _parser() -> argparse.ArgumentParser:
     solve.add_argument("--reference-search", action="store_true", help=argparse.SUPPRESS)
     solve.add_argument("--verbose-receipts", action="store_true", help=argparse.SUPPRESS)
     solve.set_defaults(backend="exact-gemm")
+
+    update = subparsers.add_parser(
+        "update", help="run one resumable memory-sized physical tensor update"
+    )
+    update.add_argument("--backend", required=True)
+    update.add_argument("--request", type=Path, required=True)
+    update.add_argument("--identity", type=Path, required=True)
+    update.add_argument("--output", type=Path, required=True)
+    update.add_argument("--receipt", type=Path)
+    update.add_argument("--tokens", type=int, default=1024)
+    update.add_argument("--segments", type=int, default=8)
+    update.add_argument("--batch-size", type=int, choices=(1,), default=1)
+    update.add_argument("--available-bytes", type=int, required=True)
+    update.add_argument("--resident-frozen-bytes", type=int, required=True)
+    update.add_argument("--trainable-bytes", type=int, required=True)
+    update.add_argument("--optimizer-bytes", type=int, required=True)
+    update.add_argument("--staging-bytes", type=int, required=True)
+    update.add_argument("--activation-bytes-per-token", type=int, required=True)
+    update.add_argument("--os-floor-bytes", type=int, default=4 * 1024**3)
+    update.add_argument("--restart", action="store_true")
+    update.add_argument(
+        "--no-resume", dest="resume", action="store_false", default=True
+    )
 
     return parser
 
@@ -219,6 +242,37 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reference_search=args.reference_search,
                 verbose_receipts=args.verbose_receipts,
             )
+        elif args.command == "update":
+            from . import update as update_module
+            from .token_sizing import MemoryBudget
+
+            identity = json.loads(args.identity.read_text())
+            result = {
+                **update_module.run_registered_update(
+                    backend_name=args.backend,
+                    request=args.request,
+                    output=args.output,
+                    receipt=args.receipt,
+                    identity=identity,
+                    requested_tokens=args.tokens,
+                    segments=args.segments,
+                    batch_size=args.batch_size,
+                    memory_budget=MemoryBudget(
+                        available_bytes=args.available_bytes,
+                        resident_frozen_bytes=args.resident_frozen_bytes,
+                        trainable_bytes=args.trainable_bytes,
+                        optimizer_bytes=args.optimizer_bytes,
+                        staging_bytes=args.staging_bytes,
+                        calibrated_activation_bytes_per_token=(
+                            args.activation_bytes_per_token
+                        ),
+                        os_floor_bytes=args.os_floor_bytes,
+                    ),
+                    resume=args.resume,
+                    restart=args.restart,
+                ),
+                "command": "update",
+            }
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2
