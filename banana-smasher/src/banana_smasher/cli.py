@@ -22,7 +22,7 @@ from .validation import ValidationError, validate_artifact
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="smash",
-        description="Five fail-closed bs-pack lifecycle verbs.",
+        description="Fail-closed bs-pack lifecycle, teacher bank, and paired evaluation verbs.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -90,6 +90,57 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--receipt", type=Path)
     validate.add_argument("--bank-teacher-logits", type=Path)
 
+    bank = subparsers.add_parser(
+        "bank", help="build or resume a complete manifest-bound teacher bank"
+    )
+    bank.add_argument("--model-root", type=Path, required=True)
+    bank.add_argument("--corpus", type=Path, required=True)
+    bank.add_argument("--windows-manifest", type=Path, required=True)
+    bank.add_argument("--output", type=Path, required=True)
+    bank.add_argument("--instrument-profile", type=Path)
+
+    evaluate = subparsers.add_parser(
+        "evaluate", help="run paired candidate/reference real-axis evaluation"
+    )
+    evaluate.add_argument("--model-root", type=Path, required=True)
+    evaluate.add_argument("--candidate", type=Path, required=True)
+    evaluate.add_argument("--reference", type=Path, required=True)
+    evaluate.add_argument("--bank", type=Path, required=True)
+    evaluate.add_argument("--output", type=Path, required=True)
+    evaluate.add_argument("--resume-from-layer", type=int)
+    evaluate.add_argument("--verbose-receipts", action="store_true")
+
+    update = subparsers.add_parser(
+        "update", help="run a fail-closed persistent physical-update worker"
+    )
+    update.add_argument("--serve", action="store_true", required=True)
+    update.add_argument("--queue-root", type=Path, required=True)
+    update.add_argument("--checkpoint", type=Path, required=True)
+    update.add_argument("--config", type=Path, required=True)
+    update.add_argument("--aot", type=Path, required=True)
+    update.add_argument(
+        "--adapter",
+        required=True,
+        help="package module exposing initialize(), cycle(), and optional recover()",
+    )
+    update.add_argument("--config-sha256", required=True)
+    update.add_argument("--aot-sha256", required=True)
+    update.add_argument("--poll-seconds", type=float, default=1.0)
+    update.add_argument("--idle-timeout-seconds", type=float)
+    update.add_argument("--stop-after-requests", type=int)
+
+    enqueue = subparsers.add_parser(
+        "update-enqueue", help="durably enqueue an exactly-once update request"
+    )
+    enqueue.add_argument("--queue-root", type=Path, required=True)
+    enqueue.add_argument("--request", type=Path, required=True)
+
+    update_status = subparsers.add_parser(
+        "update-status", help="read persistent-update queue status"
+    )
+    update_status.add_argument("--queue-root", type=Path, required=True)
+    update_status.add_argument("--request-id")
+
     return parser
 
 
@@ -104,8 +155,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     tokens = list(sys.argv[1:] if argv is None else argv)
     reported_command = tokens[0] if tokens else None
     if reported_command == "validate-pack":
-        # Compatibility spelling for reproducibility automation. Keep the five
-        # primary lifecycle verbs and their help surface stable.
+        # Compatibility spelling for reproducibility automation. Keep the
+        # established lifecycle verbs and their help surface stable.
         tokens[0] = "verify"
     args = parser.parse_args(tokens)
     try:
@@ -198,6 +249,65 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "command": "validate",
             }
+        elif args.command == "update-enqueue":
+            from .persistent import UpdateQueue
+
+            result = UpdateQueue(args.queue_root).enqueue(
+                json.loads(args.request.read_text())
+            )
+        elif args.command == "update-status":
+            from .persistent import UpdateQueue
+
+            queue = UpdateQueue(args.queue_root)
+            if args.request_id is not None:
+                result = queue.status(args.request_id)
+            else:
+                ledger = queue.ledger()
+                result = {
+                    "status": "PASS",
+                    "segment_queue": str(queue.ledger_path),
+                    "requests": [
+                        queue.status(segment_id)
+                        for segment_id in sorted(ledger["segments"])
+                    ],
+                }
+        elif args.command == "update":
+            from .update_service import serve_persistent_updates
+
+            result = serve_persistent_updates(
+                queue_root=args.queue_root,
+                checkpoint=args.checkpoint,
+                config=args.config,
+                aot=args.aot,
+                adapter=args.adapter,
+                expected_config_sha256=args.config_sha256,
+                expected_aot_sha256=args.aot_sha256,
+                poll_seconds=args.poll_seconds,
+                idle_timeout_seconds=args.idle_timeout_seconds,
+                stop_after_requests=args.stop_after_requests,
+            )
+        elif args.command == "bank":
+            from .bank import build_bank
+
+            result = build_bank(
+                model_root=args.model_root,
+                corpus=args.corpus,
+                windows_manifest=args.windows_manifest,
+                output=args.output,
+                instrument_profile=args.instrument_profile,
+            )
+        elif args.command == "evaluate":
+            from .evaluate import evaluate_paired
+
+            result = evaluate_paired(
+                model_root=args.model_root,
+                candidate=args.candidate,
+                reference=args.reference,
+                bank=args.bank,
+                output=args.output,
+                resume_from_layer=args.resume_from_layer,
+                verbose_receipts=args.verbose_receipts,
+            )
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2
@@ -206,6 +316,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ValidationError,
         FileExistsError,
         OSError,
+        RuntimeError,
         ValueError,
     ) as exc:
         _emit(

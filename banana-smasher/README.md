@@ -25,3 +25,19 @@ The bound inputs are supplied with `--repair-checkpoint`, `--repair-checkpoint-s
 Repair checkpoint loading is weights-only and requires PyTorch in the export environment. Pack loading and validation retain the lightweight NumPy + safetensors runtime.
 
 The first sealed model instance has no special framework name. Reusable package, schema, CLI, and documentation names remain `banana-smasher`, `bs-pack`, and `smash`.
+
+## Portable teacher bank and paired evaluation
+
+`smash bank` builds or resumes a content-hashed teacher bank from a declared model runtime, corpus, windows manifest, and optional instrument profile. `smash evaluate` requires both `--candidate` and `--reference` packs and persists the explicit `paired_real_axis` mode. Use `smash bank --help` and `smash evaluate --help` for the complete public arguments.
+
+Members and checkpoints use relative paths, byte counts, SHA-256 identities, and chained completion markers. Verification rejects missing, extra, tampered, unsafe, or unpaired artifacts. The optional `real_axis` object in `bs-pack-v1` binds a pack to its numerical runtime descriptor without changing the required export or repair-pack contract.
+
+These metrics compare declared numerical artifacts. They do not assert causal-context equivalence or same-work language-model equivalence. See `notes/reports/paired-real-axis-api.md` for the portable schemas, durability rules, and interpretation boundary.
+
+## Persistent physical updates
+
+`smash update --serve` runs one resident update worker against an fsynced, exactly-once segment queue. The command binds an explicit checkpoint, runtime config, AOT artifact, their expected SHA-256 identities, and a package-owned adapter module. It never discovers inputs through campaign directories or environment-only configuration and never substitutes a reference fallback when the accelerated adapter fails.
+
+Submit immutable request documents with `smash update-enqueue --queue-root RUN --request REQUEST.json`; inspect one request or the complete ledger with `smash update-status`. Queue heartbeats expose `INITIALIZING`, `WAITING`, `RUNNING`, and `STOPPED` states. Duplicate segment identifiers remain permanent tombstones, and an interrupted inflight segment is finalized only from its already committed checkpoint sidecar rather than replayed.
+
+The Python API exports `prepare_physical_batch`, `run_segmented_update`, `UpdateQueue`, and `serve_queue`. `prepare_physical_batch` carries input IDs, attention masks, position IDs, and teacher masks explicitly; it never infers padding from token values. Segmented checkpoints store relative payload paths plus byte counts and SHA-256 identities, so a complete checkpoint directory can be relocated without weakening payload authentication. Placement-only identity changes for externally bound checkpoints require an exact `banana-smasher-checkpoint-identity-rebind-v1` receipt; immutable identity drift remains rejected.
