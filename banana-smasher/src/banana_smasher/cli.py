@@ -248,6 +248,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     artifact_rebases=_artifact_rebases(args.artifact_rebase),
                     hidden_size=hidden_size,
                     moe_intermediate_size=moe_intermediate_size,
+                    serving_model_root=_serving_root,
                 ),
                 "command": "materialize-selected-wire",
                 "output": str(args.output.resolve()),

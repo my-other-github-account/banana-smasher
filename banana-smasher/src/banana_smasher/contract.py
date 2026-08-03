@@ -1015,6 +1015,42 @@ def _selected_wire_base_array(group: dict[str, Any], role: str) -> np.memmap:
     )
 
 
+def _selected_wire_native_reference_group(
+    serving_model_root: Path | None,
+    *,
+    layer: int,
+    projection: str,
+) -> dict[str, Any] | None:
+    if serving_model_root is None:
+        return None
+    suffix = "13" if projection == "fused13" else "2"
+    prefix = serving_model_root / "planes" / f"layer_{layer:03d}.native_mxfp4.{suffix}"
+    paths = {
+        "ids": Path(f"{prefix}.expert_ids.npy"),
+        "packed": Path(f"{prefix}.packed.npy"),
+        "scales": Path(f"{prefix}.scales.npy"),
+    }
+    if not all(path.is_file() for path in paths.values()):
+        return None
+    ids = np.load(paths["ids"], mmap_mode="r", allow_pickle=False)
+    packed = np.load(paths["packed"], mmap_mode="r", allow_pickle=False)
+    scales = np.load(paths["scales"], mmap_mode="r", allow_pickle=False)
+    if ids.dtype != np.dtype("int16") or ids.ndim != 1:
+        raise PackValidationError(
+            f"serving native reference expert ids drift: L{layer}/{projection}"
+        )
+    if packed.shape[0] != len(ids) or scales.shape[0] != len(ids):
+        raise PackValidationError(
+            f"serving native reference row count drift: L{layer}/{projection}"
+        )
+    slots = {int(expert): slot for slot, expert in enumerate(ids)}
+    if len(slots) != len(ids):
+        raise PackValidationError(
+            f"serving native reference has duplicate expert ids: L{layer}/{projection}"
+        )
+    return {"slots": slots, "packed": packed, "scales": scales}
+
+
 def _selected_wire_family(tier: str) -> tuple[str, str, int]:
     if tier.startswith("qtip2_"):
         return "qtip2", "qtip2", TIER_CODES["qtip2"]
@@ -1039,12 +1075,16 @@ def materialize_selected_wire(
     artifact_rebases: Sequence[tuple[str | Path, str | Path]] | None,
     hidden_size: int,
     moe_intermediate_size: int,
+    serving_model_root: str | Path | None = None,
 ) -> dict[str, Any]:
     """Stream an assignment/overlay into the exact P1016 selected-plane shape."""
     source_root = Path(source_root).resolve()
     output = Path(output).resolve()
     assignment_path = Path(assignment_path).resolve()
     active_overlay_path = Path(active_overlay_path).resolve()
+    serving_model_root = (
+        Path(serving_model_root).resolve() if serving_model_root is not None else None
+    )
     if output.exists():
         raise FileExistsError(f"selected wire output already exists: {output}")
     if hidden_size <= 0 or moe_intermediate_size <= 0:
@@ -1446,31 +1486,69 @@ def materialize_selected_wire(
                         }
                     else:
                         base_group = groups.get((layer, projection, tier))
-                        if base_group is None:
+                        reference_group = _selected_wire_native_reference_group(
+                            serving_model_root,
+                            layer=layer,
+                            projection=projection,
+                        )
+                        if base_group is None and reference_group is None:
                             raise PackValidationError(
                                 f"selected native group is absent from substrate: L{layer}/{projection}"
                             )
                         packed_rows: list[np.ndarray] = []
                         scale_rows = []
-                        base_packed = _selected_wire_base_array(base_group, "packed")
-                        base_scales = _selected_wire_base_array(base_group, "scales")
+                        base_packed = (
+                            _selected_wire_base_array(base_group, "packed")
+                            if base_group is not None
+                            else None
+                        )
+                        base_scales = (
+                            _selected_wire_base_array(base_group, "scales")
+                            if base_group is not None
+                            else None
+                        )
                         for expert in experts:
-                            slot = base_group["slots"].get(expert)
-                            if slot is None:
+                            base_slot = (
+                                base_group["slots"].get(expert)
+                                if base_group is not None
+                                else None
+                            )
+                            reference_slot = (
+                                reference_group["slots"].get(expert)
+                                if reference_group is not None
+                                else None
+                            )
+                            if base_slot is not None:
+                                assert base_packed is not None and base_scales is not None
+                                packed_rows.append(np.asarray(base_packed[base_slot]))
+                                scale_rows.append(np.asarray(base_scales[base_slot]))
+                            elif reference_slot is not None:
+                                assert reference_group is not None
+                                packed_rows.append(
+                                    np.asarray(reference_group["packed"][reference_slot])
+                                )
+                                scale_rows.append(
+                                    np.asarray(reference_group["scales"][reference_slot])
+                                )
+                            else:
                                 raise PackValidationError(
                                     f"selected native cell is absent from substrate: "
                                     f"L{layer}/E{expert}/{projection}"
                                 )
-                            packed_rows.append(np.asarray(base_packed[slot]))
-                            scale_rows.append(np.asarray(base_scales[slot]))
                         tensor_specs["packed"] = _write_selected_array(
                             output / f"{prefix}.packed.npy", packed_rows
                         )
                         tensor_specs["scales"] = _write_selected_array(
                             output / f"{prefix}.scales.npy", scale_rows
                         )
-                        _close_memmap(base_packed)
-                        _close_memmap(base_scales)
+                        for array in (
+                            base_packed,
+                            base_scales,
+                            reference_group["packed"] if reference_group is not None else None,
+                            reference_group["scales"] if reference_group is not None else None,
+                        ):
+                            if array is not None:
+                                _close_memmap(array)
                     ids = np.asarray(experts, dtype=np.int16)
                     np.save(output / f"{prefix}.expert_ids.npy", ids, allow_pickle=False)
                     ids_meta = _npy_metadata(output / f"{prefix}.expert_ids.npy")

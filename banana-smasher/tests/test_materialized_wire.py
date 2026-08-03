@@ -514,6 +514,8 @@ def test_selected_wire_materializer_merges_rebased_qtip_d4_and_base_native(
                         if expert == 4
                         else "d4_k1024"
                         if expert == 0 and projection == "down"
+                        else "native_mxfp4"
+                        if expert == 0 and projection == "fused13"
                         else "d4_k256"
                         if expert == 0
                         else "d4_k1024"
@@ -605,6 +607,24 @@ def test_selected_wire_materializer_merges_rebased_qtip_d4_and_base_native(
         return artifact_payloads[path.name]
 
     monkeypatch.setattr("banana_smasher.contract._load_selected_artifact", fake_load)
+    native_reference = tmp_path / "native-reference"
+    native_planes = native_reference / "planes"
+    native_planes.mkdir(parents=True)
+    np.save(
+        native_planes / "layer_000.native_mxfp4.13.expert_ids.npy",
+        np.asarray([0], dtype=np.int16),
+        allow_pickle=False,
+    )
+    np.save(
+        native_planes / "layer_000.native_mxfp4.13.packed.npy",
+        np.full((1, 7), 7, dtype=np.uint8),
+        allow_pickle=False,
+    )
+    np.save(
+        native_planes / "layer_000.native_mxfp4.13.scales.npy",
+        np.full((1, 2), 8, dtype=np.uint8),
+        allow_pickle=False,
+    )
     output = tmp_path / "selected"
     receipt = materialize_selected_wire(
         source_root=source,
@@ -616,12 +636,13 @@ def test_selected_wire_materializer_merges_rebased_qtip_d4_and_base_native(
         artifact_rebases=[(declared, replica)],
         hidden_size=32,
         moe_intermediate_size=32,
+        serving_model_root=native_reference,
     )
 
     assert receipt["status"] == "PASS"
     assert receipt["family_counts"] == {
-        "d4": 8,
-        "native": 502,
+        "d4": 7,
+        "native": 503,
         "qtip2": 0,
         "qtip3": 2,
     }
@@ -643,6 +664,12 @@ def test_selected_wire_materializer_merges_rebased_qtip_d4_and_base_native(
         ]
     )
     assert native_ids.tolist() == list(range(5, 256))
+    native_fused13 = meta["payloads"]["fused13"]["native_mxfp4"]["tensors"]
+    assert np.load(output / native_fused13["expert_ids"]["file"]).tolist() == [
+        0,
+        *range(5, 256),
+    ]
+    assert np.load(output / native_fused13["packed"]["file"])[0].tolist() == [7] * 7
 
     serving = _write_serving_root(tmp_path / "serving-selected")
     serving_config = json.loads((serving / "config.json").read_text())
