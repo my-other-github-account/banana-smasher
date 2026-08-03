@@ -106,6 +106,15 @@ def test_acceleration_manifest_is_exact_and_test_mapped() -> None:
         assert entry["tests"]
         for path in entry["source"] + entry["tests"]:
             assert (ROOT / path).exists(), f"manifest path missing: {entry['id']}: {path}"
+    assert by_id["sm121-deepgemm-dense-e8m0"]["build_dependency_or_asset"] == [
+        "DeepGEMM a6b593d2826719dcf4892609af7b84ee23aaf32a",
+        "deep_gemm-2.5.0 ARM64 wheel",
+    ]
+    assert by_id["deepgemm-ue8m0-warmup"]["build_dependency_or_asset"][0] == (
+        "DeepGEMM 2.5.0 UE8M0 activation-scale contract"
+    )
+    verifier = (ROOT / "docker/scripts/verify_public_image.py").read_text()
+    assert '"deep-gemm": "2.5.0"' in verifier
 
 
 def test_runtime_pins_hooks_assets_and_exact_command() -> None:
@@ -117,9 +126,8 @@ def test_runtime_pins_hooks_assets_and_exact_command() -> None:
         "b34f49255f1640542da91665f58558a3e5e308f1",
         "76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9",
         "0c5fda59bb6fa71eae875693a024bb0fb37ba7d6",
-        "refs/tags/nv_dev_f8e8fb5",
-        "f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca",
-        "deep_gemm-2.6.1",
+        "a6b593d2826719dcf4892609af7b84ee23aaf32a",
+        "deep_gemm-2.5.0",
         "flashinfer-real-libcudart.patch",
         "libcudart.so.13",
         "COPY banana-smasher/kernels/cubins-sm120",

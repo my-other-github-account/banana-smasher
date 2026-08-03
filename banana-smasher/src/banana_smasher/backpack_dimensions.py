@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import stat
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -33,10 +34,25 @@ def _sha_field(value: object, label: str) -> str:
     return value
 
 
+def _strict_json_loads(raw: bytes, label: str) -> Any:
+    def object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, member in pairs:
+            if key in value:
+                raise DynamicDimensionsError(f"duplicate JSON key {key!r} in {label}")
+            value[key] = member
+        return value
+
+    def reject_constant(value: str) -> None:
+        raise DynamicDimensionsError(f"non-standard JSON constant {value!r} in {label}")
+
+    return json.loads(raw, object_pairs_hook=object_pairs, parse_constant=reject_constant)
+
+
 def _read_json(path: Path, label: str) -> tuple[Any, bytes]:
     try:
         raw = path.read_bytes()
-        return json.loads(raw), raw
+        return _strict_json_loads(raw, label), raw
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise DynamicDimensionsError(f"cannot read valid {label} at {path}: {exc}") from exc
 
@@ -44,7 +60,11 @@ def _read_json(path: Path, label: str) -> tuple[Any, bytes]:
 def _read_jsonl(path: Path, label: str) -> tuple[list[dict[str, Any]], bytes]:
     try:
         raw = path.read_bytes()
-        rows = [json.loads(line) for line in raw.splitlines() if line.strip()]
+        rows = [
+            _strict_json_loads(line, f"{label} line {line_number}")
+            for line_number, line in enumerate(raw.splitlines(), start=1)
+            if line.strip()
+        ]
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise DynamicDimensionsError(f"cannot read valid {label} at {path}: {exc}") from exc
     if not rows or not all(isinstance(row, dict) for row in rows):
@@ -68,6 +88,45 @@ def _canonical_json(value: object) -> bytes:
 
 def _canonical_jsonl(rows: list[dict[str, Any]]) -> bytes:
     return b"".join((json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n").encode() for row in rows)
+
+
+def _regular_authority_source(
+    reference: object,
+    label: str,
+    cache: dict[tuple[str, str], dict[str, Any]],
+) -> dict[str, Any]:
+    if not isinstance(reference, dict) or set(reference) != {"path", "sha256"}:
+        raise DynamicDimensionsError(f"{label} authority source must contain exact path and sha256 fields")
+    raw_path = reference.get("path")
+    if not isinstance(raw_path, str) or not raw_path or not Path(raw_path).is_absolute():
+        raise DynamicDimensionsError(f"{label} authority source path must be absolute")
+    expected_sha = _sha_field(reference.get("sha256"), f"{label} authority source sha256")
+    cache_key = (raw_path, expected_sha)
+    if cache_key in cache:
+        return cache[cache_key]
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(raw_path, flags)
+    except OSError as exc:
+        raise DynamicDimensionsError(f"{label} authority source is not a readable regular file: {raw_path}: {exc}") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise DynamicDimensionsError(f"{label} authority source is not a regular file: {raw_path}")
+        digest = hashlib.sha256()
+        with os.fdopen(descriptor, "rb", closefd=False) as stream:
+            while chunk := stream.read(1024 * 1024):
+                digest.update(chunk)
+    finally:
+        os.close(descriptor)
+    observed_sha = digest.hexdigest()
+    if observed_sha != expected_sha:
+        raise DynamicDimensionsError(
+            f"{label} authority source SHA-256 mismatch: expected {expected_sha}, observed {observed_sha}"
+        )
+    result = {"path": raw_path, "sha256": observed_sha}
+    cache[cache_key] = result
+    return result
 
 
 def _write_once(path: Path, payload: bytes) -> None:
@@ -202,6 +261,7 @@ def build_dynamic_dimensions(
         )
 
     completed: list[dict[str, Any]] = []
+    authority_source_cache: dict[tuple[str, str], dict[str, Any]] = {}
     for candidate_id in sorted(candidates):
         candidate, dimension = candidates[candidate_id], explicit[candidate_id]
         physical_bytes = physical_bindings.get(candidate_id, candidate.get("physical_bytes"))
@@ -238,13 +298,29 @@ def build_dynamic_dimensions(
         authority = dimension.get("authority")
         if not isinstance(authority, dict):
             raise DynamicDimensionsError(f"authority must be explicit for {candidate_id}")
-        for field in (
-            "six_class_predictions_sha256",
-            "routing_importance_sha256",
-            "projection_correction_sha256",
-            "physical_bytes_sha256",
-        ):
-            _sha_field(authority.get(field), f"{candidate_id} authority.{field}")
+        normalized_authority = {
+            group: _regular_authority_source(
+                authority.get(group),
+                f"{candidate_id} {group}",
+                authority_source_cache,
+            )
+            for group in (
+                "six_class_predictions",
+                "six_class_ceilings",
+                "projection_correction",
+                "physical_bytes",
+            )
+        }
+        _sha_field(
+            authority.get("routing_importance_sha256"),
+            f"{candidate_id} authority.routing_importance_sha256",
+        )
+        ceiling_authority = normalized_authority["six_class_ceilings"]
+        if ceiling_authority["path"] != str(ceilings_path) or ceiling_authority["sha256"] != _sha(ceilings_raw):
+            raise DynamicDimensionsError(
+                f"{candidate_id} six_class_ceilings authority source must match the admitted class-ceilings input"
+            )
+        normalized_authority["routing_importance_sha256"] = authority["routing_importance_sha256"]
         completed.append(
             {
                 **candidate,
@@ -254,7 +330,7 @@ def build_dynamic_dimensions(
                 "routing_importance": routing_importance,
                 "projection_weight": projection_weight,
                 "projection_correction": projection_correction,
-                "dimension_authority": authority,
+                "dimension_authority": normalized_authority,
                 "missing_dimensions": [],
                 "allocation_eligible": True,
                 "status": "ADMITTED_COMPLETE_ALLOCATION_ELIGIBLE",

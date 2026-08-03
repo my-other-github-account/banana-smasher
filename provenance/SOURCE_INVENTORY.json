@@ -138,8 +138,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 2856,
-      "output_sha256": "56e4d4ad4665243151deaab5f6df8d362525d9b8d002f03cad8c6b8458392d56",
+      "bytes": 2804,
+      "output_sha256": "c58cd187cd591ab04dea424a178b55d2dd983063ac763f8b4f06cf4732426580",
       "path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
       "source_path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
       "source_sha256": "49434ec6ef468592c07438de912f5f7799eeb88daa12702e8d272034e8b82656"
@@ -594,8 +594,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 13401,
-      "output_sha256": "fd37e2962937b8acc6f753f45b703c77140d294364d8f3f11828586b12ef0491",
+      "bytes": 13241,
+      "output_sha256": "2b148afb100e8a55bd4ae84486ce851a95fd6f87f5dc569323be3d215897ff5a",
       "path": "docker/Dockerfile",
       "source_path": "docker/Dockerfile",
       "source_sha256": "a094b4f3347c09066b519a7cc58d7e5ca02fff1d2a3acdb06dcd8ee4a6be9d1d"
@@ -619,7 +619,7 @@
     {
       "byte_preserved": false,
       "bytes": 9915,
-      "output_sha256": "1c63d529c78cff15e325f81e4503b437f49193ca999f819b242d4d702afdd8ed",
+      "output_sha256": "5839bb466fdc3dc20e24f46c6aa00859c0258fad36037edcfaf1582b0aa420bf",
       "path": "docker/scripts/verify_public_image.py",
       "source_path": "docker/scripts/verify_public_image.py",
       "source_sha256": "3d8de2a618c95a9e813762129043b4a53a539401bed021c1b45999678c8f4ca2"
@@ -634,8 +634,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 8792,
-      "output_sha256": "ee98106e0644781ced7f320c66a2436586ca51c8f56cd2aa6d565769745e9cfe",
+      "bytes": 8528,
+      "output_sha256": "dae4636e5dfe372f15abd084be37759ab8ecd39f467e57661df1f88acd109d53",
       "path": "docker/tests/test_public_source_dockerfile.py",
       "source_path": "docker/tests/test_public_source_dockerfile.py",
       "source_sha256": "3c2c569c699c264b2438a6d1ffc71f081f3100b5abcdd84758fb734b456b1a07"
@@ -649,8 +649,14 @@
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 14885,
-      "output_sha256": "5f66fcb4b9fb1ffef42f0b1f5155de02a97c6ce8391a696e81dfa40dd5d42729",
+      "bytes": 1994,
+      "output_sha256": "e7b06fcd51252557042d03bba435f55ab1705fe51f09d0f2685e7b72316a522b",
+      "path": "banana-smasher/schema/bs-dynamic-backpack-authority-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 18214,
+      "output_sha256": "70670c0cc28da12065af4e097b82a833ab19c832bd7fa80dde30616f5cea47b1",
       "path": "banana-smasher/src/banana_smasher/backpack_dimensions.py",
       "provenance": "corrective-review-generated"
     },
@@ -667,8 +673,8 @@
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 10118,
-      "output_sha256": "5ab507f685360992a1a9fa8a083b5b979a91c11ccab66809d64fb15c770a4143",
+      "bytes": 14924,
+      "output_sha256": "e32eeefc582fce620059810c9831963ad2d54eefd6a25a4c2d8b85667c22c9d3",
       "path": "banana-smasher/tests/test_dynamic_backpack_dimensions.py",
       "provenance": "corrective-review-generated"
     },

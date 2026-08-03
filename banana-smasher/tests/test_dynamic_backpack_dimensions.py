@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -13,22 +14,46 @@ from banana_smasher.backpack_dimensions import (
 from banana_smasher.cli import main
 
 BASIS = "a" * 64
-AUTHORITY = {
-    "six_class_predictions_sha256": "1" * 64,
-    "routing_importance_sha256": "2" * 64,
-    "projection_correction_sha256": "3" * 64,
-    "physical_bytes_sha256": "4" * 64,
-}
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
 
 
+def _source_reference(path: Path) -> dict[str, str]:
+    return {
+        "path": str(path.resolve()),
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
 def _inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
     ledger = tmp_path / "ledger.jsonl"
     dimensions = tmp_path / "dimensions.jsonl"
     ceilings = tmp_path / "ceilings.json"
+    prediction_source = tmp_path / "six-class-predictions.jsonl"
+    projection_source = tmp_path / "projection-corrections.jsonl"
+    physical_source = tmp_path / "packed-physical-bytes.jsonl"
+    prediction_source.write_text('{"source":"six-class-predictions"}\n')
+    projection_source.write_text('{"source":"projection-corrections"}\n')
+    physical_source.write_text('{"source":"packed-physical-bytes"}\n')
+    ceilings.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-dynamic-backpack-class-ceilings-v1",
+                "status": "SEALED",
+                "basis_sha256": BASIS,
+                "six_class_ceilings": {name: 1.0 for name in CLASSES},
+            }
+        )
+    )
+    authority = {
+        "six_class_predictions": _source_reference(prediction_source),
+        "projection_correction": _source_reference(projection_source),
+        "physical_bytes": _source_reference(physical_source),
+        "six_class_ceilings": _source_reference(ceilings),
+        "routing_importance_sha256": "2" * 64,
+    }
     candidate_rows = []
     dimension_rows = []
     for projection, physical_bytes, importance in (("down", 101, 2.0), ("fused13", 203, 3.0)):
@@ -61,21 +86,11 @@ def _inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
                 "projection_weight": 0.75 if projection == "down" else 1.25,
                 "projection_correction": -0.01 if projection == "down" else 0.02,
                 "six_class_predictions": {name: 0.1 + index / 100 for index, name in enumerate(CLASSES)},
-                "authority": AUTHORITY,
+                "authority": authority,
             }
         )
     _write_jsonl(ledger, candidate_rows)
     _write_jsonl(dimensions, dimension_rows)
-    ceilings.write_text(
-        json.dumps(
-            {
-                "schema": "banana-smasher-dynamic-backpack-class-ceilings-v1",
-                "status": "SEALED",
-                "basis_sha256": BASIS,
-                "six_class_ceilings": {name: 1.0 for name in CLASSES},
-            }
-        )
-    )
     return ledger, dimensions, ceilings
 
 
@@ -96,6 +111,16 @@ def test_complete_explicit_dimensions_seal_allocation_eligible_ledger(tmp_path: 
     assert all(row["allocation_eligible"] is True and row["missing_dimensions"] == [] for row in rows)
     assert all(set(row["six_class_predictions"]) == set(CLASSES) for row in rows)
     assert all(set(row["six_class_ceilings"]) == set(CLASSES) for row in rows)
+    assert all(
+        set(row["dimension_authority"][group]) == {"path", "sha256"}
+        for row in rows
+        for group in (
+            "six_class_predictions",
+            "six_class_ceilings",
+            "projection_correction",
+            "physical_bytes",
+        )
+    )
     assert json.loads(receipt.read_text())["inference_policy"].startswith("explicit-per-candidate-only")
 
 
@@ -143,6 +168,107 @@ def test_physical_byte_mismatch_is_forbidden(tmp_path: Path) -> None:
             output=tmp_path / "out.jsonl",
             receipt=tmp_path / "receipt.json",
         )
+
+
+def test_missing_authority_source_regular_file_fails_closed(tmp_path: Path) -> None:
+    ledger, dimensions, ceilings = _inputs(tmp_path)
+    rows = [json.loads(line) for line in dimensions.read_text().splitlines()]
+    source = Path(rows[0]["authority"]["six_class_predictions"]["path"])
+    source.unlink()
+    _write_jsonl(dimensions, rows)
+
+    with pytest.raises(DynamicDimensionsError, match="six_class_predictions authority source"):
+        build_dynamic_dimensions(
+            ledger=ledger,
+            dimensions=dimensions,
+            class_ceilings=ceilings,
+            basis_sha256=BASIS,
+            output=tmp_path / "out.jsonl",
+            receipt=tmp_path / "receipt.json",
+        )
+
+
+def test_authority_source_hash_mismatch_fails_closed(tmp_path: Path) -> None:
+    ledger, dimensions, ceilings = _inputs(tmp_path)
+    rows = [json.loads(line) for line in dimensions.read_text().splitlines()]
+    rows[0]["authority"]["projection_correction"]["sha256"] = "0" * 64
+    _write_jsonl(dimensions, rows)
+
+    with pytest.raises(DynamicDimensionsError, match="authority source SHA-256 mismatch"):
+        build_dynamic_dimensions(
+            ledger=ledger,
+            dimensions=dimensions,
+            class_ceilings=ceilings,
+            basis_sha256=BASIS,
+            output=tmp_path / "out.jsonl",
+            receipt=tmp_path / "receipt.json",
+        )
+
+
+def test_symlink_authority_source_fails_closed(tmp_path: Path) -> None:
+    ledger, dimensions, ceilings = _inputs(tmp_path)
+    rows = [json.loads(line) for line in dimensions.read_text().splitlines()]
+    reference = rows[0]["authority"]["physical_bytes"]
+    source = Path(reference["path"])
+    target = source.with_suffix(".target")
+    source.rename(target)
+    source.symlink_to(target)
+    _write_jsonl(dimensions, rows)
+
+    with pytest.raises(DynamicDimensionsError, match="not a readable regular file"):
+        build_dynamic_dimensions(
+            ledger=ledger,
+            dimensions=dimensions,
+            class_ceilings=ceilings,
+            basis_sha256=BASIS,
+            output=tmp_path / "out.jsonl",
+            receipt=tmp_path / "receipt.json",
+        )
+
+
+def test_duplicate_json_key_in_authority_row_fails_closed(tmp_path: Path) -> None:
+    ledger, dimensions, ceilings = _inputs(tmp_path)
+    lines = dimensions.read_text().splitlines()
+    lines[0] = lines[0].replace("{", '{"candidate_id":"forged",', 1)
+    dimensions.write_text("\n".join(lines) + "\n")
+
+    with pytest.raises(DynamicDimensionsError, match="duplicate JSON key"):
+        build_dynamic_dimensions(
+            ledger=ledger,
+            dimensions=dimensions,
+            class_ceilings=ceilings,
+            basis_sha256=BASIS,
+            output=tmp_path / "out.jsonl",
+            receipt=tmp_path / "receipt.json",
+        )
+
+
+def test_public_authority_schema_requires_path_and_sha_for_each_dimension() -> None:
+    schema_path = (
+        Path(__file__).parents[1]
+        / "schema"
+        / "bs-dynamic-backpack-authority-v1.schema.json"
+    )
+    schema = json.loads(schema_path.read_text())
+
+    assert schema["$id"].endswith("bs-dynamic-backpack-authority-v1.schema.json")
+    assert set(schema["required"]) == {
+        "six_class_predictions",
+        "six_class_ceilings",
+        "projection_correction",
+        "physical_bytes",
+        "routing_importance_sha256",
+    }
+    for group in (
+        "six_class_predictions",
+        "six_class_ceilings",
+        "projection_correction",
+        "physical_bytes",
+    ):
+        reference = schema["properties"][group]
+        assert reference["required"] == ["path", "sha256"]
+        assert reference["properties"]["path"]["pattern"] == "^/"
+        assert reference["properties"]["sha256"]["pattern"] == "^[0-9a-f]{64}$"
 
 
 def test_mixed_append_only_ledger_resolves_v2_physical_binding(tmp_path: Path) -> None:

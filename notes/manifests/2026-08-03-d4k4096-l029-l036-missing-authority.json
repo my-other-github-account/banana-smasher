@@ -1,0 +1,65 @@
+{
+  "schema": "banana-smasher-dynamic-backpack-missing-authority-manifest-v1",
+  "status": "FAIL_MISSING_AUTHORITATIVE_REGULAR_FILE_SOURCES",
+  "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "tier": "d4_k4096",
+  "layers": [29, 30, 31, 32, 33, 34, 35, 36],
+  "candidate_count": 4096,
+  "source_partition_sha256": "b3ef9f5b6efec5ed301838c15a4438dac5ac21b31085c342354ad4298f86b088",
+  "allocation_eligible": false,
+  "solve_or_replay_invoked": false,
+  "sealed_rows_mutated": false,
+  "authority_sources": {
+    "physical_bytes": {
+      "expected_rows": 4096,
+      "source_path": null,
+      "source_sha256": null,
+      "status": "BLOCKED_NO_CURRENT_REGULAR_FILE_READBACK",
+      "sealed_prior_sidecar_sha256": "b44d179dc6d81f915c2b26aa1f8ceb55d83785dc4bf9472c6facc05adc91dfda",
+      "sealed_prior_sidecar_bytes": 6208810,
+      "sealed_prior_packed_physical_bytes": 20937965568,
+      "reason": "The packed-byte rows remain sealed and authoritative, but this run could not bind them to a freshly opened regular-file path without entering an allocated execution lane. The prior bytes were not replayed or relabeled."
+    },
+    "projection_correction": {
+      "expected_rows": 4096,
+      "source_path": null,
+      "source_sha256": null,
+      "status": "BLOCKED_NO_AUTHORITATIVE_PRODUCER",
+      "blocker_sidecar_sha256": "444974b66cb3ac48dc6f43cb844cca53cc9eed5e419820cf27dfa4d671eae8e0",
+      "reason": "No basis-bound per-candidate projection-correction table or public producer is present."
+    },
+    "six_class_predictions": {
+      "expected_rows": 4096,
+      "source_path": null,
+      "source_sha256": null,
+      "status": "BLOCKED_NO_AUTHORITATIVE_PRODUCER",
+      "blocker_sidecar_sha256": "5684e1ee51bac773885d00044bd33c852ef1620e9f09022ebd939cdfc38cea40",
+      "classes": ["agentic", "chat", "code", "multilingual", "prose", "reasoning"],
+      "reason": "The sealed six-class evidence is aggregate-only and supplies no per-candidate class-cost mapping."
+    },
+    "six_class_ceilings": {
+      "expected_rows": 4096,
+      "source_path": null,
+      "source_sha256": null,
+      "status": "BLOCKED_NO_AUTHORITATIVE_PRODUCER",
+      "blocker_sidecar_sha256": "eacc1a59321831098fd6ff1d3e0775791961ab7aca05edfc82e4593245471bcf",
+      "classes": ["agentic", "chat", "code", "multilingual", "prose", "reasoning"],
+      "reason": "No basis-bound accepted class-cap policy is present; the public solver consumes class caps but does not produce policy."
+    }
+  },
+  "evidence": {
+    "prior_dimension_manifest_sha256": "ab3c4f8061c8bf25af24eab85fa9da7375397316b043dec5e60c0e9e9f1cfd3a",
+    "prior_blocker_receipt_sha256": "e60b9621edd76685beff5c5ae01a4be8f9c00df221fa0da17916225ef7ebe15a",
+    "prior_terminal_sha256": "aa2b88873cf64321e1924450a75c8c4d5f22cae3af3cb7ee8815c6c6d4e7fa73",
+    "predictor_sha256": "b4b19184e3c56e8b2de2bb1bb6837a2afc3079de2c315e9e6e15065e2b5b8d0e",
+    "aggregate_six_class_evidence_sha256": "5a49b0d92cf7f1c403b2d6bb49487c6d97f273211d6b1c68efb27782a8a20a88",
+    "public_consumer_source_sha256": "45471d094bb9724c465f750b1ef1245be1d643e45655005c2bc86e3839efdd96"
+  },
+  "policy": {
+    "aggregate_to_cell_inference": false,
+    "synthetic_class_values": false,
+    "fixed_quota_substitution": false,
+    "ring_as_policy": false,
+    "qtip_substitution": false
+  }
+}
