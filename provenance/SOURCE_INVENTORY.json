@@ -1,4 +1,7 @@
 {
+  "additional_source_commits": [
+    "009b41befb9f559805fe2b4148818684f2232ba7"
+  ],
   "files": [
     {
       "byte_preserved": true,
@@ -465,9 +468,9 @@
       "source_sha256": "5fdbde4d09c5f292f8546e12a5bc6850ea1078e0d991d27010119ff14df25ff6"
     },
     {
-      "byte_preserved": true,
-      "bytes": 8568,
-      "output_sha256": "b11c01e1d229b23fbf3df2632fc9391d604a9f93df98537bc4797840a7a05669",
+      "byte_preserved": false,
+      "bytes": 9551,
+      "output_sha256": "81dd0e6d729303fffa385305f8955f6775a51c20b913d55f5314e0d6880ba71a",
       "path": "banana-smasher/src/banana_smasher/cli.py",
       "source_path": "banana-smasher/src/banana_smasher/cli.py",
       "source_sha256": "b11c01e1d229b23fbf3df2632fc9391d604a9f93df98537bc4797840a7a05669"
@@ -479,6 +482,24 @@
       "path": "banana-smasher/src/banana_smasher/contract.py",
       "source_path": "banana-smasher/src/banana_smasher/contract.py",
       "source_sha256": "b1e27ddd2a09bcbce7f3f07f9973358ec1438e50be4d5277572326032f340b6b"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 18054,
+      "output_sha256": "49f60525dd8d35af6182dbb1c25de5a761148cf73dd15a630d90b0200411d34f",
+      "path": "banana-smasher/src/banana_smasher/exact_codebook.py",
+      "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "source_path": "banana-smasher/src/banana_smasher/exact_codebook.py",
+      "source_sha256": "49f60525dd8d35af6182dbb1c25de5a761148cf73dd15a630d90b0200411d34f"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 8196,
+      "output_sha256": "6e50a7677600e90c913fd6c225619a93b667e6a2403e4c40155f645dea4ffe5c",
+      "path": "banana-smasher/src/banana_smasher/frozen_score.py",
+      "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "source_path": "banana-smasher/src/banana_smasher/frozen_score.py",
+      "source_sha256": "6e50a7677600e90c913fd6c225619a93b667e6a2403e4c40155f645dea4ffe5c"
     },
     {
       "byte_preserved": true,
@@ -506,6 +527,15 @@
     },
     {
       "byte_preserved": true,
+      "bytes": 12234,
+      "output_sha256": "04bdc3a403791c6962f98e77a9911e52729c8f186aa7f3127fa1c8b2008993e4",
+      "path": "banana-smasher/src/banana_smasher/solve.py",
+      "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "source_path": "banana-smasher/src/banana_smasher/solve.py",
+      "source_sha256": "04bdc3a403791c6962f98e77a9911e52729c8f186aa7f3127fa1c8b2008993e4"
+    },
+    {
+      "byte_preserved": true,
       "bytes": 13162,
       "output_sha256": "d9eabb861cd6623152caffdbc74404a46886f831f7d5263c269fc0f2ddbebcb0",
       "path": "banana-smasher/src/banana_smasher/validation.py",
@@ -514,8 +544,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 18038,
-      "output_sha256": "4b154a9f65246477d1206cbdf9ac86e34dc555f488206f25e937ddb2554af657",
+      "bytes": 18164,
+      "output_sha256": "26b3da94c81220ed3d362cb35be93658e8fc527255377175362c4be7f6d7f2ac",
       "path": "banana-smasher/tests/test_cli.py",
       "source_path": "banana-smasher/tests/test_cli.py",
       "source_sha256": "cd14b69423fb6589506c5b4fc31bd7ff9300878903dbfe3c0352eb3135cc9cf9"
@@ -575,6 +605,15 @@
       "path": "banana-smasher/tests/test_selected_payload_export.py",
       "source_path": "banana-smasher/tests/test_selected_payload_export.py",
       "source_sha256": "f843a32d51758201ce6808f2d75f29a0a3bfdd2aa085e3437a23f306e72c42ca"
+    },
+    {
+      "byte_preserved": false,
+      "bytes": 3633,
+      "output_sha256": "aff8cf823779b2899c747a1ba59159b20de72aacb9fa51dd86b446199950f6db",
+      "path": "banana-smasher/tests/test_solve.py",
+      "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "source_path": "banana-smasher/tests/test_solve.py",
+      "source_sha256": "42d2f38174397d63ce5f93d8553d05a6d479ac7b2adcf5ab3911f8203b3a9990"
     },
     {
       "byte_preserved": true,
