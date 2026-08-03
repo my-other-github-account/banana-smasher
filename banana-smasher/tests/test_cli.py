@@ -83,6 +83,8 @@ def test_smash_help_exposes_public_verbs() -> None:
         "validate",
         "solve",
         "update",
+        "update-enqueue",
+        "update-status",
         "bank",
         "evaluate",
         "qtip-configs",
