@@ -34,8 +34,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 30043,
-      "output_sha256": "c041314bd62f058d239469cd8cd43b85b38d1320341dcf8a40e0c217b6ad9fc6",
+      "bytes": 33842,
+      "output_sha256": "870b812b2010a5f391e2c077913bc9559dad87529f955a3df0e5bc795f2188ff",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/p1016_kernels.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/p1016_kernels.py",
       "source_sha256": "74395899099737c8c0e8b5ca6d0b4eea99e6f802c2dde683934b1d01c0dd4c3a"
@@ -58,8 +58,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 2814,
-      "output_sha256": "b35f78f3b0847aa199c84579db807ba1561c47045a78421b20e4d2a07e29acc4",
+      "bytes": 4105,
+      "output_sha256": "00fb725fd460d55f401f857c470b53932d419e62ddd44b7cfe87a7998ab4f59a",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/repair.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/repair.py",
       "source_sha256": "0de9656619f991ef8e12ef787a6232ce9993c34ae8d372388a191a5f91e27b90"
@@ -643,9 +643,33 @@
   ],
   "generated_files": [
     {
+      "bytes": 1870,
+      "output_sha256": "2553a2a25d96ee0a00f85bd7b5ce9c80f28fd01a979df3aa92b4b982b294cb69",
+      "path": "banana-smasher-plugin/src/banana_smasher_plugin/dispatch_policy.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 6140,
       "output_sha256": "55ef08f58df05125181faeee5a49f157e960f5ff6e25f133e2f0777ec7007734",
       "path": "banana-smasher-plugin/tests/test_native_plane_compile_boundary.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 1172,
+      "output_sha256": "ce1b305d36ccc6c7f9cceb17f9e5957e263cae942a6963d8adf6eb71d94644b6",
+      "path": "banana-smasher-plugin/tests/test_repair_path_compat.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 2891,
+      "output_sha256": "0c2d9d2b26a3f9e008d39180ff3efb274534a783783bd4c9bfb2fce444eecc40",
+      "path": "banana-smasher-plugin/tests/test_shape_aware_dispatch.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 2184,
+      "output_sha256": "06e7d48ec8d9e940b0f69833c0fe0b6f1b421e78ecd3d1f7f2b599868e42f442",
+      "path": "banana-smasher-plugin/tests/test_static_family_dispatch.py",
       "provenance": "corrective-review-generated"
     },
     {
