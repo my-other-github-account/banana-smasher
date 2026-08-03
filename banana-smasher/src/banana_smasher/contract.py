@@ -1075,15 +1075,15 @@ def materialize_selected_wire(
     artifact_rebases: Sequence[tuple[str | Path, str | Path]] | None,
     hidden_size: int,
     moe_intermediate_size: int,
-    serving_model_root: str | Path | None = None,
+    native_reference_root: str | Path | None = None,
 ) -> dict[str, Any]:
     """Stream an assignment/overlay into the exact P1016 selected-plane shape."""
     source_root = Path(source_root).resolve()
     output = Path(output).resolve()
     assignment_path = Path(assignment_path).resolve()
     active_overlay_path = Path(active_overlay_path).resolve()
-    serving_model_root = (
-        Path(serving_model_root).resolve() if serving_model_root is not None else None
+    native_reference_root = (
+        Path(native_reference_root).resolve() if native_reference_root is not None else None
     )
     if output.exists():
         raise FileExistsError(f"selected wire output already exists: {output}")
@@ -1487,7 +1487,7 @@ def materialize_selected_wire(
                     else:
                         base_group = groups.get((layer, projection, tier))
                         reference_group = _selected_wire_native_reference_group(
-                            serving_model_root,
+                            native_reference_root,
                             layer=layer,
                             projection=projection,
                         )

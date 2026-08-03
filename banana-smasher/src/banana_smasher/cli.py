@@ -80,6 +80,7 @@ def _parser() -> argparse.ArgumentParser:
     selected.add_argument("--source-root", type=Path, required=True)
     selected.add_argument("--output", type=Path, required=True)
     selected.add_argument("--serving-model-root", type=Path, required=True)
+    selected.add_argument("--native-reference-root", type=Path)
     selected.add_argument("--active-overlay", type=Path, required=True)
     selected.add_argument("--active-overlay-sha256", required=True)
     selected.add_argument("--assignment", type=Path, required=True)
@@ -248,7 +249,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     artifact_rebases=_artifact_rebases(args.artifact_rebase),
                     hidden_size=hidden_size,
                     moe_intermediate_size=moe_intermediate_size,
-                    serving_model_root=_serving_root,
+                    native_reference_root=args.native_reference_root,
                 ),
                 "command": "materialize-selected-wire",
                 "output": str(args.output.resolve()),

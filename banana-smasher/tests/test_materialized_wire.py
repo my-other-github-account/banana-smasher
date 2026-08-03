@@ -636,7 +636,7 @@ def test_selected_wire_materializer_merges_rebased_qtip_d4_and_base_native(
         artifact_rebases=[(declared, replica)],
         hidden_size=32,
         moe_intermediate_size=32,
-        serving_model_root=native_reference,
+        native_reference_root=native_reference,
     )
 
     assert receipt["status"] == "PASS"
