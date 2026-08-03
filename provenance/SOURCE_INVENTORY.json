@@ -609,8 +609,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 13401,
-      "output_sha256": "fd37e2962937b8acc6f753f45b703c77140d294364d8f3f11828586b12ef0491",
+      "bytes": 13432,
+      "output_sha256": "fe5e81c26a9600cdbaf623c26383eb1357dc7004f47a956d075b0007af460590",
       "path": "docker/Dockerfile",
       "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "docker/Dockerfile",
@@ -651,8 +651,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 9154,
-      "output_sha256": "7a35618fe693ef55056a4b0b797336bd13b2ed5bbe56c7fb3f88f229893faa1f",
+      "bytes": 9715,
+      "output_sha256": "4a31e68072ad25a2e7171059edba9904d16ad397c7e41dd1208913dd15264d9e",
       "path": "docker/tests/test_public_source_dockerfile.py",
       "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "docker/tests/test_public_source_dockerfile.py",

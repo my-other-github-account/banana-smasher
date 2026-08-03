@@ -73,6 +73,17 @@ def test_public_source_dockerfile_contract() -> None:
         assert token not in lower
 
 
+def test_package_builder_runs_native_plane_tests_with_breakable_cudagraph() -> None:
+    """The wheel test stage must satisfy the same fail-closed runtime prerequisite."""
+    text = DOCKERFILE.read_text()
+    package_builder = text.split("FROM ${VLLM_IMAGE} AS package-builder", 1)[1].split(
+        "FROM ${VLLM_IMAGE} AS flashinfer-builder", 1
+    )[0]
+    pytest_position = package_builder.index("python3 -m pytest -q")
+    prerequisite_position = package_builder.index("VLLM_USE_BREAKABLE_CUDAGRAPH=1")
+    assert prerequisite_position < pytest_position
+
+
 def test_pinned_deepgemm_source_is_publicly_fetchable_and_sm120_capable(
     tmp_path: Path,
 ) -> None:

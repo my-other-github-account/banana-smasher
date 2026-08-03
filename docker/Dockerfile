@@ -18,7 +18,7 @@ RUN python3 -m build --wheel --outdir /wheels /src/banana-smasher \
     && python3 -m pip install --no-cache-dir --no-deps \
       /wheels/banana_smasher-1.0.0-py3-none-any.whl \
       /wheels/banana_smasher_plugin-0.2.0-py3-none-any.whl \
-    && python3 -m pytest -q \
+    && VLLM_USE_BREAKABLE_CUDAGRAPH=1 python3 -m pytest -q \
       /src/banana-smasher/tests /src/banana-smasher-plugin/tests \
     && (cd /wheels && sha256sum *.whl > local-wheels.sha256)
 
