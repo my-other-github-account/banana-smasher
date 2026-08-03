@@ -100,6 +100,22 @@ def test_exact_integer_envelope_serialization_and_deterministic_roundtrip(tmp_pa
     assert sum(row["bytes"] for row in assignment["assignments"]) == 3
 
 
+def test_rerun_repairs_missing_receipt_without_rewriting_assignment(tmp_path: Path) -> None:
+    root = _fixture(tmp_path / "run")
+    run_knapsack(run_root=root, envelope_bytes=3)
+    assignment_path = root / "knapsack/ASSIGNMENT.json"
+    receipt_path = root / "knapsack/RECEIPT.json"
+    assignment_before = assignment_path.read_bytes()
+    receipt_before = receipt_path.read_bytes()
+    receipt_path.unlink()
+
+    result = run_knapsack(run_root=root, envelope_bytes=3)
+
+    assert result["status"] == "PASS"
+    assert assignment_path.read_bytes() == assignment_before
+    assert receipt_path.read_bytes() == receipt_before
+
+
 def test_cli_exact_knapsack_roundtrip(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root = _fixture(tmp_path / "run")
     assert main(["knapsack", "--run-root", str(root), "--envelope-bytes", "3"]) == 0

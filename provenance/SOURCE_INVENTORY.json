@@ -444,8 +444,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 890,
-      "output_sha256": "f8468ae4682e92bf38504ba339c56378a4344c4d39e0f53c9bc37b4806dbc2ae",
+      "bytes": 936,
+      "output_sha256": "21b96f123f11ab5ff3fc9313dd1c73a474a2fe348691cc88f1e4198d3b880e1d",
       "path": "banana-smasher/pyproject.toml",
       "source_path": "banana-smasher/pyproject.toml",
       "source_sha256": "ce9e611f8e8cc1e9a4e839b7de8d184865eec445cb1f212081b610f71032a978"
@@ -476,16 +476,16 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 494,
-      "output_sha256": "2d45a9063a8d57de1072a904ce5df60634b7f4bd1ebfd380e16188f794409027",
+      "bytes": 634,
+      "output_sha256": "63b3ab3af742500879c94fb3f666242c8823463bb9c2cb20a44b489058d6a4e3",
       "path": "banana-smasher/src/banana_smasher/__init__.py",
       "source_path": "banana-smasher/src/banana_smasher/__init__.py",
       "source_sha256": "5fdbde4d09c5f292f8546e12a5bc6850ea1078e0d991d27010119ff14df25ff6"
     },
     {
       "byte_preserved": false,
-      "bytes": 21707,
-      "output_sha256": "b2ff869ec1dc23778ba85379bfa239cbecabf0a4623e9dc23906428a5af50912",
+      "bytes": 24815,
+      "output_sha256": "5e0678f6bdba9b30296f9033cd3ac5dd2054bbc33ec946686d2f169bf3124a7a",
       "path": "banana-smasher/src/banana_smasher/cli.py",
       "source_path": "banana-smasher/src/banana_smasher/cli.py",
       "source_sha256": "b11c01e1d229b23fbf3df2632fc9391d604a9f93df98537bc4797840a7a05669"
@@ -559,8 +559,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 18405,
-      "output_sha256": "ff3dc6d64cbcf3f3f955d37af600306d9ee4d1ae4bb4302d6ffc01b17fbd253a",
+      "bytes": 18570,
+      "output_sha256": "86d0329c144967b7e9e01e83e7af9a9c9a15560a7e3f0bc789c1946a79a843bf",
       "path": "banana-smasher/tests/test_cli.py",
       "source_path": "banana-smasher/tests/test_cli.py",
       "source_sha256": "cd14b69423fb6589506c5b4fc31bd7ff9300878903dbfe3c0352eb3135cc9cf9"
@@ -591,8 +591,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 3731,
-      "output_sha256": "4be5e5a9fd3cb73ed40ac6a1041def3700e13ed80bb90e902b429e2bb9f196e6",
+      "bytes": 4016,
+      "output_sha256": "ef36221ac0f7be4a8f0b714b8d35bf4c2616e127515453afaac045e42ff7c4e0",
       "path": "banana-smasher/tests/test_release_surfaces.py",
       "source_path": "banana-smasher/tests/test_release_surfaces.py",
       "source_sha256": "f6eb86936b60ecebe40b0a2ffcd6a01f7cf65dc6c45e3718f11e474247e9a9fa"
@@ -700,82 +700,6 @@
   ],
   "generated_files": [
     {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "adapted_from_path": "src/banana_smasher/accumulation.py",
-      "bytes": 2016,
-      "output_sha256": "1f93d6a91049a59dfba0e2f2804e15f1a3e8c25da0cad4661169d08647cf43d4",
-      "path": "banana-smasher/src/banana_smasher/accumulation.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "bytes": 4688,
-      "output_sha256": "56d47fbf604a3ab789d2c18c881e57dd5b3f17e2f1f72de4e90ba554628b791f",
-      "path": "banana-smasher/src/banana_smasher/token_sizing.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "adapted_from_path": "src/banana_smasher/update.py",
-      "bytes": 9831,
-      "output_sha256": "ef3a52e2421f7d798f1ffc1579870879d301593a3ae25f38e0479463015ca7e1",
-      "path": "banana-smasher/src/banana_smasher/update.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "adapted_from_path": "src/banana_smasher/update_checkpoint.py",
-      "bytes": 16558,
-      "output_sha256": "dc6172bdd0a68bc9945c4467bd2093124ae43625edd7eecd8894b7b9c46a5d1a",
-      "path": "banana-smasher/src/banana_smasher/update_checkpoint.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "adapted_from_path": "src/banana_smasher/update_engine.py",
-      "bytes": 20250,
-      "output_sha256": "36c92b798710bc0890107c57d2e742e5e647ff14bd9f46cdf202c0edfe09002b",
-      "path": "banana-smasher/src/banana_smasher/update_engine.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "bytes": 4027,
-      "output_sha256": "5e6311e0cbf4a5c7b45d35f73ba19cfb07dcc5a68ef006e23484c93129e2ed1e",
-      "path": "banana-smasher/tests/test_token_sizing.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "adapted_from_path": "tests/test_update_accumulation.py",
-      "bytes": 2288,
-      "output_sha256": "f571214522faf325e7d4abfd176ad8d62f283783807ab9a7061627c875821d95",
-      "path": "banana-smasher/tests/test_update_accumulation.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "bytes": 5366,
-      "output_sha256": "9fb0559709c47322ba92b33beda06e0709c290a6f1ae1e6fe701c249063902fc",
-      "path": "banana-smasher/tests/test_update_cli.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "adapted_from_path": "tests/test_update_resume.py",
-      "bytes": 15442,
-      "output_sha256": "8c56107a1a12d0e250e87c6344f10cbd2fec9dfb7c2868101b81cacad35d7fa1",
-      "path": "banana-smasher/tests/test_update_resume.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
-      "bytes": 12409,
-      "output_sha256": "ff4a5c1afa2cb0ff6f543eb50e895568ce1fcbd4029e21b0907d0c58e76e5354",
-      "path": "banana-smasher/tests/test_update_tensor_geometry.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
       "bytes": 9484,
       "output_sha256": "ea4f34432384385d346f1f4b2975b53f28af45e206130d4ab729e4ff98bab5d7",
       "path": "banana-smasher/schema/bs-paired-real-axis-evaluation-v1.schema.json",
@@ -806,6 +730,32 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "src/banana_smasher/accumulation.py",
+      "bytes": 2016,
+      "output_sha256": "1f93d6a91049a59dfba0e2f2804e15f1a3e8c25da0cad4661169d08647cf43d4",
+      "path": "banana-smasher/src/banana_smasher/accumulation.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 3596,
+      "derived_from": [
+        {
+          "source_path": "activation-cache acceleration diff",
+          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
+        }
+      ],
+      "output_sha256": "27bd68c551befceb1fbeee54d6d6cb99dfb66b980f637e5925ee0947f18589a1",
+      "path": "banana-smasher/src/banana_smasher/activation_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 14885,
+      "output_sha256": "5f66fcb4b9fb1ffef42f0b1f5155de02a97c6ce8391a696e81dfa40dd5d42729",
+      "path": "banana-smasher/src/banana_smasher/backpack_dimensions.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 26294,
       "output_sha256": "58e1becf1001272086520af091eddac36e28c4606bb8ba4464bc583830b21dec",
       "path": "banana-smasher/src/banana_smasher/bank.py",
@@ -824,57 +774,27 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "bytes": 69616,
+      "output_sha256": "49718befc89ea3ed29df5f3063c92636601565779f60d9cdb48eab0412294f6e",
+      "path": "banana-smasher/src/banana_smasher/knapsack.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 9207,
       "output_sha256": "769c6ed1cdd5ef8438d56b6d7b5a04ac65c2f56a12003d0a23060ce76f3584c5",
       "path": "banana-smasher/src/banana_smasher/metrics.py",
       "provenance": "corrective-review-generated"
     },
     {
+      "bytes": 33472,
+      "output_sha256": "467083dbc52a40019530f535e21bebb3e2b7a7d349de6dbc44625bcbe8333bd8",
+      "path": "banana-smasher/src/banana_smasher/persistent.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 282,
       "output_sha256": "984b8ea4f3c5447c2dca1bf153a2f45812856b51c0a232d69e7bdc4599df9a21",
       "path": "banana-smasher/src/banana_smasher/profiles/real-axis-v1.json",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "bytes": 17489,
-      "output_sha256": "247be94d6a431c6de0cb4d08503bd6f4404fdab4b0278f270b61c62a15cece40",
-      "path": "banana-smasher/src/banana_smasher/real_axis.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "bytes": 8375,
-      "output_sha256": "3608b8108109198b1078be73d194e8abc9ebe53406a519dc007ca21535a11dca",
-      "path": "banana-smasher/tests/real_axis_fixtures.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "bytes": 13204,
-      "output_sha256": "ab537eab89762ea5983a039a19ce8e75bff6896c4eb6ec5f887505def8049cc7",
-      "path": "banana-smasher/tests/test_bank.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "bytes": 2867,
-      "output_sha256": "52c68e0e1acb15ce3cff7bf27b9d7c826502f9f7569a606df1f9ad287f8c3cd1",
-      "path": "banana-smasher/tests/test_bank_evaluate_cli.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "bytes": 3741,
-      "output_sha256": "dd71fa439f1a30ca9308f36fbe5719d182de10a5af063cfd475fefc841cf068e",
-      "path": "banana-smasher/tests/test_bank_evaluate_manifests.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "bytes": 18935,
-      "output_sha256": "83c7ccba14c586d87977a9fb8cb7f4ce311826b4550537cd8d99f3dbd9f55947",
-      "path": "banana-smasher/tests/test_evaluate.py",
-      "provenance": "corrective-review-generated"
-    },
-    {
-      "bytes": 1760,
-      "output_sha256": "fe804321474484e9a5d68ea5df21ae703047315f0d2beabe725c2628ceac5a16",
-      "path": "banana-smasher/tests/test_real_axis_metrics.py",
       "provenance": "corrective-review-generated"
     },
     {
@@ -920,9 +840,22 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "bytes": 17489,
+      "output_sha256": "247be94d6a431c6de0cb4d08503bd6f4404fdab4b0278f270b61c62a15cece40",
+      "path": "banana-smasher/src/banana_smasher/real_axis.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 82045,
       "output_sha256": "13cc9d71f66e875a0f373298b99e54b2e2e1ee247d14f3e54df211027b0dfd1a",
       "path": "banana-smasher/src/banana_smasher/solver_qtip_profile.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "bytes": 4688,
+      "output_sha256": "56d47fbf604a3ab789d2c18c881e57dd5b3f17e2f1f72de4e90ba554628b791f",
+      "path": "banana-smasher/src/banana_smasher/token_sizing.py",
       "provenance": "corrective-review-generated"
     },
     {
@@ -956,6 +889,102 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "src/banana_smasher/update.py",
+      "bytes": 9831,
+      "output_sha256": "ef3a52e2421f7d798f1ffc1579870879d301593a3ae25f38e0479463015ca7e1",
+      "path": "banana-smasher/src/banana_smasher/update.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "src/banana_smasher/update_checkpoint.py",
+      "bytes": 16558,
+      "output_sha256": "dc6172bdd0a68bc9945c4467bd2093124ae43625edd7eecd8894b7b9c46a5d1a",
+      "path": "banana-smasher/src/banana_smasher/update_checkpoint.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "src/banana_smasher/update_engine.py",
+      "bytes": 20250,
+      "output_sha256": "36c92b798710bc0890107c57d2e742e5e647ff14bd9f46cdf202c0edfe09002b",
+      "path": "banana-smasher/src/banana_smasher/update_engine.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 3364,
+      "output_sha256": "a73ed6d005c4f6942caee84cffd4922faf3826aa911fc12fd121abbc08e4d4d4",
+      "path": "banana-smasher/src/banana_smasher/update_service.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 8375,
+      "output_sha256": "3608b8108109198b1078be73d194e8abc9ebe53406a519dc007ca21535a11dca",
+      "path": "banana-smasher/tests/real_axis_fixtures.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 6067,
+      "derived_from": [
+        {
+          "source_path": "activation-cache acceleration diff",
+          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
+        }
+      ],
+      "output_sha256": "08dc34fc361b157f1f14a8d77c6d5df06fedfe016a4e770ca1b6d83d6df4d2c8",
+      "path": "banana-smasher/tests/test_activation_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 13204,
+      "output_sha256": "ab537eab89762ea5983a039a19ce8e75bff6896c4eb6ec5f887505def8049cc7",
+      "path": "banana-smasher/tests/test_bank.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 2867,
+      "output_sha256": "52c68e0e1acb15ce3cff7bf27b9d7c826502f9f7569a606df1f9ad287f8c3cd1",
+      "path": "banana-smasher/tests/test_bank_evaluate_cli.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 3741,
+      "output_sha256": "dd71fa439f1a30ca9308f36fbe5719d182de10a5af063cfd475fefc841cf068e",
+      "path": "banana-smasher/tests/test_bank_evaluate_manifests.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 2108,
+      "output_sha256": "ba9fc49ac67904bc596ffabca34230d762f834ce6dd11443deafa3465c5aa8fc",
+      "path": "banana-smasher/tests/test_class_balanced_knapsack.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 10118,
+      "output_sha256": "5ab507f685360992a1a9fa8a083b5b979a91c11ccab66809d64fb15c770a4143",
+      "path": "banana-smasher/tests/test_dynamic_backpack_dimensions.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 18935,
+      "output_sha256": "83c7ccba14c586d87977a9fb8cb7f4ce311826b4550537cd8d99f3dbd9f55947",
+      "path": "banana-smasher/tests/test_evaluate.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 5902,
+      "output_sha256": "f8ccc6d4f53e0be219449250f566611f5a2805a092f37cd1001c0c70a96b6eb1",
+      "path": "banana-smasher/tests/test_knapsack.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 19234,
+      "output_sha256": "7c101a055a29bfaa8d5048d2b0fdbccb7d4ea9ed7baa4fd70026a815d405996d",
+      "path": "banana-smasher/tests/test_persistent_updates.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 5500,
       "output_sha256": "5f74a248ee885096ca912e29393f10b84268aef018925697b68f22f403c723f1",
       "path": "banana-smasher/tests/test_qtip_matrix_lifetime.py",
@@ -974,39 +1003,46 @@
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 5053,
-      "output_sha256": "7e02ea798699092958ba49eff9e60cbc3b0c61341f2d1e734894d4955b71896c",
-      "path": "docker/scripts/validate_flashinfer_cache.py",
+      "bytes": 1760,
+      "output_sha256": "fe804321474484e9a5d68ea5df21ae703047315f0d2beabe725c2628ceac5a16",
+      "path": "banana-smasher/tests/test_real_axis_metrics.py",
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 3265,
-      "output_sha256": "2064ec236229f1d7a67abdaeab090eb88549a09cbd60e26928000cc069ebdbaf",
-      "path": "docker/tests/test_exact_asset_admission.py",
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "bytes": 4027,
+      "output_sha256": "5e6311e0cbf4a5c7b45d35f73ba19cfb07dcc5a68ef006e23484c93129e2ed1e",
+      "path": "banana-smasher/tests/test_token_sizing.py",
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 3596,
-      "derived_from": [
-        {
-          "source_path": "activation-cache acceleration diff",
-          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
-        }
-      ],
-      "output_sha256": "27bd68c551befceb1fbeee54d6d6cb99dfb66b980f637e5925ee0947f18589a1",
-      "path": "banana-smasher/src/banana_smasher/activation_cache.py",
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "tests/test_update_accumulation.py",
+      "bytes": 2288,
+      "output_sha256": "f571214522faf325e7d4abfd176ad8d62f283783807ab9a7061627c875821d95",
+      "path": "banana-smasher/tests/test_update_accumulation.py",
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 6067,
-      "derived_from": [
-        {
-          "source_path": "activation-cache acceleration diff",
-          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
-        }
-      ],
-      "output_sha256": "08dc34fc361b157f1f14a8d77c6d5df06fedfe016a4e770ca1b6d83d6df4d2c8",
-      "path": "banana-smasher/tests/test_activation_cache.py",
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "bytes": 5366,
+      "output_sha256": "9fb0559709c47322ba92b33beda06e0709c290a6f1ae1e6fe701c249063902fc",
+      "path": "banana-smasher/tests/test_update_cli.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "tests/test_update_resume.py",
+      "bytes": 15442,
+      "output_sha256": "8c56107a1a12d0e250e87c6344f10cbd2fec9dfb7c2868101b81cacad35d7fa1",
+      "path": "banana-smasher/tests/test_update_resume.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "bytes": 12409,
+      "output_sha256": "ff4a5c1afa2cb0ff6f543eb50e895568ce1fcbd4029e21b0907d0c58e76e5354",
+      "path": "banana-smasher/tests/test_update_tensor_geometry.py",
       "provenance": "corrective-review-generated"
     },
     {
@@ -1019,6 +1055,18 @@
       ],
       "output_sha256": "5a2b08e9a2b1cafda02934fe11806bb613714bf7903cf9d07aa15119b264af2c",
       "path": "banana-smasher/tools/benchmark_activation_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 5053,
+      "output_sha256": "7e02ea798699092958ba49eff9e60cbc3b0c61341f2d1e734894d4955b71896c",
+      "path": "docker/scripts/validate_flashinfer_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 3265,
+      "output_sha256": "2064ec236229f1d7a67abdaeab090eb88549a09cbd60e26928000cc069ebdbaf",
+      "path": "docker/tests/test_exact_asset_admission.py",
       "provenance": "corrective-review-generated"
     }
   ],

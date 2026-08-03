@@ -1,6 +1,8 @@
 # Report title
 
-Status: pending | measured | rejected
+Status: NEW | pending | measured | rejected
+
+Owner: TBD
 
 ## Scope
 
@@ -21,9 +23,11 @@ Provide the exact public command and enough portable configuration to reproduce 
 
 ## Results
 
-| Metric | Candidate | Reference | Decision |
-| --- | ---: | ---: | --- |
-| Example | pending | pending | pending |
+Use one row per same-work comparison. `FP` is bits per floating-point element; write FP8 as `8`. `GB` and packed bpw must describe physical storage, not marketing labels.
+
+| Status | Method | Exact basis | KLD | Top-1 | GB | Packed bpw | FP | Instrument | n | Source | Owner |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | --- | --- |
+| NEW | pending | pending | pending | pending | pending | pending | 8 | pending | pending | pending | TBD |
 
 ## Evidence
 

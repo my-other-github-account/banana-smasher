@@ -153,6 +153,18 @@ def _parser() -> argparse.ArgumentParser:
         "--no-resume", dest="resume", action="store_false", default=True
     )
 
+    enqueue = subparsers.add_parser(
+        "update-enqueue", help="durably enqueue an exactly-once update request"
+    )
+    enqueue.add_argument("--queue-root", type=Path, required=True)
+    enqueue.add_argument("--request", type=Path, required=True)
+
+    update_status = subparsers.add_parser(
+        "update-status", help="read persistent-update queue status"
+    )
+    update_status.add_argument("--queue-root", type=Path, required=True)
+    update_status.add_argument("--request-id")
+
     bank = subparsers.add_parser(
         "bank", help="build or resume a complete manifest-bound teacher bank"
     )
@@ -456,6 +468,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "layers": [row["layer"] for row in layer_receipts],
                     "layer_receipts": layer_receipts,
                     "config_materialization": materialization,
+                }
+        elif args.command == "update-enqueue":
+            from .persistent import UpdateQueue
+
+            result = UpdateQueue(args.queue_root).enqueue(
+                json.loads(args.request.read_text())
+            )
+        elif args.command == "update-status":
+            from .persistent import UpdateQueue
+
+            queue = UpdateQueue(args.queue_root)
+            if args.request_id is not None:
+                result = queue.status(args.request_id)
+            else:
+                ledger = queue.ledger()
+                result = {
+                    "status": "PASS",
+                    "segment_queue": str(queue.ledger_path),
+                    "requests": [
+                        queue.status(segment_id)
+                        for segment_id in sorted(ledger["segments"])
+                    ],
                 }
         elif args.command == "update":
             from . import update as update_module

@@ -83,6 +83,8 @@ def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
         "validate",
         "solve",
         "update",
+        "update-enqueue",
+        "update-status",
         "bank",
         "evaluate",
         "qtip-configs",

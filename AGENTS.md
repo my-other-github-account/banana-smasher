@@ -18,6 +18,11 @@ Treat these commands as the primary user API:
 - `smash solve`
 - `smash update`
 - `smash evaluate`
+- `smash bank`
+- `smash knapsack`
+- `smash backpack-dimensions`
+- `smash qtip-configs`
+- `smash kernels build`
 - `smash export`
 - `smash verify`
 

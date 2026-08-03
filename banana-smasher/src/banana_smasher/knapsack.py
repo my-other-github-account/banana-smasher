@@ -1249,9 +1249,18 @@ def solve_class_balanced_options(
     column_indices: list[int] = []
     coefficients: list[float] = []
     for cell_index, cell in enumerate(cells):
+        seen_equal_options: set[tuple[int, tuple[float, ...]]] = set()
         for tier_index, tier in enumerate(tiers):
             variable_index = cell_index * len(tiers) + tier_index
             key = (cell, tier)
+            equal_option_key = (
+                costs[key],
+                tuple(predictions[key][name] for name in classes),
+            )
+            if equal_option_key in seen_equal_options:
+                variable_upper[variable_index] = 0.0
+            else:
+                seen_equal_options.add(equal_option_key)
             objective[variable_index] = math.fsum(
                 weights[name] * predictions[key][name] for name in classes
             )
@@ -1346,6 +1355,7 @@ def solve_class_balanced_options(
             "status": int(solution.status),
             "mip_gap": float(getattr(solution, "mip_gap", 0.0)),
             "byte_gcd_divisor": byte_divisor,
+            "equal_option_tie_breaker": "first_manifest_tier",
         },
     }
 
@@ -1482,8 +1492,14 @@ def run_knapsack(
     column_indices: list[int] = []
     coefficients: list[float] = []
     for cell_index, cell in enumerate(cells):
+        seen_equal_options: set[tuple[int, float]] = set()
         for tier_index, tier in enumerate(tiers):
             variable_index = cell_index * len(tiers) + tier_index
+            equal_option_key = (costs[tier][cell], damages[(cell, tier)])
+            if equal_option_key in seen_equal_options:
+                variable_upper[variable_index] = 0.0
+            else:
+                seen_equal_options.add(equal_option_key)
             objective[variable_index] = damages[(cell, tier)]
             row_indices.append(cell_index)
             column_indices.append(variable_index)
@@ -1613,6 +1629,7 @@ def run_knapsack(
             "status": int(solution.status),
             "message": str(solution.message),
             "mip_gap": float(getattr(solution, "mip_gap", 0.0)),
+            "equal_option_tie_breaker": "first_manifest_tier",
             "byte_normalization": {
                 "baseline_bytes": minimum_required_bytes,
                 "remaining_envelope_bytes": remaining_envelope,
