@@ -73,7 +73,7 @@ def _write_mixed_substrate_layer(root: Path, *, layer: int = 0) -> Path:
     rows: list[dict[str, object]] = []
     families = {
         "d4_k256": {
-            "experts": [0],
+            "experts": {"down": [0], "fused13": [1]},
             "planes": {
                 "codebook.fp16": np.zeros((256, 4), dtype="<f2").tobytes(),
                 "codes.le8": b"\x01" * 3,
@@ -81,7 +81,7 @@ def _write_mixed_substrate_layer(root: Path, *, layer: int = 0) -> Path:
             },
         },
         "d4_k1024": {
-            "experts": [1],
+            "experts": {"down": [1], "fused13": [0]},
             "planes": {
                 "codebook.fp16": np.zeros((1024, 4), dtype="<f2").tobytes(),
                 "codes.le10": b"\x01" * 3,
@@ -121,8 +121,10 @@ def _write_mixed_substrate_layer(root: Path, *, layer: int = 0) -> Path:
         },
     }
     for tier, spec in families.items():
-        experts = spec["experts"]
         for projection in ("down", "fused13"):
+            experts = spec["experts"]
+            if isinstance(experts, dict):
+                experts = experts[projection]
             for role, payload in spec["planes"].items():
                 rows.append(_write_file(root / f"{tier}.{projection}.{role}.bin", payload))
             rows.append(
@@ -377,7 +379,7 @@ def test_mixed_substrate_receipt_exports_d8_and_native_mxfp4_planes(
         TIER_CODES["truevq_d8"],
         *([TIER_CODES["native_mxfp4"]] * 251),
     ]
-    assert subtier_map.tolist() == [256, 1024, 2048, 4096, *([0] * 252)]
+    assert subtier_map.tolist() == [0, 0, 2048, 4096, *([0] * 252)]
 
 
 def test_banana_smasher_wire_export_refuses_receipt_drift(tmp_path: Path) -> None:

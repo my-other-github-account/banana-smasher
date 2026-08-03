@@ -940,19 +940,14 @@ def _banana_smasher_tier_maps(planes: list[Path]) -> tuple[np.ndarray, np.ndarra
                 f"banana_smasher {projection} expert partition is incomplete: "
                 f"missing={missing}"
             )
-    partitions = {(family, tier) for family, tier, _projection in ids_by_tier_projection}
-    for family, tier in partitions:
-        down = ids_by_tier_projection.get((family, tier, "down"))
-        fused = ids_by_tier_projection.get((family, tier, "fused13"))
-        if down is None or fused is None or not np.array_equal(down, fused):
-            raise PackValidationError(
-                f"banana_smasher expert ids disagree across projections for {tier}"
-            )
     if not np.array_equal(tier_maps["down"], tier_maps["fused13"]):
         raise PackValidationError("banana_smasher family routes disagree across projections")
-    if not np.array_equal(subtier_maps["down"], subtier_maps["fused13"]):
-        raise PackValidationError("banana_smasher D4 subtier routes disagree across projections")
-    return tier_maps["down"], subtier_maps["down"]
+    subtier_map = np.where(
+        subtier_maps["down"] == subtier_maps["fused13"],
+        subtier_maps["down"],
+        0,
+    ).astype(np.uint16)
+    return tier_maps["down"], subtier_map
 
 
 def _file_entry(root: Path, relative: Path, role: str) -> dict[str, Any]:
@@ -1001,8 +996,11 @@ def _layout_contract() -> dict[str, Any]:
         "truevq_subtier_map": {
             "dtype": "<u2",
             "shape": [256],
-            "allowed_values": list(BANANA_SMASHER_SUBTIERS),
-            "semantics": "subtier_map[e] stores trueVQ d4 codebook cardinality K for expert e",
+            "allowed_values": [0, *BANANA_SMASHER_SUBTIERS],
+            "semantics": (
+                "subtier_map[e] stores a shared trueVQ d4 codebook cardinality K; "
+                "0 denotes a non-d4 expert or projection-specific d4 subtiers"
+            ),
         },
         "banana_smasher_raw_tensor_name": (
             "layers.{layer}.truevq_d4.d4_k{K}.{projection}.{role}"
