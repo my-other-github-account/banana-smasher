@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import logging
+
 import torch
 import triton
 import triton.language as tl
+
+from .dispatch_policy import shape_policy
+
+
+_LOG = logging.getLogger(__name__)
+_LOGGED_SHAPES: set[tuple[int, str]] = set()
 
 
 @triton.jit
@@ -568,7 +576,7 @@ def _qtip_raw_gemv_dynamic(
         index = (word >> (16 - shift)) & 65535
         weight = tl.load(lut_ptr + index * 2 + component, mask=mask, other=0.0).to(tl.float32)
         acc += tl.sum(weight * x[None, :], axis=1)
-    tl.store(y_ptr + r * N + n, acc, mask=n_mask)
+    tl.store(y_ptr + r * N + n, acc, mask=n_mask & active)
 
 
 @triton.jit
@@ -632,7 +640,7 @@ def _d4_gemv_dynamic(
         value = tl.load(cb_ptr + code * D + (k[None, :] % D), mask=mask, other=0.0)
         scale = tl.load(scales_ptr + n[:, None] * (K // 32) + (k[None, :] // 32), mask=mask, other=127).to(tl.float32)
         acc += tl.sum(value.to(tl.float32) * tl.exp2(scale - 127.0) * x[None, :], axis=1)
-    tl.store(y_ptr + r * N + n, acc, mask=n_mask)
+    tl.store(y_ptr + r * N + n, acc, mask=n_mask & active)
 
 
 @triton.jit
@@ -667,19 +675,36 @@ def _native_mxfp4_gemv_dynamic(
         code = tl.where((k[None, :] & 1) == 0, byte & 15, byte >> 4)
         scale = tl.load(scales_ptr + n[:, None] * (K // 32) + (k[None, :] // 32), mask=mask, other=127).to(tl.float32)
         acc += tl.sum(_e2m1(code) * tl.exp2(scale - 127.0) * x[None, :], axis=1)
-    tl.store(y_ptr + r * N + n, acc, mask=n_mask)
+    tl.store(y_ptr + r * N + n, acc, mask=n_mask & active)
 
 
-def qtip_raw_gemv_dynamic(x, expert_ids, family, source_ptrs, rate, lut, offsets):
+def qtip_raw_gemv_dynamic(
+    x,
+    expert_ids,
+    family,
+    source_ptrs,
+    rate,
+    lut,
+    offsets,
+    *,
+    out=None,
+    bn=8,
+):
     x = x.to(torch.bfloat16).contiguous()
     expert_ids = expert_ids.to(device=x.device, dtype=torch.long).reshape(-1)
     r, k = x.shape
-    y = torch.empty((r, 4096), dtype=torch.float32, device=x.device)
+    y = (
+        torch.zeros((r, 4096), dtype=torch.float32, device=x.device)
+        if out is None
+        else out
+    )
+    if tuple(y.shape) != (r, 4096):
+        raise ValueError(f"QTIP output shape {tuple(y.shape)} != {(r, 4096)}")
     expected = 0 if rate == 2 else 1
-    _qtip_raw_gemv_dynamic[(triton.cdiv(4096, 8), r)](
+    _qtip_raw_gemv_dynamic[(triton.cdiv(4096, bn), r)](
         x, expert_ids, family, source_ptrs, offsets, lut, y,
         EXPECTED_FAMILY=expected, R=r, N=4096, K=k, RATE=rate,
-        BN=8, BK=256, num_warps=4, num_stages=2)
+        BN=bn, BK=256, num_warps=4, num_stages=2)
     return y
 
 
@@ -691,13 +716,22 @@ def d4_gemv_dynamic(
     scales_ptrs,
     codebook_ptrs,
     index_bits,
+    *,
+    out=None,
+    bn=8,
 ):
     x = x.to(torch.bfloat16).contiguous()
     expert_ids = expert_ids.to(device=x.device, dtype=torch.long).reshape(-1)
     index_bits = index_bits.to(device=x.device, dtype=torch.int32).reshape(-1)
     r, k = x.shape
-    y = torch.empty((r, 4096), dtype=torch.bfloat16, device=x.device)
-    _d4_gemv_dynamic[(triton.cdiv(4096, 8), r)](
+    y = (
+        torch.zeros((r, 4096), dtype=torch.bfloat16, device=x.device)
+        if out is None
+        else out
+    )
+    if tuple(y.shape) != (r, 4096):
+        raise ValueError(f"D4 output shape {tuple(y.shape)} != {(r, 4096)}")
+    _d4_gemv_dynamic[(triton.cdiv(4096, bn), r)](
         x,
         expert_ids,
         family,
@@ -711,7 +745,7 @@ def d4_gemv_dynamic(
         N=4096,
         K=k,
         D=4,
-        BN=8,
+        BN=bn,
         BK=256,
         num_warps=4,
         num_stages=2,
@@ -719,15 +753,30 @@ def d4_gemv_dynamic(
     return y
 
 
-def native_mxfp4_gemv_dynamic(x, expert_ids, family, packed_ptrs, scales_ptrs):
+def native_mxfp4_gemv_dynamic(
+    x,
+    expert_ids,
+    family,
+    packed_ptrs,
+    scales_ptrs,
+    *,
+    out=None,
+    bn=8,
+):
     x = x.to(torch.bfloat16).contiguous()
     expert_ids = expert_ids.to(device=x.device, dtype=torch.long).reshape(-1)
     r, k = x.shape
-    y = torch.empty((r, 4096), dtype=torch.bfloat16, device=x.device)
-    _native_mxfp4_gemv_dynamic[(triton.cdiv(4096, 8), r)](
+    y = (
+        torch.zeros((r, 4096), dtype=torch.bfloat16, device=x.device)
+        if out is None
+        else out
+    )
+    if tuple(y.shape) != (r, 4096):
+        raise ValueError(f"native output shape {tuple(y.shape)} != {(r, 4096)}")
+    _native_mxfp4_gemv_dynamic[(triton.cdiv(4096, bn), r)](
         x, expert_ids, family, packed_ptrs, scales_ptrs, y,
         EXPECTED_FAMILY=3, R=r, N=4096, K=k,
-        BN=8, BK=256, num_warps=4, num_stages=2)
+        BN=bn, BK=256, num_warps=4, num_stages=2)
     return y
 
 
@@ -856,6 +905,131 @@ def _mixed_exact_gemv(
     tl.store(y_ptr + r * N + n, acc, mask=n_mask)
 
 
+def mixed_static_gemv(
+    x: torch.Tensor,
+    expert_ids: torch.Tensor,
+    family_codes: torch.Tensor,
+    pointer_tables: dict[str, torch.Tensor],
+    offsets2: torch.Tensor,
+    offsets3: torch.Tensor,
+    lut: torch.Tensor,
+    *,
+    out: torch.Tensor | None = None,
+    bn: int = 8,
+) -> torch.Tensor:
+    """Run exact packed family-specialized kernels into one shared output."""
+    x = x.float().contiguous()
+    expert_ids = expert_ids.to(device=x.device, dtype=torch.int64).contiguous()
+    rows = x.shape[0]
+    y = (
+        torch.empty((rows, 4096), dtype=torch.float32, device=x.device)
+        if out is None
+        else out
+    )
+    qtip_raw_gemv_dynamic(
+        x,
+        expert_ids,
+        family_codes,
+        pointer_tables["qtip_sources"],
+        2,
+        lut,
+        offsets2,
+        out=y,
+        bn=bn,
+    )
+    qtip_raw_gemv_dynamic(
+        x,
+        expert_ids,
+        family_codes,
+        pointer_tables["qtip_sources"],
+        3,
+        lut,
+        offsets3,
+        out=y,
+        bn=bn,
+    )
+    d4_gemv_dynamic(
+        x,
+        expert_ids,
+        family_codes,
+        pointer_tables["d4_codes"],
+        pointer_tables["d4_scales"],
+        pointer_tables["d4_codebooks"],
+        pointer_tables["d4_index_bits"],
+        out=y,
+        bn=bn,
+    )
+    native_mxfp4_gemv_dynamic(
+        x,
+        expert_ids,
+        family_codes,
+        pointer_tables["native_packed"],
+        pointer_tables["native_scales"],
+        out=y,
+        bn=bn,
+    )
+    return y
+
+
+def mixed_shape_aware_gemv(
+    x: torch.Tensor,
+    expert_ids: torch.Tensor,
+    family_codes: torch.Tensor,
+    pointer_tables: dict[str, torch.Tensor],
+    offsets2: torch.Tensor,
+    offsets3: torch.Tensor,
+    lut: torch.Tensor,
+) -> torch.Tensor:
+    """Apply the immutable C1-C16/prefill policy with graph-stable chunks."""
+    x = x.float().contiguous()
+    expert_ids = expert_ids.to(device=x.device, dtype=torch.int64).contiguous()
+    decision = shape_policy(int(x.shape[0]))
+    kernel = str(decision["kernel"])
+    key = (int(x.shape[0]), kernel)
+    if key not in _LOGGED_SHAPES:
+        _LOG.warning(
+            "BANANA_SMASHER_NATIVE_DISPATCH backend=static_packed_family "
+            "selected_kernel=%s route_rows=%d tokens=%d chunks=%d "
+            "zero_dequant=true graph_reuse=true",
+            kernel,
+            x.shape[0],
+            decision["tokens"],
+            decision["chunks"],
+        )
+        _LOGGED_SHAPES.add(key)
+    bn = 8 if kernel in {"singleton_scalar", "small_m_pair"} else 16
+    if kernel == "dense_all_prefill":
+        bn = 32
+    chunks = int(decision["chunks"])
+    if chunks == 1:
+        return mixed_static_gemv(
+            x,
+            expert_ids,
+            family_codes,
+            pointer_tables,
+            offsets2,
+            offsets3,
+            lut,
+            bn=bn,
+        )
+    chunk_rows = int(decision["chunk_tokens"]) * 6
+    output = torch.empty((x.shape[0], 4096), dtype=torch.float32, device=x.device)
+    for start in range(0, x.shape[0], chunk_rows):
+        stop = start + chunk_rows
+        mixed_static_gemv(
+            x[start:stop],
+            expert_ids[start:stop],
+            family_codes,
+            pointer_tables,
+            offsets2,
+            offsets3,
+            lut,
+            out=output[start:stop],
+            bn=bn,
+        )
+    return output
+
+
 def mixed_exact_gemv(
     x: torch.Tensor,
     expert_ids: torch.Tensor,
@@ -865,18 +1039,13 @@ def mixed_exact_gemv(
     offsets3: torch.Tensor,
     lut: torch.Tensor,
 ) -> torch.Tensor:
-    x = x.float().contiguous()
-    expert_ids = expert_ids.to(device=x.device, dtype=torch.int64).contiguous()
-    r, k = x.shape
-    y = torch.empty((r, 4096), dtype=torch.float32, device=x.device)
-    _mixed_exact_gemv[(triton.cdiv(4096, 8), r)](
-        x, expert_ids, family_codes,
-        pointer_tables["qtip_sources"],
-        pointer_tables["d4_codes"], pointer_tables["d4_index_bits"],
-        pointer_tables["d4_scales"],
-        pointer_tables["d4_codebooks"], pointer_tables["native_packed"],
-        pointer_tables["native_scales"], offsets2, offsets3, lut, y,
-        R=r, N=4096, K=k, BN=8, BK=256,
-        num_warps=4, num_stages=2,
+    """Stable plugin ABI for the accepted shape-aware packed dispatch."""
+    return mixed_shape_aware_gemv(
+        x,
+        expert_ids,
+        family_codes,
+        pointer_tables,
+        offsets2,
+        offsets3,
+        lut,
     )
-    return y
