@@ -15,13 +15,13 @@ performance acceptance.
 - Source tree: `2eab417e581c27324f5097187095f52423d5eee2`
 - Source bundle SHA-256: `02b996d94478369d8dec21c1e9e2196d3c6d0634b20a3b50647eb5412275493c`
 - Source checkout status: clean, detached at the commit above
-- Build host role: allocated Spark-3 clean-box lane (`linux/arm64`, SM121)
+- Build platform: allocated clean-box lane (`linux/arm64`, SM121)
 - Build context gate: `.dockerignore` excludes `.git`, `.worktrees`, `notes`, caches,
   local build outputs, credentials, receipts, and model artifacts.
-- Accepted command:
+- Public-safe reproduction command (the execution-only local tag was omitted):
 
 ```console
-docker buildx build --no-cache --load --progress=plain --platform linux/arm64 -f docker/Dockerfile -t banana-smasher-public:t_644dd18a .
+docker buildx build --no-cache --load --progress=plain --platform linux/arm64 -f docker/Dockerfile -t banana-smasher-public:cleanbox .
 ```
 
 No registry push was performed.
@@ -30,11 +30,18 @@ No registry push was performed.
 
 | Component | Public source identity |
 | --- | --- |
-| Base runtime | `vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b` |
-| vLLM source revision | `ee0da84a` (image revision label `ee0da84ab9e04ac7610e28580af62c365e898389`) |
+| Base runtime | Public tag `vllm/vllm-openai:v0.24.0`; manifest-list digest `sha256:251eba5cc7c12fed0b75da22a9240e582b1c9e39f6fbc064f86781b963bd814f`; pinned `linux/arm64` manifest `sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b`; config digest `sha256:730a973ed3917e4eb96cb5c3a195272fe2712d291d86001ceba2f91053f41d4e` |
+| vLLM source | Public tag `refs/tags/v0.24.0`; commit `ee0da84ab9e04ac7610e28580af62c365e898389`; tree `b9c60750e4c524f4445528bd72451ca75896162b` |
 | DeepGEMM | `https://github.com/deepseek-ai/DeepGEMM.git`, `refs/tags/nv_dev_f8e8fb5`, commit `f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca`, package `2.6.1` |
 | FlashInfer | `https://github.com/flashinfer-ai/flashinfer.git`, commit `d020372b068f335e2fe427372e134977a2235c49` |
 | FlashInfer SM120 changes | `b34f49255f1640542da91665f58558a3e5e308f1`, `76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9`, `0c5fda59bb6fa71eae875693a024bb0fb37ba7d6` |
+
+The public `v0.24.0` tag resolves directly to the commit above. The pinned ARM64
+image exposes the same full commit in `ai.vllm.build.commit`,
+`org.opencontainers.image.revision`, and `VLLM_BUILD_COMMIT`; its source label is
+`https://github.com/vllm-project/vllm`. The normalized public provenance receipt is
+`notes/reports/2026-08-03-public-base-provenance.json`, SHA-256
+`853fbf2a69a215bfe92e060662e32aa96dd356572bc0a94cc219a632556b9f22`.
 
 Banana Smasher, its plugin, DeepGEMM, and FlashInfer were built as wheels from the
 pinned public checkouts. No private wheel or internal source tree was used.
@@ -45,7 +52,7 @@ pinned public checkouts. No private wheel or internal source tree was used.
 - No-cache build log: 2,518,609 bytes; SHA-256
   `c7ee76abae569647d6bc6e4dc0505c98ab3c7da9d3dfb5b2c0b2abd8ea67b9e9`
 - In-build package tests: **88 passed, 8 skipped**
-- Local image tag: `banana-smasher-public:t_644dd18a`
+- Local image tag: task-scoped and intentionally omitted from the public report
 - Local OCI image configuration digest:
   `sha256:b3e68602acad0c4f12da3bfdda21a838d59dd664a957b03569497b66a79e5293`
 - Image platform: `linux/arm64`
@@ -116,4 +123,5 @@ MODEL_DIR="$MODEL_OUT" IMAGE=banana-smasher-runtime:local examples/serve.sh
 
 Those commands are reported verbatim for interface review; the serve command was
 **not** executed in this task because model boot and pack/allocation work were outside
-the card's stop boundary.
+the card's stop boundary. They are also stored as exact JSON string values in the
+public provenance receipt named above.
