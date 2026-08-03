@@ -22,7 +22,10 @@ from .validation import ValidationError, validate_artifact
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="smash",
-        description="Fail-closed bs-pack lifecycle and exact Backpack tooling.",
+        description=(
+            "Fail-closed bs-pack lifecycle, solve, update, teacher bank, paired "
+            "evaluation, and exact Backpack tooling."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -123,6 +126,26 @@ def _parser() -> argparse.ArgumentParser:
         "--no-resume", dest="resume", action="store_false", default=True
     )
 
+    bank = subparsers.add_parser(
+        "bank", help="build or resume a complete manifest-bound teacher bank"
+    )
+    bank.add_argument("--model-root", type=Path, required=True)
+    bank.add_argument("--corpus", type=Path, required=True)
+    bank.add_argument("--windows-manifest", type=Path, required=True)
+    bank.add_argument("--output", type=Path, required=True)
+    bank.add_argument("--instrument-profile", type=Path)
+
+    evaluate = subparsers.add_parser(
+        "evaluate", help="run paired candidate/reference real-axis evaluation"
+    )
+    evaluate.add_argument("--model-root", type=Path, required=True)
+    evaluate.add_argument("--candidate", type=Path, required=True)
+    evaluate.add_argument("--reference", type=Path, required=True)
+    evaluate.add_argument("--bank", type=Path, required=True)
+    evaluate.add_argument("--output", type=Path, required=True)
+    evaluate.add_argument("--resume-from-layer", type=int)
+    evaluate.add_argument("--verbose-receipts", action="store_true")
+
     knapsack = subparsers.add_parser(
         "knapsack",
         help="solve a manifest-bound tier menu under an exact integer byte envelope",
@@ -157,8 +180,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     tokens = list(sys.argv[1:] if argv is None else argv)
     reported_command = tokens[0] if tokens else None
     if reported_command == "validate-pack":
-        # Compatibility spelling for reproducibility automation. Keep the five
-        # primary lifecycle verbs and their help surface stable.
+        # Compatibility spelling for reproducibility automation. Keep the
+        # established lifecycle verbs and their help surface stable.
         tokens[0] = "verify"
     args = parser.parse_args(tokens)
     try:
@@ -293,6 +316,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "command": "update",
             }
+        elif args.command == "bank":
+            from .bank import build_bank
+
+            result = build_bank(
+                model_root=args.model_root,
+                corpus=args.corpus,
+                windows_manifest=args.windows_manifest,
+                output=args.output,
+                instrument_profile=args.instrument_profile,
+            )
+        elif args.command == "evaluate":
+            from .evaluate import evaluate_paired
+
+            result = evaluate_paired(
+                model_root=args.model_root,
+                candidate=args.candidate,
+                reference=args.reference,
+                bank=args.bank,
+                output=args.output,
+                resume_from_layer=args.resume_from_layer,
+                verbose_receipts=args.verbose_receipts,
+            )
         elif args.command == "knapsack":
             from .knapsack import run_knapsack
 

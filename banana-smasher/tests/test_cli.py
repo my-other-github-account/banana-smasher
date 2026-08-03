@@ -75,7 +75,7 @@ def _write_symlinked_base_weights(root: Path, store: Path) -> list[str]:
 def test_smash_help_exposes_public_verbs() -> None:
     parser = _parser()
     action = next(action for action in parser._actions if getattr(action, "choices", None))
-    choices = list(action.choices or ())
+    choices = list(action.choices or {})
     assert choices == [
         "export",
         "verify",
@@ -83,10 +83,14 @@ def test_smash_help_exposes_public_verbs() -> None:
         "validate",
         "solve",
         "update",
+        "bank",
+        "evaluate",
         "knapsack",
         "backpack-dimensions",
     ]
     assert {"solve", "update", "export", "verify"}.issubset(choices)
+    assert {"bank", "evaluate"} <= set(choices)
+    # Additive command families must not displace the lifecycle prefix.
 
 
 def test_smash_validate_pack_compatibility_alias(tmp_path: Path, capsys) -> None:
