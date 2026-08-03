@@ -40,7 +40,7 @@ from .qtip_rings import (
 
 QTIP_RHT_DOMAIN = "qtip-rht-manifest-v1"
 _TRUSTED_PUBLIC_QTIP_RUNNER_SHA256 = (
-    "f1f6e833264bcfc96a0bace380514bbb49fa31791c54e8e76fa54663563e1102"
+    "8c45536a9f2bf8e26d324ed07a474da733f0bc144d56a456944445f71f1717af"
 )
 
 # A config-directory solve is one public process. These caches remove repeated
