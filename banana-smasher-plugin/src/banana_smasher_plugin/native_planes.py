@@ -421,13 +421,21 @@ def _ensure_native_plane_custom_op() -> bool:
 
 def _register_native_plane_layer(layer: "NativePlaneLayer") -> int | None:
     global _NATIVE_PLANE_NEXT_KEY
-    if not _ensure_native_plane_custom_op():
-        if layer.device.type == "cuda":
-            raise _fail(
-                "CUDA native planes require the registered breakable-cudagraph "
-                "custom op; direct Python dispatch is not an accepted fallback"
-            )
-        return None
+    # CPU construction never enters a CUDA graph.  Register the boundary when
+    # an explicit breakable-graph test/runtime contract is available, but do
+    # not reject CPU package tests merely because an installed vLLM keeps its
+    # process-wide CUDA-graph flag at the default.  CUDA remains fail-closed.
+    if layer.device.type != "cuda":
+        try:
+            if not _ensure_native_plane_custom_op():
+                return None
+        except NativePlanePrerequisiteError:
+            return None
+    elif not _ensure_native_plane_custom_op():
+        raise _fail(
+            "CUDA native planes require the registered breakable-cudagraph "
+            "custom op; direct Python dispatch is not an accepted fallback"
+        )
     key = _NATIVE_PLANE_NEXT_KEY
     _NATIVE_PLANE_NEXT_KEY += 1
     _NATIVE_PLANE_LAYER_REGISTRY[key] = layer
