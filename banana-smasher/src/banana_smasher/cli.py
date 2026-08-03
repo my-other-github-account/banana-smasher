@@ -385,6 +385,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     anchor_status.add_argument("--run-root", type=Path, required=True)
     anchor_status.add_argument("--format", choices=("human", "json"), default="human")
+    solved_sidecars = subparsers.add_parser(
+        "backpack-solved-sidecars",
+        help="publish authenticated solved candidate bindings and exact missing-authority blockers",
+    )
+    solved_sidecars.add_argument("--handoff", type=Path, required=True)
+    solved_sidecars.add_argument("--handoff-sha256", required=True)
+    solved_sidecars.add_argument("--basis-sha256", required=True)
+    solved_sidecars.add_argument("--layers", type=int, nargs="+", required=True)
+    solved_sidecars.add_argument("--output-dir", type=Path, required=True)
+    solved_sidecars.add_argument("--authority-expectations", type=Path)
 
     return parser
 
@@ -974,6 +984,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
         elif args.command == "anchor":
             result = _run_anchor(args)
+        elif args.command == "backpack-solved-sidecars":
+            from .backpack_dimensions import build_solved_dimension_sidecars
+
+            result = build_solved_dimension_sidecars(
+                handoff=args.handoff,
+                handoff_sha256=args.handoff_sha256,
+                basis_sha256=args.basis_sha256,
+                layers=args.layers,
+                output_dir=args.output_dir,
+                authority_expectations=args.authority_expectations,
+            )
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2

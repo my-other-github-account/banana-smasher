@@ -93,6 +93,7 @@ def test_smash_help_exposes_public_verbs() -> None:
         "backpack-dimensions",
         "fixed-d4",
         "anchor",
+        "backpack-solved-sidecars",
     ]
 
     fixed_d4_parser = action.choices["fixed-d4"]
