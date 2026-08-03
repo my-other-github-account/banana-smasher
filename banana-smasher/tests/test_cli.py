@@ -77,6 +77,7 @@ def test_smash_help_exposes_public_verbs() -> None:
     action = next(action for action in parser._actions if getattr(action, "choices", None))
     assert list(action.choices) == [
         "export",
+        "materialize-selected-wire",
         "verify",
         "serve-check",
         "validate",

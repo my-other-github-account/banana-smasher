@@ -6,9 +6,19 @@ import os
 from pathlib import Path
 
 import numpy as np
+import pytest
 from safetensors import safe_open
 
-from banana_smasher.contract import TIER_CODES, export_pack, verify_pack
+from banana_smasher.contract import (
+    TIER_CODES,
+    _finish_selected_array,
+    _npy_metadata,
+    _open_selected_array,
+    export_pack,
+    materialize_selected_wire,
+    unpack_index_rows,
+    verify_pack,
+)
 from banana_smasher.loader import PackLoader
 from banana_smasher.repack import repack_to_safetensors, verify_repack_roundtrip
 from banana_smasher.repair import CodebookRepair, RepairBundle
@@ -173,6 +183,36 @@ def _write_serving_root(root: Path) -> Path:
 
 def _wire_sha(array: np.ndarray) -> str:
     return hashlib.sha256(np.ascontiguousarray(array).tobytes()).hexdigest()
+
+
+def test_selected_array_helpers_close_memory_maps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "selected.npy"
+    writable = _open_selected_array(
+        output,
+        count=1,
+        row_shape=(4,),
+        dtype=np.dtype("int16"),
+    )
+    writable[0] = np.arange(4, dtype=np.int16)
+    _finish_selected_array(output, writable)
+    assert getattr(writable, "_mmap").closed
+
+    opened: list[np.memmap] = []
+    load = np.load
+
+    def capture_load(*args: object, **kwargs: object) -> np.ndarray:
+        # NumPy's public typing cannot express a transparent test wrapper.
+        assert args
+        array = load(*args, **kwargs)
+        assert isinstance(array, np.memmap)
+        opened.append(array)
+        return array
+
+    monkeypatch.setattr("banana_smasher.contract.np.load", capture_load)
+    assert _npy_metadata(output)["shape"] == [1, 4]
+    assert opened and getattr(opened[0], "_mmap").closed
 
 
 def test_materialized_wire_root_exports_all_layers_with_bound_routes_and_repair(
@@ -398,3 +438,231 @@ def test_banana_smasher_wire_export_refuses_receipt_drift(tmp_path: Path) -> Non
             instance_id="bs-pack-0001-banana_smasher",
             link_mode="copy",
         )
+
+
+def _write_selected_wire_source(root: Path) -> Path:
+    layer = root / "layer_000"
+    layer.mkdir(parents=True)
+    rows: list[dict[str, object]] = []
+    partitions = {
+        "d4_k256": [0],
+        "d4_k1024": [1],
+        "d4_k2048": [2],
+        "d4_k4096": [3],
+        "d8_k256": [4],
+        "native_mxfp4": list(range(5, 256)),
+    }
+    for tier, experts in partitions.items():
+        for projection in ("down", "fused13"):
+            output_width = 32 if projection == "down" else 64
+            if tier.startswith("d4_k"):
+                bits = int(tier.removeprefix("d4_k")).bit_length() - 1
+                row_bytes = (8 * bits + 7) // 8
+                planes = {
+                    "codebook.fp16": np.zeros(
+                        (int(tier.removeprefix("d4_k")), 4), dtype="<f2"
+                    ).tobytes(),
+                    f"codes.le{bits}": bytes([bits])
+                    * (len(experts) * output_width * row_bytes),
+                    "scales.e8m0": b"\x02" * (len(experts) * output_width),
+                }
+            elif tier == "d8_k256":
+                planes = {
+                    "codebook.fp16": np.zeros((256, 8), dtype="<f2").tobytes(),
+                    "codes.le8": b"\x03" * (len(experts) * 32 * 8),
+                    "scales.e8m0": b"\x04" * (len(experts) * 32),
+                }
+            else:
+                planes = {
+                    "weights.mxfp4": b"\x05" * (len(experts) * 7),
+                    "scales.e8m0": b"\x06" * (len(experts) * 2),
+                }
+            for role, payload in planes.items():
+                rows.append(_write_file(layer / f"{tier}.{projection}.{role}.bin", payload))
+            rows.append(
+                _write_file(
+                    layer / f"{tier}.{projection}.expert_ids.i16.bin",
+                    np.asarray(experts, dtype="<i2").tobytes(),
+                )
+            )
+    (layer / "LAYER_RECEIPT.json").write_text(
+        json.dumps(
+            {
+                "schema": "banana_smasher-materialized-layer-v1",
+                "status": "PASS",
+                "layer": 0,
+                "files": rows,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    return root
+
+
+def test_selected_wire_materializer_merges_rebased_qtip_d4_and_base_native(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _write_selected_wire_source(tmp_path / "wire")
+    assignment = {
+        "assignment": {
+            "0": {
+                str(expert): {
+                    projection: (
+                        "qtip3_3.0117"
+                        if expert == 4
+                        else "d4_k1024"
+                        if expert == 0 and projection == "down"
+                        else "d4_k256"
+                        if expert == 0
+                        else "d4_k1024"
+                        if expert == 1
+                        else "d4_k2048"
+                        if expert == 2
+                        else "d4_k4096"
+                        if expert == 3
+                        else "native_mxfp4"
+                    )
+                    for projection in ("down", "fused13")
+                }
+                for expert in range(256)
+            }
+        }
+    }
+    assignment_path = tmp_path / "ASSIGNMENT.json"
+    assignment_path.write_text(json.dumps(assignment, sort_keys=True))
+    assignment_sha = hashlib.sha256(assignment_path.read_bytes()).hexdigest()
+
+    declared = tmp_path / "declared"
+    replica = tmp_path / "replica"
+    replica.mkdir()
+    artifact_payloads: dict[str, dict[str, object]] = {}
+    rows = []
+    for projection in ("down", "fused13"):
+        name = f"qtip-{projection}.pt"
+        payload = f"qtip-{projection}".encode()
+        (replica / name).write_bytes(payload)
+        artifact_payloads[name] = {
+            "schema": "qtip-hyb-wire-unit-v1",
+            "identity": {"layer": 0, "expert": 4, "projection": projection},
+            "trellis": np.arange(6, dtype=np.int16).reshape(2, 3),
+            "SU": np.ones(32, dtype=np.float16),
+            "SV": np.ones(32 if projection == "down" else 64, dtype=np.float16)
+            * 2,
+            "Wscale": np.asarray(3, dtype=np.float32),
+        }
+        rows.append(
+            {
+                "layer": 0,
+                "expert": 4,
+                "projection": projection,
+                "new": "qtip3_3.0117",
+                "artifact": str(declared / name),
+                "artifact_bytes": len(payload),
+                "artifact_sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+    d4_payload = b"d4-down"
+    (replica / "d4-down.pt").write_bytes(d4_payload)
+    d4_codes = np.arange(32 * 8, dtype=np.int16).reshape(32, 8) % 1024
+    artifact_payloads["d4-down.pt"] = {
+        "codes": d4_codes,
+        "scales": np.arange(32, dtype=np.uint8).reshape(32, 1),
+        "meta": {"layer": 0, "expert": 0, "projection": "down", "k": 1024},
+    }
+    codebook = np.arange(1024 * 4, dtype=np.float16).reshape(1024, 4)
+    (replica / "d4-codebook.bin").write_bytes(codebook.astype("<f2").tobytes())
+    rows.append(
+        {
+            "layer": 0,
+            "expert": 0,
+            "projection": "down",
+            "new": "d4_k1024",
+            "artifact": str(declared / "d4-down.pt"),
+            "artifact_bytes": len(d4_payload),
+            "artifact_sha256": hashlib.sha256(d4_payload).hexdigest(),
+            "codebook": str(declared / "d4-codebook.bin"),
+            "codebook_bytes": int(codebook.nbytes),
+            "codebook_sha256": hashlib.sha256(
+                codebook.astype("<f2").tobytes()
+            ).hexdigest(),
+        }
+    )
+    overlay = {
+        "schema": "p885-wire-c-active-overlay-v1",
+        "status": "PASS_EXACT_ACTIVE_LAYERS",
+        "stale": False,
+        "active_assignment_sha256": assignment_sha,
+        "final_assignment_sha256": assignment_sha,
+        "rows": rows,
+    }
+    overlay_path = tmp_path / "ACTIVE_OVERLAY.json"
+    overlay_path.write_text(json.dumps(overlay, sort_keys=True))
+    overlay_sha = hashlib.sha256(overlay_path.read_bytes()).hexdigest()
+
+    def fake_load(path: Path) -> dict[str, object]:
+        return artifact_payloads[path.name]
+
+    monkeypatch.setattr("banana_smasher.contract._load_selected_artifact", fake_load)
+    output = tmp_path / "selected"
+    receipt = materialize_selected_wire(
+        source_root=source,
+        output=output,
+        assignment_path=assignment_path,
+        assignment_sha256=assignment_sha,
+        active_overlay_path=overlay_path,
+        active_overlay_sha256=overlay_sha,
+        artifact_rebases=[(declared, replica)],
+        hidden_size=32,
+        moe_intermediate_size=32,
+    )
+
+    assert receipt["status"] == "PASS"
+    assert receipt["family_counts"] == {
+        "d4": 8,
+        "native": 502,
+        "qtip2": 0,
+        "qtip3": 2,
+    }
+    meta = json.loads((output / "layer_000.meta.json").read_text())
+    assert meta["tier2"][4] == "qtip3_3.0117"
+    assert meta["family2"][4] == TIER_CODES["qtip3"]
+    qtip = meta["payloads"]["down"]["qtip3_3.0117"]["tensors"]
+    assert np.load(output / qtip["trellis"]["file"]).shape == (1, 2, 3)
+    d4 = meta["payloads"]["down"]["d4_k1024"]["tensors"]
+    packed = np.load(output / d4["codes"]["file"])
+    assert d4["codes"]["encoding"] == "little-endian-packed-index-rows-v1"
+    assert np.array_equal(
+        unpack_index_rows(packed[0], bits=10, values_per_row=8), d4_codes
+    )
+    native_ids = np.load(
+        output
+        / meta["payloads"]["down"]["native_mxfp4"]["tensors"]["expert_ids"][
+            "file"
+        ]
+    )
+    assert native_ids.tolist() == list(range(5, 256))
+
+    serving = _write_serving_root(tmp_path / "serving-selected")
+    serving_config = json.loads((serving / "config.json").read_text())
+    serving_config["hidden_size"] = 32
+    serving_config["moe_intermediate_size"] = 32
+    (serving / "config.json").write_text(json.dumps(serving_config))
+    pack = tmp_path / "selected-pack"
+    manifest = export_pack(
+        source_root=output,
+        output=pack,
+        model_id="selected-fixture",
+        instance_id="selected-fixture-1",
+        link_mode="hardlink",
+        serving_model_root=serving,
+        runtime_floor_bytes=0,
+    )
+    assert manifest["provenance"]["selected_wire_materialization"]["sha256"] == (
+        hashlib.sha256((output / "SELECTED_WIRE_RECEIPT.json").read_bytes()).hexdigest()
+    )
+    packed_pack = pack / "planes" / d4["codes"]["file"]
+    assert os.stat(output / d4["codes"]["file"]).st_ino == os.stat(packed_pack).st_ino
+    assert np.array_equal(np.load(packed_pack)[0], packed[0])
+    assert verify_pack(pack)["source_format"] == "p1016-true-c-native-planes-v1"

@@ -10,6 +10,7 @@ import shutil
 import stat
 import tempfile
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Any, Literal
 
 import numpy as np
@@ -42,6 +43,7 @@ BASE_WEIGHTS_ROLES = (BASE_WEIGHTS_SHARD_ROLE, BASE_WEIGHTS_INDEX_ROLE)
 MANIFEST_NAME = "BANANA_PACK_MANIFEST.json"
 COMPLETE_MARKER_NAME = "PACK_COMPLETE"
 KERNEL_MANIFEST_NAME = "BS_KERNEL_CACHE_MANIFEST.json"
+SELECTED_WIRE_RECEIPT_NAME = "SELECTED_WIRE_RECEIPT.json"
 SCHEMA = "bs-pack"
 SCHEMA_VERSION = 1
 QUANT_METHOD = "banana_smasher"
@@ -485,21 +487,76 @@ def _verify_p1016_source(
     return layers, planes, meta_paths, documents, references
 
 
+def _verify_selected_wire_receipt(
+    source_root: Path,
+    *,
+    layers: list[int],
+) -> str | None:
+    path = source_root / SELECTED_WIRE_RECEIPT_NAME
+    if not path.exists():
+        return None
+    if not path.is_file() or path.is_symlink():
+        raise PackValidationError("selected wire receipt must be a regular non-symlink")
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise PackValidationError(f"cannot read selected wire receipt: {exc}") from exc
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("schema") != "banana-smasher-selected-wire-materialization-v1"
+        or receipt.get("status") != "PASS"
+        or receipt.get("layers") != layers
+    ):
+        raise PackValidationError("selected wire receipt identity/status/layers drift")
+    rows = receipt.get("files")
+    if not isinstance(rows, list) or not rows:
+        raise PackValidationError("selected wire receipt has no file manifest")
+    expected: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("path"), str):
+            raise PackValidationError("selected wire receipt file row is malformed")
+        relative = Path(row["path"])
+        if relative.is_absolute() or len(relative.parts) != 1 or ".." in relative.parts:
+            raise PackValidationError(f"unsafe selected wire receipt path: {relative}")
+        member = source_root / relative
+        if not member.is_file() or member.is_symlink():
+            raise PackValidationError(f"selected wire receipt member is missing: {relative}")
+        if member.stat().st_size != row.get("bytes"):
+            raise PackValidationError(f"selected wire receipt byte drift: {relative}")
+        if _sha256_file(member) != row.get("sha256"):
+            raise PackValidationError(f"selected wire receipt SHA-256 drift: {relative}")
+        expected.add(relative.as_posix())
+    actual = {
+        member.name
+        for member in source_root.iterdir()
+        if member.is_file() or member.is_symlink()
+    } - {SELECTED_WIRE_RECEIPT_NAME}
+    if actual != expected:
+        raise PackValidationError(
+            "selected wire receipt file-set drift: "
+            f"extras={sorted(actual - expected)} missing={sorted(expected - actual)}"
+        )
+    return _sha256_file(path)
+
+
 def _npy_metadata(path: Path) -> dict[str, Any]:
     try:
         array = np.load(path, mmap_mode="r", allow_pickle=False)
     except Exception as exc:
         raise PackValidationError(f"invalid npy plane {path}: {exc}") from exc
-    if array.dtype.hasobject:
-        raise PackValidationError(f"object dtype is forbidden: {path}")
-    if not array.flags.c_contiguous:
-        raise PackValidationError(f"only C-contiguous arrays are allowed: {path}")
-    return {
-        "dtype": array.dtype.str,
-        "shape": list(array.shape),
-        "data_bytes": int(array.nbytes),
-        "data_sha256": _sha256_npy_payload(path),
-    }
+    try:
+        if array.dtype.hasobject:
+            raise PackValidationError(f"object dtype is forbidden: {path}")
+        if not array.flags.c_contiguous:
+            raise PackValidationError(f"only C-contiguous arrays are allowed: {path}")
+        return {
+            "dtype": array.dtype.str,
+            "shape": list(array.shape),
+            "data_bytes": int(array.nbytes),
+            "data_sha256": _sha256_npy_payload(path),
+        }
+    finally:
+        _close_memmap(array)
 
 
 def _raw_metadata(
@@ -748,6 +805,739 @@ def _verify_banana_smasher_wire(
     if layers != list(range(layers[0], layers[-1] + 1)):
         raise PackValidationError(f"materialized wire layers are not contiguous: {layers}")
     return verified
+
+
+def _load_selected_artifact(path: Path) -> dict[str, Any]:
+    """Load one weights-only selected cell without making Torch a base dependency."""
+    try:
+        import torch
+
+        value = torch.load(
+            path,
+            map_location="cpu",
+            mmap=True,
+            weights_only=True,
+        )
+    except Exception as exc:
+        raise PackValidationError(f"cannot load selected wire artifact {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise PackValidationError(f"selected wire artifact is not an object: {path}")
+    return value
+
+
+def _selected_numpy(value: object, *, label: str) -> np.ndarray:
+    if isinstance(value, np.ndarray):
+        array = value
+    else:
+        try:
+            import torch
+        except ImportError as exc:
+            raise PackValidationError(
+                f"selected wire artifact tensor requires Torch: {label}"
+            ) from exc
+        if not isinstance(value, torch.Tensor) or value.device.type != "cpu":
+            raise PackValidationError(f"selected wire artifact value is not a CPU tensor: {label}")
+        array = value.detach().numpy()
+    if array.dtype.hasobject or not array.flags.c_contiguous:
+        raise PackValidationError(
+            f"selected wire artifact tensor must be C-contiguous and non-object: {label}"
+        )
+    return array
+
+
+def _resolve_selected_member(
+    declared: str,
+    *,
+    expected_bytes: int,
+    expected_sha256: str,
+    rebases: list[tuple[Path, Path]],
+    label: str,
+) -> Path:
+    source = Path(declared)
+    if not source.is_absolute():
+        raise PackValidationError(f"{label} path must be absolute before explicit rebasing: {declared!r}")
+    candidates = [source]
+    for old_root, new_root in rebases:
+        try:
+            relative = source.relative_to(old_root)
+        except ValueError:
+            continue
+        candidates.append(new_root / relative)
+    matches: list[Path] = []
+    observed: list[str] = []
+    for candidate in candidates:
+        if not candidate.is_file() or candidate.is_symlink():
+            continue
+        actual_bytes = candidate.stat().st_size
+        actual_sha256 = _sha256_file(candidate)
+        observed.append(f"{candidate}:{actual_bytes}:{actual_sha256}")
+        if actual_bytes == expected_bytes and actual_sha256 == expected_sha256:
+            matches.append(candidate.resolve())
+    unique = sorted(set(matches))
+    if len(unique) != 1:
+        raise PackValidationError(
+            f"{label} relocation did not resolve exactly one hash-bound member: "
+            f"declared={declared!r} matches={[str(path) for path in unique]} observed={observed}"
+        )
+    return unique[0]
+
+
+def _write_selected_array(path: Path, rows: list[np.ndarray]) -> dict[str, Any]:
+    if not rows:
+        raise PackValidationError(f"cannot materialize empty selected tensor: {path.name}")
+    shape = rows[0].shape
+    dtype = rows[0].dtype
+    if any(row.shape != shape or row.dtype != dtype for row in rows):
+        raise PackValidationError(f"selected tensor row shape/dtype drift: {path.name}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    output = np.lib.format.open_memmap(
+        path,
+        mode="w+",
+        dtype=dtype,
+        shape=(len(rows), *shape),
+    )
+    for index, row in enumerate(rows):
+        output[index] = row
+    output.flush()
+    _close_memmap(output)
+    with path.open("rb") as stream:
+        os.fsync(stream.fileno())
+    metadata = _npy_metadata(path)
+    return {
+        "file": path.name,
+        "dtype": np.dtype(metadata["dtype"]).name,
+        "shape": metadata["shape"],
+        "data_bytes": metadata["data_bytes"],
+        "data_sha256": metadata["data_sha256"],
+    }
+
+
+def _open_selected_array(
+    path: Path,
+    *,
+    count: int,
+    row_shape: tuple[int, ...],
+    dtype: np.dtype[Any],
+) -> np.memmap:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return np.lib.format.open_memmap(
+        path,
+        mode="w+",
+        dtype=dtype,
+        shape=(count, *row_shape),
+    )
+
+
+def _close_memmap(array: np.ndarray) -> None:
+    mapping = getattr(array, "_mmap", None)
+    if mapping is not None and not mapping.closed:
+        mapping.close()
+
+
+def _finish_selected_array(path: Path, array: np.memmap) -> dict[str, Any]:
+    array.flush()
+    _close_memmap(array)
+    with path.open("rb") as stream:
+        os.fsync(stream.fileno())
+    metadata = _npy_metadata(path)
+    return {
+        "file": path.name,
+        "dtype": np.dtype(metadata["dtype"]).name,
+        "shape": metadata["shape"],
+        "data_bytes": metadata["data_bytes"],
+        "data_sha256": metadata["data_sha256"],
+    }
+
+
+def _pack_selected_indices(values: np.ndarray, *, bits: int, label: str) -> np.ndarray:
+    if values.dtype.kind not in "iu" or values.ndim != 2:
+        raise PackValidationError(
+            f"selected D4 codes must be a two-dimensional integer tensor: {label}"
+        )
+    if values.size:
+        minimum = int(values.min())
+        maximum = int(values.max())
+        if minimum < 0 or maximum >= 1 << bits:
+            raise PackValidationError(
+                f"selected D4 code outside {bits}-bit range: {label} min={minimum} max={maximum}"
+            )
+    shifts = np.arange(bits, dtype=np.uint16)
+    bit_rows = (
+        ((values.astype(np.uint16, copy=False)[..., None] >> shifts) & 1)
+        .astype(np.uint8)
+        .reshape(values.shape[0], -1)
+    )
+    return np.packbits(bit_rows, axis=-1, bitorder="little")
+
+
+def _selected_wire_base_groups(
+    verified: dict[int, tuple[list[Path], str]],
+) -> dict[tuple[int, str, str], dict[str, Any]]:
+    groups: dict[tuple[int, str, str], dict[str, Any]] = {}
+    for layer, (planes, _receipt_sha256) in verified.items():
+        for path in planes:
+            descriptor = _banana_smasher_plane_descriptor(path, layer=layer)
+            key = (layer, str(descriptor["projection"]), str(descriptor["tier"]))
+            group = groups.setdefault(key, {"descriptors": {}, "arrays": {}})
+            role = str(descriptor["role"])
+            if role in group["descriptors"]:
+                raise PackValidationError(f"duplicate substrate role for {key}/{role}")
+            group["descriptors"][role] = (path, descriptor)
+    empty_groups: list[tuple[int, str, str]] = []
+    for key, group in groups.items():
+        ids_entry = group["descriptors"].get("expert_ids")
+        if ids_entry is None:
+            if set(group["descriptors"]) == {"codebooks"}:
+                empty_groups.append(key)
+                continue
+            raise PackValidationError(f"substrate group has no expert_ids: {key}")
+        ids_path, _descriptor = ids_entry
+        ids = np.fromfile(ids_path, dtype="<i2")
+        if len(ids) != len(set(int(value) for value in ids)):
+            raise PackValidationError(f"substrate group has duplicate expert ids: {key}")
+        group["ids"] = ids
+        group["slots"] = {int(expert): slot for slot, expert in enumerate(ids)}
+    for key in empty_groups:
+        del groups[key]
+    return groups
+
+
+def _selected_wire_base_array(group: dict[str, Any], role: str) -> np.memmap:
+    entry = group["descriptors"].get(role)
+    if entry is None:
+        raise PackValidationError(f"substrate selected group has no {role} plane")
+    path, descriptor = entry
+    return np.memmap(
+        path,
+        mode="r",
+        dtype=descriptor["dtype"],
+        shape=tuple(descriptor["shape"]),
+    )
+
+
+def _selected_wire_family(tier: str) -> tuple[str, str, int]:
+    if tier.startswith("qtip2_"):
+        return "qtip2", "qtip2", TIER_CODES["qtip2"]
+    if tier.startswith("qtip3_"):
+        return "qtip3", "qtip3", TIER_CODES["qtip3"]
+    if tier.startswith("d4_k"):
+        return "d4", "truevq_d4", TIER_CODES["truevq_d4"]
+    if tier == "native_mxfp4":
+        # P1016's four selected families deliberately omit the unused D8 slot.
+        return "native", "native_mxfp4", 3
+    raise PackValidationError(f"unsupported selected wire tier: {tier!r}")
+
+
+def materialize_selected_wire(
+    *,
+    source_root: str | Path,
+    output: str | Path,
+    assignment_path: str | Path,
+    assignment_sha256: str,
+    active_overlay_path: str | Path,
+    active_overlay_sha256: str,
+    artifact_rebases: Sequence[tuple[str | Path, str | Path]] | None,
+    hidden_size: int,
+    moe_intermediate_size: int,
+) -> dict[str, Any]:
+    """Stream an assignment/overlay into the exact P1016 selected-plane shape."""
+    source_root = Path(source_root).resolve()
+    output = Path(output).resolve()
+    assignment_path = Path(assignment_path).resolve()
+    active_overlay_path = Path(active_overlay_path).resolve()
+    if output.exists():
+        raise FileExistsError(f"selected wire output already exists: {output}")
+    if hidden_size <= 0 or moe_intermediate_size <= 0:
+        raise PackValidationError("selected wire model dimensions must be positive")
+    rebases = [
+        (Path(old).resolve(), Path(new).resolve())
+        for old, new in (artifact_rebases or [])
+    ]
+    if len({old for old, _new in rebases}) != len(rebases):
+        raise PackValidationError("selected wire artifact rebase sources must be unique")
+
+    verified = _verify_banana_smasher_wire(source_root)
+    if _sha256_file(assignment_path) != assignment_sha256:
+        raise PackValidationError("selected wire assignment SHA-256 mismatch")
+    if _sha256_file(active_overlay_path) != active_overlay_sha256:
+        raise PackValidationError("selected wire active overlay SHA-256 mismatch")
+    try:
+        assignment_document = json.loads(assignment_path.read_text(encoding="utf-8"))
+        overlay = json.loads(active_overlay_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise PackValidationError(f"cannot read selected wire authority JSON: {exc}") from exc
+    assignment = assignment_document.get("assignment")
+    layers = sorted(verified)
+    if not isinstance(assignment, dict) or set(assignment) != {str(layer) for layer in layers}:
+        raise PackValidationError("selected wire assignment layer set does not match substrate")
+    if (
+        not isinstance(overlay, dict)
+        or overlay.get("status") != "PASS_EXACT_ACTIVE_LAYERS"
+        or overlay.get("stale") is not False
+        or overlay.get("active_assignment_sha256") != assignment_sha256
+        or overlay.get("final_assignment_sha256") != assignment_sha256
+    ):
+        raise PackValidationError("selected wire overlay is not an exact non-stale assignment seal")
+    overlay_rows = overlay.get("rows")
+    if not isinstance(overlay_rows, list):
+        raise PackValidationError("selected wire overlay rows must be a list")
+    rows_by_cell: dict[tuple[int, int, str], dict[str, Any]] = {}
+    for row in overlay_rows:
+        if not isinstance(row, dict):
+            raise PackValidationError("selected wire overlay row is not an object")
+        key = (row.get("layer"), row.get("expert"), row.get("projection"))
+        if (
+            not isinstance(key[0], int)
+            or not isinstance(key[1], int)
+            or key[2] not in BANANA_SMASHER_PROJECTIONS
+        ):
+            raise PackValidationError(f"selected wire overlay row identity is malformed: {key}")
+        normalized = (int(key[0]), int(key[1]), str(key[2]))
+        if normalized in rows_by_cell:
+            raise PackValidationError(f"duplicate selected wire overlay cell: {normalized}")
+        rows_by_cell[normalized] = row
+
+    selected_cells: dict[tuple[int, int, str], str] = {}
+    family_counts = {"qtip2": 0, "qtip3": 0, "d4": 0, "native": 0}
+    for layer in layers:
+        layer_assignment = assignment[str(layer)]
+        if not isinstance(layer_assignment, dict) or set(layer_assignment) != {
+            str(expert) for expert in range(256)
+        }:
+            raise PackValidationError(f"selected wire layer {layer} must bind 256 experts")
+        for expert in range(256):
+            cell = layer_assignment[str(expert)]
+            if not isinstance(cell, dict):
+                raise PackValidationError(f"selected wire assignment cell is malformed: L{layer}/E{expert}")
+            for projection in BANANA_SMASHER_PROJECTIONS:
+                tier = cell.get(projection)
+                if not isinstance(tier, str):
+                    raise PackValidationError(
+                        f"selected wire assignment tier is malformed: L{layer}/E{expert}/{projection}"
+                    )
+                family, _canonical, _code = _selected_wire_family(tier)
+                selected_cells[(layer, expert, projection)] = tier
+                family_counts[family] += 1
+                overlay_row = rows_by_cell.get((layer, expert, projection))
+                if overlay_row is not None and overlay_row.get("new") != tier:
+                    raise PackValidationError(
+                        f"selected wire overlay/assignment drift L{layer}/E{expert}/{projection}: "
+                        f"overlay={overlay_row.get('new')!r} assignment={tier!r}"
+                    )
+    extras = sorted(set(rows_by_cell) - set(selected_cells))
+    if extras:
+        raise PackValidationError(f"selected wire overlay has out-of-assignment cells: {extras[:8]}")
+
+    source_bytes = sum(path.stat().st_size for layer in verified.values() for path in layer[0])
+    artifact_bytes = sum(
+        int(row.get("artifact_bytes", 0))
+        for row in overlay_rows
+        if isinstance(row.get("artifact_bytes", 0), int)
+    )
+    required_bytes = source_bytes + artifact_bytes
+    free_bytes = shutil.disk_usage(output.parent).free
+    if required_bytes > free_bytes - (4 << 30):
+        raise PackValidationError(
+            "selected wire storage preflight failed before allocation: "
+            f"estimate={required_bytes} free={free_bytes} floor={4 << 30}"
+        )
+
+    groups = _selected_wire_base_groups(verified)
+    artifact_digest = hashlib.sha256()
+    files: list[dict[str, Any]] = []
+    metadata_documents: dict[int, dict[str, Any]] = {}
+    output.mkdir(parents=True)
+    try:
+        for layer in layers:
+            document: dict[str, Any] = {
+                "format": "p1016-true-c-native-planes-v1",
+                "layer": layer,
+                "E": 256,
+                "K13": hidden_size,
+                "N13": 2 * moe_intermediate_size,
+                "K2": moe_intermediate_size,
+                "N2": hidden_size,
+                "family_codes": {"qtip2": 0, "qtip3": 1, "d4": 2, "native": 3},
+                "payloads": {},
+            }
+            for projection, suffix in (("fused13", "13"), ("down", "2")):
+                tiers = [selected_cells[(layer, expert, projection)] for expert in range(256)]
+                slots = [-1] * 256
+                families = [-1] * 256
+                payloads: dict[str, dict[str, Any]] = {}
+                input_width = hidden_size if projection == "fused13" else moe_intermediate_size
+                output_width = 2 * moe_intermediate_size if projection == "fused13" else hidden_size
+                if input_width % 32:
+                    raise PackValidationError(
+                        f"selected wire input width must be divisible by 32: {projection}={input_width}"
+                    )
+                for tier in sorted(set(tiers)):
+                    experts = [expert for expert, routed in enumerate(tiers) if routed == tier]
+                    for slot, expert in enumerate(experts):
+                        slots[expert] = slot
+                    family, canonical_family, family_code = _selected_wire_family(tier)
+                    for expert in experts:
+                        families[expert] = family_code
+                    prefix = f"layer_{layer:03d}.{tier}.{suffix}"
+                    tensor_specs: dict[str, dict[str, Any]] = {}
+                    if family in {"qtip2", "qtip3"}:
+                        role_outputs: dict[str, tuple[Path, np.memmap]] = {}
+                        expected_dtypes = {
+                            "trellis": np.dtype("int16"),
+                            "SU": np.dtype("float16"),
+                            "SV": np.dtype("float16"),
+                            "Wscale": np.dtype("float32"),
+                        }
+                        for slot, expert in enumerate(experts):
+                            row = rows_by_cell.get((layer, expert, projection))
+                            if row is None:
+                                raise PackValidationError(
+                                    f"selected QTIP cell has no overlay artifact: L{layer}/E{expert}/{projection}"
+                                )
+                            artifact = _resolve_selected_member(
+                                str(row.get("artifact")),
+                                expected_bytes=int(row.get("artifact_bytes", -1)),
+                                expected_sha256=str(row.get("artifact_sha256")),
+                                rebases=rebases,
+                                label=f"selected artifact L{layer}/E{expert}/{projection}",
+                            )
+                            artifact_digest.update(
+                                f"{layer}:{expert}:{projection}:{row['artifact_sha256']}\n".encode()
+                            )
+                            payload = _load_selected_artifact(artifact)
+                            identity = payload.get("identity")
+                            if identity != {
+                                "layer": layer,
+                                "expert": expert,
+                                "projection": projection,
+                            }:
+                                raise PackValidationError(
+                                    f"selected QTIP artifact identity drift: {artifact} -> {identity!r}"
+                                )
+                            if payload.get("schema") != "qtip-hyb-wire-unit-v1":
+                                raise PackValidationError(f"selected QTIP artifact schema drift: {artifact}")
+                            for role, expected_dtype in expected_dtypes.items():
+                                array = _selected_numpy(payload.get(role), label=f"{artifact}:{role}")
+                                if array.dtype != expected_dtype:
+                                    raise PackValidationError(
+                                        f"selected QTIP {role} dtype drift: {artifact} -> {array.dtype}"
+                                    )
+                                required_shape = (
+                                    (input_width,)
+                                    if role == "SU"
+                                    else (output_width,)
+                                    if role == "SV"
+                                    else ()
+                                    if role == "Wscale"
+                                    else array.shape
+                                )
+                                if array.shape != required_shape:
+                                    raise PackValidationError(
+                                        f"selected QTIP {role} shape drift: {artifact} -> {array.shape}"
+                                    )
+                                if role not in role_outputs:
+                                    role_path = output / f"{prefix}.{role}.npy"
+                                    role_outputs[role] = (
+                                        role_path,
+                                        _open_selected_array(
+                                            role_path,
+                                            count=len(experts),
+                                            row_shape=array.shape,
+                                            dtype=array.dtype,
+                                        ),
+                                    )
+                                role_path, role_output = role_outputs[role]
+                                if tuple(role_output.shape[1:]) != array.shape:
+                                    raise PackValidationError(
+                                        f"selected QTIP {role} row shape drift: {artifact} -> {array.shape}"
+                                    )
+                                role_output[slot] = array
+                            del payload
+                        for role, (role_path, role_output) in role_outputs.items():
+                            tensor_specs[role] = _finish_selected_array(
+                                role_path, role_output
+                            )
+                    elif family == "d4":
+                        bits = int(tier.removeprefix("d4_k")).bit_length() - 1
+                        values_per_row = input_width // 4
+                        packed_row_bytes = _packed_row_bytes(values_per_row, bits)
+                        codes_path = output / f"{prefix}.codes.npy"
+                        scales_path = output / f"{prefix}.scales.npy"
+                        codes_output = _open_selected_array(
+                            codes_path,
+                            count=len(experts),
+                            row_shape=(output_width, packed_row_bytes),
+                            dtype=np.dtype("uint8"),
+                        )
+                        scales_output = _open_selected_array(
+                            scales_path,
+                            count=len(experts),
+                            row_shape=(output_width, input_width // 32),
+                            dtype=np.dtype("uint8"),
+                        )
+                        decoded_digest = hashlib.sha256()
+                        codebook_candidates: dict[str, Path] = {}
+                        base_group = groups.get((layer, projection, tier))
+                        base_codes = (
+                            _selected_wire_base_array(base_group, "codes")
+                            if base_group is not None
+                            else None
+                        )
+                        base_scales = (
+                            _selected_wire_base_array(base_group, "scales")
+                            if base_group is not None
+                            else None
+                        )
+                        for selected_slot, expert in enumerate(experts):
+                            row = rows_by_cell.get((layer, expert, projection))
+                            if row is not None and row.get("artifact") is not None:
+                                artifact = _resolve_selected_member(
+                                    str(row.get("artifact")),
+                                    expected_bytes=int(row.get("artifact_bytes", -1)),
+                                    expected_sha256=str(row.get("artifact_sha256")),
+                                    rebases=rebases,
+                                    label=f"selected artifact L{layer}/E{expert}/{projection}",
+                                )
+                                artifact_digest.update(
+                                    f"{layer}:{expert}:{projection}:{row['artifact_sha256']}\n".encode()
+                                )
+                                payload = _load_selected_artifact(artifact)
+                                meta = payload.get("meta")
+                                if not isinstance(meta, dict) or any(
+                                    meta.get(key) != expected
+                                    for key, expected in (
+                                        ("layer", layer),
+                                        ("expert", expert),
+                                        ("projection", projection),
+                                        ("k", int(tier.removeprefix("d4_k"))),
+                                    )
+                                ):
+                                    raise PackValidationError(
+                                        f"selected D4 artifact identity drift: {artifact} -> {meta!r}"
+                                    )
+                                decoded = _selected_numpy(
+                                    payload.get("codes"), label=f"{artifact}:codes"
+                                )
+                                scales = _selected_numpy(
+                                    payload.get("scales"), label=f"{artifact}:scales"
+                                )
+                                if decoded.shape != (output_width, values_per_row):
+                                    raise PackValidationError(
+                                        f"selected D4 code shape drift: {artifact} -> {decoded.shape}"
+                                    )
+                                if scales.dtype != np.dtype("uint8") or scales.shape != (
+                                    output_width,
+                                    input_width // 32,
+                                ):
+                                    raise PackValidationError(
+                                        f"selected D4 scale shape/dtype drift: {artifact} -> "
+                                        f"{scales.dtype}{scales.shape}"
+                                    )
+                                packed_codes = _pack_selected_indices(
+                                    decoded, bits=bits, label=str(artifact)
+                                )
+                                decoded_row = np.ascontiguousarray(decoded, dtype=np.int16)
+                                codebook = _resolve_selected_member(
+                                    str(row.get("codebook")),
+                                    expected_bytes=int(row.get("codebook_bytes", -1)),
+                                    expected_sha256=str(row.get("codebook_sha256")),
+                                    rebases=rebases,
+                                    label=f"selected codebook L{layer}/{projection}/{tier}",
+                                )
+                                codebook_candidates[str(row.get("codebook_sha256"))] = codebook
+                            else:
+                                if base_group is None or expert not in base_group["slots"]:
+                                    raise PackValidationError(
+                                        f"selected unchanged D4 cell is absent from substrate: "
+                                        f"L{layer}/E{expert}/{projection}/{tier}"
+                                    )
+                                slot = base_group["slots"][expert]
+                                assert base_codes is not None and base_scales is not None
+                                raw_codes = np.asarray(base_codes[slot])
+                                if raw_codes.size != output_width * packed_row_bytes:
+                                    raise PackValidationError(
+                                        f"substrate D4 code geometry drift L{layer}/{projection}/{tier}: "
+                                        f"actual={raw_codes.size} expected={output_width * packed_row_bytes}"
+                                    )
+                                raw_scales = np.asarray(base_scales[slot])
+                                expected_scale_values = output_width * (input_width // 32)
+                                if raw_scales.size != expected_scale_values:
+                                    raise PackValidationError(
+                                        f"substrate D4 scale geometry drift L{layer}/{projection}/{tier}: "
+                                        f"actual={raw_scales.size} expected={expected_scale_values}"
+                                    )
+                                packed_codes = raw_codes.reshape(
+                                    output_width, packed_row_bytes
+                                )
+                                scales = raw_scales.reshape(
+                                    output_width, input_width // 32
+                                )
+                                decoded_row = np.ascontiguousarray(
+                                    unpack_index_rows(
+                                        packed_codes,
+                                        bits=bits,
+                                        values_per_row=values_per_row,
+                                    ),
+                                    dtype=np.int16,
+                                )
+                            codes_output[selected_slot] = packed_codes
+                            scales_output[selected_slot] = scales
+                            decoded_digest.update(decoded_row.tobytes(order="C"))
+                        if len(codebook_candidates) > 1:
+                            raise PackValidationError(
+                                f"selected D4 group binds multiple codebooks L{layer}/{projection}/{tier}: "
+                                f"{sorted(codebook_candidates)}"
+                            )
+                        if codebook_candidates:
+                            codebook_path = next(iter(codebook_candidates.values()))
+                            codebook = np.fromfile(codebook_path, dtype="<f2").reshape(-1, 4)
+                        elif base_group is not None:
+                            base_codebook = _selected_wire_base_array(
+                                base_group, "codebooks"
+                            )
+                            try:
+                                codebook = np.array(base_codebook, copy=True)
+                            finally:
+                                _close_memmap(base_codebook)
+                        else:
+                            raise PackValidationError(
+                                f"selected D4 group has no codebook L{layer}/{projection}/{tier}"
+                            )
+                        if codebook.shape != (int(tier.removeprefix("d4_k")), 4):
+                            raise PackValidationError(
+                                f"selected D4 codebook shape drift L{layer}/{projection}/{tier}: {codebook.shape}"
+                            )
+                        tensor_specs["codes"] = _finish_selected_array(
+                            codes_path, codes_output
+                        )
+                        tensor_specs["codes"].update(
+                            {
+                                "encoding": PACKED_INDEX_ENCODING,
+                                "index_bits": bits,
+                                "values_per_row": values_per_row,
+                                "packed_row_bytes": packed_row_bytes,
+                                "decoded_dtype": "int16",
+                                "decoded_shape": [len(experts), output_width, values_per_row],
+                                "decoded_data_bytes": len(experts)
+                                * output_width
+                                * values_per_row
+                                * np.dtype("int16").itemsize,
+                                "decoded_data_sha256": decoded_digest.hexdigest(),
+                            }
+                        )
+                        tensor_specs["scales"] = _finish_selected_array(
+                            scales_path, scales_output
+                        )
+                        if base_codes is not None:
+                            _close_memmap(base_codes)
+                        if base_scales is not None:
+                            _close_memmap(base_scales)
+                        np.save(output / f"{prefix}.codebooks.npy", codebook, allow_pickle=False)
+                        tensor_specs["codebooks"] = {
+                            "file": f"{prefix}.codebooks.npy",
+                            **{
+                                key: value
+                                for key, value in _npy_metadata(
+                                    output / f"{prefix}.codebooks.npy"
+                                ).items()
+                                if key in {"shape", "data_bytes", "data_sha256"}
+                            },
+                            "dtype": "float16",
+                        }
+                    else:
+                        base_group = groups.get((layer, projection, tier))
+                        if base_group is None:
+                            raise PackValidationError(
+                                f"selected native group is absent from substrate: L{layer}/{projection}"
+                            )
+                        packed_rows: list[np.ndarray] = []
+                        scale_rows = []
+                        base_packed = _selected_wire_base_array(base_group, "packed")
+                        base_scales = _selected_wire_base_array(base_group, "scales")
+                        for expert in experts:
+                            slot = base_group["slots"].get(expert)
+                            if slot is None:
+                                raise PackValidationError(
+                                    f"selected native cell is absent from substrate: "
+                                    f"L{layer}/E{expert}/{projection}"
+                                )
+                            packed_rows.append(np.asarray(base_packed[slot]))
+                            scale_rows.append(np.asarray(base_scales[slot]))
+                        tensor_specs["packed"] = _write_selected_array(
+                            output / f"{prefix}.packed.npy", packed_rows
+                        )
+                        tensor_specs["scales"] = _write_selected_array(
+                            output / f"{prefix}.scales.npy", scale_rows
+                        )
+                        _close_memmap(base_packed)
+                        _close_memmap(base_scales)
+                    ids = np.asarray(experts, dtype=np.int16)
+                    np.save(output / f"{prefix}.expert_ids.npy", ids, allow_pickle=False)
+                    ids_meta = _npy_metadata(output / f"{prefix}.expert_ids.npy")
+                    tensor_specs["expert_ids"] = {
+                        "file": f"{prefix}.expert_ids.npy",
+                        "dtype": "int16",
+                        "shape": ids_meta["shape"],
+                        "data_bytes": ids_meta["data_bytes"],
+                        "data_sha256": ids_meta["data_sha256"],
+                    }
+                    payload: dict[str, Any] = {
+                        "family": family,
+                        "schema": "selected-wire-materialization-v1",
+                        "tensors": tensor_specs,
+                    }
+                    if family == "d4":
+                        payload.update(
+                            {"d": 4, "k": int(tier.removeprefix("d4_k"))}
+                        )
+                    payloads[tier] = payload
+                document[f"tier{suffix}"] = tiers
+                document[f"slot{suffix}"] = slots
+                document[f"family{suffix}"] = families
+                document["payloads"][projection] = payloads
+            metadata_documents[layer] = document
+            metadata_path = output / f"layer_{layer:03d}.meta.json"
+            _write_bytes_durable(metadata_path, _canonical_json_bytes(document))
+
+        for path in sorted(output.iterdir()):
+            if path.is_file() and path.name != SELECTED_WIRE_RECEIPT_NAME:
+                files.append(
+                    {
+                        "path": path.name,
+                        "bytes": path.stat().st_size,
+                        "sha256": _sha256_file(path),
+                    }
+                )
+        receipt = {
+            "schema": "banana-smasher-selected-wire-materialization-v1",
+            "status": "PASS",
+            "source_format": "banana_smasher-materialized-wire-v1",
+            "layers": layers,
+            "family_counts": family_counts,
+            "assignment_sha256": assignment_sha256,
+            "active_overlay_sha256": active_overlay_sha256,
+            "source_layer_receipt_sha256": {
+                str(layer): receipt_sha for layer, (_planes, receipt_sha) in verified.items()
+            },
+            "artifact_rows": len(
+                [row for row in overlay_rows if row.get("artifact") is not None]
+            ),
+            "artifact_rows_sha256": artifact_digest.hexdigest(),
+            "storage_preflight": {
+                "estimate_bytes": required_bytes,
+                "free_bytes": free_bytes,
+                "floor_bytes": 4 << 30,
+            },
+            "files": files,
+        }
+        _write_bytes_durable(
+            output / SELECTED_WIRE_RECEIPT_NAME,
+            _canonical_json_bytes(receipt),
+        )
+        return receipt
+    except Exception:
+        shutil.rmtree(output, ignore_errors=True)
+        raise
 
 
 def _load_materialized_wire_assignment(
@@ -1471,6 +2261,7 @@ def export_pack(
     p1016_meta_paths: list[Path] = []
     p1016_documents: dict[int, dict[str, Any]] = {}
     p1016_references: dict[str, list[tuple[dict[str, Any], str]]] = {}
+    selected_wire_receipt_sha256: str | None = None
     if runtime_floor_bytes is not None and (
         not isinstance(runtime_floor_bytes, int) or runtime_floor_bytes < 0
     ):
@@ -1504,6 +2295,10 @@ def export_pack(
             p1016_documents,
             p1016_references,
         ) = _verify_p1016_source(source_root)
+        selected_wire_receipt_sha256 = _verify_selected_wire_receipt(
+            source_root,
+            layers=p1016_layers,
+        )
         source_format = "p1016-true-c-native-planes-v1"
         if runtime_floor_bytes is None:
             raise PackValidationError(
@@ -1561,6 +2356,20 @@ def export_pack(
                         f"selected D4 code tensor has conflicting index widths: "
                         f"{relative} -> {sorted(packed_bits)}"
                     )
+                d4_code_bindings = [
+                    payload["tensors"][role]
+                    for payload, role in references
+                    if payload.get("family") == "d4" and role == "codes"
+                ]
+                prepacked_specs = [
+                    spec
+                    for spec in d4_code_bindings
+                    if spec.get("encoding") == PACKED_INDEX_ENCODING
+                ]
+                if prepacked_specs and len(prepacked_specs) != len(d4_code_bindings):
+                    raise PackValidationError(
+                        f"selected D4 code tensor mixes packed and decoded bindings: {relative}"
+                    )
                 repair_row = None
                 if repair is not None:
                     repair_row = materialize_codebook_plane(
@@ -1568,7 +2377,50 @@ def export_pack(
                         output / destination_relative,
                         repair.codebooks,
                     )
-                if packed_bits:
+                if prepacked_specs:
+                    if repair_row is not None:
+                        raise PackValidationError(
+                            f"repair attempted to rewrite D4 code indices: {relative}"
+                        )
+                    canonical_spec = prepacked_specs[0]
+                    if any(spec != canonical_spec for spec in prepacked_specs[1:]):
+                        raise PackValidationError(
+                            f"selected packed D4 metadata has conflicting bindings: {relative}"
+                        )
+                    metadata = _npy_metadata(source)
+                    for key in ("dtype", "shape", "data_bytes", "data_sha256"):
+                        actual = (
+                            np.dtype(metadata[key]).name
+                            if key == "dtype"
+                            else metadata[key]
+                        )
+                        if actual != canonical_spec.get(key):
+                            raise PackValidationError(
+                                f"selected packed D4 metadata drift {relative}.{key}: "
+                                f"expected={canonical_spec.get(key)!r} actual={actual!r}"
+                            )
+                    metadata.update(
+                        {
+                            key: canonical_spec[key]
+                            for key in (
+                                "encoding",
+                                "index_bits",
+                                "values_per_row",
+                                "packed_row_bytes",
+                                "decoded_dtype",
+                                "decoded_shape",
+                                "decoded_data_bytes",
+                                "decoded_data_sha256",
+                            )
+                        }
+                    )
+                    _verify_packed_index_metadata(name, metadata)
+                    actual_mode = _link_file(
+                        source,
+                        output / destination_relative,
+                        link_mode,
+                    )
+                elif packed_bits:
                     if repair_row is not None:
                         raise PackValidationError(
                             f"repair attempted to rewrite D4 code indices: {relative}"
@@ -1645,6 +2497,24 @@ def export_pack(
                             "path": relative.as_posix(),
                             "mode": "selected-manifest",
                             "role": "source_layer_meta",
+                        }
+                    )
+                if selected_wire_receipt_sha256 is not None:
+                    provenance_relative = Path("provenance") / SELECTED_WIRE_RECEIPT_NAME
+                    (output / provenance_relative).parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(
+                        source_root / SELECTED_WIRE_RECEIPT_NAME,
+                        output / provenance_relative,
+                    )
+                    if _sha256_file(output / provenance_relative) != selected_wire_receipt_sha256:
+                        raise PackValidationError(
+                            "selected wire receipt drifted while binding it into the pack"
+                        )
+                    linked.append(
+                        {
+                            "path": provenance_relative.as_posix(),
+                            "mode": "copy",
+                            "role": "selected_wire_materialization_receipt",
                         }
                     )
             if config_source.is_file():
@@ -1939,6 +2809,11 @@ def export_pack(
                 },
                 "layers": selected_layers,
             }
+            if selected_wire_receipt_sha256 is not None:
+                manifest["provenance"]["selected_wire_materialization"] = {
+                    "path": f"provenance/{SELECTED_WIRE_RECEIPT_NAME}",
+                    "sha256": selected_wire_receipt_sha256,
+                }
         elif source_format == "banana_smasher-materialized-wire-v1":
             dense_base_bytes = sum(
                 int(row["bytes"])

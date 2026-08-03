@@ -9,7 +9,9 @@ from typing import Any
 
 from .contract import (
     PackValidationError,
+    _load_serving_model_metadata,
     export_pack,
+    materialize_selected_wire,
     refresh_serving_metadata,
     verify_pack,
     verify_serve_compatibility,
@@ -71,6 +73,25 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--assignment-sha256")
     export.add_argument("--repair-update", type=int)
 
+    selected = subparsers.add_parser(
+        "materialize-selected-wire",
+        help="stream a hash-bound assignment/overlay into selected P1016 planes",
+    )
+    selected.add_argument("--source-root", type=Path, required=True)
+    selected.add_argument("--output", type=Path, required=True)
+    selected.add_argument("--serving-model-root", type=Path, required=True)
+    selected.add_argument("--active-overlay", type=Path, required=True)
+    selected.add_argument("--active-overlay-sha256", required=True)
+    selected.add_argument("--assignment", type=Path, required=True)
+    selected.add_argument("--assignment-sha256", required=True)
+    selected.add_argument(
+        "--artifact-rebase",
+        action="append",
+        default=[],
+        metavar="OLD_ROOT=NEW_ROOT",
+        help="explicit hash-verified relocation for overlay artifact members",
+    )
+
     verify = subparsers.add_parser("verify", help="verify manifest, schema, and bytes")
     verify.add_argument("pack", type=Path)
 
@@ -117,6 +138,18 @@ def _emit(value: dict[str, Any], *, stream: Any | None = None) -> None:
     if stream is None:
         stream = sys.stdout
     stream.write(json.dumps(value, indent=2, sort_keys=True) + "\n")
+
+
+def _artifact_rebases(values: Sequence[str]) -> list[tuple[Path, Path]]:
+    parsed: list[tuple[Path, Path]] = []
+    for value in values:
+        old, separator, new = value.partition("=")
+        if not separator or not old or not new:
+            raise ValueError(
+                f"--artifact-rebase must be OLD_ROOT=NEW_ROOT, got {value!r}"
+            )
+        parsed.append((Path(old), Path(new)))
+    return parsed
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -193,6 +226,32 @@ def main(argv: Sequence[str] | None = None) -> int:
                         args.output,
                         drop_planes=args.drop_planes,
                     )
+        elif args.command == "materialize-selected-wire":
+            _serving_root, serving_config, _serving_payloads = (
+                _load_serving_model_metadata(args.serving_model_root)
+            )
+            try:
+                hidden_size = int(serving_config["hidden_size"])
+                moe_intermediate_size = int(serving_config["moe_intermediate_size"])
+            except Exception as exc:
+                raise ValueError(
+                    "serving config is missing hidden_size/moe_intermediate_size"
+                ) from exc
+            result = {
+                **materialize_selected_wire(
+                    source_root=args.source_root,
+                    output=args.output,
+                    assignment_path=args.assignment,
+                    assignment_sha256=args.assignment_sha256,
+                    active_overlay_path=args.active_overlay,
+                    active_overlay_sha256=args.active_overlay_sha256,
+                    artifact_rebases=_artifact_rebases(args.artifact_rebase),
+                    hidden_size=hidden_size,
+                    moe_intermediate_size=moe_intermediate_size,
+                ),
+                "command": "materialize-selected-wire",
+                "output": str(args.output.resolve()),
+            }
         elif args.command == "verify":
             result = {
                 **verify_pack(args.pack),
