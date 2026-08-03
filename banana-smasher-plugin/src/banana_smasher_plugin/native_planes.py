@@ -344,9 +344,10 @@ _NATIVE_PLANE_PROJECTIONS = ("fused13", "down")
 def _native_plane_forward_op(
     x: torch.Tensor,
     expert_ids: torch.Tensor,
+    output: torch.Tensor,
     layer_key: int,
     projection_key: int,
-) -> torch.Tensor:
+) -> None:
     """Opaque stock-vLLM boundary for native-plane state and CUDA kernels."""
     try:
         layer = _NATIVE_PLANE_LAYER_REGISTRY[int(layer_key)]
@@ -356,26 +357,42 @@ def _native_plane_forward_op(
             f"native-plane custom-op binding is unavailable: "
             f"layer_key={layer_key} projection_key={projection_key}"
         ) from exc
-    return layer._forward_impl(x, expert_ids, projection)
+    output.copy_(layer._forward_impl(x, expert_ids, projection))
 
 
 def _native_plane_forward_fake(
     x: torch.Tensor,
     expert_ids: torch.Tensor,
+    output: torch.Tensor,
     layer_key: int,
     projection_key: int,
-) -> torch.Tensor:
-    del expert_ids
+) -> None:
+    del x, expert_ids, output, layer_key, projection_key
+
+
+def _require_native_plane_breakable_cudagraph() -> bool:
+    """Fail closed unless vLLM will execute native planes outside capture."""
     try:
-        layer = _NATIVE_PLANE_LAYER_REGISTRY[int(layer_key)]
-        projection = _NATIVE_PLANE_PROJECTIONS[int(projection_key)]
-    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        envs = importlib.import_module("vllm.envs")
+        config_module = importlib.import_module("vllm.config")
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+    if not bool(envs.VLLM_USE_BREAKABLE_CUDAGRAPH):
         raise _fail(
-            f"native-plane fake custom-op binding is unavailable: "
-            f"layer_key={layer_key} projection_key={projection_key}"
-        ) from exc
-    rows = x.reshape(-1, x.shape[-1]).shape[0]
-    return x.new_empty((rows, layer.state(projection).output_width), dtype=torch.bfloat16)
+            "native planes require VLLM_USE_BREAKABLE_CUDAGRAPH=1; "
+            "torch.compile splitting_ops are not an accepted fallback"
+        )
+    config = config_module.get_current_vllm_config_or_none()
+    if config is None:
+        raise _fail("native-plane CUDA-graph contract requires an active vLLM config")
+    mode = config.compilation_config.cudagraph_mode
+    if mode != config_module.CUDAGraphMode.PIECEWISE:
+        raise _fail(
+            "native planes require cudagraph_mode=PIECEWISE; "
+            f"full capture is unsafe for stateful native kernels (actual={mode})"
+        )
+    return True
 
 
 def _ensure_native_plane_custom_op() -> bool:
@@ -383,14 +400,19 @@ def _ensure_native_plane_custom_op() -> bool:
     global _NATIVE_PLANE_CUSTOM_OP_REGISTERED
     if _NATIVE_PLANE_CUSTOM_OP_REGISTERED:
         return _NATIVE_PLANE_CUSTOM_OP_AVAILABLE
+    if not _require_native_plane_breakable_cudagraph():
+        return False
     try:
+        from vllm.compilation.breakable_cudagraph import eager_break_during_capture
         from vllm.utils.torch_utils import direct_register_custom_op
     except (ImportError, ModuleNotFoundError):
         return False
     direct_register_custom_op(
         "banana_smasher_native_plane_forward",
-        _native_plane_forward_op,
+        eager_break_during_capture(_native_plane_forward_op),
+        mutates_args=["output"],
         fake_impl=_native_plane_forward_fake,
+        tags=(torch.Tag.cudagraph_unsafe,),
     )
     _NATIVE_PLANE_CUSTOM_OP_REGISTERED = True
     _NATIVE_PLANE_CUSTOM_OP_AVAILABLE = True
@@ -400,6 +422,11 @@ def _ensure_native_plane_custom_op() -> bool:
 def _register_native_plane_layer(layer: "NativePlaneLayer") -> int | None:
     global _NATIVE_PLANE_NEXT_KEY
     if not _ensure_native_plane_custom_op():
+        if layer.device.type == "cuda":
+            raise _fail(
+                "CUDA native planes require the registered breakable-cudagraph "
+                "custom op; direct Python dispatch is not an accepted fallback"
+            )
         return None
     key = _NATIVE_PLANE_NEXT_KEY
     _NATIVE_PLANE_NEXT_KEY += 1
@@ -736,9 +763,15 @@ class NativePlaneLayer:
             raise ValueError(f"unknown projection: {projection}")
         if self._custom_op_key is None:
             return self._forward_impl(x, expert_ids, projection)
-        return torch.ops.vllm.banana_smasher_native_plane_forward(
+        rows = x.reshape(-1, x.shape[-1]).shape[0]
+        output = x.new_empty(
+            (rows, self.state(projection).output_width), dtype=torch.bfloat16
+        )
+        torch.ops.vllm.banana_smasher_native_plane_forward(
             x,
             expert_ids,
+            output,
             self._custom_op_key,
             _NATIVE_PLANE_PROJECTIONS.index(projection),
         )
+        return output

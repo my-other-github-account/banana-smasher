@@ -1,7 +1,10 @@
 {
   "schema": "banana-smasher-acceleration-manifest-v1",
   "source_commit": "c00714c6803f7e2de7a95d103dbe172236b22adf",
-  "successor_commits": ["50468029e846c926e8f0aaeb6c9efc1c1a1ac0de"],
+  "successor_commits": [
+    "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
+    "12157a76b11f172081882b9b5efbc8281b65f74b"
+  ],
   "accelerations": [
     {
       "id": "bs-pack-export-verify",
@@ -21,8 +24,8 @@
       "id": "native-plane-p1016",
       "source": ["banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py", "banana-smasher-plugin/src/banana_smasher_plugin/quantization.py"],
       "build_dependency_or_asset": ["numpy", "safetensors", "native plane pack"],
-      "runtime_activation": ["quantization_config.quant_method=banana_smasher", "stock DeepSeek routed-expert layer selection"],
-      "tests": ["banana-smasher-plugin/tests/test_native_plane_runtime.py", "banana-smasher-plugin/tests/test_plugin_contract.py"]
+      "runtime_activation": ["quantization_config.quant_method=banana_smasher", "stock DeepSeek routed-expert layer selection", "opaque vLLM custom op tagged cudagraph_unsafe", "VLLM_USE_BREAKABLE_CUDAGRAPH=1 with cudagraph_mode=PIECEWISE; other capture modes or a missing CUDA custom op fail closed"],
+      "tests": ["banana-smasher-plugin/tests/test_native_plane_runtime.py", "banana-smasher-plugin/tests/test_native_plane_compile_boundary.py", "banana-smasher-plugin/tests/test_plugin_contract.py", "docker/tests/test_public_source_dockerfile.py"]
     },
     {
       "id": "p1016-cutedsl-tlut",
