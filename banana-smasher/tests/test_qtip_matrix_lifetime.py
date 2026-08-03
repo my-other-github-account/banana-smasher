@@ -8,6 +8,7 @@ import pytest
 import torch
 
 from banana_smasher.qtip_matrix_lifetime import build_qtip_bounded
+from banana_smasher.qtip_runner import pack_kernel_layout
 
 
 class _Runner:
@@ -165,3 +166,60 @@ def test_bounded_builder_regularizes_hessian_without_second_full_matrix() -> Non
     regularized = next(event for event in events if event["phase"] == "hessian_regularized")
     assert regularized["live_fp32_matrices"] == ["hessian"]
     assert regularized["unique_storage_count"] == 1
+
+
+def test_manifest_packed_wire_is_inverse_of_production_decoder_layout() -> None:
+    m = k = 32
+    codebook_k = 2
+    states = torch.arange(m * k // 2, dtype=torch.int32).reshape(m, k // 2)
+    canonical = (
+        torch.arange(m * k * codebook_k // 16, dtype=torch.int32)
+        .mul(257)
+        .add(0x1234)
+        .bitwise_and(0xFFFF)
+        .to(torch.uint16)
+        .reshape(m * k // 256, 16 * codebook_k)
+    )
+
+    class Codebook:
+        L = 16
+        K = codebook_k
+        V = 2
+        _banana_smasher_public_runner_pack_contract = {
+            "schema": "banana-smasher-public-runner-pack-contract-v1",
+            "geometry": (16, codebook_k, 2),
+            "matrix_shape": (m, k),
+            "input_tile": (16, 16),
+            "dtype": "uint16",
+            "packed_words_per_tile_per_k": 16,
+            "output_rows": "input_tile_grid",
+            "expected_shape": tuple(canonical.shape),
+        }
+
+        def pack_trellis(self, tiled):
+            self.tiled = tiled
+            return canonical.clone()
+
+        def unpack_trellis(self, packed, tile_size):
+            assert torch.equal(packed, canonical)
+            assert tile_size == 256
+            return self.tiled.clone()
+
+    packed_wire, receipt = pack_kernel_layout(Codebook(), states, m, k)
+    decoder_canonical = (
+        packed_wire.view(torch.uint8)
+        .reshape(m // 32, k // 32, 32, 2, 2, codebook_k)
+        .permute(0, 4, 1, 3, 2, 5)
+        .flip((-1,))
+        .reshape(m // 16, k // 16, 16 * codebook_k, 2)
+        .flip((-1,))
+        .contiguous()
+        .view(torch.uint16)
+        .reshape(canonical.shape)
+    )
+
+    assert receipt["canonical_pack_roundtrip_exact"] is True
+    assert receipt["kernel_swizzle"] == (
+        "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)"
+    )
+    assert torch.equal(decoder_canonical, canonical)

@@ -699,23 +699,19 @@ def pack_kernel_layout(
     # tie path than the sealed full-state kernel.  Canonical packing is the
     # wire authority; retain the measured roundtrip fraction and reconstruct
     # from the packed bytes below rather than rejecting a sane candidate.
-    if manifest_layout is not None:
-        kernel = packed
-        swizzle = "manifest-canonical-direct"
-    else:
-        kernel = (
-            packed.view(torch.uint8)
-            .view(-1, 2)
-            .flip((-1,))
-            .reshape(m // 32, 2, k // 32, 2, 32, codebook_k)
-            .permute(0, 2, 4, 3, 1, 5)
-            .flip((-1,))
-            .contiguous()
-            .flatten()
-            .view(torch.int16)
-            .reshape(packed.shape)
-        )
-        swizzle = "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)"
+    kernel = (
+        packed.view(torch.uint8)
+        .view(-1, 2)
+        .flip((-1,))
+        .reshape(m // 32, 2, k // 32, 2, 32, codebook_k)
+        .permute(0, 2, 4, 3, 1, 5)
+        .flip((-1,))
+        .contiguous()
+        .flatten()
+        .view(torch.uint16 if manifest_layout is not None else torch.int16)
+        .reshape(packed.shape)
+    )
+    swizzle = "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)"
     expected = packed.numel() * packed.element_size()
     actual = kernel.numel() * kernel.element_size()
     if actual != expected:

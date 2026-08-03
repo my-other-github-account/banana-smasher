@@ -774,6 +774,41 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 12114,
+      "output_sha256": "d3e692c1090c04e98f279b271e33ab338ddce9c62e9e48c400b6915c6893b66f",
+      "path": "banana-smasher/src/banana_smasher/file_backed.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 3836,
+      "output_sha256": "16eea326db3a40fffa579e7b75c5ac1a7719d4dfed912ba04c98932249115f50",
+      "path": "banana-smasher/src/banana_smasher/fwht.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 8443,
+      "output_sha256": "feb2d3188381680f11e01ec8bc9c6f134ceccea212c0f7012ba6207ad8aff5df",
+      "path": "banana-smasher/src/banana_smasher/kmajor_batch.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 17080,
+      "output_sha256": "899ad248c3529366b048f3dd2edd0d2acc5582b1d26c43771dfeaf6e3a1cbfc0",
+      "path": "banana-smasher/src/banana_smasher/kmajor_fused.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 8014,
+      "output_sha256": "5a7873cd73c43b4b4c0be78a8226bbf2adc41855a0cf59ead63d8e1b6a7d0d2d",
+      "path": "banana-smasher/src/banana_smasher/kmajor_graph.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 69616,
       "output_sha256": "49718befc89ea3ed29df5f3063c92636601565779f60d9cdb48eab0412294f6e",
       "path": "banana-smasher/src/banana_smasher/knapsack.py",
@@ -789,6 +824,13 @@
       "bytes": 35358,
       "output_sha256": "53e81e29c92fb80ba1cb4f8208bbd71c7468bca4e1287189617ac4c8f7f8fd3e",
       "path": "banana-smasher/src/banana_smasher/persistent.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 11203,
+      "output_sha256": "26ece9b7f147c06927ca0c5e7938f724db7f9449dd9d34292204f0a9b0592874",
+      "path": "banana-smasher/src/banana_smasher/production_update.py",
       "provenance": "corrective-review-generated"
     },
     {
@@ -828,8 +870,8 @@
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 67676,
-      "output_sha256": "f1f6e833264bcfc96a0bace380514bbb49fa31791c54e8e76fa54663563e1102",
+      "bytes": 67557,
+      "output_sha256": "8c45536a9f2bf8e26d324ed07a474da733f0bc144d56a456944445f71f1717af",
       "path": "banana-smasher/src/banana_smasher/qtip_runner.py",
       "provenance": "corrective-review-generated"
     },
@@ -847,7 +889,7 @@
     },
     {
       "bytes": 82045,
-      "output_sha256": "13cc9d71f66e875a0f373298b99e54b2e2e1ee247d14f3e54df211027b0dfd1a",
+      "output_sha256": "0367396e9bbabb7b697eda4fad55731fce1179f237524a52a848d8be0d6ed08d",
       "path": "banana-smasher/src/banana_smasher/solver_qtip_profile.py",
       "provenance": "corrective-review-generated"
     },
@@ -973,6 +1015,13 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 6286,
+      "output_sha256": "08bca677fd134c41d715366c1f8426471b1fc8cf12b99bf8f2c002369d084396",
+      "path": "banana-smasher/tests/test_file_backed_frozen.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 5902,
       "output_sha256": "f8ccc6d4f53e0be219449250f566611f5a2805a092f37cd1001c0c70a96b6eb1",
       "path": "banana-smasher/tests/test_knapsack.py",
@@ -985,8 +1034,15 @@
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 5500,
-      "output_sha256": "5f74a248ee885096ca912e29393f10b84268aef018925697b68f22f403c723f1",
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 17454,
+      "output_sha256": "5f6975651bef491526004e502f4c7a418b7ac750483b1cd5ec4dd34e37fc6302",
+      "path": "banana-smasher/tests/test_production_update_acceleration.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 7414,
+      "output_sha256": "68063b3c2c39fc118e560b9394466311741ab753ae12ffc42f6239f9a9fc795c",
       "path": "banana-smasher/tests/test_qtip_matrix_lifetime.py",
       "provenance": "corrective-review-generated"
     },
