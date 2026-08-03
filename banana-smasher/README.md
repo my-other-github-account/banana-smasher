@@ -33,3 +33,12 @@ The first sealed model instance has no special framework name. Reusable package,
 Members and checkpoints use relative paths, byte counts, SHA-256 identities, and chained completion markers. Verification rejects missing, extra, tampered, unsafe, or unpaired artifacts. The optional `real_axis` object in `bs-pack-v1` binds a pack to its numerical runtime descriptor without changing the required export or repair-pack contract.
 
 These metrics compare declared numerical artifacts. They do not assert causal-context equivalence or same-work language-model equivalence. See `notes/reports/paired-real-axis-api.md` for the portable schemas, durability rules, and interpretation boundary.
+
+## Anchor evaluation
+
+`ANCHOR_EVALUATION.md` documents the generic four-bank API and the complete
+`smash anchor` workflow from manifest registration through solver-ready rows.
+The wheel includes the bank, raw-score, and aggregate schemas plus a public-safe
+four-bank provenance bundle. Training banks may drive fitting and solver rows;
+holdout banks fail closed on those uses unless an explicit diagnostic-only
+override is supplied.
