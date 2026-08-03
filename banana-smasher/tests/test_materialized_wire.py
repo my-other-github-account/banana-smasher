@@ -657,6 +657,12 @@ def test_selected_wire_materializer_merges_rebased_qtip_d4_and_base_native(
     assert np.array_equal(
         unpack_index_rows(packed[0], bits=10, values_per_row=8), d4_codes
     )
+    codebooks = np.load(output / d4["codebooks"]["file"])
+    codebook_index = np.load(output / d4["codebook_index"]["file"])
+    assert codebooks.shape == (2, 1024, 4)
+    assert codebook_index.tolist() == [0, 1]
+    assert np.array_equal(codebooks[0], codebook)
+    assert np.count_nonzero(codebooks[1]) == 0
     native_ids = np.load(
         output
         / meta["payloads"]["down"]["native_mxfp4"]["tensors"]["expert_ids"][

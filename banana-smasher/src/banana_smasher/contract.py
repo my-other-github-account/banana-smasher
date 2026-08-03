@@ -1316,7 +1316,8 @@ def materialize_selected_wire(
                             dtype=np.dtype("uint8"),
                         )
                         decoded_digest = hashlib.sha256()
-                        codebook_candidates: dict[str, Path] = {}
+                        codebooks_by_sha: dict[str, np.ndarray] = {}
+                        expert_codebook_shas: list[str] = []
                         base_group = groups.get((layer, projection, tier))
                         base_codes = (
                             _selected_wire_base_array(base_group, "codes")
@@ -1328,6 +1329,19 @@ def materialize_selected_wire(
                             if base_group is not None
                             else None
                         )
+                        base_codebook_sha: str | None = None
+                        base_codebook_array: np.ndarray | None = None
+                        if base_group is not None:
+                            base_codebook = _selected_wire_base_array(
+                                base_group, "codebooks"
+                            )
+                            try:
+                                base_codebook_array = np.array(base_codebook, copy=True)
+                            finally:
+                                _close_memmap(base_codebook)
+                            base_codebook_sha = hashlib.sha256(
+                                base_codebook_array.tobytes(order="C")
+                            ).hexdigest()
                         for selected_slot, expert in enumerate(experts):
                             row = rows_by_cell.get((layer, expert, projection))
                             if row is not None and row.get("artifact") is not None:
@@ -1384,7 +1398,11 @@ def materialize_selected_wire(
                                     rebases=rebases,
                                     label=f"selected codebook L{layer}/{projection}/{tier}",
                                 )
-                                codebook_candidates[str(row.get("codebook_sha256"))] = codebook
+                                selected_codebook_sha = str(row.get("codebook_sha256"))
+                                if selected_codebook_sha not in codebooks_by_sha:
+                                    codebooks_by_sha[selected_codebook_sha] = np.fromfile(
+                                        codebook, dtype="<f2"
+                                    ).reshape(-1, 4)
                             else:
                                 if base_group is None or expert not in base_group["slots"]:
                                     raise PackValidationError(
@@ -1420,33 +1438,46 @@ def materialize_selected_wire(
                                     ),
                                     dtype=np.int16,
                                 )
+                                if base_codebook_sha is None:
+                                    raise PackValidationError(
+                                        f"selected unchanged D4 group has no substrate codebook: "
+                                        f"L{layer}/{projection}/{tier}"
+                                    )
+                                selected_codebook_sha = base_codebook_sha
+                                assert base_codebook_array is not None
+                                codebooks_by_sha.setdefault(
+                                    selected_codebook_sha, base_codebook_array
+                                )
                             codes_output[selected_slot] = packed_codes
                             scales_output[selected_slot] = scales
                             decoded_digest.update(decoded_row.tobytes(order="C"))
-                        if len(codebook_candidates) > 1:
-                            raise PackValidationError(
-                                f"selected D4 group binds multiple codebooks L{layer}/{projection}/{tier}: "
-                                f"{sorted(codebook_candidates)}"
-                            )
-                        if codebook_candidates:
-                            codebook_path = next(iter(codebook_candidates.values()))
-                            codebook = np.fromfile(codebook_path, dtype="<f2").reshape(-1, 4)
-                        elif base_group is not None:
-                            base_codebook = _selected_wire_base_array(
-                                base_group, "codebooks"
-                            )
-                            try:
-                                codebook = np.array(base_codebook, copy=True)
-                            finally:
-                                _close_memmap(base_codebook)
-                        else:
+                            expert_codebook_shas.append(selected_codebook_sha)
+                        if not codebooks_by_sha:
                             raise PackValidationError(
                                 f"selected D4 group has no codebook L{layer}/{projection}/{tier}"
                             )
-                        if codebook.shape != (int(tier.removeprefix("d4_k")), 4):
+                        required_codebook_shape = (
+                            int(tier.removeprefix("d4_k")),
+                            4,
+                        )
+                        if any(
+                            codebook.shape != required_codebook_shape
+                            for codebook in codebooks_by_sha.values()
+                        ):
                             raise PackValidationError(
-                                f"selected D4 codebook shape drift L{layer}/{projection}/{tier}: {codebook.shape}"
+                                f"selected D4 codebook shape drift L{layer}/{projection}/{tier}"
                             )
+                        codebook_shas = list(codebooks_by_sha)
+                        codebooks = np.stack(
+                            [codebooks_by_sha[sha] for sha in codebook_shas]
+                        )
+                        codebook_slots = {
+                            sha: slot for slot, sha in enumerate(codebook_shas)
+                        }
+                        codebook_index = np.asarray(
+                            [codebook_slots[sha] for sha in expert_codebook_shas],
+                            dtype=np.int16,
+                        )
                         tensor_specs["codes"] = _finish_selected_array(
                             codes_path, codes_output
                         )
@@ -1472,7 +1503,7 @@ def materialize_selected_wire(
                             _close_memmap(base_codes)
                         if base_scales is not None:
                             _close_memmap(base_scales)
-                        np.save(output / f"{prefix}.codebooks.npy", codebook, allow_pickle=False)
+                        np.save(output / f"{prefix}.codebooks.npy", codebooks, allow_pickle=False)
                         tensor_specs["codebooks"] = {
                             "file": f"{prefix}.codebooks.npy",
                             **{
@@ -1483,6 +1514,21 @@ def materialize_selected_wire(
                                 if key in {"shape", "data_bytes", "data_sha256"}
                             },
                             "dtype": "float16",
+                        }
+                        np.save(
+                            output / f"{prefix}.codebook_index.npy",
+                            codebook_index,
+                            allow_pickle=False,
+                        )
+                        codebook_index_meta = _npy_metadata(
+                            output / f"{prefix}.codebook_index.npy"
+                        )
+                        tensor_specs["codebook_index"] = {
+                            "file": f"{prefix}.codebook_index.npy",
+                            "dtype": "int16",
+                            "shape": codebook_index_meta["shape"],
+                            "data_bytes": codebook_index_meta["data_bytes"],
+                            "data_sha256": codebook_index_meta["data_sha256"],
                         }
                     else:
                         base_group = groups.get((layer, projection, tier))
