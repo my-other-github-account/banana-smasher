@@ -184,6 +184,7 @@ def build_qtip_bounded(
         "reconstructed_weight": reconstructed_fp16,
         "geometry": geometry,
     }
+    packed_decode_started = time.perf_counter()
     decoded, packed_decode = runner.decode_packed(candidate, kernel_decode, device)
     if packed_decode.get("fp16_bit_exact") is not True:
         raise RuntimeError(f"packed decode conformance failed {m}x{k}: {packed_decode}")
@@ -194,6 +195,9 @@ def build_qtip_bounded(
         )
     lifetime.observe("packed_decode_verified", decoded=decoded)
     del decoded, decoded_fp16
+    phase_seconds["packed_decode_conformance"] = (
+        time.perf_counter() - packed_decode_started
+    )
     packed_decode = {**packed_decode, "runtime_check_performed": True}
     build_receipt: dict[str, Any] = {
         "rht_seed": rht_seed,

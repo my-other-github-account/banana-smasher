@@ -101,6 +101,7 @@ def test_bounded_builder_releases_ldl_inputs_before_pack_and_preserves_weight() 
     assert lifetime["reconstructed_weight_device"] == "cpu"
     assert receipt["packed_decode"]["runtime_check_performed"] is True
     assert receipt["packed_decode"]["fp16_bit_exact"] is True
+    assert receipt["phase_seconds"]["packed_decode_conformance"] >= 0.0
 
 
 def test_bounded_builder_rejects_non_exact_canonical_pack_roundtrip() -> None:
