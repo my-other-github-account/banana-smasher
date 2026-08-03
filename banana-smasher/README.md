@@ -25,3 +25,11 @@ The bound inputs are supplied with `--repair-checkpoint`, `--repair-checkpoint-s
 Repair checkpoint loading is weights-only and requires PyTorch in the export environment. Pack loading and validation retain the lightweight NumPy + safetensors runtime.
 
 The first sealed model instance has no special framework name. Reusable package, schema, CLI, and documentation names remain `banana-smasher`, `bs-pack`, and `smash`.
+
+## Portable teacher bank and paired evaluation
+
+`smash bank` builds or resumes a content-hashed teacher bank from a declared model runtime, corpus, windows manifest, and optional instrument profile. `smash evaluate` requires both `--candidate` and `--reference` packs and persists the explicit `paired_real_axis` mode. Use `smash bank --help` and `smash evaluate --help` for the complete public arguments.
+
+Members and checkpoints use relative paths, byte counts, SHA-256 identities, and chained completion markers. Verification rejects missing, extra, tampered, unsafe, or unpaired artifacts. The optional `real_axis` object in `bs-pack-v1` binds a pack to its numerical runtime descriptor without changing the required export or repair-pack contract.
+
+These metrics compare declared numerical artifacts. They do not assert causal-context equivalence or same-work language-model equivalence. See `notes/reports/paired-real-axis-api.md` for the portable schemas, durability rules, and interpretation boundary.

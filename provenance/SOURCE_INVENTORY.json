@@ -165,8 +165,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 3352,
-      "output_sha256": "cd8334e62589d25cce675b801dc33cca89dc28cffd02de08c4e1bb3446f51eee",
+      "bytes": 4363,
+      "output_sha256": "ed842d58587b0a640feed480556f358fea225ed9a29b6aeaa9b371b0833ef37c",
       "path": "banana-smasher/README.md",
       "source_path": "banana-smasher/README.md",
       "source_sha256": "937a2cd07bf27ecbf0a8e6cafe9d4b02dbc6b5972ac205783c9e2a45801488f8"
@@ -452,25 +452,25 @@
       "source_sha256": "50e246f52cb0b77fc31a08e1cb461c6a5c9be729d277938cee27a19756d25376"
     },
     {
-      "byte_preserved": true,
-      "bytes": 1593,
-      "output_sha256": "4fc0401e6da4fedfdd18238b5c9eeab0700a250bdc1d9d8a4d11e7a0f237ac5c",
+      "byte_preserved": false,
+      "bytes": 2105,
+      "output_sha256": "40937d03b3367c664a6e2500d10d19af13eca3d3575f354cd6cd429443a6f231",
       "path": "banana-smasher/schema/bs-pack-v1.schema.json",
       "source_path": "banana-smasher/schema/bs-pack-v1.schema.json",
       "source_sha256": "4fc0401e6da4fedfdd18238b5c9eeab0700a250bdc1d9d8a4d11e7a0f237ac5c"
     },
     {
-      "byte_preserved": true,
-      "bytes": 323,
-      "output_sha256": "5fdbde4d09c5f292f8546e12a5bc6850ea1078e0d991d27010119ff14df25ff6",
+      "byte_preserved": false,
+      "bytes": 494,
+      "output_sha256": "2d45a9063a8d57de1072a904ce5df60634b7f4bd1ebfd380e16188f794409027",
       "path": "banana-smasher/src/banana_smasher/__init__.py",
       "source_path": "banana-smasher/src/banana_smasher/__init__.py",
       "source_sha256": "5fdbde4d09c5f292f8546e12a5bc6850ea1078e0d991d27010119ff14df25ff6"
     },
     {
       "byte_preserved": false,
-      "bytes": 12210,
-      "output_sha256": "61b73bedfd200329c64279b3e6f0dec98827dbb73d93eb0f3767517eb61faba4",
+      "bytes": 14119,
+      "output_sha256": "46368fe75230f8f54e42d32d93f02f8086738ed85c3279e531664bad501fc850",
       "path": "banana-smasher/src/banana_smasher/cli.py",
       "source_path": "banana-smasher/src/banana_smasher/cli.py",
       "source_sha256": "b11c01e1d229b23fbf3df2632fc9391d604a9f93df98537bc4797840a7a05669"
@@ -544,8 +544,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 18154,
-      "output_sha256": "af75b5b6bacbbd16c57d7f6b63563ce7f5d4b65a53eb442f6e44387966af2367",
+      "bytes": 18307,
+      "output_sha256": "67c4aa43931dde410bdcb40f6d86b025faec5309b2d55aa0afd0ed05bec87a58",
       "path": "banana-smasher/tests/test_cli.py",
       "source_path": "banana-smasher/tests/test_cli.py",
       "source_sha256": "cd14b69423fb6589506c5b4fc31bd7ff9300878903dbfe3c0352eb3135cc9cf9"
@@ -755,6 +755,108 @@
       "bytes": 12409,
       "output_sha256": "ff4a5c1afa2cb0ff6f543eb50e895568ce1fcbd4029e21b0907d0c58e76e5354",
       "path": "banana-smasher/tests/test_update_tensor_geometry.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 9484,
+      "output_sha256": "ea4f34432384385d346f1f4b2975b53f28af45e206130d4ab729e4ff98bab5d7",
+      "path": "banana-smasher/schema/bs-paired-real-axis-evaluation-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 876,
+      "output_sha256": "02bd28c7d033907df47403af21946a2a9ab940cc9bcba0b09baec94922f0ccff",
+      "path": "banana-smasher/schema/bs-real-axis-instrument-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 1787,
+      "output_sha256": "421336bb3162852c7d66c9297b4f9aba5efd1d0de4e0ff5669ad3094696ae551",
+      "path": "banana-smasher/schema/bs-real-axis-runtime-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 1223,
+      "output_sha256": "2a927e1905ab34673765c859a040ebd5fe4419ca1d88fc4252f4ad92e534c039",
+      "path": "banana-smasher/schema/bs-real-axis-windows-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 5093,
+      "output_sha256": "218b8af0a3c9136ac06edcb4d6680cf91b2f6f1707f5d72aa4a9197e4e2f7d58",
+      "path": "banana-smasher/schema/bs-teacher-bank-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 26294,
+      "output_sha256": "58e1becf1001272086520af091eddac36e28c4606bb8ba4464bc583830b21dec",
+      "path": "banana-smasher/src/banana_smasher/bank.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 16656,
+      "output_sha256": "8a863bf6d318e6cd68b135d7208765a526314a17b0a89eb9de616c894e3797e8",
+      "path": "banana-smasher/src/banana_smasher/durability.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 45793,
+      "output_sha256": "d98abcc7d26870ef1e9683fea90fb356f387c1dfb89c1077b96807bf0d8cb2bd",
+      "path": "banana-smasher/src/banana_smasher/evaluate.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 9207,
+      "output_sha256": "769c6ed1cdd5ef8438d56b6d7b5a04ac65c2f56a12003d0a23060ce76f3584c5",
+      "path": "banana-smasher/src/banana_smasher/metrics.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 282,
+      "output_sha256": "984b8ea4f3c5447c2dca1bf153a2f45812856b51c0a232d69e7bdc4599df9a21",
+      "path": "banana-smasher/src/banana_smasher/profiles/real-axis-v1.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 17489,
+      "output_sha256": "247be94d6a431c6de0cb4d08503bd6f4404fdab4b0278f270b61c62a15cece40",
+      "path": "banana-smasher/src/banana_smasher/real_axis.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 8375,
+      "output_sha256": "3608b8108109198b1078be73d194e8abc9ebe53406a519dc007ca21535a11dca",
+      "path": "banana-smasher/tests/real_axis_fixtures.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 13204,
+      "output_sha256": "ab537eab89762ea5983a039a19ce8e75bff6896c4eb6ec5f887505def8049cc7",
+      "path": "banana-smasher/tests/test_bank.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 2867,
+      "output_sha256": "52c68e0e1acb15ce3cff7bf27b9d7c826502f9f7569a606df1f9ad287f8c3cd1",
+      "path": "banana-smasher/tests/test_bank_evaluate_cli.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 3741,
+      "output_sha256": "dd71fa439f1a30ca9308f36fbe5719d182de10a5af063cfd475fefc841cf068e",
+      "path": "banana-smasher/tests/test_bank_evaluate_manifests.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 18935,
+      "output_sha256": "83c7ccba14c586d87977a9fb8cb7f4ce311826b4550537cd8d99f3dbd9f55947",
+      "path": "banana-smasher/tests/test_evaluate.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 1760,
+      "output_sha256": "fe804321474484e9a5d68ea5df21ae703047315f0d2beabe725c2628ceac5a16",
+      "path": "banana-smasher/tests/test_real_axis_metrics.py",
       "provenance": "corrective-review-generated"
     },
     {
