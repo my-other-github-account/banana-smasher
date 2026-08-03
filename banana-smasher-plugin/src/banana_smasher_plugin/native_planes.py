@@ -334,6 +334,78 @@ class ProjectionState:
 
 Dispatch = Callable[..., torch.Tensor]
 
+_NATIVE_PLANE_LAYER_REGISTRY: dict[int, "NativePlaneLayer"] = {}
+_NATIVE_PLANE_NEXT_KEY = 1
+_NATIVE_PLANE_CUSTOM_OP_REGISTERED = False
+_NATIVE_PLANE_CUSTOM_OP_AVAILABLE = False
+_NATIVE_PLANE_PROJECTIONS = ("fused13", "down")
+
+
+def _native_plane_forward_op(
+    x: torch.Tensor,
+    expert_ids: torch.Tensor,
+    layer_key: int,
+    projection_key: int,
+) -> torch.Tensor:
+    """Opaque stock-vLLM boundary for native-plane state and CUDA kernels."""
+    try:
+        layer = _NATIVE_PLANE_LAYER_REGISTRY[int(layer_key)]
+        projection = _NATIVE_PLANE_PROJECTIONS[int(projection_key)]
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise _fail(
+            f"native-plane custom-op binding is unavailable: "
+            f"layer_key={layer_key} projection_key={projection_key}"
+        ) from exc
+    return layer._forward_impl(x, expert_ids, projection)
+
+
+def _native_plane_forward_fake(
+    x: torch.Tensor,
+    expert_ids: torch.Tensor,
+    layer_key: int,
+    projection_key: int,
+) -> torch.Tensor:
+    del expert_ids
+    try:
+        layer = _NATIVE_PLANE_LAYER_REGISTRY[int(layer_key)]
+        projection = _NATIVE_PLANE_PROJECTIONS[int(projection_key)]
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise _fail(
+            f"native-plane fake custom-op binding is unavailable: "
+            f"layer_key={layer_key} projection_key={projection_key}"
+        ) from exc
+    rows = x.reshape(-1, x.shape[-1]).shape[0]
+    return x.new_empty((rows, layer.state(projection).output_width), dtype=torch.bfloat16)
+
+
+def _ensure_native_plane_custom_op() -> bool:
+    global _NATIVE_PLANE_CUSTOM_OP_AVAILABLE
+    global _NATIVE_PLANE_CUSTOM_OP_REGISTERED
+    if _NATIVE_PLANE_CUSTOM_OP_REGISTERED:
+        return _NATIVE_PLANE_CUSTOM_OP_AVAILABLE
+    try:
+        from vllm.utils.torch_utils import direct_register_custom_op
+    except (ImportError, ModuleNotFoundError):
+        return False
+    direct_register_custom_op(
+        "banana_smasher_native_plane_forward",
+        _native_plane_forward_op,
+        fake_impl=_native_plane_forward_fake,
+    )
+    _NATIVE_PLANE_CUSTOM_OP_REGISTERED = True
+    _NATIVE_PLANE_CUSTOM_OP_AVAILABLE = True
+    return True
+
+
+def _register_native_plane_layer(layer: "NativePlaneLayer") -> int | None:
+    global _NATIVE_PLANE_NEXT_KEY
+    if not _ensure_native_plane_custom_op():
+        return None
+    key = _NATIVE_PLANE_NEXT_KEY
+    _NATIVE_PLANE_NEXT_KEY += 1
+    _NATIVE_PLANE_LAYER_REGISTRY[key] = layer
+    return key
+
 
 def _fwht(value: torch.Tensor) -> torch.Tensor:
     """Exact normalized transform used by the sealed P1016 QTIP path."""
@@ -431,6 +503,7 @@ class NativePlaneLayer:
             projection: self._load_projection(projection)
             for projection in ("fused13", "down")
         }
+        self._custom_op_key = _register_native_plane_layer(self)
 
     def _tensor(self, spec: dict[str, Any]) -> torch.Tensor:
         relative = spec.get("file")
@@ -610,7 +683,7 @@ class NativePlaneLayer:
         except KeyError as exc:
             raise ValueError(f"unknown projection: {projection}") from exc
 
-    def forward(
+    def _forward_impl(
         self,
         x: torch.Tensor,
         expert_ids: torch.Tensor,
@@ -624,17 +697,48 @@ class NativePlaneLayer:
                 f"layer {self.layer_index} {projection} routed shape mismatch: "
                 f"x={tuple(x.shape)} ids={tuple(expert_ids.shape)} expected_k={state.input_width}"
             )
-        if bool(torch.any(expert_ids < 0)) or bool(torch.any(expert_ids >= len(state.tiers))):
-            raise _fail(f"layer {self.layer_index} {projection} expert id out of range")
+        range_error = (
+            f"layer {self.layer_index} {projection} expert id out of range"
+        )
+        # Stock vLLM uses -1 as a graph-padding sentinel for inactive routed rows.
+        # Accept only that sentinel, clamp every id before any device pointer-table
+        # lookup, and zero inactive outputs.  The async guards still fail closed on
+        # values below -1 or above the immutable expert table without introducing
+        # a host synchronization during CUDA-graph capture.
+        expert_count = len(state.tiers)
+        torch.ops.aten._assert_async.msg(torch.all(expert_ids >= -1), range_error)
+        torch.ops.aten._assert_async.msg(
+            torch.all(expert_ids < expert_count), range_error
+        )
+        active_routes = (expert_ids >= 0) & (expert_ids < expert_count)
+        safe_expert_ids = expert_ids.clamp(min=0, max=expert_count - 1)
         result = self._dispatch(
             projection=projection,
             x=x,
-            expert_ids=expert_ids,
+            expert_ids=safe_expert_ids,
             state=state,
         )
+        result = torch.where(active_routes.reshape(-1, 1), result, 0)
         if tuple(result.shape) != (x.shape[0], state.output_width):
             raise _fail(
                 f"layer {self.layer_index} {projection} accelerated output shape drift: "
                 f"{tuple(result.shape)}"
             )
         return result
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        expert_ids: torch.Tensor,
+        projection: str,
+    ) -> torch.Tensor:
+        if projection not in _NATIVE_PLANE_PROJECTIONS:
+            raise ValueError(f"unknown projection: {projection}")
+        if self._custom_op_key is None:
+            return self._forward_impl(x, expert_ids, projection)
+        return torch.ops.vllm.banana_smasher_native_plane_forward(
+            x,
+            expert_ids,
+            self._custom_op_key,
+            _NATIVE_PLANE_PROJECTIONS.index(projection),
+        )
