@@ -117,12 +117,18 @@ def validate_request(value: object) -> dict[str, Any]:
 
 
 def request_identity(request: dict[str, Any]) -> str:
+    normalized = validate_request(request)
     bound = {
-        "segment_id": request["segment_id"],
-        "input_checkpoint_sha256": request["input_checkpoint_sha256"],
-        "config_sha256": request["config_sha256"],
-        "aot_sha256": request["aot_sha256"],
-        "payload": request.get("payload", {}),
+        key: value
+        for key, value in normalized.items()
+        if key
+        not in {
+            "attempt_id",
+            "ledger_state",
+            "queued_unix",
+            "request_id",
+            "request_identity_sha256",
+        }
     }
     return _sha256_bytes(_canonical_json(bound))
 
@@ -371,18 +377,35 @@ class UpdateQueue:
         }.get(entry.get("state"))
         if external_state is None:
             raise RuntimeError(f"invalid ledger state for {request_id}: {entry.get('state')}")
-        for state in (external_state,):
-            path = self._receipt_path(request_id, state)
-            if path.is_file():
-                return _load_json(path)
         request = validate_request(entry["request"])
-        return {
+        canonical = {
             "schema": "banana-smasher-update-queue-receipt-v1",
             "state": external_state,
             "status": external_state,
             "segment_id": request_id,
             "request_id": request_id,
             "request_identity_sha256": request_identity(request),
+            "input_checkpoint_sha256": request["input_checkpoint_sha256"],
+            "config_sha256": request["config_sha256"],
+            "aot_sha256": request["aot_sha256"],
+        }
+        path = self._receipt_path(request_id, external_state)
+        if path.is_file():
+            receipt = _load_json(path)
+            mismatches = [
+                key for key, value in canonical.items() if receipt.get(key) != value
+            ]
+            if mismatches:
+                raise RuntimeError(
+                    f"receipt identity mismatch for segment {request_id}: {mismatches}"
+                )
+            return receipt
+        terminal_fields = entry.get("terminal_fields", {})
+        if not isinstance(terminal_fields, dict):
+            raise RuntimeError(f"invalid terminal fields for segment {request_id}")
+        return {
+            **terminal_fields,
+            **canonical,
             "attempt_id": entry.get("attempt_id"),
             "ledger_state": entry["state"],
             "ledger_revision": self.ledger().get("revision"),
@@ -449,6 +472,22 @@ class UpdateQueue:
     def write_state(self, request: dict[str, Any], state: str, **fields: object) -> dict[str, Any]:
         if state not in {"RUNNING", "PASS", "FAIL"}:
             raise ValueError(f"unsupported queue state {state}")
+        reserved = {
+            "schema",
+            "state",
+            "status",
+            "segment_id",
+            "request_id",
+            "request_identity_sha256",
+            "input_checkpoint_sha256",
+            "config_sha256",
+            "aot_sha256",
+            "attempt_id",
+            "updated_unix",
+        }
+        collisions = sorted(reserved.intersection(fields))
+        if collisions:
+            raise ValueError(f"reserved receipt fields cannot be overridden: {collisions}")
         request = validate_request(request)
         segment_id = request["segment_id"]
         if state == "RUNNING":
@@ -755,6 +794,19 @@ def _serve_queue_unlocked(
             measured_total = time.monotonic() - cycle_started
             if abs(float(result["phase_seconds"]["total"]) - measured_total) > max(1.0, measured_total * 0.5):
                 raise RuntimeError("cycle total phase is not consistent with measured worker wall")
+            current_sha = (
+                worker.get("checkpoint_sha256")
+                if isinstance(worker, dict)
+                else getattr(worker, "checkpoint_sha256")
+            )
+            if current_sha != result["output_checkpoint_sha256"]:
+                raise RuntimeError(
+                    f"resident checkpoint identity mismatch for {request_id}: "
+                    f"{current_sha} != {result['output_checkpoint_sha256']}"
+                )
+            result_fields = {
+                key: value for key, value in result.items() if key != "status"
+            }
             queue.write_state(
                 request,
                 "PASS",
@@ -762,7 +814,7 @@ def _serve_queue_unlocked(
                 running_receipt_sha256=running["receipt_sha256"],
                 init_seconds=init_seconds,
                 completed_unix=time.time(),
-                **result,
+                **result_fields,
             )
             completed += 1
             queue.heartbeat("WAITING", last_segment_id=request_id)

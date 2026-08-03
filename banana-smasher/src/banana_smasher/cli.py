@@ -478,6 +478,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "update-status":
             from .persistent import UpdateQueue
 
+            queue_location = args.queue_root.resolve()
+            ledger_path = (
+                queue_location
+                if queue_location.name == "SEGMENT_QUEUE.json"
+                else queue_location / "SEGMENT_QUEUE.json"
+            )
+            if not ledger_path.is_file():
+                raise FileNotFoundError(f"segment queue does not exist: {ledger_path}")
             queue = UpdateQueue(args.queue_root)
             if args.request_id is not None:
                 result = queue.status(args.request_id)
