@@ -1,0 +1,736 @@
+{
+  "acceptance": {
+    "max_historical_class_abs_pct": 4.0,
+    "max_historical_global_abs_pct": 2.0
+  },
+  "gate_results": {
+    "historical_class": true,
+    "historical_global": true,
+    "overall": true
+  },
+  "generalization_diagnostics": {
+    "near_even_quota_leave_one_out_worst_class_pct": 8.96620121686864,
+    "near_even_quota_leave_one_out_worst_global_pct": 3.8533926009813646,
+    "proportional_quota_leave_one_out_worst_class_pct": 11.11773525089028,
+    "proportional_quota_leave_one_out_worst_global_pct": 3.861223321425289,
+    "status": "FAIL_NOT_AN_ACCEPTANCE_CLAIM",
+    "weighted_coreset_new_vector_worst_class_pct": 10.737136767428712,
+    "weighted_coreset_new_vector_worst_global_pct": 5.012703613770819
+  },
+  "method_sha256": "3aba1493d31cde16d65ef53c348c7ece0ca7f16cbd80a9b63470b5785d016934",
+  "records": {
+    "d4_k1024": {
+      "corrected_class_error_pct": {
+        "agentic": 0.6312981659362782,
+        "chat": -0.7754986798243935,
+        "code": 1.510309538374921,
+        "multilingual": -1.3697842292549112,
+        "prose": 0.0831775484232411,
+        "reasoning": 0.8008744861304207
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.2030080919400599,
+        "chat": 0.06835535824513671,
+        "code": 0.12619875213078016,
+        "multilingual": 0.19689141178024797,
+        "prose": 0.17343888590900788,
+        "reasoning": 0.03525258582966195
+      },
+      "corrected_full512_estimate_global": 0.14761720091545194,
+      "corrected_global_error_pct": 0.17994462203658745,
+      "full512_class": {
+        "agentic": 0.20173454545454544,
+        "chat": 0.06888959615384614,
+        "code": 0.12432111842105262,
+        "multilingual": 0.19962585526315793,
+        "prose": 0.1732947435897436,
+        "reasoning": 0.03497249999999999
+      },
+      "full512_global": 0.147352048828125,
+      "raw_class_error_pct": {
+        "agentic": 0.5080709122699423,
+        "chat": -1.120337753356171,
+        "code": 1.0068279441681982,
+        "multilingual": -1.1275870353519957,
+        "prose": -0.3479872368034709,
+        "reasoning": 1.2496831926383845
+      },
+      "raw_panel_class": {
+        "agentic": 0.20275949999999998,
+        "chat": 0.0681178,
+        "code": 0.1255728181818182,
+        "multilingual": 0.19737490000000002,
+        "prose": 0.17269169999999998,
+        "reasoning": 0.03540954545454545
+      },
+      "raw_panel_global": 0.13415256250000002,
+      "raw_panel_global_error_pct": -8.95778947975212
+    },
+    "d4_k2048": {
+      "corrected_class_error_pct": {
+        "agentic": 0.5916739061972098,
+        "chat": -0.5331625299005438,
+        "code": 1.5381680094032735,
+        "multilingual": -1.1723139643989078,
+        "prose": -0.23886831675368203,
+        "reasoning": -0.7161476581372339
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.1370452343154553,
+        "chat": 0.044152946588217654,
+        "code": 0.08064718427202335,
+        "multilingual": 0.1334195737637115,
+        "prose": 0.11565163470296691,
+        "reasoning": 0.023997063875005612
+      },
+      "corrected_full512_estimate_global": 0.09866132281096704,
+      "corrected_global_error_pct": 0.09837377479600118,
+      "full512_class": {
+        "agentic": 0.13623914285714284,
+        "chat": 0.04438961538461539,
+        "code": 0.07942548684210528,
+        "multilingual": 0.13500222368421055,
+        "prose": 0.11592855128205128,
+        "reasoning": 0.02417015789473684
+      },
+      "full512_global": 0.098564361328125,
+      "raw_class_error_pct": {
+        "agentic": 0.4684951741021459,
+        "chat": -0.8788438044241231,
+        "code": 1.0345482397986938,
+        "multilingual": -0.9296318608397303,
+        "prose": -0.6686457076180874,
+        "reasoning": -0.2740933845623572
+      },
+      "raw_panel_class": {
+        "agentic": 0.13687741666666667,
+        "chat": 0.0439995,
+        "code": 0.08024718181818181,
+        "multilingual": 0.1337472,
+        "prose": 0.1151534,
+        "reasoning": 0.024103909090909093
+      },
+      "raw_panel_global": 0.0893655,
+      "raw_panel_global_error_pct": -9.332847293051083
+    },
+    "d4_k256": {
+      "corrected_class_error_pct": {
+        "agentic": 0.6085131888789341,
+        "chat": -0.6234221571168486,
+        "code": -0.19312658390914228,
+        "multilingual": 0.7513523618539963,
+        "prose": 0.37942972767408545,
+        "reasoning": 1.0393939417458142
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.3022233351749531,
+        "chat": 0.13857389166113543,
+        "code": 0.2369800350634483,
+        "multilingual": 0.49044406140547786,
+        "prose": 0.41018590734988375,
+        "reasoning": 0.06488691382447687
+      },
+      "corrected_full512_estimate_global": 0.28507494831818625,
+      "corrected_global_error_pct": 0.4480742455468478,
+      "full512_class": {
+        "agentic": 0.30039538961038964,
+        "chat": 0.1394432115384615,
+        "code": 0.23743859210526316,
+        "multilingual": 0.4867865789473685,
+        "prose": 0.40863542307692313,
+        "reasoning": 0.06421942105263158
+      },
+      "full512_global": 0.28380329882812505,
+      "raw_class_error_pct": {
+        "agentic": 0.4853138363745124,
+        "chat": -0.9687897485700758,
+        "code": -0.6881592950578219,
+        "multilingual": 0.998758236750219,
+        "prose": -0.053011331052010835,
+        "reasoning": 1.4892646391234
+      },
+      "raw_panel_class": {
+        "agentic": 0.30185325,
+        "chat": 0.1380923,
+        "code": 0.23580463636363636,
+        "multilingual": 0.4916484,
+        "prose": 0.4084188,
+        "reasoning": 0.06517581818181818
+      },
+      "raw_panel_global": 0.270540921875,
+      "raw_panel_global_error_pct": -4.673087665960118
+    },
+    "d4_k256_postrepair": {
+      "corrected_class_error_pct": {
+        "agentic": 0.5531235988042171,
+        "chat": -0.13725439273049034,
+        "code": -0.606355671360792,
+        "multilingual": 0.7132120159775823,
+        "prose": 0.004430283299305948,
+        "reasoning": -0.9715757782370549
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.25355256910983526,
+        "chat": 0.09955027123538951,
+        "code": 0.1891345441071917,
+        "multilingual": 0.4280693293263018,
+        "prose": 0.3243366632682605,
+        "reasoning": 0.04998200414482693
+      },
+      "corrected_full512_estimate_global": 0.23482050034771787,
+      "corrected_global_error_pct": 0.2620423937707228,
+      "full512_class": {
+        "agentic": 0.25215782467532466,
+        "chat": 0.09968709615384613,
+        "code": 0.19028836842105265,
+        "multilingual": 0.42503790789473683,
+        "prose": 0.32432229487179487,
+        "reasoning": 0.050472381578947366
+      },
+      "full512_global": 0.234206779296875,
+      "raw_class_error_pct": {
+        "agentic": 0.4299920731806406,
+        "chat": -0.48431158341800673,
+        "code": -1.0993388050757225,
+        "multilingual": 0.960524233117166,
+        "prose": -0.4263952536292748,
+        "reasoning": -0.5306587801547913
+      },
+      "raw_panel_class": {
+        "agentic": 0.2532420833333333,
+        "chat": 0.09920430000000001,
+        "code": 0.18819645454545456,
+        "multilingual": 0.42912049999999996,
+        "prose": 0.3229394,
+        "reasoning": 0.05020454545454545
+      },
+      "raw_panel_global": 0.22146809375,
+      "raw_panel_global_error_pct": -5.439076351725813
+    },
+    "d4_k4096": {
+      "corrected_class_error_pct": {
+        "agentic": 0.40249838151040773,
+        "chat": -0.5878362778080515,
+        "code": -0.027499276673259576,
+        "multilingual": 0.6003379128963093,
+        "prose": -0.15036528623648682,
+        "reasoning": -0.9221252398818325
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.09515260169292453,
+        "chat": 0.029491593372101672,
+        "code": 0.052134856716353824,
+        "multilingual": 0.09273926866574377,
+        "prose": 0.07730965498088985,
+        "reasoning": 0.016163668780865427
+      },
+      "corrected_full512_estimate_global": 0.06729704875186379,
+      "corrected_global_error_pct": 0.20395523950156313,
+      "full512_class": {
+        "agentic": 0.09477114935064934,
+        "chat": 0.02966598076923077,
+        "code": 0.05214919736842105,
+        "multilingual": 0.09218584210526315,
+        "prose": 0.07742607692307692,
+        "reasoning": 0.016314105263157897
+      },
+      "full512_global": 0.06716007226562501,
+      "raw_class_error_pct": {
+        "agentic": 0.2795513027954888,
+        "chat": -0.9333275423610732,
+        "code": -0.5233534836982745,
+        "multilingual": 0.8473729554315579,
+        "prose": -0.5805239538656748,
+        "reasoning": -0.48098806680337836
+      },
+      "raw_panel_class": {
+        "agentic": 0.09503608333333334,
+        "chat": 0.0293891,
+        "code": 0.05187627272727273,
+        "multilingual": 0.092967,
+        "prose": 0.07697659999999999,
+        "reasoning": 0.016235636363636365
+      },
+      "raw_panel_global": 0.060671734374999994,
+      "raw_panel_global_error_pct": -9.661004927098604
+    },
+    "d4_k512": {
+      "corrected_class_error_pct": {
+        "agentic": -0.28708736890112885,
+        "chat": 0.9090552417049036,
+        "code": 0.14473336858964458,
+        "multilingual": 0.9068238318404864,
+        "prose": 0.6824329143088059,
+        "reasoning": 0.8902513289263947
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.2977107259619946,
+        "chat": 0.1375937854569124,
+        "code": 0.19411323796075053,
+        "multilingual": 0.32580205770538057,
+        "prose": 0.2918104381923725,
+        "reasoning": 0.07579498278879915
+      },
+      "corrected_full512_estimate_global": 0.23640141403024678,
+      "corrected_global_error_pct": 0.31610744678782776,
+      "full512_class": {
+        "agentic": 0.29856787662337664,
+        "chat": 0.13635424999999998,
+        "code": 0.19383269736842104,
+        "multilingual": 0.32287415789473684,
+        "prose": 0.28983252564102563,
+        "reasoning": 0.07512617105263157
+      },
+      "full512_global": 0.23565648632812503,
+      "raw_class_error_pct": {
+        "agentic": -0.4091900208846311,
+        "chat": 0.558361767235005,
+        "code": -0.35197509616747835,
+        "multilingual": 1.154611483796275,
+        "prose": 0.24868649830800393,
+        "reasoning": 1.339457979454317
+      },
+      "raw_panel_class": {
+        "agentic": 0.29734616666666663,
+        "chat": 0.1371156,
+        "code": 0.19315045454545451,
+        "multilingual": 0.3266021,
+        "prose": 0.29055329999999996,
+        "reasoning": 0.07613245454545454
+      },
+      "raw_panel_global": 0.21989024999999998,
+      "raw_panel_global_error_pct": -6.690346857744601
+    },
+    "d4_k8192": {
+      "corrected_class_error_pct": {
+        "agentic": 0.5678883634562482,
+        "chat": -0.3429694564668573,
+        "code": -0.23405188422230827,
+        "multilingual": 0.7048638387861406,
+        "prose": 1.098176264996309,
+        "reasoning": -0.4261970943025495
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.08297527337597767,
+        "chat": 0.023474481851919155,
+        "code": 0.042902245651440386,
+        "multilingual": 0.07939204422322489,
+        "prose": 0.0692643954839789,
+        "reasoning": 0.013148366924660712
+      },
+      "corrected_full512_estimate_global": 0.057998300626366184,
+      "corrected_global_error_pct": 0.5313357314479461,
+      "full512_class": {
+        "agentic": 0.08250672727272727,
+        "chat": 0.02355526923076923,
+        "code": 0.0430028947368421,
+        "multilingual": 0.07883635526315791,
+        "prose": 0.06851201282051281,
+        "reasoning": 0.013204644736842108
+      },
+      "full512_global": 0.057691763671875,
+      "raw_class_error_pct": {
+        "agentic": 0.44473875775783434,
+        "chat": -0.6893117169602725,
+        "code": -0.7288816097280715,
+        "multilingual": 0.952155556071066,
+        "prose": 0.6626387998212024,
+        "reasoning": 0.017148163484215218
+      },
+      "raw_panel_class": {
+        "agentic": 0.08287366666666665,
+        "chat": 0.0233929,
+        "code": 0.04268945454545454,
+        "multilingual": 0.07958699999999999,
+        "prose": 0.068966,
+        "reasoning": 0.013206909090909092
+      },
+      "raw_panel_global": 0.052012546874999996,
+      "raw_panel_global_error_pct": -9.844068607740708
+    },
+    "d8_k1024": {
+      "corrected_class_error_pct": {
+        "agentic": 0.20006781875439028,
+        "chat": -0.3468992604956589,
+        "code": 0.12624152004780953,
+        "multilingual": -0.9247339553394407,
+        "prose": -0.35806160128195597,
+        "reasoning": -0.4670005420937984
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 1.006590862813815,
+        "chat": 0.8100514056449682,
+        "code": 0.8872619175340957,
+        "multilingual": 1.5444468432399663,
+        "prose": 1.3255725520667545,
+        "reasoning": 0.5397579480394875
+      },
+      "corrected_full512_estimate_global": 1.0280542869099658,
+      "corrected_global_error_pct": -0.26747701898178766,
+      "full512_class": {
+        "agentic": 1.0045810194805196,
+        "chat": 0.81287125,
+        "code": 0.8861432368421053,
+        "multilingual": 1.5588621710526316,
+        "prose": 1.3303359743589742,
+        "reasoning": 0.5422904473684209
+      },
+      "full512_global": 1.0308114707031248,
+      "raw_class_error_pct": {
+        "agentic": 0.07736862477076833,
+        "chat": -0.6932278635761957,
+        "code": -0.37037522687861646,
+        "multilingual": -0.6814438922113641,
+        "prose": -0.7873254997874723,
+        "reasoning": -0.023836958749012815
+      },
+      "raw_panel_class": {
+        "agentic": 1.0053582499999998,
+        "chat": 0.8072362,
+        "code": 0.8828611818181819,
+        "multilingual": 1.5482394,
+        "prose": 1.3198618999999998,
+        "reasoning": 0.5421611818181818
+      },
+      "raw_panel_global": 1.007701875,
+      "raw_panel_global_error_pct": -2.241883832293956
+    },
+    "d8_k2048": {
+      "corrected_class_error_pct": {
+        "agentic": -0.07937843821146373,
+        "chat": 0.6117703936827645,
+        "code": -0.43063002163019615,
+        "multilingual": 0.622028887997117,
+        "prose": -0.2956296613025433,
+        "reasoning": -0.2664503138021801
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.8431574817703877,
+        "chat": 0.6313970205630139,
+        "code": 0.6795085713732721,
+        "multilingual": 1.2037490635956452,
+        "prose": 1.0422188460220165,
+        "reasoning": 0.4146223779702786
+      },
+      "corrected_full512_estimate_global": 0.8175993129590091,
+      "corrected_global_error_pct": 0.027110380418493563,
+      "full512_class": {
+        "agentic": 0.8438272987012988,
+        "chat": 0.6275578076923077,
+        "code": 0.6824473947368421,
+        "multilingual": 1.1963076842105265,
+        "prose": 1.0453090897435902,
+        "reasoning": 0.4157300921052632
+      },
+      "full512_global": 0.81737771875,
+      "raw_class_error_pct": {
+        "agentic": -0.2017354385096093,
+        "chat": 0.2621100857211678,
+        "code": -0.924484738051079,
+        "multilingual": 0.8691171950746757,
+        "prose": -0.7251625206329604,
+        "reasoning": 0.17760620513476155
+      },
+      "raw_panel_class": {
+        "agentic": 0.8421249999999999,
+        "chat": 0.6292026999999999,
+        "code": 0.6761382727272728,
+        "multilingual": 1.206705,
+        "prose": 1.0377289,
+        "reasoning": 0.4164684545454546
+      },
+      "raw_panel_global": 0.7946959375,
+      "raw_panel_global_error_pct": -2.774944891412845
+    },
+    "d8_k256": {
+      "corrected_class_error_pct": {
+        "agentic": -0.34137916660191836,
+        "chat": 0.04791408088842264,
+        "code": 0.027500552925818766,
+        "multilingual": 0.7831172860467195,
+        "prose": -0.1683788419078791,
+        "reasoning": -0.2981119007942845
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 1.518065518357746,
+        "chat": 1.4300604490932032,
+        "code": 1.7577711981089332,
+        "multilingual": 2.8416842361017953,
+        "prose": 2.151723764786018,
+        "reasoning": 0.9841676093454679
+      },
+      "corrected_full512_estimate_global": 1.758466871374062,
+      "corrected_global_error_pct": 0.049222139794036224,
+      "full512_class": {
+        "agentic": 1.5232656298701301,
+        "chat": 1.429375576923077,
+        "code": 1.7572879342105265,
+        "multilingual": 2.819603434210526,
+        "prose": 2.1553529230769226,
+        "reasoning": 0.9871103026315791
+      },
+      "full512_global": 1.7576017421875,
+      "raw_class_error_pct": {
+        "agentic": -0.46341533599749685,
+        "chat": -0.2997866335663235,
+        "code": -0.46862644808449705,
+        "multilingual": 1.0306011631600276,
+        "prose": -0.5984599059771889,
+        "reasoning": 0.1458036471840618
+      },
+      "raw_panel_class": {
+        "agentic": 1.5162065833333331,
+        "chat": 1.4250905,
+        "code": 1.7490528181818183,
+        "multilingual": 2.8486623,
+        "prose": 2.142454,
+        "reasoning": 0.9885495454545455
+      },
+      "raw_panel_global": 1.757346453125,
+      "raw_panel_global_error_pct": -0.014524852608666095
+    },
+    "d8_k4096": {
+      "corrected_class_error_pct": {
+        "agentic": -0.18961741416981814,
+        "chat": -0.005410819893059138,
+        "code": -0.7228896757264014,
+        "multilingual": -0.16375031511111082,
+        "prose": -0.05462522559933625,
+        "reasoning": -0.701090382045988
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.7161638060108042,
+        "chat": 0.4734967631719998,
+        "code": 0.5299685030535339,
+        "multilingual": 0.9687328713494807,
+        "prose": 0.8599556443916259,
+        "reasoning": 0.3124392501521014
+      },
+      "corrected_full512_estimate_global": 0.6633482139440302,
+      "corrected_global_error_pct": -0.24355311886125053,
+      "full512_class": {
+        "agentic": 0.7175243571428571,
+        "chat": 0.47352238461538465,
+        "code": 0.5338274868421052,
+        "multilingual": 0.9703217763157895,
+        "prose": 0.8604256538461539,
+        "reasoning": 0.314645197368421
+      },
+      "full512_global": 0.6649677636718749,
+      "raw_class_error_pct": {
+        "agentic": -0.31183942220909255,
+        "chat": -0.3529262120822607,
+        "code": -1.215294811732881,
+        "multilingual": 0.08140842589452468,
+        "prose": -0.48519634758592556,
+        "reasoning": -0.25896906702290723
+      },
+      "raw_panel_class": {
+        "agentic": 0.7152868333333333,
+        "chat": 0.47185119999999997,
+        "code": 0.5273399090909091,
+        "multilingual": 0.9711117,
+        "prose": 0.8562509,
+        "reasoning": 0.31383036363636363
+      },
+      "raw_panel_global": 0.637944578125,
+      "raw_panel_global_error_pct": -4.063833921460491
+    },
+    "d8_k512": {
+      "corrected_class_error_pct": {
+        "agentic": 0.42394726928534077,
+        "chat": -0.09546421937681737,
+        "code": 0.14237858398398195,
+        "multilingual": -1.0663181889477569,
+        "prose": 0.5494442747590478,
+        "reasoning": 1.0267499062138086
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 1.2227080073396788,
+        "chat": 1.0648157990328504,
+        "code": 1.215299589920022,
+        "multilingual": 2.1653523424329335,
+        "prose": 1.7119475806147242,
+        "reasoning": 0.7269386303068384
+      },
+      "corrected_full512_estimate_global": 1.3464379858009992,
+      "corrected_global_error_pct": 0.056715378903815505,
+      "full512_class": {
+        "agentic": 1.2175462532467531,
+        "chat": 1.0658332884615385,
+        "code": 1.2135717236842105,
+        "multilingual": 2.1886907500000006,
+        "prose": 1.7025927820512827,
+        "reasoning": 0.719550644736842
+      },
+      "full512_global": 1.34567478125,
+      "raw_class_error_pct": {
+        "agentic": 0.3009739255059207,
+        "chat": -0.4426666452075789,
+        "code": -0.35431820126282654,
+        "multilingual": -0.8233758012638814,
+        "prose": 0.11627078239648814,
+        "reasoning": 1.476564306924688
+      },
+      "raw_panel_class": {
+        "agentic": 1.2212107500000002,
+        "chat": 1.0611152000000001,
+        "code": 1.2092718181818183,
+        "multilingual": 2.1706695999999996,
+        "prose": 1.7045724,
+        "reasoning": 0.7301752727272727
+      },
+      "raw_panel_global": 1.3336252968750002,
+      "raw_panel_global_error_pct": -0.895423213906632
+    },
+    "mixed_pre_repair": {
+      "corrected_class_error_pct": {
+        "agentic": 0.05374978156844623,
+        "chat": -0.3235364505049687,
+        "code": -0.6461984208021132,
+        "multilingual": -1.4561930824297131,
+        "prose": 1.176472037530174,
+        "reasoning": -1.491036511450916
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.16450812892291217,
+        "chat": 0.06736957095654894,
+        "code": 0.05201173915498994,
+        "multilingual": 0.20819952893652463,
+        "prose": 0.17725980164445304,
+        "reasoning": 0.041365729860573595
+      },
+      "corrected_full512_estimate_global": 0.1280929412431544,
+      "corrected_global_error_pct": -0.21924622235786062,
+      "full512_class": {
+        "agentic": 0.16441975366446213,
+        "chat": 0.06758824356072396,
+        "code": 0.05235002418456009,
+        "multilingual": 0.21127611713913075,
+        "prose": 0.17519863865059526,
+        "reasoning": 0.04199184358018552
+      },
+      "full512_global": 0.1283743972596208,
+      "raw_class_error_pct": {
+        "agentic": -0.0687702398295853,
+        "chat": -0.6699462473395257,
+        "code": -1.1389839382247025,
+        "multilingual": -1.2142080748391293,
+        "prose": 0.74059726911615,
+        "reasoning": -1.0524323752455378
+      },
+      "raw_panel_class": {
+        "agentic": 0.16430668180553987,
+        "chat": 0.0671354386593462,
+        "code": 0.051753765817441205,
+        "multilingual": 0.20871078546462085,
+        "prose": 0.17649615498397025,
+        "reasoning": 0.04154990782338518
+      },
+      "raw_panel_global": 0.11752256848117096,
+      "raw_panel_global_error_pct": -8.453265612225936
+    },
+    "mixed_step0": {
+      "corrected_class_error_pct": {
+        "agentic": -0.42769899461695404,
+        "chat": -0.43415658980723304,
+        "code": 0.9118557462776122,
+        "multilingual": -0.20859929477577976,
+        "prose": 0.23867040044742716,
+        "reasoning": 0.8754065111216125
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.08404900894126978,
+        "chat": 0.03367341326844132,
+        "code": 0.06786051878993904,
+        "multilingual": 0.13677275544818043,
+        "prose": 0.09689783665850325,
+        "reasoning": 0.021637301263012804
+      },
+      "corrected_full512_estimate_global": 0.07704914036008555,
+      "corrected_global_error_pct": -0.015439486574531092,
+      "full512_class": {
+        "agentic": 0.08441002979003764,
+        "chat": 0.03382024609555419,
+        "code": 0.06724732023614802,
+        "multilingual": 0.13705865884395807,
+        "prose": 0.09666712085405986,
+        "reasoning": 0.02144953067487988
+      },
+      "full512_global": 0.07706103818873089,
+      "raw_class_error_pct": {
+        "agentic": -0.5496294617555186,
+        "chat": -0.7801819438293389,
+        "code": 0.41134242663012355,
+        "multilingual": 0.03644931469521939,
+        "prose": -0.1931642580166204,
+        "reasoning": 1.3245470661567005
+      },
+      "raw_panel_class": {
+        "agentic": 0.08394608739763498,
+        "chat": 0.03355638664215803,
+        "code": 0.06752393699505112,
+        "multilingual": 0.13710861578583716,
+        "prose": 0.09648039452731609,
+        "reasoning": 0.02173363980413838
+      },
+      "raw_panel_global": 0.07282250567368465,
+      "raw_panel_global_error_pct": -5.500227630810805
+    },
+    "mixed_u030": {
+      "corrected_class_error_pct": {
+        "agentic": 0.19216361071696664,
+        "chat": 0.911733275391069,
+        "code": 1.0355796251308558,
+        "multilingual": -0.36028976676740765,
+        "prose": 0.6608260430430501,
+        "reasoning": -1.3359691425379072
+      },
+      "corrected_full512_estimate_class": {
+        "agentic": 0.10097301420826121,
+        "chat": 0.03869792732599114,
+        "code": 0.04213588468480409,
+        "multilingual": 0.1459518416268273,
+        "prose": 0.11809344722530568,
+        "reasoning": 0.026165297197890604
+      },
+      "corrected_full512_estimate_global": 0.08409502945179938,
+      "corrected_global_error_pct": 0.17277575791709854,
+      "full512_class": {
+        "agentic": 0.10077935296474695,
+        "chat": 0.038348293176555956,
+        "code": 0.04170400649072291,
+        "multilingual": 0.14647959260940158,
+        "prose": 0.11731817815086114,
+        "reasoning": 0.026519590746997834
+      },
+      "full512_global": 0.08394998423027424,
+      "raw_class_error_pct": {
+        "agentic": 0.06947409576825159,
+        "chat": 0.5610304938382882,
+        "code": 0.5344526466732447,
+        "multilingual": -0.11561364970525956,
+        "prose": 0.2271727108375199,
+        "reasoning": -0.8966745799288023
+      },
+      "raw_panel_class": {
+        "agentic": 0.10084936850894032,
+        "chat": 0.03856343879514294,
+        "code": 0.04192689465718136,
+        "multilingual": 0.14631024220631245,
+        "prose": 0.11758469303647165,
+        "reasoning": 0.026281796318068353
+      },
+      "raw_panel_global": 0.07789174630022347,
+      "raw_panel_global_error_pct": -7.2164848934730745
+    }
+  },
+  "schema": "banana-smasher-anchor64-historical-calibration-validation-v6",
+  "status": "PASS_HISTORICAL_RECONSTRUCTION",
+  "summary": {
+    "max_abs_corrected_class_error_pct": 1.5381680094032735,
+    "max_abs_corrected_global_error_pct": 0.5313357314479461,
+    "rms_corrected_class_error_pct": 0.6859502976470216,
+    "rms_corrected_global_error_pct": 0.25175765847680176
+  }
+}

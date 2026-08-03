@@ -1,0 +1,45 @@
+{
+  "acceptance": {
+    "max_historical_class_abs_pct": 4.0,
+    "max_historical_global_abs_pct": 2.0
+  },
+  "allowed_claim": "retrospective reconstruction accuracy on the fifteen listed historical vectors",
+  "balanced64_exclusion_sha256": "7f756b898aea80cb4dd9320da4cd0c855f258d055f62ef6c37151d27857fa0ad",
+  "class_map_domain_sha256": "b477a293d6d3ba51d3e77a4adfc86078bc535fcb0a5ffd92e7f49d1567eab87f",
+  "forbidden_claim": "universal full-512 accuracy on a new basis or quant family",
+  "generalization_status": "NOT_ESTABLISHED; prior omitted/new-vector trials failed the 4% class gate",
+  "mixed_vector_sha256": {
+    "mixed_pre_repair": "4823f90fb1df1f7d0351c585954799f1fd69a98f3709cfcb721f1c8e0183ef0c",
+    "mixed_u030": "47dcf922b3573e1994778ec402b9992a205ecaa3cb08653956141028f5ef68cc"
+  },
+  "name": "ANCHOR64_V6_HISTORICAL_CALIBRATION",
+  "postrepair_aggregate_sha256": "aef8ca33b3c059d2332d1b29fd57bbefe54ff33c63f4603c0537e9575d41233c",
+  "postrepair_metric_field": "repaired_step45_kl",
+  "postrepair_paired_vector_sha256": "eb98eb0597b58ca292e61fa1b5edead905d5ff77325c14fb40416046c135e46d",
+  "purpose": "64-window overall and six-class KLD anchor rail calibrated against every recovered historical full-512 vector",
+  "quota": {
+    "agentic": 12,
+    "chat": 10,
+    "code": 11,
+    "multilingual": 10,
+    "prose": 10,
+    "reasoning": 11
+  },
+  "schema": "banana-smasher-anchor64-historical-calibration-method-v6",
+  "selection": "six class-specific minimax MILPs; near-even 12/10/11/10/10/11 quota; all windows disjoint from BALANCED64_V1",
+  "status": "PRE_REGISTERED_HISTORICAL_RECONSTRUCTION_ONLY",
+  "step0_sha256": "5a49b0d92cf7f1c403b2d6bb49487c6d97f273211d6b1c68efb27782a8a20a88",
+  "uniform_vector_sha256": {
+    "d4_k1024": "da8e43b85d22089a371a98978210c8f69a93fed648997ad420d8807a1e318ac6",
+    "d4_k2048": "ce64c59ec1d213761b902c5405f1f99e51f0c4f3c72cd4c5147c411ddd03ad3b",
+    "d4_k256": "eb98eb0597b58ca292e61fa1b5edead905d5ff77325c14fb40416046c135e46d",
+    "d4_k4096": "5f8560f0b8eccf8568d6c94f845c5fa5fcf6dce97c5c6d03d87dcf352a61430d",
+    "d4_k512": "6842e1d0b35ad8156087084ee395632ae7660fab5bef4444ac01acdc1bd944ac",
+    "d4_k8192": "9c71c62e58a8a17f3077b8d628d679285570828ee2c37a304699c03f6f2eddfd",
+    "d8_k1024": "065436c23df1c42e8a92136b17327321c71b0d312abc2ac92869d141d686b0f8",
+    "d8_k2048": "4d5bf469798686968407c6978fc982dc089594c9306f7ed03310d2ef4c1cce43",
+    "d8_k256": "660c087f653ad8d0acdfa05f752e4c5e29e9171f0b1b4c3961091683b0a41c60",
+    "d8_k4096": "150c2ca5fcc82d677bd597973bc679fd1315f6a61ad05a509818ff7b2c657511",
+    "d8_k512": "19e807739b56a9c421f8d9bd8ca89ab116e2e0dd751a9b7883931797bd6da408"
+  }
+}
