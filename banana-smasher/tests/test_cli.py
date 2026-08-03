@@ -74,12 +74,15 @@ def _write_symlinked_base_weights(root: Path, store: Path) -> list[str]:
 
 def test_smash_help_exposes_exactly_five_verbs() -> None:
     parser = _parser()
-    action = next(action for action in parser._actions if getattr(action, "choices", None))
+    action = next(
+        action for action in parser._actions if getattr(action, "choices", None)
+    )
     assert list(action.choices) == [
         "export",
         "verify",
         "serve-check",
         "validate",
+        "update",
     ]
 
 
@@ -196,7 +199,9 @@ def test_smash_export_merges_full_serving_config_and_tokenizer_files(
         assert (pack / name).read_bytes() == (serving_model / name).read_bytes()
 
 
-def test_smash_export_canonicalizes_newline_lost_json_metadata(tmp_path: Path, capsys) -> None:
+def test_smash_export_canonicalizes_newline_lost_json_metadata(
+    tmp_path: Path, capsys
+) -> None:
     source = _write_qtip2_source(tmp_path / "source")
     serving_model = _write_serving_model(tmp_path / "serving-model")
     for name in (
@@ -306,10 +311,7 @@ def test_smash_export_refresh_metadata_preserves_tensor_files(
     assert refreshed["command"] == "export"
     assert refreshed["mode"] == "refresh-metadata"
     assert config["architectures"] == ["DeepseekV4ForCausalLM"]
-    assert {
-        key: config["quantization_config"][key]
-        for key in old_quant
-    } == old_quant
+    assert {key: config["quantization_config"][key] for key in old_quant} == old_quant
     assert config["quantization_config"]["activation_scheme"] == "dynamic"
     assert config["quantization_config"]["fmt"] == "e4m3"
     assert config["quantization_config"]["scale_fmt"] == "ue8m0"
@@ -425,10 +427,7 @@ def test_smash_refresh_metadata_adds_base_weights_without_tensor_rewrites(
     assert config["hidden_size"] == 4096
     assert config["rope_scaling"] == {"type": "yarn", "factor": 16}
     assert config["expert_dtype"] == "fp4"
-    assert {
-        key: config["quantization_config"][key]
-        for key in old_quant
-    } == old_quant
+    assert {key: config["quantization_config"][key] for key in old_quant} == old_quant
     assert config["quantization_config"]["activation_scheme"] == "dynamic"
     assert config["quantization_config"]["fmt"] == "e4m3"
     assert config["quantization_config"]["scale_fmt"] == "ue8m0"
