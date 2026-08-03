@@ -852,8 +852,8 @@
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 8270,
-      "output_sha256": "c5f1450e73a5bacb745f2786746bc35cab789951135275140770d914c608bcf4",
+      "bytes": 8427,
+      "output_sha256": "5f856b76eee45b099f37118b8b8a7349a7cb17e5339aacac304cf3e6b1dc238b",
       "path": "banana-smasher/src/banana_smasher/qtip_matrix_lifetime.py",
       "provenance": "corrective-review-generated"
     },
@@ -888,8 +888,8 @@
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 82045,
-      "output_sha256": "0367396e9bbabb7b697eda4fad55731fce1179f237524a52a848d8be0d6ed08d",
+      "bytes": 83240,
+      "output_sha256": "1bf43ff904fafb28dc879de8bea699336547d6c63a8c8403bc94ead879469bb3",
       "path": "banana-smasher/src/banana_smasher/solver_qtip_profile.py",
       "provenance": "corrective-review-generated"
     },
@@ -1041,9 +1041,15 @@
       "provenance": "corrective-review-generated"
     },
     {
-      "bytes": 7414,
-      "output_sha256": "68063b3c2c39fc118e560b9394466311741ab753ae12ffc42f6239f9a9fc795c",
+      "bytes": 7486,
+      "output_sha256": "bbdb9d7989aca7e84edad98d845f99e1d5bcb40eb03a2ad89b81694373ba10b2",
       "path": "banana-smasher/tests/test_qtip_matrix_lifetime.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 856,
+      "output_sha256": "7bd02aa42ed338b556d30a66e488279b7e3af197f98c9360ea05195de3ac30ec",
+      "path": "banana-smasher/tests/test_qtip_profile_timing.py",
       "provenance": "corrective-review-generated"
     },
     {

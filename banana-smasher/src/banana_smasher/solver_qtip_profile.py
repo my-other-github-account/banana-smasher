@@ -1228,6 +1228,31 @@ def _top_ops(profile: Any) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: row["rank_seconds"], reverse=True)[:50]
 
 
+def _split_solve_and_conformance_seconds(
+    build_seconds: float,
+    build_receipt: Mapping[str, Any],
+) -> tuple[float, float]:
+    """Keep mandatory packed-wire audit time in same-work solve latency."""
+    phase_seconds = build_receipt.get("phase_seconds")
+    conformance = (
+        phase_seconds.get("packed_decode_conformance")
+        if isinstance(phase_seconds, Mapping)
+        else None
+    )
+    if (
+        isinstance(conformance, bool)
+        or not isinstance(conformance, (int, float))
+        or not math.isfinite(conformance)
+        or conformance < 0
+        or conformance > build_seconds
+    ):
+        raise RuntimeError(
+            "invalid packed decode conformance timing: "
+            f"conformance={conformance!r} build={build_seconds!r}"
+        )
+    return build_seconds, float(conformance)
+
+
 def main(
     config_path: Path,
     root: Path,
@@ -1372,6 +1397,9 @@ def main(
         )
         torch.cuda.synchronize()
         build_seconds = time.perf_counter() - build_started
+        solve_seconds, packed_decode_conformance_seconds = (
+            _split_solve_and_conformance_seconds(build_seconds, build)
+        )
         if hasattr(cb, "_banana_smasher_memory_contract"):
             _verify_builder_memory_contract(cb)
         _validate_candidate_packed_shape(candidate, config, source_weight)
@@ -1391,7 +1419,11 @@ def main(
             "staging": staging_seconds,
             "kernel_prepare": kernel_prepare_seconds,
             "progress_receipt_fsync": progress_receipt_fsync_seconds,
-            "solve": build_seconds,
+            "solve": solve_seconds,
+            "solve_core_excluding_packed_decode_conformance": (
+                solve_seconds - packed_decode_conformance_seconds
+            ),
+            "packed_decode_conformance": packed_decode_conformance_seconds,
             "artifact_fsync": artifact_fsync_seconds,
             "receipt_fsync": 0.0,
         }
@@ -1413,7 +1445,7 @@ def main(
             "epoch_ended": time.time(),
             "total_wall_seconds": total_seconds,
             "staging_seconds": staging_seconds,
-            "solve_seconds": build_seconds,
+            "solve_seconds": solve_seconds,
             "phase_seconds": phase_seconds,
             "assignment_sha256": _tensor_sha256(candidate["trellis"]),
             "artifact": str(artifact_path),
