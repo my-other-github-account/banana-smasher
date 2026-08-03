@@ -4,7 +4,7 @@ This standalone repository owns one path only:
 
 materialized quant source -> `smash export` -> `smash verify` -> self-contained `/model` pack -> pinned stock vLLM image with `vllm.general_plugins` -> OpenAI-compatible API.
 
-It does not contain training, solver orchestration, benchmark ledgers, or historical run artifacts.
+It does not contain training, solver orchestration, protected benchmark ledgers, or raw historical run artifacts. Public-safe evaluation protocols, distilled source-identifier receipts, and verification helpers live under `evaluations/` and `notes/evaluations/`.
 
 ## Clone
 
@@ -100,6 +100,24 @@ The validator rejects a path other than `0.6.17/121a`, mismatched
 `_metadata.flashinfer_version`, malformed members, symlinks, and unexpected
 files. No current-version cache is baked in this repository; regeneration,
 capture, and image admission remain an explicit Linux ARM64 SM121 hardware gate.
+
+## Reproduce evaluations
+
+The [`evaluations/`](evaluations/) surface contains frozen suite locks, metric
+protocols, schemas, and pure-stdlib receipt tools. Published evidence and result
+tables live under [`notes/evaluations/`](notes/evaluations/).
+
+Validate the compact IQ2/IQ3/IQ4/DwarfStar BALANCED64 comparison in a clean clone:
+
+```bash
+python3 -m evaluations.tools.receipts verify \
+  notes/evaluations/results/deepseek-v4-flash-0731-balanced64-v1.json \
+  --suite-lock evaluations/configs/balanced64-v1.json
+```
+
+See [`evaluations/protocols/balanced64-v1.md`](evaluations/protocols/balanced64-v1.md)
+for metric equations, standardized per-position aggregation, corrected subgroup
+provenance, and explicit full-GPU-replay blockers.
 
 ## Verification surfaces
 
