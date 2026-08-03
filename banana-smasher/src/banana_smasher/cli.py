@@ -22,7 +22,7 @@ from .validation import ValidationError, validate_artifact
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="smash",
-        description="Five fail-closed bs-pack lifecycle verbs.",
+        description="Fail-closed bs-pack lifecycle and exact Backpack tooling.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -89,6 +89,26 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--check-exposure", action="store_true")
     validate.add_argument("--receipt", type=Path)
     validate.add_argument("--bank-teacher-logits", type=Path)
+
+    knapsack = subparsers.add_parser(
+        "knapsack",
+        help="solve a manifest-bound tier menu under an exact integer byte envelope",
+    )
+    knapsack.add_argument("--run-root", type=Path, required=True)
+    knapsack.add_argument("--envelope-bytes", type=int, required=True)
+    knapsack.add_argument("--output", type=Path)
+    knapsack.add_argument("--receipt", type=Path)
+
+    backpack_dimensions = subparsers.add_parser(
+        "backpack-dimensions",
+        help="join explicit per-candidate dimensions without aggregate inference",
+    )
+    backpack_dimensions.add_argument("--ledger", type=Path, required=True)
+    backpack_dimensions.add_argument("--dimensions", type=Path, required=True)
+    backpack_dimensions.add_argument("--class-ceilings", type=Path, required=True)
+    backpack_dimensions.add_argument("--basis-sha256", required=True)
+    backpack_dimensions.add_argument("--output", type=Path, required=True)
+    backpack_dimensions.add_argument("--receipt", type=Path, required=True)
 
     return parser
 
@@ -198,6 +218,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "command": "validate",
             }
+        elif args.command == "knapsack":
+            from .knapsack import run_knapsack
+
+            result = run_knapsack(
+                run_root=args.run_root,
+                envelope_bytes=args.envelope_bytes,
+                output=args.output,
+                receipt=args.receipt,
+            )
+        elif args.command == "backpack-dimensions":
+            from .backpack_dimensions import build_dynamic_dimensions
+
+            result = build_dynamic_dimensions(
+                ledger=args.ledger,
+                dimensions=args.dimensions,
+                class_ceilings=args.class_ceilings,
+                basis_sha256=args.basis_sha256,
+                output=args.output,
+                receipt=args.receipt,
+            )
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2
