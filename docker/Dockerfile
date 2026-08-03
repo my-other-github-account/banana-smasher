@@ -7,7 +7,7 @@ USER root
 ARG VLLM_UPSTREAM_REV
 RUN test "${VLLM_UPSTREAM_REV}" = "ee0da84a"
 RUN python3 -m pip install --no-cache-dir \
-      build==1.3.0 hatchling==1.27.0 pytest==8.4.2 wheel==0.46.3
+      build==1.3.0 hatchling==1.27.0 pytest==8.4.2 scipy==1.16.1 wheel==0.46.3
 COPY banana-smasher /src/banana-smasher
 COPY banana-smasher-plugin /src/banana-smasher-plugin
 COPY docker /src/docker

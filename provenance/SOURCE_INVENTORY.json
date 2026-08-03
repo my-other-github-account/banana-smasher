@@ -594,8 +594,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 13331,
-      "output_sha256": "cc9ed80b0673437ed1deb91dfc612219b5c55cdbcd0a04d8af0e4a1d085c2d7d",
+      "bytes": 13345,
+      "output_sha256": "b795a14fc2541875809559adf0ffbf1a8022670ec108baff882900241965eef1",
       "path": "docker/Dockerfile",
       "source_path": "docker/Dockerfile",
       "source_sha256": "a094b4f3347c09066b519a7cc58d7e5ca02fff1d2a3acdb06dcd8ee4a6be9d1d"

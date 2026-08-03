@@ -171,6 +171,17 @@ def test_runtime_pins_hooks_assets_and_exact_command() -> None:
     assert all(hook in plugin for hook in hooks)
 
 
+def test_container_package_builder_installs_solver_test_dependency() -> None:
+    dockerfile = (ROOT / "docker/Dockerfile").read_text()
+    package_builder = dockerfile.split(
+        "FROM ${VLLM_IMAGE} AS flashinfer-builder", 1
+    )[0]
+    assert "scipy==1.16.1" in package_builder
+    assert package_builder.index("scipy==1.16.1") < package_builder.index(
+        "python3 -m pytest"
+    )
+
+
 def test_source_inventory_covers_and_hashes_every_retained_source_file() -> None:
     inventory = json.loads((ROOT / "provenance/SOURCE_INVENTORY.json").read_text())
     assert inventory["source_commit"] == "c00714c6803f7e2de7a95d103dbe172236b22adf"
