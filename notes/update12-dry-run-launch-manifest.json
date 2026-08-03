@@ -1,0 +1,140 @@
+{
+  "schema": "banana-smasher-update12-launch-manifest-v1",
+  "status": "BLOCKED_PREREQUISITES",
+  "purpose": "Fail-loud dry-run manifest for twelve sequential public update transactions",
+  "admitted_source_commits": {
+    "activation_cache_serial": "f16a9f11ca42a18e44a1825f4848496a3c40f0c1",
+    "portable_update_core": "55c5c5899a9a67b2b9062ecb4c91baa966b48e5b"
+  },
+  "launch_authorized": false,
+  "required_gates": [
+    {
+      "gate": "exact_pre_repair_pack",
+      "status": "PENDING",
+      "required_evidence": [
+        "pack manifest SHA-256",
+        "complete member byte and SHA-256 verification",
+        "assignment and model-basis SHA-256",
+        "structural verification receipt"
+      ]
+    },
+    {
+      "gate": "own_teacher_balanced64_baseline",
+      "status": "PENDING",
+      "required_evidence": [
+        "same-basis teacher identity",
+        "instrument identity",
+        "KLD and top-1 receipt",
+        "sample count and packed-byte accounting"
+      ]
+    },
+    {
+      "gate": "accelerated_persistent_update_backend",
+      "status": "PENDING",
+      "required_evidence": [
+        "installed banana_smasher.update_backends entry point",
+        "persistent WAITING receipt",
+        "SEGMENT_START clock contract",
+        "no-fallback acceleration sentinels",
+        "relocation-safe resume smoke"
+      ]
+    },
+    {
+      "gate": "physical_admission",
+      "status": "PENDING",
+      "required_evidence": [
+        "fresh available-memory measurement",
+        "resident frozen, trainable, optimizer and staging byte counts",
+        "calibrated activation bytes per token",
+        "at least 4294967296 bytes reserved for the operating system"
+      ]
+    }
+  ],
+  "update_plan": {
+    "first_update": 1,
+    "last_update": 12,
+    "optimizer_steps_per_update": 1,
+    "batch_size": 1,
+    "requested_physical_tokens": 1024,
+    "segments": "REQUIRED_AT_LAUNCH",
+    "warm_start": false,
+    "resume": true,
+    "fallback_allowed": false,
+    "semantic_claim": "causal-segmented-no-equivalence-claim",
+    "clock_start": "SEGMENT_START"
+  },
+  "immutable_identity_fields": [
+    "content_sha256",
+    "config_sha256",
+    "assignment_sha256",
+    "aot_sha256",
+    "runtime_sha256",
+    "code_sha256"
+  ],
+  "public_command_template": [
+    "smash",
+    "update",
+    "--backend",
+    "${UPDATE_BACKEND}",
+    "--request",
+    "${REQUEST_JSON}",
+    "--identity",
+    "${IDENTITY_JSON}",
+    "--output",
+    "${OUTPUT_PATH}",
+    "--receipt",
+    "${RECEIPT_PATH}",
+    "--tokens",
+    "1024",
+    "--segments",
+    "${SEGMENTS}",
+    "--batch-size",
+    "1",
+    "--available-bytes",
+    "${AVAILABLE_BYTES}",
+    "--resident-frozen-bytes",
+    "${RESIDENT_FROZEN_BYTES}",
+    "--trainable-bytes",
+    "${TRAINABLE_BYTES}",
+    "--optimizer-bytes",
+    "${OPTIMIZER_BYTES}",
+    "--staging-bytes",
+    "${STAGING_BYTES}",
+    "--activation-bytes-per-token",
+    "${ACTIVATION_BYTES_PER_TOKEN}",
+    "--os-floor-bytes",
+    "4294967296"
+  ],
+  "required_terminal_receipt": {
+    "status": "PASS_UPDATE",
+    "optimizer_steps": 1,
+    "observed_input_shape": [
+      1,
+      "SELECTED_PHYSICAL_TOKENS"
+    ],
+    "fallback": {
+      "used": false
+    },
+    "required_fields": [
+      "physical_tokens",
+      "logical_tokens",
+      "segments",
+      "teacher_geometry",
+      "forward_count",
+      "backward_count",
+      "finite_required_trainable_gradients",
+      "peak_memory_bytes",
+      "immutable_identity",
+      "timing"
+    ]
+  },
+  "refusal_conditions": [
+    "any required gate is not PASS",
+    "identity or model basis drift",
+    "missing or ambiguous backend entry point",
+    "memory sizing cannot preserve the 4 GiB operating-system floor",
+    "physical input shape differs from the selected token window",
+    "resume checkpoint or rebind verification fails",
+    "backend reports fallback, more than one optimizer step, or non-PASS_UPDATE status"
+  ]
+}
