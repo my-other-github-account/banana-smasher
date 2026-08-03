@@ -163,6 +163,7 @@ ENV PYTHONNOUSERSITE=1 \
     MALLOC_MMAP_THRESHOLD_=65536 \
     TOKENIZERS_PARALLELISM=false \
     VLLM_NO_USAGE_STATS=1 \
+    VLLM_USE_BREAKABLE_CUDAGRAPH=1 \
     VLLM_USE_DEEP_GEMM=1 \
     VLLM_USE_DEEP_GEMM_E8M0=1 \
     BANANA_SMASHER_AOT_ROOT=/opt/banana-smasher/aot \
@@ -182,4 +183,4 @@ HEALTHCHECK --interval=10m --timeout=30s --start-period=20m --retries=2 \
   CMD ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=20).read()"]
 WORKDIR /
 ENTRYPOINT []
-CMD ["vllm", "serve", "/model", "--served-model-name", "banana-smasher-v5", "--trust-remote-code", "--tokenizer-mode", "deepseek_v4", "--kv-cache-dtype", "fp8", "--block-size", "256", "--max-model-len", "8192", "--gpu-memory-utilization", "0.80", "--kv-cache-memory-bytes", "3221225472", "--max-num-batched-tokens", "512", "--max-num-seqs", "16", "--compilation-config", "{\"cudagraph_capture_sizes\":[1,2,4,8,16]}", "--no-scheduler-reserve-full-isl", "--generation-config", "vllm", "--reasoning-parser", "deepseek_v4", "--default-chat-template-kwargs", "{\"enable_thinking\":true}", "--enable-auto-tool-choice", "--tool-call-parser", "deepseek_v4", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["vllm", "serve", "/model", "--served-model-name", "banana-smasher-v5", "--trust-remote-code", "--tokenizer-mode", "deepseek_v4", "--kv-cache-dtype", "fp8", "--block-size", "256", "--max-model-len", "8192", "--gpu-memory-utilization", "0.80", "--kv-cache-memory-bytes", "3221225472", "--max-num-batched-tokens", "512", "--max-num-seqs", "16", "--compilation-config", "{\"cudagraph_capture_sizes\":[1,2,4,8,16],\"cudagraph_mode\":\"PIECEWISE\"}", "--no-scheduler-reserve-full-isl", "--generation-config", "vllm", "--reasoning-parser", "deepseek_v4", "--default-chat-template-kwargs", "{\"enable_thinking\":true}", "--enable-auto-tool-choice", "--tool-call-parser", "deepseek_v4", "--host", "0.0.0.0", "--port", "8000"]
