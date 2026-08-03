@@ -24,4 +24,12 @@ The bound inputs are supplied with `--repair-checkpoint`, `--repair-checkpoint-s
 
 Repair checkpoint loading is weights-only and requires PyTorch in the export environment. Pack loading and validation retain the lightweight NumPy + safetensors runtime.
 
+## Update and paired evaluation
+
+`smash update` consumes a hash-bound NPZ containing `input_ids`, `teacher_mask`, `positions`, `features`, and `targets`. `--tokens N` is the exact batch-1 physical window shape; `--segments` controls gradient-accumulation segmentation and never changes that physical extent. The identity JSON must bind immutable content, config, assignment, and code SHA-256 values. Install the fully pinned `update` extra. CUDA is the default production backend; the CPU implementation is available only through explicit `--reference`. Every completed receipt records observed tensor, teacher-mask, position, forward, backward, optimizer, and peak-memory evidence. Resumable checkpoints use root-relative hash-bound members and an atomic rebind receipt, so relocation is safe while drift remains fail-closed.
+
+`smash update --serve --queue QUEUE_ROOT` durably publishes `WAITING` without starting a segment clock. Jobs enter the explicit FIFO, and timing begins only when the owner commits the `SEGMENT_START` transition.
+
+`smash bank` builds the immutable same-instrument teacher population used by `smash evaluate`. Evaluation pairs candidate and reference windows, resumes only from the greatest valid common marker, and refuses to publish a completed result when either arm is missing, rejected, or inconsistent.
+
 The first sealed model instance has no special framework name. Reusable package, schema, CLI, and documentation names remain `banana-smasher`, `bs-pack`, and `smash`.

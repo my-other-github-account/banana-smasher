@@ -11,6 +11,7 @@ dependencies = ["numpy==2.3.5", "safetensors==0.8.0"]
 
 [project.optional-dependencies]
 knapsack = ["scipy==1.16.1"]
+update = ["torch==2.11.0"]
 test = ["pytest==8.4.2", "ruff==0.12.7", "scipy==1.16.1"]
 
 [project.scripts]

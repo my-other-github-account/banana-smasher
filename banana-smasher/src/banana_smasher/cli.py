@@ -110,6 +110,41 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
 
+    update = subparsers.add_parser(
+        "update", help="run or persist one exact physical-token update"
+    )
+    update.add_argument("--input", type=Path)
+    update.add_argument("--output", type=Path)
+    update.add_argument("--identity", type=Path)
+    update.add_argument("--tokens", type=int)
+    update.add_argument("--segments", type=int, default=1)
+    update.add_argument("--learning-rate", type=float, default=1e-4)
+    update.add_argument("--depth", type=int, default=1)
+    update.add_argument("--reference", action="store_true")
+    update.add_argument("--serve", action="store_true")
+    update.add_argument("--queue", type=Path)
+    update.add_argument("--restart", action="store_true")
+
+    bank = subparsers.add_parser(
+        "bank", help="build or resume a complete manifest-bound teacher bank"
+    )
+    bank.add_argument("--model-root", type=Path, required=True)
+    bank.add_argument("--corpus", type=Path, required=True)
+    bank.add_argument("--windows-manifest", type=Path, required=True)
+    bank.add_argument("--output", type=Path, required=True)
+    bank.add_argument("--instrument-profile", type=Path)
+
+    evaluate = subparsers.add_parser(
+        "evaluate", help="run paired candidate/reference real-axis evaluation"
+    )
+    evaluate.add_argument("--model-root", type=Path, required=True)
+    evaluate.add_argument("--candidate", type=Path, required=True)
+    evaluate.add_argument("--reference", type=Path, required=True)
+    evaluate.add_argument("--bank", type=Path, required=True)
+    evaluate.add_argument("--output", type=Path, required=True)
+    evaluate.add_argument("--resume-from-layer", type=int)
+    evaluate.add_argument("--verbose-receipts", action="store_true")
+
     return parser
 
 
@@ -238,6 +273,65 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=args.output,
                 receipt=args.receipt,
             )
+        elif args.command == "update":
+            if args.serve:
+                if args.queue is None:
+                    raise ValueError("--serve requires --queue")
+                if any(
+                    value is not None
+                    for value in (args.input, args.output, args.identity, args.tokens)
+                ):
+                    raise ValueError(
+                        "--serve accepts only persistent queue options, not one-shot update inputs"
+                    )
+                from .persistent import PersistentUpdateQueue
+
+                result = {
+                    **PersistentUpdateQueue(args.queue).waiting(),
+                    "command": "update",
+                }
+            else:
+                if args.queue is not None:
+                    raise ValueError("--queue requires --serve")
+                if None in (args.input, args.output, args.identity, args.tokens):
+                    raise ValueError(
+                        "one-shot update requires --input, --output, --identity, and --tokens"
+                    )
+                from .update import run_file_update
+
+                result = run_file_update(
+                    source=args.input,
+                    output=args.output,
+                    identity=args.identity,
+                    tokens=args.tokens,
+                    segments=args.segments,
+                    learning_rate=args.learning_rate,
+                    depth=args.depth,
+                    reference=args.reference,
+                    restart=args.restart,
+                )
+        elif args.command == "bank":
+            from .bank import build_bank
+
+            result = build_bank(
+                model_root=args.model_root,
+                corpus=args.corpus,
+                windows_manifest=args.windows_manifest,
+                output=args.output,
+                instrument_profile=args.instrument_profile,
+            )
+        elif args.command == "evaluate":
+            from .evaluate import evaluate_paired
+
+            result = evaluate_paired(
+                model_root=args.model_root,
+                candidate=args.candidate,
+                reference=args.reference,
+                bank=args.bank,
+                output=args.output,
+                resume_from_layer=args.resume_from_layer,
+                verbose_receipts=args.verbose_receipts,
+            )
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2
@@ -250,7 +344,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ) as exc:
         _emit(
             {
-                "status": "FAIL",
+                "status": "REJECTED" if args.command == "evaluate" else "FAIL",
                 "command": reported_command or args.command,
                 "error": str(exc),
                 "error_type": type(exc).__name__,
