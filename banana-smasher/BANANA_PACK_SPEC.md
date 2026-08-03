@@ -1,7 +1,7 @@
 # BANANA PACK SPECIFICATION — bs-pack v1
 
 Status: frozen v1 contract
-Quantization method: `bs-mixed-tier`
+Quantization method: `banana_smasher`
 Manifest: `BANANA_PACK_MANIFEST.json`
 Shared implementation: Python package `banana_smasher`
 
@@ -53,7 +53,7 @@ Required top-level manifest values:
 |---|---|
 | `schema` | `bs-pack` |
 | `schema_version` | integer `1` |
-| `quant_method` | `bs-mixed-tier` |
+| `quant_method` | `banana_smasher` |
 | `model_id` | source model identifier |
 | `instance_id` | unique pack instance identifier |
 | `experts_per_layer` | integer `256` |
@@ -77,7 +77,7 @@ The validator rejects unknown extra files and missing files. Symlinks are forbid
 ```json
 {
   "quantization_config": {
-    "quant_method": "bs-mixed-tier",
+    "quant_method": "banana_smasher",
     "format": "bs-pack",
     "format_version": 1,
     "pack_manifest": "BANANA_PACK_MANIFEST.json",
@@ -94,26 +94,17 @@ Before repack, `tensor_container` is `null`.
 
 ### 3.1 vLLM auto-detection keys
 
-The fork reads these exact keys from `config.json`; no environment variable is required for method selection or pack location:
+The registered stock-vLLM plugin reads these exact keys from `config.json`; no environment variable is required for method selection or pack location:
 
-| `quantization_config` key | bs-pack v1 value | Fork consumer |
+| `quantization_config` key | bs-pack v1 value | Stock-vLLM plugin consumer |
 |---|---|---|
-| `quant_method` | `bs-mixed-tier` | vLLM's normal checkpoint quantization auto-detection and registered `BsMixedTierConfig` |
-| `pack_root` | `.` | `BsMixedTierConfig.from_config`; resolved relative to the model directory |
-| `kernel_cache_root` | `kernel-cache` | `BsMixedTierConfig.from_config`; resolved relative to the model directory |
-| `architecture` | `sm_120` | `BsMixedTierConfig.from_config` and `PackLoader` compatibility gate |
+| `quant_method` | `banana_smasher` | normal vLLM quantization auto-detection and the registered Banana Smasher config |
+| `pack_root` | `.` | resolved relative to the model directory by the registered config |
+| `kernel_cache_root` | `kernel-cache` | resolved relative to the model directory by the registered config |
+| `architecture` | `sm_120` | registered config and `PackLoader` compatibility gate |
 | `format` | `bs-pack` | shared banana-smasher validator/loader contract |
 | `format_version` | integer `1` | shared banana-smasher validator/loader contract |
 | `pack_manifest` | `BANANA_PACK_MANIFEST.json` | shared banana-smasher validator/loader contract |
-
-The captured P1268 public-canon IQ3 container is a compatibility profile of the same product boundary, not a relabeling of its legacy wire payload as the generic mixed-tier layout. Its fork patch deliberately preserves the source model's existing DeepSeek-v4 FP8 `quant_method` and reads these two exact additional keys:
-
-| P1268 compatibility key | Required value | Meaning |
-|---|---|---|
-| `quantization_config.moe_quant_algo` | `IQ3_WIRE` | select the vendored IQ3 MoE backend inside the registered FP8 method |
-| `quantization_config.moe_pack_root` | `wire_v4-step32` | contained path relative to the mounted model root |
-
-That compatibility profile remains truth-labeled `PUBLIC_CANON_IQ3_WIRE; NOT P943 native TRUE-C` and is authenticated by its box-6 `BS_PACK_MANIFEST.json`. Generic bs-pack v1 export/validation continues to use `quant_method=bs-mixed-tier` and `BANANA_PACK_MANIFEST.json`; validators must not silently reinterpret one profile as the other.
 
 ## 4. Tier-map semantics
 
@@ -230,7 +221,7 @@ NumPy container headers are not semantic tensor data and are intentionally canon
 A serving preflight requires `BS_KERNEL_CACHE_MANIFEST.json` with:
 
 - `schema: "bs-kernel-cache"` and `schema_version: 1`;
-- `quant_method: "bs-mixed-tier"`;
+- `quant_method: "banana_smasher"`;
 - `pack_schema: "bs-pack"` and `pack_schema_version: 1`;
 - an exact `tensor_layout_sha256` match;
 - a family set containing every family selected by the pack;
@@ -259,17 +250,17 @@ payload     -> unchanged codes/scales/codebook bytes
 
 `d4_k2048` is not a sixth v1 family and is never rewritten as QTIP2. Its `k=2048` source parameter belongs in provenance/tensor metadata while the serving family remains `truevq_d4`. Repacking may change only the outer container and name the payload; it may not requantize, reorder, pad, deduplicate, or regenerate the sealed banana-smasher data.
 
-The layer-000 qualification receipt must record the sealed input path `/work/build/artifacts/banana-smasher_FANIN_INTERNAL-ID_s8/package/wire43/layer_000`, source `LAYER_RECEIPT.json` SHA-256, and pre/post payload hashes while writing only to a new output directory. The sealed receipt is the authority for all four d4 subtiers; the `d4_k2048` rows retain their original `le11`, `e8m0`, fp16-codebook, and int16-expert payload bytes.
+The layer-000 qualification receipt must record a run-root-relative sealed input descriptor, source `LAYER_RECEIPT.json` SHA-256, and pre/post payload hashes while writing only to a new output directory. The sealed receipt is the authority for all four d4 subtiers; the `d4_k2048` rows retain their original `le11`, `e8m0`, fp16-codebook, and int16-expert payload bytes.
 
 ## 10. Loader/serving rule
 
-The only supported programmatic reader is `banana_smasher.loader.PackLoader`. Tools and vLLM import this package; no duplicate manifest parser is permitted. The registered vLLM method name is `bs-mixed-tier`, auto-selected from the model's `quantization_config` with the normal command:
+The only supported programmatic reader is `banana_smasher.loader.PackLoader`. Tools and vLLM import this package; no duplicate manifest parser is permitted. The registered vLLM method name is `banana_smasher`, auto-selected from the model's `quantization_config` with the normal command:
 
 ```text
 vllm serve MODEL
 ```
 
-An explicit `--quantization bs-mixed-tier` remains a standard vLLM override, not a required banana-smasher launcher concept. The model's `quantization_config` locates the pack and kernel manifest. Verification occurs before layer tensors are exposed. Runtime adapters receive named tensors from a scoped `LayerTensorView`; they do not scan directories or derive tiers from environment variables.
+An explicit `--quantization banana_smasher` remains a standard vLLM override, not a required banana-smasher launcher concept. The model's `quantization_config` locates the pack and kernel manifest. Verification occurs before layer tensors are exposed. Runtime adapters receive named tensors from a scoped `LayerTensorView`; they do not scan directories or derive tiers from environment variables.
 
 ## 11. Fail-closed checklist
 

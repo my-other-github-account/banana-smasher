@@ -8,6 +8,7 @@
 - `tables/` — decision-grade KLD, top-1, size/GB, packed-bpw, FP-baseline, throughput, and timing tables.
 - `migrations/` — source-of-truth cutovers and semantic port audits.
 - `decisions/` — durable API, compatibility, acceleration, and publication decisions.
+- `status/` — current gate state, explicit blockers, and pending physical validation.
 
 ## Rules
 
@@ -17,3 +18,5 @@
 4. Never publish raw host receipts, private paths, hostnames, private IPs, credentials, or unsanitized command logs. Store scrubbed summaries with hashes of immutable public artifacts where useful.
 5. Static tests, image builds, GPU boots, API correctness, and performance measurements are separate gates. Do not promote one into evidence for another.
 6. Reports and tables are append-only evidence records once published; corrections get a dated superseding note rather than silent historical rewriting.
+7. Product reports cover only the mixed-QTIP Backpack pipeline. A deployable artifact must close its lineage within one standalone run root; historical external artifacts are evidence, never undeclared build inputs.
+8. A release report must separately prove API correctness, decode, C1–C16 concurrency, and prefill. Missing cells remain `TBD` and block release rather than being filled from another artifact or instrument.

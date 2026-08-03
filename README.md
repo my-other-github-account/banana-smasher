@@ -6,6 +6,14 @@ materialized quant source -> `smash export` -> `smash verify` -> self-contained 
 
 It does not contain training, solver orchestration, benchmark ledgers, or historical run artifacts.
 
+The binding product and release contract is the standalone mixed-QTIP Backpack pipeline documented in:
+
+- `notes/decisions/2026-08-03-mixed-qtip-standalone-deployment.md`
+- `notes/reports/2026-08-03-mixed-qtip-backpack-system-map.md`
+- `notes/tables/2026-08-03-runtime-performance-gates.md`
+
+The commands below are low-level public primitives. A release is accepted only when its assignment, pre-repair pack, repair, final export, image, API evidence, and performance evidence close under one hash-bound run root; manually assembled authorities are not the target first-run workflow.
+
 ## Clone
 
 ```bash

@@ -145,17 +145,17 @@
       "source_sha256": "49434ec6ef468592c07438de912f5f7799eeb88daa12702e8d272034e8b82656"
     },
     {
-      "byte_preserved": true,
-      "bytes": 15116,
-      "output_sha256": "8b25fb57f3bb405c80084f35a93c28c2e67555ca328bb298f6156b472a3ceb70",
+      "byte_preserved": false,
+      "bytes": 14092,
+      "output_sha256": "a9ac83029e6e2986a3527241a65c6e45547db727ea339ba46c8b15a4d4379ce2",
       "path": "banana-smasher/BANANA_PACK_SPEC.md",
       "source_path": "banana-smasher/BANANA_PACK_SPEC.md",
       "source_sha256": "8b25fb57f3bb405c80084f35a93c28c2e67555ca328bb298f6156b472a3ceb70"
     },
     {
       "byte_preserved": false,
-      "bytes": 16257,
-      "output_sha256": "aeea1bdc44e88be36648be1c102df40b27b827b5c9248b58197ba8188c411f67",
+      "bytes": 15289,
+      "output_sha256": "0805910a0bc21755370fb3112076fa67d28cb232647f363e29ca9f9315c2d835",
       "path": "banana-smasher/PACK_FORMAT.md",
       "source_path": "banana-smasher/PACK_FORMAT.md",
       "source_sha256": "265c3d1758b78a7b7b6f9318bcf66db5c504bc515d6f2a1ff297dfc011c2e1fc"
@@ -433,9 +433,9 @@
       "source_sha256": "ce9e611f8e8cc1e9a4e839b7de8d184865eec445cb1f212081b610f71032a978"
     },
     {
-      "byte_preserved": true,
-      "bytes": 1021,
-      "output_sha256": "2d01a22a767be23ccbed3ac45ab0b37edcaf84fa241fddd74a736e3701124b48",
+      "byte_preserved": false,
+      "bytes": 1022,
+      "output_sha256": "1f00b1fca0dc83da1687bd933a035c1b483b0f1df682a65c1bc564235d031f0a",
       "path": "banana-smasher/schema/bs-kernel-cache-v1.schema.json",
       "source_path": "banana-smasher/schema/bs-kernel-cache-v1.schema.json",
       "source_sha256": "2d01a22a767be23ccbed3ac45ab0b37edcaf84fa241fddd74a736e3701124b48"
@@ -449,9 +449,9 @@
       "source_sha256": "50e246f52cb0b77fc31a08e1cb461c6a5c9be729d277938cee27a19756d25376"
     },
     {
-      "byte_preserved": true,
-      "bytes": 1593,
-      "output_sha256": "4fc0401e6da4fedfdd18238b5c9eeab0700a250bdc1d9d8a4d11e7a0f237ac5c",
+      "byte_preserved": false,
+      "bytes": 1594,
+      "output_sha256": "479941f6bf1ccba566ff4d01bd1af2bc92e3086bc82dd88914dd87e91b0d2c67",
       "path": "banana-smasher/schema/bs-pack-v1.schema.json",
       "source_path": "banana-smasher/schema/bs-pack-v1.schema.json",
       "source_sha256": "4fc0401e6da4fedfdd18238b5c9eeab0700a250bdc1d9d8a4d11e7a0f237ac5c"

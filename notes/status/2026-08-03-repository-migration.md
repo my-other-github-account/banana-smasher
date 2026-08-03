@@ -21,10 +21,10 @@ This standalone repository is now the canonical source for new Banana Smasher co
 | Surface | Current canonical state | Required action |
 |---|---|---|
 | Explicit candidate authority publication | Missing | Port the sealed fail-closed producer and tests |
-| Dynamic Backpack dimension binding | Missing | Port explicit per-candidate six-class/importance/byte binding and tests |
-| Dynamic exact-byte knapsack | Missing | Port the manifest-bound solver surface and tests without campaign orchestration |
+| Dynamic Backpack dimension binding | Present | Integrate the explicit six-class/importance/byte binding into the standalone run-root API |
+| Dynamic exact-byte knapsack | Present | Integrate the manifest-bound solver into the standalone run-root API |
 | Source-vs-wheel command parity | Partial | Extend release tests to cover every newly admitted public verb |
-| Reporting and result tables | Missing directory | Use `notes/status`, `notes/audits`, and `notes/tables` from this migration onward |
+| Reporting and result tables | Present | Keep revision-bound reports, status, decisions, and tables under `notes/` |
 
 ## Excluded by design
 

@@ -2,6 +2,20 @@
 
 This repository is the sole source of truth for Banana Smasher code, tests, package metadata, runtime integration, Docker assets, public documentation, and public-safe reporting.
 
+## Product scope
+
+- The product is the mixed-QTIP Backpack pipeline and its QTIP2, QTIP3, D4, and native-MXFP4 serving runtime.
+- New code, tests, documentation, reports, and deployment work must serve that product scope directly. Unrelated historical quantization formats are not product inputs, compatibility targets, or preservation targets.
+- V4 is the containerized U004 mixed-QTIP Backpack on the F521 assignment. V5 is U012 on the same assignment and pipeline basis.
+
+## Standalone deployment law
+
+1. A deployment release starts from one fresh, self-contained pipeline run root and may consume only the declared base-model inputs plus artifacts generated inside that run root.
+2. Backpack selection, pre-repair materialization and evaluation, repair, final export, image build, plugin installation, and performance evidence must form one hash-bound lineage.
+3. Final export must not depend on a pack, overlay, repair checkpoint, image, cache, runtime module, or receipt borrowed from an earlier run. Optional machine caches may accelerate recomputation only when their producer, key, validation, and disposable nature are explicit.
+4. The supported serving boundary is pinned stock vLLM plus the installable `banana-smasher-plugin` wheel and a verified self-contained `/model` pack. No out-of-tree Python overlay, host-side monkey patch, hidden environment setup, or manually edited model artifact is allowed.
+5. Functional boot is not release acceptance. The same exported artifact must pass coherent API behavior and the frozen decode, concurrency, and prefill performance gates recorded under `notes/`.
+
 ## Repository boundary
 
 - Canonical remote: `git@github.com:my-other-github-account/banana-smasher.git`

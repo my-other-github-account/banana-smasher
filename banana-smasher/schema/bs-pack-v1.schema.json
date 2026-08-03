@@ -29,7 +29,7 @@
     "source_format": {"enum": ["canonical-npy-v1", "banana-smasher-materialized-layer-v1"]},
     "model_id": {"type": "string", "minLength": 1},
     "instance_id": {"type": "string", "minLength": 1},
-    "quant_method": {"const": "bs-mixed-tier"},
+    "quant_method": {"const": "banana_smasher"},
     "layers": {"type": "array", "items": {"type": "integer", "minimum": 0}, "uniqueItems": true},
     "experts_per_layer": {"const": 256},
     "expert_partitions": {"const": [64, 64, 64, 64]},

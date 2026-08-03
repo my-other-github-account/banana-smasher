@@ -18,7 +18,7 @@
   "properties": {
     "schema": {"const": "bs-kernel-cache"},
     "schema_version": {"const": 1},
-    "quant_method": {"const": "bs-mixed-tier"},
+    "quant_method": {"const": "banana_smasher"},
     "pack_schema": {"const": "bs-pack"},
     "pack_schema_version": {"const": 1},
     "tensor_layout_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},

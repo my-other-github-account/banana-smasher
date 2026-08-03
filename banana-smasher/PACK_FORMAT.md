@@ -101,26 +101,17 @@ Before repack, `tensor_container` is `null`.
 
 ### 3.1 vLLM auto-detection keys
 
-The fork reads these exact keys from `config.json`; no environment variable is required for method selection or pack location:
+The registered stock-vLLM plugin reads these exact keys from `config.json`; no environment variable is required for method selection or pack location:
 
-| `quantization_config` key | bs-pack v1 value | Fork consumer |
+| `quantization_config` key | bs-pack v1 value | Stock-vLLM plugin consumer |
 |---|---|---|
-| `quant_method` | `banana_smasher` | vLLM's normal checkpoint quantization auto-detection and registered `BsMixedTierConfig` |
-| `pack_root` | `.` | `BsMixedTierConfig.from_config`; resolved relative to the model directory |
-| `kernel_cache_root` | `kernel-cache` | `BsMixedTierConfig.from_config`; resolved relative to the model directory |
-| `architecture` | `sm_120` | `BsMixedTierConfig.from_config` and `PackLoader` compatibility gate |
+| `quant_method` | `banana_smasher` | normal vLLM quantization auto-detection and the registered Banana Smasher config |
+| `pack_root` | `.` | resolved relative to the model directory by the registered config |
+| `kernel_cache_root` | `kernel-cache` | resolved relative to the model directory by the registered config |
+| `architecture` | `sm_120` | registered config and `PackLoader` compatibility gate |
 | `format` | `bs-pack` | shared banana-smasher validator/loader contract |
 | `format_version` | integer `1` | shared banana-smasher validator/loader contract |
 | `pack_manifest` | `BANANA_PACK_MANIFEST.json` | shared banana-smasher validator/loader contract |
-
-The captured P1268 public-canon IQ3 container is a compatibility profile of the same product boundary, not a relabeling of its legacy wire payload as the generic mixed-tier layout. Its fork patch deliberately preserves the source model's existing DeepSeek-v4 FP8 `quant_method` and reads these two exact additional keys:
-
-| P1268 compatibility key | Required value | Meaning |
-|---|---|---|
-| `quantization_config.moe_quant_algo` | `IQ3_WIRE` | select the vendored IQ3 MoE backend inside the registered FP8 method |
-| `quantization_config.moe_pack_root` | `wire_v4-step32` | contained path relative to the mounted model root |
-
-That compatibility profile remains truth-labeled `PUBLIC_CANON_IQ3_WIRE; NOT P943 native TRUE-C` and is authenticated by its box-6 `BS_PACK_MANIFEST.json`. Generic bs-pack v1 export/validation continues to use `quant_method=bs-mixed-tier` and `BANANA_PACK_MANIFEST.json`; validators must not silently reinterpret one profile as the other.
 
 ## 4. Tier-map semantics
 

@@ -38,6 +38,29 @@ def test_required_source_surfaces_exist() -> None:
     assert not missing, f"missing retained source surfaces: {missing}"
 
 
+def test_quantization_method_is_consistent_across_runtime_and_schemas() -> None:
+    expected = "banana_smasher"
+    pack_schema = json.loads(
+        (ROOT / "banana-smasher/schema/bs-pack-v1.schema.json").read_text()
+    )
+    kernel_schema = json.loads(
+        (ROOT / "banana-smasher/schema/bs-kernel-cache-v1.schema.json").read_text()
+    )
+    exporter_contract = (
+        ROOT / "banana-smasher/src/banana_smasher/contract.py"
+    ).read_text()
+    plugin_contract = (
+        ROOT / "banana-smasher-plugin/src/banana_smasher_plugin/quantization.py"
+    ).read_text()
+    pack_spec = (ROOT / "banana-smasher/PACK_FORMAT.md").read_text()
+
+    assert pack_schema["properties"]["quant_method"]["const"] == expected
+    assert kernel_schema["properties"]["quant_method"]["const"] == expected
+    assert f'QUANT_METHOD = "{expected}"' in exporter_contract
+    assert f'QUANT_METHOD = "{expected}"' in plugin_contract
+    assert f'`quant_method` | `{expected}`' in pack_spec
+
+
 def test_all_runtime_aot_assets_exist() -> None:
     sm120 = list((ROOT / "banana-smasher/kernels/cubins-sm120").glob("*.cubin"))
     e43 = list((ROOT / "banana-smasher/kernels/cubins-e43").glob("*.cubin"))
