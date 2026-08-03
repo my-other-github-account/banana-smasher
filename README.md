@@ -6,6 +6,15 @@ materialized quant source -> `smash export` -> `smash verify` -> self-contained 
 
 It does not contain training, solver orchestration, benchmark ledgers, or historical run artifacts.
 
+## Clone
+
+```bash
+git clone https://github.com/my-other-github-account/banana-smasher.git
+cd banana-smasher
+```
+
+The repository contains two installable Python distributions: `banana-smasher` for export, verification, and pack development, and `banana-smasher-plugin` for stock-vLLM serving integration.
+
 ## Build and test both Python packages on a development host
 
 The following is the non-GPU static development gate. It builds, inspects, installs,
