@@ -653,6 +653,42 @@
       "output_sha256": "2064ec236229f1d7a67abdaeab090eb88549a09cbd60e26928000cc069ebdbaf",
       "path": "docker/tests/test_exact_asset_admission.py",
       "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 3596,
+      "derived_from": [
+        {
+          "source_path": "activation-cache acceleration diff",
+          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
+        }
+      ],
+      "output_sha256": "27bd68c551befceb1fbeee54d6d6cb99dfb66b980f637e5925ee0947f18589a1",
+      "path": "banana-smasher/src/banana_smasher/activation_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 6067,
+      "derived_from": [
+        {
+          "source_path": "activation-cache acceleration diff",
+          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
+        }
+      ],
+      "output_sha256": "08dc34fc361b157f1f14a8d77c6d5df06fedfe016a4e770ca1b6d83d6df4d2c8",
+      "path": "banana-smasher/tests/test_activation_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 5394,
+      "derived_from": [
+        {
+          "source_path": "activation-cache acceleration diff",
+          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
+        }
+      ],
+      "output_sha256": "5a2b08e9a2b1cafda02934fe11806bb613714bf7903cf9d07aa15119b264af2c",
+      "path": "banana-smasher/tools/benchmark_activation_cache.py",
+      "provenance": "corrective-review-generated"
     }
   ],
   "schema": "banana-smasher-source-inventory-v1",
