@@ -85,11 +85,14 @@ def test_smash_help_exposes_public_verbs() -> None:
         "update",
         "bank",
         "evaluate",
+        "qtip-configs",
+        "kernels",
         "knapsack",
         "backpack-dimensions",
     ]
     assert {"solve", "update", "export", "verify"}.issubset(choices)
     assert {"bank", "evaluate"} <= set(choices)
+    assert {"qtip-configs", "kernels"} <= set(choices)
     # Additive command families must not displace the lifecycle prefix.
 
 
