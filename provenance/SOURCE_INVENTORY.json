@@ -526,9 +526,9 @@
       "source_sha256": "cf63c4cdea5caa465c416f8d83db7337299bd1b4ff4937c0a288d31d6ac79c61"
     },
     {
-      "byte_preserved": true,
-      "bytes": 12234,
-      "output_sha256": "04bdc3a403791c6962f98e77a9911e52729c8f186aa7f3127fa1c8b2008993e4",
+      "byte_preserved": false,
+      "bytes": 16753,
+      "output_sha256": "71c5efd12fd6b45dff82b6df988e815acb96fd9b45d2b3a5a158c4cb7c7d71d0",
       "path": "banana-smasher/src/banana_smasher/solve.py",
       "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
       "source_path": "banana-smasher/src/banana_smasher/solve.py",
@@ -608,8 +608,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 3633,
-      "output_sha256": "aff8cf823779b2899c747a1ba59159b20de72aacb9fa51dd86b446199950f6db",
+      "bytes": 16138,
+      "output_sha256": "f85aca4a12eaf1e2a91edc480525465d72cfc66645172405926cbf4856fb980c",
       "path": "banana-smasher/tests/test_solve.py",
       "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
       "source_path": "banana-smasher/tests/test_solve.py",
