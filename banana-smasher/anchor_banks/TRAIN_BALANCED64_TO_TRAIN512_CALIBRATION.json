@@ -1,0 +1,25 @@
+{
+  "claim_scope": "retrospective reconstruction on the fifteen recovered historical vectors only; unseen-basis accuracy is not established",
+  "correction_factors": {
+    "agentic": 1.0012260433669442,
+    "chat": 1.0034874620897432,
+    "code": 1.0049846293013482,
+    "multilingual": 0.9975504067652369,
+    "prose": 1.0043267042307644,
+    "reasoning": 0.9955673075474808
+  },
+  "parent_class_counts": {
+    "agentic": 154,
+    "chat": 52,
+    "code": 76,
+    "multilingual": 76,
+    "prose": 78,
+    "reasoning": 76
+  },
+  "schema": "banana-smasher-anchor-calibration-v1",
+  "source": {
+    "sha256": "5c731c28c0096f245fc7109016f353071f59f617c376401e473513fe1a6a6bc5",
+    "status": "resolved",
+    "uri": "artifact://banana-smasher/anchor64-v6/historical-calibration.json"
+  }
+}

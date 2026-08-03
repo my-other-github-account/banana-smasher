@@ -1,10 +1,15 @@
 # Banana Smasher runtime
 
-This standalone repository owns one path only:
+This standalone repository owns two reusable product paths:
 
 materialized quant source -> `smash export` -> `smash verify` -> self-contained `/model` pack -> pinned stock vLLM image with `vllm.general_plugins` -> OpenAI-compatible API.
 
-It does not contain training, solver orchestration, benchmark ledgers, or historical run artifacts.
+bank manifest -> materialized evaluation bank -> exact teacher/candidate producer rows -> resumable KLD -> measured aggregate -> optional parent estimate -> training-only solver row.
+
+It does not contain campaign orchestration, private benchmark ledgers, raw
+historical run artifacts, model weights, or logits. The generic anchor API,
+schemas, public-safe four-bank provenance bundle, and commands are documented in
+`banana-smasher/ANCHOR_EVALUATION.md`.
 
 ## Clone
 
@@ -13,7 +18,7 @@ git clone https://github.com/my-other-github-account/banana-smasher.git
 cd banana-smasher
 ```
 
-The repository contains two installable Python distributions: `banana-smasher` for export, verification, and pack development, and `banana-smasher-plugin` for stock-vLLM serving integration.
+The repository contains two installable Python distributions: `banana-smasher` for export, verification, pack development, and anchor evaluation, and `banana-smasher-plugin` for stock-vLLM serving integration.
 
 ## Build and test both Python packages on a development host
 

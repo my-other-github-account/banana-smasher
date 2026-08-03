@@ -227,6 +227,102 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
 
+    anchor = subparsers.add_parser(
+        "anchor", help="reproducible four-bank anchor evaluation workflow"
+    )
+    anchor_commands = anchor.add_subparsers(dest="anchor_command", required=True)
+
+    anchor_validate = anchor_commands.add_parser(
+        "validate", help="validate a versioned bank manifest"
+    )
+    anchor_validate.add_argument("--manifest", type=Path, required=True)
+
+    anchor_resolve = anchor_commands.add_parser(
+        "resolve", help="write a new manifest with exact resolved identities"
+    )
+    anchor_resolve.add_argument("--manifest", type=Path, required=True)
+    anchor_resolve.add_argument("--identities", type=Path, required=True)
+    anchor_resolve.add_argument("--output", type=Path, required=True)
+
+    anchor_register = anchor_commands.add_parser(
+        "register", help="register an immutable bank manifest in one run root"
+    )
+    anchor_register.add_argument("--run-root", type=Path, required=True)
+    anchor_register.add_argument("--manifest", type=Path, required=True)
+
+    anchor_materialize = anchor_commands.add_parser(
+        "materialize", help="materialize a registered bank from its declared parent"
+    )
+    anchor_materialize.add_argument("--run-root", type=Path, required=True)
+    anchor_materialize.add_argument("--bank", required=True)
+    anchor_materialize.add_argument("--parent", type=Path, required=True)
+    anchor_materialize.add_argument("--disjoint-bank", action="append", default=[])
+
+    anchor_select = anchor_commands.add_parser(
+        "select", help="create and register a deterministic balanced training subset"
+    )
+    anchor_select.add_argument("--run-root", type=Path, required=True)
+    anchor_select.add_argument("--parent-bank", required=True)
+    anchor_select.add_argument("--parent", type=Path, required=True)
+    anchor_select.add_argument("--config", type=Path, required=True)
+
+    anchor_import = anchor_commands.add_parser(
+        "import-producer", help="hash-admit exact teacher or candidate producer rows"
+    )
+    anchor_import.add_argument("--run-root", type=Path, required=True)
+    anchor_import.add_argument("--bank", required=True)
+    anchor_import.add_argument("--kind", choices=("teacher", "candidate"), required=True)
+    anchor_import.add_argument("--source", type=Path, required=True)
+    anchor_import.add_argument("--sha256", required=True)
+    anchor_import.add_argument("--candidate-id")
+
+    anchor_score = anchor_commands.add_parser(
+        "score", help="score exact producer rows with resumable per-window KLD"
+    )
+    anchor_score.add_argument("--run-root", type=Path, required=True)
+    anchor_score.add_argument("--bank", required=True)
+    anchor_score.add_argument("--candidate-id", required=True)
+    anchor_score.add_argument("--teacher", type=Path)
+    anchor_score.add_argument("--candidate-producer", type=Path)
+    anchor_score.add_argument("--teacher-sha256", required=True)
+    anchor_score.add_argument("--teacher-uri", required=True)
+    anchor_score.add_argument("--candidate-sha256", required=True)
+    anchor_score.add_argument("--candidate-uri", required=True)
+    anchor_score.add_argument("--basis-sha256", required=True)
+
+    anchor_aggregate = anchor_commands.add_parser(
+        "aggregate", help="aggregate raw KLD and optionally estimate a declared parent"
+    )
+    anchor_aggregate.add_argument("--run-root", type=Path, required=True)
+    anchor_aggregate.add_argument("--bank", required=True)
+    anchor_aggregate.add_argument("--candidate-id", required=True)
+    anchor_aggregate.add_argument("--calibration", type=Path)
+
+    anchor_compare = anchor_commands.add_parser(
+        "compare", help="compare train balanced panel with its full training parent"
+    )
+    anchor_compare.add_argument("--run-root", type=Path, required=True)
+    anchor_compare.add_argument("--panel-bank", required=True)
+    anchor_compare.add_argument("--parent-bank", required=True)
+    anchor_compare.add_argument("--candidate-id", required=True)
+    anchor_compare.add_argument("--thresholds", type=Path, required=True)
+    anchor_compare.add_argument("--output", type=Path)
+
+    anchor_solver = anchor_commands.add_parser(
+        "solver-row", help="emit a solver-ready row from the training rail"
+    )
+    anchor_solver.add_argument("--run-root", type=Path, required=True)
+    anchor_solver.add_argument("--bank", required=True)
+    anchor_solver.add_argument("--candidate-id", required=True)
+    anchor_solver.add_argument("--output", type=Path)
+    anchor_solver.add_argument("--diagnostic-override", action="store_true")
+
+    anchor_status = anchor_commands.add_parser(
+        "status", help="report production, coverage, scoring and provenance grid"
+    )
+    anchor_status.add_argument("--run-root", type=Path, required=True)
+    anchor_status.add_argument("--format", choices=("human", "json"), default="human")
+
     return parser
 
 
@@ -257,6 +353,194 @@ def _parse_layers(value: str) -> list[int]:
     if len(set(result)) != len(result):
         raise ValueError(f"duplicate layer selection: {value!r}")
     return result
+
+
+def _load_json_object(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text())
+    except FileNotFoundError as exc:
+        raise ValueError(f"missing JSON input {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON input {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"JSON input {path} must contain an object")
+    return value
+
+
+def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
+    from .anchor import (
+        _atomic_write,
+        _canonical_bytes,
+        _safe_component,
+        aggregate_scores,
+        compare_training_rails,
+        create_balanced_subset,
+        emit_solver_row,
+        format_status,
+        import_producer,
+        load_registered_bank,
+        materialize_bank,
+        register_bank,
+        resolve_bank_identities,
+        score_bank,
+        status_report,
+        validate_bank_manifest,
+    )
+
+    command = args.anchor_command
+    if command == "validate":
+        return validate_bank_manifest(_load_json_object(args.manifest))
+    if command == "resolve":
+        resolved = resolve_bank_identities(
+            _load_json_object(args.manifest), _load_json_object(args.identities)
+        )
+        _atomic_write(args.output, _canonical_bytes(resolved))
+        return validate_bank_manifest(resolved)
+    if command == "register":
+        return register_bank(args.run_root, _load_json_object(args.manifest))
+    if command == "materialize":
+        manifest = load_registered_bank(args.run_root, args.bank)
+        disjoint = [
+            load_registered_bank(args.run_root, bank_id)
+            for bank_id in args.disjoint_bank
+        ]
+        return materialize_bank(
+            manifest,
+            args.parent,
+            args.run_root / "banks" / f"{manifest['bank_id']}.jsonl",
+            disjoint_manifests=disjoint,
+        )
+    if command == "select":
+        parent = load_registered_bank(args.run_root, args.parent_bank)
+        manifest = create_balanced_subset(
+            parent, args.parent, _load_json_object(args.config)
+        )
+        return {
+            **register_bank(args.run_root, manifest),
+            "bank_manifest": manifest,
+        }
+    if command == "import-producer":
+        manifest = load_registered_bank(args.run_root, args.bank)
+        return import_producer(
+            args.run_root,
+            manifest,
+            args.source,
+            kind=args.kind,
+            expected_sha256=args.sha256,
+            candidate_id=args.candidate_id,
+        )
+    if command == "score":
+        manifest = load_registered_bank(args.run_root, args.bank)
+        candidate_id = _safe_component(args.candidate_id, "candidate_id")
+        teacher_path = args.teacher or (
+            args.run_root / "producers" / "teacher" / f"{manifest['bank_id']}.jsonl"
+        )
+        candidate_path = args.candidate_producer or (
+            args.run_root
+            / "producers"
+            / "candidate"
+            / candidate_id
+            / f"{manifest['bank_id']}.jsonl"
+        )
+        output = (
+            args.run_root
+            / "scores"
+            / candidate_id
+            / manifest["bank_id"]
+            / "raw.jsonl"
+        )
+        return score_bank(
+            manifest,
+            teacher_path,
+            candidate_path,
+            output,
+            candidate_id=candidate_id,
+            candidate_identity={
+                "status": "resolved",
+                "sha256": args.candidate_sha256,
+                "uri": args.candidate_uri,
+            },
+            teacher_identity={
+                "status": "resolved",
+                "sha256": args.teacher_sha256,
+                "uri": args.teacher_uri,
+            },
+            basis_sha256=args.basis_sha256,
+        )
+    if command == "aggregate":
+        manifest = load_registered_bank(args.run_root, args.bank)
+        candidate_id = _safe_component(args.candidate_id, "candidate_id")
+        raw = (
+            args.run_root
+            / "scores"
+            / candidate_id
+            / manifest["bank_id"]
+            / "raw.jsonl"
+        )
+        output = (
+            args.run_root
+            / "aggregates"
+            / candidate_id
+            / f"{manifest['bank_id']}.json"
+        )
+        calibration = (
+            _load_json_object(args.calibration) if args.calibration is not None else None
+        )
+        return aggregate_scores(
+            manifest,
+            raw,
+            output,
+            candidate_id=candidate_id,
+            calibration=calibration,
+        )
+    if command == "compare":
+        candidate_id = _safe_component(args.candidate_id, "candidate_id")
+        panel_bank = _safe_component(args.panel_bank, "panel_bank")
+        parent_bank = _safe_component(args.parent_bank, "parent_bank")
+        panel = _load_json_object(
+            args.run_root
+            / "aggregates"
+            / candidate_id
+            / f"{panel_bank}.json"
+        )
+        parent = _load_json_object(
+            args.run_root
+            / "aggregates"
+            / candidate_id
+            / f"{parent_bank}.json"
+        )
+        result = compare_training_rails(
+            panel, parent, _load_json_object(args.thresholds)
+        )
+        output = args.output or (
+            args.run_root / "comparisons" / f"{candidate_id}.json"
+        )
+        _atomic_write(output, _canonical_bytes(result))
+        return result
+    if command == "solver-row":
+        manifest = load_registered_bank(args.run_root, args.bank)
+        candidate_id = _safe_component(args.candidate_id, "candidate_id")
+        aggregate = _load_json_object(
+            args.run_root
+            / "aggregates"
+            / candidate_id
+            / f"{manifest['bank_id']}.json"
+        )
+        output = args.output or (
+            args.run_root
+            / "solver_rows"
+            / f"{candidate_id}--{manifest['bank_id']}.json"
+        )
+        return emit_solver_row(
+            manifest,
+            aggregate,
+            output,
+            diagnostic_override=args.diagnostic_override,
+        )
+    if command == "status":
+        status = status_report(args.run_root)
+        return format_status(status) if args.format == "human" else status
+    raise ValueError(f"unsupported anchor command {command!r}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -589,6 +873,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=args.output,
                 receipt=args.receipt,
             )
+        elif args.command == "anchor":
+            result = _run_anchor(args)
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2
@@ -610,7 +896,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             stream=sys.stderr,
         )
         return 2
-    _emit(result)
+    if isinstance(result, str):
+        sys.stdout.write(result)
+    else:
+        _emit(result)
     return 0
 
 
