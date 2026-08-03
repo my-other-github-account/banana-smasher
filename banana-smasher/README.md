@@ -25,3 +25,12 @@ The bound inputs are supplied with `--repair-checkpoint`, `--repair-checkpoint-s
 Repair checkpoint loading is weights-only and requires PyTorch in the export environment. Pack loading and validation retain the lightweight NumPy + safetensors runtime.
 
 The first sealed model instance has no special framework name. Reusable package, schema, CLI, and documentation names remain `banana-smasher`, `bs-pack`, and `smash`.
+
+## Anchor evaluation
+
+`ANCHOR_EVALUATION.md` documents the generic four-bank API and the complete
+`smash anchor` workflow from manifest registration through solver-ready rows.
+The wheel includes the bank, raw-score, and aggregate schemas plus a public-safe
+four-bank provenance bundle. Training banks may drive fitting and solver rows;
+holdout banks fail closed on those uses unless an explicit diagnostic-only
+override is supplied.

@@ -82,6 +82,27 @@ def test_smash_help_exposes_public_verbs() -> None:
         "validate",
         "knapsack",
         "backpack-dimensions",
+        "anchor",
+    ]
+
+    anchor_parser = action.choices["anchor"]
+    anchor_action = next(
+        nested
+        for nested in anchor_parser._actions
+        if getattr(nested, "choices", None)
+    )
+    assert list(anchor_action.choices) == [
+        "validate",
+        "resolve",
+        "register",
+        "materialize",
+        "select",
+        "import-producer",
+        "score",
+        "aggregate",
+        "compare",
+        "solver-row",
+        "status",
     ]
 
 

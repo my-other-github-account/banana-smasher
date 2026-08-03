@@ -1,0 +1,343 @@
+{
+  "bank_id": "train_balanced64",
+  "class_counts": {
+    "agentic": 12,
+    "chat": 10,
+    "code": 11,
+    "multilingual": 10,
+    "prose": 10,
+    "reasoning": 11
+  },
+  "content_hashes": {
+    "class_map_sha256": "f80d0adf64e4eda709963a7eaef3218e93972553a8e847d6d4e4250b294afdd3",
+    "manifest_payload_sha256": "37dd16bb5e6b0ac6ce954a31b65fed12a7f5f17915808d01d8bf10bcab3116d9",
+    "membership_sha256": "3553fce00efdb6d452171e6d5c429adc31580dedbf63eb821f81bc82406983b3"
+  },
+  "creation": {
+    "config": {
+      "historical_generalization_status": "NOT_ESTABLISHED; prior omitted/new-vector trials failed the 4% class gate",
+      "method_sha256": "3aba1493d31cde16d65ef53c348c7ece0ca7f16cbd80a9b63470b5785d016934",
+      "panel_size": 64,
+      "quotas": {
+        "agentic": 12,
+        "chat": 10,
+        "code": 11,
+        "multilingual": 10,
+        "prose": 10,
+        "reasoning": 11
+      },
+      "tier_menus": {
+        "exact_0731_uniform": [
+          "qtip2",
+          "qtip3",
+          "d4_k2048",
+          "d4_k4096"
+        ]
+      },
+      "validation_sha256": "b2eb6270d5321106ce2d6db02ce304bededfc7751f427a7c37f30afe1242ab15"
+    },
+    "method": "historical_class_minimax_subset"
+  },
+  "dataset_fields": {
+    "class": "class",
+    "window_id": "id_gold"
+  },
+  "identities": {
+    "corpus": {
+      "sha256": "5aadaacbb486ae4f528c5e51ae70beff863337bd908fc727e6e49fc3ac520ebd",
+      "status": "resolved",
+      "uri": "artifact://banana-smasher/historical/train512-windows-v1.jsonl"
+    },
+    "scorer": {
+      "reason": "Historical receipts describe the KLD convention but do not bind an immutable scorer code/config hash.",
+      "status": "unresolved"
+    },
+    "teacher": {
+      "reason": "Teacher logits are candidate-basis-specific and no reusable public teacher-bank hash was recovered.",
+      "status": "unresolved"
+    },
+    "tokenizer": {
+      "reason": "The recovered public-safe receipts do not bind an exact tokenizer artifact hash.",
+      "status": "unresolved"
+    }
+  },
+  "parent_corpus": {
+    "sha256": "5aadaacbb486ae4f528c5e51ae70beff863337bd908fc727e6e49fc3ac520ebd",
+    "status": "resolved",
+    "uri": "artifact://banana-smasher/historical/train512-windows-v1.jsonl"
+  },
+  "relationships": [
+    {
+      "bank_id": "train512",
+      "relation": "ordered_subset_of"
+    },
+    {
+      "bank_id": "holdout_balanced64",
+      "relation": "window_id_disjoint"
+    }
+  ],
+  "role": "train_balanced64",
+  "schema": "banana-smasher-bank-manifest-v1",
+  "split_lineage": {
+    "parent_bank_id": "train512",
+    "split": "historical_train512"
+  },
+  "windows": [
+    {
+      "class": "code",
+      "id": 10
+    },
+    {
+      "class": "agentic",
+      "id": 12
+    },
+    {
+      "class": "prose",
+      "id": 19
+    },
+    {
+      "class": "agentic",
+      "id": 24
+    },
+    {
+      "class": "chat",
+      "id": 37
+    },
+    {
+      "class": "prose",
+      "id": 45
+    },
+    {
+      "class": "chat",
+      "id": 57
+    },
+    {
+      "class": "reasoning",
+      "id": 60
+    },
+    {
+      "class": "chat",
+      "id": 61
+    },
+    {
+      "class": "agentic",
+      "id": 63
+    },
+    {
+      "class": "agentic",
+      "id": 66
+    },
+    {
+      "class": "code",
+      "id": 69
+    },
+    {
+      "class": "chat",
+      "id": 70
+    },
+    {
+      "class": "reasoning",
+      "id": 75
+    },
+    {
+      "class": "prose",
+      "id": 81
+    },
+    {
+      "class": "code",
+      "id": 89
+    },
+    {
+      "class": "code",
+      "id": 90
+    },
+    {
+      "class": "chat",
+      "id": 109
+    },
+    {
+      "class": "prose",
+      "id": 112
+    },
+    {
+      "class": "agentic",
+      "id": 113
+    },
+    {
+      "class": "chat",
+      "id": 120
+    },
+    {
+      "class": "code",
+      "id": 128
+    },
+    {
+      "class": "prose",
+      "id": 145
+    },
+    {
+      "class": "multilingual",
+      "id": 146
+    },
+    {
+      "class": "prose",
+      "id": 147
+    },
+    {
+      "class": "multilingual",
+      "id": 148
+    },
+    {
+      "class": "chat",
+      "id": 151
+    },
+    {
+      "class": "multilingual",
+      "id": 159
+    },
+    {
+      "class": "agentic",
+      "id": 216
+    },
+    {
+      "class": "agentic",
+      "id": 226
+    },
+    {
+      "class": "multilingual",
+      "id": 230
+    },
+    {
+      "class": "chat",
+      "id": 244
+    },
+    {
+      "class": "reasoning",
+      "id": 247
+    },
+    {
+      "class": "multilingual",
+      "id": 267
+    },
+    {
+      "class": "reasoning",
+      "id": 274
+    },
+    {
+      "class": "prose",
+      "id": 276
+    },
+    {
+      "class": "prose",
+      "id": 278
+    },
+    {
+      "class": "reasoning",
+      "id": 279
+    },
+    {
+      "class": "agentic",
+      "id": 292
+    },
+    {
+      "class": "reasoning",
+      "id": 303
+    },
+    {
+      "class": "prose",
+      "id": 310
+    },
+    {
+      "class": "agentic",
+      "id": 322
+    },
+    {
+      "class": "reasoning",
+      "id": 329
+    },
+    {
+      "class": "agentic",
+      "id": 333
+    },
+    {
+      "class": "reasoning",
+      "id": 339
+    },
+    {
+      "class": "code",
+      "id": 346
+    },
+    {
+      "class": "code",
+      "id": 352
+    },
+    {
+      "class": "multilingual",
+      "id": 378
+    },
+    {
+      "class": "code",
+      "id": 383
+    },
+    {
+      "class": "chat",
+      "id": 386
+    },
+    {
+      "class": "multilingual",
+      "id": 388
+    },
+    {
+      "class": "reasoning",
+      "id": 397
+    },
+    {
+      "class": "reasoning",
+      "id": 404
+    },
+    {
+      "class": "multilingual",
+      "id": 405
+    },
+    {
+      "class": "code",
+      "id": 412
+    },
+    {
+      "class": "prose",
+      "id": 419
+    },
+    {
+      "class": "code",
+      "id": 421
+    },
+    {
+      "class": "chat",
+      "id": 435
+    },
+    {
+      "class": "multilingual",
+      "id": 445
+    },
+    {
+      "class": "multilingual",
+      "id": 450
+    },
+    {
+      "class": "code",
+      "id": 463
+    },
+    {
+      "class": "agentic",
+      "id": 487
+    },
+    {
+      "class": "reasoning",
+      "id": 490
+    },
+    {
+      "class": "agentic",
+      "id": 506
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "banks": {
+    "holdout512": {
+      "content_sha256": "92dd4c244eff5cf7cd94c9bf8e5f52a9b7fc0815cece348d9371aa65d1e821b1",
+      "path": "holdout512.bank.json",
+      "sha256": "89b9d5682c7ad1ae844346f8a792e54a0576812b2688e5e499a7d1615dc8d671"
+    },
+    "holdout_balanced64": {
+      "content_sha256": "6a201f8c601b0544241ef7aa430f1f8a5ce13b32b9a3ec19cbf09a762fa7f81e",
+      "path": "holdout_balanced64.bank.json",
+      "sha256": "3b68b0812dd6cfa04c6047a692af8e4f1fb4cbb03d83b276ffd21a32b60b5f92"
+    },
+    "train512": {
+      "content_sha256": "46fba4c4df58660a5bbd0ead4c500888eda45b5126f2b2cb560eae8d97eb8ae1",
+      "path": "train512.bank.json",
+      "sha256": "4ae72eebed061d9142927e0f507ce392708496f2e3e284c1cdd20bd3c25efa25"
+    },
+    "train_balanced64": {
+      "content_sha256": "37dd16bb5e6b0ac6ce954a31b65fed12a7f5f17915808d01d8bf10bcab3116d9",
+      "path": "train_balanced64.bank.json",
+      "sha256": "78a07d83774f31ffc519724f1cd626b9ece1eda3ff3eab4971d71a1a1c0a3a07"
+    }
+  },
+  "calibration": {
+    "label": "estimated_parent_not_measured",
+    "path": "TRAIN_BALANCED64_TO_TRAIN512_CALIBRATION.json",
+    "sha256": "d0a93aedc9514bc340c9e12e88b4f09e01082e24c51688a1ac00e1880f20e4c7"
+  },
+  "known_source_receipts": {
+    "exact_0731_basis_example_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "four_tier_construction_umbrella_sha256": "9bc715c957dccbcc2b4872b27935b6d5479515c09ce3be718d2107ec53086a5b",
+    "holdout512_class_manifest_sha256": "063b7552deeda0494ef623b048a325e271671867df7501ffdc79faca6708fe1b",
+    "holdout512_disjointness_sha256": "79943e7398c665c88a223e5eb41f4958787d3cd10b1da845fe99b567f456492e",
+    "holdout512_seal_sha256": "9480ded58b214d09f3c71c000b79b9a72d3ce20b7c674f412bd933ce8c44f5d5",
+    "holdout512_windows_sha256": "2de3ac4110ade4efe7c1b9f1482ef920352142cbee549cffb475f0aa91cc7896",
+    "holdout_balanced64_source_spec_sha256": "f0db83ae47d52f0bdedbb0f3f1ca650aea915575f1a16c04dfbeda807db5da34",
+    "train512_class_manifest_sha256": "7ab09488c040d306e28b93b2459fc6df834d92b2f7ef481a44198943e4d15f43",
+    "train512_windows_sha256": "5aadaacbb486ae4f528c5e51ae70beff863337bd908fc727e6e49fc3ac520ebd",
+    "train_balanced64_manifest_sha256": "5c731c28c0096f245fc7109016f353071f59f617c376401e473513fe1a6a6bc5",
+    "train_balanced64_method_sha256": "3aba1493d31cde16d65ef53c348c7ece0ca7f16cbd80a9b63470b5785d016934",
+    "train_balanced64_validation_sha256": "b2eb6270d5321106ce2d6db02ce304bededfc7751f427a7c37f30afe1242ab15"
+  },
+  "relationships": {
+    "holdout512_to_historical_train_corpus": "content-disjoint by adopted union receipt",
+    "holdout_balanced64_to_train512": "ordered semantic-holdout subset",
+    "train_balanced64_to_holdout_balanced64": "window-ID disjoint",
+    "train_balanced64_to_train512": "ordered subset"
+  },
+  "roles": {
+    "holdout512": "final/ship measurement only",
+    "holdout_balanced64": "quick final-result check only",
+    "train512": "full training parent and escalation rail",
+    "train_balanced64": "cheap training/solver anchor-pricing panel"
+  },
+  "schema": "banana-smasher-four-bank-provenance-v1",
+  "scorer_convention": {
+    "aggregation": "measured per-window KLD; arithmetic per-class and bank-global means",
+    "historical_scorer_identity": "unresolved",
+    "metric": "KL(teacher || candidate)"
+  },
+  "status": "RECOVERED_WITH_EXPLICIT_UNRESOLVED_IDENTITIES",
+  "unresolved_provenance": {
+    "path": "UNRESOLVED_PROVENANCE.json",
+    "sha256": "75c6673bbde8d4e335096cf237a2fbf2ca129490d076b9cb87f13b49dab3acb9"
+  },
+  "usage_policy": {
+    "diagnostic_override": "explicit opt-in only; output remains diagnostic_only",
+    "holdout_roles": [
+      "holdout_balanced64",
+      "holdout512"
+    ],
+    "holdout_solver_default": "REJECT",
+    "training_roles": [
+      "train_balanced64",
+      "train512"
+    ]
+  }
+}
