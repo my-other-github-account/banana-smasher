@@ -196,6 +196,7 @@ def test_machine_manifest_contains_the_full_serve_profile() -> None:
         "BANANA_SMASHER_AOT_ROOT": "/opt/banana-smasher/aot",
         "CUDA_MODULE_LOADING": "LAZY",
         "MALLOC_MMAP_THRESHOLD_": "65536",
+        "VLLM_USE_BREAKABLE_CUDAGRAPH": "1",
         "VLLM_MOE_W2_CUBIT_DIR": "/opt/banana-smasher/aot/cubins-sm120",
         "VLLM_MOE_W3_CUBIT_DIR": "/opt/banana-smasher/aot/cubins-e43",
         "VLLM_USE_DEEP_GEMM": "1",
@@ -205,6 +206,7 @@ def test_machine_manifest_contains_the_full_serve_profile() -> None:
     expected = {
         "block_size": 256,
         "cudagraph_capture_sizes": [1, 2, 4, 8, 16],
+        "cudagraph_mode": "PIECEWISE",
         "enable_auto_tool_choice": True,
         "kv_cache_dtype": "fp8",
         "kv_cache_memory_bytes": 3221225472,
