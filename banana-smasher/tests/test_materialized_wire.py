@@ -11,6 +11,7 @@ from safetensors import safe_open
 from banana_smasher.contract import TIER_CODES, export_pack, verify_pack
 from banana_smasher.loader import PackLoader
 from banana_smasher.repack import repack_to_safetensors, verify_repack_roundtrip
+from banana_smasher.repair import CodebookRepair, RepairBundle
 
 
 def _write_file(path: Path, payload: bytes) -> dict[str, object]:
@@ -22,7 +23,7 @@ def _write_file(path: Path, payload: bytes) -> dict[str, object]:
     }
 
 
-def _write_banana_smasher_layer(root: Path) -> Path:
+def _write_banana_smasher_layer(root: Path, *, layer: int = 0) -> Path:
     root.mkdir(parents=True)
     tiers = {
         "d4_k256": list(range(3)),
@@ -58,13 +59,143 @@ def _write_banana_smasher_layer(root: Path) -> Path:
     receipt = {
         "schema": "banana_smasher-materialized-layer-v1",
         "status": "PASS",
-        "layer": 0,
+        "layer": layer,
         "files": rows,
     }
     (root / "LAYER_RECEIPT.json").write_text(
         json.dumps(receipt, indent=2, sort_keys=True) + "\n"
     )
     return root
+
+
+def _write_serving_root(root: Path) -> Path:
+    root.mkdir()
+    (root / "config.json").write_text(
+        json.dumps(
+            {
+                "architectures": ["DeepseekV4ForCausalLM"],
+                "hidden_size": 16,
+                "moe_intermediate_size": 8,
+                "quantization_config": {
+                    "activation_scheme": "dynamic",
+                    "fmt": "e4m3",
+                    "scale_fmt": "ue8m0",
+                    "weight_block_size": [128, 128],
+                },
+            }
+        )
+    )
+    for name in ("tokenizer.json", "tokenizer_config.json", "generation_config.json"):
+        (root / name).write_text("{}\n")
+    return root
+
+
+def _wire_sha(array: np.ndarray) -> str:
+    return hashlib.sha256(np.ascontiguousarray(array).tobytes()).hexdigest()
+
+
+def test_materialized_wire_root_exports_all_layers_with_bound_routes_and_repair(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "wire"
+    first = _write_banana_smasher_layer(source / "layer_000", layer=0)
+    _write_banana_smasher_layer(source / "layer_001", layer=1)
+    assignment = {
+        "assignment": {
+            str(layer): {
+                str(expert): {
+                    "down": next(
+                        tier
+                        for tier, members in {
+                            "d4_k256": range(3),
+                            "d4_k1024": range(3, 91),
+                            "d4_k2048": range(91, 251),
+                            "d4_k4096": range(251, 256),
+                        }.items()
+                        if expert in members
+                    ),
+                    "fused13": next(
+                        tier
+                        for tier, members in {
+                            "d4_k256": range(3),
+                            "d4_k1024": range(3, 91),
+                            "d4_k2048": range(91, 251),
+                            "d4_k4096": range(251, 256),
+                        }.items()
+                        if expert in members
+                    ),
+                }
+                for expert in range(256)
+            }
+            for layer in range(2)
+        }
+    }
+    assignment_path = tmp_path / "ASSIGNMENT.json"
+    assignment_path.write_text(json.dumps(assignment, sort_keys=True))
+    overlay_path = tmp_path / "ACTIVE_OVERLAY.json"
+    overlay_path.write_text("{}\n")
+    old_path = first / "d4_k256.down.codebook.fp16.bin"
+    old = np.fromfile(old_path, dtype="<f2").reshape(-1, 4)
+    replacement = np.full(old.shape, 7, dtype=np.float16)
+    repair = RepairBundle(
+        checkpoint_path=tmp_path / "UPDATE_004.pt",
+        checkpoint_sha256="1" * 64,
+        active_overlay_path=overlay_path,
+        active_overlay_sha256="2" * 64,
+        assignment_path=assignment_path,
+        assignment_sha256=hashlib.sha256(assignment_path.read_bytes()).hexdigest(),
+        checkpoint_format="bs-basic-repair-v1",
+        mechanism="physical-vq-codebooks-plus-all-rmsnorms-plus-attention-output-gains",
+        update=4,
+        codebooks={
+            _wire_sha(old): CodebookRepair(
+                checkpoint_key=f"L0/d4_k256_down_{_wire_sha(old)}",
+                source_wire_sha256=_wire_sha(old),
+                array=replacement,
+            )
+        },
+        dense_tensors={
+            "norms/model.norm": np.ones(4, dtype=np.float32),
+            "outputs/model.layers.0.self_attn.o_b_proj.output_log_gain": np.asarray(
+                0.0, dtype=np.float32
+            ),
+        },
+        norm_count=1,
+        output_count=1,
+    )
+
+    pack = tmp_path / "pack"
+    manifest = export_pack(
+        source_root=source,
+        output=pack,
+        model_id="fixture",
+        instance_id="u004-fixture",
+        link_mode="hardlink",
+        repair=repair,
+        serving_model_root=_write_serving_root(tmp_path / "serving"),
+        runtime_floor_bytes=123,
+    )
+
+    assert manifest["source_format"] == "banana_smasher-materialized-wire-v1"
+    assert manifest["layers"] == [0, 1]
+    assert set(manifest["provenance"]["source_layer_receipt_sha256"]) == {"0", "1"}
+    assert set(manifest["selected_payloads"]["layers"]) == {"0", "1"}
+    selected = manifest["selected_payloads"]["layers"]["0"]["down"]
+    assert selected["tiers"][:4] == ["d4_k256", "d4_k256", "d4_k256", "d4_k1024"]
+    assert selected["slots"][:4] == [0, 1, 2, 0]
+    codebook = selected["payloads"]["d4_k256"]["tensors"]["codebooks"]
+    assert codebook["storage_kind"] == "raw"
+    repaired = np.memmap(
+        pack / "planes" / codebook["file"],
+        mode="r",
+        dtype=codebook["dtype"],
+        shape=tuple(codebook["shape"]),
+    )
+    assert np.all(repaired == 7)
+    assert verify_pack(pack)["repair"]["codebook_checkpoint_keys"] == 1
+    linked_source = source / "layer_001/d4_k2048.down.codes.le11.bin"
+    linked_pack = pack / "planes/layers/layer_001/truevq_d4/d4_k2048.down.codes.le11.bin"
+    assert os.stat(linked_source).st_ino == os.stat(linked_pack).st_ino
 
 
 def test_banana_smasher_wire_export_and_safetensors_roundtrip_are_byte_exact(

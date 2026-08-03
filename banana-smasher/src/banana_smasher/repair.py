@@ -343,6 +343,60 @@ def materialize_codebook_plane(
     return rows
 
 
+def materialize_raw_codebook_plane(
+    source: Path,
+    destination: Path,
+    repairs: Mapping[str, CodebookRepair],
+) -> list[dict[str, Any]] | None:
+    """Materialize one headerless little-endian fp16 [K, 4] codebook."""
+    if not source.name.endswith(".codebook.fp16.bin"):
+        return None
+    if source.stat().st_size % (4 * np.dtype("<f2").itemsize):
+        raise ValueError(f"repair raw codebook source is not a fp16 [K,4] matrix: {source}")
+    shape = (source.stat().st_size // (4 * np.dtype("<f2").itemsize), 4)
+    base = np.memmap(source, mode="r", dtype="<f2", shape=shape)
+    source_wire_sha = _wire_sha(base)
+    repair = repairs.get(source_wire_sha)
+    if repair is None:
+        del base
+        return None
+    if tuple(repair.array.shape) != shape:
+        del base
+        raise ValueError(
+            f"repair raw codebook shape drift for {source}: "
+            f"checkpoint={repair.array.shape} target={shape}"
+        )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("wb") as handle:
+        handle.write(np.ascontiguousarray(repair.array, dtype="<f2").tobytes(order="C"))
+        handle.flush()
+        import os
+
+        os.fsync(handle.fileno())
+    del base
+    readback = np.memmap(destination, mode="r", dtype="<f2", shape=shape)
+    materialized_wire_sha = _wire_sha(readback)
+    expected_wire_sha = _wire_sha(repair.array)
+    del readback
+    if materialized_wire_sha != expected_wire_sha:
+        raise ValueError(f"repair raw codebook readback drift: {destination}")
+    return [
+        {
+            "checkpoint_key": repair.checkpoint_key,
+            "codebook_index": None,
+            "source_wire_sha256": source_wire_sha,
+            "materialized_wire_sha256": materialized_wire_sha,
+            "source_npy_sha256": None,
+            "materialized_npy_sha256": None,
+            "storage_kind": "raw",
+            "dtype": "float16",
+            "shape": list(shape),
+            "path": destination.as_posix(),
+            "data_bytes": int(repair.array.nbytes),
+        }
+    ]
+
+
 def write_repair_payload(
     root: Path,
     bundle: RepairBundle,
@@ -474,9 +528,18 @@ def verify_repair_payload(root: Path, summary: Mapping[str, Any]) -> dict[str, A
     seen_keys: set[str] = set()
     for row in document.get("codebooks", []):
         path = root / row["path"]
-        array = np.load(path, mmap_mode="r", allow_pickle=False)
-        index = row.get("codebook_index")
-        target = array if index is None else array[index]
+        if row.get("storage_kind") == "raw":
+            array = np.memmap(
+                path,
+                mode="r",
+                dtype=row.get("dtype"),
+                shape=tuple(row.get("shape", [])),
+            )
+            target = array
+        else:
+            array = np.load(path, mmap_mode="r", allow_pickle=False)
+            index = row.get("codebook_index")
+            target = array if index is None else array[index]
         if _wire_sha(target) != row.get("materialized_wire_sha256"):
             raise ValueError(f"repair codebook wire drift: {row.get('path')}")
         seen_keys.add(row["checkpoint_key"])
