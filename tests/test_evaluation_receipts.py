@@ -322,3 +322,29 @@ def test_json_loader_rejects_duplicate_keys(
         main(["verify", str(receipt), "--suite-lock", str(SUITE_LOCK)])
     assert exc_info.value.code == 1
     assert "duplicate JSON key: schema" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("input_kind", ["suite_lock", "receipt", "window"])
+def test_cli_reports_invalid_utf8_without_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    input_kind: str,
+) -> None:
+    invalid = tmp_path / "invalid.json"
+    invalid.write_bytes(b"\xff")
+    if input_kind == "suite_lock":
+        argv = ["verify", str(RESULT), "--suite-lock", str(invalid)]
+    elif input_kind == "receipt":
+        argv = ["verify", str(invalid), "--suite-lock", str(SUITE_LOCK)]
+    else:
+        rows = tmp_path / "rows"
+        rows.mkdir()
+        invalid.rename(rows / "invalid.json")
+        argv = ["aggregate", str(rows), "--suite-lock", str(SUITE_LOCK)]
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(argv)
+    assert exc_info.value.code == 1
+    stderr = capsys.readouterr().err
+    assert stderr.startswith("FAIL: ")
+    assert "Traceback" not in stderr

@@ -787,7 +787,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.output.write_text(rendered, encoding="utf-8")
         else:
             print(rendered, end="")
-    except (ArithmeticError, OSError, json.JSONDecodeError, ReceiptError) as exc:
+    except (
+        ArithmeticError,
+        OSError,
+        UnicodeError,
+        json.JSONDecodeError,
+        ReceiptError,
+    ) as exc:
         parser.exit(1, f"FAIL: {exc}\n")
     return 0
 
