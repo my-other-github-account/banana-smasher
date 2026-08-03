@@ -8,13 +8,14 @@ This repository is the sole source of truth for Banana Smasher code, tests, pack
 - New code, tests, documentation, reports, and deployment work must serve that product scope directly. Unrelated historical quantization formats are not product inputs, compatibility targets, or preservation targets.
 - V4 is the containerized U004 mixed-QTIP Backpack on the F521 assignment. V5 is U012 on the same assignment and pipeline basis.
 
-## Standalone deployment law
+## Deployment handoff law
 
-1. A deployment release starts from one fresh, self-contained pipeline run root and may consume only the declared base-model inputs plus artifacts generated inside that run root.
-2. Backpack selection, pre-repair materialization and evaluation, repair, final export, image build, plugin installation, and performance evidence must form one hash-bound lineage.
-3. Final export must not depend on a pack, overlay, repair checkpoint, image, cache, runtime module, or receipt borrowed from an earlier run. Optional machine caches may accelerate recomputation only when their producer, key, validation, and disposable nature are explicit.
-4. The supported serving boundary is pinned stock vLLM plus the installable `banana-smasher-plugin` wheel and a verified self-contained `/model` pack. No out-of-tree Python overlay, host-side monkey patch, hidden environment setup, or manually edited model artifact is allowed.
-5. Functional boot is not release acceptance. The same exported artifact must pass coherent API behavior and the frozen decode, concurrency, and prefill performance gates recorded under `notes/`.
+1. Current V5 work starts from the existing hash-verified U012/F521 result. Do not rerun Backpack construction, pre-repair evaluation, or repair merely to deploy it.
+2. Treat U012 as a declared pipeline handoff: assignment, overlay, selected planes, repaired state, base-model files, and manifests may be consumed directly when their identities match the accepted result.
+3. The deployment path must not require an undeclared pack, patch, image, cache, runtime module, manual artifact edit, or other shortcut that a future fresh pipeline would not produce. Future end-to-end runs must emit the same handoff contract that the U012 deployment path consumes now.
+4. The immediate priority is coherent, performant U012 serving: stock-vLLM plugin boot first, then decode, C1–C16 concurrency, and prefill parity. API consolidation and clean-box presentation follow the performance proof.
+5. The supported serving boundary is pinned stock vLLM plus the installable `banana-smasher-plugin` wheel and a verified self-contained `/model` pack. No out-of-tree Python overlay, host-side monkey patch, hidden environment setup, or manually edited model artifact is allowed.
+6. Functional boot is not release acceptance. The same exported artifact must pass coherent API behavior and the frozen decode, concurrency, and prefill performance gates recorded under `notes/`.
 
 ## Repository boundary
 

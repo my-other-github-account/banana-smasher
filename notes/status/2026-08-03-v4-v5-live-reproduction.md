@@ -20,7 +20,7 @@ This note separates static repository readiness, model-pack verification, API co
 | exact assignment/checkpoint authority located | PASS | PASS |
 | public-safe source canonicalized | IN PROGRESS | IN PROGRESS |
 | selected mixed-QTIP payload source verified | PASS as retained authority; clean re-export pending | PASS at current pack-materialization gate |
-| final repaired pack from clean API | PENDING | PENDING standalone-run reproduction |
+| final repaired pack from deployment API | PENDING | PENDING export from existing verified U012 handoff |
 | both wheels built from final revision | PENDING | PENDING |
 | pinned stock-vLLM image built | PENDING | PENDING |
 | model boot | PENDING | PENDING |
@@ -31,6 +31,15 @@ This note separates static repository readiness, model-pack verification, API co
 | C1–C16 | PENDING | PENDING |
 | prefill | PENDING | PENDING |
 | release decision | BLOCKED | BLOCKED |
+
+## Immediate priority order
+
+1. Use the existing verified U012/F521 artifact result; do not rerun Backpack construction, pre-repair evaluation, or repair.
+2. Build/install the current plugin and pinned image, then make that exact U012 artifact boot and answer coherently.
+3. Restore the accepted mixed-QTIP fast paths and measure decode, C1–C16 concurrency, and prefill immediately.
+4. Only after performant serving is proven, consolidate the handoff/export API and clean-box user experience.
+
+The API constraint is not a requirement to recompute U012. It means the working deployment must not depend on a hidden patch or side artifact that would be absent when a future full pipeline emits an equivalent handoff.
 
 ## V4 findings
 
@@ -86,21 +95,22 @@ Implemented:
 - pinned image/dependency/asset admission;
 - static package, plugin, Docker, and extraction tests.
 
-Still required:
+Still required, in priority order:
 
-1. one self-contained run-root API spanning candidate production through final deployment;
-2. run-root-relative/content-addressed receipts instead of absolute input paths;
-3. automatic resolution of same-run assignment, overlay, repair checkpoint, update, and selected source;
+1. export or bind the existing verified U012 handoff without rerunning upstream construction or repair;
+2. full Linux ARM64 SM120/SM121 image build and first boot;
+3. coherent API and restart evidence;
 4. modern plugin port of the accepted scalar/vector-M4 decode and `mc4`/`mc4afrag` prefill behavior;
-5. full Linux ARM64 SM120/SM121 image build and first boot;
-6. coherent API and restart evidence;
-7. authoritative mixed-QTIP C2/C4/C8/C16 reference recovery;
-8. live C1–C16 and prefill measurements on the exact final V5 artifact;
-9. clean-box reproduction with no undeclared artifact or cache.
+5. authoritative mixed-QTIP C2/C4/C8/C16 reference recovery;
+6. live C1–C16 and prefill measurements on the exact final V5 artifact;
+7. automatic resolution of handoff assignment, overlay, repair checkpoint, update, and selected source;
+8. content-addressed portable receipts instead of private absolute input paths;
+9. a future full-pipeline producer that emits the same handoff contract;
+10. clean-box reproduction with no undeclared artifact or cache.
 
 ## Release blocker
 
-Neither V4 nor V5 is releasable while the final export depends on manually supplied authorities from outside a single standalone run root or while any required API/performance cell remains pending.
+Neither V4 nor V5 is releasable while deployment depends on an undeclared authority outside its verified handoff or while any required API/performance cell remains pending. The existing verified U012 result is itself an allowed handoff and should be used now.
 
 The binding workflow and measurement rules are in:
 

@@ -18,5 +18,5 @@
 4. Never publish raw host receipts, private paths, hostnames, private IPs, credentials, or unsanitized command logs. Store scrubbed summaries with hashes of immutable public artifacts where useful.
 5. Static tests, image builds, GPU boots, API correctness, and performance measurements are separate gates. Do not promote one into evidence for another.
 6. Reports and tables are append-only evidence records once published; corrections get a dated superseding note rather than silent historical rewriting.
-7. Product reports cover only the mixed-QTIP Backpack pipeline. A deployable artifact must close its lineage within one standalone run root; historical external artifacts are evidence, never undeclared build inputs.
+7. Product reports cover only the mixed-QTIP Backpack pipeline. Current V5 work may start from the accepted hash-verified U012 handoff. Deployment may not depend on undeclared extras that a future fresh pipeline would not emit into the same handoff contract.
 8. A release report must separately prove API correctness, decode, C1–C16 concurrency, and prefill. Missing cells remain `TBD` and block release rather than being filled from another artifact or instrument.

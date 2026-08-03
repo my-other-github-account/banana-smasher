@@ -12,7 +12,7 @@ The binding product and release contract is the standalone mixed-QTIP Backpack p
 - `notes/reports/2026-08-03-mixed-qtip-backpack-system-map.md`
 - `notes/tables/2026-08-03-runtime-performance-gates.md`
 
-The commands below are low-level public primitives. A release is accepted only when its assignment, pre-repair pack, repair, final export, image, API evidence, and performance evidence close under one hash-bound run root; manually assembled authorities are not the target first-run workflow.
+The commands below are low-level public primitives. Current V5 deployment starts from the existing hash-verified U012/F521 result; it does not rerun Backpack construction or repair. The deployment path must consume a declared handoff without hidden/manual dependencies, so a future end-to-end run can emit the same handoff and use the same export and serving path.
 
 ## Clone
 
