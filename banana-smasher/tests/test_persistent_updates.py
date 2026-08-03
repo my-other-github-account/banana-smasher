@@ -16,6 +16,7 @@ from banana_smasher.persistent import (
     UpdateQueue,
     _atomic_json,
     recover_committed_cycle,
+    request_identity,
     serve_queue,
 )
 
@@ -181,6 +182,81 @@ def test_identity_mismatch_fails_loud_without_running_cycle(tmp_path: Path) -> N
     assert status["error_type"] == "IdentityMismatch"
     assert "config identity mismatch" in status["error"]
     assert cycle_calls == 0
+
+
+def test_request_identity_binds_adapter_visible_top_level_fields() -> None:
+    request = _request(
+        "bound-fields",
+        _sha("checkpoint-0"),
+        config_sha=_sha("config"),
+        aot_sha=_sha("aot"),
+    )
+
+    assert request_identity({**request, "learning_rate": 0.001}) != request_identity(
+        {**request, "learning_rate": 0.01}
+    )
+
+
+def test_cycle_cannot_pass_without_advancing_resident_checkpoint(tmp_path: Path) -> None:
+    queue = UpdateQueue(tmp_path / "queue")
+    config_sha = _sha("config")
+    aot_sha = _sha("aot")
+    initial_sha = _sha("checkpoint-0")
+    output_sha = _sha("checkpoint-1")
+    queue.enqueue(
+        _request("stale-resident", initial_sha, config_sha=config_sha, aot_sha=aot_sha)
+    )
+
+    summary = serve_queue(
+        queue,
+        expected_config_sha256=config_sha,
+        expected_aot_sha256=aot_sha,
+        initialize=lambda: {"checkpoint_sha256": initial_sha},
+        cycle=lambda _worker, _request: _cycle_result("PASS", output_sha),
+        stop_after=1,
+        poll_seconds=0.0,
+    )
+
+    assert summary["status"] == "FAIL_STOP_AFTER"
+    status = queue.status("stale-resident")
+    assert status["state"] == "FAIL"
+    assert "resident checkpoint identity mismatch" in status["error"]
+
+
+def test_cycle_result_cannot_override_canonical_receipt_identity(tmp_path: Path) -> None:
+    queue = UpdateQueue(tmp_path / "queue")
+    config_sha = _sha("config")
+    aot_sha = _sha("aot")
+    initial_sha = _sha("checkpoint-0")
+    output_sha = _sha("checkpoint-1")
+    queue.enqueue(
+        _request("canonical-receipt", initial_sha, config_sha=config_sha, aot_sha=aot_sha)
+    )
+
+    def cycle(worker: dict[str, object], _request: dict[str, object]) -> dict[str, object]:
+        worker["checkpoint_sha256"] = output_sha
+        return {
+            **_cycle_result("PASS", output_sha),
+            "segment_id": "forged-segment",
+            "request_identity_sha256": "0" * 64,
+        }
+
+    summary = serve_queue(
+        queue,
+        expected_config_sha256=config_sha,
+        expected_aot_sha256=aot_sha,
+        initialize=lambda: {"checkpoint_sha256": initial_sha},
+        cycle=cycle,
+        stop_after=1,
+        poll_seconds=0.0,
+    )
+
+    assert summary["status"] == "FAIL_STOP_AFTER"
+    status = queue.status("canonical-receipt")
+    assert status["state"] == "FAIL"
+    assert status["segment_id"] == "canonical-receipt"
+    assert status["request_identity_sha256"] != "0" * 64
+    assert "reserved receipt fields" in status["error"]
 
 
 def test_crash_restart_finalizes_committed_running_request_without_replay(tmp_path: Path) -> None:
@@ -409,7 +485,9 @@ def test_worker_exit_after_ledger_seal_cannot_reopen_completed_segment(
     monkeypatch.setattr(persistent_module, "_atomic_json", real_atomic_json)
 
     restarted = UpdateQueue(tmp_path / "run")
-    assert restarted.status("sealed-before-receipt")["state"] == "PASS"
+    recovered_status = restarted.status("sealed-before-receipt")
+    assert recovered_status["state"] == "PASS"
+    assert recovered_status["output_checkpoint_sha256"] == _sha("checkpoint-1")
     with pytest.raises(DuplicateSegment, match="state=COMPLETED"):
         restarted.enqueue(request)
     entry = restarted.ledger()["segments"]["sealed-before-receipt"]
@@ -481,6 +559,19 @@ def test_public_status_command_reports_queue_and_request(tmp_path: Path, capsys)
     ) == 0
     status = json.loads(capsys.readouterr().out)
     assert status["state"] == "QUEUED"
+
+
+def test_public_status_refuses_missing_queue_without_creating_it(
+    tmp_path: Path, capsys,
+) -> None:
+    queue_root = tmp_path / "missing"
+
+    assert cli_main(["update-status", "--queue-root", str(queue_root)]) == 2
+
+    failure = json.loads(capsys.readouterr().err)
+    assert failure["error_type"] == "FileNotFoundError"
+    assert "segment queue does not exist" in failure["error"]
+    assert not queue_root.exists()
 
 
 def test_package_exports_persistent_update_api() -> None:
