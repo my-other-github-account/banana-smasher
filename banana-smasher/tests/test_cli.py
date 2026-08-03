@@ -72,7 +72,7 @@ def _write_symlinked_base_weights(root: Path, store: Path) -> list[str]:
     return shards
 
 
-def test_smash_help_exposes_exactly_five_verbs() -> None:
+def test_smash_help_exposes_public_verbs() -> None:
     parser = _parser()
     action = next(action for action in parser._actions if getattr(action, "choices", None))
     assert list(action.choices) == [
@@ -80,6 +80,9 @@ def test_smash_help_exposes_exactly_five_verbs() -> None:
         "verify",
         "serve-check",
         "validate",
+        "solve",
+        "qtip-configs",
+        "kernels",
     ]
 
 
