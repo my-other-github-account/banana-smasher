@@ -90,6 +90,16 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--receipt", type=Path)
     validate.add_argument("--bank-teacher-logits", type=Path)
 
+    solve = subparsers.add_parser(
+        "solve", help="solve declared cells with exact full-codebook search"
+    )
+    solve.add_argument("--source-root", type=Path, required=True)
+    solve.add_argument("--output", type=Path, required=True)
+    solve.add_argument("--device", default="cuda")
+    solve.add_argument("--reference-search", action="store_true", help=argparse.SUPPRESS)
+    solve.add_argument("--verbose-receipts", action="store_true", help=argparse.SUPPRESS)
+    solve.set_defaults(backend="exact-gemm")
+
     knapsack = subparsers.add_parser(
         "knapsack",
         help="solve a manifest-bound tier menu under an exact integer byte envelope",
@@ -218,6 +228,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "command": "validate",
             }
+        elif args.command == "solve":
+            # Torch/Triton stay lazy so pack-only commands keep the light install.
+            from .solve import run_solve
+
+            result = run_solve(
+                source_root=args.source_root,
+                output=args.output,
+                device=args.device,
+                reference_search=args.reference_search,
+                verbose_receipts=args.verbose_receipts,
+            )
         elif args.command == "knapsack":
             from .knapsack import run_knapsack
 
@@ -246,6 +267,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ValidationError,
         FileExistsError,
         OSError,
+        RuntimeError,
         ValueError,
     ) as exc:
         _emit(
