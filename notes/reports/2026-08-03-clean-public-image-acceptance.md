@@ -15,10 +15,11 @@ performance acceptance.
 - Source tree: `2eab417e581c27324f5097187095f52423d5eee2`
 - Source bundle SHA-256: `02b996d94478369d8dec21c1e9e2196d3c6d0634b20a3b50647eb5412275493c`
 - Source checkout status: clean, detached at the commit above
-- Build platform: allocated clean-box lane (`linux/arm64`, SM121)
+- Build platform: Linux ARM64 clean-box builder (`linux/arm64`, SM121)
 - Build context gate: `.dockerignore` excludes `.git`, `.worktrees`, `notes`, caches,
   local build outputs, credentials, receipts, and model artifacts.
-- Public-safe reproduction command (the execution-only local tag was omitted):
+- Public equivalent command (the internal ephemeral tag was omitted; the OCI config
+  digest below is the authoritative accepted identity):
 
 ```console
 docker buildx build --no-cache --load --progress=plain --platform linux/arm64 -f docker/Dockerfile -t banana-smasher-public:cleanbox .
