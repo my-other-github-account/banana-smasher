@@ -15,6 +15,7 @@ from .anchor import (
     create_balanced_subset,
     emit_solver_row,
     import_producer,
+    materialize_candidate_producer,
     materialize_bank,
     register_bank,
     resolve_bank_identities,
@@ -24,6 +25,7 @@ from .anchor import (
 )
 from .bank import build_bank, verify_bank
 from .evaluate import evaluate_paired, verify_evaluation
+from .fixed_d4 import materialize_fixed_d4
 from .persistent import UpdateQueue
 from .update_service import serve_persistent_updates
 
@@ -42,7 +44,9 @@ __all__ = [
     "export_pack",
     "import_producer",
     "load_manifest",
+    "materialize_candidate_producer",
     "materialize_bank",
+    "materialize_fixed_d4",
     "register_bank",
     "resolve_bank_identities",
     "score_bank",
