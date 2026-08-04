@@ -227,6 +227,19 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
 
+    fixed_d4 = subparsers.add_parser(
+        "fixed-d4", help="persist exact fixed-D4 assignments as executable wire"
+    )
+    fixed_d4_commands = fixed_d4.add_subparsers(
+        dest="fixed_d4_command", required=True
+    )
+    fixed_d4_materialize = fixed_d4_commands.add_parser(
+        "materialize", help="materialize one basis-bound fixed-D4 layer"
+    )
+    fixed_d4_materialize.add_argument("--manifest", type=Path, required=True)
+    fixed_d4_materialize.add_argument("--output", type=Path, required=True)
+    fixed_d4_materialize.add_argument("--basis-sha256", required=True)
+
     anchor = subparsers.add_parser(
         "anchor", help="reproducible four-bank anchor evaluation workflow"
     )
@@ -275,6 +288,17 @@ def _parser() -> argparse.ArgumentParser:
     anchor_import.add_argument("--source", type=Path, required=True)
     anchor_import.add_argument("--sha256", required=True)
     anchor_import.add_argument("--candidate-id")
+
+    anchor_candidate = anchor_commands.add_parser(
+        "materialize-candidate",
+        help="run a model/config producer and import one exact 64-row candidate",
+    )
+    anchor_candidate.add_argument("--run-root", type=Path, required=True)
+    anchor_candidate.add_argument("--bank", required=True)
+    anchor_candidate.add_argument("--candidate-id", required=True)
+    anchor_candidate.add_argument("--model", type=Path, required=True)
+    anchor_candidate.add_argument("--config", type=Path, required=True)
+    anchor_candidate.add_argument("--basis-sha256", required=True)
 
     anchor_score = anchor_commands.add_parser(
         "score", help="score exact producer rows with resumable per-window KLD"
@@ -379,6 +403,7 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
         format_status,
         import_producer,
         load_registered_bank,
+        materialize_candidate_producer,
         materialize_bank,
         register_bank,
         resolve_bank_identities,
@@ -428,6 +453,16 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
             kind=args.kind,
             expected_sha256=args.sha256,
             candidate_id=args.candidate_id,
+        )
+    if command == "materialize-candidate":
+        manifest = load_registered_bank(args.run_root, args.bank)
+        return materialize_candidate_producer(
+            args.run_root,
+            manifest,
+            candidate_id=args.candidate_id,
+            model_root=args.model,
+            producer_config=args.config,
+            basis_sha256=args.basis_sha256,
         )
     if command == "score":
         manifest = load_registered_bank(args.run_root, args.bank)
@@ -872,6 +907,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 basis_sha256=args.basis_sha256,
                 output=args.output,
                 receipt=args.receipt,
+            )
+        elif args.command == "fixed-d4":
+            from .fixed_d4 import materialize_fixed_d4
+
+            result = materialize_fixed_d4(
+                args.manifest,
+                args.output,
+                basis_sha256=args.basis_sha256,
             )
         elif args.command == "anchor":
             result = _run_anchor(args)
