@@ -34,10 +34,29 @@ winner arrays leave memory. Its bound JSON config uses schema
 and `codebook` NPY files by relative `path`, byte count, and SHA-256 under both
 `down` and `fused13`.
 
+`smash fixed-d4 prepare-solve` is the real source-model adapter for native
+DeepSeek packed-MXFP4 checkpoints. It verifies the exact model-index SHA,
+memory-maps the index-bound `I8` expert `w1`/`w2`/`w3` tensors and their
+`F8_E8M0` scales, decodes E2M1 values one expert at a time, and writes the six
+bound arrays plus `solve.json`. With no `--codebook`, it deterministically uses
+the K most frequent source D4 vectors (frequency descending, packed-vector key
+ascending for ties); `--codebook PATH.npy` instead binds a supplied finite
+`[K,4]` floating codebook. The command reserves 4 GiB by default and refuses
+before allocation when its streamed one-layer payload does not fit.
+
 ```bash
-smash fixed-d4 solve --config /path/to/solve.json --output /path/to/solve-layer --basis-sha256 "$BASIS_SHA256"
-smash fixed-d4 materialize --manifest /path/to/solve-layer/materialize.json --output /path/to/wire --basis-sha256 "$BASIS_SHA256"
+smash fixed-d4 prepare-solve --model /path/to/source-model --tier d4_k2048 --layer 0 --output /path/to/prepared-layer-000 --basis-sha256 "$BASIS_SHA256" --chunk-vectors 256
+smash fixed-d4 solve --config /path/to/prepared-layer-000/solve.json --output /path/to/solve-layer-000 --basis-sha256 "$BASIS_SHA256"
+smash fixed-d4 materialize --manifest /path/to/solve-layer-000/materialize.json --output /path/to/wire --basis-sha256 "$BASIS_SHA256"
+smash export --source-root /path/to/wire --serving-model-root /path/to/source-model --output /path/to/model --model-id d4-k2048 --instance-id d4-k2048-exact --link-mode hardlink
 ```
+
+Repeat the prepare/solve/materialize transaction for each layer into the same
+wire root. The exported model hardlinks both wire planes and same-filesystem
+base shards, so construction does not duplicate either large payload; a
+cross-device hardlink fails loudly rather than silently consuming copy-sized
+capacity. Prepared vectors and solve winners are per-layer intermediates and
+can be released only after that layer's materialization receipt is sealed.
 
 The wheel ships `banana_smasher/producer_configs/fixed_d4_vllm.json`. This
 built-in producer loads the verified materialized model with public `vllm.LLM`,
