@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -609,7 +610,7 @@ def produce_fixed_d4_logits(
                     f"window {row['window_id']!r} returned no model log probabilities"
                 )
             sampled_logprobs = getattr(choices[0], "logprobs", None)
-            if isinstance(sampled_logprobs, list):
+            if isinstance(sampled_logprobs, Sequence):
                 if len(sampled_logprobs) != 1:
                     raise ValueError(
                         f"window {row['window_id']!r} returned the wrong generated-token count"

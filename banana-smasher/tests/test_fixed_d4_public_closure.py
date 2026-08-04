@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -160,6 +161,20 @@ def test_public_exact_solver_materializes_real_vllm_bank_logits(
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
+    class FlatLogprobs(Sequence):
+        """Match vLLM's non-list SampleLogprobs sequence shape."""
+
+        def __init__(self, position):
+            self.position = position
+
+        def __len__(self):
+            return 1
+
+        def __getitem__(self, index):
+            if index != 0:
+                raise IndexError(index)
+            return self.position
+
     class LLM:
         def __init__(self, *, model: str, **kwargs):
             assert Path(model) == expected_model
@@ -167,7 +182,6 @@ def test_public_exact_solver_materializes_real_vllm_bank_logits(
                 "enforce_eager": True,
                 "max_logprobs": -1,
                 "tensor_parallel_size": 1,
-                "trust_remote_code": True,
             }
 
         def generate(self, prompts, sampling_params, *, use_tqdm=False):
@@ -188,7 +202,7 @@ def test_public_exact_solver_materializes_real_vllm_bank_logits(
                 }
                 results.append(
                     SimpleNamespace(
-                        outputs=[SimpleNamespace(logprobs=[generated])],
+                        outputs=[SimpleNamespace(logprobs=FlatLogprobs(generated))],
                     )
                 )
             return results
