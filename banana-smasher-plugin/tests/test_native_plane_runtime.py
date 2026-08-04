@@ -113,7 +113,7 @@ def test_specialized_shape_proof_requires_large_8192_geometry(
     monkeypatch.setattr(
         native_planes,
         "_NATIVE_PLANE_LAYER_REGISTRY",
-        {1: cast(NativePlaneLayer, layer)},
+        {1: layer},
     )
 
     proof = native_planes._specialized_shape_physical_proof()
