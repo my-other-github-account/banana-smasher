@@ -292,15 +292,21 @@ def test_flashinfer_sm121_smoke_matches_vllm_autotuner_boot_import() -> None:
 def test_flashinfer_sm121_smoke_matches_vllm_c4_decode_index_rank() -> None:
     smoke = SMOKE_FLASHINFER.read_text()
 
-    assert ").reshape(num_tokens, 1, extra_topk)" in smoke
+    assert ").repeat(num_tokens, 1, 1)" in smoke
 
 
 def test_flashinfer_sm121_smoke_matches_exact_u12_sparse_decode_shape() -> None:
     smoke = SMOKE_FLASHINFER.read_text()
 
-    assert "num_tokens, num_heads = 1, 64" in smoke
+    assert "num_heads = 64" in smoke
     assert "swa_topk, extra_topk = 128, 512" in smoke
     assert "page_block_size, extra_page_block_size, bytes_per_token = 64, 64, 584" in smoke
+
+
+def test_flashinfer_sm121_smoke_covers_stock_vllm_mixed_boot_warmup() -> None:
+    smoke = SMOKE_FLASHINFER.read_text()
+
+    assert "for num_tokens in (1, 16):" in smoke
 
 
 def test_native_plugin_build_has_pinned_cuda_development_toolchain() -> None:
