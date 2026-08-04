@@ -1303,16 +1303,23 @@ def materialize_candidate_producer(
     except (OSError, json.JSONDecodeError) as exc:
         raise AnchorEvaluationError(f"invalid candidate producer config {producer_config}: {exc}") from exc
     command = config.get("command") if isinstance(config, Mapping) else None
-    if (
-        not isinstance(config, Mapping)
-        or config.get("schema") != "banana-smasher-candidate-producer-v1"
-        or not isinstance(command, list)
-        or not command
-        or any(not isinstance(value, str) or not value for value in command)
-    ):
+    external_command = command if isinstance(command, list) else []
+    builtin = (
+        isinstance(config, Mapping)
+        and config.get("schema") == "banana-smasher-candidate-producer-v1"
+        and config.get("producer") == "fixed-d4-vllm"
+        and set(config) == {"schema", "producer", "parameters"}
+    )
+    external = (
+        isinstance(config, Mapping)
+        and config.get("schema") == "banana-smasher-candidate-producer-v1"
+        and bool(external_command)
+        and all(isinstance(value, str) and value for value in external_command)
+    )
+    if not builtin and not external:
         raise AnchorEvaluationError(
             "candidate producer config requires schema banana-smasher-candidate-producer-v1 "
-            "and a non-empty string command array"
+            "and either producer fixed-d4-vllm or a non-empty string command array"
         )
 
     bank_path = run_root / "banks" / f"{bank_id}.jsonl"
@@ -1328,29 +1335,42 @@ def materialize_candidate_producer(
     os.close(descriptor)
     temporary = Path(temporary_name)
     try:
-        completed = subprocess.run(
-            [
-                *command,
-                "--model",
-                str(model_root),
-                "--config",
-                str(producer_config),
-                "--bank",
-                str(bank_path),
-                "--output",
-                str(temporary),
-                "--basis-sha256",
-                basis_sha256,
-            ],
-            check=False,
-            text=True,
-            capture_output=True,
-        )
-        if completed.returncode != 0:
-            detail = completed.stderr.strip() or completed.stdout.strip()
-            raise AnchorEvaluationError(
-                f"candidate producer failed with exit {completed.returncode}: {detail}"
+        if builtin:
+            from .fixed_d4 import produce_fixed_d4_logits
+
+            produce_fixed_d4_logits(
+                model_root,
+                producer_config,
+                bank_path,
+                temporary,
+                basis_sha256=basis_sha256,
             )
+            producer_backend = "fixed-d4-vllm"
+        else:
+            completed = subprocess.run(
+                [
+                    *external_command,
+                    "--model",
+                    str(model_root),
+                    "--config",
+                    str(producer_config),
+                    "--bank",
+                    str(bank_path),
+                    "--output",
+                    str(temporary),
+                    "--basis-sha256",
+                    basis_sha256,
+                ],
+                check=False,
+                text=True,
+                capture_output=True,
+            )
+            if completed.returncode != 0:
+                detail = completed.stderr.strip() or completed.stdout.strip()
+                raise AnchorEvaluationError(
+                    f"candidate producer failed with exit {completed.returncode}: {detail}"
+                )
+            producer_backend = "external-command"
         payload = temporary.read_bytes()
         producer_sha256 = _sha256_bytes(payload)
         imported = import_producer(
@@ -1371,6 +1391,7 @@ def materialize_candidate_producer(
         "bank_id": bank_id,
         "coverage": imported["coverage"],
         "basis_sha256": basis_sha256,
+        "producer_backend": producer_backend,
         "model_manifest_sha256": _sha256_bytes(pack_manifest_path.read_bytes()),
         "producer_config_sha256": _sha256_bytes(config_payload),
         "producer_sha256": producer_sha256,

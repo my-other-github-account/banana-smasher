@@ -1,0 +1,14 @@
+{
+  "parameters": {
+    "batch_size": 8,
+    "engine": {
+      "enforce_eager": true,
+      "max_logprobs": -1,
+      "tensor_parallel_size": 1,
+      "trust_remote_code": true
+    },
+    "input_field": "tokens"
+  },
+  "producer": "fixed-d4-vllm",
+  "schema": "banana-smasher-candidate-producer-v1"
+}

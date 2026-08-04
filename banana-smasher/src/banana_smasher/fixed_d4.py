@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 import shutil
@@ -282,6 +283,366 @@ def persist_fixed_d4_solve(
         "basis_sha256": basis_sha256,
         "assignment_count": assignment_count,
         "manifest": str(output_root / "materialize.json"),
+    }
+
+
+def _exact_nearest_assignments(
+    normalized_vectors: np.ndarray,
+    codebook: np.ndarray,
+    *,
+    chunk_vectors: int,
+) -> np.ndarray:
+    if (
+        normalized_vectors.dtype.kind != "f"
+        or normalized_vectors.ndim < 3
+        or normalized_vectors.shape[0] != 256
+        or normalized_vectors.shape[-1] != 4
+    ):
+        raise ValueError(
+            "normalized_vectors must be floating [256, ..., 4] D4 objective vectors"
+        )
+    if not np.isfinite(codebook).all():
+        raise ValueError("fixed D4 exact solve inputs must be finite")
+    vectors = normalized_vectors.reshape(-1, 4)
+    candidates = np.asarray(codebook, dtype=np.float64)
+    candidate_norms = np.einsum("ij,ij->i", candidates, candidates)
+    winner_dtype = np.uint16 if codebook.shape[0] > 256 else np.uint8
+    winners = np.empty(vectors.shape[0], dtype=winner_dtype)
+    for start in range(0, vectors.shape[0], chunk_vectors):
+        chunk = np.asarray(
+            vectors[start : start + chunk_vectors], dtype=np.float64
+        )
+        if not np.isfinite(chunk).all():
+            raise ValueError("fixed D4 exact solve inputs must be finite")
+        distances = (
+            np.einsum("ij,ij->i", chunk, chunk)[:, None]
+            + candidate_norms[None, :]
+            - 2.0 * (chunk @ candidates.T)
+        )
+        winners[start : start + chunk.shape[0]] = np.argmin(distances, axis=1)
+    return winners.reshape(normalized_vectors.shape[:-1])
+
+
+def solve_fixed_d4_exact(
+    config_path: str | Path,
+    output_root: str | Path,
+    *,
+    basis_sha256: str,
+) -> dict[str, Any]:
+    """Exhaustively solve D4 codebook winners and persist them before release."""
+
+    config_path = Path(config_path).expanduser().resolve()
+    try:
+        config = json.loads(config_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid fixed D4 exact solve config {config_path}: {exc}") from exc
+    required = {
+        "schema",
+        "tier",
+        "layer",
+        "basis_index",
+        "basis_sha256",
+        "chunk_vectors",
+        "projections",
+    }
+    if not isinstance(config, Mapping) or set(config) != required:
+        raise ValueError(
+            "fixed D4 exact solve config fields mismatch: "
+            f"expected={sorted(required)}"
+        )
+    if config.get("schema") != "banana-smasher-fixed-d4-exact-solve-v1":
+        raise ValueError(
+            "fixed D4 exact solve schema must be banana-smasher-fixed-d4-exact-solve-v1"
+        )
+    if config.get("basis_sha256") != basis_sha256:
+        raise ValueError("fixed D4 exact solve basis mismatch")
+    tier = config.get("tier")
+    if tier not in _TIER_SPECS:
+        raise ValueError("fixed D4 exact solve requires tier d4_k2048 or d4_k4096")
+    layer = config.get("layer")
+    if isinstance(layer, bool) or not isinstance(layer, int) or layer < 0:
+        raise ValueError("fixed D4 exact solve layer must be non-negative")
+    chunk_vectors = config.get("chunk_vectors")
+    if (
+        isinstance(chunk_vectors, bool)
+        or not isinstance(chunk_vectors, int)
+        or chunk_vectors < 1
+    ):
+        raise ValueError("fixed D4 exact solve chunk_vectors must be positive")
+    projections = config.get("projections")
+    if not isinstance(projections, Mapping) or set(projections) != set(_PROJECTIONS):
+        raise ValueError("fixed D4 exact solve requires down and fused13 projections")
+
+    k = _TIER_SPECS[str(tier)]["k"]
+    solved: dict[str, dict[str, np.ndarray]] = {}
+    vector_count = 0
+    for projection in _PROJECTIONS:
+        row = projections[projection]
+        expected_fields = {"normalized_vectors", "scales", "codebook"}
+        if not isinstance(row, Mapping) or set(row) != expected_fields:
+            raise ValueError(
+                f"fixed D4 exact solve projection {projection} requires "
+                "normalized_vectors, scales, and codebook"
+            )
+        vectors, _ = _bound_array(
+            config_path.parent,
+            row["normalized_vectors"],
+            label=f"projections.{projection}.normalized_vectors",
+        )
+        scales, _ = _bound_array(
+            config_path.parent,
+            row["scales"],
+            label=f"projections.{projection}.scales",
+        )
+        codebook, _ = _bound_array(
+            config_path.parent,
+            row["codebook"],
+            label=f"projections.{projection}.codebook",
+        )
+        if codebook.shape != (k, 4) or codebook.dtype.kind != "f":
+            raise ValueError(
+                f"projections.{projection}.codebook must be floating [{k}, 4]"
+            )
+        if scales.dtype != np.uint8 or scales.ndim < 2 or scales.shape[0] != 256:
+            raise ValueError(
+                f"projections.{projection}.scales must be uint8 with 256 expert rows"
+            )
+        assignments = _exact_nearest_assignments(
+            vectors, codebook, chunk_vectors=chunk_vectors
+        )
+        solved[projection] = {
+            "assignments": assignments,
+            "scales": scales,
+            "codebook": codebook,
+        }
+        vector_count += int(assignments.size)
+
+    basis_index = Path(str(config["basis_index"])).expanduser()
+    if not basis_index.is_absolute():
+        basis_index = config_path.parent / basis_index
+    persisted = persist_fixed_d4_solve(
+        output_root,
+        tier=str(tier),
+        layer=layer,
+        basis_index=basis_index,
+        basis_sha256=basis_sha256,
+        projections=solved,
+    )
+    return {
+        **persisted,
+        "schema": "banana-smasher-fixed-d4-exact-solve-receipt-v1",
+        "solver": "exhaustive-nearest-d4-v1",
+        "vector_count": vector_count,
+        "config_sha256": _sha256(config_path.read_bytes()),
+    }
+
+
+def verify_fixed_d4_model(
+    model_root: str | Path, *, basis_sha256: str
+) -> dict[str, Any]:
+    """Verify a serveable pack and every fixed-D4 layer/basis binding."""
+
+    from .contract import load_manifest, verify_pack
+
+    model_root = Path(model_root).expanduser().resolve()
+    verify_pack(model_root)
+    manifest = load_manifest(model_root)
+    layers = manifest.get("layers")
+    if not isinstance(layers, list) or not all(
+        isinstance(layer, int) and not isinstance(layer, bool) for layer in layers
+    ):
+        raise ValueError("fixed D4 model pack has invalid layers")
+    receipts = sorted((model_root / "provenance").glob("layer_*/LAYER_RECEIPT.json"))
+    if not receipts:
+        single = model_root / "provenance" / "LAYER_RECEIPT.json"
+        if single.is_file():
+            receipts = [single]
+    receipt_layers: set[int] = set()
+    for path in receipts:
+        try:
+            receipt = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"invalid fixed D4 layer receipt {path}: {exc}") from exc
+        layer = receipt.get("layer")
+        if not isinstance(layer, int) or isinstance(layer, bool):
+            raise ValueError(f"fixed D4 model has invalid layer receipt {path}")
+        if receipt.get("tier") not in _TIER_SPECS or receipt.get(
+            "basis_sha256"
+        ) != basis_sha256:
+            raise ValueError(f"fixed D4 model basis mismatch in {path}")
+        receipt_layers.add(layer)
+    if receipt_layers != set(layers):
+        raise ValueError("fixed D4 receipts do not match the model pack layer set")
+    return manifest
+
+
+def _dense_logprobs(value: object, *, label: str) -> list[float]:
+    if not isinstance(value, Mapping) or not value:
+        raise ValueError(f"{label} did not return full-vocabulary log probabilities")
+    parsed: dict[int, float] = {}
+    for raw_token, raw_logprob in value.items():
+        if isinstance(raw_token, bool):
+            raise ValueError(f"{label} returned an invalid token id")
+        try:
+            token = int(raw_token)
+            numeric = float(getattr(raw_logprob, "logprob", raw_logprob))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{label} returned an invalid log probability") from exc
+        if token < 0 or not np.isfinite(numeric):
+            raise ValueError(f"{label} returned an invalid log probability")
+        parsed[token] = numeric
+    if set(parsed) != set(range(len(parsed))):
+        raise ValueError(
+            f"{label} logprobs=-1 result is not a dense zero-based vocabulary"
+        )
+    return [parsed[token] for token in range(len(parsed))]
+
+
+def produce_fixed_d4_logits(
+    model_root: str | Path,
+    producer_config: str | Path,
+    bank_path: str | Path,
+    output_path: str | Path,
+    *,
+    basis_sha256: str,
+) -> dict[str, Any]:
+    """Run the materialized fixed-D4 pack through public vLLM offline inference."""
+
+    model_root = Path(model_root).expanduser().resolve()
+    producer_config = Path(producer_config).expanduser().resolve()
+    bank_path = Path(bank_path).expanduser().resolve()
+    output_path = Path(output_path).expanduser().resolve()
+    verify_fixed_d4_model(model_root, basis_sha256=basis_sha256)
+    try:
+        config_payload = producer_config.read_bytes()
+        config = json.loads(config_payload)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid fixed D4 producer config {producer_config}: {exc}") from exc
+    if (
+        not isinstance(config, Mapping)
+        or config.get("schema") != "banana-smasher-candidate-producer-v1"
+        or config.get("producer") != "fixed-d4-vllm"
+        or set(config) != {"schema", "producer", "parameters"}
+    ):
+        raise ValueError(
+            "fixed D4 producer requires candidate-producer-v1 with producer fixed-d4-vllm"
+        )
+    parameters = config.get("parameters")
+    if not isinstance(parameters, Mapping) or set(parameters) != {
+        "input_field",
+        "batch_size",
+        "engine",
+    }:
+        raise ValueError("fixed D4 producer parameters require input_field, batch_size, and engine")
+    input_field = parameters.get("input_field")
+    batch_size = parameters.get("batch_size")
+    engine = parameters.get("engine")
+    if not isinstance(input_field, str) or not input_field:
+        raise ValueError("fixed D4 producer input_field must be a non-empty string")
+    if isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size < 1:
+        raise ValueError("fixed D4 producer batch_size must be positive")
+    if not isinstance(engine, Mapping) or any(
+        not isinstance(key, str) or not key for key in engine
+    ):
+        raise ValueError("fixed D4 producer engine must be an object")
+    forbidden_engine = {"model", "runner", "task"} & set(engine)
+    if forbidden_engine:
+        raise ValueError(
+            f"fixed D4 producer engine cannot override {sorted(forbidden_engine)}"
+        )
+
+    rows: list[dict[str, Any]] = []
+    for line_number, line in enumerate(bank_path.read_text().splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid bank JSON at {bank_path}:{line_number}: {exc}") from exc
+        tokens = row.get(input_field) if isinstance(row, Mapping) else None
+        if (
+            not isinstance(row, dict)
+            or "window_id" not in row
+            or not isinstance(tokens, list)
+            or not tokens
+            or any(
+                isinstance(token, bool) or not isinstance(token, int) or token < 0
+                for token in tokens
+            )
+        ):
+            raise ValueError(
+                f"bank row {line_number} requires window_id and non-empty integer {input_field}"
+            )
+        rows.append(row)
+    if not rows:
+        raise ValueError("fixed D4 producer bank is empty")
+
+    try:
+        vllm = importlib.import_module("vllm")
+        LLM = vllm.LLM
+        SamplingParams = vllm.SamplingParams
+    except (ImportError, AttributeError) as exc:
+        raise ValueError(
+            "fixed-d4-vllm producer requires the public banana-smasher vLLM runtime"
+        ) from exc
+    llm = LLM(model=str(model_root), **dict(engine))
+    sampling = SamplingParams(
+        temperature=0.0,
+        max_tokens=1,
+        logprobs=-1,
+    )
+    produced: list[dict[str, Any]] = []
+    vocab_size: int | None = None
+    for start in range(0, len(rows), batch_size):
+        batch = rows[start : start + batch_size]
+        requests = [
+            {"prompt_token_ids": row[input_field]}
+            for row in batch
+        ]
+        outputs = llm.generate(requests, sampling, use_tqdm=False)
+        if len(outputs) != len(batch):
+            raise ValueError("fixed D4 producer returned the wrong request count")
+        for row, request_output in zip(batch, outputs):
+            choices = getattr(request_output, "outputs", None)
+            if not isinstance(choices, list) or not choices:
+                raise ValueError(
+                    f"window {row['window_id']!r} returned no model log probabilities"
+                )
+            sampled_logprobs = getattr(choices[0], "logprobs", None)
+            if isinstance(sampled_logprobs, list):
+                if len(sampled_logprobs) != 1:
+                    raise ValueError(
+                        f"window {row['window_id']!r} returned the wrong generated-token count"
+                    )
+                sampled_logprobs = sampled_logprobs[0]
+            logits = _dense_logprobs(
+                sampled_logprobs,
+                label=f"window {row['window_id']!r}",
+            )
+            if vocab_size is None:
+                vocab_size = len(logits)
+            elif len(logits) != vocab_size:
+                raise ValueError("fixed D4 producer vocabulary size drifted")
+            produced.append(
+                {
+                    "window_id": row["window_id"],
+                    "logits": logits,
+                }
+            )
+    payload = b"".join(
+        (json.dumps(row, separators=(",", ":"), sort_keys=True) + "\n").encode()
+        for row in produced
+    )
+    _atomic_write(output_path, payload)
+    return {
+        "schema": "banana-smasher-fixed-d4-producer-receipt-v1",
+        "status": "PASS",
+        "basis_sha256": basis_sha256,
+        "rows": len(produced),
+        "vocab_size": vocab_size,
+        "producer_config_sha256": _sha256(config_payload),
+        "output_sha256": _sha256(payload),
+        "output": str(output_path),
     }
 
 
