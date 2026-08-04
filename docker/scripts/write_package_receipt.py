@@ -38,7 +38,8 @@ def main() -> None:
     if plugin is None or plugin.origin is None:
         raise RuntimeError("banana-smasher plugin package is missing")
     provenance_root = Path("/opt/banana-smasher/provenance")
-    provenance = verify_provenance_manifests(provenance_root)
+    source_commit = os.environ.get("BANANA_SMASHER_SOURCE_COMMIT", "")
+    provenance = verify_provenance_manifests(provenance_root, source_commit)
     assets = verify_asset_set(
         provenance_root / "ASSET_MANIFEST.json",
         Path("/opt/banana-smasher/aot"),

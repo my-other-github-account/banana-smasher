@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import re
+import runpy
 import shlex
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -197,6 +199,46 @@ def test_source_receipt_writer_emits_one_valid_json_document(tmp_path: Path) -> 
     assert receipt["flashinfer_source_commit"] == (
         "d020372b068f335e2fe427372e134977a2235c49"
     )
+
+
+def test_package_receipt_verifies_the_stamped_source_commit(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    source_commit = "1" * 40
+    calls: list[tuple[Path, str]] = []
+    verifier = types.ModuleType("verify_public_image")
+    setattr(verifier, "EXPECTED_PACKAGES", {})
+    setattr(verifier, "verify_asset_set", lambda *_args: {"status": "PASS"})
+
+    def verify_provenance(provenance_root: Path, actual_commit: str) -> dict:
+        calls.append((provenance_root, actual_commit))
+        return {"manifest_sha256": {}}
+
+    setattr(verifier, "verify_provenance_manifests", verify_provenance)
+    monkeypatch.setitem(sys.modules, "verify_public_image", verifier)
+    writer = runpy.run_path(str(PACKAGE_RECEIPT))
+    writer_globals = writer["main"].__globals__
+    monkeypatch.setattr(
+        writer_globals["importlib"].util,
+        "find_spec",
+        lambda _name: types.SimpleNamespace(origin="/tmp/banana_smasher_plugin/__init__.py"),
+    )
+    writer_globals["PACKAGES"] = ()
+    monkeypatch.setenv("BANANA_SMASHER_SOURCE_COMMIT", source_commit)
+    monkeypatch.setattr(sys, "argv", [str(PACKAGE_RECEIPT), str(tmp_path / "packages.json")])
+
+    writer["main"]()
+
+    assert calls == [(Path("/opt/banana-smasher/provenance"), source_commit)]
+
+
+def test_runtime_passes_source_commit_to_package_receipt_writer() -> None:
+    text = DOCKERFILE.read_text()
+    assert (
+        'BANANA_SMASHER_SOURCE_COMMIT="${BANANA_SMASHER_SOURCE_COMMIT}" \\\n'
+        "      python3 /opt/banana-smasher/bin/write_package_receipt.py"
+    ) in text
 
 
 def test_runtime_removes_stale_flashinfer_binary_provider_namespaces() -> None:
