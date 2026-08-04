@@ -50,19 +50,27 @@ def test_full16_assignments_match_cornell_canonical_with_and_without_overlap() -
 
     canonical_root = Path(os.environ["BANANA_SMASHER_QTIP_CANONICAL_ROOT"])
     codebook_root = canonical_root / "lib" / "codebook"
-    kdict_spec = importlib.util.spec_from_file_location(
-        "cornell_qtip_kdict", codebook_root / "kdict.py"
-    )
-    assert kdict_spec is not None and kdict_spec.loader is not None
-    kdict = importlib.util.module_from_spec(kdict_spec)
-    kdict_spec.loader.exec_module(kdict)
-    lib_stub = types.ModuleType("lib")
-    codebook_stub = types.ModuleType("lib.codebook")
-    setattr(codebook_stub, "kdict", kdict)
-    setattr(lib_stub, "codebook", codebook_stub)
-    saved = {name: sys.modules.get(name) for name in ("lib", "lib.codebook")}
-    sys.modules["lib"] = lib_stub
-    sys.modules["lib.codebook"] = codebook_stub
+
+    def unused_dependency(*_args, **_kwargs):
+        raise AssertionError("Cornell Viterbi parity unexpectedly used a decoder dependency")
+
+    stubs = {
+        "lib": types.ModuleType("lib"),
+        "lib.codebook": types.ModuleType("lib.codebook"),
+        "lib.utils": types.ModuleType("lib.utils"),
+        "lib.utils.kernel_check": types.ModuleType("lib.utils.kernel_check"),
+        "lib.utils.kernel_decompress": types.ModuleType("lib.utils.kernel_decompress"),
+        "lib.utils.matmul_had": types.ModuleType("lib.utils.matmul_had"),
+    }
+    setattr(stubs["lib.codebook"], "kdict", {})
+    setattr(stubs["lib.utils.kernel_check"], "has_kernel", unused_dependency)
+    setattr(stubs["lib.utils.kernel_decompress"], "decode_compressed", unused_dependency)
+    setattr(stubs["lib.utils.matmul_had"], "matmul_hadU_cuda", unused_dependency)
+    setattr(stubs["lib.utils.matmul_had"], "matmul_hadUt_cuda", unused_dependency)
+    setattr(stubs["lib"], "codebook", stubs["lib.codebook"])
+    setattr(stubs["lib"], "utils", stubs["lib.utils"])
+    saved = {name: sys.modules.get(name) for name in stubs}
+    sys.modules.update(stubs)
     try:
         bitshift_spec = importlib.util.spec_from_file_location(
             "cornell_qtip_bitshift", codebook_root / "bitshift.py"
