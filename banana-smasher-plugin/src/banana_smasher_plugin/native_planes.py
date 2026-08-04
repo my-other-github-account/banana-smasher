@@ -386,18 +386,13 @@ def _ensure_native_plane_custom_op() -> bool:
         return _NATIVE_PLANE_CUSTOM_OP_AVAILABLE
     try:
         from vllm.utils.torch_utils import direct_register_custom_op
-        eager_break_during_capture = getattr(
-            importlib.import_module("vllm.compilation.breakable_cudagraph"),
-            "eager_break_during_capture",
-        )
     except (ImportError, ModuleNotFoundError):
         return False
     direct_register_custom_op(
         "banana_smasher_native_plane_forward",
-        eager_break_during_capture(_native_plane_forward_op),
+        _native_plane_forward_op,
         mutates_args=["output"],
         fake_impl=_native_plane_forward_fake,
-        tags=(torch.Tag.cudagraph_unsafe,),
     )
     _NATIVE_PLANE_CUSTOM_OP_REGISTERED = True
     _NATIVE_PLANE_CUSTOM_OP_AVAILABLE = True
