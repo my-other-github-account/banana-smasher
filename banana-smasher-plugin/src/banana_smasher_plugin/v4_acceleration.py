@@ -10,6 +10,14 @@ class IncompleteAccelerationPortError(RuntimeError):
     """The mandatory native route cannot be activated from admitted evidence."""
 
 
+def _max_compact_blocks(*, rows: int, experts: int, block_rows: int) -> int:
+    """Bound per-family blocks without launching one padded block per route row."""
+    return min(
+        rows,
+        (rows + block_rows - 1) // block_rows + min(experts, rows) - 1,
+    )
+
+
 def allocate_compaction_state(
     *,
     rows: int,
@@ -24,7 +32,11 @@ def allocate_compaction_state(
         raise ValueError((rows, experts, input_width, output_width))
     if block_rows not in (1, 2, 4, 16):
         raise ValueError(f"unsupported compact block size: {block_rows}")
-    max_blocks = rows
+    max_blocks = _max_compact_blocks(
+        rows=rows,
+        experts=experts,
+        block_rows=block_rows,
+    )
     return {
         "out": torch.empty((rows, output_width), dtype=torch.float32, device=device),
         "result": torch.empty(

@@ -193,6 +193,15 @@ def test_prefill_workspaces_are_ephemeral_instead_of_retained_by_every_layer() -
     assert 'vq_state["physical_counter_tensors"]' in counter_reader
 
 
+def test_large_prefill_compaction_bounds_descriptor_blocks_by_routes_and_experts() -> None:
+    from banana_smasher_plugin.v4_acceleration import _max_compact_blocks
+
+    assert _max_compact_blocks(rows=384, experts=256, block_rows=16) == 279
+    assert _max_compact_blocks(rows=12288, experts=256, block_rows=16) == 1023
+    assert _max_compact_blocks(rows=49152, experts=256, block_rows=16) == 3327
+    assert _max_compact_blocks(rows=96, experts=256, block_rows=4) == 96
+
+
 def test_every_matrix_source_symbol_is_owned_by_compiled_specialized_source() -> None:
     matrix = json.loads(MATRIX.read_text())
     qtip = (PACKAGE / "csrc/qtip/qtip_dynamic_torch.cu").read_text()
