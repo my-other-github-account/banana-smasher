@@ -6,7 +6,10 @@ FROM ${VLLM_IMAGE} AS package-builder
 USER root
 ARG VLLM_UPSTREAM_REV
 RUN test "${VLLM_UPSTREAM_REV}" = "ee0da84a"
-RUN python3 -m pip install --no-cache-dir \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libcusparse-dev-13-0=12.6.3.3-1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m pip install --no-cache-dir \
       build==1.3.0 ninja==1.13.0 pytest==8.4.2 setuptools==80.10.2 wheel==0.46.3
 COPY banana-smasher /src/banana-smasher
 COPY banana-smasher-plugin /src/banana-smasher-plugin
