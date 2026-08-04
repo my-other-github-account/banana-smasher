@@ -226,3 +226,10 @@ def test_physical_counters_are_written_by_the_family_kernels() -> None:
     assert "record_physical_dispatch" in vq
     assert vq.count("physical_counters") >= 12
     assert acceleration.count('compact["physical_counters"]') == 4
+
+
+def test_compaction_tensor_ranges_have_explicit_const_pointer_types() -> None:
+    source = (CSRC / "route_compaction.cu").read_text()
+    assert "#include <array>" in source
+    assert source.count("std::array<const at::Tensor*,") == 2
+    assert "for (const at::Tensor* tensor : {" not in source
