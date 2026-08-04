@@ -43,10 +43,11 @@ def test_public_source_dockerfile_contract() -> None:
     assert "FLASHINFER_DISABLE_VERSION_CHECK" not in text
     assert "flashinfer-python==0.6.12" not in text
     assert "https://github.com/deepseek-ai/DeepGEMM.git" in text
-    assert "a6b593d2826719dcf4892609af7b84ee23aaf32a" in text
+    assert "refs/tags/nv_dev_f8e8fb5" in text
+    assert "f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca" in text
     assert "DG_FORCE_BUILD=1" in text
     assert "cuda-nvrtc-dev-13-0=13.0.88-1" in text
-    assert "deep_gemm-2.5.0" in text
+    assert "deep_gemm-2.6.1" in text
     assert "banana_smasher_plugin:register" not in text  # verified by the image script
     assert "libcudart_stub.so" in text
     assert "libcudart.so.13" in text
@@ -72,18 +73,21 @@ def test_public_source_dockerfile_contract() -> None:
         assert token not in lower
 
 
-def test_pinned_deepgemm_commit_is_publicly_fetchable_and_sm120_capable(
+def test_pinned_deepgemm_source_is_publicly_fetchable_and_sm120_capable(
     tmp_path: Path,
 ) -> None:
-    """Reject fetchable DeepGEMM pins that omit the required SM120 sources."""
+    """Reject official DeepGEMM tags that drift or omit required SM120 sources."""
     text = DOCKERFILE.read_text()
     repo_match = re.search(r"^ARG DEEPGEMM_SOURCE_REPO=(\S+)$", text, re.MULTILINE)
+    ref_match = re.search(r"^ARG DEEPGEMM_SOURCE_REF=(\S+)$", text, re.MULTILINE)
     commit_match = re.search(
         r"^ARG DEEPGEMM_SOURCE_COMMIT=([0-9a-f]{40})$", text, re.MULTILINE
     )
     assert repo_match is not None
+    assert ref_match is not None
     assert commit_match is not None
     repo = repo_match.group(1)
+    ref = ref_match.group(1)
     commit = commit_match.group(1)
 
     checkout = tmp_path / "deepgemm-fetch"
@@ -102,7 +106,7 @@ def test_pinned_deepgemm_commit_is_publicly_fetchable_and_sm120_capable(
         timeout=30,
     )
     subprocess.run(
-        ["git", "-C", str(checkout), "fetch", "--depth=1", "origin", commit],
+        ["git", "-C", str(checkout), "fetch", "--depth=1", "origin", ref],
         check=True,
         capture_output=True,
         text=True,
@@ -140,7 +144,7 @@ def test_pinned_deepgemm_commit_is_publicly_fetchable_and_sm120_capable(
         text=True,
         timeout=30,
     ).stdout
-    assert "__version__ = '2.5.0'" in version_source
+    assert "__version__ = '2.6.1'" in version_source
 
 
 def test_source_receipt_writer_emits_one_valid_json_document(tmp_path: Path) -> None:
@@ -162,6 +166,11 @@ def test_source_receipt_writer_emits_one_valid_json_document(tmp_path: Path) -> 
     assert not raw.endswith(b"\\n")
     receipt = json.loads(raw)
     assert receipt["vllm_upstream_revision"] == "ee0da84a"
+    assert receipt["deep_gemm_source_ref"] == "refs/tags/nv_dev_f8e8fb5"
+    assert receipt["deep_gemm_source_commit"] == (
+        "f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca"
+    )
+    assert receipt["deep_gemm_version"] == "2.6.1"
     assert receipt["flashinfer_source_commit"] == (
         "d020372b068f335e2fe427372e134977a2235c49"
     )
@@ -185,13 +194,24 @@ def test_runtime_defaults_are_baked_and_parseable() -> None:
     defaults = json.loads((ROOT / "docker/runtime_defaults.json").read_text())
     assert defaults["model"] == "/model"
     assert defaults["serve"]["cudagraph_capture_sizes"] == [1, 2, 4, 8, 16]
+    assert defaults["serve"]["cudagraph_mode"] == "PIECEWISE"
     assert defaults["serve"]["max_num_seqs"] == 16
     assert defaults["serve"]["kv_cache_dtype"] == "fp8"
     assert defaults["environment"]["VLLM_USE_DEEP_GEMM"] == "1"
     assert defaults["environment"]["VLLM_USE_DEEP_GEMM_E8M0"] == "1"
+    assert defaults["environment"]["VLLM_USE_BREAKABLE_CUDAGRAPH"] == "1"
     dockerfile = DOCKERFILE.read_text()
     assert "VLLM_USE_DEEP_GEMM=1" in dockerfile
     assert "VLLM_USE_DEEP_GEMM_E8M0=1" in dockerfile
+    assert "VLLM_USE_BREAKABLE_CUDAGRAPH=1" in dockerfile
+    command_line = next(
+        line for line in dockerfile.splitlines() if line.startswith('CMD ["vllm"')
+    )
+    command = json.loads(command_line.removeprefix("CMD "))
+    compilation_index = command.index("--compilation-config")
+    compilation = json.loads(command[compilation_index + 1])
+    assert compilation["cudagraph_mode"] == "PIECEWISE"
+    assert compilation["cudagraph_capture_sizes"] == [1, 2, 4, 8, 16]
 
 
 def test_readme_uses_release_helpers_and_no_runtime_environment_flags() -> None:

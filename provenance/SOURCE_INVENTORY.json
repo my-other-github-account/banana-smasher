@@ -1,4 +1,7 @@
 {
+  "additional_source_commits": [
+    "009b41befb9f559805fe2b4148818684f2232ba7"
+  ],
   "files": [
     {
       "byte_preserved": true,
@@ -10,11 +13,12 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 17825,
-      "output_sha256": "a1d3cc2cde210386c8c8138e49c832f1d9ef599989244e1a0f7454f0759583eb",
+      "bytes": 19628,
+      "output_sha256": "492937ba903565f44ebe36d1a46d2ed1fa688f1e81c11b8509c8f094a73baf1d",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/__init__.py",
+      "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/__init__.py",
-      "source_sha256": "eef0c730a4ab25ef9e62862ce38a3f0380f997081a4f720e75b4e1b7466555e9"
+      "source_sha256": "d96766aba6062a43f02b27aba00d0c79c0efba2a6a6a4d8bd517bd2d3c74443f"
     },
     {
       "byte_preserved": true,
@@ -25,12 +29,13 @@
       "source_sha256": "3a59ef5d5d21036a4904f6b60089f4f014fc7832007b0f42cb1773a667dd7f53"
     },
     {
-      "byte_preserved": true,
-      "bytes": 28965,
-      "output_sha256": "50afaaf875282b483701141474cf11df02888c9f4ae8540bc2e81d1f5aaef0cb",
+      "byte_preserved": false,
+      "bytes": 34198,
+      "output_sha256": "ac99c32211c9a10a72aeb8ffb44c4bfcfb44fb0bdf4a9309968237b25f0755fb",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
+      "source_commit": "12157a76b11f172081882b9b5efbc8281b65f74b",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
-      "source_sha256": "50afaaf875282b483701141474cf11df02888c9f4ae8540bc2e81d1f5aaef0cb"
+      "source_sha256": "c8ea9581cc1f785f27c3e9be996ff070f8bfdb45e241677db52e78d9de87f79c"
     },
     {
       "byte_preserved": false,
@@ -73,12 +78,13 @@
       "source_sha256": "f94622073364f0f25d7efde0ded58a7afcba817c7e0d9e9c9c99757970da01df"
     },
     {
-      "byte_preserved": true,
-      "bytes": 3273,
-      "output_sha256": "344b67f2c2bc331c97aefa187ef49c059c35b160bbd842fc1cbc6048308f6637",
+      "byte_preserved": false,
+      "bytes": 6316,
+      "output_sha256": "163eff273996934eb0e444c0a55196622c73eb0531d288822410b641efacd3e4",
       "path": "banana-smasher-plugin/tests/test_deep_gemm_dense_capability.py",
+      "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "banana-smasher-plugin/tests/test_deep_gemm_dense_capability.py",
-      "source_sha256": "344b67f2c2bc331c97aefa187ef49c059c35b160bbd842fc1cbc6048308f6637"
+      "source_sha256": "2a3255db564c1cf9c44319bc1e0a11ee44fdd8603b24fafedf027a9c256ae79a"
     },
     {
       "byte_preserved": true,
@@ -106,11 +112,21 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 37017,
-      "output_sha256": "31e60f0b4f3cd5b902fe79eaa2a4d15f8b3455bf4a5f025f9213276b2784da3d",
+      "bytes": 6140,
+      "output_sha256": "55ef08f58df05125181faeee5a49f157e960f5ff6e25f133e2f0777ec7007734",
+      "path": "banana-smasher-plugin/tests/test_native_plane_compile_boundary.py",
+      "source_commit": "12157a76b11f172081882b9b5efbc8281b65f74b",
+      "source_path": "banana-smasher-plugin/tests/test_native_plane_compile_boundary.py",
+      "source_sha256": "4974ab3a5f18365dabee1e14172d4bd09ef486c5e7a0d3a8cd81d9d897c7cca2"
+    },
+    {
+      "byte_preserved": false,
+      "bytes": 39637,
+      "output_sha256": "283c4c311a0c4abc87633c917937ebcb74c1e511f643e552a2af5aea4865c038",
       "path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
+      "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
-      "source_sha256": "1f0e7ea212516b40f4c44c38b811c912e04b730ea94e267e7383731bac876183"
+      "source_sha256": "e9c29d7a0da0e9a017cefa28f9fd5ac6dbd358b51fff922efa2fb69741c0f376"
     },
     {
       "byte_preserved": false,
@@ -122,11 +138,12 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 3432,
-      "output_sha256": "6e6df55d19d4726bdcc0f2c0a5cc15069c92f6b2d4dd9ba5df8e43851b131e1c",
+      "bytes": 3141,
+      "output_sha256": "989b8a22fe4683280f3ca57dad241fdb957dd6bb904a4836debc26ad4236902e",
       "path": "banana-smasher-plugin/tests/test_sm121_deep_gemm_fast_paths.py",
+      "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "banana-smasher-plugin/tests/test_sm121_deep_gemm_fast_paths.py",
-      "source_sha256": "6e6df55d19d4726bdcc0f2c0a5cc15069c92f6b2d4dd9ba5df8e43851b131e1c"
+      "source_sha256": "989b8a22fe4683280f3ca57dad241fdb957dd6bb904a4836debc26ad4236902e"
     },
     {
       "byte_preserved": false,
@@ -138,11 +155,12 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 2761,
-      "output_sha256": "11de00bb904f0e00bca4202d9233a7585973948870cf20817ea17c7bdbe35a3d",
+      "bytes": 2856,
+      "output_sha256": "56e4d4ad4665243151deaab5f6df8d362525d9b8d002f03cad8c6b8458392d56",
       "path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
+      "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
-      "source_sha256": "49434ec6ef468592c07438de912f5f7799eeb88daa12702e8d272034e8b82656"
+      "source_sha256": "83b66e774f48ce904461b21c1877302eacfa1c4b774380f2a5711a995280f053"
     },
     {
       "byte_preserved": true,
@@ -162,8 +180,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 3352,
-      "output_sha256": "cd8334e62589d25cce675b801dc33cca89dc28cffd02de08c4e1bb3446f51eee",
+      "bytes": 4363,
+      "output_sha256": "ed842d58587b0a640feed480556f358fea225ed9a29b6aeaa9b371b0833ef37c",
       "path": "banana-smasher/README.md",
       "source_path": "banana-smasher/README.md",
       "source_sha256": "937a2cd07bf27ecbf0a8e6cafe9d4b02dbc6b5972ac205783c9e2a45801488f8"
@@ -425,9 +443,9 @@
       "source_sha256": "1c2c6c8d157717c15a25999684fd552e4c074e623bad81f50e6d424f2a7de7f1"
     },
     {
-      "byte_preserved": true,
-      "bytes": 782,
-      "output_sha256": "ce9e611f8e8cc1e9a4e839b7de8d184865eec445cb1f212081b610f71032a978",
+      "byte_preserved": false,
+      "bytes": 936,
+      "output_sha256": "21b96f123f11ab5ff3fc9313dd1c73a474a2fe348691cc88f1e4198d3b880e1d",
       "path": "banana-smasher/pyproject.toml",
       "source_path": "banana-smasher/pyproject.toml",
       "source_sha256": "ce9e611f8e8cc1e9a4e839b7de8d184865eec445cb1f212081b610f71032a978"
@@ -449,25 +467,25 @@
       "source_sha256": "50e246f52cb0b77fc31a08e1cb461c6a5c9be729d277938cee27a19756d25376"
     },
     {
-      "byte_preserved": true,
-      "bytes": 1593,
-      "output_sha256": "4fc0401e6da4fedfdd18238b5c9eeab0700a250bdc1d9d8a4d11e7a0f237ac5c",
+      "byte_preserved": false,
+      "bytes": 2105,
+      "output_sha256": "40937d03b3367c664a6e2500d10d19af13eca3d3575f354cd6cd429443a6f231",
       "path": "banana-smasher/schema/bs-pack-v1.schema.json",
       "source_path": "banana-smasher/schema/bs-pack-v1.schema.json",
       "source_sha256": "4fc0401e6da4fedfdd18238b5c9eeab0700a250bdc1d9d8a4d11e7a0f237ac5c"
     },
     {
-      "byte_preserved": true,
-      "bytes": 323,
-      "output_sha256": "5fdbde4d09c5f292f8546e12a5bc6850ea1078e0d991d27010119ff14df25ff6",
+      "byte_preserved": false,
+      "bytes": 634,
+      "output_sha256": "63b3ab3af742500879c94fb3f666242c8823463bb9c2cb20a44b489058d6a4e3",
       "path": "banana-smasher/src/banana_smasher/__init__.py",
       "source_path": "banana-smasher/src/banana_smasher/__init__.py",
       "source_sha256": "5fdbde4d09c5f292f8546e12a5bc6850ea1078e0d991d27010119ff14df25ff6"
     },
     {
-      "byte_preserved": true,
-      "bytes": 8568,
-      "output_sha256": "b11c01e1d229b23fbf3df2632fc9391d604a9f93df98537bc4797840a7a05669",
+      "byte_preserved": false,
+      "bytes": 25195,
+      "output_sha256": "f8954bf1ea6368e324845d76b3b52b7ef5f9c9933c6fe6238ec3b7870c33ad4e",
       "path": "banana-smasher/src/banana_smasher/cli.py",
       "source_path": "banana-smasher/src/banana_smasher/cli.py",
       "source_sha256": "b11c01e1d229b23fbf3df2632fc9391d604a9f93df98537bc4797840a7a05669"
@@ -479,6 +497,24 @@
       "path": "banana-smasher/src/banana_smasher/contract.py",
       "source_path": "banana-smasher/src/banana_smasher/contract.py",
       "source_sha256": "b1e27ddd2a09bcbce7f3f07f9973358ec1438e50be4d5277572326032f340b6b"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 18054,
+      "output_sha256": "49f60525dd8d35af6182dbb1c25de5a761148cf73dd15a630d90b0200411d34f",
+      "path": "banana-smasher/src/banana_smasher/exact_codebook.py",
+      "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "source_path": "banana-smasher/src/banana_smasher/exact_codebook.py",
+      "source_sha256": "49f60525dd8d35af6182dbb1c25de5a761148cf73dd15a630d90b0200411d34f"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 8196,
+      "output_sha256": "6e50a7677600e90c913fd6c225619a93b667e6a2403e4c40155f645dea4ffe5c",
+      "path": "banana-smasher/src/banana_smasher/frozen_score.py",
+      "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "source_path": "banana-smasher/src/banana_smasher/frozen_score.py",
+      "source_sha256": "6e50a7677600e90c913fd6c225619a93b667e6a2403e4c40155f645dea4ffe5c"
     },
     {
       "byte_preserved": true,
@@ -505,6 +541,15 @@
       "source_sha256": "cf63c4cdea5caa465c416f8d83db7337299bd1b4ff4937c0a288d31d6ac79c61"
     },
     {
+      "byte_preserved": false,
+      "bytes": 16753,
+      "output_sha256": "71c5efd12fd6b45dff82b6df988e815acb96fd9b45d2b3a5a158c4cb7c7d71d0",
+      "path": "banana-smasher/src/banana_smasher/solve.py",
+      "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "source_path": "banana-smasher/src/banana_smasher/solve.py",
+      "source_sha256": "04bdc3a403791c6962f98e77a9911e52729c8f186aa7f3127fa1c8b2008993e4"
+    },
+    {
       "byte_preserved": true,
       "bytes": 13162,
       "output_sha256": "d9eabb861cd6623152caffdbc74404a46886f831f7d5263c269fc0f2ddbebcb0",
@@ -514,8 +559,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 18038,
-      "output_sha256": "4b154a9f65246477d1206cbdf9ac86e34dc555f488206f25e937ddb2554af657",
+      "bytes": 18570,
+      "output_sha256": "86d0329c144967b7e9e01e83e7af9a9c9a15560a7e3f0bc789c1946a79a843bf",
       "path": "banana-smasher/tests/test_cli.py",
       "source_path": "banana-smasher/tests/test_cli.py",
       "source_sha256": "cd14b69423fb6589506c5b4fc31bd7ff9300878903dbfe3c0352eb3135cc9cf9"
@@ -546,8 +591,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 3731,
-      "output_sha256": "4be5e5a9fd3cb73ed40ac6a1041def3700e13ed80bb90e902b429e2bb9f196e6",
+      "bytes": 4016,
+      "output_sha256": "ef36221ac0f7be4a8f0b714b8d35bf4c2616e127515453afaac045e42ff7c4e0",
       "path": "banana-smasher/tests/test_release_surfaces.py",
       "source_path": "banana-smasher/tests/test_release_surfaces.py",
       "source_sha256": "f6eb86936b60ecebe40b0a2ffcd6a01f7cf65dc6c45e3718f11e474247e9a9fa"
@@ -577,6 +622,15 @@
       "source_sha256": "f843a32d51758201ce6808f2d75f29a0a3bfdd2aa085e3437a23f306e72c42ca"
     },
     {
+      "byte_preserved": false,
+      "bytes": 16138,
+      "output_sha256": "f85aca4a12eaf1e2a91edc480525465d72cfc66645172405926cbf4856fb980c",
+      "path": "banana-smasher/tests/test_solve.py",
+      "source_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "source_path": "banana-smasher/tests/test_solve.py",
+      "source_sha256": "42d2f38174397d63ce5f93d8553d05a6d479ac7b2adcf5ab3911f8203b3a9990"
+    },
+    {
       "byte_preserved": true,
       "bytes": 3357,
       "output_sha256": "b798402a3d5b6d39f0b1af9c7d8af50ccb31b59caa485fd181d7851edc1e3f06",
@@ -594,11 +648,12 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 13143,
-      "output_sha256": "2a16c84300950a27e9d255f49ca80323f9b353e334ad8684353c7929b9e59705",
+      "bytes": 13401,
+      "output_sha256": "fd37e2962937b8acc6f753f45b703c77140d294364d8f3f11828586b12ef0491",
       "path": "docker/Dockerfile",
+      "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "docker/Dockerfile",
-      "source_sha256": "a094b4f3347c09066b519a7cc58d7e5ca02fff1d2a3acdb06dcd8ee4a6be9d1d"
+      "source_sha256": "8f76a36a1fcda6d08f19a26f971fe185f924e223031123a21bc0e5802378d864"
     },
     {
       "byte_preserved": true,
@@ -610,8 +665,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 1133,
-      "output_sha256": "7cab009574c774de215ee4dd0b1f1f407d918fde55092c135bf5a47ceff88ae9",
+      "bytes": 1209,
+      "output_sha256": "1ca8e2410370e5756e806c94621de8cb8093dc288b22f9070b65d0dfe56e9dad",
       "path": "docker/runtime_defaults.json",
       "source_path": "docker/runtime_defaults.json",
       "source_sha256": "ccad362ca5758de66427665c8f01f7d0ac66fb3edfc2031f6ebdd0b071163613"
@@ -619,10 +674,11 @@
     {
       "byte_preserved": false,
       "bytes": 9915,
-      "output_sha256": "5839bb466fdc3dc20e24f46c6aa00859c0258fad36037edcfaf1582b0aa420bf",
+      "output_sha256": "1c63d529c78cff15e325f81e4503b437f49193ca999f819b242d4d702afdd8ed",
       "path": "docker/scripts/verify_public_image.py",
+      "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "docker/scripts/verify_public_image.py",
-      "source_sha256": "3d8de2a618c95a9e813762129043b4a53a539401bed021c1b45999678c8f4ca2"
+      "source_sha256": "792ef0718bdad498afa1cda22733f49dc6d23b384957b2a27b5d2eb8a552a4f9"
     },
     {
       "byte_preserved": false,
@@ -634,14 +690,435 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 8114,
-      "output_sha256": "cb6a2e9b891c6d0caa61f7c32021d25e83dcd513907ddc6bad3d4b9ee34fd8bc",
+      "bytes": 9154,
+      "output_sha256": "7a35618fe693ef55056a4b0b797336bd13b2ed5bbe56c7fb3f88f229893faa1f",
       "path": "docker/tests/test_public_source_dockerfile.py",
+      "source_commit": "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
       "source_path": "docker/tests/test_public_source_dockerfile.py",
-      "source_sha256": "3c2c569c699c264b2438a6d1ffc71f081f3100b5abcdd84758fb734b456b1a07"
+      "source_sha256": "6a8177b2de2be48dffc405164c14c329ca2571e1749b82015bbd5770b7e86d24"
     }
   ],
   "generated_files": [
+    {
+      "bytes": 9484,
+      "output_sha256": "ea4f34432384385d346f1f4b2975b53f28af45e206130d4ab729e4ff98bab5d7",
+      "path": "banana-smasher/schema/bs-paired-real-axis-evaluation-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 876,
+      "output_sha256": "02bd28c7d033907df47403af21946a2a9ab940cc9bcba0b09baec94922f0ccff",
+      "path": "banana-smasher/schema/bs-real-axis-instrument-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 1787,
+      "output_sha256": "421336bb3162852c7d66c9297b4f9aba5efd1d0de4e0ff5669ad3094696ae551",
+      "path": "banana-smasher/schema/bs-real-axis-runtime-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 1223,
+      "output_sha256": "2a927e1905ab34673765c859a040ebd5fe4419ca1d88fc4252f4ad92e534c039",
+      "path": "banana-smasher/schema/bs-real-axis-windows-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 5093,
+      "output_sha256": "218b8af0a3c9136ac06edcb4d6680cf91b2f6f1707f5d72aa4a9197e4e2f7d58",
+      "path": "banana-smasher/schema/bs-teacher-bank-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "src/banana_smasher/accumulation.py",
+      "bytes": 2016,
+      "output_sha256": "1f93d6a91049a59dfba0e2f2804e15f1a3e8c25da0cad4661169d08647cf43d4",
+      "path": "banana-smasher/src/banana_smasher/accumulation.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 3596,
+      "derived_from": [
+        {
+          "source_path": "activation-cache acceleration diff",
+          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
+        }
+      ],
+      "output_sha256": "27bd68c551befceb1fbeee54d6d6cb99dfb66b980f637e5925ee0947f18589a1",
+      "path": "banana-smasher/src/banana_smasher/activation_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 14885,
+      "output_sha256": "5f66fcb4b9fb1ffef42f0b1f5155de02a97c6ce8391a696e81dfa40dd5d42729",
+      "path": "banana-smasher/src/banana_smasher/backpack_dimensions.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 26294,
+      "output_sha256": "58e1becf1001272086520af091eddac36e28c4606bb8ba4464bc583830b21dec",
+      "path": "banana-smasher/src/banana_smasher/bank.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 16656,
+      "output_sha256": "8a863bf6d318e6cd68b135d7208765a526314a17b0a89eb9de616c894e3797e8",
+      "path": "banana-smasher/src/banana_smasher/durability.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 45793,
+      "output_sha256": "d98abcc7d26870ef1e9683fea90fb356f387c1dfb89c1077b96807bf0d8cb2bd",
+      "path": "banana-smasher/src/banana_smasher/evaluate.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 12114,
+      "output_sha256": "d3e692c1090c04e98f279b271e33ab338ddce9c62e9e48c400b6915c6893b66f",
+      "path": "banana-smasher/src/banana_smasher/file_backed.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 3836,
+      "output_sha256": "16eea326db3a40fffa579e7b75c5ac1a7719d4dfed912ba04c98932249115f50",
+      "path": "banana-smasher/src/banana_smasher/fwht.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 8443,
+      "output_sha256": "feb2d3188381680f11e01ec8bc9c6f134ceccea212c0f7012ba6207ad8aff5df",
+      "path": "banana-smasher/src/banana_smasher/kmajor_batch.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 17080,
+      "output_sha256": "899ad248c3529366b048f3dd2edd0d2acc5582b1d26c43771dfeaf6e3a1cbfc0",
+      "path": "banana-smasher/src/banana_smasher/kmajor_fused.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 8014,
+      "output_sha256": "5a7873cd73c43b4b4c0be78a8226bbf2adc41855a0cf59ead63d8e1b6a7d0d2d",
+      "path": "banana-smasher/src/banana_smasher/kmajor_graph.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 69616,
+      "output_sha256": "49718befc89ea3ed29df5f3063c92636601565779f60d9cdb48eab0412294f6e",
+      "path": "banana-smasher/src/banana_smasher/knapsack.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 9207,
+      "output_sha256": "769c6ed1cdd5ef8438d56b6d7b5a04ac65c2f56a12003d0a23060ce76f3584c5",
+      "path": "banana-smasher/src/banana_smasher/metrics.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 35358,
+      "output_sha256": "53e81e29c92fb80ba1cb4f8208bbd71c7468bca4e1287189617ac4c8f7f8fd3e",
+      "path": "banana-smasher/src/banana_smasher/persistent.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 11203,
+      "output_sha256": "26ece9b7f147c06927ca0c5e7938f724db7f9449dd9d34292204f0a9b0592874",
+      "path": "banana-smasher/src/banana_smasher/production_update.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 282,
+      "output_sha256": "984b8ea4f3c5447c2dca1bf153a2f45812856b51c0a232d69e7bdc4599df9a21",
+      "path": "banana-smasher/src/banana_smasher/profiles/real-axis-v1.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 21023,
+      "output_sha256": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+      "path": "banana-smasher/src/banana_smasher/qtip_kernel_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 47770,
+      "output_sha256": "0df3e4f1048c5197d49923bbde879e96bb0ca68efa07c43e3d336544df151a67",
+      "path": "banana-smasher/src/banana_smasher/qtip_materialize.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 8427,
+      "output_sha256": "5f856b76eee45b099f37118b8b8a7349a7cb17e5339aacac304cf3e6b1dc238b",
+      "path": "banana-smasher/src/banana_smasher/qtip_matrix_lifetime.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 1100,
+      "output_sha256": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+      "path": "banana-smasher/src/banana_smasher/qtip_rings.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 26409,
+      "output_sha256": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+      "path": "banana-smasher/src/banana_smasher/qtip_rings.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 67557,
+      "output_sha256": "8c45536a9f2bf8e26d324ed07a474da733f0bc144d56a456944445f71f1717af",
+      "path": "banana-smasher/src/banana_smasher/qtip_runner.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 18769,
+      "output_sha256": "daeb7fb3606653ab599cb0893df83d2f3c8749570c307ba13e7c0a210734e594",
+      "path": "banana-smasher/src/banana_smasher/qtip_viterbi.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 17489,
+      "output_sha256": "247be94d6a431c6de0cb4d08503bd6f4404fdab4b0278f270b61c62a15cece40",
+      "path": "banana-smasher/src/banana_smasher/real_axis.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 83240,
+      "output_sha256": "1bf43ff904fafb28dc879de8bea699336547d6c63a8c8403bc94ead879469bb3",
+      "path": "banana-smasher/src/banana_smasher/solver_qtip_profile.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "bytes": 4688,
+      "output_sha256": "56d47fbf604a3ab789d2c18c881e57dd5b3f17e2f1f72de4e90ba554628b791f",
+      "path": "banana-smasher/src/banana_smasher/token_sizing.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 2136,
+      "output_sha256": "6ca373dd30d7ec84ad13f5cab28f26dd76fb6181e33d7e14f34cc2ec8bedd188",
+      "path": "banana-smasher/src/banana_smasher/trellis_v2/__init__.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 496,
+      "output_sha256": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+      "path": "banana-smasher/src/banana_smasher/trellis_v2/csrc/binding_exact.cpp",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 21044,
+      "output_sha256": "eb1247a6ac81a78d5a2267f8e8835e9b5ec0013dce52c2f1e52b1e05b1f53b85",
+      "path": "banana-smasher/src/banana_smasher/trellis_v2/csrc/trellis_v2_exact.cu",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 6699,
+      "output_sha256": "1bac29b4b86b5a27a1bcdb89c5e04eaa49446636f61c3bf2447fd9916d9481da",
+      "path": "banana-smasher/src/banana_smasher/trellis_v2/exact.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 610,
+      "output_sha256": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2",
+      "path": "banana-smasher/src/banana_smasher/trellis_v2/setup.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "src/banana_smasher/update.py",
+      "bytes": 9831,
+      "output_sha256": "ef3a52e2421f7d798f1ffc1579870879d301593a3ae25f38e0479463015ca7e1",
+      "path": "banana-smasher/src/banana_smasher/update.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "src/banana_smasher/update_checkpoint.py",
+      "bytes": 16558,
+      "output_sha256": "dc6172bdd0a68bc9945c4467bd2093124ae43625edd7eecd8894b7b9c46a5d1a",
+      "path": "banana-smasher/src/banana_smasher/update_checkpoint.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "src/banana_smasher/update_engine.py",
+      "bytes": 20250,
+      "output_sha256": "36c92b798710bc0890107c57d2e742e5e647ff14bd9f46cdf202c0edfe09002b",
+      "path": "banana-smasher/src/banana_smasher/update_engine.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 3364,
+      "output_sha256": "a73ed6d005c4f6942caee84cffd4922faf3826aa911fc12fd121abbc08e4d4d4",
+      "path": "banana-smasher/src/banana_smasher/update_service.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 8375,
+      "output_sha256": "3608b8108109198b1078be73d194e8abc9ebe53406a519dc007ca21535a11dca",
+      "path": "banana-smasher/tests/real_axis_fixtures.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 6067,
+      "derived_from": [
+        {
+          "source_path": "activation-cache acceleration diff",
+          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
+        }
+      ],
+      "output_sha256": "08dc34fc361b157f1f14a8d77c6d5df06fedfe016a4e770ca1b6d83d6df4d2c8",
+      "path": "banana-smasher/tests/test_activation_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 13204,
+      "output_sha256": "ab537eab89762ea5983a039a19ce8e75bff6896c4eb6ec5f887505def8049cc7",
+      "path": "banana-smasher/tests/test_bank.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 2867,
+      "output_sha256": "52c68e0e1acb15ce3cff7bf27b9d7c826502f9f7569a606df1f9ad287f8c3cd1",
+      "path": "banana-smasher/tests/test_bank_evaluate_cli.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 3741,
+      "output_sha256": "dd71fa439f1a30ca9308f36fbe5719d182de10a5af063cfd475fefc841cf068e",
+      "path": "banana-smasher/tests/test_bank_evaluate_manifests.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 2108,
+      "output_sha256": "ba9fc49ac67904bc596ffabca34230d762f834ce6dd11443deafa3465c5aa8fc",
+      "path": "banana-smasher/tests/test_class_balanced_knapsack.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 10118,
+      "output_sha256": "5ab507f685360992a1a9fa8a083b5b979a91c11ccab66809d64fb15c770a4143",
+      "path": "banana-smasher/tests/test_dynamic_backpack_dimensions.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 18935,
+      "output_sha256": "83c7ccba14c586d87977a9fb8cb7f4ce311826b4550537cd8d99f3dbd9f55947",
+      "path": "banana-smasher/tests/test_evaluate.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 6286,
+      "output_sha256": "08bca677fd134c41d715366c1f8426471b1fc8cf12b99bf8f2c002369d084396",
+      "path": "banana-smasher/tests/test_file_backed_frozen.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 5902,
+      "output_sha256": "f8ccc6d4f53e0be219449250f566611f5a2805a092f37cd1001c0c70a96b6eb1",
+      "path": "banana-smasher/tests/test_knapsack.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 22328,
+      "output_sha256": "dd8a6b62d92e2eee64f6d0b659bb9499f42943a3833911ec31f6bbb30f96db77",
+      "path": "banana-smasher/tests/test_persistent_updates.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
+      "bytes": 17454,
+      "output_sha256": "5f6975651bef491526004e502f4c7a418b7ac750483b1cd5ec4dd34e37fc6302",
+      "path": "banana-smasher/tests/test_production_update_acceleration.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 7486,
+      "output_sha256": "bbdb9d7989aca7e84edad98d845f99e1d5bcb40eb03a2ad89b81694373ba10b2",
+      "path": "banana-smasher/tests/test_qtip_matrix_lifetime.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 856,
+      "output_sha256": "7bd02aa42ed338b556d30a66e488279b7e3af197f98c9360ea05195de3ac30ec",
+      "path": "banana-smasher/tests/test_qtip_profile_timing.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 8222,
+      "output_sha256": "ba6222d56cd09144b724a1870c3c60da96d8f9c107bba2e6d20dab9f2d2a9385",
+      "path": "banana-smasher/tests/test_qtip_public_api.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 49571,
+      "output_sha256": "d8d0988bd0c0f56633e9f5033db3fb78db7e007e2da9d98b4851b17855992fb1",
+      "path": "banana-smasher/tests/test_qtip_solve_resume.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 1760,
+      "output_sha256": "fe804321474484e9a5d68ea5df21ae703047315f0d2beabe725c2628ceac5a16",
+      "path": "banana-smasher/tests/test_real_axis_metrics.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "bytes": 4027,
+      "output_sha256": "5e6311e0cbf4a5c7b45d35f73ba19cfb07dcc5a68ef006e23484c93129e2ed1e",
+      "path": "banana-smasher/tests/test_token_sizing.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "tests/test_update_accumulation.py",
+      "bytes": 2288,
+      "output_sha256": "f571214522faf325e7d4abfd176ad8d62f283783807ab9a7061627c875821d95",
+      "path": "banana-smasher/tests/test_update_accumulation.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "bytes": 5366,
+      "output_sha256": "9fb0559709c47322ba92b33beda06e0709c290a6f1ae1e6fe701c249063902fc",
+      "path": "banana-smasher/tests/test_update_cli.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "adapted_from_path": "tests/test_update_resume.py",
+      "bytes": 15442,
+      "output_sha256": "8c56107a1a12d0e250e87c6344f10cbd2fec9dfb7c2868101b81cacad35d7fa1",
+      "path": "banana-smasher/tests/test_update_resume.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "adapted_from_commit": "009b41befb9f559805fe2b4148818684f2232ba7",
+      "bytes": 12409,
+      "output_sha256": "ff4a5c1afa2cb0ff6f543eb50e895568ce1fcbd4029e21b0907d0c58e76e5354",
+      "path": "banana-smasher/tests/test_update_tensor_geometry.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "bytes": 5394,
+      "derived_from": [
+        {
+          "source_path": "activation-cache acceleration diff",
+          "source_sha256": "02b0b11aac20c8445756b16b15fde0221849ca1a843512e29e880edb4b6e543d"
+        }
+      ],
+      "output_sha256": "5a2b08e9a2b1cafda02934fe11806bb613714bf7903cf9d07aa15119b264af2c",
+      "path": "banana-smasher/tools/benchmark_activation_cache.py",
+      "provenance": "corrective-review-generated"
+    },
     {
       "bytes": 5053,
       "output_sha256": "7e02ea798699092958ba49eff9e60cbc3b0c61341f2d1e734894d4955b71896c",
@@ -657,5 +1134,9 @@
   ],
   "schema": "banana-smasher-source-inventory-v1",
   "source_commit": "c00714c6803f7e2de7a95d103dbe172236b22adf",
-  "source_scope": "authoritative runtime/export/serve subtree"
+  "source_scope": "authoritative runtime/export/serve subtree plus adapted canonical API workstreams",
+  "successor_commits": [
+    "50468029e846c926e8f0aaeb6c9efc1c1a1ac0de",
+    "12157a76b11f172081882b9b5efbc8281b65f74b"
+  ]
 }

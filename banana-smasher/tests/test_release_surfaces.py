@@ -55,6 +55,12 @@ def test_pack_format_documents_versioned_layout_and_auto_detection() -> None:
         assert required in pack_format
 
 
+def test_dynamic_backpack_release_dependency_is_exactly_pinned() -> None:
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'knapsack = ["scipy==1.16.1"]' in pyproject
+    assert 'test = ["pytest==8.4.2", "ruff==0.12.7", "scipy==1.16.1"]' in pyproject
+
+
 def _fixture_pack(tmp_path: Path, name: str) -> Path:
     source = _write_qtip2_source(tmp_path / f"source-{name}")
     pack = tmp_path / f"pack-{name}"

@@ -22,7 +22,10 @@ from .validation import ValidationError, validate_artifact
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="smash",
-        description="Five fail-closed bs-pack lifecycle verbs.",
+        description=(
+            "Fail-closed bs-pack lifecycle, exact and QTIP solve, update, "
+            "teacher bank, paired evaluation, and exact Backpack verbs."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -90,6 +93,145 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--receipt", type=Path)
     validate.add_argument("--bank-teacher-logits", type=Path)
 
+    solve = subparsers.add_parser(
+        "solve", help="solve declared cells with exact or QTIP full-codebook search"
+    )
+    solve.add_argument("--source-root", type=Path, required=True)
+    solve.add_argument("--output", type=Path)
+    solve.add_argument("--device", default="cuda")
+    solve.add_argument("--reference-search", action="store_true", help=argparse.SUPPRESS)
+    solve.add_argument("--verbose-receipts", action="store_true", help=argparse.SUPPRESS)
+    solve.set_defaults(backend="exact-gemm")
+
+    solve.add_argument("--root", type=Path)
+    solve.add_argument("--layers")
+    solve.add_argument(
+        "--tier",
+        help="use qtip with --bpw, or the qtip2/qtip3 compatibility aliases",
+    )
+    solve.add_argument(
+        "--bpw",
+        help="QTIP target in 0.25 increments; valid only with --tier qtip",
+    )
+    solve.add_argument(
+        "--all-cells",
+        action="store_true",
+        help="solve every ordered expert/projection cell for each selected layer",
+    )
+    solve.add_argument(
+        "--resume",
+        action="store_true",
+        default=True,
+        help="validate and skip existing hash-bound PASS units (default)",
+    )
+    solve.add_argument(
+        "--kernel-cache-root",
+        type=Path,
+        help="receipt-bound QTIP kernel cache produced by smash kernels build",
+    )
+    solve.add_argument(
+        "--qtip-profile-config",
+        type=Path,
+        help="sealed local-input config for one fresh exact QTIP solve",
+    )
+
+    update = subparsers.add_parser(
+        "update", help="run one resumable memory-sized physical tensor update"
+    )
+    update.add_argument("--backend", required=True)
+    update.add_argument("--request", type=Path, required=True)
+    update.add_argument("--identity", type=Path, required=True)
+    update.add_argument("--output", type=Path, required=True)
+    update.add_argument("--receipt", type=Path)
+    update.add_argument("--tokens", type=int, default=1024)
+    update.add_argument("--segments", type=int, default=8)
+    update.add_argument("--batch-size", type=int, choices=(1,), default=1)
+    update.add_argument("--available-bytes", type=int, required=True)
+    update.add_argument("--resident-frozen-bytes", type=int, required=True)
+    update.add_argument("--trainable-bytes", type=int, required=True)
+    update.add_argument("--optimizer-bytes", type=int, required=True)
+    update.add_argument("--staging-bytes", type=int, required=True)
+    update.add_argument("--activation-bytes-per-token", type=int, required=True)
+    update.add_argument("--os-floor-bytes", type=int, default=4 * 1024**3)
+    update.add_argument("--restart", action="store_true")
+    update.add_argument(
+        "--no-resume", dest="resume", action="store_false", default=True
+    )
+
+    enqueue = subparsers.add_parser(
+        "update-enqueue", help="durably enqueue an exactly-once update request"
+    )
+    enqueue.add_argument("--queue-root", type=Path, required=True)
+    enqueue.add_argument("--request", type=Path, required=True)
+
+    update_status = subparsers.add_parser(
+        "update-status", help="read persistent-update queue status"
+    )
+    update_status.add_argument("--queue-root", type=Path, required=True)
+    update_status.add_argument("--request-id")
+
+    bank = subparsers.add_parser(
+        "bank", help="build or resume a complete manifest-bound teacher bank"
+    )
+    bank.add_argument("--model-root", type=Path, required=True)
+    bank.add_argument("--corpus", type=Path, required=True)
+    bank.add_argument("--windows-manifest", type=Path, required=True)
+    bank.add_argument("--output", type=Path, required=True)
+    bank.add_argument("--instrument-profile", type=Path)
+
+    evaluate = subparsers.add_parser(
+        "evaluate", help="run paired candidate/reference real-axis evaluation"
+    )
+    evaluate.add_argument("--model-root", type=Path, required=True)
+    evaluate.add_argument("--candidate", type=Path, required=True)
+    evaluate.add_argument("--reference", type=Path, required=True)
+    evaluate.add_argument("--bank", type=Path, required=True)
+    evaluate.add_argument("--output", type=Path, required=True)
+    evaluate.add_argument("--resume-from-layer", type=int)
+    evaluate.add_argument("--verbose-receipts", action="store_true")
+
+    qtip_configs = subparsers.add_parser(
+        "qtip-configs",
+        help="materialize hash-bound local QTIP configs from an open-tier run manifest",
+    )
+    qtip_configs.add_argument("--manifest", type=Path, required=True)
+    qtip_configs.add_argument("--tier", required=True)
+    qtip_configs.add_argument("--layers", required=True)
+    qtip_configs.add_argument("--output", type=Path, required=True)
+
+    kernels = subparsers.add_parser(
+        "kernels", help="manage SHA-pinned compiled kernel caches"
+    )
+    kernel_subparsers = kernels.add_subparsers(
+        dest="kernel_command", required=True
+    )
+    kernel_build = kernel_subparsers.add_parser(
+        "build", help="AOT-compile a packaged ring before solving"
+    )
+    kernel_build.add_argument("--tier", required=True)
+    kernel_build.add_argument("--bpw", required=True)
+    kernel_build.add_argument("--cache-root", type=Path)
+
+    knapsack = subparsers.add_parser(
+        "knapsack",
+        help="solve a manifest-bound tier menu under an exact integer byte envelope",
+    )
+    knapsack.add_argument("--run-root", type=Path, required=True)
+    knapsack.add_argument("--envelope-bytes", type=int, required=True)
+    knapsack.add_argument("--output", type=Path)
+    knapsack.add_argument("--receipt", type=Path)
+
+    backpack_dimensions = subparsers.add_parser(
+        "backpack-dimensions",
+        help="join explicit per-candidate dimensions without aggregate inference",
+    )
+    backpack_dimensions.add_argument("--ledger", type=Path, required=True)
+    backpack_dimensions.add_argument("--dimensions", type=Path, required=True)
+    backpack_dimensions.add_argument("--class-ceilings", type=Path, required=True)
+    backpack_dimensions.add_argument("--basis-sha256", required=True)
+    backpack_dimensions.add_argument("--output", type=Path, required=True)
+    backpack_dimensions.add_argument("--receipt", type=Path, required=True)
+
     return parser
 
 
@@ -99,13 +241,36 @@ def _emit(value: dict[str, Any], *, stream: Any | None = None) -> None:
     stream.write(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
+def _parse_layers(value: str) -> list[int]:
+    """Parse comma-separated layers and inclusive ranges without campaign defaults."""
+    result: list[int] = []
+    for token in value.split(","):
+        token = token.strip()
+        if not token:
+            raise ValueError("empty layer selector")
+        if "-" in token:
+            lower_text, upper_text = token.split("-", 1)
+            lower, upper = int(lower_text), int(upper_text)
+            if lower < 0 or upper < lower:
+                raise ValueError(f"invalid layer range {token!r}")
+            result.extend(range(lower, upper + 1))
+        else:
+            layer = int(token)
+            if layer < 0:
+                raise ValueError(f"invalid layer {layer}")
+            result.append(layer)
+    if len(set(result)) != len(result):
+        raise ValueError(f"duplicate layer selection: {value!r}")
+    return result
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     tokens = list(sys.argv[1:] if argv is None else argv)
     reported_command = tokens[0] if tokens else None
     if reported_command == "validate-pack":
-        # Compatibility spelling for reproducibility automation. Keep the five
-        # primary lifecycle verbs and their help surface stable.
+        # Compatibility spelling for reproducibility automation. Keep the
+        # established lifecycle verbs and their help surface stable.
         tokens[0] = "verify"
     args = parser.parse_args(tokens)
     try:
@@ -198,6 +363,259 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "command": "validate",
             }
+        elif args.command == "solve":
+            if args.qtip_profile_config is not None:
+                if args.root is None or args.layers is None:
+                    raise ValueError("--qtip-profile-config requires --root and --layers")
+                if any(
+                    value is not None
+                    for value in (args.output, args.tier, args.bpw, args.kernel_cache_root)
+                ) or args.all_cells or args.reference_search:
+                    raise ValueError(
+                        "--qtip-profile-config is a one-config solve and refuses tier/all-cells/output options"
+                    )
+                selected_layers = _parse_layers(args.layers)
+                if len(selected_layers) != 1:
+                    raise ValueError("--qtip-profile-config requires exactly one layer")
+                from .solver_qtip_profile import main as qtip_profile_main
+
+                qtip_profile_main(
+                    args.qtip_profile_config,
+                    args.root,
+                    selected_layers[0],
+                    profile_mode=False,
+                )
+                return 0
+            qtip_requested = any(
+                value is not None
+                for value in (
+                    args.root,
+                    args.layers,
+                    args.tier,
+                    args.bpw,
+                    args.kernel_cache_root,
+                )
+            ) or args.all_cells
+            if not qtip_requested:
+                if args.output is None:
+                    raise ValueError("exact solve requires --output")
+                # Torch/Triton stay lazy so pack-only commands keep the light install.
+                from .solve import run_solve
+
+                result = run_solve(
+                    source_root=args.source_root,
+                    output=args.output,
+                    device=args.device,
+                    reference_search=args.reference_search,
+                    verbose_receipts=args.verbose_receipts,
+                )
+            else:
+                missing = [
+                    option
+                    for option, value in (
+                        ("--root", args.root),
+                        ("--layers", args.layers),
+                        ("--tier", args.tier),
+                    )
+                    if value is None
+                ]
+                if not args.all_cells:
+                    missing.append("--all-cells")
+                if missing:
+                    raise ValueError(
+                        "QTIP solve requires " + ", ".join(missing)
+                    )
+                if args.output is not None or args.reference_search:
+                    raise ValueError(
+                        "QTIP solve cannot combine --output or --reference-search"
+                    )
+
+                compatibility_bpw = {"qtip2": "2.00", "qtip3": "3.00"}.get(
+                    args.tier
+                )
+                if compatibility_bpw is not None:
+                    if args.bpw is not None:
+                        raise ValueError(
+                            f"compatibility alias --tier {args.tier} cannot be combined with --bpw"
+                        )
+                    selected_bpw = compatibility_bpw
+                elif args.tier == "qtip":
+                    if args.bpw is None:
+                        raise ValueError("--tier qtip requires --bpw")
+                    selected_bpw = args.bpw
+                else:
+                    raise ValueError(
+                        "exact QTIP solve requires --tier qtip --bpw, qtip2, or qtip3"
+                    )
+
+                from .qtip_materialize import (
+                    ensure_qtip_configs,
+                    require_qtip_ring_manifest,
+                )
+                from .qtip_rings import canonical_qtip_tier
+                from .solver_qtip_profile import main_many as qtip_profile_main_many
+
+                selected_tier = canonical_qtip_tier(selected_bpw)
+                selected_layers = _parse_layers(args.layers)
+                materialization = ensure_qtip_configs(
+                    args.source_root,
+                    tier=selected_tier,
+                    layers=selected_layers,
+                )
+                selected_tier = require_qtip_ring_manifest(
+                    args.source_root, selected_bpw
+                )
+                layer_receipts = [
+                    qtip_profile_main_many(
+                        args.source_root,
+                        args.root,
+                        layer,
+                        tier=selected_tier,
+                        all_cells=True,
+                        profile_mode=False,
+                        **(
+                            {"resume": args.resume, "resume_flag_explicit": True}
+                            if "--resume" in tokens
+                            else {}
+                        ),
+                        **(
+                            {"kernel_cache_root": args.kernel_cache_root}
+                            if args.kernel_cache_root is not None
+                            else {}
+                        ),
+                    )
+                    for layer in selected_layers
+                ]
+                result = {
+                    "schema": "banana-smasher-qtip-all-cells-solve-v1",
+                    "status": "PASS",
+                    "command": "solve",
+                    "tier": selected_tier,
+                    "bpw": selected_bpw,
+                    "layers": [row["layer"] for row in layer_receipts],
+                    "layer_receipts": layer_receipts,
+                    "config_materialization": materialization,
+                }
+        elif args.command == "update-enqueue":
+            from .persistent import UpdateQueue
+
+            result = UpdateQueue(args.queue_root).enqueue(
+                json.loads(args.request.read_text())
+            )
+        elif args.command == "update-status":
+            from .persistent import UpdateQueue
+
+            queue_location = args.queue_root.resolve()
+            ledger_path = (
+                queue_location
+                if queue_location.name == "SEGMENT_QUEUE.json"
+                else queue_location / "SEGMENT_QUEUE.json"
+            )
+            if not ledger_path.is_file():
+                raise FileNotFoundError(f"segment queue does not exist: {ledger_path}")
+            queue = UpdateQueue(args.queue_root)
+            if args.request_id is not None:
+                result = queue.status(args.request_id)
+            else:
+                ledger = queue.ledger()
+                result = {
+                    "status": "PASS",
+                    "segment_queue": str(queue.ledger_path),
+                    "requests": [
+                        queue.status(segment_id)
+                        for segment_id in sorted(ledger["segments"])
+                    ],
+                }
+        elif args.command == "update":
+            from . import update as update_module
+            from .token_sizing import MemoryBudget
+
+            identity = json.loads(args.identity.read_text())
+            result = {
+                **update_module.run_registered_update(
+                    backend_name=args.backend,
+                    request=args.request,
+                    output=args.output,
+                    receipt=args.receipt,
+                    identity=identity,
+                    requested_tokens=args.tokens,
+                    segments=args.segments,
+                    batch_size=args.batch_size,
+                    memory_budget=MemoryBudget(
+                        available_bytes=args.available_bytes,
+                        resident_frozen_bytes=args.resident_frozen_bytes,
+                        trainable_bytes=args.trainable_bytes,
+                        optimizer_bytes=args.optimizer_bytes,
+                        staging_bytes=args.staging_bytes,
+                        calibrated_activation_bytes_per_token=(
+                            args.activation_bytes_per_token
+                        ),
+                        os_floor_bytes=args.os_floor_bytes,
+                    ),
+                    resume=args.resume,
+                    restart=args.restart,
+                ),
+                "command": "update",
+            }
+        elif args.command == "bank":
+            from .bank import build_bank
+
+            result = build_bank(
+                model_root=args.model_root,
+                corpus=args.corpus,
+                windows_manifest=args.windows_manifest,
+                output=args.output,
+                instrument_profile=args.instrument_profile,
+            )
+        elif args.command == "evaluate":
+            from .evaluate import evaluate_paired
+
+            result = evaluate_paired(
+                model_root=args.model_root,
+                candidate=args.candidate,
+                reference=args.reference,
+                bank=args.bank,
+                output=args.output,
+                resume_from_layer=args.resume_from_layer,
+                verbose_receipts=args.verbose_receipts,
+            )
+        elif args.command == "qtip-configs":
+            from .qtip_materialize import materialize_qtip_configs
+
+            result = materialize_qtip_configs(
+                args.manifest,
+                tier=args.tier,
+                layers=_parse_layers(args.layers),
+                output_root=args.output,
+            )
+        elif args.command == "kernels":
+            if args.kernel_command != "build":
+                raise ValueError(f"unsupported kernels command: {args.kernel_command}")
+            if args.tier != "qtip":
+                raise ValueError("kernel builds use the unified --tier qtip surface")
+            from .qtip_kernel_cache import build_qtip_kernels
+
+            result = build_qtip_kernels(args.bpw, cache_root=args.cache_root)
+        elif args.command == "knapsack":
+            from .knapsack import run_knapsack
+
+            result = run_knapsack(
+                run_root=args.run_root,
+                envelope_bytes=args.envelope_bytes,
+                output=args.output,
+                receipt=args.receipt,
+            )
+        elif args.command == "backpack-dimensions":
+            from .backpack_dimensions import build_dynamic_dimensions
+
+            result = build_dynamic_dimensions(
+                ledger=args.ledger,
+                dimensions=args.dimensions,
+                class_ceilings=args.class_ceilings,
+                basis_sha256=args.basis_sha256,
+                output=args.output,
+                receipt=args.receipt,
+            )
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2
@@ -206,6 +624,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ValidationError,
         FileExistsError,
         OSError,
+        RuntimeError,
         ValueError,
     ) as exc:
         _emit(

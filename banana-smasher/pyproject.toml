@@ -7,10 +7,19 @@ name = "banana-smasher"
 version = "1.0.0"
 description = "Fail-closed bs-pack tooling and shared serving loader"
 requires-python = ">=3.10"
-dependencies = ["numpy==2.3.5", "safetensors==0.8.0"]
+dependencies = [
+  "numpy==2.3.5",
+  "safetensors==0.8.0",
+  "setuptools==80.9.0",
+]
 
 [project.optional-dependencies]
-test = ["pytest==8.4.2", "ruff==0.12.7"]
+knapsack = ["scipy==1.16.1"]
+test = ["pytest==8.4.2", "ruff==0.12.7", "scipy==1.16.1"]
+solve = [
+  "torch==2.8.0",
+  "triton==3.4.0; platform_system == 'Linux'",
+]
 
 [project.scripts]
 smash = "banana_smasher.cli:main"
