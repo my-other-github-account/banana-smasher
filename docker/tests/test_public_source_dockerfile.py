@@ -210,6 +210,10 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     patch = (ROOT / "docker/patches/flashinfer-u12-aot.patch").read_text()
     defaults = json.loads((ROOT / "docker/runtime_defaults.json").read_text())
     verifier = (ROOT / "docker/scripts/verify_public_image.py").read_text()
+    flashinfer_builder = text.index("FROM ${VLLM_IMAGE} AS flashinfer-builder")
+    flashinfer_build = text.index(
+        "python3 -m build --wheel --no-isolation --outdir /wheel ./flashinfer-jit-cache"
+    )
 
     assert "FLASHINFER_CUDA_ARCH_LIST=\"12.0f 12.1a\"" in text
     assert "TORCH_CUDA_ARCH_LIST=\"12.0;12.1+PTX\"" in text
@@ -220,6 +224,14 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     assert "/tmp/wheels/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl" in text
     assert "FLASHINFER_DISABLE_JIT=1" in text
     assert "VLLM_HAS_FLASHINFER_CUBIN=1" in text
+    assert "test -x /usr/local/cuda/bin/nvcc" in text[flashinfer_builder:flashinfer_build]
+    for package in (
+        "cuda-nvrtc-dev-13-0=13.0.88-1",
+        "libcublas-dev-13-0=13.1.1.3-1",
+        "libcusolver-dev-13-0=12.0.4.66-1",
+        "libcusparse-dev-13-0=12.6.3.3-1",
+    ):
+        assert flashinfer_builder < text.index(package, flashinfer_builder) < flashinfer_build
 
     assert '"fa2_head_dim": [' in patch
     assert "(512, 512)" in patch

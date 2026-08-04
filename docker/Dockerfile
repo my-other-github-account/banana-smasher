@@ -47,7 +47,12 @@ RUN test "${FLASHINFER_SOURCE_REPO}" = "https://github.com/flashinfer-ai/flashin
     && test "${FLASHINFER_DSV4_DECODE_COMMIT}" = "b34f49255f1640542da91665f58558a3e5e308f1" \
     && test "${FLASHINFER_DSV4_DECODE_TEST_COMMIT}" = "76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9" \
     && test "${FLASHINFER_DSV4_PREFILL_COMMIT}" = "0c5fda59bb6fa71eae875693a024bb0fb37ba7d6"
-RUN apt-get update && apt-get install -y --no-install-recommends git \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git \
+      cuda-nvrtc-dev-13-0=13.0.88-1 \
+      libcublas-dev-13-0=13.1.1.3-1 \
+      libcusolver-dev-13-0=12.0.4.66-1 \
+      libcusparse-dev-13-0=12.6.3.3-1 \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir \
       apache-tvm-ffi==0.1.9 build==1.3.0 ninja==1.13.0 \
@@ -73,6 +78,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
 COPY docker/patches/flashinfer-real-libcudart.patch /tmp/
 COPY docker/patches/flashinfer-u12-aot.patch /tmp/
 RUN cd /tmp/flashinfer \
+    && test -x /usr/local/cuda/bin/nvcc \
     && git apply --check --unidiff-zero /tmp/flashinfer-real-libcudart.patch \
     && git apply --unidiff-zero /tmp/flashinfer-real-libcudart.patch \
     && git apply --check /tmp/flashinfer-u12-aot.patch \
