@@ -454,12 +454,20 @@ def warmup_specialized_matrix() -> dict[str, Any]:
             + ", ".join(f"{tier}/{projection}" for tier, projection in missing_pairs)
         )
 
+    groups: dict[
+        tuple[int, str], tuple[NativePlaneLayer, ProjectionState, list[int]]
+    ] = {}
+    for pair in required_pairs:
+        layer, expert, state = representatives[pair]
+        key = (id(layer), pair[1])
+        group = groups.setdefault(key, (layer, state, []))
+        group[2].append(expert)
+
     warmup_tokens = required_warmup_tokens()
     execution_count = 0
     peak_estimate_bytes = 0
     with torch.inference_mode():
-        for tier, projection in required_pairs:
-            layer, expert, state = representatives[(tier, projection)]
+        for layer, state, experts in groups.values():
             for tokens in warmup_tokens:
                 route_rows = tokens * 6
                 estimate_bytes = route_rows * (
@@ -478,15 +486,19 @@ def warmup_specialized_matrix() -> dict[str, Any]:
                     dtype=torch.bfloat16,
                     device=layer.device,
                 )
-                expert_ids = torch.full(
-                    (route_rows,), expert, dtype=torch.int64, device=layer.device
+                expert_pattern = torch.tensor(
+                    experts, dtype=torch.int64, device=layer.device
                 )
-                result = layer.forward(x, expert_ids, projection)
+                expert_ids = expert_pattern.repeat(
+                    (route_rows + len(experts) - 1) // len(experts)
+                )[:route_rows]
+                result = layer.forward(x, expert_ids, state.name)
                 del result, expert_ids, x
                 execution_count += 1
 
     proof = specialized_physical_proof()
     proof["warmup_execution_count"] = execution_count
+    proof["warmup_group_count"] = len(groups)
     proof["warmup_tokens"] = list(warmup_tokens)
     proof["warmup_peak_estimate_bytes"] = peak_estimate_bytes
     return proof

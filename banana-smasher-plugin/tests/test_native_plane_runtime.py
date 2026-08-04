@@ -105,21 +105,27 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
         "native_mxfp4",
     )
     warmup_tokens = (1, 2, 4, 8, 16, 32, 64, 2048, 8192)
-    calls: list[tuple[str, str, int]] = []
+    calls: list[tuple[str, int, tuple[int, ...]]] = []
 
     class Layer:
         device = torch.device("cpu")
 
         def state(self, projection: str) -> SimpleNamespace:
-            return SimpleNamespace(tiers=tiers, input_width=4, output_width=4)
+            return SimpleNamespace(
+                name=projection, tiers=tiers, input_width=4, output_width=4
+            )
 
         def forward(
             self, x: torch.Tensor, expert_ids: torch.Tensor, projection: str
         ) -> torch.Tensor:
-            expert = int(expert_ids[0])
-            assert torch.all(expert_ids == expert)
             assert x.shape == (expert_ids.numel(), 4)
-            calls.append((tiers[expert], projection, x.shape[0] // 6))
+            calls.append(
+                (
+                    projection,
+                    x.shape[0] // 6,
+                    tuple(sorted(set(expert_ids.tolist()))),
+                )
+            )
             return x
 
     monkeypatch.setattr(native_planes, "_NATIVE_PLANE_LAYER_REGISTRY", {1: Layer()})
@@ -132,11 +138,10 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
     proof = native_planes.warmup_specialized_matrix()
 
     assert proof["status"] == "PASS"
-    assert proof["warmup_execution_count"] == 108
+    assert proof["warmup_execution_count"] == 18
     assert proof["warmup_tokens"] == list(warmup_tokens)
     assert set(calls) == {
-        (tier, projection, tokens)
-        for tier in tiers
+        (projection, tokens, tuple(range(len(tiers))))
         for projection in ("fused13", "down")
         for tokens in warmup_tokens
     }
