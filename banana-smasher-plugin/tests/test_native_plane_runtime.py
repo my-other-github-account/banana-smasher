@@ -176,11 +176,13 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
         lambda: shape_proof,
     )
     monkeypatch.setattr(native_planes.os, "getpid", lambda: 4242)
+    monkeypatch.setattr(native_planes, "_process_startticks", lambda: 777, raising=False)
 
     proof = native_planes.warmup_specialized_matrix()
 
     assert proof["status"] == "PASS"
     assert proof["process_pid"] == 4242
+    assert proof["process_startticks"] == 777
     assert proof["shape_physical_proof"] == shape_proof
     assert proof["warmup_execution_count"] == 18
     assert proof["warmup_tokens"] == list(warmup_tokens)
@@ -189,6 +191,15 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
         for projection in ("fused13", "down")
         for tokens in warmup_tokens
     }
+
+
+def test_process_startticks_reads_proc_stat_field_22_after_spaced_comm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stat = "4242 (vllm engine core) S " + " ".join(str(value) for value in range(1, 20))
+    monkeypatch.setattr(Path, "read_text", lambda _path: stat)
+
+    assert native_planes._process_startticks() == 19
 
 
 def test_cuda_native_plane_refuses_missing_graph_custom_op(
