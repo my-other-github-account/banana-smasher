@@ -91,14 +91,26 @@ def test_smash_help_exposes_public_verbs() -> None:
         "kernels",
         "knapsack",
         "backpack-dimensions",
+        "fixed-d4",
         "anchor",
+    ]
+
+    fixed_d4_parser = action.choices["fixed-d4"]
+    fixed_d4_action = next(
+        nested
+        for nested in fixed_d4_parser._actions
+        if getattr(nested, "choices", None)
+    )
+    assert list(fixed_d4_action.choices) == [
+        "materialize",
+        "prepare-solve",
+        "solve",
+        "produce-logits",
     ]
 
     anchor_parser = action.choices["anchor"]
     anchor_action = next(
-        nested
-        for nested in anchor_parser._actions
-        if getattr(nested, "choices", None)
+        nested for nested in anchor_parser._actions if getattr(nested, "choices", None)
     )
     assert list(anchor_action.choices) == [
         "validate",
@@ -107,6 +119,7 @@ def test_smash_help_exposes_public_verbs() -> None:
         "materialize",
         "select",
         "import-producer",
+        "materialize-candidate",
         "score",
         "aggregate",
         "compare",

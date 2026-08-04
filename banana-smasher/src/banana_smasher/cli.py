@@ -230,15 +230,31 @@ def _parser() -> argparse.ArgumentParser:
     fixed_d4 = subparsers.add_parser(
         "fixed-d4", help="persist exact fixed-D4 assignments as executable wire"
     )
-    fixed_d4_commands = fixed_d4.add_subparsers(
-        dest="fixed_d4_command", required=True
-    )
+    fixed_d4_commands = fixed_d4.add_subparsers(dest="fixed_d4_command", required=True)
     fixed_d4_materialize = fixed_d4_commands.add_parser(
         "materialize", help="materialize one basis-bound fixed-D4 layer"
     )
     fixed_d4_materialize.add_argument("--manifest", type=Path, required=True)
     fixed_d4_materialize.add_argument("--output", type=Path, required=True)
     fixed_d4_materialize.add_argument("--basis-sha256", required=True)
+    fixed_d4_prepare = fixed_d4_commands.add_parser(
+        "prepare-solve",
+        help="stream native MXFP4 source weights into one bound fixed-D4 solve config",
+    )
+    fixed_d4_prepare.add_argument("--model", type=Path, required=True)
+    fixed_d4_prepare.add_argument(
+        "--codebook",
+        type=Path,
+        help="optional bound NPY codebook; otherwise derive deterministic source-frequency top-K",
+    )
+    fixed_d4_prepare.add_argument(
+        "--tier", choices=("d4_k2048", "d4_k4096"), required=True
+    )
+    fixed_d4_prepare.add_argument("--layer", type=int, required=True)
+    fixed_d4_prepare.add_argument("--output", type=Path, required=True)
+    fixed_d4_prepare.add_argument("--basis-sha256", required=True)
+    fixed_d4_prepare.add_argument("--chunk-vectors", type=int, default=256)
+    fixed_d4_prepare.add_argument("--reserve-bytes", type=int, default=4 << 30)
     fixed_d4_solve = fixed_d4_commands.add_parser(
         "solve", help="exhaustively solve and persist one fixed-D4 layer"
     )
@@ -246,7 +262,8 @@ def _parser() -> argparse.ArgumentParser:
     fixed_d4_solve.add_argument("--output", type=Path, required=True)
     fixed_d4_solve.add_argument("--basis-sha256", required=True)
     fixed_d4_produce = fixed_d4_commands.add_parser(
-        "produce-logits", help="produce full-vocabulary bank logits through a fixed-D4 pack"
+        "produce-logits",
+        help="produce full-vocabulary bank logits through a fixed-D4 pack",
     )
     fixed_d4_produce.add_argument("--model", type=Path, required=True)
     fixed_d4_produce.add_argument("--config", type=Path, required=True)
@@ -298,7 +315,9 @@ def _parser() -> argparse.ArgumentParser:
     )
     anchor_import.add_argument("--run-root", type=Path, required=True)
     anchor_import.add_argument("--bank", required=True)
-    anchor_import.add_argument("--kind", choices=("teacher", "candidate"), required=True)
+    anchor_import.add_argument(
+        "--kind", choices=("teacher", "candidate"), required=True
+    )
     anchor_import.add_argument("--source", type=Path, required=True)
     anchor_import.add_argument("--sha256", required=True)
     anchor_import.add_argument("--candidate-id")
@@ -492,11 +511,7 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
             / f"{manifest['bank_id']}.jsonl"
         )
         output = (
-            args.run_root
-            / "scores"
-            / candidate_id
-            / manifest["bank_id"]
-            / "raw.jsonl"
+            args.run_root / "scores" / candidate_id / manifest["bank_id"] / "raw.jsonl"
         )
         return score_bank(
             manifest,
@@ -520,20 +535,15 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
         manifest = load_registered_bank(args.run_root, args.bank)
         candidate_id = _safe_component(args.candidate_id, "candidate_id")
         raw = (
-            args.run_root
-            / "scores"
-            / candidate_id
-            / manifest["bank_id"]
-            / "raw.jsonl"
+            args.run_root / "scores" / candidate_id / manifest["bank_id"] / "raw.jsonl"
         )
         output = (
-            args.run_root
-            / "aggregates"
-            / candidate_id
-            / f"{manifest['bank_id']}.json"
+            args.run_root / "aggregates" / candidate_id / f"{manifest['bank_id']}.json"
         )
         calibration = (
-            _load_json_object(args.calibration) if args.calibration is not None else None
+            _load_json_object(args.calibration)
+            if args.calibration is not None
+            else None
         )
         return aggregate_scores(
             manifest,
@@ -547,33 +557,22 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
         panel_bank = _safe_component(args.panel_bank, "panel_bank")
         parent_bank = _safe_component(args.parent_bank, "parent_bank")
         panel = _load_json_object(
-            args.run_root
-            / "aggregates"
-            / candidate_id
-            / f"{panel_bank}.json"
+            args.run_root / "aggregates" / candidate_id / f"{panel_bank}.json"
         )
         parent = _load_json_object(
-            args.run_root
-            / "aggregates"
-            / candidate_id
-            / f"{parent_bank}.json"
+            args.run_root / "aggregates" / candidate_id / f"{parent_bank}.json"
         )
         result = compare_training_rails(
             panel, parent, _load_json_object(args.thresholds)
         )
-        output = args.output or (
-            args.run_root / "comparisons" / f"{candidate_id}.json"
-        )
+        output = args.output or (args.run_root / "comparisons" / f"{candidate_id}.json")
         _atomic_write(output, _canonical_bytes(result))
         return result
     if command == "solver-row":
         manifest = load_registered_bank(args.run_root, args.bank)
         candidate_id = _safe_component(args.candidate_id, "candidate_id")
         aggregate = _load_json_object(
-            args.run_root
-            / "aggregates"
-            / candidate_id
-            / f"{manifest['bank_id']}.json"
+            args.run_root / "aggregates" / candidate_id / f"{manifest['bank_id']}.json"
         )
         output = args.output or (
             args.run_root
@@ -925,6 +924,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "fixed-d4":
             from .fixed_d4 import (
                 materialize_fixed_d4,
+                prepare_fixed_d4_solve_config,
                 produce_fixed_d4_logits,
                 solve_fixed_d4_exact,
             )
@@ -934,6 +934,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.manifest,
                     args.output,
                     basis_sha256=args.basis_sha256,
+                )
+            elif args.fixed_d4_command == "prepare-solve":
+                result = prepare_fixed_d4_solve_config(
+                    args.model,
+                    args.codebook,
+                    args.output,
+                    tier=args.tier,
+                    layer=args.layer,
+                    basis_sha256=args.basis_sha256,
+                    chunk_vectors=args.chunk_vectors,
+                    reserve_bytes=args.reserve_bytes,
                 )
             elif args.fixed_d4_command == "solve":
                 result = solve_fixed_d4_exact(
