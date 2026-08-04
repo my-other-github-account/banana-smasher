@@ -219,15 +219,19 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     smoke_path = ROOT / "docker/scripts/smoke_flashinfer_sm121.py"
     smoke = smoke_path.read_text()
     flashinfer_builder = text.index("FROM ${VLLM_IMAGE} AS flashinfer-builder")
-    flashinfer_build = text.index(
-        "python3 -m build --wheel --no-isolation --outdir /wheel ./flashinfer-jit-cache"
+    flashinfer_build_pattern = re.compile(
+        r"python3 -m pip wheel --no-build-isolation --no-deps \\\n"
+        r"\s+--wheel-dir /wheel ./flashinfer-jit-cache"
     )
+    flashinfer_build_match = flashinfer_build_pattern.search(text)
+    assert flashinfer_build_match is not None
+    flashinfer_build = flashinfer_build_match.start()
 
     assert "FLASHINFER_CUDA_ARCH_LIST=\"12.0f 12.1a\"" in text
     assert "TORCH_CUDA_ARCH_LIST=\"12.0;12.1+PTX\"" in text
     assert "FLASHINFER_ENABLE_PTX=1" in text
     assert "flashinfer-u12-aot.patch" in text
-    assert "python3 -m build --wheel --no-isolation --outdir /wheel ./flashinfer-jit-cache" in text
+    assert "python3 -m build --wheel --no-isolation --outdir /wheel ./flashinfer-jit-cache" not in text
     assert "flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl" in text
     assert "/tmp/wheels/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl" in text
     assert "FLASHINFER_DISABLE_JIT=1" in text

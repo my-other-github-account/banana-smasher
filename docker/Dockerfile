@@ -97,7 +97,8 @@ RUN cd /tmp/flashinfer \
       FLASHINFER_LOCAL_VERSION=cu130 \
       MAX_JOBS=4 \
       FLASHINFER_NVCC_THREADS=2 \
-      python3 -m build --wheel --no-isolation --outdir /wheel ./flashinfer-jit-cache \
+      python3 -m pip wheel --no-build-isolation --no-deps \
+        --wheel-dir /wheel ./flashinfer-jit-cache \
     && test -f /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl \
     && python3 -m zipfile -t /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl \
     && find ./flashinfer-jit-cache/flashinfer_jit_cache/jit_cache -name '*.so' -type f | sort > /wheel/flashinfer-aot-modules.txt \
