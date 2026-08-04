@@ -375,3 +375,59 @@ def test_public_qtip_solve_routes_materialization_and_resume(
     assert receipt["status"] == "PASS"
     assert receipt["bpw"] == "1.75"
     assert receipt["layer_receipts"][0]["resumed_units"] == 1
+
+
+def test_cli_routes_explicit_qtip_configs_through_public_batch_api(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def solve_qtip_profiles(source, root, layer, **kwargs):
+        calls.append(
+            {
+                "source": Path(source),
+                "root": Path(root),
+                "layer": layer,
+                **kwargs,
+            }
+        )
+        return {"status": "PASS", "layer": layer, "units": 2}
+
+    import banana_smasher
+
+    monkeypatch.setattr(banana_smasher, "solve_qtip_profiles", solve_qtip_profiles)
+    rc = cli.main(
+        [
+            "solve",
+            "--source-root",
+            "/tmp/configs",
+            "--root",
+            "/tmp/run",
+            "--layers",
+            "6",
+            "--qtip-profile-configs",
+            "/tmp/configs/E044_fused13.json",
+            "/tmp/configs/E045_fused13.json",
+            "--qtip-batch-size",
+            "2",
+            "--kernel-cache-root",
+            "/tmp/cache",
+        ]
+    )
+
+    assert rc == 0
+    assert calls == [
+        {
+            "source": Path("/tmp/configs"),
+            "root": Path("/tmp/run"),
+            "layer": 6,
+            "config_paths": [
+                Path("/tmp/configs/E044_fused13.json"),
+                Path("/tmp/configs/E045_fused13.json"),
+            ],
+            "batch_size": 2,
+            "profile_mode": False,
+            "kernel_cache_root": Path("/tmp/cache"),
+        }
+    ]
+    assert json.loads(capsys.readouterr().out)["units"] == 2
