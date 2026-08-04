@@ -6,6 +6,7 @@ import sys
 from contextlib import nullcontext
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import cast
 
 import numpy as np
 import pytest
@@ -144,6 +145,49 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
         (projection, tokens, tuple(range(len(tiers))))
         for projection in ("fused13", "down")
         for tokens in warmup_tokens
+    }
+
+
+def test_specialized_matrix_proof_receipt_waits_for_all_layers_and_writes_once(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    receipt = tmp_path / "specialized-{pid}.json"
+    monkeypatch.setenv(
+        "BANANA_SMASHER_SPECIALIZED_PROOF_PATH",
+        str(receipt),
+    )
+    monkeypatch.setattr(native_planes, "_SPECIALIZED_PROOF_RECEIPTS", set())
+    monkeypatch.setattr(native_planes, "_NATIVE_PLANE_LAYER_REGISTRY", {})
+    calls: list[str] = []
+    monkeypatch.setattr(
+        native_planes,
+        "warmup_specialized_matrix",
+        lambda: calls.append("warmup") or {"status": "PASS", "rows": []},
+    )
+    pack = SimpleNamespace(root=tmp_path / "pack", layers=(0, 1))
+    first = SimpleNamespace(pack=pack, layer_index=0)
+    second = SimpleNamespace(pack=pack, layer_index=1)
+
+    native_planes._NATIVE_PLANE_LAYER_REGISTRY[1] = cast(NativePlaneLayer, first)
+    native_planes._maybe_emit_specialized_physical_proof(
+        cast(NativePlaneLayer, first)
+    )
+    resolved_receipt = Path(str(receipt).format(pid=native_planes.os.getpid()))
+    assert not resolved_receipt.exists()
+    assert calls == []
+
+    native_planes._NATIVE_PLANE_LAYER_REGISTRY[2] = cast(NativePlaneLayer, second)
+    native_planes._maybe_emit_specialized_physical_proof(
+        cast(NativePlaneLayer, second)
+    )
+    native_planes._maybe_emit_specialized_physical_proof(
+        cast(NativePlaneLayer, second)
+    )
+
+    assert calls == ["warmup"]
+    assert json.loads(resolved_receipt.read_text()) == {
+        "rows": [],
+        "status": "PASS",
     }
 
 

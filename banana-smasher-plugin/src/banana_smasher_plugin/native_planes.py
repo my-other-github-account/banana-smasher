@@ -339,6 +339,7 @@ _NATIVE_PLANE_NEXT_KEY = 1
 _NATIVE_PLANE_CUSTOM_OP_REGISTERED = False
 _NATIVE_PLANE_CUSTOM_OP_AVAILABLE = False
 _NATIVE_PLANE_PROJECTIONS = ("fused13", "down")
+_SPECIALIZED_PROOF_RECEIPTS: set[Path] = set()
 
 
 def _native_plane_forward_op(
@@ -504,6 +505,47 @@ def warmup_specialized_matrix() -> dict[str, Any]:
     return proof
 
 
+def _maybe_emit_specialized_physical_proof(layer: "NativePlaneLayer") -> None:
+    """Optionally warm all rows once the process has registered the complete pack."""
+    receipt_template = os.getenv("BANANA_SMASHER_SPECIALIZED_PROOF_PATH")
+    if not receipt_template:
+        return
+    try:
+        receipt = Path(receipt_template.format(pid=os.getpid())).expanduser().resolve()
+    except (KeyError, ValueError) as exc:
+        raise _fail(
+            "BANANA_SMASHER_SPECIALIZED_PROOF_PATH supports only the optional "
+            "{pid} placeholder"
+        ) from exc
+    if receipt in _SPECIALIZED_PROOF_RECEIPTS:
+        return
+    registered_layers = {
+        candidate.layer_index
+        for candidate in _NATIVE_PLANE_LAYER_REGISTRY.values()
+        if candidate.pack.root == layer.pack.root
+    }
+    if registered_layers != set(layer.pack.layers):
+        return
+
+    proof = warmup_specialized_matrix()
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    temporary = receipt.with_name(f".{receipt.name}.{os.getpid()}.tmp")
+    with temporary.open("w") as stream:
+        json.dump(proof, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary.replace(receipt)
+    _SPECIALIZED_PROOF_RECEIPTS.add(receipt)
+    _LOGGER.warning(
+        "BANANA_SMASHER_SPECIALIZED_PHYSICAL_PROOF status=%s receipt=%s",
+        proof.get("status"),
+        receipt,
+    )
+    if proof.get("status") != "PASS":
+        raise _fail(f"specialized physical proof failed; receipt={receipt}")
+
+
 def _fwht(value: torch.Tensor) -> torch.Tensor:
     """Exact normalized transform used by the sealed P1016 QTIP path."""
     width = value.shape[-1]
@@ -597,6 +639,7 @@ class NativePlaneLayer:
             for projection in ("fused13", "down")
         }
         self._custom_op_key = _register_native_plane_layer(self)
+        _maybe_emit_specialized_physical_proof(self)
         _LOGGER.warning(
             "BANANA_SMASHER_V4_NATIVE_SOURCE_READY layer=%d device_residency=true "
             "runtime_activation=false graph_boundary=true",
