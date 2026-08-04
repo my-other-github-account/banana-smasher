@@ -83,7 +83,7 @@ def test_one_platform_extension_owns_one_canonical_source_tree() -> None:
     assert not (PACKAGE / "native/qtip").exists()
     assert "native/**/*.cu" not in pyproject
     assert 'build-backend = "setuptools.build_meta"' in pyproject
-    assert '"torch==2.9.0"' in pyproject
+    assert '"torch==2.11.0"' in pyproject
     assert not (PACKAGE / "vq_warp.py").exists()
 
 
