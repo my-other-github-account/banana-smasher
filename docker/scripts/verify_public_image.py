@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import ctypes
 import hashlib
 import importlib.metadata
 import importlib.util
 import json
+import os
+import re
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -19,7 +22,12 @@ EXPECTED_PACKAGES = {
     "tilelang": "0.1.9",
     "vllm": "0.24.0",
 }
-SOURCE_COMMIT = "c00714c6803f7e2de7a95d103dbe172236b22adf"
+PROVENANCE_NAMES = (
+    "ASSET_MANIFEST.json",
+    "ACCELERATION_MANIFEST.json",
+    "KERNEL_PRODUCERS.json",
+    "SOURCE_INVENTORY.json",
+)
 
 
 def sha256(path: Path) -> str:
@@ -38,6 +46,24 @@ def _load_object(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise RuntimeError(f"provenance JSON is not an object: {path}")
     return value
+
+
+def _validate_source_commit(source_commit: str) -> str:
+    if re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
+        raise RuntimeError("BANANA_SMASHER_SOURCE_COMMIT must be a full lowercase Git commit")
+    return source_commit
+
+
+def stamp_provenance_source_commit(provenance_root: Path, source_commit: str) -> None:
+    source_commit = _validate_source_commit(source_commit)
+    for name in PROVENANCE_NAMES:
+        path = provenance_root / name
+        payload = _load_object(path)
+        payload["source_commit"] = source_commit
+        payload.pop("source_status", None)
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        temporary.replace(path)
 
 
 def _identity(path: Path) -> dict[str, Any]:
@@ -79,8 +105,7 @@ def verify_asset_set(
     manifest = _load_object(manifest_path)
     if manifest.get("schema") != "banana-smasher-active-assets-v1":
         raise RuntimeError("active asset manifest schema mismatch")
-    if manifest.get("source_commit") != SOURCE_COMMIT:
-        raise RuntimeError("active asset manifest source commit mismatch")
+
     groups = manifest.get("groups")
     if not isinstance(groups, dict) or set(groups) != {"sm120_cubins", "e43_cubins"}:
         raise RuntimeError("active asset manifest groups mismatch")
@@ -113,15 +138,14 @@ def _asset_mapping(asset_manifest: dict[str, Any]) -> dict[str, dict[str, str]]:
     }
 
 
-def verify_provenance_manifests(provenance_root: Path) -> dict[str, Any]:
+def verify_provenance_manifests(
+    provenance_root: Path,
+    source_commit: str,
+) -> dict[str, Any]:
+    source_commit = _validate_source_commit(source_commit)
     required = {
         name: _load_object(provenance_root / name)
-        for name in (
-            "ASSET_MANIFEST.json",
-            "ACCELERATION_MANIFEST.json",
-            "KERNEL_PRODUCERS.json",
-            "SOURCE_INVENTORY.json",
-        )
+        for name in PROVENANCE_NAMES
     }
     schemas = {
         "ASSET_MANIFEST.json": "banana-smasher-active-assets-v1",
@@ -132,7 +156,7 @@ def verify_provenance_manifests(provenance_root: Path) -> dict[str, Any]:
         if required[name].get("schema") != schema:
             raise RuntimeError(f"provenance schema mismatch: {name}")
     for name, payload in required.items():
-        if payload.get("source_commit") != SOURCE_COMMIT:
+        if payload.get("source_commit") != source_commit:
             raise RuntimeError(f"provenance source commit mismatch: {name}")
 
     asset_manifest = required["ASSET_MANIFEST.json"]
@@ -228,6 +252,16 @@ def verify_flashinfer_aot() -> dict[str, Any]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stamp-provenance", action="store_true")
+    args = parser.parse_args()
+    source_commit = _validate_source_commit(
+        os.environ.get("BANANA_SMASHER_SOURCE_COMMIT", "")
+    )
+    provenance_root = Path("/opt/banana-smasher/provenance")
+    if args.stamp_provenance:
+        stamp_provenance_source_commit(provenance_root, source_commit)
+
     actual = {name: importlib.metadata.version(name) for name in EXPECTED_PACKAGES}
     if actual != EXPECTED_PACKAGES:
         raise RuntimeError(
@@ -257,7 +291,7 @@ def main() -> None:
     plugin = importlib.util.find_spec("banana_smasher_plugin")
     if plugin is None or plugin.origin is None:
         raise RuntimeError("banana-smasher plugin package is missing")
-    provenance = verify_provenance_manifests(Path("/opt/banana-smasher/provenance"))
+    provenance = verify_provenance_manifests(provenance_root, source_commit)
     assets = verify_asset_set(
         Path("/opt/banana-smasher/provenance/ASSET_MANIFEST.json"),
         Path("/opt/banana-smasher/aot"),

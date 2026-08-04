@@ -2,6 +2,7 @@
 set -euo pipefail
 
 IMAGE="${IMAGE:-banana-smasher-runtime:local}"
+SOURCE_COMMIT="${SOURCE_COMMIT:-$(git rev-parse HEAD)}"
 
 # Release builds are deliberately clean and pinned to the deployed architecture.
 # Pass additional buildx options (for example --progress=plain) as script arguments.
@@ -11,5 +12,6 @@ docker buildx build \
   --load \
   --file docker/Dockerfile \
   --tag "$IMAGE" \
+  --build-arg "BANANA_SMASHER_SOURCE_COMMIT=$SOURCE_COMMIT" \
   "$@" \
   .

@@ -63,6 +63,7 @@ def test_exact_asset_admission_accepts_only_manifest_members(tmp_path: Path) -> 
 
 def test_provenance_admission_binds_asset_and_producer_manifests(tmp_path: Path) -> None:
     verifier = _verifier()
+    source_commit = "0c784ae6bfd9049149c9058bb47e26b561b75aff"
     provenance = tmp_path / "provenance"
     provenance.mkdir()
     for name, source in (
@@ -73,13 +74,18 @@ def test_provenance_admission_binds_asset_and_producer_manifests(tmp_path: Path)
     ):
         shutil.copy2(source, provenance / name)
 
-    report = verifier.verify_provenance_manifests(provenance)
+    verifier.stamp_provenance_source_commit(provenance, source_commit)
+    report = verifier.verify_provenance_manifests(provenance, source_commit)
     assert report["status"] == "PASS"
     assert report["producer_assets"] == 32
+    for path in provenance.glob("*.json"):
+        payload = json.loads(path.read_text())
+        assert payload["source_commit"] == source_commit
+        assert "source_status" not in payload
 
     producer_path = provenance / "KERNEL_PRODUCERS.json"
     producers = json.loads(producer_path.read_text())
     producers["producers"]["e43"]["assets"][0]["sha256"] = "0" * 64
     producer_path.write_text(json.dumps(producers))
     with pytest.raises(RuntimeError, match="producer asset mapping mismatch"):
-        verifier.verify_provenance_manifests(provenance)
+        verifier.verify_provenance_manifests(provenance, source_commit)

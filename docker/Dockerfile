@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 ARG VLLM_IMAGE=vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b
 ARG VLLM_UPSTREAM_REV=ee0da84a
+ARG BANANA_SMASHER_SOURCE_COMMIT
 
 FROM ${VLLM_IMAGE} AS package-builder
 USER root
@@ -152,6 +153,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 FROM ${VLLM_IMAGE} AS runtime
 USER root
 ARG VLLM_UPSTREAM_REV
+ARG BANANA_SMASHER_SOURCE_COMMIT
 RUN test "${VLLM_UPSTREAM_REV}" = "ee0da84a"
 # The base image's binary-provider distributions share namespace directories.
 # Uninstalling metadata alone leaves importable residue, so remove both public
@@ -205,8 +207,9 @@ RUN set -eux; \
     real="$(python3 -c 'import pathlib; m=sorted(pathlib.Path("/usr/local/lib/python3.12/dist-packages/nvidia/cu13/lib").glob("libcudart.so.13")); assert len(m)==1,m; print(m[0])')"; \
     test -f "$stub"; test -f "$real"; rm -f "$stub"; ln -s "$real" "$stub"; \
     test "$(readlink -f "$stub")" = "$(readlink -f "$real")"; \
-    FLASHINFER_DISABLE_JIT=1 VLLM_HAS_FLASHINFER_CUBIN=1 \
-      python3 /opt/banana-smasher/bin/verify_public_image.py; \
+    BANANA_SMASHER_SOURCE_COMMIT="${BANANA_SMASHER_SOURCE_COMMIT}" \
+      FLASHINFER_DISABLE_JIT=1 VLLM_HAS_FLASHINFER_CUBIN=1 \
+      python3 /opt/banana-smasher/bin/verify_public_image.py --stamp-provenance; \
     python3 /opt/banana-smasher/bin/write_package_receipt.py \
       /opt/banana-smasher/provenance/package-sbom.json; \
     python3 -c 'import json; p="/opt/banana-smasher/provenance/source.json"; open(p,"w").write(json.dumps({"base_image":"vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b","deep_gemm_source_commit":"f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca","deep_gemm_source_ref":"refs/tags/nv_dev_f8e8fb5","deep_gemm_source_repo":"https://github.com/deepseek-ai/DeepGEMM.git","deep_gemm_version":"2.6.1","flashinfer_source_commit":"d020372b068f335e2fe427372e134977a2235c49","flashinfer_source_repo":"https://github.com/flashinfer-ai/flashinfer.git","flashinfer_sm120_commits":["b34f49255f1640542da91665f58558a3e5e308f1","76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9","0c5fda59bb6fa71eae875693a024bb0fb37ba7d6"],"vllm_upstream_revision":"ee0da84a","packages_built_from_checkout":["banana-smasher","banana-smasher-plugin","deep-gemm","flashinfer-jit-cache","flashinfer-python"]},indent=2,sort_keys=True)+"\n")'

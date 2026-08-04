@@ -21,6 +21,8 @@ def test_public_source_dockerfile_contract() -> None:
     assert "COPY banana-smasher-plugin /src/banana-smasher-plugin" in text
     assert "COPY docker /src/docker" in text
     assert "python3 -m build --wheel" in text
+    assert "ARG BANANA_SMASHER_SOURCE_COMMIT" in text
+    assert "--stamp-provenance" in text
     package_builder = text.split("FROM ${VLLM_IMAGE} AS flashinfer-builder", 1)[0]
     cuda_devel_packages = (
         "cuda-nvrtc-dev-13-0=13.0.88-1",
@@ -298,6 +300,8 @@ def test_readme_uses_release_helpers_and_no_runtime_environment_flags() -> None:
     serve = (ROOT / "examples/serve.sh").read_text()
     assert "docker buildx build" in build
     assert "--platform linux/arm64" in build and "--no-cache" in build
+    assert 'SOURCE_COMMIT="${SOURCE_COMMIT:-$(git rev-parse HEAD)}"' in build
+    assert '--build-arg "BANANA_SMASHER_SOURCE_COMMIT=$SOURCE_COMMIT"' in build
     assert "docker run --rm --gpus all" in serve
     assert "8000:8000" in serve
     assert "/root/.cache/vllm/flashinfer_autotune_cache" in serve
