@@ -37,6 +37,31 @@ def test_qtip_extension_builder_declares_runtime_setuptools_dependency() -> None
     assert '"setuptools==' in metadata
 
 
+def test_public_qtip_runner_trusts_manifest_sha_not_package_anchor(tmp_path: Path) -> None:
+    from hashlib import sha256
+
+    from banana_smasher.solver_qtip_profile import _load_public_qtip_runner
+
+    runner_path = tmp_path / "qtip2_adapter.py"
+    runner_path.write_text(
+        """def pack_kernel_layout(states):
+    return states
+
+
+def build_qtip(states):
+    return pack_kernel_layout(states)
+"""
+    )
+    runner_sha = sha256(runner_path.read_bytes()).hexdigest()
+
+    runner = _load_public_qtip_runner(runner_path, runner_sha)
+    assert runner.__file__ is not None
+    assert Path(runner.__file__).resolve() == runner_path.resolve()
+
+    with pytest.raises(ValueError, match="public QTIP runner SHA mismatch"):
+        _load_public_qtip_runner(runner_path, "0" * 64)
+
+
 def test_qtip_accelerator_entrypoint_fails_explicitly_without_triton() -> None:
     completed = subprocess.run(
         [

@@ -635,11 +635,6 @@ def _load_public_qtip_runner(path: Path, expected_sha256: str):
         raise ValueError(
             f"public QTIP runner SHA mismatch: {actual_sha256} != {expected_sha256}"
         )
-    if actual_sha256 != _TRUSTED_PUBLIC_QTIP_RUNNER_SHA256:
-        raise ValueError(
-            "public QTIP runner differs from the trusted package anchor: "
-            f"{actual_sha256} != {_TRUSTED_PUBLIC_QTIP_RUNNER_SHA256}"
-        )
     spec = importlib.util.spec_from_file_location("banana_smasher_qtip_runner", path)
     if spec is None:
         raise ImportError(f"cannot load public QTIP runner {path}")
