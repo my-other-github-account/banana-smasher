@@ -402,6 +402,10 @@ def _ensure_native_plane_custom_op() -> bool:
 def _register_native_plane_layer(layer: "NativePlaneLayer") -> int | None:
     global _NATIVE_PLANE_NEXT_KEY
     if not _ensure_native_plane_custom_op():
+        if layer.device.type == "cuda":
+            raise _fail(
+                "CUDA graph custom-op registration is unavailable for native planes"
+            )
         return None
     key = _NATIVE_PLANE_NEXT_KEY
     _NATIVE_PLANE_NEXT_KEY += 1

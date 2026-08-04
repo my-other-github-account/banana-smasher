@@ -6,6 +6,7 @@ import sys
 from contextlib import nullcontext
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import cast
 
 import numpy as np
 import pytest
@@ -145,6 +146,19 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
         for projection in ("fused13", "down")
         for tokens in warmup_tokens
     }
+
+
+def test_cuda_native_plane_refuses_missing_graph_custom_op(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(native_planes, "_ensure_native_plane_custom_op", lambda: False)
+    layer = cast(NativePlaneLayer, SimpleNamespace(device=torch.device("cuda")))
+
+    with pytest.raises(
+        NativePlanePrerequisiteError,
+        match="CUDA graph custom-op registration is unavailable",
+    ):
+        native_planes._register_native_plane_layer(layer)
 
 
 def _tiny_pack(root: Path, *, layout: str = EXPECTED_LAYOUT_SHA256) -> Path:
