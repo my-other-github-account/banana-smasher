@@ -129,6 +129,11 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="receipt-bound QTIP kernel cache produced by smash kernels build",
     )
+    solve.add_argument(
+        "--qtip-profile-config",
+        type=Path,
+        help="sealed local-input config for one fresh exact QTIP solve",
+    )
 
     update = subparsers.add_parser(
         "update", help="run one resumable memory-sized physical tensor update"
@@ -359,6 +364,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "command": "validate",
             }
         elif args.command == "solve":
+            if args.qtip_profile_config is not None:
+                if args.root is None or args.layers is None:
+                    raise ValueError("--qtip-profile-config requires --root and --layers")
+                if any(
+                    value is not None
+                    for value in (args.output, args.tier, args.bpw, args.kernel_cache_root)
+                ) or args.all_cells or args.reference_search:
+                    raise ValueError(
+                        "--qtip-profile-config is a one-config solve and refuses tier/all-cells/output options"
+                    )
+                selected_layers = _parse_layers(args.layers)
+                if len(selected_layers) != 1:
+                    raise ValueError("--qtip-profile-config requires exactly one layer")
+                from .solver_qtip_profile import main as qtip_profile_main
+
+                qtip_profile_main(
+                    args.qtip_profile_config,
+                    args.root,
+                    selected_layers[0],
+                    profile_mode=False,
+                )
+                return 0
             qtip_requested = any(
                 value is not None
                 for value in (
