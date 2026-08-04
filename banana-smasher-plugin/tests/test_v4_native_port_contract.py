@@ -30,23 +30,20 @@ def _function_source(path: Path, name: str) -> str:
 
 def test_inventory_is_truthful_about_proved_port_and_historical_blockers() -> None:
     inventory = json.loads(INVENTORY.read_text())
-    assert inventory["schema"] == "banana-smasher-v4-acceleration-port-v2"
-    assert inventory["basis_commit"] == "038c0d8d169d68756fc309fd8c9aa2eb77169ee9"
+    assert inventory["schema"] == "banana-smasher-v5-specialized-source-closure-v1"
+    assert inventory["basis_commit"] == "9044c81"
+    assert inventory["specialized_kernel_matrix"]["rows"] == 96
     items = {item["id"]: item for item in inventory["items"]}
-    assert all(item["status"] in {"ported", "preserved", "blocked"} for item in items.values())
+    assert all(
+        item["status"] in {"ported", "preserved", "blocked", "awaiting_hardware"}
+        for item in items.values()
+    )
     assert all(item["historical_sources"] for item in items.values())
     assert all(item["test"] for item in items.values())
     assert all(item["sentinel"] for item in items.values())
     assert {name for name, item in items.items() if item["status"] == "blocked"} == {
-        "c2_c16_graph_routes",
-        "device_family_compaction",
-        "direct_packed_large_prefill",
         "norm_shared_expert_fusion",
-        "packed_mblock16_prefill",
-        "qtip_transform_fusion",
         "routed_fp8_scheduler_fusion",
-        "same_image_f521_p1321_acceptance",
-        "single_platform_extension",
     }
     assert inventory["fusions"] == [
         "packed_projection",
@@ -112,17 +109,18 @@ def test_unified_module_registers_qtip_vq_and_mxfp4_without_process_abort() -> N
     vq = (CSRC / "vq_warp_gemv.cu").read_text()
     assert wrapper.count("PYBIND11_MODULE") == 1
     for symbol in (
-        "decompress_matvec_dynamic_2_4096",
-        "decompress_matvec_dynamic_3_4096",
-        "decompress_matvec_dynamic_2_2048",
-        "decompress_matvec_dynamic_3_2048",
+        "qtip2_k4096_decode_c1",
+        "qtip3_k4096_prefill_exact_2k",
+        "qtip2_k2048_prefill_large",
+        "qtip3_k2048_decode_c16",
     ):
-        compact_symbol = symbol.replace("dynamic", "compact")
-        assert compact_symbol in wrapper
-    assert "DEFINE_COMPACT_QTIP" in qtip
+        assert symbol in wrapper
+        assert symbol in qtip
+    assert "DEFINE_QTIP_SPECIALIZATION" in qtip
     assert "PYBIND11_MODULE" not in vq
     assert "TORCH_LIBRARY_FRAGMENT(banana_smasher_v4" in vq
-    assert "mxfp4_compact" in vq
+    assert "d4_specialized" in vq
+    assert "mxfp4_specialized" in vq
     assert "C10_CUDA_KERNEL_LAUNCH_CHECK" in inference
     assert "exit(" not in "\n".join((wrapper, qtip, inference, vq))
 
@@ -132,14 +130,14 @@ def test_physical_route_policy_names_only_evidenced_symbols() -> None:
     exec(compile(POLICY.read_text(), str(POLICY), "exec"), namespace)
     shape_policy = cast(Any, namespace["shape_policy"])
     expected = {
-        6: ("vq_scalar_m1", "vq_warp_gemv_kernel", 1, 4),
-        12: ("vq_scalar_m2", "vq_warp_gemv_kernel", 2, 4),
-        24: ("vq_vector_m4", "vq_warp_gemm_m4_kernel", 4, 4),
-        48: ("vq_vector_m4_x2", "vq_warp_gemm_m4_kernel", 4, 4),
-        96: ("vq_vector_m4_x4", "vq_warp_gemm_m4_kernel", 4, 4),
+        6: ("decode_c1", "specialized_kernel_matrix.decode_c1", 1, 1),
+        12: ("decode_c2", "specialized_kernel_matrix.decode_c2", 2, 2),
+        24: ("decode_c4", "specialized_kernel_matrix.decode_c4", 4, 4),
+        48: ("decode_c8", "specialized_kernel_matrix.decode_c8", 4, 4),
+        96: ("decode_c16", "specialized_kernel_matrix.decode_c16", 4, 4),
         192: (
-            "mixed_packed_mblock16",
-            "vq_warp_gemm_m4_kernel",
+            "prefill_bm16",
+            "specialized_kernel_matrix.prefill_bm16",
             16,
             16,
         ),
@@ -154,7 +152,7 @@ def test_physical_route_policy_names_only_evidenced_symbols() -> None:
         assert decision["graph_reuse"] is (rows <= 96)
     for tokens in (63, 64, 65, 2000, 8192):
         decision = shape_policy(tokens * 6)
-        assert decision["kernel"] == "mixed_packed_mblock16"
+        assert decision["kernel"].startswith("prefill_")
         assert decision["mblock"] == 16
         assert decision["zero_dequant"] is True
     with pytest.raises(NotImplementedError, match="at most 8192"):
@@ -175,8 +173,8 @@ def test_runtime_source_does_not_claim_unsupported_fusions_or_python_compaction(
 def test_cuda_source_exposes_scalar_vector_and_current_stream_without_split_k() -> None:
     source = (CSRC / "vq_warp_gemv.cu").read_text()
     for marker in (
-        "vq_warp_gemv_kernel",
-        "vq_warp_gemm_m4_kernel",
+        "d4_specialized_gemv_kernel",
+        "d4_specialized_gemm_m4_kernel",
         "route_stride >= kRowStride",
         "getCurrentCUDAStream",
         "kWarpsPerBlock = 16",
@@ -219,7 +217,7 @@ def test_physical_counters_are_written_by_the_family_kernels() -> None:
     qtip = (CSRC / "qtip/inference_dynamic.cu").read_text()
     vq = (CSRC / "vq_warp_gemv.cu").read_text()
 
-    assert '"physical_counters": torch.zeros(24' in acceleration
+    assert '"physical_counters": torch.zeros(128' in acceleration
     assert '"physical_launches": (10, 14)' in acceleration
     assert '"physical_blocks": (14, 18)' in acceleration
     assert '"physical_rows": (18, 22)' in acceleration
