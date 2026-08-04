@@ -70,6 +70,18 @@ def build_qtip(cb, states, m, n):
         _load_public_qtip_runner(runner_path, "0" * 64)
 
 
+def test_historical_qtip_config_uses_canonical_ring_codebook() -> None:
+    from banana_smasher.qtip_rings import resolve_qtip_ring
+    from banana_smasher.solver_qtip_profile import _resolve_config_codebook
+
+    config = {"geometry": {"L": 16, "K": 2, "V": 2}}
+    codebook = _resolve_config_codebook(config, config["geometry"])
+
+    assert codebook == dict(resolve_qtip_ring("2.00").codebook)
+    assert config["codebook"] == codebook
+    assert codebook["pack_contract"]["dtype"] == "uint16"
+
+
 def test_qtip_accelerator_entrypoint_fails_explicitly_without_triton() -> None:
     completed = subprocess.run(
         [

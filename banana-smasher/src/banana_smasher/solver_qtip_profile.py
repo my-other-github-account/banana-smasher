@@ -962,6 +962,29 @@ def _load_weight(model_root: Path, layer: int, expert: int, projection: str) -> 
     }
 
 
+def _resolve_config_codebook(
+    config: dict[str, Any],
+    geometry: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Fill historical configs from the packaged canonical ring identity."""
+    codebook = config.get("codebook")
+    if isinstance(codebook, dict):
+        return codebook
+
+    sealed = tuple(int(geometry[key]) for key in ("L", "K", "V"))
+    bpw = config.get("bpw")
+    if not isinstance(bpw, str):
+        bpw = f"{sealed[1]:.2f}"
+    ring = resolve_qtip_ring(bpw)
+    if sealed not in ring.geometries:
+        raise ValueError(
+            f"QTIP geometry {sealed!r} is not a component of canonical ring {ring.tier}"
+        )
+    resolved = dict(ring.codebook)
+    config["codebook"] = resolved
+    return resolved
+
+
 def _bind_candidate_geometry(
     candidate: dict[str, Any],
     config: dict[str, Any],
@@ -1322,12 +1345,7 @@ def main(
     if _tensor_sha256(pinned_tlut) != str(reference["tlut_sha256"]):
         raise RuntimeError("TLUT digest differs from sealed reference unit")
     geometry = config.get("geometry", {"L": 16, "K": 3, "V": 2})
-    codebook = config.get("codebook")
-    if not isinstance(codebook, dict):
-        codebook = {
-            "tlut_bits": 9,
-            "decode_mode": "quantlut_sym",
-        }
+    codebook = _resolve_config_codebook(config, geometry)
     cb = bitshift.bitshift_codebook(
         L=int(geometry["L"]),
         K=int(geometry["K"]),
