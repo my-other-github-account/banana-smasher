@@ -140,6 +140,24 @@ def test_product_sources_do_not_use_forbidden_generic_or_zero_offset_routes() ->
     assert "specialized_mxfp4_gemm" in extensions
 
 
+def test_prefill_workspaces_are_lazy_instead_of_preallocating_gigabytes_per_layer() -> None:
+    acceleration = (PACKAGE / "v4_acceleration.py").read_text()
+    builder = acceleration.split("def build_device_resident_planes(", 1)[1].split(
+        "def mixed_exact_native_gemv(", 1
+    )[0]
+    dispatch = acceleration.split("def mixed_exact_native_gemv(", 1)[1]
+
+    # Only graph-replayed decode shapes belong in every layer's resident state.
+    for shape in ("(6, 1)", "(12, 2)", "(24, 4)", "(48, 4)", "(96, 4)"):
+        assert shape in builder
+    for route_rows in (192, 384, 12288, 49152):
+        assert f"({route_rows}, 16)" not in builder
+
+    # Non-graph prefill shapes still receive persistent state on first use.
+    assert "if key not in compaction:" in dispatch
+    assert "compaction[key] = allocate_compaction_state(" in dispatch
+
+
 def test_every_matrix_source_symbol_is_owned_by_compiled_specialized_source() -> None:
     matrix = json.loads(MATRIX.read_text())
     qtip = (PACKAGE / "csrc/qtip/qtip_dynamic_torch.cu").read_text()

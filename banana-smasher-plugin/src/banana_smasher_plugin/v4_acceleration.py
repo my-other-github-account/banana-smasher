@@ -125,10 +125,6 @@ def build_device_resident_planes(
         (24, 4),
         (48, 4),
         (96, 4),
-        (192, 16),
-        (384, 16),
-        (12288, 16),
-        (49152, 16),
     ):
         resident["compaction"][(rows, block_rows)] = allocate_compaction_state(
             rows=rows,
