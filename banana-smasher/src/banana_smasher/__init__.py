@@ -25,7 +25,7 @@ from .anchor import (
 )
 from .bank import build_bank, verify_bank
 from .evaluate import evaluate_paired, verify_evaluation
-from .fixed_d4 import materialize_fixed_d4
+from .fixed_d4 import materialize_fixed_d4, persist_fixed_d4_solve
 from .persistent import UpdateQueue
 from .update_service import serve_persistent_updates
 
@@ -47,6 +47,7 @@ __all__ = [
     "materialize_candidate_producer",
     "materialize_bank",
     "materialize_fixed_d4",
+    "persist_fixed_d4_solve",
     "register_bank",
     "resolve_bank_identities",
     "score_bank",
