@@ -17,6 +17,14 @@ def _synchronize(name: str) -> None:
         raise RuntimeError(f"FlashInfer {name} execution failed: {exc}") from exc
 
 
+def _checked_sample(name: str, sample: torch.Tensor) -> list[int]:
+    _synchronize(name)
+    result = sample.tolist()
+    if result != [1]:
+        raise RuntimeError(f"unexpected {name} result: {result}")
+    return result
+
+
 def main() -> None:
     if os.environ.get("FLASHINFER_DISABLE_JIT") != "1":
         raise RuntimeError("FLASHINFER_DISABLE_JIT=1 is required for the AOT smoke")
@@ -30,16 +38,30 @@ def main() -> None:
     if capability != (12, 1):
         raise RuntimeError(f"expected SM121, got compute capability {capability}")
 
-    probs = torch.tensor([[0.0, 1.0]], dtype=torch.float32, device=device)
-    sample = flashinfer.sampling.sampling_from_probs(
-        probs,
-        deterministic=True,
-        seed=0,
-        offset=0,
-    )
-    _synchronize("sampling")
-    if sample.tolist() != [1]:
-        raise RuntimeError(f"unexpected sampling result: {sample.tolist()}")
+    logits = torch.tensor([[-1000.0, 0.0]], dtype=torch.float32, device=device)
+    probs = logits.softmax(dim=-1)
+    top_k = torch.tensor([1], dtype=torch.int32, device=device)
+    top_p = torch.tensor([1.0], dtype=torch.float32, device=device)
+    sampling_results = {
+        "top_p_sampling_from_probs": _checked_sample(
+            "top_p_sampling_from_probs",
+            flashinfer.sampling.top_p_sampling_from_probs(
+                probs, top_p, deterministic=True
+            ),
+        ),
+        "top_k_sampling_from_probs": _checked_sample(
+            "top_k_sampling_from_probs",
+            flashinfer.sampling.top_k_sampling_from_probs(
+                probs, top_k, deterministic=True
+            ),
+        ),
+        "top_k_top_p_sampling_from_logits": _checked_sample(
+            "top_k_top_p_sampling_from_logits",
+            flashinfer.sampling.top_k_top_p_sampling_from_logits(
+                logits, top_k, top_p, deterministic=True
+            ),
+        ),
+    }
 
     q = torch.zeros((1, 1, 512), dtype=torch.bfloat16, device=device)
     k = torch.zeros_like(q)
@@ -90,8 +112,14 @@ def main() -> None:
                 "flashinfer_jit_cache": importlib.metadata.version(
                     "flashinfer-jit-cache"
                 ),
-                "executed": ["sampling", "fa2_head512", "sparse_mla_sm120"],
-                "sampling_result": sample.tolist(),
+                "executed": [
+                    "top_p_sampling_from_probs",
+                    "top_k_sampling_from_probs",
+                    "top_k_top_p_sampling_from_logits",
+                    "fa2_head512",
+                    "sparse_mla_sm120",
+                ],
+                "sampling_results": sampling_results,
                 "head512_shape": list(head512.shape),
                 "sparse_mla_shape": list(sparse.shape),
             },
