@@ -266,7 +266,7 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     assert "flashinfer.decode.trtllm_batch_decode_sparse_mla_dsv4" in smoke
     assert "128 * 1024 * 1024" in smoke
     assert "(num_tokens, num_heads, 512)" in smoke
-    assert "swa_topk, extra_topk = 128, 512" in smoke
+    assert "swa_topk, page_block_size, bytes_per_token = 128, 64, 584" in smoke
     assert "num_swa_blocks * page_block_size >= swa_topk" in smoke
     assert "compressed_kv_cache=compressed_kv_cache" in smoke
     assert "extra_sparse_indices=extra_sparse_indices" in smoke
@@ -299,14 +299,25 @@ def test_flashinfer_sm121_smoke_matches_exact_u12_sparse_decode_shape() -> None:
     smoke = SMOKE_FLASHINFER.read_text()
 
     assert "num_heads = 64" in smoke
-    assert "swa_topk, extra_topk = 128, 512" in smoke
-    assert "page_block_size, extra_page_block_size, bytes_per_token = 64, 64, 584" in smoke
+    assert "swa_topk, page_block_size, bytes_per_token = 128, 64, 584" in smoke
 
 
 def test_flashinfer_sm121_smoke_covers_stock_vllm_mixed_boot_warmup() -> None:
     smoke = SMOKE_FLASHINFER.read_text()
 
     assert "for num_tokens in (1, 16):" in smoke
+    assert '"sparse_mla_shapes": sparse_mla_shapes' in smoke
+
+
+def test_flashinfer_sm121_smoke_covers_all_exact_model_sparse_layer_types() -> None:
+    smoke = SMOKE_FLASHINFER.read_text()
+
+    assert 'for sparse_profile in ("swa_only", "c4a", "c128a"):' in smoke
+    assert 'if sparse_profile == "swa_only":' in smoke
+    assert 'elif sparse_profile == "c4a":' in smoke
+    assert "compressed_width, compressed_active, compressed_page_block_size = (" in smoke
+    assert "512, 512, 64" in smoke
+    assert "128, 64, 2" in smoke
 
 
 def test_native_plugin_build_has_pinned_cuda_development_toolchain() -> None:

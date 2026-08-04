@@ -31,24 +31,61 @@ def _checked_sample(name: str, sample: torch.Tensor) -> list[int]:
     return result
 
 
-def _run_sparse_mla(device: torch.device, num_tokens: int) -> list[int]:
+def _run_sparse_mla(
+    device: torch.device, num_tokens: int, sparse_profile: str
+) -> list[int]:
     num_heads = 64
-    swa_topk, extra_topk = 128, 512
-    page_block_size, extra_page_block_size, bytes_per_token = 64, 64, 584
+    swa_topk, page_block_size, bytes_per_token = 128, 64, 584
     num_swa_blocks = 2
-    num_extra_blocks = extra_topk // extra_page_block_size
     assert num_swa_blocks * page_block_size >= swa_topk
-    assert num_extra_blocks * extra_page_block_size >= extra_topk
     swa_kv_cache = torch.zeros(
         (num_swa_blocks, page_block_size, 1, bytes_per_token),
         dtype=torch.uint8,
         device=device,
     )
-    compressed_kv_cache = torch.zeros(
-        (num_extra_blocks, extra_page_block_size, 1, bytes_per_token),
-        dtype=torch.uint8,
-        device=device,
-    )
+
+    compressed_kv_cache: torch.Tensor | None = None
+    extra_sparse_indices: torch.Tensor | None = None
+    extra_sparse_topk_lens: torch.Tensor | None = None
+    compressed_width = compressed_active = compressed_page_block_size = 0
+    if sparse_profile == "swa_only":
+        pass
+    elif sparse_profile == "c4a":
+        compressed_width, compressed_active, compressed_page_block_size = (
+            512, 512, 64
+        )
+    elif sparse_profile == "c128a":
+        compressed_width, compressed_active, compressed_page_block_size = (
+            128, 64, 2
+        )
+    else:
+        raise ValueError(f"unknown sparse profile: {sparse_profile}")
+
+    if sparse_profile != "swa_only":
+        num_compressed_blocks = (
+            compressed_active + compressed_page_block_size - 1
+        ) // compressed_page_block_size
+        assert num_compressed_blocks * compressed_page_block_size >= compressed_active
+        compressed_kv_cache = torch.zeros(
+            (
+                num_compressed_blocks,
+                compressed_page_block_size,
+                1,
+                bytes_per_token,
+            ),
+            dtype=torch.uint8,
+            device=device,
+        )
+        extra_sparse_indices = torch.arange(
+            compressed_width, dtype=torch.int32, device=device
+        ).repeat(num_tokens, 1, 1)
+        extra_sparse_indices.masked_fill_(
+            extra_sparse_indices >= compressed_active, -1
+        )
+        extra_sparse_topk_lens = torch.full(
+            (num_tokens,), compressed_active, dtype=torch.int32, device=device
+        )
+
     sparse_query = torch.zeros(
         (num_tokens, num_heads, 512),
         dtype=torch.bfloat16,
@@ -57,14 +94,8 @@ def _run_sparse_mla(device: torch.device, num_tokens: int) -> list[int]:
     sparse_indices = torch.arange(
         swa_topk, dtype=torch.int32, device=device
     ).repeat(num_tokens, 1)
-    extra_sparse_indices = torch.arange(
-        extra_topk, dtype=torch.int32, device=device
-    ).repeat(num_tokens, 1, 1)
     swa_topk_lens = torch.full(
         (num_tokens,), swa_topk, dtype=torch.int32, device=device
-    )
-    extra_sparse_topk_lens = torch.full(
-        (num_tokens,), extra_topk, dtype=torch.int32, device=device
     )
     sparse_out = torch.empty_like(sparse_query)
     sinks = torch.zeros((num_heads,), dtype=torch.float32, device=device)
@@ -84,7 +115,7 @@ def _run_sparse_mla(device: torch.device, num_tokens: int) -> list[int]:
         sinks=sinks,
         kv_layout="NHD",
     )
-    _synchronize(f"sparse_mla_sm120_tokens_{num_tokens}")
+    _synchronize(f"sparse_mla_sm120_{sparse_profile}_tokens_{num_tokens}")
     expected_sparse_shape = (num_tokens, num_heads, 512)
     if tuple(sparse.shape) != expected_sparse_shape or not torch.isfinite(sparse).all().item():
         raise RuntimeError(
@@ -149,8 +180,11 @@ def main() -> None:
         raise RuntimeError(f"invalid FA2 head512 output: shape={tuple(head512.shape)}")
 
     sparse_mla_shapes = {}
-    for num_tokens in (1, 16):
-        sparse_mla_shapes[str(num_tokens)] = _run_sparse_mla(device, num_tokens)
+    for sparse_profile in ("swa_only", "c4a", "c128a"):
+        for num_tokens in (1, 16):
+            sparse_mla_shapes[f"{sparse_profile}_tokens{num_tokens}"] = (
+                _run_sparse_mla(device, num_tokens, sparse_profile)
+            )
 
     print(
         json.dumps(
@@ -166,12 +200,14 @@ def main() -> None:
                     "top_k_sampling_from_probs",
                     "top_k_top_p_sampling_from_logits",
                     "fa2_head512",
-                    "sparse_mla_sm120",
-                    "sparse_mla_sm120_warmup16",
+                    "sparse_mla_sm120_swa_only",
+                    "sparse_mla_sm120_c4a",
+                    "sparse_mla_sm120_c128a",
+                    "sparse_mla_sm120_warmup16_all_profiles",
                 ],
                 "sampling_results": sampling_results,
                 "head512_shape": list(head512.shape),
-                "sparse_mla_shape": sparse_mla_shapes["1"],
+                "sparse_mla_shape": sparse_mla_shapes["c4a_tokens1"],
                 "sparse_mla_shapes": sparse_mla_shapes,
             },
             sort_keys=True,
