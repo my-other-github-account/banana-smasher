@@ -89,7 +89,7 @@ def test_full16_assignments_match_cornell_canonical_with_and_without_overlap() -
 
     generator = torch.Generator(device="cuda").manual_seed(20260803)
     tlut = torch.randn((1 << 16, 2), generator=generator, device="cuda")
-    codebook = bitshift.bitshift_codebook(L=16, K=2, V=2, tlut=tlut)
+    codebook = bitshift.bitshift_codebook(L=16, K=2, V=2, tlut=tlut).to(device="cuda")
     x = torch.randn((256, 1), generator=generator, device="cuda", dtype=torch.float16)
 
     parity_rows = []
