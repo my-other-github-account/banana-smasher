@@ -220,7 +220,7 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     smoke = smoke_path.read_text()
     flashinfer_builder = text.index("FROM ${VLLM_IMAGE} AS flashinfer-builder")
     flashinfer_build_pattern = re.compile(
-        r"python3 -m pip wheel --no-build-isolation --no-deps \\\n"
+        r"python3 -m pip wheel --no-cache-dir --no-build-isolation --no-deps \\\n"
         r"\s+--wheel-dir /wheel ./flashinfer-jit-cache"
     )
     flashinfer_build_match = flashinfer_build_pattern.search(text)

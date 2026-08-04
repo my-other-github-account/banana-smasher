@@ -97,7 +97,7 @@ RUN cd /tmp/flashinfer \
       FLASHINFER_LOCAL_VERSION=cu130 \
       MAX_JOBS=4 \
       FLASHINFER_NVCC_THREADS=2 \
-      python3 -m pip wheel --no-build-isolation --no-deps \
+      python3 -m pip wheel --no-cache-dir --no-build-isolation --no-deps \
         --wheel-dir /wheel ./flashinfer-jit-cache \
     && test -f /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl \
     && python3 -m zipfile -t /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl \
