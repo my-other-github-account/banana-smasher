@@ -83,6 +83,7 @@ def test_public_prepare_solve_streams_native_mxfp4_source_into_bound_config(
     config_path = Path(receipt["config"])
     config = json.loads(config_path.read_text())
     assert config["schema"] == "banana-smasher-fixed-d4-exact-solve-v1"
+    assert config["vector_domain"] == "mxfp4_e2m1"
     assert config["basis_index"] == "model.safetensors.index.json"
 
     down = np.load(
