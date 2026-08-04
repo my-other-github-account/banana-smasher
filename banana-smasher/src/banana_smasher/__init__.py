@@ -28,6 +28,7 @@ from .evaluate import evaluate_paired, verify_evaluation
 from .fixed_d4 import (
     materialize_fixed_d4,
     persist_fixed_d4_solve,
+    prepare_fixed_d4_solve_config,
     produce_fixed_d4_logits,
     solve_fixed_d4_exact,
     verify_fixed_d4_model,
@@ -54,6 +55,7 @@ __all__ = [
     "materialize_bank",
     "materialize_fixed_d4",
     "persist_fixed_d4_solve",
+    "prepare_fixed_d4_solve_config",
     "produce_fixed_d4_logits",
     "register_bank",
     "resolve_bank_identities",

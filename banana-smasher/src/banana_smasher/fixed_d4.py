@@ -19,6 +19,27 @@ _TIER_SPECS = {
     "d4_k4096": {"k": 4096, "bits": 12},
 }
 _HEX = frozenset("0123456789abcdef")
+_MXFP4_E2M1 = np.asarray(
+    (
+        0.0,
+        0.5,
+        1.0,
+        1.5,
+        2.0,
+        3.0,
+        4.0,
+        6.0,
+        -0.0,
+        -0.5,
+        -1.0,
+        -1.5,
+        -2.0,
+        -3.0,
+        -4.0,
+        -6.0,
+    ),
+    dtype=np.float16,
+)
 
 
 def _sha256(payload: bytes) -> str:
@@ -44,7 +65,9 @@ def _is_sha256(value: object) -> bool:
 
 def _atomic_write(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent
+    )
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as handle:
@@ -61,7 +84,9 @@ def _atomic_write(path: Path, payload: bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def _bound_array(root: Path, value: object, *, label: str) -> tuple[np.ndarray, dict[str, Any]]:
+def _bound_array(
+    root: Path, value: object, *, label: str
+) -> tuple[np.ndarray, dict[str, Any]]:
     if not isinstance(value, Mapping):
         raise ValueError(f"{label} must be a bound array object")
     relative = value.get("path")
@@ -156,7 +181,9 @@ def _file_record(path: Path) -> dict[str, object]:
 
 
 def _atomic_save_npy(path: Path, value: np.ndarray) -> None:
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent
+    )
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as handle:
@@ -190,7 +217,9 @@ def persist_fixed_d4_solve(
     """
 
     if tier not in _TIER_SPECS:
-        raise ValueError("fixed D4 solve persistence requires tier d4_k2048 or d4_k4096")
+        raise ValueError(
+            "fixed D4 solve persistence requires tier d4_k2048 or d4_k4096"
+        )
     if isinstance(layer, bool) or not isinstance(layer, int) or layer < 0:
         raise ValueError("fixed D4 solve persistence layer must be non-negative")
     if not _is_sha256(basis_sha256):
@@ -200,7 +229,9 @@ def persist_fixed_d4_solve(
     if _sha256(basis_payload) != basis_sha256:
         raise ValueError("fixed D4 solve persistence basis_index SHA-256 mismatch")
     if set(projections) != set(_PROJECTIONS):
-        raise ValueError("fixed D4 solve persistence requires down and fused13 projections")
+        raise ValueError(
+            "fixed D4 solve persistence requires down and fused13 projections"
+        )
 
     spec = _TIER_SPECS[tier]
     k = spec["k"]
@@ -310,9 +341,7 @@ def _exact_nearest_assignments(
     winner_dtype = np.uint16 if codebook.shape[0] > 256 else np.uint8
     winners = np.empty(vectors.shape[0], dtype=winner_dtype)
     for start in range(0, vectors.shape[0], chunk_vectors):
-        chunk = np.asarray(
-            vectors[start : start + chunk_vectors], dtype=np.float64
-        )
+        chunk = np.asarray(vectors[start : start + chunk_vectors], dtype=np.float64)
         if not np.isfinite(chunk).all():
             raise ValueError("fixed D4 exact solve inputs must be finite")
         distances = (
@@ -322,6 +351,383 @@ def _exact_nearest_assignments(
         )
         winners[start : start + chunk.shape[0]] = np.argmin(distances, axis=1)
     return winners.reshape(normalized_vectors.shape[:-1])
+
+
+class _SafetensorsShard:
+    """Minimal mmap reader for the native byte dtypes used by the source model."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path.resolve()
+        try:
+            with self.path.open("rb") as handle:
+                raw_length = handle.read(8)
+                if len(raw_length) != 8:
+                    raise ValueError("missing safetensors header length")
+                header_bytes = int.from_bytes(raw_length, "little")
+                if header_bytes < 2 or header_bytes > (1 << 30):
+                    raise ValueError(
+                        f"invalid safetensors header length {header_bytes}"
+                    )
+                raw_header = handle.read(header_bytes)
+                if len(raw_header) != header_bytes:
+                    raise ValueError("truncated safetensors header")
+            header = json.loads(raw_header)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            raise ValueError(
+                f"cannot read source safetensors shard {self.path}: {exc}"
+            ) from exc
+        if not isinstance(header, dict):
+            raise ValueError(
+                f"source safetensors header must be an object: {self.path}"
+            )
+        self._header = header
+        self._data_start = 8 + header_bytes
+        self._file_bytes = self.path.stat().st_size
+
+    def byte_tensor(self, name: str, *, dtype: str) -> np.memmap:
+        spec = self._header.get(name)
+        if not isinstance(spec, Mapping) or spec.get("dtype") != dtype:
+            raise ValueError(f"source tensor {name} must have dtype {dtype}")
+        shape = spec.get("shape")
+        offsets = spec.get("data_offsets")
+        if (
+            not isinstance(shape, list)
+            or not shape
+            or any(
+                isinstance(value, bool) or not isinstance(value, int) or value < 1
+                for value in shape
+            )
+            or not isinstance(offsets, list)
+            or len(offsets) != 2
+            or any(
+                isinstance(value, bool) or not isinstance(value, int)
+                for value in offsets
+            )
+        ):
+            raise ValueError(f"source tensor {name} has invalid safetensors metadata")
+        start, stop = offsets
+        expected = int(np.prod(shape, dtype=np.int64))
+        if (
+            start < 0
+            or stop - start != expected
+            or self._data_start + stop > self._file_bytes
+        ):
+            raise ValueError(f"source tensor {name} has invalid byte bounds")
+        return np.memmap(
+            self.path,
+            mode="r",
+            dtype=np.uint8,
+            offset=self._data_start + start,
+            shape=tuple(shape),
+        )
+
+
+def _decode_mxfp4_vectors(packed: np.ndarray) -> np.ndarray:
+    raw = np.asarray(packed, dtype=np.uint8).reshape(-1)
+    decoded = np.empty(raw.size * 2, dtype=np.float16)
+    decoded[0::2] = _MXFP4_E2M1[raw & 0x0F]
+    decoded[1::2] = _MXFP4_E2M1[raw >> 4]
+    if decoded.size % 4:
+        raise ValueError("native MXFP4 source does not contain whole D4 vectors")
+    return decoded.reshape(-1, 4)
+
+
+def _d4_vector_keys(vectors: np.ndarray) -> np.ndarray:
+    values = np.asarray(vectors, dtype=np.float16)
+    codes = np.full(values.shape, 255, dtype=np.uint16)
+    for code, decoded in enumerate(_MXFP4_E2M1):
+        codes[values == decoded] = code
+    if np.any(codes == 255):
+        raise ValueError("native MXFP4 decode produced a value outside E2M1")
+    return codes[:, 0] | (codes[:, 1] << 4) | (codes[:, 2] << 8) | (codes[:, 3] << 12)
+
+
+def _frequency_codebook(counts: np.ndarray, *, k: int) -> np.ndarray:
+    keys = np.arange(1 << 16, dtype=np.uint32)
+    selected = np.lexsort((keys, -counts))[:k]
+    nibbles = np.stack(
+        tuple(((selected >> shift) & 0x0F) for shift in (0, 4, 8, 12)),
+        axis=1,
+    )
+    return _MXFP4_E2M1[nibbles].astype(np.float16, copy=False)
+
+
+def _source_tensor(
+    model_root: Path,
+    weight_map: Mapping[str, object],
+    shards: dict[Path, _SafetensorsShard],
+    name: str,
+    *,
+    dtype: str,
+) -> np.memmap:
+    raw_shard = weight_map.get(name)
+    if (
+        not isinstance(raw_shard, str)
+        or not raw_shard
+        or "/" in raw_shard
+        or "\\" in raw_shard
+    ):
+        raise ValueError(f"source model index has no safe shard binding for {name}")
+    shard_path = (model_root / raw_shard).resolve()
+    if not shard_path.is_file():
+        raise ValueError(
+            f"source model shard is missing for {name}: {model_root / raw_shard}"
+        )
+    shard = shards.get(shard_path)
+    if shard is None:
+        shard = _SafetensorsShard(shard_path)
+        shards[shard_path] = shard
+    return shard.byte_tensor(name, dtype=dtype)
+
+
+def _native_expert_projection(
+    model_root: Path,
+    weight_map: Mapping[str, object],
+    shards: dict[Path, _SafetensorsShard],
+    *,
+    layer: int,
+    expert: int,
+    projection: str,
+) -> tuple[np.ndarray, np.ndarray]:
+    weights = ("w2",) if projection == "down" else ("w1", "w3")
+    vector_parts: list[np.ndarray] = []
+    scale_parts: list[np.ndarray] = []
+    for weight in weights:
+        prefix = f"layers.{layer}.ffn.experts.{expert}.{weight}"
+        packed = _source_tensor(
+            model_root,
+            weight_map,
+            shards,
+            f"{prefix}.weight",
+            dtype="I8",
+        )
+        scales = _source_tensor(
+            model_root,
+            weight_map,
+            shards,
+            f"{prefix}.scale",
+            dtype="F8_E8M0",
+        )
+        vectors = _decode_mxfp4_vectors(packed)
+        if vectors.size != scales.size * 32:
+            raise ValueError(
+                f"source tensor {prefix} has incompatible MXFP4/E8M0 geometry: "
+                f"values={vectors.size} scales={scales.size}"
+            )
+        vector_parts.append(vectors)
+        scale_parts.append(np.asarray(scales).reshape(-1))
+    return np.concatenate(vector_parts), np.concatenate(scale_parts)
+
+
+def prepare_fixed_d4_solve_config(
+    model_root: str | Path,
+    codebook_path: str | Path | None,
+    output_root: str | Path,
+    *,
+    tier: str,
+    layer: int,
+    basis_sha256: str,
+    chunk_vectors: int,
+    reserve_bytes: int = 4 << 30,
+) -> dict[str, Any]:
+    """Stream native MXFP4 expert weights into a bound exact-D4 solve config."""
+
+    if tier not in _TIER_SPECS:
+        raise ValueError(
+            "fixed D4 source preparation requires tier d4_k2048 or d4_k4096"
+        )
+    if isinstance(layer, bool) or not isinstance(layer, int) or layer < 0:
+        raise ValueError("fixed D4 source preparation layer must be non-negative")
+    if (
+        isinstance(chunk_vectors, bool)
+        or not isinstance(chunk_vectors, int)
+        or chunk_vectors < 1
+    ):
+        raise ValueError("fixed D4 source preparation chunk_vectors must be positive")
+    if (
+        isinstance(reserve_bytes, bool)
+        or not isinstance(reserve_bytes, int)
+        or reserve_bytes < 0
+    ):
+        raise ValueError(
+            "fixed D4 source preparation reserve_bytes must be non-negative"
+        )
+    if not _is_sha256(basis_sha256):
+        raise ValueError("basis_sha256 must be a lowercase SHA-256")
+
+    model_root = Path(model_root).expanduser().resolve()
+    basis_index = model_root / "model.safetensors.index.json"
+    try:
+        basis_payload = basis_index.read_bytes()
+        index = json.loads(basis_payload)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid source model index {basis_index}: {exc}") from exc
+    if _sha256(basis_payload) != basis_sha256:
+        raise ValueError("fixed D4 source preparation basis_index SHA-256 mismatch")
+    weight_map = index.get("weight_map") if isinstance(index, Mapping) else None
+    if not isinstance(weight_map, Mapping) or not weight_map:
+        raise ValueError("source model index must contain a non-empty weight_map")
+
+    k = _TIER_SPECS[tier]["k"]
+    codebook: np.ndarray | None = None
+    codebook_bytes = k * 4 * np.dtype(np.float16).itemsize + 128
+    if codebook_path is not None:
+        codebook_path = Path(codebook_path).expanduser().resolve()
+        try:
+            loaded_codebook = np.load(codebook_path, mmap_mode="r", allow_pickle=False)
+        except Exception as exc:
+            raise ValueError(
+                f"cannot read fixed D4 codebook {codebook_path}: {exc}"
+            ) from exc
+        if (
+            loaded_codebook.shape != (k, 4)
+            or loaded_codebook.dtype.kind != "f"
+            or not np.isfinite(loaded_codebook).all()
+        ):
+            raise ValueError(
+                f"fixed D4 source preparation codebook must be finite floating [{k}, 4]"
+            )
+        codebook = loaded_codebook
+        codebook_bytes = codebook_path.stat().st_size
+
+    shards: dict[Path, _SafetensorsShard] = {}
+    first: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for projection in _PROJECTIONS:
+        first[projection] = _native_expert_projection(
+            model_root,
+            weight_map,
+            shards,
+            layer=layer,
+            expert=0,
+            projection=projection,
+        )
+    estimate_bytes = 2 * codebook_bytes + len(basis_payload) + (1 << 20)
+    for vectors, scales in first.values():
+        estimate_bytes += 256 * (
+            vectors.size * np.dtype(np.float16).itemsize + scales.size
+        )
+
+    output_root = Path(output_root).expanduser().resolve()
+    if output_root.exists():
+        raise FileExistsError(output_root)
+    output_root.parent.mkdir(parents=True, exist_ok=True)
+    free_bytes = shutil.disk_usage(output_root.parent).free
+    if estimate_bytes + reserve_bytes > free_bytes:
+        raise ValueError(
+            "fixed D4 source preparation storage preflight failed: "
+            f"required={estimate_bytes + reserve_bytes} free={free_bytes} "
+            f"payload={estimate_bytes} reserve={reserve_bytes}"
+        )
+
+    staging = Path(
+        tempfile.mkdtemp(prefix=f".{output_root.name}.", dir=output_root.parent)
+    )
+    try:
+        _atomic_write(staging / "model.safetensors.index.json", basis_payload)
+        projection_bindings: dict[str, dict[str, dict[str, object]]] = {}
+        vector_count = 0
+        for projection in _PROJECTIONS:
+            first_vectors, first_scales = first[projection]
+            frequencies = (
+                np.zeros(1 << 16, dtype=np.int64) if codebook is None else None
+            )
+            vector_path = staging / f"{projection}.normalized_vectors.npy"
+            scale_path = staging / f"{projection}.scales.npy"
+            vector_output = np.lib.format.open_memmap(
+                vector_path,
+                mode="w+",
+                dtype=np.float16,
+                shape=(256, first_vectors.shape[0], 4),
+            )
+            scale_output = np.lib.format.open_memmap(
+                scale_path,
+                mode="w+",
+                dtype=np.uint8,
+                shape=(256, first_scales.size),
+            )
+            for expert in range(256):
+                vectors, scales = (
+                    first[projection]
+                    if expert == 0
+                    else _native_expert_projection(
+                        model_root,
+                        weight_map,
+                        shards,
+                        layer=layer,
+                        expert=expert,
+                        projection=projection,
+                    )
+                )
+                if (
+                    vectors.shape != first_vectors.shape
+                    or scales.shape != first_scales.shape
+                ):
+                    raise ValueError(
+                        f"source model expert geometry drift at layer={layer} "
+                        f"expert={expert} projection={projection}"
+                    )
+                vector_output[expert] = vectors
+                scale_output[expert] = scales
+                if frequencies is not None:
+                    frequencies += np.bincount(
+                        _d4_vector_keys(vectors), minlength=1 << 16
+                    )
+            vector_output.flush()
+            scale_output.flush()
+            del vector_output, scale_output
+            codebook_output = staging / f"{projection}.codebook.npy"
+            if codebook is not None:
+                projection_codebook = codebook
+            else:
+                assert frequencies is not None
+                projection_codebook = _frequency_codebook(frequencies, k=k)
+            _atomic_save_npy(codebook_output, projection_codebook)
+            projection_bindings[projection] = {
+                "normalized_vectors": _file_record(vector_path),
+                "scales": _file_record(scale_path),
+                "codebook": _file_record(codebook_output),
+            }
+            vector_count += 256 * first_vectors.shape[0]
+
+        config = {
+            "schema": "banana-smasher-fixed-d4-exact-solve-v1",
+            "tier": tier,
+            "layer": layer,
+            "basis_index": "model.safetensors.index.json",
+            "basis_sha256": basis_sha256,
+            "chunk_vectors": chunk_vectors,
+            "projections": projection_bindings,
+        }
+        config_path = staging / "solve.json"
+        _atomic_write(
+            config_path,
+            (json.dumps(config, indent=2, sort_keys=True) + "\n").encode(),
+        )
+        os.rename(staging, output_root)
+        directory = os.open(output_root.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+    return {
+        "schema": "banana-smasher-fixed-d4-source-preparation-receipt-v1",
+        "status": "PASS",
+        "tier": tier,
+        "layer": layer,
+        "basis_sha256": basis_sha256,
+        "source_dtype": "packed-mxfp4-e2m1-with-e8m0-scales",
+        "codebook_source": (
+            "bound-npy" if codebook is not None else "source-frequency-top-k"
+        ),
+        "source_shards": len(shards),
+        "vector_count": vector_count,
+        "payload_estimate_bytes": estimate_bytes,
+        "reserve_bytes": reserve_bytes,
+        "config": str(output_root / "solve.json"),
+        "config_sha256": _sha256_file(output_root / "solve.json"),
+    }
 
 
 def solve_fixed_d4_exact(
@@ -336,7 +742,9 @@ def solve_fixed_d4_exact(
     try:
         config = json.loads(config_path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"invalid fixed D4 exact solve config {config_path}: {exc}") from exc
+        raise ValueError(
+            f"invalid fixed D4 exact solve config {config_path}: {exc}"
+        ) from exc
     required = {
         "schema",
         "tier",
@@ -348,8 +756,7 @@ def solve_fixed_d4_exact(
     }
     if not isinstance(config, Mapping) or set(config) != required:
         raise ValueError(
-            "fixed D4 exact solve config fields mismatch: "
-            f"expected={sorted(required)}"
+            f"fixed D4 exact solve config fields mismatch: expected={sorted(required)}"
         )
     if config.get("schema") != "banana-smasher-fixed-d4-exact-solve-v1":
         raise ValueError(
@@ -467,9 +874,10 @@ def verify_fixed_d4_model(
         layer = receipt.get("layer")
         if not isinstance(layer, int) or isinstance(layer, bool):
             raise ValueError(f"fixed D4 model has invalid layer receipt {path}")
-        if receipt.get("tier") not in _TIER_SPECS or receipt.get(
-            "basis_sha256"
-        ) != basis_sha256:
+        if (
+            receipt.get("tier") not in _TIER_SPECS
+            or receipt.get("basis_sha256") != basis_sha256
+        ):
             raise ValueError(f"fixed D4 model basis mismatch in {path}")
         receipt_layers.add(layer)
     if receipt_layers != set(layers):
@@ -518,7 +926,9 @@ def produce_fixed_d4_logits(
         config_payload = producer_config.read_bytes()
         config = json.loads(config_payload)
     except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"invalid fixed D4 producer config {producer_config}: {exc}") from exc
+        raise ValueError(
+            f"invalid fixed D4 producer config {producer_config}: {exc}"
+        ) from exc
     if (
         not isinstance(config, Mapping)
         or config.get("schema") != "banana-smasher-candidate-producer-v1"
@@ -534,13 +944,19 @@ def produce_fixed_d4_logits(
         "batch_size",
         "engine",
     }:
-        raise ValueError("fixed D4 producer parameters require input_field, batch_size, and engine")
+        raise ValueError(
+            "fixed D4 producer parameters require input_field, batch_size, and engine"
+        )
     input_field = parameters.get("input_field")
     batch_size = parameters.get("batch_size")
     engine = parameters.get("engine")
     if not isinstance(input_field, str) or not input_field:
         raise ValueError("fixed D4 producer input_field must be a non-empty string")
-    if isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size < 1:
+    if (
+        isinstance(batch_size, bool)
+        or not isinstance(batch_size, int)
+        or batch_size < 1
+    ):
         raise ValueError("fixed D4 producer batch_size must be positive")
     if not isinstance(engine, Mapping) or any(
         not isinstance(key, str) or not key for key in engine
@@ -559,7 +975,9 @@ def produce_fixed_d4_logits(
         try:
             row = json.loads(line)
         except json.JSONDecodeError as exc:
-            raise ValueError(f"invalid bank JSON at {bank_path}:{line_number}: {exc}") from exc
+            raise ValueError(
+                f"invalid bank JSON at {bank_path}:{line_number}: {exc}"
+            ) from exc
         tokens = row.get(input_field) if isinstance(row, Mapping) else None
         if (
             not isinstance(row, dict)
@@ -596,10 +1014,7 @@ def produce_fixed_d4_logits(
     vocab_size: int | None = None
     for start in range(0, len(rows), batch_size):
         batch = rows[start : start + batch_size]
-        requests = [
-            {"prompt_token_ids": row[input_field]}
-            for row in batch
-        ]
+        requests = [{"prompt_token_ids": row[input_field]} for row in batch]
         outputs = llm.generate(requests, sampling, use_tqdm=False)
         if len(outputs) != len(batch):
             raise ValueError("fixed D4 producer returned the wrong request count")
@@ -680,7 +1095,9 @@ def materialize_fixed_d4(
         raise ValueError("fixed D4 materialization layer must be non-negative")
     projections = manifest.get("projections")
     if not isinstance(projections, Mapping) or set(projections) != set(_PROJECTIONS):
-        raise ValueError("fixed D4 materialization requires down and fused13 projections")
+        raise ValueError(
+            "fixed D4 materialization requires down and fused13 projections"
+        )
 
     output_root = Path(output_root).expanduser().resolve()
     layer_root = output_root / f"layer_{layer:03d}"
@@ -711,7 +1128,9 @@ def materialize_fixed_d4(
             label=f"projections.{projection}.codebook",
         )
         if scales.dtype != np.uint8 or scales.ndim < 2 or scales.shape[0] != 256:
-            raise ValueError(f"projections.{projection}.scales must be uint8 with 256 expert rows")
+            raise ValueError(
+                f"projections.{projection}.scales must be uint8 with 256 expert rows"
+            )
         if codebook.shape != (k, 4) or codebook.dtype.kind != "f":
             raise ValueError(
                 f"projections.{projection}.codebook must be floating [{k}, 4]"
