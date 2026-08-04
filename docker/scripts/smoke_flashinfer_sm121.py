@@ -71,10 +71,20 @@ def main() -> None:
     if tuple(head512.shape) != (1, 1, 512) or not torch.isfinite(head512).all().item():
         raise RuntimeError(f"invalid FA2 head512 output: shape={tuple(head512.shape)}")
 
-    num_tokens, num_heads, topk = 1, 8, 128
-    page_block_size, bytes_per_token = 64, 584
-    kv_cache = torch.zeros(
-        (2, page_block_size, 1, bytes_per_token),
+    num_tokens, num_heads = 1, 8
+    swa_topk, extra_topk = 128, 2048
+    page_block_size, extra_page_block_size, bytes_per_token = 64, 2, 584
+    num_swa_blocks = 2
+    num_extra_blocks = extra_topk // extra_page_block_size
+    assert num_swa_blocks * page_block_size >= swa_topk
+    assert num_extra_blocks * extra_page_block_size >= extra_topk
+    swa_kv_cache = torch.zeros(
+        (num_swa_blocks, page_block_size, 1, bytes_per_token),
+        dtype=torch.uint8,
+        device=device,
+    )
+    compressed_kv_cache = torch.zeros(
+        (num_extra_blocks, extra_page_block_size, 1, bytes_per_token),
         dtype=torch.uint8,
         device=device,
     )
@@ -83,18 +93,34 @@ def main() -> None:
         dtype=torch.bfloat16,
         device=device,
     )
-    sparse_indices = torch.arange(topk, dtype=torch.int32, device=device).reshape(1, topk)
+    sparse_indices = torch.arange(
+        swa_topk, dtype=torch.int32, device=device
+    ).reshape(num_tokens, swa_topk)
+    extra_sparse_indices = torch.arange(
+        extra_topk, dtype=torch.int32, device=device
+    ).reshape(num_tokens, extra_topk)
+    swa_topk_lens = torch.full(
+        (num_tokens,), swa_topk, dtype=torch.int32, device=device
+    )
+    extra_sparse_topk_lens = torch.full(
+        (num_tokens,), extra_topk, dtype=torch.int32, device=device
+    )
+    sparse_out = torch.empty_like(sparse_query)
+    sinks = torch.zeros((num_heads,), dtype=torch.float32, device=device)
     sparse = flashinfer.decode.trtllm_batch_decode_sparse_mla_dsv4(
         query=sparse_query,
-        swa_kv_cache=kv_cache,
+        swa_kv_cache=swa_kv_cache,
         workspace_buffer=torch.zeros(
             128 * 1024 * 1024, dtype=torch.uint8, device=device
         ),
         sparse_indices=sparse_indices,
-        swa_topk_lens=torch.full(
-            (num_tokens,), topk, dtype=torch.int32, device=device
-        ),
+        compressed_kv_cache=compressed_kv_cache,
+        out=sparse_out,
+        swa_topk_lens=swa_topk_lens,
+        extra_sparse_indices=extra_sparse_indices,
+        extra_sparse_topk_lens=extra_sparse_topk_lens,
         bmm1_scale=512**-0.5,
+        sinks=sinks,
         kv_layout="NHD",
     )
     _synchronize("sparse_mla_sm120")

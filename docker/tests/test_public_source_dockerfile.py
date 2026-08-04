@@ -265,6 +265,13 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     assert "flashinfer.decode.trtllm_batch_decode_sparse_mla_dsv4" in smoke
     assert "128 * 1024 * 1024" in smoke
     assert "(num_tokens, num_heads, 512)" in smoke
+    assert "swa_topk, extra_topk = 128, 2048" in smoke
+    assert "num_swa_blocks * page_block_size >= swa_topk" in smoke
+    assert "compressed_kv_cache=compressed_kv_cache" in smoke
+    assert "extra_sparse_indices=extra_sparse_indices" in smoke
+    assert "extra_sparse_topk_lens=extra_sparse_topk_lens" in smoke
+    assert "out=sparse_out" in smoke
+    assert "sinks=sinks" in smoke
     assert "torch.cuda.synchronize()" in smoke
     assert defaults["environment"]["FLASHINFER_DISABLE_JIT"] == "1"
     assert defaults["environment"]["VLLM_HAS_FLASHINFER_CUBIN"] == "1"
