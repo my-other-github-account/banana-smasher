@@ -1,6 +1,7 @@
 """Public bs-pack, teacher-bank, and paired-evaluation APIs."""
 
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Any
 
 from .contract import (
@@ -66,6 +67,7 @@ def solve_qtip_profiles(
     layer: int,
     *,
     batch_size: int = 1,
+    config_paths: Sequence[str | Path] | None = None,
     limit: int | None = None,
     tier: str | None = None,
     all_cells: bool = False,
@@ -86,6 +88,9 @@ def solve_qtip_profiles(
         Path(root),
         int(layer),
         batch_size=batch_size,
+        config_paths=(
+            [Path(path) for path in config_paths] if config_paths is not None else None
+        ),
         limit=limit,
         tier=tier,
         all_cells=all_cells,

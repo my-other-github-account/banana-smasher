@@ -135,6 +135,12 @@ def _parser() -> argparse.ArgumentParser:
         help="receipt-bound QTIP kernel cache produced by smash kernels build",
     )
     solve.add_argument(
+        "--qtip-profile-configs",
+        type=Path,
+        nargs="+",
+        help="explicit materialized QTIP configs for one accelerated exact batch",
+    )
+    solve.add_argument(
         "--qtip-batch-size",
         type=int,
         default=1,
@@ -738,6 +744,44 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "command": "validate",
             }
         elif args.command == "solve":
+            if args.qtip_profile_configs is not None:
+                if args.root is None or args.layers is None:
+                    raise ValueError("--qtip-profile-configs requires --root and --layers")
+                if args.qtip_batch_size < 2:
+                    raise ValueError(
+                        "--qtip-profile-configs requires --qtip-batch-size greater than one"
+                    )
+                if args.kernel_cache_root is None:
+                    raise ValueError(
+                        "--qtip-profile-configs requires --kernel-cache-root from smash kernels build"
+                    )
+                if (
+                    args.qtip_profile_config is not None
+                    or args.output is not None
+                    or args.tier is not None
+                    or args.bpw is not None
+                    or args.all_cells
+                    or args.reference_search
+                ):
+                    raise ValueError(
+                        "--qtip-profile-configs refuses single-config/tier/all-cells/output options"
+                    )
+                selected_layers = _parse_layers(args.layers)
+                if len(selected_layers) != 1:
+                    raise ValueError("--qtip-profile-configs requires exactly one layer")
+                from . import solve_qtip_profiles
+
+                result = solve_qtip_profiles(
+                    args.source_root,
+                    args.root,
+                    selected_layers[0],
+                    config_paths=args.qtip_profile_configs,
+                    batch_size=args.qtip_batch_size,
+                    profile_mode=False,
+                    kernel_cache_root=args.kernel_cache_root,
+                )
+                _emit(result)
+                return 0
             if args.qtip_profile_config is not None:
                 if args.root is None or args.layers is None:
                     raise ValueError("--qtip-profile-config requires --root and --layers")

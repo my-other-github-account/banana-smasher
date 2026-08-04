@@ -21,6 +21,7 @@ import types
 from types import MappingProxyType
 from typing import Any, Mapping
 import weakref
+from collections.abc import Sequence
 
 import torch
 from safetensors import safe_open
@@ -2004,6 +2005,7 @@ def main_many(
     resume_flag_explicit: bool = False,
     kernel_cache_root: Path | None = None,
     batch_size: int = 1,
+    config_paths: Sequence[Path] | None = None,
 ) -> dict[str, Any]:
     """Solve an ordered config directory in one resident public process."""
     batch_started = time.perf_counter()
@@ -2018,12 +2020,27 @@ def main_many(
         raise ValueError("--all-cells refuses a QTIP unit limit")
     if not resume:
         raise ValueError("resident QTIP solve requires hash-validating resume")
-    paths = _ordered_qtip_configs(
+    discovered_paths = _ordered_qtip_configs(
         config_root,
         layer,
         tier=tier,
         all_cells=all_cells,
     )
+    if config_paths is None:
+        paths = discovered_paths
+    else:
+        if all_cells:
+            raise ValueError("explicit QTIP config paths refuse --all-cells")
+        paths = [Path(path).resolve() for path in config_paths]
+        if not paths or len(set(paths)) != len(paths):
+            raise ValueError("explicit QTIP config paths must be non-empty and unique")
+        discoverable = {path.resolve() for path in discovered_paths}
+        unknown = [path for path in paths if path not in discoverable]
+        if unknown:
+            raise ValueError(
+                "explicit QTIP configs are not discoverable under the materialized root: "
+                + ", ".join(str(path) for path in unknown)
+            )
     if limit is not None:
         paths = paths[:limit]
     ordered_assignments = []
