@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libcusparse-dev-13-0=12.6.3.3-1 \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir \
-      build==1.3.0 ninja==1.13.0 pytest==8.4.2 setuptools==80.10.2 wheel==0.46.3
+      build==1.3.0 ninja==1.13.0 pytest==8.4.2 scipy==1.16.1 \
+      setuptools==80.10.2 wheel==0.46.3
 COPY banana-smasher /src/banana-smasher
 COPY banana-smasher-plugin /src/banana-smasher-plugin
 COPY docker /src/docker
