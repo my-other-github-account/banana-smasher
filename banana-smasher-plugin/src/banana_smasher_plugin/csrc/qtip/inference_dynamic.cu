@@ -40,10 +40,12 @@ __device__ __forceinline__ void record_physical_dispatch(
     const int32_t* __restrict__ family_block_count,
     const int32_t* __restrict__ block_valid_m,
     int64_t* __restrict__ physical_counters,
-    int family) {
+    int family,
+    int specialized_counter_index) {
     if (blockIdx.x != 0 || blockIdx.y != 0 || blockIdx.z != 0 ||
         threadIdx.x != 0) return;
     const int blocks = family_block_count[0];
+    if (blocks <= 0) return;
     int64_t rows = 0;
     for (int block = 0; block < blocks; ++block) {
         rows += block_valid_m[block];
@@ -51,6 +53,7 @@ __device__ __forceinline__ void record_physical_dispatch(
     ++physical_counters[10 + family];
     physical_counters[14 + family] += blocks;
     physical_counters[18 + family] += rows;
+    ++physical_counters[specialized_counter_index];
 }
 
 __inline__ __device__ uint32_t ld_cs(const uint32_t* p)
@@ -182,10 +185,11 @@ __device__ inline void load_reg_cs(const uint16_t *__restrict__ compressed, int 
 
 }
 
-template <uint32_t L, uint32_t S, uint32_t R, uint32_t V, uint32_t M, uint32_t N, uint32_t K>
+template <uint32_t L, uint32_t S, uint32_t R, uint32_t V, uint32_t M,
+          uint32_t N, uint32_t K, int Variant>
 __global__ static void
 __launch_bounds__(BLOCK_SIZE, 1)
-kernel_decompress_matvec_dynamic(
+qtip_trellis_tlut_kernel(
     float *__restrict__ out,
     const int64_t *__restrict__ sources,
     const half2 *__restrict__ x,
@@ -196,10 +200,12 @@ kernel_decompress_matvec_dynamic(
     const int32_t *__restrict__ block_route_rows,
     int64_t *__restrict__ physical_counters,
     int family,
+    int specialized_counter_index,
     int route_stride
 ) {
     record_physical_dispatch(family_block_count, block_valid_m,
-                             physical_counters, family);
+                             physical_counters, family,
+                             specialized_counter_index);
         // ** load codebook **
     extern __shared__ __align__(1<<(5+V+1)) half2 smem_codebook[];
 
@@ -465,8 +471,9 @@ kernel_decompress_matvec_dynamic(
 // S: codebook index bit-width
 // R: bits per weight
 // V: log2(VQ dimension)
-template <uint32_t L, uint32_t S, uint32_t R, uint32_t V, uint32_t M, uint32_t N, uint32_t K>
-__host__ static void decompress_matvec_dynamic_ptr(
+template <uint32_t L, uint32_t S, uint32_t R, uint32_t V, uint32_t M,
+          uint32_t N, uint32_t K, int Variant>
+__host__ static void decompress_matvec_specialized_ptr(
     float *__restrict__ out,
     const int64_t *__restrict__ sources,
     const half2 *__restrict__ x,
@@ -477,6 +484,7 @@ __host__ static void decompress_matvec_dynamic_ptr(
     const int32_t *__restrict__ block_route_rows,
     int64_t *__restrict__ physical_counters,
     int family,
+    int specialized_counter_index,
     int max_blocks,
     int route_stride,
     CUstream_st *stream
@@ -492,15 +500,16 @@ __host__ static void decompress_matvec_dynamic_ptr(
     static_assert(K % MMA_K == 0);
     constexpr uint32_t smemCodebookSize = 1<<(S+5+V+1);
     C10_CUDA_CHECK(cudaFuncSetAttribute(
-        kernel_decompress_matvec_dynamic<L, S, R, V, M, N, K>,
+        qtip_trellis_tlut_kernel<L, S, R, V, M, N, K, Variant>,
         cudaFuncAttributeMaxDynamicSharedMemorySize,
         smemCodebookSize));
     const dim3 grid(BLOCK_COUNT, static_cast<unsigned>(max_blocks),
                     static_cast<unsigned>(route_stride));
-    kernel_decompress_matvec_dynamic<L, S, R, V, M, N, K>
+    qtip_trellis_tlut_kernel<L, S, R, V, M, N, K, Variant>
         <<<grid, BLOCK_SIZE, smemCodebookSize, stream>>>(
             out, sources, x, codebook, family_block_count, block_experts,
             block_valid_m, block_route_rows, physical_counters, family,
+            specialized_counter_index,
             route_stride);
     C10_CUDA_KERNEL_LAUNCH_CHECK();
 }

@@ -41,10 +41,9 @@ def allocate_compaction_state(
         ),
         "expert_route_counts": torch.empty(experts, dtype=torch.int32, device=device),
         "expert_last_block": torch.empty(experts, dtype=torch.int32, device=device),
-        # [0:4] descriptor blocks, [4:8] routed rows, [8] block size,
-        # [10:14] physical launches, [14:18] physical descriptor blocks,
-        # [18:22] physical rows, [22] compactions; [9, 23] are reserved.
-        "physical_counters": torch.zeros(24, dtype=torch.int64, device=device),
+        # [0:24] aggregate compaction/family receipts, [24:27] forbidden routes,
+        # [32:128] exhaustive tier x projection x shape physical counters.
+        "physical_counters": torch.zeros(128, dtype=torch.int64, device=device),
     }
 
 
@@ -120,7 +119,17 @@ def build_device_resident_planes(
         "output_width": torch.tensor(output_width, dtype=torch.int32, device=device),
         "compaction": {},
     }
-    for rows, block_rows in ((6, 1), (12, 2), (24, 4), (48, 4), (96, 4)):
+    for rows, block_rows in (
+        (6, 1),
+        (12, 2),
+        (24, 4),
+        (48, 4),
+        (96, 4),
+        (192, 16),
+        (384, 16),
+        (12288, 16),
+        (49152, 16),
+    ):
         resident["compaction"][(rows, block_rows)] = allocate_compaction_state(
             rows=rows,
             experts=len(states),
@@ -139,15 +148,25 @@ def mixed_exact_native_gemv(
     pointer_tables: dict[str, torch.Tensor],
     qtip_codebook: torch.Tensor,
     vq_state: dict[str, Any],
+    *,
+    projection: str,
 ) -> torch.Tensor:
     """Compact on-device and launch each physical packed family independently."""
-    from .dispatch_policy import shape_policy
-    from .native_extensions import dynamic_qtip_gemv, native_mxfp4_gemv, vq_gemm
+    from .native_extensions import (
+        specialized_d4_gemm,
+        specialized_mxfp4_gemm,
+        specialized_qtip_gemv,
+    )
+    from .specialized_variants import specialization_for
 
     rows, width = x.shape
-    policy = shape_policy(rows)
-    policy_mblock = int(policy["mblock"])
-    block_rows = policy_mblock if policy_mblock == 16 else int(policy["valid_m"])
+    if rows % 6:
+        raise ValueError(f"route rows must be divisible by top_k=6, got {rows}")
+    tokens = rows // 6
+    qtip2_row = specialization_for("qtip2_2.0117", projection, tokens)
+    qtip3_row = specialization_for("qtip3_3.0117", projection, tokens)
+    native_row = specialization_for("native_mxfp4", projection, tokens)
+    block_rows = int(qtip2_row["tile_m"])
     key = (rows, block_rows)
     compaction = vq_state["compaction"]
     if key not in compaction:
@@ -175,7 +194,7 @@ def mixed_exact_native_gemv(
         physical_counters,
         block_rows,
     )
-    dynamic_qtip_gemv(
+    specialized_qtip_gemv(
         x,
         pointer_tables,
         qtip_codebook,
@@ -183,8 +202,9 @@ def mixed_exact_native_gemv(
         compact,
         compact["physical_counters"],
         family=0,
+        specialization=qtip2_row,
     )
-    dynamic_qtip_gemv(
+    specialized_qtip_gemv(
         x,
         pointer_tables,
         qtip_codebook,
@@ -192,8 +212,9 @@ def mixed_exact_native_gemv(
         compact,
         compact["physical_counters"],
         family=1,
+        specialization=qtip3_row,
     )
-    vq_gemm(
+    specialized_d4_gemm(
         x.to(torch.bfloat16),
         out,
         compact,
@@ -202,14 +223,17 @@ def mixed_exact_native_gemv(
         n=out.shape[1],
         k=width,
         family=2,
+        projection=projection,
+        tokens=tokens,
     )
-    native_mxfp4_gemv(
+    specialized_mxfp4_gemm(
         x,
         pointer_tables,
         out,
         compact,
         compact["physical_counters"],
         family=3,
+        specialization=native_row,
     )
     return torch.ops.banana_smasher_v4.finalize_output(out, compact["result"])
 

@@ -549,8 +549,8 @@ def test_qtip_transform_and_lut_are_owned_by_the_native_dispatch_boundary(
 
     observed_inputs: list[torch.Tensor] = []
 
-    def mixed_exact_gemv(kernel_input, *args):
-        del args
+    def mixed_exact_gemv(kernel_input, *args, **kwargs):
+        del args, kwargs
         observed_inputs.append(kernel_input.clone())
         return kernel_input
 
@@ -573,8 +573,6 @@ def test_qtip_transform_and_lut_are_owned_by_the_native_dispatch_boundary(
             "sv": torch.tensor([[3.0] * 4, [9.0] * 4]),
             "wscale": torch.tensor([0.5, 9.0]),
         },
-        torch.zeros(1, dtype=torch.int64),
-        torch.zeros(1, dtype=torch.int64),
         lut,
         torch.zeros(1024, dtype=torch.float16),
         {},

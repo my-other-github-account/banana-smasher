@@ -327,8 +327,6 @@ class ProjectionState:
     slots: torch.Tensor
     payloads: dict[str, dict[str, torch.Tensor]]
     pointer_tables: dict[str, torch.Tensor]
-    offsets2: torch.Tensor
-    offsets3: torch.Tensor
     lut: torch.Tensor
     qtip_codebook: torch.Tensor | None = None
     vq_state: dict[str, torch.Tensor] | None = None
@@ -471,7 +469,6 @@ def _load_accelerated_dispatch() -> Dispatch:
         raise _fail(f"mixed-QTIP native activation is blocked: {blocked}")
 
     def run(*, projection: str, x: torch.Tensor, expert_ids: torch.Tensor, state: ProjectionState) -> torch.Tensor:
-        del projection
         if state.qtip_codebook is None or state.vq_state is None:
             raise _fail("resident QTIP/VQ state is unavailable")
         return dispatch(
@@ -481,6 +478,7 @@ def _load_accelerated_dispatch() -> Dispatch:
             state.pointer_tables,
             state.qtip_codebook,
             state.vq_state,
+            projection=projection,
         )
 
     return run
@@ -665,13 +663,6 @@ class NativePlaneLayer:
         pointer_tables["wscale"] = torch.stack(
             [state.get("Wscale", input_ones.new_ones(())).float().reshape(()) for state in states]
         ).contiguous()
-        try:
-            kernels = importlib.import_module("banana_smasher_plugin.p1016_kernels")
-            offsets2 = kernels.qtip_offset_map(2).to(self.device)
-            offsets3 = kernels.qtip_offset_map(3).to(self.device)
-        except Exception:
-            offsets2 = torch.zeros(256, dtype=torch.int64, device=self.device)
-            offsets3 = torch.zeros(384, dtype=torch.int64, device=self.device)
         lut = _expanded_qtip_lut(self.device)
         tlut_array = np.load(Path(__file__).with_name("qtip_tlut.npy"), allow_pickle=False)
         qtip_codebook = (
@@ -698,8 +689,6 @@ class NativePlaneLayer:
             slots,
             payloads,
             pointer_tables,
-            offsets2,
-            offsets3,
             lut,
             qtip_codebook,
             vq_state,

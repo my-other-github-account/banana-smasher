@@ -23,12 +23,12 @@ def _load_policy():
 def test_shape_policy_covers_decision_rows_and_prefill() -> None:
     policy = _load_policy()
     expected = {
-        6: ("vq_scalar_m1", 1, 1),
-        12: ("vq_scalar_m2", 2, 1),
-        24: ("vq_vector_m4", 4, 1),
-        48: ("vq_vector_m4_x2", 4, 2),
-        96: ("vq_vector_m4_x4", 4, 4),
-        192: ("mixed_packed_mblock16", 16, 2),
+        6: ("decode_c1", 1, 1),
+        12: ("decode_c2", 2, 1),
+        24: ("decode_c4", 4, 1),
+        48: ("decode_c8", 4, 2),
+        96: ("decode_c16", 4, 4),
+        192: ("prefill_bm16", 16, 2),
     }
     for rows, wanted in expected.items():
         decision = policy.shape_policy(rows)
@@ -61,10 +61,10 @@ def test_shape_policy_fails_closed_on_unreachable_route_shapes() -> None:
 @pytest.mark.parametrize(
     ("tokens", "kernel", "chunks"),
     (
-        (5, "vq_vector_m4_x2", 2),
-        (7, "vq_vector_m4_x2", 2),
-        (9, "vq_vector_m4_x4", 3),
-        (31, "vq_vector_m4_x4", 8),
+        (5, "decode_c8", 2),
+        (7, "decode_c8", 2),
+        (9, "decode_c16", 3),
+        (31, "prefill_bm16", 2),
     ),
 )
 def test_intermediate_scheduler_shapes_use_four_token_graph_chunks(
@@ -72,7 +72,7 @@ def test_intermediate_scheduler_shapes_use_four_token_graph_chunks(
 ) -> None:
     decision = _load_policy().shape_policy(tokens * 6)
     assert decision["kernel"] == kernel
-    assert decision["chunk_tokens"] == 4
+    assert decision["chunk_tokens"] == (16 if tokens == 31 else 4)
     assert decision["chunks"] == chunks
 
 
@@ -82,12 +82,14 @@ def test_shape_policy_has_no_environment_driven_product_switches() -> None:
     assert "os.getenv" not in source
     assert "fallback" not in source
     assert policy_labels(source) == {
-        "vq_scalar_m1",
-        "vq_scalar_m2",
-        "vq_vector_m4",
-        "vq_vector_m4_x2",
-        "vq_vector_m4_x4",
-        "mixed_packed_mblock16",
+        "decode_c1",
+        "decode_c2",
+        "decode_c4",
+        "decode_c8",
+        "decode_c16",
+        "prefill_bm16",
+        "prefill_large",
+        "prefill_exact_2k",
     }
 
 
@@ -95,12 +97,14 @@ def policy_labels(source: str) -> set[str]:
     return {
         label
         for label in (
-            "vq_scalar_m1",
-            "vq_scalar_m2",
-            "vq_vector_m4",
-            "vq_vector_m4_x2",
-            "vq_vector_m4_x4",
-            "mixed_packed_mblock16",
+            "decode_c1",
+            "decode_c2",
+            "decode_c4",
+            "decode_c8",
+            "decode_c16",
+            "prefill_bm16",
+            "prefill_large",
+            "prefill_exact_2k",
         )
         if label in source
     }
