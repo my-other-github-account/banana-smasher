@@ -73,6 +73,47 @@ def _codebook_geometry(cb: Any) -> dict[str, Any]:
     }
 
 
+def _decode_packed_candidate(
+    runner: Any,
+    candidate: dict[str, Any],
+    cb: Any,
+    kernel_decode: Any,
+    device: torch.device,
+) -> tuple[torch.Tensor, dict[str, Any]]:
+    """Use the codebook-bound K2 decoder instead of an inherited K3 validator."""
+    geometry = candidate["geometry"]
+    if int(geometry["K"]) != 2:
+        return runner.decode_packed(candidate, kernel_decode, device)
+    m, k = (int(candidate["shape"][0]), int(candidate["shape"][1]))
+    raw = kernel_decode.decode_compressed(
+        int(geometry["L"]),
+        int(geometry["tlut_bits"]),
+        int(geometry["K"]),
+        1,
+        m,
+        k,
+        candidate["trellis"].to(device).reshape(-1),
+        cb.lut.T.contiguous(),
+    )
+    decoded = raw * candidate["Wscale"].to(device)
+    decoded = runner.fwht(decoded.T).T * candidate["SV"].float().to(device)[:, None]
+    decoded = runner.fwht(decoded) * candidate["SU"].float().to(device)
+    stored = candidate["reconstructed_weight"]
+    decoded_fp16 = decoded.half().cpu()
+    equal = decoded_fp16.view(torch.int16).eq(stored.view(torch.int16))
+    return decoded, {
+        "path": "geometry-bound K2 tensor decompressor",
+        "shape": [m, k],
+        "geometry": geometry,
+        "geometry_bound_k": 2,
+        "fp16_bit_equal_fraction": float(equal.float().mean()),
+        "fp16_bit_exact": bool(equal.all()),
+        "max_abs_fp32_vs_stored_fp16": float(
+            (decoded - stored.to(device).float()).abs().max()
+        ),
+    }
+
+
 def build_qtip_bounded(
     runner: Any,
     source_weight: torch.Tensor,
@@ -205,7 +246,9 @@ def build_qtip_bounded(
         "geometry": geometry,
     }
     packed_decode_started = time.perf_counter()
-    decoded, packed_decode = runner.decode_packed(candidate, kernel_decode, device)
+    decoded, packed_decode = _decode_packed_candidate(
+        runner, candidate, cb, kernel_decode, device
+    )
     if packed_decode.get("fp16_bit_exact") is not True:
         raise RuntimeError(f"packed decode conformance failed {m}x{k}: {packed_decode}")
     decoded_fp16 = decoded.to(device="cpu", dtype=torch.float16)
