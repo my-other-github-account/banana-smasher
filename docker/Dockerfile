@@ -7,6 +7,9 @@ USER root
 ARG VLLM_UPSTREAM_REV
 RUN test "${VLLM_UPSTREAM_REV}" = "ee0da84a"
 RUN apt-get update && apt-get install -y --no-install-recommends \
+      cuda-nvrtc-dev-13-0=13.0.88-1 \
+      libcublas-dev-13-0=13.1.1.3-1 \
+      libcusolver-dev-13-0=12.0.4.66-1 \
       libcusparse-dev-13-0=12.6.3.3-1 \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir \
@@ -18,7 +21,7 @@ RUN python3 -m build --wheel --outdir /wheels /src/banana-smasher \
     && test -x /usr/local/cuda/bin/nvcc \
     && cd /src/banana-smasher-plugin \
     && rm -rf build dist src/*.egg-info src/banana_smasher_plugin/*.so \
-    && TORCH_CUDA_ARCH_LIST="12.0;12.1+PTX" \
+    && CUDA_HOME=/usr/local/cuda TORCH_CUDA_ARCH_LIST="12.0;12.1+PTX" \
       python3 -m build --wheel --no-isolation --outdir /wheels . \
     && python3 -m zipfile -t /wheels/banana_smasher-1.0.0-py3-none-any.whl \
     && python3 -m zipfile -t /wheels/banana_smasher_plugin-0.2.0-*.whl \

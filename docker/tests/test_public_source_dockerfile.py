@@ -21,8 +21,22 @@ def test_public_source_dockerfile_contract() -> None:
     assert "COPY banana-smasher-plugin /src/banana-smasher-plugin" in text
     assert "COPY docker /src/docker" in text
     assert "python3 -m build --wheel" in text
-    assert "libcusparse-dev-13-0=12.6.3.3-1" in text
-    assert text.index("libcusparse-dev-13-0=12.6.3.3-1") < text.index("python3 -m build --wheel")
+    package_builder = text.split("FROM ${VLLM_IMAGE} AS flashinfer-builder", 1)[0]
+    cuda_devel_packages = (
+        "cuda-nvrtc-dev-13-0=13.0.88-1",
+        "libcublas-dev-13-0=13.1.1.3-1",
+        "libcusolver-dev-13-0=12.0.4.66-1",
+        "libcusparse-dev-13-0=12.6.3.3-1",
+    )
+    for package in cuda_devel_packages:
+        assert package in package_builder
+        assert package_builder.index(package) < package_builder.index(
+            "python3 -m build --wheel"
+        )
+    assert (
+        'CUDA_HOME=/usr/local/cuda TORCH_CUDA_ARCH_LIST="12.0;12.1+PTX"'
+        in package_builder
+    )
     assert "python3 -m pytest -q" in text
     assert "/src/banana-smasher/tests" in text
     assert "/src/banana-smasher-plugin/tests" in text
