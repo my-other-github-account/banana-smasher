@@ -281,6 +281,19 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     assert defaults["environment"]["VLLM_HAS_FLASHINFER_CUBIN"] == "1"
 
 
+def test_flashinfer_sm121_smoke_matches_vllm_autotuner_boot_import() -> None:
+    smoke = (ROOT / "docker/scripts/smoke_flashinfer_sm121.py").read_text()
+
+    assert "from flashinfer.autotuner import AutoTuner" in smoke
+    assert "callable(AutoTuner)" in smoke
+
+
+def test_flashinfer_sm121_smoke_matches_vllm_c4_decode_index_rank() -> None:
+    smoke = (ROOT / "docker/scripts/smoke_flashinfer_sm121.py").read_text()
+
+    assert ".reshape(num_tokens, 1, extra_topk)" in smoke
+
+
 def test_native_plugin_build_has_pinned_cuda_development_toolchain() -> None:
     text = DOCKERFILE.read_text()
     package_builder = text.index("FROM ${VLLM_IMAGE} AS package-builder")

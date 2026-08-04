@@ -8,6 +8,7 @@ import os
 import torch
 
 import flashinfer
+from flashinfer.autotuner import AutoTuner  # type: ignore[import-not-found]
 from flashinfer.autotuner import autotune as flashinfer_autotune  # type: ignore[import-not-found]
 from flashinfer.decode import (  # type: ignore[import-not-found]
     trtllm_batch_decode_sparse_mla_dsv4,
@@ -39,6 +40,8 @@ def main() -> None:
         raise RuntimeError("CUDA is unavailable")
     if not callable(flashinfer_autotune):
         raise RuntimeError("FlashInfer autotune import gate is unavailable")
+    if not callable(AutoTuner):
+        raise RuntimeError("FlashInfer AutoTuner boot import is unavailable")
     if not callable(trtllm_batch_decode_sparse_mla_dsv4):
         raise RuntimeError("FlashInfer DSv4 sparse MLA import gate is unavailable")
     if not callable(trtllm_batch_decode_with_kv_cache_mla):
@@ -109,7 +112,7 @@ def main() -> None:
     ).reshape(num_tokens, swa_topk)
     extra_sparse_indices = torch.arange(
         extra_topk, dtype=torch.int32, device=device
-    ).reshape(num_tokens, extra_topk)
+    ).reshape(num_tokens, 1, extra_topk)
     swa_topk_lens = torch.full(
         (num_tokens,), swa_topk, dtype=torch.int32, device=device
     )
