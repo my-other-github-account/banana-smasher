@@ -65,8 +65,18 @@ def specialization_for(tier: str, projection: str, tokens: int) -> dict[str, Any
         ) from exc
 
 
+@functools.cache
 def required_warmup_tokens() -> tuple[int, ...]:
-    return (1, 2, 4, 8, 16, 32, 64, 2048, 8192)
+    document = json.loads(MATRIX_PATH.read_text())
+    geometries = document.get("warmup_geometries")
+    tokens = geometries.get("tokens") if isinstance(geometries, dict) else None
+    if (
+        not isinstance(tokens, list)
+        or not tokens
+        or any(not isinstance(token, int) or token <= 0 for token in tokens)
+    ):
+        raise RuntimeError("specialized kernel matrix warmup geometries are malformed")
+    return tuple(tokens)
 
 
 def physical_proof(counter_snapshots: list[Any]) -> dict[str, Any]:

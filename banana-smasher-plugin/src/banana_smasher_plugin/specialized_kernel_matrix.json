@@ -14,6 +14,12 @@
     "specialized_begin": 32,
     "specialized_end_exclusive": 128
   },
+  "warmup_geometries": {
+    "tokens": [1, 2, 4, 8, 16, 32, 64, 2048, 8192],
+    "route_rows": [6, 12, 24, 48, 96, 192, 384, 12288, 49152],
+    "large_prefill_tokens": [64, 8192],
+    "exact_2k_tokens": 2048
+  },
   "rows": [
     {
       "build_target": "banana_smasher_plugin._v4_moe",

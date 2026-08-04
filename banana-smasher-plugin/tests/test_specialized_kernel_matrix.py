@@ -73,6 +73,12 @@ def _load_variants() -> Any:
 def test_matrix_exhaustively_binds_every_admitted_tier_projection_and_shape() -> None:
     matrix = json.loads(MATRIX.read_text())
     assert matrix["schema"] == "banana-smasher-specialized-kernel-matrix-v1"
+    assert matrix["warmup_geometries"] == {
+        "tokens": [1, 2, 4, 8, 16, 32, 64, 2048, 8192],
+        "route_rows": [6, 12, 24, 48, 96, 192, 384, 12288, 49152],
+        "large_prefill_tokens": [64, 8192],
+        "exact_2k_tokens": 2048,
+    }
     rows = matrix["rows"]
     expected_keys = set(product(TIERS, PROJECTIONS, VARIANT_TOKENS))
     actual_keys = {(row["tier"], row["projection"], row["variant"]) for row in rows}
@@ -124,6 +130,17 @@ def test_matrix_exhaustively_binds_every_admitted_tier_projection_and_shape() ->
 
 def test_specialization_selector_is_exact_for_decode_bm16_large_and_2k() -> None:
     variants = _load_variants()
+    assert variants.required_warmup_tokens() == (
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        2048,
+        8192,
+    )
     for tier, projection, variant in product(TIERS, PROJECTIONS, VARIANT_TOKENS):
         row = variants.specialization_for(tier, projection, VARIANT_TOKENS[variant])
         assert row["variant"] == variant
