@@ -330,6 +330,8 @@ class ProjectionState:
     offsets2: torch.Tensor
     offsets3: torch.Tensor
     lut: torch.Tensor
+    qtip_codebook: torch.Tensor | None = None
+    vq_state: dict[str, torch.Tensor] | None = None
 
 
 Dispatch = Callable[..., torch.Tensor]
@@ -457,33 +459,29 @@ def _expanded_qtip_lut(device: torch.device) -> torch.Tensor:
 
 def _load_accelerated_dispatch() -> Dispatch:
     try:
-        kernels = importlib.import_module("banana_smasher_plugin.p1016_kernels")
-        dispatch = cast(Dispatch, getattr(kernels, "mixed_exact_gemv"))
+        acceleration = importlib.import_module("banana_smasher_plugin.v4_acceleration")
+        dispatch = cast(Dispatch, getattr(acceleration, "mixed_exact_native_gemv"))
+        sentinel = getattr(acceleration, "runtime_sentinel")()
     except Exception as exc:
         raise _fail(f"accelerated dispatch unavailable: {exc}") from exc
     if not callable(dispatch):
-        raise _fail("accelerated dispatch symbol mixed_exact_gemv is not callable")
+        raise _fail("accelerated dispatch symbol mixed_exact_native_gemv is not callable")
+    if not sentinel.get("activated", False):
+        blocked = ",".join(sentinel.get("blocked", ()))
+        raise _fail(f"mixed-QTIP native activation is blocked: {blocked}")
 
     def run(*, projection: str, x: torch.Tensor, expert_ids: torch.Tensor, state: ProjectionState) -> torch.Tensor:
         del projection
-        selected_family = state.families.index_select(0, expert_ids)
-        qtip_mask = selected_family.lt(2).reshape(-1, 1)
-        su = state.pointer_tables["su"].index_select(0, expert_ids)
-        transformed = _fwht(x.float() * su)
-        kernel_input = torch.where(qtip_mask, transformed, x.float())
-        raw = dispatch(
-            kernel_input,
+        if state.qtip_codebook is None or state.vq_state is None:
+            raise _fail("resident QTIP/VQ state is unavailable")
+        return dispatch(
+            x,
             expert_ids,
             state.families,
             state.pointer_tables,
-            state.offsets2,
-            state.offsets3,
-            state.lut,
+            state.qtip_codebook,
+            state.vq_state,
         )
-        qtip_result = _fwht(
-            raw * state.pointer_tables["wscale"].index_select(0, expert_ids).reshape(-1, 1)
-        ) * state.pointer_tables["sv"].index_select(0, expert_ids)
-        return torch.where(qtip_mask, qtip_result, raw).to(torch.bfloat16)
 
     return run
 
@@ -511,6 +509,11 @@ class NativePlaneLayer:
             for projection in ("fused13", "down")
         }
         self._custom_op_key = _register_native_plane_layer(self)
+        _LOGGER.warning(
+            "BANANA_SMASHER_V4_NATIVE_SOURCE_READY layer=%d device_residency=true "
+            "runtime_activation=false graph_boundary=true",
+            self.layer_index,
+        )
 
     def _tensor(self, spec: dict[str, Any]) -> torch.Tensor:
         relative = spec.get("file")
@@ -531,7 +534,7 @@ class NativePlaneLayer:
             )
         tensor = torch.from_numpy(array.copy() if self.device.type == "cpu" else array)
         if tensor.device != self.device:
-            tensor = tensor.to(self.device, non_blocking=False)
+            tensor = tensor.to(self.device)
         tensor = tensor.contiguous()
         _release_mmap_pages(path, array)
         del array
@@ -670,6 +673,22 @@ class NativePlaneLayer:
             offsets2 = torch.zeros(256, dtype=torch.int64, device=self.device)
             offsets3 = torch.zeros(384, dtype=torch.int64, device=self.device)
         lut = _expanded_qtip_lut(self.device)
+        tlut_array = np.load(Path(__file__).with_name("qtip_tlut.npy"), allow_pickle=False)
+        qtip_codebook = (
+            torch.from_numpy(tlut_array.copy())
+            .to(device=self.device, dtype=torch.float16)
+            .reshape(-1)
+            .contiguous()
+        )
+        acceleration = importlib.import_module("banana_smasher_plugin.v4_acceleration")
+        vq_state = acceleration.build_device_resident_planes(
+            states,
+            families,
+            [d4_bits_by_tier.get(tier, 0) for tier in tiers],
+            input_width=input_width,
+            output_width=output_width,
+            device=self.device,
+        )
         return ProjectionState(
             projection,
             input_width,
@@ -682,6 +701,8 @@ class NativePlaneLayer:
             offsets2,
             offsets3,
             lut,
+            qtip_codebook,
+            vq_state,
         )
 
     def state(self, projection: str) -> ProjectionState:
@@ -717,15 +738,12 @@ class NativePlaneLayer:
         torch.ops.aten._assert_async.msg(
             torch.all(expert_ids < expert_count), range_error
         )
-        active_routes = (expert_ids >= 0) & (expert_ids < expert_count)
-        safe_expert_ids = expert_ids.clamp(min=0, max=expert_count - 1)
         result = self._dispatch(
             projection=projection,
             x=x,
-            expert_ids=safe_expert_ids,
+            expert_ids=expert_ids,
             state=state,
         )
-        result = torch.where(active_routes.reshape(-1, 1), result, 0)
         if tuple(result.shape) != (x.shape[0], state.output_width):
             raise _fail(
                 f"layer {self.layer_index} {projection} accelerated output shape drift: "

@@ -78,14 +78,15 @@ def test_documented_product_path_and_examples_exist() -> None:
 def test_acceleration_manifest_is_exact_and_test_mapped() -> None:
     manifest = json.loads((ROOT / "runtime/ACCELERATION_MANIFEST.json").read_text())
     assert manifest["schema"] == "banana-smasher-acceleration-manifest-v1"
-    assert manifest["source_commit"] == "c00714c6803f7e2de7a95d103dbe172236b22adf"
+    assert manifest["source_commit"] is None
+    assert manifest["source_status"] == "WORKTREE_CANDIDATE_UNSEALED"
     entries = manifest["accelerations"]
     by_id = {entry["id"]: entry for entry in entries}
     required_ids = {
         "bs-pack-export-verify",
         "stock-vllm-general-plugin",
         "native-plane-p1016",
-        "p1016-cutedsl-tlut",
+        "p1016-diagnostic-triton-reference",
         "sm121-deepgemm-dense-e8m0",
         "sm121-deepgemm-sparse-indexer",
         "sm121-persistent-topk",
@@ -116,7 +117,7 @@ def test_runtime_pins_hooks_assets_and_exact_command() -> None:
         "b34f49255f1640542da91665f58558a3e5e308f1",
         "76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9",
         "0c5fda59bb6fa71eae875693a024bb0fb37ba7d6",
-        "a6b593d2826719dcf4892609af7b84ee23aaf32a",
+        "f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca",
         "flashinfer-real-libcudart.patch",
         "libcudart.so.13",
         "COPY banana-smasher/kernels/cubins-sm120",
@@ -146,7 +147,8 @@ def test_runtime_pins_hooks_assets_and_exact_command() -> None:
 
 def test_source_inventory_covers_and_hashes_every_retained_source_file() -> None:
     inventory = json.loads((ROOT / "provenance/SOURCE_INVENTORY.json").read_text())
-    assert inventory["source_commit"] == "c00714c6803f7e2de7a95d103dbe172236b22adf"
+    assert inventory["source_commit"] is None
+    assert inventory["source_status"] == "WORKTREE_CANDIDATE_UNSEALED"
     source_entries = inventory["files"]
     generated_entries = inventory.get("generated_files", [])
     entries = source_entries + generated_entries
