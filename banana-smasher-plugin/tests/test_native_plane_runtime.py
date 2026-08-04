@@ -57,6 +57,42 @@ def _write_packed_codes(
     return spec
 
 
+def test_specialized_physical_proof_reads_each_runtime_counter_tensor_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    matrix_path = Path(native_planes.__file__).with_name("specialized_kernel_matrix.json")
+    matrix = json.loads(matrix_path.read_text())
+    values = [0] * 128
+    for row in matrix["rows"]:
+        values[row["counter"]["index"]] = 1
+
+    class CounterSnapshot:
+        def data_ptr(self) -> int:
+            return 1234
+
+        def detach(self) -> "CounterSnapshot":
+            return self
+
+        def cpu(self) -> "CounterSnapshot":
+            return self
+
+        def tolist(self) -> list[int]:
+            return values
+
+    counter = CounterSnapshot()
+    state = SimpleNamespace(
+        vq_state={"physical_counter_tensors": {(6, 1): counter, (12, 2): counter}}
+    )
+    layer = SimpleNamespace(state=lambda projection: state)
+    monkeypatch.setattr(native_planes, "_NATIVE_PLANE_LAYER_REGISTRY", {1: layer})
+
+    proof = native_planes.specialized_physical_proof()
+
+    assert proof["status"] == "PASS"
+    assert proof["snapshot_count"] == 1
+    assert {row["count"] for row in proof["rows"]} == {1}
+
+
 def _tiny_pack(root: Path, *, layout: str = EXPECTED_LAYOUT_SHA256) -> Path:
     planes = root / "planes"
     planes.mkdir(parents=True)

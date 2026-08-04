@@ -19,6 +19,11 @@ VARIANT_IDS = {
     "prefill_large": 6,
     "prefill_exact_2k": 7,
 }
+FORBIDDEN_COUNTERS = {
+    "mixed_exact_gemv": 24,
+    "p1016_generic": 25,
+    "triton_fallback": 26,
+}
 
 
 @functools.cache
@@ -62,3 +67,49 @@ def specialization_for(tier: str, projection: str, tokens: int) -> dict[str, Any
 
 def required_warmup_tokens() -> tuple[int, ...]:
     return (1, 2, 4, 8, 16, 32, 64, 2048, 8192)
+
+
+def physical_proof(counter_snapshots: list[Any]) -> dict[str, Any]:
+    """Aggregate explicit runtime counter snapshots against the exact matrix."""
+    totals = [0] * 128
+    for snapshot in counter_snapshots:
+        values = snapshot.detach().cpu().tolist() if hasattr(snapshot, "detach") else list(snapshot)
+        if len(values) < len(totals):
+            raise ValueError(
+                f"physical counter snapshot must contain at least 128 values, got {len(values)}"
+            )
+        for index, value in enumerate(values[: len(totals)]):
+            totals[index] += int(value)
+
+    rows = []
+    missing_rows = []
+    for row in _rows().values():
+        counter = row["counter"]
+        count = totals[int(counter["index"])]
+        receipt = {
+            "tier": row["tier"],
+            "projection": row["projection"],
+            "variant": row["variant"],
+            "counter_index": counter["index"],
+            "counter_name": counter["name"],
+            "count": count,
+        }
+        rows.append(receipt)
+        if count <= 0:
+            missing_rows.append(counter["name"])
+
+    forbidden = {
+        name: totals[index] for name, index in FORBIDDEN_COUNTERS.items()
+    }
+    return {
+        "schema": "banana-smasher-specialized-physical-proof-v1",
+        "status": (
+            "PASS"
+            if not missing_rows and all(value == 0 for value in forbidden.values())
+            else "FAIL"
+        ),
+        "snapshot_count": len(counter_snapshots),
+        "rows": rows,
+        "missing_rows": missing_rows,
+        "forbidden_counters": forbidden,
+    }

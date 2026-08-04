@@ -229,3 +229,24 @@ def test_native_extension_preflight_rejects_partial_registered_surface(
 
     with pytest.raises(RuntimeError, match="missing required exports"):
         native_extensions.preflight_native_extensions()
+
+
+def test_physical_proof_aggregates_every_matrix_counter_across_runtime_states() -> None:
+    variants = _load_variants()
+    matrix = json.loads(MATRIX.read_text())
+    snapshots = [[0] * 128, [0] * 128]
+    for position, row in enumerate(matrix["rows"]):
+        snapshots[position % 2][row["counter"]["index"]] = 1
+
+    proof = variants.physical_proof(snapshots)
+
+    assert proof["status"] == "PASS"
+    assert proof["snapshot_count"] == 2
+    assert proof["missing_rows"] == []
+    assert proof["forbidden_counters"] == {
+        "mixed_exact_gemv": 0,
+        "p1016_generic": 0,
+        "triton_fallback": 0,
+    }
+    assert len(proof["rows"]) == 96
+    assert {row["count"] for row in proof["rows"]} == {1}

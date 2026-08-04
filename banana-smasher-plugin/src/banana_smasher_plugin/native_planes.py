@@ -409,6 +409,26 @@ def _register_native_plane_layer(layer: "NativePlaneLayer") -> int | None:
     return key
 
 
+def specialized_physical_proof() -> dict[str, Any]:
+    """Synchronize and aggregate exact matrix counters from this runtime process."""
+    from .specialized_variants import physical_proof
+
+    snapshots: list[torch.Tensor] = []
+    seen: set[tuple[str, int]] = set()
+    for layer in _NATIVE_PLANE_LAYER_REGISTRY.values():
+        for projection in _NATIVE_PLANE_PROJECTIONS:
+            state = layer.state(projection)
+            if state.vq_state is None:
+                continue
+            for counter in state.vq_state["physical_counter_tensors"].values():
+                identity = (str(getattr(counter, "device", "unknown")), counter.data_ptr())
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                snapshots.append(counter)
+    return physical_proof(snapshots)
+
+
 def _fwht(value: torch.Tensor) -> torch.Tensor:
     """Exact normalized transform used by the sealed P1016 QTIP path."""
     width = value.shape[-1]
