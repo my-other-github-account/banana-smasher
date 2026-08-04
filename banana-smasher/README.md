@@ -24,6 +24,31 @@ The bound inputs are supplied with `--repair-checkpoint`, `--repair-checkpoint-s
 
 Repair checkpoint loading is weights-only and requires PyTorch in the export environment. Pack loading and validation retain the lightweight NumPy + safetensors runtime.
 
+## Fixed-D4 exact solve and real bank producer
+
+`smash fixed-d4 solve` exhaustively selects each normalized D4 objective vector's
+nearest K2048 or K4096 codeword and calls `persist_fixed_d4_solve` before the
+winner arrays leave memory. Its bound JSON config uses schema
+`banana-smasher-fixed-d4-exact-solve-v1`, names `tier`, `layer`, `basis_index`,
+`basis_sha256`, and `chunk_vectors`, and binds `normalized_vectors`, `scales`,
+and `codebook` NPY files by relative `path`, byte count, and SHA-256 under both
+`down` and `fused13`.
+
+```bash
+smash fixed-d4 solve --config /path/to/solve.json --output /path/to/solve-layer --basis-sha256 "$BASIS_SHA256"
+smash fixed-d4 materialize --manifest /path/to/solve-layer/materialize.json --output /path/to/wire --basis-sha256 "$BASIS_SHA256"
+```
+
+The wheel ships `banana_smasher/producer_configs/fixed_d4_vllm.json`. This
+built-in producer loads the verified materialized model with public `vllm.LLM`,
+runs each bank token window, requests all-vocabulary next-token log
+probabilities (`logprobs=-1`), and imports the resulting real 64 rows without a
+caller-supplied producer command:
+
+```bash
+smash anchor materialize-candidate --run-root "$RUN_ROOT" --bank "$BANK_ID" --candidate-id "$CANDIDATE_ID" --model /path/to/model --config /path/to/fixed_d4_vllm.json --basis-sha256 "$BASIS_SHA256"
+```
+
 The first sealed model instance has no special framework name. Reusable package, schema, CLI, and documentation names remain `banana-smasher`, `bs-pack`, and `smash`.
 
 ## Portable teacher bank and paired evaluation

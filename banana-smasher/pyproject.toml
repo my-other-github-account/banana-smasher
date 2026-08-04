@@ -34,6 +34,7 @@ packages = ["src/banana_smasher"]
 "ANCHOR_EVALUATION.md" = "banana_smasher/ANCHOR_EVALUATION.md"
 "schema" = "banana_smasher/schema"
 "anchor_banks" = "banana_smasher/anchor_banks"
+"producer_configs" = "banana_smasher/producer_configs"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
