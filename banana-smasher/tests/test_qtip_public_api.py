@@ -44,12 +44,19 @@ def test_public_qtip_runner_trusts_manifest_sha_not_package_anchor(tmp_path: Pat
 
     runner_path = tmp_path / "qtip2_adapter.py"
     runner_path.write_text(
-        """def pack_kernel_layout(states):
-    return states
+        """from types import ModuleType
 
 
-def build_qtip(states):
-    return pack_kernel_layout(states)
+def _legacy_pack(cb, states, m, n):
+    return states, []
+
+
+_rate = ModuleType("qtip2_rate")
+_rate.pack_kernel_layout_batch = _legacy_pack
+
+
+def build_qtip(cb, states, m, n):
+    return _rate.pack_kernel_layout_batch(cb, states, m, n)
 """
     )
     runner_sha = sha256(runner_path.read_bytes()).hexdigest()
@@ -57,6 +64,7 @@ def build_qtip(states):
     runner = _load_public_qtip_runner(runner_path, runner_sha)
     assert runner.__file__ is not None
     assert Path(runner.__file__).resolve() == runner_path.resolve()
+    assert runner._rate.pack_kernel_layout_batch is not runner._legacy_pack
 
     with pytest.raises(ValueError, match="public QTIP runner SHA mismatch"):
         _load_public_qtip_runner(runner_path, "0" * 64)

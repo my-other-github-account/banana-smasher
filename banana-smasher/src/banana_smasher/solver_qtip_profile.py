@@ -626,6 +626,24 @@ def _manifest_bound_public_qtip_pack(pack):
     return manifest_pack
 
 
+def _manifest_bound_public_qtip_pack_batch(pack):
+    """Adapt a batch runner's pack seam to the same manifest-owned layout."""
+    manifest_pack = _manifest_bound_public_qtip_pack(pack)
+
+    def manifest_pack_batch(cb, states: torch.Tensor, m: int, k: int):
+        if not isinstance(states, torch.Tensor) or states.ndim != 3:
+            raise RuntimeError("public QTIP runner manifest batch states must be rank 3")
+        packed = []
+        receipts = []
+        for unit_states in states:
+            unit_packed, unit_receipt = manifest_pack(cb, unit_states, m, k)
+            packed.append(unit_packed)
+            receipts.append(unit_receipt)
+        return torch.stack(packed), receipts
+
+    return manifest_pack_batch
+
+
 def _load_public_qtip_runner(path: Path, expected_sha256: str):
     """Load only the runner whose declared SHA owns the physical pack path."""
     path = path.resolve()
@@ -644,26 +662,40 @@ def _load_public_qtip_runner(path: Path, expected_sha256: str):
         raise ValueError("public QTIP runner changed while loading")
     if Path(str(runner.__file__)).resolve() != path:
         raise RuntimeError(f"public QTIP runner loaded from divergent path: {runner.__file__}")
-    pack = getattr(runner, "pack_kernel_layout", None)
     build = getattr(runner, "build_qtip", None)
-    if not isinstance(pack, types.FunctionType):
-        raise RuntimeError("public QTIP runner lacks canonical pack_kernel_layout")
-    if (
-        not isinstance(build, types.FunctionType)
-        or "pack_kernel_layout" not in build.__code__.co_names
-        or build.__globals__.get("pack_kernel_layout") is not pack
-    ):
-        raise RuntimeError("public QTIP runner build_qtip does not own canonical pack path")
-    validate_pack = getattr(runner, "validate_manifest_packed_layout", None)
-    owns_manifest_shape = (
-        isinstance(validate_pack, types.FunctionType)
-        and "validate_manifest_packed_layout" in pack.__code__.co_names
-        and pack.__globals__.get("validate_manifest_packed_layout") is validate_pack
+    if not isinstance(build, types.FunctionType):
+        raise RuntimeError("public QTIP runner lacks build_qtip")
+    pack = getattr(runner, "pack_kernel_layout", None)
+    if isinstance(pack, types.FunctionType):
+        if (
+            "pack_kernel_layout" not in build.__code__.co_names
+            or build.__globals__.get("pack_kernel_layout") is not pack
+        ):
+            raise RuntimeError("public QTIP runner build_qtip does not own canonical pack path")
+        validate_pack = getattr(runner, "validate_manifest_packed_layout", None)
+        owns_manifest_shape = (
+            isinstance(validate_pack, types.FunctionType)
+            and "validate_manifest_packed_layout" in pack.__code__.co_names
+            and pack.__globals__.get("validate_manifest_packed_layout") is validate_pack
+        )
+        if not owns_manifest_shape:
+            pack = _manifest_bound_public_qtip_pack(pack)
+            setattr(runner, "pack_kernel_layout", pack)
+            build.__globals__["pack_kernel_layout"] = pack
+        return runner
+    rate = getattr(runner, "_rate", None)
+    batch_pack = getattr(rate, "pack_kernel_layout_batch", None)
+    owns_batch_pack = (
+        isinstance(rate, types.ModuleType)
+        and isinstance(batch_pack, types.FunctionType)
+        and "_rate" in build.__code__.co_names
+        and "pack_kernel_layout_batch" in build.__code__.co_names
+        and build.__globals__.get("_rate") is rate
     )
-    if not owns_manifest_shape:
-        pack = _manifest_bound_public_qtip_pack(pack)
-        setattr(runner, "pack_kernel_layout", pack)
-        build.__globals__["pack_kernel_layout"] = pack
+    if not owns_batch_pack:
+        raise RuntimeError("public QTIP runner build_qtip does not own a canonical pack path")
+    assert isinstance(rate, types.ModuleType)
+    setattr(rate, "pack_kernel_layout_batch", _manifest_bound_public_qtip_pack_batch(batch_pack))
     return runner
 
 
