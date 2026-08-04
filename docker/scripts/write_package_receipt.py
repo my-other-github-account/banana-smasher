@@ -18,6 +18,7 @@ PACKAGES = (
     "banana-smasher",
     "banana-smasher-plugin",
     "deep-gemm",
+    "flashinfer-jit-cache",
     "flashinfer-python",
     "numpy",
     "quack-kernels",
