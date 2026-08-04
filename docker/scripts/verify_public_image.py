@@ -6,6 +6,7 @@ import hashlib
 import importlib.metadata
 import importlib.util
 import json
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ EXPECTED_PACKAGES = {
     "banana-smasher": "1.0.0",
     "banana-smasher-plugin": "0.2.0",
     "deep-gemm": "2.6.1",
+    "flashinfer-jit-cache": "0.6.17+cu130",
     "flashinfer-python": "0.6.17",
     "tilelang": "0.1.9",
     "vllm": "0.24.0",
@@ -204,6 +206,27 @@ def one(pattern: str) -> Path:
     return matches[0]
 
 
+def verify_flashinfer_aot() -> dict[str, Any]:
+    flashinfer_jit_cache = import_module("flashinfer_jit_cache")
+    root = Path(flashinfer_jit_cache.get_jit_cache_dir())
+    modules = sorted(path.parent.name for path in root.glob("*/*.so"))
+    required_exact = {"sampling", "sparse_mla_sm120"}
+    missing = sorted(required_exact - set(modules))
+    if missing:
+        raise RuntimeError(f"FlashInfer AOT modules missing: {missing}")
+    head_dim_512 = sorted(
+        name for name in modules if "head_dim_qk_512_head_dim_vo_512" in name
+    )
+    if not head_dim_512:
+        raise RuntimeError("FlashInfer AOT head-dimension-512 module is missing")
+    return {
+        "root": str(root),
+        "module_count": len(modules),
+        "required": sorted(required_exact),
+        "head_dim_512": head_dim_512,
+    }
+
+
 def main() -> None:
     actual = {name: importlib.metadata.version(name) for name in EXPECTED_PACKAGES}
     if actual != EXPECTED_PACKAGES:
@@ -240,12 +263,14 @@ def main() -> None:
         Path("/opt/banana-smasher/aot"),
         Path(plugin.origin).parent / "qtip_tlut.npy",
     )
+    flashinfer_aot = verify_flashinfer_aot()
     print(
         {
             "status": "PASS",
             "packages": actual,
             "real_libcudart": str(real),
             "assets": assets,
+            "flashinfer_aot": flashinfer_aot,
             "provenance": provenance,
         }
     )

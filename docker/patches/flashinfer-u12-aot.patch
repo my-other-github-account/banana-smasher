@@ -1,0 +1,33 @@
+diff --git a/flashinfer/aot.py b/flashinfer/aot.py
+index 5cfd6b4..0c95fed 100644
+--- a/flashinfer/aot.py
++++ b/flashinfer/aot.py
+@@ -930,9 +930,8 @@ def parse_head_dim(head_dim: str) -> Tuple[int, int]:
+ def get_default_config():
+     """Get default AOT configuration"""
+     return {
+-        # Note: head_dim=512 (FA2 prefill/decode, SM100+) excluded to reduce
+-        # space in the jit-cache wheel.
+-        "fa2_head_dim": [(64, 64), (128, 128), (256, 256)],
++        # U12 sparse-MLA warmup reaches the large-head FA2 seam.
++        "fa2_head_dim": [(64, 64), (128, 128), (256, 256), (512, 512)],
+         "fa3_head_dim": [(192, 128), (128, 128), (64, 64), (256, 256)],
+         "f16_dtype": [torch.float16, torch.bfloat16],
+         "f8_dtype": [torch.float8_e4m3fn],
+diff --git a/flashinfer/compilation_context.py b/flashinfer/compilation_context.py
+index e2bc9df..1879da9 100644
+--- a/flashinfer/compilation_context.py
++++ b/flashinfer/compilation_context.py
+@@ -140,4 +140,12 @@ class CompilationContext:
+                     f"-gencode=arch=compute_{major}{minor},code=sm_{major}{minor}"
+                 )
+ 
++        # Retain forward-compatible PTX for the newest requested target while
++        # continuing to ship native SM120f and SM121a images.
++        if os.environ.get("FLASHINFER_ENABLE_PTX") == "1":
++            major, minor = max(supported_cuda_archs)
++            flags.append(
++                f"-gencode=arch=compute_{major}{minor},code=compute_{major}{minor}"
++            )
++
+         return flags + self.COMMON_NVCC_FLAGS
