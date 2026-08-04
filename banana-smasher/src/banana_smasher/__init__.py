@@ -23,7 +23,13 @@ from .anchor import (
     status_report,
     validate_bank_manifest,
 )
-from .fixed_d4 import materialize_fixed_d4, persist_fixed_d4_solve
+from .fixed_d4 import (
+    materialize_fixed_d4,
+    persist_fixed_d4_solve,
+    produce_fixed_d4_logits,
+    solve_fixed_d4_exact,
+    verify_fixed_d4_model,
+)
 
 __all__ = [
     "MANIFEST_NAME",
@@ -41,10 +47,13 @@ __all__ = [
     "materialize_bank",
     "materialize_fixed_d4",
     "persist_fixed_d4_solve",
+    "produce_fixed_d4_logits",
     "register_bank",
     "resolve_bank_identities",
     "score_bank",
+    "solve_fixed_d4_exact",
     "status_report",
     "validate_bank_manifest",
+    "verify_fixed_d4_model",
     "verify_pack",
 ]

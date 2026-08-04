@@ -122,6 +122,20 @@ def _parser() -> argparse.ArgumentParser:
     fixed_d4_materialize.add_argument("--manifest", type=Path, required=True)
     fixed_d4_materialize.add_argument("--output", type=Path, required=True)
     fixed_d4_materialize.add_argument("--basis-sha256", required=True)
+    fixed_d4_solve = fixed_d4_commands.add_parser(
+        "solve", help="exhaustively solve and persist one fixed-D4 layer"
+    )
+    fixed_d4_solve.add_argument("--config", type=Path, required=True)
+    fixed_d4_solve.add_argument("--output", type=Path, required=True)
+    fixed_d4_solve.add_argument("--basis-sha256", required=True)
+    fixed_d4_produce = fixed_d4_commands.add_parser(
+        "produce-logits", help="produce full-vocabulary bank logits through a fixed-D4 pack"
+    )
+    fixed_d4_produce.add_argument("--model", type=Path, required=True)
+    fixed_d4_produce.add_argument("--config", type=Path, required=True)
+    fixed_d4_produce.add_argument("--bank", type=Path, required=True)
+    fixed_d4_produce.add_argument("--output", type=Path, required=True)
+    fixed_d4_produce.add_argument("--basis-sha256", required=True)
 
     anchor = subparsers.add_parser(
         "anchor", help="reproducible four-bank anchor evaluation workflow"
@@ -558,13 +572,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                 receipt=args.receipt,
             )
         elif args.command == "fixed-d4":
-            from .fixed_d4 import materialize_fixed_d4
-
-            result = materialize_fixed_d4(
-                args.manifest,
-                args.output,
-                basis_sha256=args.basis_sha256,
+            from .fixed_d4 import (
+                materialize_fixed_d4,
+                produce_fixed_d4_logits,
+                solve_fixed_d4_exact,
             )
+
+            if args.fixed_d4_command == "materialize":
+                result = materialize_fixed_d4(
+                    args.manifest,
+                    args.output,
+                    basis_sha256=args.basis_sha256,
+                )
+            elif args.fixed_d4_command == "solve":
+                result = solve_fixed_d4_exact(
+                    args.config,
+                    args.output,
+                    basis_sha256=args.basis_sha256,
+                )
+            elif args.fixed_d4_command == "produce-logits":
+                result = produce_fixed_d4_logits(
+                    args.model,
+                    args.config,
+                    args.bank,
+                    args.output,
+                    basis_sha256=args.basis_sha256,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported fixed D4 command {args.fixed_d4_command!r}"
+                )
         elif args.command == "anchor":
             result = _run_anchor(args)
         else:  # pragma: no cover - argparse guarantees the choices
