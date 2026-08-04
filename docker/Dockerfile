@@ -191,6 +191,7 @@ COPY provenance/SOURCE_INVENTORY.json /opt/banana-smasher/provenance/SOURCE_INVE
 COPY provenance/EXCLUDED_FLASHINFER_CACHE.json /opt/banana-smasher/provenance/EXCLUDED_FLASHINFER_CACHE.json
 COPY docker/runtime_defaults.json /opt/banana-smasher/runtime_defaults.json
 COPY docker/scripts/verify_public_image.py /opt/banana-smasher/bin/verify_public_image.py
+COPY docker/scripts/smoke_flashinfer_sm121.py /opt/banana-smasher/bin/smoke_flashinfer_sm121.py
 COPY docker/scripts/validate_flashinfer_cache.py /opt/banana-smasher/bin/validate_flashinfer_cache.py
 COPY docker/scripts/write_package_receipt.py /opt/banana-smasher/bin/write_package_receipt.py
 

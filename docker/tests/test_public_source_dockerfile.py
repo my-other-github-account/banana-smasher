@@ -210,6 +210,8 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     patch = (ROOT / "docker/patches/flashinfer-u12-aot.patch").read_text()
     defaults = json.loads((ROOT / "docker/runtime_defaults.json").read_text())
     verifier = (ROOT / "docker/scripts/verify_public_image.py").read_text()
+    smoke_path = ROOT / "docker/scripts/smoke_flashinfer_sm121.py"
+    smoke = smoke_path.read_text()
     flashinfer_builder = text.index("FROM ${VLLM_IMAGE} AS flashinfer-builder")
     flashinfer_build = text.index(
         "python3 -m build --wheel --no-isolation --outdir /wheel ./flashinfer-jit-cache"
@@ -240,6 +242,13 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     assert '"sampling"' in verifier
     assert '"sparse_mla_sm120"' in verifier
     assert '"head_dim_qk_512_head_dim_vo_512"' in verifier
+    assert "smoke_flashinfer_sm121.py" in text
+    compile(smoke, str(smoke_path), "exec")
+    assert 'FLASHINFER_DISABLE_JIT") != "1"' in smoke
+    assert "sampling_from_probs" in smoke
+    assert "single_prefill_with_kv_cache" in smoke
+    assert "trtllm_batch_decode_sparse_mla_dsv4" in smoke
+    assert "torch.cuda.synchronize()" in smoke
     assert defaults["environment"]["FLASHINFER_DISABLE_JIT"] == "1"
     assert defaults["environment"]["VLLM_HAS_FLASHINFER_CUBIN"] == "1"
 
