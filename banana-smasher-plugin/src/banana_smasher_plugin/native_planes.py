@@ -330,7 +330,7 @@ class ProjectionState:
     pointer_tables: dict[str, torch.Tensor]
     lut: torch.Tensor
     qtip_codebook: torch.Tensor | None = None
-    vq_state: dict[str, torch.Tensor] | None = None
+    vq_state: dict[str, Any] | None = None
 
 
 Dispatch = Callable[..., torch.Tensor]
@@ -439,6 +439,82 @@ def specialized_physical_proof() -> dict[str, Any]:
     return physical_proof(snapshots)
 
 
+def _specialized_shape_physical_proof() -> dict[str, Any]:
+    """Prove every required warmup geometry from its own physical counters."""
+    from .dispatch_policy import shape_policy
+    from .specialized_variants import (
+        physical_proof,
+        required_warmup_tokens,
+        variant_for_tokens,
+    )
+
+    geometries: dict[str, dict[str, Any]] = {}
+    for tokens in required_warmup_tokens():
+        route_rows = tokens * 6
+        variant = variant_for_tokens(tokens)
+        policy = shape_policy(route_rows)
+        policy_mblock = int(policy["mblock"])
+        block_rows = (
+            policy_mblock if policy_mblock == 16 else int(policy["valid_m"])
+        )
+        snapshots: list[torch.Tensor] = []
+        seen: set[tuple[str, int]] = set()
+        for layer in _NATIVE_PLANE_LAYER_REGISTRY.values():
+            for projection in _NATIVE_PLANE_PROJECTIONS:
+                state = layer.state(projection)
+                if state.vq_state is None:
+                    continue
+                counter = state.vq_state["physical_counter_tensors"].get(
+                    (route_rows, block_rows)
+                )
+                if counter is None:
+                    continue
+                identity = (
+                    str(getattr(counter, "device", "unknown")),
+                    counter.data_ptr(),
+                )
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                snapshots.append(counter)
+
+        aggregate = physical_proof(snapshots)
+        rows = [row for row in aggregate["rows"] if row["variant"] == variant]
+        missing_rows = [row["counter_name"] for row in rows if row["count"] <= 0]
+        forbidden = aggregate["forbidden_counters"]
+        status = (
+            "PASS"
+            if snapshots
+            and not missing_rows
+            and all(value == 0 for value in forbidden.values())
+            else "FAIL"
+        )
+        geometries[str(tokens)] = {
+            "status": status,
+            "tokens": tokens,
+            "route_rows": route_rows,
+            "block_rows": block_rows,
+            "variant": variant,
+            "snapshot_count": len(snapshots),
+            "expected_named_counter_count": len(rows),
+            "nonzero_named_counter_count": len(rows) - len(missing_rows),
+            "rows": rows,
+            "missing_rows": missing_rows,
+            "forbidden_counters": forbidden,
+        }
+
+    return {
+        "schema": "banana-smasher-specialized-shape-physical-proof-v1",
+        "status": (
+            "PASS"
+            if geometries
+            and all(geometry["status"] == "PASS" for geometry in geometries.values())
+            else "FAIL"
+        ),
+        "geometries": geometries,
+    }
+
+
 def warmup_specialized_matrix() -> dict[str, Any]:
     """Execute every admitted tier/projection/shape before reading its counters."""
     from .specialized_variants import _rows, required_warmup_tokens
@@ -507,6 +583,10 @@ def warmup_specialized_matrix() -> dict[str, Any]:
                 execution_count += 1
 
     proof = specialized_physical_proof()
+    shape_proof = _specialized_shape_physical_proof()
+    proof["shape_physical_proof"] = shape_proof
+    if shape_proof["status"] != "PASS":
+        proof["status"] = "FAIL"
     proof["warmup_execution_count"] = execution_count
     proof["warmup_group_count"] = len(groups)
     proof["warmup_tokens"] = list(warmup_tokens)
