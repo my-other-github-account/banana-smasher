@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Mapping
@@ -20,6 +21,14 @@ _HEX = frozenset("0123456789abcdef")
 
 def _sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _is_sha256(value: object) -> bool:
@@ -69,12 +78,11 @@ def _bound_array(root: Path, value: object, *, label: str) -> tuple[np.ndarray, 
     ):
         raise ValueError(f"{label} requires bytes and lowercase SHA-256")
     path = root / relative_path
-    payload = path.read_bytes()
-    if len(payload) != expected_bytes:
+    if path.stat().st_size != expected_bytes:
         raise ValueError(f"{label} byte count mismatch")
-    if _sha256(payload) != expected_sha:
+    if _sha256_file(path) != expected_sha:
         raise ValueError(f"{label} SHA-256 mismatch")
-    value_array = np.load(path, allow_pickle=False)
+    value_array = np.load(path, mmap_mode="r", allow_pickle=False)
     if not isinstance(value_array, np.ndarray):
         raise ValueError(f"{label} must be one NPY array")
     return value_array, {
@@ -113,13 +121,8 @@ def _packed_assignments(
     k: int,
     bits_per_assignment: int,
 ) -> bytes:
-    if assignments.ndim < 2 or assignments.shape[0] != 256:
-        raise ValueError(f"{label} must have 256 expert rows")
-    if assignments.dtype.kind not in {"i", "u"}:
-        raise ValueError(f"{label} must have an integer dtype")
+    _validate_assignments(assignments, label=label, k=k)
     values = assignments.astype(np.int64, copy=False)
-    if np.any(values < 0) or np.any(values >= k):
-        raise ValueError(f"{label} contains an assignment outside D4K{k}")
     rows = values.astype(np.uint16).reshape(256, -1)
     bits = (
         (rows[..., None] >> np.arange(bits_per_assignment, dtype=np.uint16)) & 1
@@ -128,9 +131,158 @@ def _packed_assignments(
     return packed.tobytes(order="C")
 
 
+def _validate_assignments(assignments: np.ndarray, *, label: str, k: int) -> None:
+    if assignments.ndim < 2 or assignments.shape[0] != 256:
+        raise ValueError(f"{label} must have 256 expert rows")
+    if assignments.dtype.kind not in {"i", "u"}:
+        raise ValueError(f"{label} must have an integer dtype")
+    rows = assignments.reshape(256, -1)
+    for expert in range(256):
+        row = rows[expert]
+        for start in range(0, row.size, 1 << 20):
+            chunk = row[start : start + (1 << 20)]
+            if chunk.size and (int(chunk.min()) < 0 or int(chunk.max()) >= k):
+                raise ValueError(f"{label} contains an assignment outside D4K{k}")
+
+
 def _file_record(path: Path) -> dict[str, object]:
-    payload = path.read_bytes()
-    return {"path": path.name, "bytes": len(payload), "sha256": _sha256(payload)}
+    return {
+        "path": path.name,
+        "bytes": path.stat().st_size,
+        "sha256": _sha256_file(path),
+    }
+
+
+def _atomic_save_npy(path: Path, value: np.ndarray) -> None:
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            np.save(handle, np.ascontiguousarray(value), allow_pickle=False)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def persist_fixed_d4_solve(
+    output_root: str | Path,
+    *,
+    tier: str,
+    layer: int,
+    basis_index: str | Path,
+    basis_sha256: str,
+    projections: Mapping[str, Mapping[str, np.ndarray]],
+) -> dict[str, Any]:
+    """Persist exact in-memory solve winners before the solver releases them.
+
+    Exact solvers call this once per completed layer while their winner arrays
+    are still available.  The durable result is the ordinary public
+    materialization manifest consumed by :func:`materialize_fixed_d4`.
+    """
+
+    if tier not in _TIER_SPECS:
+        raise ValueError("fixed D4 solve persistence requires tier d4_k2048 or d4_k4096")
+    if isinstance(layer, bool) or not isinstance(layer, int) or layer < 0:
+        raise ValueError("fixed D4 solve persistence layer must be non-negative")
+    if not _is_sha256(basis_sha256):
+        raise ValueError("basis_sha256 must be a lowercase SHA-256")
+    basis_index = Path(basis_index).expanduser().resolve()
+    basis_payload = basis_index.read_bytes()
+    if _sha256(basis_payload) != basis_sha256:
+        raise ValueError("fixed D4 solve persistence basis_index SHA-256 mismatch")
+    if set(projections) != set(_PROJECTIONS):
+        raise ValueError("fixed D4 solve persistence requires down and fused13 projections")
+
+    spec = _TIER_SPECS[tier]
+    k = spec["k"]
+    output_root = Path(output_root).expanduser().resolve()
+    if output_root.exists():
+        raise FileExistsError(output_root)
+    output_root.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(
+        tempfile.mkdtemp(prefix=f".{output_root.name}.", dir=output_root.parent)
+    )
+    assignment_count = 0
+    try:
+        basis_name = "model.safetensors.index.json"
+        _atomic_write(staging / basis_name, basis_payload)
+        persisted: dict[str, dict[str, dict[str, object]]] = {}
+        for projection in _PROJECTIONS:
+            row = projections[projection]
+            if not isinstance(row, Mapping) or set(row) != {
+                "assignments",
+                "scales",
+                "codebook",
+            }:
+                raise ValueError(
+                    f"fixed D4 solve projection {projection} requires assignments, scales, and codebook"
+                )
+            assignments = np.asarray(row["assignments"])
+            scales = np.asarray(row["scales"])
+            codebook = np.asarray(row["codebook"])
+            _validate_assignments(
+                assignments, label=f"projections.{projection}.assignments", k=k
+            )
+            if scales.dtype != np.uint8 or scales.ndim < 2 or scales.shape[0] != 256:
+                raise ValueError(
+                    f"projections.{projection}.scales must be uint8 with 256 expert rows"
+                )
+            if codebook.shape != (k, 4) or codebook.dtype.kind != "f":
+                raise ValueError(
+                    f"projections.{projection}.codebook must be floating [{k}, 4]"
+                )
+            persisted[projection] = {}
+            for field, value in (
+                ("assignments", assignments),
+                ("scales", scales),
+                ("codebook", codebook),
+            ):
+                name = f"{projection}.{field}.npy"
+                path = staging / name
+                _atomic_save_npy(path, value)
+                persisted[projection][field] = {
+                    "path": name,
+                    "bytes": path.stat().st_size,
+                    "sha256": _sha256_file(path),
+                }
+            assignment_count += int(assignments.size)
+
+        manifest = {
+            "schema": _SCHEMA,
+            "tier": tier,
+            "layer": layer,
+            "basis_sha256": basis_sha256,
+            "basis_index": {"path": basis_name, "sha256": basis_sha256},
+            "projections": persisted,
+        }
+        _atomic_write(
+            staging / "materialize.json",
+            (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode(),
+        )
+        os.rename(staging, output_root)
+        directory = os.open(output_root.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+    return {
+        "schema": "banana-smasher-fixed-d4-solve-persistence-v1",
+        "status": "PASS",
+        "tier": tier,
+        "layer": layer,
+        "basis_sha256": basis_sha256,
+        "assignment_count": assignment_count,
+        "manifest": str(output_root / "materialize.json"),
+    }
 
 
 def materialize_fixed_d4(

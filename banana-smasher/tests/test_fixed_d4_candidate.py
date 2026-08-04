@@ -11,6 +11,7 @@ import pytest
 from banana_smasher.anchor import build_bank_manifest, materialize_bank, register_bank
 from banana_smasher.cli import main
 from banana_smasher.contract import export_pack
+from banana_smasher.fixed_d4 import persist_fixed_d4_solve
 
 
 def _bound_array(root: Path, name: str, value: np.ndarray) -> dict[str, object]:
@@ -40,8 +41,7 @@ def test_fixed_d4_payload_can_produce_and_import_a_balanced64_candidate(
     basis_index.write_text('{"weight_map": {}}')
     basis = hashlib.sha256(basis_index.read_bytes()).hexdigest()
     solve = tmp_path / "solve"
-    solve.mkdir()
-    projections: dict[str, dict[str, object]] = {}
+    projections: dict[str, dict[str, np.ndarray]] = {}
     for projection in ("fused13", "down"):
         assignments = np.tile(
             np.asarray([[0, k - 1, 1, 2, 3]], dtype=np.int16), (256, 1)
@@ -49,22 +49,27 @@ def test_fixed_d4_payload_can_produce_and_import_a_balanced64_candidate(
         scales = np.full((256, 1), 127, dtype=np.uint8)
         codebook = np.arange(k * 4, dtype=np.float32).reshape(k, 4)
         projections[projection] = {
-            "assignments": _bound_array(
-                solve, f"{projection}.assignments.npy", assignments
-            ),
-            "scales": _bound_array(solve, f"{projection}.scales.npy", scales),
-            "codebook": _bound_array(solve, f"{projection}.codebook.npy", codebook),
+            "assignments": assignments,
+            "scales": scales,
+            "codebook": codebook,
         }
-    manifest = {
-        "schema": "banana-smasher-fixed-d4-materialization-v1",
-        "tier": tier,
-        "layer": 0,
-        "basis_sha256": basis,
-        "basis_index": {"path": str(basis_index), "sha256": basis},
-        "projections": projections,
-    }
-    manifest_path = solve / "materialize.json"
-    manifest_path.write_text(json.dumps(manifest))
+    persisted = persist_fixed_d4_solve(
+        solve,
+        tier=tier,
+        layer=0,
+        basis_index=basis_index,
+        basis_sha256=basis,
+        projections=projections,
+    )
+    manifest_path = Path(persisted["manifest"])
+    persisted_manifest = json.loads(manifest_path.read_text())
+    assert persisted["assignment_count"] == 5 * 256 * 2
+    assert persisted_manifest["basis_sha256"] == basis
+    for projection in ("fused13", "down"):
+        assignment_binding = persisted_manifest["projections"][projection]["assignments"]
+        assignment_path = manifest_path.parent / assignment_binding["path"]
+        assert assignment_path.stat().st_size == assignment_binding["bytes"]
+        assert hashlib.sha256(assignment_path.read_bytes()).hexdigest() == assignment_binding["sha256"]
     wire = tmp_path / "wire"
 
     assert main(
