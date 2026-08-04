@@ -79,15 +79,17 @@ def main() -> None:
         device=device,
     )
     sparse_query = torch.zeros(
-        (num_tokens, 1, num_heads, 512),
+        (num_tokens, num_heads, 512),
         dtype=torch.bfloat16,
         device=device,
     )
     sparse_indices = torch.arange(topk, dtype=torch.int32, device=device).reshape(1, topk)
-    sparse = flashinfer.mla.trtllm_batch_decode_sparse_mla_dsv4(
+    sparse = flashinfer.decode.trtllm_batch_decode_sparse_mla_dsv4(
         query=sparse_query,
         swa_kv_cache=kv_cache,
-        workspace_buffer=torch.empty(1, dtype=torch.int8, device=device),
+        workspace_buffer=torch.zeros(
+            128 * 1024 * 1024, dtype=torch.uint8, device=device
+        ),
         sparse_indices=sparse_indices,
         swa_topk_lens=torch.full(
             (num_tokens,), topk, dtype=torch.int32, device=device
@@ -96,7 +98,7 @@ def main() -> None:
         kv_layout="NHD",
     )
     _synchronize("sparse_mla_sm120")
-    expected_sparse_shape = (num_tokens, 1, num_heads, 512)
+    expected_sparse_shape = (num_tokens, num_heads, 512)
     if tuple(sparse.shape) != expected_sparse_shape or not torch.isfinite(sparse).all().item():
         raise RuntimeError(
             f"invalid sparse MLA output: shape={tuple(sparse.shape)} "

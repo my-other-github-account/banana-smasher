@@ -262,7 +262,9 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     ):
         assert sampling_api in smoke
     assert "single_prefill_with_kv_cache" in smoke
-    assert "trtllm_batch_decode_sparse_mla_dsv4" in smoke
+    assert "flashinfer.decode.trtllm_batch_decode_sparse_mla_dsv4" in smoke
+    assert "128 * 1024 * 1024" in smoke
+    assert "(num_tokens, num_heads, 512)" in smoke
     assert "torch.cuda.synchronize()" in smoke
     assert defaults["environment"]["FLASHINFER_DISABLE_JIT"] == "1"
     assert defaults["environment"]["VLLM_HAS_FLASHINFER_CUBIN"] == "1"
