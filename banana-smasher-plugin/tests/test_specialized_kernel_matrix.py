@@ -140,7 +140,7 @@ def test_product_sources_do_not_use_forbidden_generic_or_zero_offset_routes() ->
     assert "specialized_mxfp4_gemm" in extensions
 
 
-def test_prefill_workspaces_are_lazy_instead_of_preallocating_gigabytes_per_layer() -> None:
+def test_prefill_workspaces_are_ephemeral_instead_of_retained_by_every_layer() -> None:
     acceleration = (PACKAGE / "v4_acceleration.py").read_text()
     builder = acceleration.split("def build_device_resident_planes(", 1)[1].split(
         "def mixed_exact_native_gemv(", 1
@@ -153,9 +153,20 @@ def test_prefill_workspaces_are_lazy_instead_of_preallocating_gigabytes_per_laye
     for route_rows in (192, 384, 12288, 49152):
         assert f"({route_rows}, 16)" not in builder
 
-    # Non-graph prefill shapes still receive persistent state on first use.
-    assert "if key not in compaction:" in dispatch
-    assert "compaction[key] = allocate_compaction_state(" in dispatch
+    # Non-graph prefill shapes allocate for the current call but are not retained
+    # by all 43 layers. The CUDA allocator can reuse their storage after outputs
+    # leave scope; only graph-replayed decode buffers need stable Python owners.
+    assert "compact = compaction.get(key)" in dispatch
+    assert "if compact is None:" in dispatch
+    assert 'if bool(qtip2_row["graph_replay"]):' in dispatch
+    assert "compaction[key] = compact" in dispatch
+    assert '"physical_counter_tensors": {}' in builder
+    assert 'vq_state["physical_counter_tensors"][key] = physical_counters' in dispatch
+
+    counter_reader = acceleration.split("def physical_counter_tensor(", 1)[1].split(
+        "def runtime_sentinel(", 1
+    )[0]
+    assert 'vq_state["physical_counter_tensors"]' in counter_reader
 
 
 def test_every_matrix_source_symbol_is_owned_by_compiled_specialized_source() -> None:

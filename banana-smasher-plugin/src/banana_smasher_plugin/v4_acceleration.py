@@ -118,6 +118,7 @@ def build_device_resident_planes(
         "input_width": torch.tensor(input_width, dtype=torch.int32, device=device),
         "output_width": torch.tensor(output_width, dtype=torch.int32, device=device),
         "compaction": {},
+        "physical_counter_tensors": {},
     }
     for rows, block_rows in (
         (6, 1),
@@ -165,8 +166,9 @@ def mixed_exact_native_gemv(
     block_rows = int(qtip2_row["tile_m"])
     key = (rows, block_rows)
     compaction = vq_state["compaction"]
-    if key not in compaction:
-        compaction[key] = allocate_compaction_state(
+    compact = compaction.get(key)
+    if compact is None:
+        compact = allocate_compaction_state(
             rows=rows,
             experts=family_codes.numel(),
             input_width=width,
@@ -174,9 +176,11 @@ def mixed_exact_native_gemv(
             block_rows=block_rows,
             device=x.device,
         )
-    compact = compaction[key]
+        if bool(qtip2_row["graph_replay"]):
+            compaction[key] = compact
     out = compact["out"]
     physical_counters = compact.get("physical_counters")
+    vq_state["physical_counter_tensors"][key] = physical_counters
     torch.ops.banana_smasher_v4.compact_routes(
         expert_ids,
         family_codes,
@@ -242,7 +246,7 @@ def physical_counter_tensor(vq_state: dict[str, Any], route_rows: int) -> torch.
     policy_mblock = int(policy["mblock"])
     block_rows = policy_mblock if policy_mblock == 16 else int(policy["valid_m"])
     try:
-        return vq_state["compaction"][(route_rows, block_rows)]["physical_counters"]
+        return vq_state["physical_counter_tensors"][(route_rows, block_rows)]
     except KeyError as exc:
         raise ValueError(f"route shape {route_rows} has not executed") from exc
 
