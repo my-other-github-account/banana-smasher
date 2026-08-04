@@ -607,8 +607,24 @@ def _manifest_bound_public_qtip_pack(pack):
         ):
             raise RuntimeError("public QTIP runner manifest pack roundtrip mismatch")
         roundtrip = unpacked.to(tiled.dtype).eq(tiled)
+        kernel = (
+            packed.view(torch.uint8)
+            .view(-1, 2)
+            .flip((-1,))
+            .reshape(m // 32, 2, k // 32, 2, 32, geometry[1])
+            .permute(0, 2, 4, 3, 1, 5)
+            .flip((-1,))
+            .contiguous()
+            .flatten()
+            .view(torch.uint16)
+            .reshape(packed.shape)
+        )
         packed_sha = _tensor_sha256(packed)
-        return packed, {
+        kernel_sha = _tensor_sha256(kernel)
+        kernel_bytes = kernel.numel() * kernel.element_size()
+        if kernel_bytes != packed.numel() * packed.element_size():
+            raise RuntimeError("public QTIP runner manifest kernel wire byte mismatch")
+        return kernel, {
             "tile_states_shape": list(tiled.shape),
             "canonical_packed_shape": list(packed.shape),
             "canonical_packed_dtype": str(packed.dtype),
@@ -617,10 +633,10 @@ def _manifest_bound_public_qtip_pack(pack):
             "input_state_sha256": _tensor_sha256(tiled),
             "canonical_pack_roundtrip_fraction": float(roundtrip.float().mean()),
             "canonical_pack_roundtrip_exact": bool(roundtrip.all()),
-            "kernel_swizzle": "manifest-canonical-direct",
-            "kernel_packed_shape": list(packed.shape),
-            "kernel_packed_sha256": packed_sha,
-            "kernel_packed_bytes": packed.numel() * packed.element_size(),
+            "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+            "kernel_packed_shape": list(kernel.shape),
+            "kernel_packed_sha256": kernel_sha,
+            "kernel_packed_bytes": kernel_bytes,
         }
 
     return manifest_pack

@@ -70,6 +70,55 @@ def build_qtip(cb, states, m, n):
         _load_public_qtip_runner(runner_path, "0" * 64)
 
 
+def test_manifest_bound_batch_pack_emits_the_production_decoder_wire() -> None:
+    torch = pytest.importorskip("torch")
+    from banana_smasher.qtip_runner import pack_kernel_layout
+    from banana_smasher.solver_qtip_profile import _manifest_bound_public_qtip_pack_batch
+
+    m = k = 32
+    codebook_k = 2
+    states = torch.arange(m * k // 2, dtype=torch.int32).reshape(m, k // 2)
+    canonical = torch.arange(
+        (m // 16) * (k // 16) * 16 * codebook_k,
+        dtype=torch.int32,
+    ).to(torch.uint16).reshape((m // 16) * (k // 16), 16 * codebook_k)
+
+    class Codebook:
+        L = 16
+        K = codebook_k
+        V = 2
+        _banana_smasher_public_runner_pack_contract = {
+            "schema": "banana-smasher-public-runner-pack-contract-v1",
+            "geometry": (16, codebook_k, 2),
+            "matrix_shape": (m, k),
+            "input_tile": (16, 16),
+            "dtype": "uint16",
+            "packed_words_per_tile_per_k": 16,
+            "output_rows": "input_tile_grid",
+            "expected_shape": tuple(canonical.shape),
+        }
+
+        def pack_trellis(self, tiled):
+            self.tiled = tiled
+            return canonical.clone()
+
+        def unpack_trellis(self, packed, tile_size):
+            assert torch.equal(packed, canonical)
+            assert tile_size == 256
+            return self.tiled.clone()
+
+    codebook = Codebook()
+    expected_wire, expected_receipt = pack_kernel_layout(codebook, states, m, k)
+    pack_batch = _manifest_bound_public_qtip_pack_batch(lambda *_args: None)
+    packed_batch, receipts = pack_batch(codebook, states.unsqueeze(0), m, k)
+
+    assert torch.equal(packed_batch[0], expected_wire)
+    assert receipts[0]["canonical_packed_sha256"] == expected_receipt["canonical_packed_sha256"]
+    assert receipts[0]["kernel_packed_sha256"] == expected_receipt["kernel_packed_sha256"]
+    assert receipts[0]["kernel_swizzle"] == expected_receipt["kernel_swizzle"]
+    assert receipts[0]["canonical_pack_roundtrip_exact"] is True
+
+
 def test_historical_qtip_config_uses_canonical_ring_codebook() -> None:
     from banana_smasher.qtip_rings import resolve_qtip_ring
     from banana_smasher.solver_qtip_profile import _resolve_config_codebook
