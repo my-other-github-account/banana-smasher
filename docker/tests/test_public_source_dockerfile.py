@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = ROOT / "docker/Dockerfile"
 DEPLOY = ROOT / "README.md"
 SMOKE_FLASHINFER = ROOT / "docker/scripts/smoke_flashinfer_sm121.py"
+PACKAGE_RECEIPT = ROOT / "docker/scripts/write_package_receipt.py"
 
 
 def test_public_source_dockerfile_contract() -> None:
@@ -318,6 +319,12 @@ def test_flashinfer_sm121_smoke_covers_all_exact_model_sparse_layer_types() -> N
     assert "compressed_width, compressed_active, compressed_page_block_size = (" in smoke
     assert "512, 512, 64" in smoke
     assert "128, 64, 2" in smoke
+
+
+def test_package_receipt_includes_source_built_flashinfer_runtime() -> None:
+    receipt = PACKAGE_RECEIPT.read_text()
+
+    assert '"flashinfer-jit-cache",' in receipt
 
 
 def test_native_plugin_build_has_pinned_cuda_development_toolchain() -> None:
