@@ -829,7 +829,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     require_qtip_ring_manifest,
                 )
                 from .qtip_rings import canonical_qtip_tier
-                from .solver_qtip_profile import main_many as qtip_profile_main_many
+                from . import solve_qtip_profiles
 
                 selected_tier = canonical_qtip_tier(selected_bpw)
                 selected_layers = _parse_layers(args.layers)
@@ -842,7 +842,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.source_root, selected_bpw
                 )
                 layer_receipts = [
-                    qtip_profile_main_many(
+                    solve_qtip_profiles(
                         args.source_root,
                         args.root,
                         layer,

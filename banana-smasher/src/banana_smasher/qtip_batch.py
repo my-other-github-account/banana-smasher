@@ -20,6 +20,54 @@ _INV_PERMUTE = torch.empty(256, dtype=torch.int64)
 _INV_PERMUTE[_PERMUTE] = torch.arange(256)
 
 
+class _BatchMatrixLifetime:
+    """Record batch storage in source-FP32-matrix equivalents."""
+
+    def __init__(self, shape: tuple[int, int, int]) -> None:
+        self.units, self.rows, self.width = shape
+        if min(shape) < 1:
+            raise ValueError(f"invalid QTIP batch matrix shape: {shape}")
+        self._matrix_bytes = self.rows * self.width * torch.empty(
+            (), dtype=torch.float32
+        ).element_size()
+        self.events: list[dict[str, Any]] = []
+        self.max_live = 0.0
+
+    def observe(self, phase: str, **values: Any) -> None:
+        matrices: list[str] = []
+        storages: dict[tuple[str, int | None], int] = {}
+        for name, value in values.items():
+            if not isinstance(value, torch.Tensor) or value.dtype != torch.float32:
+                continue
+            matrices.append(name)
+            storage = value.untyped_storage()
+            pointer = storage.data_ptr() if value.numel() else None
+            key = (value.device.type, pointer)
+            storages[key] = max(storages.get(key, 0), storage.nbytes())
+        equivalents = sum(storages.values()) / self._matrix_bytes
+        self.max_live = max(self.max_live, equivalents)
+        self.events.append(
+            {
+                "phase": phase,
+                "live_fp32_matrices": sorted(matrices),
+                "unique_storage_count": len(storages),
+                "live_fp32_matrix_equivalents": equivalents,
+            }
+        )
+
+    def receipt(self) -> dict[str, Any]:
+        return {
+            "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+            "batch_units": self.units,
+            "unit_matrix_shape": [self.rows, self.width],
+            "max_live_fp32_matrix_equivalents": self.max_live,
+            "released_after_ldlq": ["lower", "transformed"],
+            "released_before_pack": ["lower", "transformed", "quantized"],
+            "reconstruction_source": "canonical-packed-bytes",
+            "events": self.events,
+        }
+
+
 def block_ldl_batch(hessian: torch.Tensor, block: int) -> torch.Tensor:
     """Return normalized block-LDL lower factors for ``[units,n,n]`` input."""
     if hessian.ndim != 3 or hessian.shape[-1] != hessian.shape[-2]:
@@ -125,7 +173,12 @@ def ldlq_batch(
             state_lo = lo // args.V + index_rows * index
             state_hi = state_lo + index_rows
             indices_t[:, state_lo:state_hi] = state_indices.transpose(1, 2)
-        product.add_(torch.bmm(buffered_lower.transpose(1, 2), weight_t - hat_t))
+        product.add_(
+            torch.bmm(
+                buffered_lower.transpose(1, 2),
+                buffered_weight - buffered_hat,
+            )
+        )
         hat_t[:, lo:hi] = buffered_hat
 
     return (
@@ -215,6 +268,7 @@ def build_qtip_batch(
         raise ValueError(f"QTIP batch matrix shape is not tile-compatible: {(rows, width)}")
 
     phase_seconds: dict[str, float] = {}
+    lifetime = _BatchMatrixLifetime((units, rows, width))
     _synchronize(device)
     batch_started = time.perf_counter()
     hessians = []
@@ -260,6 +314,12 @@ def build_qtip_batch(
     lower = block_ldl_batch(hessian_batch, 16)
     lower.diagonal(dim1=-2, dim2=-1).zero_()
     transformed = torch.stack(transformed_rows)
+    lifetime.observe(
+        "batched_ldl_ready",
+        hessian=hessian_batch,
+        lower=lower,
+        transformed=transformed,
+    )
     del hessians, hessian_batch, transformed_rows
     _synchronize(device)
     phase_seconds["batched_block_ldl"] = time.perf_counter() - started
@@ -273,7 +333,14 @@ def build_qtip_batch(
         buf_cols=128,
         for_kernel=True,
     )
-    del transformed, lower
+    lifetime.observe(
+        "batched_ldlq_ready",
+        transformed=transformed,
+        lower=lower,
+        quantized=quantized,
+    )
+    del transformed, lower, quantized
+    lifetime.observe("quantized_released_before_pack")
     _synchronize(device)
     phase_seconds["batched_ldlq"] = time.perf_counter() - started
 
@@ -350,7 +417,7 @@ def build_qtip_batch(
         packed_decode_receipts.append(
             _decode_candidate(runner, candidate, codebook, kernel_decode, device)
         )
-    del quantized, packed_rows
+    del packed_rows
     _synchronize(device)
     phase_seconds["packed_decode_conformance"] = time.perf_counter() - started
     batch_wall_seconds = time.perf_counter() - batch_started
@@ -370,6 +437,7 @@ def build_qtip_batch(
         "fit_route_mass": fit_mass_values,
         "canonical_pack": pack_receipts,
         "packed_decode": packed_decode_receipts,
+        "matrix_lifetime": lifetime.receipt(),
         "fresh_no_warm_start": True,
         "independent_unit_state": True,
         "block_ldl_unit_axis": "batched",
