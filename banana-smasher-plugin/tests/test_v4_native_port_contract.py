@@ -66,6 +66,8 @@ def test_one_platform_extension_owns_one_canonical_source_tree() -> None:
     setup = SETUP.read_text()
     pyproject = PYPROJECT.read_text()
     assert setup.count("CUDAExtension(") == 1
+    assert 'CSRC = Path("src")' in setup
+    assert "CSRC = ROOT /" not in setup
     assert '"banana_smasher_plugin._v4_moe"' in setup
     assert '"12.0;12.1+PTX"' in setup
     for relative in (

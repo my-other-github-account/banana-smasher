@@ -7,7 +7,10 @@ from setuptools import find_namespace_packages, setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 ROOT = Path(__file__).parent
-CSRC = ROOT / "src" / "banana_smasher_plugin" / "csrc"
+# setuptools requires CUDAExtension sources to be setup-root-relative.  Keep
+# package-data discovery anchored by ROOT, but pass only relative source paths
+# to the native builder.
+CSRC = Path("src") / "banana_smasher_plugin" / "csrc"
 
 # The public CUDA image may override this with an even narrower list, but a
 # source build must never silently omit either GB10 target or forward PTX.
