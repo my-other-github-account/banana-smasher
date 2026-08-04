@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import os
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,6 +54,21 @@ def _mem_available_kib() -> int:
         )
     except Exception:
         return -1
+
+
+def _process_startticks() -> int:
+    if not sys.platform.startswith("linux"):
+        return -1
+    try:
+        stat = Path("/proc/self/stat").read_text()
+        _comm, separator, fields_text = stat.rpartition(")")
+        fields = fields_text.split()
+        startticks = int(fields[19])
+    except (OSError, ValueError, IndexError) as exc:
+        raise _fail(f"cannot bind specialized proof to process startticks: {exc}") from exc
+    if not separator or startticks <= 0:
+        raise _fail("cannot bind specialized proof to positive process startticks")
+    return startticks
 
 
 def _local_capacity_bytes() -> int:
@@ -591,6 +607,8 @@ def warmup_specialized_matrix() -> dict[str, Any]:
     proof["warmup_group_count"] = len(groups)
     proof["warmup_tokens"] = list(warmup_tokens)
     proof["warmup_peak_estimate_bytes"] = peak_estimate_bytes
+    proof["process_pid"] = os.getpid()
+    proof["process_startticks"] = _process_startticks()
     return proof
 
 
