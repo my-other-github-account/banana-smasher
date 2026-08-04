@@ -134,6 +134,12 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="sealed local-input config for one fresh exact QTIP solve",
     )
+    solve.add_argument(
+        "--qtip-batch-size",
+        type=int,
+        default=1,
+        help="build this many same-shape K2 units per exact cross-unit batch",
+    )
 
     update = subparsers.add_parser(
         "update", help="run one resumable memory-sized physical tensor update"
@@ -370,7 +376,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if any(
                     value is not None
                     for value in (args.output, args.tier, args.bpw, args.kernel_cache_root)
-                ) or args.all_cells or args.reference_search:
+                ) or args.all_cells or args.reference_search or args.qtip_batch_size != 1:
                     raise ValueError(
                         "--qtip-profile-config is a one-config solve and refuses tier/all-cells/output options"
                     )
@@ -395,7 +401,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.bpw,
                     args.kernel_cache_root,
                 )
-            ) or args.all_cells
+            ) or args.all_cells or args.qtip_batch_size != 1
             if not qtip_requested:
                 if args.output is None:
                     raise ValueError("exact solve requires --output")
@@ -473,6 +479,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                         tier=selected_tier,
                         all_cells=True,
                         profile_mode=False,
+                        **(
+                            {"batch_size": args.qtip_batch_size}
+                            if args.qtip_batch_size != 1
+                            else {}
+                        ),
                         **(
                             {"resume": args.resume, "resume_flag_explicit": True}
                             if "--resume" in tokens
