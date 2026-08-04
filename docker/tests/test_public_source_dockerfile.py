@@ -272,6 +272,10 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     assert "extra_sparse_topk_lens=extra_sparse_topk_lens" in smoke
     assert "out=sparse_out" in smoke
     assert "sinks=sinks" in smoke
+    assert "from flashinfer.autotuner import autotune as flashinfer_autotune" in smoke
+    assert "trtllm_batch_decode_with_kv_cache_mla" in smoke
+    assert "callable(flashinfer_autotune)" in smoke
+    assert "callable(trtllm_batch_decode_with_kv_cache_mla)" in smoke
     assert "torch.cuda.synchronize()" in smoke
     assert defaults["environment"]["FLASHINFER_DISABLE_JIT"] == "1"
     assert defaults["environment"]["VLLM_HAS_FLASHINFER_CUBIN"] == "1"

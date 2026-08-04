@@ -8,6 +8,11 @@ import os
 import torch
 
 import flashinfer
+from flashinfer.autotuner import autotune as flashinfer_autotune  # type: ignore[import-not-found]
+from flashinfer.decode import (  # type: ignore[import-not-found]
+    trtllm_batch_decode_sparse_mla_dsv4,
+    trtllm_batch_decode_with_kv_cache_mla,
+)
 
 
 def _synchronize(name: str) -> None:
@@ -32,6 +37,12 @@ def main() -> None:
         raise RuntimeError("VLLM_HAS_FLASHINFER_CUBIN=1 is required for the AOT smoke")
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is unavailable")
+    if not callable(flashinfer_autotune):
+        raise RuntimeError("FlashInfer autotune import gate is unavailable")
+    if not callable(trtllm_batch_decode_sparse_mla_dsv4):
+        raise RuntimeError("FlashInfer DSv4 sparse MLA import gate is unavailable")
+    if not callable(trtllm_batch_decode_with_kv_cache_mla):
+        raise RuntimeError("FlashInfer MLA decode import gate is unavailable")
 
     device = torch.device("cuda")
     capability = torch.cuda.get_device_capability(device)
