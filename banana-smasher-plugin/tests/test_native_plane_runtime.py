@@ -197,9 +197,18 @@ def test_process_startticks_reads_proc_stat_field_22_after_spaced_comm(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stat = "4242 (vllm engine core) S " + " ".join(str(value) for value in range(1, 20))
+    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(Path, "read_text", lambda _path: stat)
 
     assert native_planes._process_startticks() == 19
+
+
+def test_process_startticks_is_explicitly_unavailable_off_linux(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+
+    assert native_planes._process_startticks() == -1
 
 
 def test_cuda_native_plane_refuses_missing_graph_custom_op(

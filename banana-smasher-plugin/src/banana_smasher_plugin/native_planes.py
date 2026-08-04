@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, cast
@@ -55,6 +56,8 @@ def _mem_available_kib() -> int:
 
 
 def _process_startticks() -> int:
+    if not sys.platform.startswith("linux"):
+        return -1
     try:
         stat = Path("/proc/self/stat").read_text()
         _comm, separator, fields_text = stat.rpartition(")")
