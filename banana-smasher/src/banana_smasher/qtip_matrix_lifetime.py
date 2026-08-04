@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 import types
-from typing import Any
+from typing import Any, cast
 
 import torch
 
@@ -151,7 +151,27 @@ def build_qtip_bounded(
         lifetime.observe("ldlq_ready", quantized=quantized)
 
         started = time.perf_counter()
-        packed, pack_conformance = runner.pack_kernel_layout(cb, states, m, k)
+        pack = getattr(runner, "pack_kernel_layout", None)
+        if callable(pack):
+            packed, pack_conformance = cast(Any, pack)(cb, states, m, k)
+        else:
+            rate = getattr(runner, "_rate", None)
+            pack_batch = getattr(rate, "pack_kernel_layout_batch", None)
+            if not callable(pack_batch):
+                raise RuntimeError("QTIP runner lacks a canonical pack path")
+            packed_batch, pack_receipts = cast(Any, pack_batch)(
+                cb, states.unsqueeze(0), m, k
+            )
+            if (
+                not isinstance(packed_batch, torch.Tensor)
+                or packed_batch.shape[0] != 1
+                or not isinstance(pack_receipts, list)
+                or len(pack_receipts) != 1
+                or not isinstance(pack_receipts[0], dict)
+            ):
+                raise RuntimeError("QTIP runner canonical batch pack result is invalid")
+            packed = packed_batch[0]
+            pack_conformance = pack_receipts[0]
         del states
         if pack_conformance.get("canonical_pack_roundtrip_exact") is not True:
             raise RuntimeError("canonical pack roundtrip is not exact")
