@@ -7,17 +7,21 @@ USER root
 ARG VLLM_UPSTREAM_REV
 RUN test "${VLLM_UPSTREAM_REV}" = "ee0da84a"
 RUN python3 -m pip install --no-cache-dir \
-      build==1.3.0 hatchling==1.27.0 pytest==8.4.2 wheel==0.46.3
+      build==1.3.0 ninja==1.13.0 pytest==8.4.2 setuptools==80.10.2 wheel==0.46.3
 COPY banana-smasher /src/banana-smasher
 COPY banana-smasher-plugin /src/banana-smasher-plugin
 COPY docker /src/docker
 RUN python3 -m build --wheel --outdir /wheels /src/banana-smasher \
-    && python3 -m build --wheel --outdir /wheels /src/banana-smasher-plugin \
+    && test -x /usr/local/cuda/bin/nvcc \
+    && cd /src/banana-smasher-plugin \
+    && rm -rf build dist src/*.egg-info src/banana_smasher_plugin/*.so \
+    && TORCH_CUDA_ARCH_LIST="12.0;12.1+PTX" \
+      python3 -m build --wheel --no-isolation --outdir /wheels . \
     && python3 -m zipfile -t /wheels/banana_smasher-1.0.0-py3-none-any.whl \
-    && python3 -m zipfile -t /wheels/banana_smasher_plugin-0.2.0-py3-none-any.whl \
+    && python3 -m zipfile -t /wheels/banana_smasher_plugin-0.2.0-*.whl \
     && python3 -m pip install --no-cache-dir --no-deps \
       /wheels/banana_smasher-1.0.0-py3-none-any.whl \
-      /wheels/banana_smasher_plugin-0.2.0-py3-none-any.whl \
+      /wheels/banana_smasher_plugin-0.2.0-*.whl \
     && python3 -m pytest -q \
       /src/banana-smasher/tests /src/banana-smasher-plugin/tests \
     && (cd /wheels && sha256sum *.whl > local-wheels.sha256)
@@ -114,7 +118,7 @@ RUN python3 -m pip uninstall -y flashinfer-cubin flashinfer-jit-cache \
     && python3 -c 'import importlib.metadata as m,importlib.util as u; names={d.metadata["Name"].lower() for d in m.distributions() if d.metadata["Name"]}; assert all(u.find_spec(name) is None for name in ("flashinfer_cubin","flashinfer_jit_cache")); assert "flashinfer-cubin" not in names; assert "flashinfer-jit-cache" not in names' \
     && python3 -c 'import importlib.util as u; assert u.find_spec("flashinfer_cubin") is None; assert u.find_spec("flashinfer_jit_cache") is None'
 COPY --from=package-builder /wheels/banana_smasher-1.0.0-py3-none-any.whl /tmp/wheels/
-COPY --from=package-builder /wheels/banana_smasher_plugin-0.2.0-py3-none-any.whl /tmp/wheels/
+COPY --from=package-builder /wheels/banana_smasher_plugin-0.2.0-*.whl /tmp/wheels/
 COPY --from=package-builder /wheels/local-wheels.sha256 /opt/banana-smasher/provenance/build-local-wheels.sha256
 COPY --from=flashinfer-builder /wheel/flashinfer_python-0.6.17-py3-none-any.whl /tmp/wheels/
 COPY --from=flashinfer-builder /wheel/flashinfer-wheel.sha256 /opt/banana-smasher/provenance/build-flashinfer-wheel.sha256
@@ -126,7 +130,7 @@ RUN python3 -m pip install --no-cache-dir --no-deps --force-reinstall \
       /tmp/wheels/flashinfer_python-0.6.17-py3-none-any.whl \
       /tmp/wheels/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl \
       /tmp/wheels/banana_smasher-1.0.0-py3-none-any.whl \
-      /tmp/wheels/banana_smasher_plugin-0.2.0-py3-none-any.whl \
+      /tmp/wheels/banana_smasher_plugin-0.2.0-*.whl \
     && python3 -c 'import importlib.metadata as m,importlib.util as u; names={d.metadata["Name"].lower() for d in m.distributions() if d.metadata["Name"]}; assert u.find_spec("flashinfer_cubin") is None; assert u.find_spec("flashinfer_jit_cache") is None; assert "flashinfer-cubin" not in names; assert "flashinfer-jit-cache" not in names' \
     && rm -rf /tmp/wheels
 

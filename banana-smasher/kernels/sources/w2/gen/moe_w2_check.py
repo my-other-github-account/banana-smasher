@@ -12,11 +12,15 @@ Run inside cubit-dev: CUDA_VISIBLE_DEVICES=0 python3 tools/moe_w2_check.py
 import ctypes
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
 
-sys.path.insert(0, "/workspace/cubit/tools")
+tools = os.environ.get("CULAUNCH_TOOLS")
+if not tools:
+    raise RuntimeError("CULAUNCH_TOOLS must name the public Cubit tools directory")
+sys.path.insert(0, str(Path(tools).expanduser().resolve()))
 from culaunch import Cuda  # noqa: E402
 
 CUBIN = os.environ["CUBIN"]

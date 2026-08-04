@@ -68,6 +68,7 @@ AFRAG = int(os.environ.get("MOEW2_AFRAG", "0"))
 assert AFRAG in (0, 1)
 if AFRAG:
     assert MC == 4, "AFRAG requires MC=4 (full m16 fragment)"
+LEGACY_REFERENCE = K in (2048, 4096) and MC in (1, 2) and MB == 1 and not AFRAG
 KSLICE = K // NWARP
 assert KSLICE % 128 == 0
 NTHR = NWARP * 32
@@ -129,8 +130,11 @@ L("    ISETP.EQ.AND P4, PT, R79, RZ, PT ;")
 L("    @P4 EXIT ;")
 L("    LDC R78, c[0x0][0x390] ;                 // ldc")
 L()
-L("    // P2: g < m_rows (rows 0..7); P5: chunk1 (MC=2, g<m_rows-4) OR the")
-L("    //     c2/c3 upper-half rows 8..15 (MC=4, g<m_rows-8 i.e. g+8<m_rows)")
+if LEGACY_REFERENCE:
+    L("    // P2: g < m_rows (chunk0); P5: g < m_rows-4 (chunk1, MC=2)")
+else:
+    L("    // P2: g < m_rows (rows 0..7); P5: chunk1 (MC=2, g<m_rows-4) OR the")
+    L("    //     c2/c3 upper-half rows 8..15 (MC=4, g<m_rows-8 i.e. g+8<m_rows)")
 L("    ISETP.LT.AND P2, PT, R87, R79, PT ;")
 L("    ISETP.EQ.AND P3, PT, R88, RZ, P2 ;")
 if MC == 2:
@@ -247,8 +251,10 @@ def emit_k64(j):
             L(f"    LDG.E.128 R112, desc[UR4][R60.64+{hex(0x400 * j)}] ;      // sub1 A-frag k32a rows16-31")
             L(f"    LDG.E.128 R116, desc[UR4][R60.64+{hex(0x400 * j + 0x10)}] ;  // sub1 A-frag k32b rows16-31")
     else:
-        L(f"    @P2 LDG.E R4, desc[UR4][R64.64+{hex(aoff)}] ;         // A w0 lo (a0 row g)")
-        L(f"    @P2 LDG.E R6, desc[UR4][R64.64+{hex(aoff + 0x10)}] ;  // A w2 (a2 row g)")
+        suffix0 = "" if LEGACY_REFERENCE else " (a0 row g)"
+        suffix2 = "" if LEGACY_REFERENCE else " (a2 row g)"
+        L(f"    @P2 LDG.E R4, desc[UR4][R64.64+{hex(aoff)}] ;         // A w0 lo{suffix0}")
+        L(f"    @P2 LDG.E R6, desc[UR4][R64.64+{hex(aoff + 0x10)}] ;  // A w2{suffix2}")
         L(f"    @P2 LDG.E R20, desc[UR4][R64.64+{hex(aoff + 0x20)}] ;")
         L(f"    @P2 LDG.E R22, desc[UR4][R64.64+{hex(aoff + 0x30)}] ;")
         if MC == 4:
@@ -381,6 +387,8 @@ L("    IADD3 R0, PT, PT, R0, R1, RZ ;")
 # -> store RZ (frees R50/51/54/55 for the MC=2 pointer renumber). MC=4 folds them
 # into R50/51/54/55 (rows 8..15) -> store the real masters.
 def _acc_slot(base, i):
+    if LEGACY_REFERENCE and K == 4096 and MC == 1:
+        return f"R{base + i}"
     return f"R{base + i}" if (i < 2 or MC == 4) else "RZ"
 for i in range(4):
     L(f"    STS [R0+{hex(i * 4)}], {_acc_slot(ACC0, i)} ;")
@@ -478,7 +486,7 @@ L("    EXIT ;")
 # occupancy as MC=2 but 16 tokens/pair). If it ever stops fitting, drop MC=4 from
 # the branch to fall back to the un-renumbered R0-R92 = regcount 96.
 _remap = _maxreg = None
-if MC in (1, 4) and MB != 2:
+if MC in (1, 4) and MB != 2 and not (K == 2048 and MC == 1):
     # R12-R19 are free in the MC=1/MC=4 loop (ch1-only) -> Bs + ctaid.y/m_rows there.
     _remap = {
         64: 58, 65: 59, 66: 60, 67: 61,                    # A, As (loop-live)
@@ -489,7 +497,7 @@ if MC in (1, 4) and MB != 2:
         76: 42, 77: 43, 78: 41, 79: 40,                    # d_c, ldc, m_rows
     }
     _maxreg = 61
-elif MC == 2:
+elif MC == 2 and K != 2048:
     # MC=2 loop fills R0-R63; the ONLY <=63 slots free across the loop are the
     # padded-row master pairs (R50/51, R54/55, R60/61 -- now stored as RZ) ->
     # put the 3 loop pointers there. R62/63 stay as real ch1 tile1 masters.

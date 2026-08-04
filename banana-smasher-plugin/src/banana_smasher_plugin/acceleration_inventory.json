@@ -1,0 +1,185 @@
+{
+  "schema": "banana-smasher-v4-acceleration-port-v2",
+  "basis_commit": "038c0d8d169d68756fc309fd8c9aa2eb77169ee9",
+  "authority": {
+    "f521_image": "sha256:2908b791d7cbc435fa8437a751f172ecd798683860929c76345b5c92719d0c02",
+    "p1321_route_seal": "be0453e1d6081a87a0288c8611b9ee5ec33a4b2ba927cb68c358e71a10b242f7",
+    "recovered_vq_source": "1bc093000a71ef9bf51852fbe0174aa1e396cfb0ea6bbbd56f68a23058d831d3",
+    "qtip2_binary": "c51ff4af",
+    "qtip_kernel_binary": "f3e12ea5",
+    "vq_extension_binary": "5d32e0ab"
+  },
+  "packed_families": [
+    "qtip2",
+    "qtip3",
+    "d4_k1024",
+    "d4_k2048",
+    "d4_k4096",
+    "native_mxfp4"
+  ],
+  "fusions": [
+    "packed_projection",
+    "qtip_su_fwht_lookup_wscale_fwht_sv",
+    "fused13_projection",
+    "silu_and_mul",
+    "down_projection",
+    "fixed_topk_weighted_reduce",
+    "stock_dense_norm_quant",
+    "stock_dense_activation_quant"
+  ],
+  "items": [
+    {
+      "id": "pack_identity",
+      "status": "preserved",
+      "historical_sources": ["P985 a73ac8be46f0da3310c785f128fdb953bda0257604697249c3f457442b4e5521", "grouped loader 9056c1a293c01c61c10678713587091ffba2c830282a1a2494d0bb41275de70e"],
+      "plugin_symbols": ["NativePlanePack", "NativePlaneLayer._load_projection"],
+      "predicate": "exact selected F521 manifest; family codes 0/1/2/3; D4 tiers k1024/k2048/k4096",
+      "test": "test_native_plane_runtime.py",
+      "sentinel": "manifest digest and family/tier counters"
+    },
+    {
+      "id": "stable_residency",
+      "status": "ported",
+      "historical_sources": ["P1050 486fc841b8406c8c42993d0f6f6fa44ff7e90719b2612f57b4ba67748638ef7", "P1157 6af0e7480190e70242e1ca0d3ea74ce316686271371e8421d22667a79ab7c70b"],
+      "plugin_symbols": ["ProjectionState.payloads", "ProjectionState.pointer_tables", "v4_acceleration.build_device_resident_planes"],
+      "predicate": "immutable state lifetime; selected CUDA-resident payload and metadata tables",
+      "test": "test_native_plane_runtime.py",
+      "sentinel": "stable pointer digest before/after capture"
+    },
+    {
+      "id": "qtip2_direct",
+      "status": "ported",
+      "historical_sources": ["P1235 qtip_dynamic c51ff4af", "P1016 4de7935473dddae23db143cfd816dcbc7ff52cc14795d659044029781143680c"],
+      "plugin_symbols": ["_v4_moe.decompress_matvec_dynamic_2_4096", "_v4_moe.decompress_matvec_dynamic_2_2048"],
+      "predicate": "family 0, K=4096 or 2048, compact rows only",
+      "test": "test_v4_native_port_contract.py",
+      "sentinel": "physical QTIP2 symbol and compact row count"
+    },
+    {
+      "id": "qtip3_direct",
+      "status": "ported",
+      "historical_sources": ["P1235 qtip_dynamic c51ff4af", "P1016 4de7935473dddae23db143cfd816dcbc7ff52cc14795d659044029781143680c"],
+      "plugin_symbols": ["_v4_moe.decompress_matvec_dynamic_3_4096", "_v4_moe.decompress_matvec_dynamic_3_2048"],
+      "predicate": "family 1, K=4096 or 2048, compact rows only",
+      "test": "test_v4_native_port_contract.py",
+      "sentinel": "physical QTIP3 symbol and compact row count"
+    },
+    {
+      "id": "d4_direct",
+      "status": "ported",
+      "historical_sources": ["P1145 78dd83ee869c2556839b6ee8357fe3fd8bfa4dbc370d9497f2dd4eb508310b85", "recovered CUDA 1bc093000a71ef9bf51852fbe0174aa1e396cfb0ea6bbbd56f68a23058d831d3"],
+      "plugin_symbols": ["vq_warp_gemv_kernel", "vq_warp_gemm_m4_kernel"],
+      "predicate": "family 2; D4 k1024/k2048/k4096; K=4096 or 2048; valid_m=1..4",
+      "test": "test_v4_native_port_contract.py",
+      "sentinel": "scalar/vector symbol, valid_m, compact pair grid"
+    },
+    {
+      "id": "native_mxfp4_direct",
+      "status": "ported",
+      "historical_sources": ["P965 00a5e593c37387e0d907638c4b4aed9532593765ccc35f6ca53935ccb1f707d9"],
+      "plugin_symbols": ["vq_warp_gemv::mxfp4_routed_gemv"],
+      "predicate": "family 3; E2M1 nibbles and UE8M0 K32 scales",
+      "test": "test_v4_native_port_contract.py",
+      "sentinel": "physical native MXFP4 symbol and row count"
+    },
+    {
+      "id": "cuda_geometry",
+      "status": "ported",
+      "historical_sources": ["recovered CUDA 1bc093000a71ef9bf51852fbe0174aa1e396cfb0ea6bbbd56f68a23058d831d3", "P1321 vector source 4ff296f7"],
+      "plugin_symbols": ["csrc/vq_warp_gemv.cu"],
+      "predicate": "one warp/output; 16 warps/CTA; eight indices/lane; full-K padded stage; current stream; no split-K",
+      "test": "test_v4_native_port_contract.py",
+      "sentinel": "physical symbol, grid, shared bytes, current-stream event"
+    },
+    {
+      "id": "single_platform_extension",
+      "status": "blocked",
+      "historical_sources": ["P1235 VQ extension 5d32e0ab", "P1235 QTIP binaries c51ff4af/f3e12ea5"],
+      "plugin_symbols": ["banana_smasher_plugin._v4_moe", "setup.py"],
+      "predicate": "ordinary platform wheel; SM120/SM121 plus PTX; no runtime JIT",
+      "test": "test_v4_native_port_contract.py",
+      "sentinel": "wheel/source/extension SHA and registered torch op",
+      "blocked_reason": "canonical source and one-module build boundary are ported, but this macOS host has no nvcc and cannot produce or import the required SM120/SM121 platform wheel"
+    },
+    {
+      "id": "device_family_compaction",
+      "status": "blocked",
+      "historical_sources": ["P1050 _group_family_experts/_inverse_family_experts 486fc841b8406c8c42993d0f6f6fa44ff7e90719b2612f57b4ba67748638ef7"],
+      "plugin_symbols": [],
+      "predicate": "active family/expert rows only; stable inverse order; zero host sync",
+      "test": "missing CUDA graph compaction test",
+      "sentinel": "active descriptors and zero inactive launches",
+      "blocked_reason": "surviving Python authority contains data-dependent item()/unique_consecutive and is not an admissible graph-safe implementation"
+    },
+    {
+      "id": "c2_c16_graph_routes",
+      "status": "blocked",
+      "historical_sources": ["P1321 route seal be0453e1d6081a87a0288c8611b9ee5ec33a4b2ba927cb68c358e71a10b242f7"],
+      "plugin_symbols": ["vq_warp_gemv_kernel", "vq_warp_gemm_m4_kernel"],
+      "predicate": "C2 scalar M2; C4 vector M4; C8/C16 expert-local M4 blocks",
+      "test": "missing real capture/replay matrix",
+      "sentinel": "physical scalar/vector counter and grid.z",
+      "blocked_reason": "device compaction/dealias source and same-image F521 integration are unavailable"
+    },
+    {
+      "id": "packed_mblock16_prefill",
+      "status": "blocked",
+      "historical_sources": ["P1235 _mixed_exact_mblock BM16"],
+      "plugin_symbols": [],
+      "predicate": "direct packed grouped prefill, mblock=16",
+      "test": "missing 2..63 token packed parity sweep",
+      "sentinel": "physical BM16 symbol and zero dense bytes",
+      "blocked_reason": "exact admissible source did not survive"
+    },
+    {
+      "id": "direct_packed_large_prefill",
+      "status": "blocked",
+      "historical_sources": ["P1235 P1103/P530 negative dense reconstruction control"],
+      "plugin_symbols": [],
+      "predicate": "64..8192 tokens, including exact 2K, no materialized weights",
+      "test": "missing 63/64/65 threshold and exact-2K packed parity",
+      "sentinel": "direct packed prefill symbol and materialized_weight_bytes=0",
+      "blocked_reason": "historical dense route is forbidden and has a 63-to-64 corruption boundary; no direct-packed replacement source exists"
+    },
+    {
+      "id": "qtip_transform_fusion",
+      "status": "blocked",
+      "historical_sources": ["P1235 SU/FWHT/lookup/Wscale/FWHT/SV order"],
+      "plugin_symbols": [],
+      "predicate": "QTIP compact rows only, both projections, graph-safe persistent buffers",
+      "test": "missing transform launch/allocation budget",
+      "sentinel": "zero non-QTIP FWHT and zero per-call LUT allocation",
+      "blocked_reason": "transform order is known but no physically fused on-path source/profile authority survives"
+    },
+    {
+      "id": "norm_shared_expert_fusion",
+      "status": "blocked",
+      "historical_sources": ["no exact P1235 on-path source"],
+      "plugin_symbols": [],
+      "predicate": "model-level routed/shared expert path",
+      "test": "missing source-bound invocation test",
+      "sentinel": "exact kernel symbol and routed/shared parity",
+      "blocked_reason": "unsupported historical claim"
+    },
+    {
+      "id": "routed_fp8_scheduler_fusion",
+      "status": "blocked",
+      "historical_sources": ["P1235 proves FP8 KV cache, not routed FP8 expert fusion"],
+      "plugin_symbols": [],
+      "predicate": "routed expert or scheduler/postprocess fusion",
+      "test": "missing on-path profiler proof",
+      "sentinel": "exact kernel/config counter",
+      "blocked_reason": "unsupported historical claim; stock dense DeepGEMM identity is preserved separately"
+    },
+    {
+      "id": "same_image_f521_p1321_acceptance",
+      "status": "blocked",
+      "historical_sources": ["P1235 F521 image", "P1321 route seal"],
+      "plugin_symbols": [],
+      "predicate": "one stock-vLLM image with every F521 family and C1/C2/C4/C8/C16 route",
+      "test": "reserved U004 SM120/SM121 acceptance",
+      "sentinel": "family/tier/route counters and same-work performance",
+      "blocked_reason": "no surviving image binds the two authorities; hardware acceptance belongs to U004"
+    }
+  ]
+}

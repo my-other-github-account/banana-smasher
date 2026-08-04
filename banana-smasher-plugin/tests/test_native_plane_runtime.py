@@ -189,6 +189,80 @@ def test_plane_loader_moves_named_planes_and_dispatches_projection(tmp_path: Pat
     assert layer.state("fused13").pointer_tables["d4_index_bits"].tolist() == [4, 4]
 
 
+def test_plane_forward_uses_capture_safe_async_expert_range_guards(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    calls: list[tuple[bool, str]] = []
+
+    def assert_async(condition: torch.Tensor, message: str) -> None:
+        calls.append((bool(condition.item()), message))
+        if not condition.item():
+            raise RuntimeError(message)
+
+    monkeypatch.setattr(torch.ops.aten._assert_async, "msg", assert_async)
+    monkeypatch.setattr(
+        torch,
+        "any",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("host-synchronizing torch.any guard is forbidden")
+        ),
+    )
+    layer = NativePlaneLayer(
+        pack,
+        0,
+        device="cpu",
+        dispatch=lambda **kwargs: torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width)
+        ),
+    )
+
+    result = layer.forward(torch.ones((2, 4)), torch.tensor([0, 1]), "fused13")
+
+    assert result.shape == (2, 4)
+    assert calls == [
+        (True, "layer 0 fused13 expert id out of range"),
+        (True, "layer 0 fused13 expert id out of range"),
+    ]
+
+
+def test_plane_forward_async_guard_rejects_out_of_range_expert(tmp_path: Path) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    layer = NativePlaneLayer(
+        pack,
+        0,
+        device="cpu",
+        dispatch=lambda **kwargs: kwargs["x"],
+    )
+
+    with pytest.raises(RuntimeError, match="expert id out of range"):
+        layer.forward(torch.ones((2, 4)), torch.tensor([0, 2]), "fused13")
+
+
+def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        route_ids = kwargs["expert_ids"]
+        observed_ids.append(route_ids.clone())
+        assert bool(torch.all((route_ids == -1) | ((route_ids >= 0) & (route_ids < 2))))
+        result = torch.full(
+            (route_ids.numel(), kwargs["state"].output_width), 3.0, dtype=torch.float32
+        )
+        result[route_ids == -1] = 0
+        return result
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    expert_ids = torch.tensor(([0, 1, 0, 1, 0, -1] * 16), dtype=torch.long)
+
+    result = layer.forward(torch.ones((96, 4)), expert_ids, "fused13")
+
+    assert observed_ids and observed_ids[0].shape == (96,)
+    assert torch.equal(observed_ids[0][5::6], torch.full((16,), -1, dtype=torch.long))
+    assert torch.count_nonzero(result[5::6]) == 0
+    assert torch.all(result[:5] == 3)
+
 def test_manifest_selection_is_the_only_payload_allocation_source(tmp_path: Path) -> None:
     root = _tiny_pack(tmp_path / "model")
     meta_path = root / "planes/layer_000.meta.json"
@@ -463,7 +537,7 @@ def test_native_moe_apply_uses_two_accelerated_projections_and_original_route_or
     ]
 
 
-def test_qtip_transform_and_lut_are_exact_and_family_masked(
+def test_qtip_transform_and_lut_are_owned_by_the_native_dispatch_boundary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     x = torch.tensor([[1.0, 2.0, 3.0, 4.0], [4.0, 3.0, 2.0, 1.0]])
@@ -471,14 +545,21 @@ def test_qtip_transform_and_lut_are_exact_and_family_masked(
     lut = _expanded_qtip_lut(torch.device("cpu"))
     assert lut.shape == (65536, 2)
 
-    kernels = ModuleType("banana_smasher_plugin.p1016_kernels")
+    import banana_smasher_plugin.v4_acceleration as acceleration
+
+    observed_inputs: list[torch.Tensor] = []
 
     def mixed_exact_gemv(kernel_input, *args):
         del args
+        observed_inputs.append(kernel_input.clone())
         return kernel_input
 
-    kernels.mixed_exact_gemv = mixed_exact_gemv
-    monkeypatch.setitem(sys.modules, "banana_smasher_plugin.p1016_kernels", kernels)
+    monkeypatch.setattr(acceleration, "mixed_exact_native_gemv", mixed_exact_gemv)
+    monkeypatch.setattr(
+        acceleration,
+        "runtime_sentinel",
+        lambda: {"activated": True, "blocked": []},
+    )
     state = ProjectionState(
         "fused13",
         4,
@@ -495,6 +576,8 @@ def test_qtip_transform_and_lut_are_exact_and_family_masked(
         torch.zeros(1, dtype=torch.int64),
         torch.zeros(1, dtype=torch.int64),
         lut,
+        torch.zeros(1024, dtype=torch.float16),
+        {},
     )
     run = _load_accelerated_dispatch()
     result = run(
@@ -503,8 +586,8 @@ def test_qtip_transform_and_lut_are_exact_and_family_masked(
         expert_ids=torch.tensor([0, 1]),
         state=state,
     )
-    assert torch.allclose(result[0].float(), x[0] * 3.0, atol=2e-2)
-    assert torch.allclose(result[1].float(), x[1], atol=2e-2)
+    assert observed_inputs and torch.equal(observed_inputs[0], x)
+    assert torch.equal(result, x)
 
 
 def test_quant_config_selects_only_stock_deepseek_routed_experts(

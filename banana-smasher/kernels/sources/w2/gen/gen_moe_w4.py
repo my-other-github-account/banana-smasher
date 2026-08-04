@@ -272,6 +272,6 @@ for base in range(0, 256, min(NTHR, 256)):
     emit_reduce_store(base)
 L("    EXIT ;")
 
-path = sys.argv[1] if len(sys.argv) > 1 else "/workspace/cubit/sass/moe_w4_mm.sass"
+path = sys.argv[1] if len(sys.argv) > 1 else "sass/moe_w4_mm.sass"
 open(path, "w").write("\n".join(OUT) + "\n")
 print(f"wrote {path} ({len(OUT)} lines, K={K}, NWARP={NWARP})")

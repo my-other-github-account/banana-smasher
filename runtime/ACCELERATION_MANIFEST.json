@@ -1,6 +1,7 @@
 {
   "schema": "banana-smasher-acceleration-manifest-v1",
-  "source_commit": "c00714c6803f7e2de7a95d103dbe172236b22adf",
+  "source_commit": null,
+  "source_status": "WORKTREE_CANDIDATE_UNSEALED",
   "accelerations": [
     {
       "id": "bs-pack-export-verify",
@@ -11,24 +12,27 @@
     },
     {
       "id": "stock-vllm-general-plugin",
-      "source": ["banana-smasher-plugin/pyproject.toml", "banana-smasher-plugin/src/banana_smasher_plugin/__init__.py"],
-      "build_dependency_or_asset": ["banana-smasher-plugin wheel", "vllm.general_plugins entry point"],
+      "source": ["banana-smasher-plugin/pyproject.toml", "banana-smasher-plugin/setup.py", "banana-smasher-plugin/src/banana_smasher_plugin/__init__.py"],
+      "build_dependency_or_asset": ["linux_aarch64 banana-smasher-plugin platform wheel", "banana_smasher_plugin._v4_moe native extension", "vllm.general_plugins entry point"],
       "runtime_activation": ["stock vLLM entry-point discovery calls banana_smasher_plugin:register"],
       "tests": ["banana-smasher-plugin/tests/test_plugin_contract.py", "tests/test_extraction_contract.py"]
     },
     {
       "id": "native-plane-p1016",
-      "source": ["banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py", "banana-smasher-plugin/src/banana_smasher_plugin/quantization.py"],
-      "build_dependency_or_asset": ["numpy", "safetensors", "native plane pack"],
-      "runtime_activation": ["quantization_config.quant_method=banana_smasher", "stock DeepSeek routed-expert layer selection"],
-      "tests": ["banana-smasher-plugin/tests/test_native_plane_runtime.py", "banana-smasher-plugin/tests/test_plugin_contract.py"]
+      "source": ["banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py", "banana-smasher-plugin/src/banana_smasher_plugin/native_extensions.py", "banana-smasher-plugin/src/banana_smasher_plugin/v4_acceleration.py", "banana-smasher-plugin/src/banana_smasher_plugin/quantization.py", "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip", "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip_transforms.cu", "banana-smasher-plugin/src/banana_smasher_plugin/csrc/route_compaction.cu", "banana-smasher-plugin/src/banana_smasher_plugin/csrc/vq_warp_gemv.cu"],
+      "build_dependency_or_asset": ["torch==2.9.0", "CUDA 13.0", "sm_120a+sm_121a", "qtip_tlut.npy", "native plane pack"],
+      "runtime_activation": ["quantization_config.quant_method=banana_smasher", "stock DeepSeek routed-expert layer selection", "banana_smasher_plugin._v4_moe", "native QTIP2/QTIP3 trellis+TLUT with SU/FWHT/Wscale/FWHT/SV", "native learned-VQ D4", "native MXFP4", "device route compaction on current CUDA stream"],
+      "tests": ["banana-smasher-plugin/tests/test_v4_native_port_contract.py", "banana-smasher-plugin/tests/test_native_plane_runtime.py", "banana-smasher-plugin/tests/test_plugin_contract.py"],
+      "status": "source-candidate-hardware-validation-outstanding",
+      "generic_mixed_fallback_allowed": false
     },
     {
-      "id": "p1016-cutedsl-tlut",
+      "id": "p1016-diagnostic-triton-reference",
       "source": ["banana-smasher-plugin/src/banana_smasher_plugin/p1016_kernels.py", "banana-smasher-plugin/src/banana_smasher_plugin/qtip_tlut.npy"],
-      "build_dependency_or_asset": ["quack-kernels>=0.4.1,<0.5.1", "qtip_tlut.npy"],
-      "runtime_activation": ["native_planes loads mixed_exact_gemv", "QTIP family dispatch expands the packaged TLUT"],
-      "tests": ["banana-smasher-plugin/tests/test_cutedsl_compat.py", "banana-smasher-plugin/tests/test_native_plane_runtime.py"]
+      "build_dependency_or_asset": ["quack-kernels==0.4.1", "qtip_tlut.npy"],
+      "runtime_activation": ["diagnostic/reference only; production native_planes does not import p1016_kernels"],
+      "tests": ["banana-smasher-plugin/tests/test_cutedsl_compat.py", "banana-smasher-plugin/tests/test_v4_native_port_contract.py"],
+      "status": "diagnostic-only"
     },
     {
       "id": "sm121-deepgemm-dense-e8m0",
@@ -76,15 +80,17 @@
       "id": "sm120-aot-cubins",
       "source": ["banana-smasher/kernels/cubins-sm120"],
       "build_dependency_or_asset": ["26 checked-in SM120 cubins copied by Docker"],
-      "runtime_activation": ["BANANA_SMASHER_AOT_ROOT", "VLLM_MOE_W2_CUBIT_DIR"],
-      "tests": ["tests/test_extraction_contract.py", "banana-smasher-plugin/tests/test_native_plane_runtime.py"]
+      "runtime_activation": ["scalar Cubit W2 resource only; not QTIP2 and not selected by the native QTIP payload loader"],
+      "tests": ["tests/test_extraction_contract.py", "tests/test_kernel_source_closure.py"],
+      "status": "preserved-independent-scalar-format"
     },
     {
       "id": "e43-aot-cubins",
       "source": ["banana-smasher/kernels/cubins-e43"],
       "build_dependency_or_asset": ["6 checked-in E43 cubins copied by Docker"],
-      "runtime_activation": ["VLLM_MOE_W3_CUBIT_DIR"],
-      "tests": ["tests/test_extraction_contract.py"]
+      "runtime_activation": ["scalar Cubit W3 resource only; not QTIP3 and not selected by the native QTIP payload loader"],
+      "tests": ["tests/test_extraction_contract.py", "tests/test_kernel_source_closure.py"],
+      "status": "preserved-independent-scalar-format"
     },
     {
       "id": "flashinfer-autotune-cache",
