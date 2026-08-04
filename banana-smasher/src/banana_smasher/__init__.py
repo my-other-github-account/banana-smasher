@@ -23,7 +23,7 @@ from .anchor import (
     status_report,
     validate_bank_manifest,
 )
-from .fixed_d4 import materialize_fixed_d4
+from .fixed_d4 import materialize_fixed_d4, persist_fixed_d4_solve
 
 __all__ = [
     "MANIFEST_NAME",
@@ -40,6 +40,7 @@ __all__ = [
     "materialize_candidate_producer",
     "materialize_bank",
     "materialize_fixed_d4",
+    "persist_fixed_d4_solve",
     "register_bank",
     "resolve_bank_identities",
     "score_bank",
