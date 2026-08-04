@@ -40,6 +40,10 @@ _MXFP4_E2M1 = np.asarray(
     ),
     dtype=np.float16,
 )
+_MXFP4_CODE_BY_BITS = np.full(1 << 16, 255, dtype=np.uint8)
+for _code, _value in enumerate(_MXFP4_E2M1):
+    _bits = int(np.asarray([_value], dtype=np.float16).view(np.uint16)[0])
+    _MXFP4_CODE_BY_BITS[_bits] = _code
 
 
 def _sha256(payload: bytes) -> str:
@@ -323,6 +327,7 @@ def _exact_nearest_assignments(
     codebook: np.ndarray,
     *,
     chunk_vectors: int,
+    vector_domain: str | None = None,
 ) -> np.ndarray:
     if (
         normalized_vectors.dtype.kind != "f"
@@ -335,6 +340,32 @@ def _exact_nearest_assignments(
         )
     if not np.isfinite(codebook).all():
         raise ValueError("fixed D4 exact solve inputs must be finite")
+    if chunk_vectors < 1:
+        raise ValueError("fixed D4 exact solve chunk_vectors must be positive")
+
+    if vector_domain is not None:
+        if vector_domain != "mxfp4_e2m1":
+            raise ValueError(f"unsupported fixed D4 vector domain: {vector_domain}")
+        keys = np.arange(1 << 16, dtype=np.uint32)
+        nibbles = np.stack(
+            tuple(((keys >> shift) & 0x0F) for shift in (0, 4, 8, 12)),
+            axis=1,
+        )
+        domain_vectors = _MXFP4_E2M1[nibbles]
+        lookup = _exact_nearest_assignments(
+            domain_vectors.reshape(256, 256, 4),
+            codebook,
+            chunk_vectors=min(max(chunk_vectors, 256), 4096),
+        ).reshape(-1)
+        winners = np.empty(normalized_vectors.shape[:-1], dtype=lookup.dtype)
+        flat_vectors = normalized_vectors.reshape(-1, 4)
+        flat_winners = winners.reshape(-1)
+        mapping_chunk = max(chunk_vectors, 1 << 20)
+        for start in range(0, flat_vectors.shape[0], mapping_chunk):
+            stop = min(start + mapping_chunk, flat_vectors.shape[0])
+            flat_winners[start:stop] = lookup[_d4_vector_keys(flat_vectors[start:stop])]
+        return winners
+
     vectors = normalized_vectors.reshape(-1, 4)
     candidates = np.asarray(codebook, dtype=np.float64)
     candidate_norms = np.einsum("ij,ij->i", candidates, candidates)
@@ -434,9 +465,7 @@ def _decode_mxfp4_vectors(packed: np.ndarray) -> np.ndarray:
 
 def _d4_vector_keys(vectors: np.ndarray) -> np.ndarray:
     values = np.asarray(vectors, dtype=np.float16)
-    codes = np.full(values.shape, 255, dtype=np.uint16)
-    for code, decoded in enumerate(_MXFP4_E2M1):
-        codes[values == decoded] = code
+    codes = _MXFP4_CODE_BY_BITS[values.view(np.uint16)].astype(np.uint16)
     if np.any(codes == 255):
         raise ValueError("native MXFP4 decode produced a value outside E2M1")
     return codes[:, 0] | (codes[:, 1] << 4) | (codes[:, 2] << 8) | (codes[:, 3] << 12)
@@ -696,6 +725,7 @@ def prepare_fixed_d4_solve_config(
             "basis_index": "model.safetensors.index.json",
             "basis_sha256": basis_sha256,
             "chunk_vectors": chunk_vectors,
+            "vector_domain": "mxfp4_e2m1",
             "projections": projection_bindings,
         }
         config_path = staging / "solve.json"
@@ -754,9 +784,11 @@ def solve_fixed_d4_exact(
         "chunk_vectors",
         "projections",
     }
-    if not isinstance(config, Mapping) or set(config) != required:
+    accepted_fields = (required, required | {"vector_domain"})
+    if not isinstance(config, Mapping) or set(config) not in accepted_fields:
         raise ValueError(
-            f"fixed D4 exact solve config fields mismatch: expected={sorted(required)}"
+            "fixed D4 exact solve config fields mismatch: "
+            f"expected={sorted(required)} with optional vector_domain"
         )
     if config.get("schema") != "banana-smasher-fixed-d4-exact-solve-v1":
         raise ValueError(
@@ -777,6 +809,9 @@ def solve_fixed_d4_exact(
         or chunk_vectors < 1
     ):
         raise ValueError("fixed D4 exact solve chunk_vectors must be positive")
+    vector_domain = config.get("vector_domain")
+    if vector_domain is not None and vector_domain != "mxfp4_e2m1":
+        raise ValueError(f"unsupported fixed D4 vector domain: {vector_domain}")
     projections = config.get("projections")
     if not isinstance(projections, Mapping) or set(projections) != set(_PROJECTIONS):
         raise ValueError("fixed D4 exact solve requires down and fused13 projections")
@@ -816,7 +851,10 @@ def solve_fixed_d4_exact(
                 f"projections.{projection}.scales must be uint8 with 256 expert rows"
             )
         assignments = _exact_nearest_assignments(
-            vectors, codebook, chunk_vectors=chunk_vectors
+            vectors,
+            codebook,
+            chunk_vectors=chunk_vectors,
+            vector_domain=vector_domain,
         )
         solved[projection] = {
             "assignments": assignments,
