@@ -7,6 +7,7 @@
 #include <cuda_bf16.h>
 #include <cuda_runtime.h>
 
+#include <array>
 #include <cstdint>
 #include <limits>
 
@@ -156,18 +157,17 @@ at::Tensor compact_routes_cuda(
   TORCH_CHECK(physical_counters.scalar_type() == at::kLong &&
                   physical_counters.numel() >= 24,
               "physical_counters must be int64 with at least 24 entries");
-  for (const at::Tensor* tensor : {&expert_ids, &family_codes, &out,
-                                   &family_block_counts, &block_experts,
-                                   &block_valid_m, &block_route_rows,
-                                   &expert_route_counts, &expert_last_block,
-                                   &physical_counters}) {
+  for (const at::Tensor* tensor : std::array<const at::Tensor*, 10>{
+           &expert_ids, &family_codes, &out, &family_block_counts,
+           &block_experts, &block_valid_m, &block_route_rows,
+           &expert_route_counts, &expert_last_block, &physical_counters}) {
     TORCH_CHECK(tensor->is_contiguous(), "all compaction tensors must be contiguous");
     TORCH_CHECK(tensor->get_device() == expert_ids.get_device(),
                 "all compaction tensors must share one CUDA device");
   }
-  for (const at::Tensor* tensor : {&family_block_counts, &block_experts,
-                                   &block_valid_m, &block_route_rows,
-                                   &expert_route_counts, &expert_last_block}) {
+  for (const at::Tensor* tensor : std::array<const at::Tensor*, 6>{
+           &family_block_counts, &block_experts, &block_valid_m,
+           &block_route_rows, &expert_route_counts, &expert_last_block}) {
     TORCH_CHECK(tensor->scalar_type() == at::kInt,
                 "all descriptor tensors must be int32");
   }
