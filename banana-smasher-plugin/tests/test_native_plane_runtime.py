@@ -94,6 +94,40 @@ def test_specialized_physical_proof_reads_each_runtime_counter_tensor_once(
     assert {row["count"] for row in proof["rows"]} == {1}
 
 
+def test_specialized_shape_proof_requires_large_8192_geometry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    counters = torch.ones(128, dtype=torch.int64)
+    counters[24:27] = 0
+    geometries = {
+        (6, 1): counters.clone(),
+        (12, 2): counters.clone(),
+        (24, 4): counters.clone(),
+        (48, 4): counters.clone(),
+        (96, 4): counters.clone(),
+        (192, 16): counters.clone(),
+        (384, 16): counters.clone(),
+        (12288, 16): counters.clone(),
+    }
+    state = SimpleNamespace(vq_state={"physical_counter_tensors": geometries})
+    layer = SimpleNamespace(state=lambda projection: state)
+    monkeypatch.setattr(
+        native_planes,
+        "_NATIVE_PLANE_LAYER_REGISTRY",
+        {1: cast(NativePlaneLayer, layer)},
+    )
+
+    proof = native_planes._specialized_shape_physical_proof()
+    assert proof["status"] == "FAIL"
+    assert proof["geometries"]["8192"]["nonzero_named_counter_count"] == 0
+
+    geometries[(49152, 16)] = counters.clone()
+    proof = native_planes._specialized_shape_physical_proof()
+    assert proof["status"] == "PASS"
+    assert proof["geometries"]["8192"]["expected_named_counter_count"] == 12
+    assert len(proof["geometries"]["8192"]["rows"]) == 12
+
+
 def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -135,10 +169,17 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
         "specialized_physical_proof",
         lambda: {"status": "PASS", "rows": []},
     )
+    shape_proof = {"status": "PASS", "geometries": {"8192": {"status": "PASS"}}}
+    monkeypatch.setattr(
+        native_planes,
+        "_specialized_shape_physical_proof",
+        lambda: shape_proof,
+    )
 
     proof = native_planes.warmup_specialized_matrix()
 
     assert proof["status"] == "PASS"
+    assert proof["shape_physical_proof"] == shape_proof
     assert proof["warmup_execution_count"] == 18
     assert proof["warmup_tokens"] == list(warmup_tokens)
     assert set(calls) == {
