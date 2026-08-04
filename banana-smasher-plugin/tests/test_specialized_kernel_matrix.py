@@ -98,9 +98,17 @@ def test_matrix_exhaustively_binds_every_admitted_tier_projection_and_shape() ->
             "triton_fallback",
         ]
         source_symbol = row["source_symbol"]
-        assert row["family"] in source_symbol
-        assert f"k{row['input_k']}" in source_symbol
-        assert row["variant"] in source_symbol
+        if row["family"].startswith("qtip"):
+            assert row["family"] in source_symbol
+            assert f"k{row['input_k']}" in source_symbol
+            assert row["variant"] in source_symbol
+        elif row["family"] == "d4":
+            assert source_symbol.startswith("d4_specialized_")
+            assert f"<{row['index_bits']},{row['variant_id']},{row['input_k']}>" in source_symbol
+        else:
+            assert source_symbol == (
+                f"mxfp4_specialized_kernel<{row['variant_id']},{row['input_k']}>"
+            )
 
 
 def test_specialization_selector_is_exact_for_decode_bm16_large_and_2k() -> None:
@@ -138,12 +146,24 @@ def test_every_matrix_source_symbol_is_owned_by_compiled_specialized_source() ->
 
     for row in matrix["rows"]:
         source = qtip if row["family"].startswith("qtip") else vq
-        assert row["source_symbol"] in source, row["source_symbol"]
         if row["family"].startswith("qtip"):
+            assert row["source_symbol"] in source, row["source_symbol"]
             assert row["source_symbol"] in wrapper
+        elif row["family"] == "d4":
+            assert row["source_symbol"].split("<", 1)[0] in source
+        else:
+            assert "mxfp4_specialized_kernel" in source
 
     assert "qtip_trellis_tlut_kernel" in qtip_kernel
     assert "d4_specialized" in vq
     assert "mxfp4_specialized" in vq
     assert "physical_counters.numel() >= 128" in vq
     assert '"physical_counters": torch.zeros(128' in acceleration
+
+
+def test_d4_tier_specialization_does_not_change_mxfp4_launch_arity() -> None:
+    vq = (PACKAGE / "csrc/vq_warp_gemv.cu").read_text()
+    mxfp4 = vq.split("at::Tensor mxfp4_specialized(", 1)[1]
+
+    assert "auto launch = [&](auto variant_tag, auto expected_k_tag)" in mxfp4
+    assert "auto launch = [&](auto index_bits_tag" not in mxfp4

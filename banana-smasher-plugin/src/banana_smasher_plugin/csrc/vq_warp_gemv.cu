@@ -253,7 +253,7 @@ __device__ __forceinline__ void accumulate_item_m4(
   }
 }
 
-template <int Variant, int ExpectedK>
+template <int IndexBits, int Variant, int ExpectedK>
 __global__ void d4_specialized_gemv_kernel(
     const __nv_bfloat16* __restrict__ a,
     float* __restrict__ out,
@@ -276,8 +276,10 @@ __global__ void d4_specialized_gemv_kernel(
     int family,
     int route_stride) {
   if (k != ExpectedK) return;
-  record_physical_dispatch(family_block_count, block_valid_m,
-                           physical_counters, family);
+  if constexpr (IndexBits == 10) {
+    record_physical_dispatch(family_block_count, block_valid_m,
+                             physical_counters, family);
+  }
   const int tid = threadIdx.x;
   const int warp = tid >> 5;
   const int lane = tid & 31;
@@ -290,7 +292,7 @@ __global__ void d4_specialized_gemv_kernel(
 
   const int d = dimension[expert];
   const int index_bits = bits[expert];
-  if ((d != 4 && d != 8) || index_bits < 8 || index_bits > 12) return;
+  if ((d != 4 && d != 8) || index_bits != IndexBits) return;
 
   const int item_elems = kCodesPerLaneItem * d;
   const int items = k / item_elems;
@@ -355,7 +357,7 @@ __global__ void d4_specialized_gemv_kernel(
   }
 }
 
-template <int Variant, int ExpectedK>
+template <int IndexBits, int Variant, int ExpectedK>
 __global__ void d4_specialized_gemm_m4_kernel(
     const __nv_bfloat16* __restrict__ a,
     float* __restrict__ out,
@@ -378,8 +380,10 @@ __global__ void d4_specialized_gemm_m4_kernel(
     int family,
     int route_stride) {
   if (k != ExpectedK) return;
-  record_physical_dispatch(family_block_count, block_valid_m,
-                           physical_counters, family);
+  if constexpr (IndexBits == 10) {
+    record_physical_dispatch(family_block_count, block_valid_m,
+                             physical_counters, family);
+  }
   const int tid = threadIdx.x;
   const int warp = tid >> 5;
   const int lane = tid & 31;
@@ -393,7 +397,7 @@ __global__ void d4_specialized_gemm_m4_kernel(
 
   const int d = dimension[expert];
   const int index_bits = bits[expert];
-  if ((d != 4 && d != 8) || index_bits < 8 || index_bits > 12) return;
+  if ((d != 4 && d != 8) || index_bits != IndexBits) return;
 
   const int item_elems = kCodesPerLaneItem * d;
   const int items = k / item_elems;
@@ -580,19 +584,20 @@ at::Tensor d4_specialized(
       (k + max_items * kPadBf16PerItem) * sizeof(__nv_bfloat16);
   const auto stream = at::cuda::getCurrentCUDAStream(a.get_device()).stream();
 
-  auto launch = [&](auto variant_tag, auto expected_k_tag) {
+  auto launch = [&](auto index_bits_tag, auto variant_tag, auto expected_k_tag) {
+    constexpr int IndexBits = decltype(index_bits_tag)::value;
     constexpr int Variant = decltype(variant_tag)::value;
     constexpr int ExpectedK = decltype(expected_k_tag)::value;
-      const bool use_vector_m4 = route_stride >= kRowStride;
+    const bool use_vector_m4 = route_stride >= kRowStride;
     if (use_vector_m4) {
       const int shared_bytes = kRowStride * shared_row_bytes;
       C10_CUDA_CHECK(cudaFuncSetAttribute(
-          d4_specialized_gemm_m4_kernel<Variant, ExpectedK>,
+          d4_specialized_gemm_m4_kernel<IndexBits, Variant, ExpectedK>,
           cudaFuncAttributeMaxDynamicSharedMemorySize,
           shared_bytes));
       const dim3 grid((n + kWarpsPerBlock - 1) / kWarpsPerBlock,
                       block_experts.numel(), route_stride / kRowStride);
-      d4_specialized_gemm_m4_kernel<Variant, ExpectedK><<<grid, kThreads, shared_bytes, stream>>>(
+      d4_specialized_gemm_m4_kernel<IndexBits, Variant, ExpectedK><<<grid, kThreads, shared_bytes, stream>>>(
           reinterpret_cast<const __nv_bfloat16*>(a.data_ptr<at::BFloat16>()),
           out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
           block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
@@ -607,12 +612,12 @@ at::Tensor d4_specialized(
     } else {
       const int shared_bytes = shared_row_bytes;
       C10_CUDA_CHECK(cudaFuncSetAttribute(
-          d4_specialized_gemv_kernel<Variant, ExpectedK>,
+          d4_specialized_gemv_kernel<IndexBits, Variant, ExpectedK>,
           cudaFuncAttributeMaxDynamicSharedMemorySize,
           shared_bytes));
       const dim3 grid((n + kWarpsPerBlock - 1) / kWarpsPerBlock,
                       block_experts.numel(), route_stride);
-      d4_specialized_gemv_kernel<Variant, ExpectedK><<<grid, kThreads, shared_bytes, stream>>>(
+      d4_specialized_gemv_kernel<IndexBits, Variant, ExpectedK><<<grid, kThreads, shared_bytes, stream>>>(
           reinterpret_cast<const __nv_bfloat16*>(a.data_ptr<at::BFloat16>()),
           out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
           block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
@@ -628,8 +633,15 @@ at::Tensor d4_specialized(
   };
 #define DISPATCH_D4_VARIANT(V) \
   case V: \
-    if (k == 4096) launch(std::integral_constant<int, V>{}, std::integral_constant<int, 4096>{}); \
-    else launch(std::integral_constant<int, V>{}, std::integral_constant<int, 2048>{}); \
+    if (k == 4096) { \
+      launch(std::integral_constant<int, 10>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 4096>{}); \
+      launch(std::integral_constant<int, 11>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 4096>{}); \
+      launch(std::integral_constant<int, 12>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 4096>{}); \
+    } else { \
+      launch(std::integral_constant<int, 10>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 2048>{}); \
+      launch(std::integral_constant<int, 11>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 2048>{}); \
+      launch(std::integral_constant<int, 12>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 2048>{}); \
+    } \
     break
   switch (static_cast<int>(variant64)) {
     DISPATCH_D4_VARIANT(0); DISPATCH_D4_VARIANT(1); DISPATCH_D4_VARIANT(2);
@@ -774,72 +786,6 @@ at::Tensor mxfp4_specialized(
   return out;
 }
 
-static constexpr const char* kSpecializedMatrixSourceSymbols[] = {
-    "d4_i10_k4096_decode_c1",
-    "d4_i10_k4096_decode_c2",
-    "d4_i10_k4096_decode_c4",
-    "d4_i10_k4096_decode_c8",
-    "d4_i10_k4096_decode_c16",
-    "d4_i10_k4096_prefill_bm16",
-    "d4_i10_k4096_prefill_large",
-    "d4_i10_k4096_prefill_exact_2k",
-    "d4_i10_k2048_decode_c1",
-    "d4_i10_k2048_decode_c2",
-    "d4_i10_k2048_decode_c4",
-    "d4_i10_k2048_decode_c8",
-    "d4_i10_k2048_decode_c16",
-    "d4_i10_k2048_prefill_bm16",
-    "d4_i10_k2048_prefill_large",
-    "d4_i10_k2048_prefill_exact_2k",
-    "d4_i11_k4096_decode_c1",
-    "d4_i11_k4096_decode_c2",
-    "d4_i11_k4096_decode_c4",
-    "d4_i11_k4096_decode_c8",
-    "d4_i11_k4096_decode_c16",
-    "d4_i11_k4096_prefill_bm16",
-    "d4_i11_k4096_prefill_large",
-    "d4_i11_k4096_prefill_exact_2k",
-    "d4_i11_k2048_decode_c1",
-    "d4_i11_k2048_decode_c2",
-    "d4_i11_k2048_decode_c4",
-    "d4_i11_k2048_decode_c8",
-    "d4_i11_k2048_decode_c16",
-    "d4_i11_k2048_prefill_bm16",
-    "d4_i11_k2048_prefill_large",
-    "d4_i11_k2048_prefill_exact_2k",
-    "d4_i12_k4096_decode_c1",
-    "d4_i12_k4096_decode_c2",
-    "d4_i12_k4096_decode_c4",
-    "d4_i12_k4096_decode_c8",
-    "d4_i12_k4096_decode_c16",
-    "d4_i12_k4096_prefill_bm16",
-    "d4_i12_k4096_prefill_large",
-    "d4_i12_k4096_prefill_exact_2k",
-    "d4_i12_k2048_decode_c1",
-    "d4_i12_k2048_decode_c2",
-    "d4_i12_k2048_decode_c4",
-    "d4_i12_k2048_decode_c8",
-    "d4_i12_k2048_decode_c16",
-    "d4_i12_k2048_prefill_bm16",
-    "d4_i12_k2048_prefill_large",
-    "d4_i12_k2048_prefill_exact_2k",
-    "native_mxfp4_k4096_decode_c1",
-    "native_mxfp4_k4096_decode_c2",
-    "native_mxfp4_k4096_decode_c4",
-    "native_mxfp4_k4096_decode_c8",
-    "native_mxfp4_k4096_decode_c16",
-    "native_mxfp4_k4096_prefill_bm16",
-    "native_mxfp4_k4096_prefill_large",
-    "native_mxfp4_k4096_prefill_exact_2k",
-    "native_mxfp4_k2048_decode_c1",
-    "native_mxfp4_k2048_decode_c2",
-    "native_mxfp4_k2048_decode_c4",
-    "native_mxfp4_k2048_decode_c8",
-    "native_mxfp4_k2048_decode_c16",
-    "native_mxfp4_k2048_prefill_bm16",
-    "native_mxfp4_k2048_prefill_large",
-    "native_mxfp4_k2048_prefill_exact_2k",
-};
 
 }  // namespace
 
