@@ -14,6 +14,19 @@ import torch
 from .qtip_batch import build_qtip_batch
 
 
+_ACTIVE_BUILD_ACCELERATIONS = (
+    "persistent-prefix-full16",
+    "kernel-cache",
+    "shared-capture/single-process-staging",
+    "batched-block-LDL",
+    "cross-unit-LDLQ",
+    "FWHT",
+    "bounded-batch-matrix-lifetime",
+    "canonical-pack-from-states",
+    "packed-byte-reconstruction",
+)
+
+
 def _common(label: str, values: Sequence[Any]) -> Any:
     if not values:
         raise ValueError(f"QTIP batch lacks {label}")
@@ -340,6 +353,7 @@ def main_batch(
                 "mean_build_wall_seconds": batch_build["mean_build_wall_seconds"],
                 "phase_seconds": batch_build["phase_seconds"],
                 "solver_geometry": batch_build["solver_geometry"],
+                "matrix_lifetime": batch_build["matrix_lifetime"],
                 "independent_unit_state": True,
             },
         }
@@ -439,6 +453,12 @@ def main_batch(
         "mean_build_wall_seconds": mean_build_seconds,
         "build_phase_seconds": batch_build["phase_seconds"],
         "mean_build_phase_seconds": mean_build_phases,
+        "matrix_lifetime": batch_build["matrix_lifetime"],
+        "accelerations": {
+            "schema": "banana-smasher-qtip-active-build-accelerations-v1",
+            "active": list(_ACTIVE_BUILD_ACCELERATIONS),
+            "historical_k3_alternating_branch_pruning": False,
+        },
         "solver": solver_identity,
         "assignment_sha256": [receipt["assignment_sha256"] for receipt in receipt_rows],
         "artifact_sha256": [row["sha256"] for row in artifact_rows],

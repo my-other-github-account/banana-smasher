@@ -2052,7 +2052,7 @@ def main_many(
         from .qtip_batch_controller import main_batch
 
         batchable: dict[tuple[str, tuple[int, int, int]], list[Path]] = defaultdict(list)
-        sequential: list[Path] = []
+        unsupported: list[tuple[Path, tuple[int, ...]]] = []
         for path, existing in zip(paths, existing_units, strict=True):
             if existing is not None:
                 continue
@@ -2063,17 +2063,21 @@ def main_many(
                 if isinstance(geometry, dict)
                 else ()
             )
-            if sealed == (16, 2, 2):
-                projection = validate_qtip_projection(config["projection"])
-                batchable[(projection, (16, 2, 2))].append(path)
-            else:
-                sequential.append(path)
+            if sealed != (16, 2, 2):
+                unsupported.append((path, sealed))
+                continue
+            projection = validate_qtip_projection(config["projection"])
+            batchable[(projection, (16, 2, 2))].append(path)
+        if unsupported:
+            detail = ", ".join(
+                f"{path.name}:{geometry}" for path, geometry in unsupported
+            )
+            raise ValueError(
+                "accelerated QTIP batch command refuses serial fallback for " + detail
+            )
         for grouped_paths in batchable.values():
             for start in range(0, len(grouped_paths), batch_size):
                 chunk = grouped_paths[start : start + batch_size]
-                if len(chunk) == 1:
-                    sequential.extend(chunk)
-                    continue
                 rows = main_batch(
                     chunk,
                     root,
@@ -2081,11 +2085,6 @@ def main_many(
                     kernel_cache_root=kernel_cache_root,
                 )
                 computed_by_path.update(zip(chunk, rows, strict=True))
-        for path in sequential:
-            main_kwargs: dict[str, Any] = {"profile_mode": profile_mode}
-            if kernel_cache_root is not None:
-                main_kwargs["kernel_cache_root"] = kernel_cache_root
-            computed_by_path[path] = main(path, root, layer, **main_kwargs)
     for path, existing in zip(paths, existing_units, strict=True):
         if existing is None:
             if batch_size > 1:

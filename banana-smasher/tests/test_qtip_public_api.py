@@ -31,6 +31,13 @@ def test_qtip_solver_sources_ship_in_public_package() -> None:
     assert {"_bind_builder_memory_contract", "_release_capture_bank", "main", "main_many"} <= functions
 
 
+def test_public_package_exports_stable_qtip_batch_api() -> None:
+    import banana_smasher
+
+    assert callable(banana_smasher.solve_qtip_profiles)
+    assert "solve_qtip_profiles" in banana_smasher.__all__
+
+
 def test_qtip_extension_builder_declares_runtime_setuptools_dependency() -> None:
     project = Path(__file__).resolve().parents[1]
     metadata = (project / "pyproject.toml").read_text()
@@ -309,9 +316,8 @@ def test_public_qtip_solve_routes_materialization_and_resume(
     )
 
     calls: list[dict[str, object]] = []
-    solver = ModuleType("banana_smasher.solver_qtip_profile")
 
-    def main_many(source, root, layer, **kwargs):
+    def solve_qtip_profiles(source, root, layer, **kwargs):
         calls.append(
             {
                 "source": str(source),
@@ -322,10 +328,11 @@ def test_public_qtip_solve_routes_materialization_and_resume(
         )
         return {"status": "PASS", "layer": layer, "resumed_units": 1}
 
-    setattr(solver, "main_many", main_many)
+    import banana_smasher
+
+    monkeypatch.setattr(banana_smasher, "solve_qtip_profiles", solve_qtip_profiles)
     monkeypatch.setitem(__import__("sys").modules, rings.__name__, rings)
     monkeypatch.setitem(__import__("sys").modules, materialize.__name__, materialize)
-    monkeypatch.setitem(__import__("sys").modules, solver.__name__, solver)
 
     rc = cli.main(
         [
@@ -342,6 +349,10 @@ def test_public_qtip_solve_routes_materialization_and_resume(
             "--layers",
             "35",
             "--resume",
+            "--qtip-batch-size",
+            "8",
+            "--kernel-cache-root",
+            "/tmp/cache",
         ]
     )
 
@@ -356,6 +367,8 @@ def test_public_qtip_solve_routes_materialization_and_resume(
             "profile_mode": False,
             "resume": True,
             "resume_flag_explicit": True,
+            "batch_size": 8,
+            "kernel_cache_root": Path("/tmp/cache"),
         }
     ]
     receipt = json.loads(capsys.readouterr().out)
