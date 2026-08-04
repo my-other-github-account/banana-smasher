@@ -1,0 +1,553 @@
+{
+  "artifacts": [
+    {
+      "family": "MLA",
+      "k": 0,
+      "kernel": "mla_prefill_state2",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/mla_prefill_state.cubin",
+      "sha256": "e4ad2dc0ceb162c66ffaff33f20b454cfe34c65dc004e6bfe263e176e5b5d748",
+      "editable_source": "banana-smasher/kernels/sources/w2/sass/mla_prefill_state2.sass",
+      "editable_source_sha256": "229f0bc47b7d8dc2444d9a1b91bce76217b533772492e3b73649e07b1539ffb7",
+      "source": "banana-smasher/kernels/sources/w2/sass/mla_prefill_state.frozen.sass",
+      "source_role": "binary_derived_comparison_oracle",
+      "source_sha256": "dfa86dd8a58acf792416e3651ef56ff07e2ccfe18cc6d463fa5c3ec1e34e7bc6",
+      "variant": "state"
+    },
+    {
+      "family": "W2",
+      "k": 1024,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_k1024.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_k1024.sass",
+      "sha256": "3a75e609012b658b32bc284f8451f5392bb7600f6429194987a15499c248b437",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "base"
+    },
+    {
+      "family": "W2",
+      "k": 2048,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_k2048.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_k2048.sass",
+      "sha256": "bcd715fb04bb7efb75a65594e8d96bba24452ba82da9bdec3b5db34be3366b1f",
+      "source": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_k2048.sass",
+      "source_mode": "retained_reference_sass",
+      "source_sha256": "0652e43545e448908ba73f615fef4c5d831d3a1de9a1cb494c16105a51b3a508",
+      "variant": "base"
+    },
+    {
+      "family": "W2",
+      "k": 4096,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_k4096.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm.sass",
+      "sha256": "19570b90424162e9f22b86ebdb0cd521ba9143013e7d284fef257d7724da3e11",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "base"
+    },
+    {
+      "family": "W2",
+      "k": 512,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_k512.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_k512.sass",
+      "sha256": "6ce2965080048b8b82218ce6762150315e1dce5c1277b5683e193cd7849dc932",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "base"
+    },
+    {
+      "family": "W2",
+      "k": 6144,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_k6144.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_k6144.sass",
+      "sha256": "1b0b39b9d89a56ecf0b08b871879e7d684b93594e12571e55548f1f95627b4aa",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "base"
+    },
+    {
+      "family": "W2",
+      "k": 1024,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc2_k1024.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc2_k1024.sass",
+      "sha256": "727c80cad157b9716df8a94cf86fb1be169ef1d792804e355f5a8ffd8ad7f154",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc2"
+    },
+    {
+      "family": "W2",
+      "k": 2048,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc2_k2048.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc2_k2048.sass",
+      "sha256": "f2e1093d106c79c122548c32d22f8ef95d5f844d0f83a483c9dee1ce58c65452",
+      "source": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc2_k2048.sass",
+      "source_mode": "retained_reference_sass",
+      "source_sha256": "7c2447cba972f5310ba9a3fe0ddbc1bfeb2169317bc60e86b987f851fe5ef4aa",
+      "variant": "mc2"
+    },
+    {
+      "family": "W2",
+      "k": 4096,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc2_k4096.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc2.sass",
+      "sha256": "100a3255fcfd5947ab9ad593bccb37433b5c70aeff65995334973a97dd11071c",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc2"
+    },
+    {
+      "family": "W2",
+      "k": 512,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc2_k512.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc2_k512.sass",
+      "sha256": "ff99d3141a6503419cdec82efddde804ee24004035a79176d2057810b2a06998",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc2"
+    },
+    {
+      "family": "W2",
+      "k": 6144,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc2_k6144.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc2_k6144.sass",
+      "sha256": "385f71df93b5b04d5634c84e7f9593bc340b375663ae59e600bf38fcf1a7ba18",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc2"
+    },
+    {
+      "family": "W2",
+      "k": 1024,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4_k1024.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc4_k1024.sass",
+      "sha256": "8744ab7a2c4184d36b8d5a09b65a0a434cea227505f6fb435a886322163e3e96",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4"
+    },
+    {
+      "family": "W2",
+      "k": 2048,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4_k2048.cubin",
+      "sha256": "f5c6db6eb4cfd2c9706a51f9303c68adaeabb123d8fb43cbb4d54f09fce6b829",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4"
+    },
+    {
+      "family": "W2",
+      "k": 4096,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4_k4096.cubin",
+      "sha256": "ac24c451d25f9e0cad4fc4f1cd05bba36eeaebc81a3552da7fff71187bc15e31",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4"
+    },
+    {
+      "family": "W2",
+      "k": 512,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4_k512.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc4_k512.sass",
+      "sha256": "6576d059924a9824f6b8260ac662dc3eaf31a14c7a09d99708e1458615450b90",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4"
+    },
+    {
+      "family": "W2",
+      "k": 6144,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4_k6144.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc4_k6144.sass",
+      "sha256": "8cbb0337a2c9180e3a412221cc57e57ee62d5a5e8797666542bbc778e6cfa724",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4"
+    },
+    {
+      "family": "W2",
+      "k": 1024,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4afrag_k1024.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc4afrag_k1024.sass",
+      "sha256": "4c7c1f513ff32411f0eba5c3b05a1b4d65bee74c1b0ac4b43f237717366d32e9",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4afrag"
+    },
+    {
+      "family": "W2",
+      "k": 2048,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4afrag_k2048.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc4afrag_k2048.sass",
+      "sha256": "6e7eff0157ca2964d84b2d7ea30066babb81076cce0575272186d3e8412202e3",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4afrag"
+    },
+    {
+      "family": "W2",
+      "k": 4096,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4afrag_k4096.cubin",
+      "sha256": "fcbe9b106139a10c9dbca07499adaaddc0fccdcff6ccfa87daaf8873b225e0b8",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4afrag"
+    },
+    {
+      "family": "W2",
+      "k": 512,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4afrag_k512.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc4afrag_k512.sass",
+      "sha256": "47bb62018c969088ae3051b7b845c431577510d189ec0959e3d0704f3ffeacf5",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4afrag"
+    },
+    {
+      "family": "W2",
+      "k": 6144,
+      "kernel": "moe_w2_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w2_mm_mc4afrag_k6144.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w2_mm_mc4afrag_k6144.sass",
+      "sha256": "bcce10f64998bc4f789b02ced4e907aa3ff2a3b8dab4ef9c9122e0b67925831a",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w2.py",
+      "source_sha256": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+      "variant": "mc4afrag"
+    },
+    {
+      "family": "W4",
+      "k": 1024,
+      "kernel": "moe_w4_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w4_mm_k1024.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w4_mm_k1024.sass",
+      "sha256": "562f38acd649113b2b30e799f17d2a6d0a8ea5056f62c4ad359d6a1eba845371",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w4.py",
+      "source_sha256": "89543f8274aa9d44ecb63d86ae9b4584cf88942a8ebf90b27871212dc19de6bb",
+      "variant": "base"
+    },
+    {
+      "family": "W4",
+      "k": 2048,
+      "kernel": "moe_w4_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w4_mm_k2048.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w4_mm_k2048.sass",
+      "sha256": "f8eac7c80f6abcd933f359f7ab5ebba7ddabbcc55ad7fc9d5ce4f5ab4069a7de",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w4.py",
+      "source_sha256": "89543f8274aa9d44ecb63d86ae9b4584cf88942a8ebf90b27871212dc19de6bb",
+      "variant": "base"
+    },
+    {
+      "family": "W4",
+      "k": 4096,
+      "kernel": "moe_w4_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w4_mm_k4096.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w4_mm.sass",
+      "sha256": "f8668076b860030c628af8965e6465e65a43cc3b3764a6f54712b1ee99ad13be",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w4.py",
+      "source_sha256": "89543f8274aa9d44ecb63d86ae9b4584cf88942a8ebf90b27871212dc19de6bb",
+      "variant": "base"
+    },
+    {
+      "family": "W4",
+      "k": 512,
+      "kernel": "moe_w4_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w4_mm_k512.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w4_mm_k512.sass",
+      "sha256": "44f98dfa84aaab7daca195b53027ec97aa76698336f18ecb840fd397a0972fc6",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w4.py",
+      "source_sha256": "89543f8274aa9d44ecb63d86ae9b4584cf88942a8ebf90b27871212dc19de6bb",
+      "variant": "base"
+    },
+    {
+      "family": "W4",
+      "k": 6144,
+      "kernel": "moe_w4_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-sm120/moe_w4_mm_k6144.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w2/sass/moe_w4_mm_k6144.sass",
+      "sha256": "1c2c6c8d157717c15a25999684fd552e4c074e623bad81f50e6d424f2a7de7f1",
+      "source": "banana-smasher/kernels/sources/w2/gen/gen_moe_w4.py",
+      "source_sha256": "89543f8274aa9d44ecb63d86ae9b4584cf88942a8ebf90b27871212dc19de6bb",
+      "variant": "base"
+    },
+    {
+      "family": "W3",
+      "k": 2048,
+      "kernel": "moe_w3_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w3/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-e43/moe_w3_mm_k2048.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w3/reference-sass/moe_w3_mm_e43_base_k2048.sass",
+      "sha256": "329ead7686b64a0b38a73a28ef2877e432da8ee8558d7a2c69b2ea563276d68f",
+      "source": "banana-smasher/kernels/sources/w3/gen_moe_w3.py",
+      "source_sha256": "86c20a48616c87b3d075dcffe5c0bc4355ad636eef3d91c020078857e6c74247",
+      "variant": "base"
+    },
+    {
+      "family": "W3",
+      "k": 4096,
+      "kernel": "moe_w3_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w3/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-e43/moe_w3_mm_k4096.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w3/reference-sass/moe_w3_mm_e43_base_k4096.sass",
+      "sha256": "923812fc229524465af15869e5e16ad570dd0610bb8413feb43f3630e2245751",
+      "source": "banana-smasher/kernels/sources/w3/gen_moe_w3.py",
+      "source_sha256": "86c20a48616c87b3d075dcffe5c0bc4355ad636eef3d91c020078857e6c74247",
+      "variant": "base"
+    },
+    {
+      "family": "W3",
+      "k": 2048,
+      "kernel": "moe_w3_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w3/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-e43/moe_w3_mm_mc4_k2048.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w3/reference-sass/moe_w3_mm_e43_mc4_k2048.sass",
+      "sha256": "7fb4f67af94d88d40ca7f42e13fc89b281335cf8b4db037dd943e219daac237b",
+      "source": "banana-smasher/kernels/sources/w3/gen_moe_w3.py",
+      "source_sha256": "86c20a48616c87b3d075dcffe5c0bc4355ad636eef3d91c020078857e6c74247",
+      "variant": "mc4"
+    },
+    {
+      "family": "W3",
+      "k": 4096,
+      "kernel": "moe_w3_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w3/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-e43/moe_w3_mm_mc4_k4096.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w3/reference-sass/moe_w3_mm_e43_mc4_k4096.sass",
+      "sha256": "f9f8cd5f207da23440ea420a7e13068ca10291a181cb05435417f95085db0402",
+      "source": "banana-smasher/kernels/sources/w3/gen_moe_w3.py",
+      "source_sha256": "86c20a48616c87b3d075dcffe5c0bc4355ad636eef3d91c020078857e6c74247",
+      "variant": "mc4"
+    },
+    {
+      "family": "W3",
+      "k": 2048,
+      "kernel": "moe_w3_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w3/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-e43/moe_w3_mm_mc4afrag_k2048.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w3/reference-sass/moe_w3_mm_e43_mc4afrag_k2048.sass",
+      "sha256": "5feb524786cd38ffc7c91bd22b76cbf63472ba1e49f88cc70249c9f28b5db903",
+      "source": "banana-smasher/kernels/sources/w3/gen_moe_w3.py",
+      "source_sha256": "86c20a48616c87b3d075dcffe5c0bc4355ad636eef3d91c020078857e6c74247",
+      "variant": "mc4afrag"
+    },
+    {
+      "family": "W3",
+      "k": 4096,
+      "kernel": "moe_w3_mm",
+      "mercury_stub": "banana-smasher/kernels/sources/w3/qmma_e4m3.merc.stub",
+      "path": "banana-smasher/kernels/cubins-e43/moe_w3_mm_mc4afrag_k4096.cubin",
+      "reference_sass": "banana-smasher/kernels/sources/w3/reference-sass/moe_w3_mm_e43_mc4afrag_k4096.sass",
+      "sha256": "7d628b0656ce24fac21276aeab21ca26d3674570f07bce3d328548a249624a3a",
+      "source": "banana-smasher/kernels/sources/w3/gen_moe_w3.py",
+      "source_sha256": "86c20a48616c87b3d075dcffe5c0bc4355ad636eef3d91c020078857e6c74247",
+      "variant": "mc4afrag"
+    }
+  ],
+  "clean_rebuild": {
+    "all_command": "python banana-smasher/kernels/rebuild.py --output /tmp/banana-kernels",
+    "deferred_hardware_command": "OUT=$(mktemp -d /tmp/banana-kernels-clean.XXXXXX) && BANANA_SMASHER_BUILD_CONTAINER_DIGEST=vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b python banana-smasher/kernels/rebuild.py --output $OUT --family M4 --family W2 --family W3 --family W4",
+    "entry_point": "banana-smasher/kernels/rebuild.py",
+    "hardware_execution_status": "DEFERRED_UNTIL_AUTHORIZED_IDLE_SPARK",
+    "policy": "Outputs must be absent or empty and outside the repository. Scalar W2/W3/W4 admitted cubins have hash-bound producing source. MLA is retained only as a binary-derived comparison oracle and is excluded from source rebuild closure."
+  },
+  "default_rebuild_families": [
+    "M4",
+    "W2",
+    "W3",
+    "W4"
+  ],
+  "families": {
+    "M4": {
+      "build_command": "python banana-smasher/kernels/rebuild.py --output /tmp/banana-kernels --family M4",
+      "expected_output": {
+        "sha256": null,
+        "status": "PENDING_TARGET_BUILD"
+      },
+      "origin_hashes": {
+        "csrc/vq_warp_gemv.cu": "4ff296f7e42e2a906543aa4563fc50e1e04d58e6d41de46cda9bce4ae686fef5",
+        "setup.py": "7b921d5b0c7eddb2663c032746a6da1eb49746077a772623e9711f731614e097"
+      },
+      "publication_transform": "removed non-behavioral grant metadata and an attribution-only header",
+      "retained_hashes": {
+        "csrc/vq_warp_gemv.cu": "af72d00f3a5db469260566c689ca927a75b46499876fb398a8aa5b5c66e4640f",
+        "setup.py": "33aad6b8893d2c242a7d92f7287a9b166856f44977c269a63a423125012dd86e"
+      },
+      "source_root": "banana-smasher/kernels/sources/m4",
+      "toolchain": {
+        "builder": "torch.utils.cpp_extension.CUDAExtension + BuildExtension(use_ninja=True)",
+        "container": "vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b",
+        "cuda_arch": "12.0a",
+        "ninja": "1.13.0"
+      }
+    },
+    "MLA": {
+      "build_command": "python banana-smasher/kernels/rebuild.py --output /tmp/banana-kernels --family MLA",
+      "source_closure": {
+        "blocker": "No independent producing source is retained; the frozen SASS was derived from the admitted binary.",
+        "derivation": "Public Cubit disassemble --frozen was applied to the admitted binary for comparison only.",
+        "editable_source": "sass/mla_prefill_state2.sass",
+        "editable_source_sha256": "229f0bc47b7d8dc2444d9a1b91bce76217b533772492e3b73649e07b1539ffb7",
+        "comparison_oracle": "sass/mla_prefill_state.frozen.sass",
+        "comparison_oracle_sha256": "dfa86dd8a58acf792416e3651ef56ff07e2ccfe18cc6d463fa5c3ec1e34e7bc6",
+        "roundtrip_output_sha256": "e4ad2dc0ceb162c66ffaff33f20b454cfe34c65dc004e6bfe263e176e5b5d748",
+        "status": "BLOCKED"
+      },
+      "source_root": "banana-smasher/kernels/sources/w2",
+      "toolchain": {
+        "build_invocation": "cubit asm banana-smasher/kernels/sources/w2/sass/mla_prefill_state.frozen.sass -o OUTPUT.cubin --kernel mla_prefill_state2 --mercury-stub banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+        "cargo_lock_sha256": "12af4b62563b9b8812ce87e015d63c9871e3e5d4b6371538260441a81963ed58",
+        "cubit_commit": "c139df8b34f1dcab607f8ccb685fdea948f3ae4d",
+        "cubit_repository": "https://github.com/kacper-daftcode/cubit.git",
+        "sm120_table_sha256": "fb28d81187e56fbe1e468e6f0356267c162d0fa12262e40d21069563e7fc918f"
+      }
+    },
+    "W2": {
+      "build_command": "python banana-smasher/kernels/rebuild.py --output /tmp/banana-kernels --family W2",
+      "generator_hashes": {
+        "gen/gen_moe_w2.py": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+        "gen/gen_moe_w4.py": "89543f8274aa9d44ecb63d86ae9b4584cf88942a8ebf90b27871212dc19de6bb",
+        "gen/moe_w2_check.py": "539c08996bd3226e7b13604481142d7c0b6c1c4daf997947507660f2a3428e0f",
+        "gen/moe_w4_check.py": "833db2d97e94b017e3d935dca4ec68b33e7e923d33a3c42150c6978a0550aa34"
+      },
+      "origin": {
+        "commit": "591250b08cf2f0acc288b52edfa0b1b6c3d0bc72",
+        "repository": "https://github.com/Sapid-Labs/vLLM-Moet.git"
+      },
+      "retained_hashes": {
+        "gen/gen_moe_w2.py": "1a0c0274990c467ef7b6cd602df724822c3e7635f10823dac79c77b6c7dc9c26",
+        "gen/gen_moe_w4.py": "89543f8274aa9d44ecb63d86ae9b4584cf88942a8ebf90b27871212dc19de6bb",
+        "gen/moe_w2_check.py": "539c08996bd3226e7b13604481142d7c0b6c1c4daf997947507660f2a3428e0f",
+        "gen/moe_w4_check.py": "833db2d97e94b017e3d935dca4ec68b33e7e923d33a3c42150c6978a0550aa34",
+        "sass/qmma_e4m3.merc.stub": "80ae5c0b657a67061d9370d7ce4d9957a94ee54e61bf6643dd82c8352ee005f7"
+      },
+      "source_root": "banana-smasher/kernels/sources/w2",
+      "toolchain": {
+        "build_invocation": "cubit asm GENERATED.sass -o OUTPUT.cubin --kernel KERNEL --mercury-stub banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+        "cubit_commit": "c139df8b34f1dcab607f8ccb685fdea948f3ae4d",
+        "cubit_repository": "https://github.com/kacper-daftcode/cubit.git"
+      }
+    },
+    "W3": {
+      "build_command": "python banana-smasher/kernels/rebuild.py --output /tmp/banana-kernels --family W3",
+      "origin_hashes": {
+        "build.sh": "a92e4bb2ad66b580705346a5b8ffcf07832cc47e24995a51f4b198270ebc2d84",
+        "gen_moe_w3.py": "57f34116990d0d2d891e9740434016c500f7137457f994734679c5646363a451",
+        "qmma_e4m3.merc.stub": "80ae5c0b657a67061d9370d7ce4d9957a94ee54e61bf6643dd82c8352ee005f7"
+      },
+      "publication_transform": "removed a non-behavioral grant comment from two text files",
+      "retained_hashes": {
+        "build.sh": "176b32d18533488d3b72d111667483c54b1191c590936887be817983488a42d4",
+        "gen_moe_w3.py": "86c20a48616c87b3d075dcffe5c0bc4355ad636eef3d91c020078857e6c74247",
+        "qmma_e4m3.merc.stub": "80ae5c0b657a67061d9370d7ce4d9957a94ee54e61bf6643dd82c8352ee005f7"
+      },
+      "source_root": "banana-smasher/kernels/sources/w3",
+      "toolchain": {
+        "build_invocation": "cubit asm GENERATED.sass -o OUTPUT.cubin --kernel moe_w3_mm --mercury-stub banana-smasher/kernels/sources/w3/qmma_e4m3.merc.stub",
+        "cubit_commit": "c139df8b34f1dcab607f8ccb685fdea948f3ae4d",
+        "cubit_repository": "https://github.com/kacper-daftcode/cubit.git"
+      }
+    },
+    "W4": {
+      "build_command": "python banana-smasher/kernels/rebuild.py --output /tmp/banana-kernels --family W4",
+      "retained_hashes": {
+        "gen/gen_moe_w4.py": "89543f8274aa9d44ecb63d86ae9b4584cf88942a8ebf90b27871212dc19de6bb",
+        "sass/qmma_e4m3.merc.stub": "80ae5c0b657a67061d9370d7ce4d9957a94ee54e61bf6643dd82c8352ee005f7"
+      },
+      "source_root": "banana-smasher/kernels/sources/w2",
+      "toolchain": {
+        "build_invocation": "cubit asm GENERATED.sass -o OUTPUT.cubin --kernel moe_w4_mm --mercury-stub banana-smasher/kernels/sources/w2/sass/qmma_e4m3.merc.stub",
+        "cubit_commit": "c139df8b34f1dcab607f8ccb685fdea948f3ae4d",
+        "cubit_repository": "https://github.com/kacper-daftcode/cubit.git"
+      }
+    }
+  },
+  "schema": "banana-smasher-golden-source-closure-v1",
+  "status": "SOURCE_CANDIDATE_HARDWARE_GATES_OUTSTANDING",
+  "toolchain_resolution": "M4 requires the pinned stock-vLLM CUDAExtension/Ninja environment and an expected target output hash before PASS. W2/W3/W4 use public Cubit commit c139df8b34f1dcab607f8ccb685fdea948f3ae4d; external Cubit use validates the checkout revision, Cargo.lock, SM120 ISA table, and target/release binary location. MLA remains a binary-derived oracle only.",
+  "upstream_native_dependencies": {
+    "deepgemm": {
+      "source_build_path": "docker/Dockerfile:76-105",
+      "source_commit": "f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca",
+      "source_ref": "refs/tags/nv_dev_f8e8fb5",
+      "source_repository": "https://github.com/deepseek-ai/DeepGEMM.git"
+    },
+    "flashinfer": {
+      "applied_commits": [
+        "b34f49255f1640542da91665f58558a3e5e308f1",
+        "76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9",
+        "0c5fda59bb6fa71eae875693a024bb0fb37ba7d6"
+      ],
+      "source_build_path": "docker/Dockerfile:29-74",
+      "source_commit": "d020372b068f335e2fe427372e134977a2235c49",
+      "source_repository": "https://github.com/flashinfer-ai/flashinfer.git",
+      "version": "0.6.17"
+    },
+    "stock_vllm": {
+      "image": "vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b",
+      "source_commit": "ee0da84ab9e04ac7610e28580af62c365e898389",
+      "source_repository": "https://github.com/vllm-project/vllm.git"
+    }
+  },
+  "runtime_registration": {
+    "family_mapping": {
+      "D4": "native learned-VQ",
+      "MXFP4": "native MXFP4",
+      "QTIP2": "native QTIP2 trellis+TLUT",
+      "QTIP3": "native QTIP3 trellis+TLUT",
+      "scalar W2": "Cubit fragment-major 2-bit planes",
+      "scalar W3": "Cubit fragment-major 3-bit planes"
+    },
+    "observed_pack_family_totals": {
+      "D4": 4717,
+      "MXFP4": 54,
+      "QTIP2": 2266,
+      "QTIP3": 14979
+    },
+    "platform_wheel_example": "Build a linux_aarch64 platform wheel that installs cubins under banana_smasher_kernels/sm120 and banana_smasher_kernels/e43; do not mark the wheel py3-none-any.",
+    "resource_registration_example": "Resolve importlib.resources.files('banana_smasher_kernels') and register its sm120/e43 directories with the stock-vLLM plugin before model weight loading.",
+    "scope": "Static source closure only; live activation and hardware parity remain deferred."
+  }
+}

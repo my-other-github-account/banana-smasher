@@ -1,0 +1,275 @@
+{
+  "authority": {
+    "f521_image": "sha256:2908b791d7cbc435fa8437a751f172ecd798683860929c76345b5c92719d0c02",
+    "p1321_route_seal": "be0453e1d6081a87a0288c8611b9ee5ec33a4b2ba927cb68c358e71a10b242f7",
+    "qtip2_binary": "c51ff4af",
+    "qtip_kernel_binary": "f3e12ea5",
+    "recovered_vq_source": "1bc093000a71ef9bf51852fbe0174aa1e396cfb0ea6bbbd56f68a23058d831d3",
+    "vq_extension_binary": "5d32e0ab"
+  },
+  "basis_commit": "9044c81",
+  "fusions": [
+    "packed_projection",
+    "qtip_su_fwht_lookup_wscale_fwht_sv",
+    "fused13_projection",
+    "silu_and_mul",
+    "down_projection",
+    "fixed_topk_weighted_reduce",
+    "stock_dense_norm_quant",
+    "stock_dense_activation_quant"
+  ],
+  "items": [
+    {
+      "historical_sources": [
+        "P985 a73ac8be46f0da3310c785f128fdb953bda0257604697249c3f457442b4e5521",
+        "grouped loader 9056c1a293c01c61c10678713587091ffba2c830282a1a2494d0bb41275de70e"
+      ],
+      "id": "pack_identity",
+      "plugin_symbols": [
+        "NativePlanePack",
+        "NativePlaneLayer._load_projection"
+      ],
+      "predicate": "exact selected F521 manifest; family codes 0/1/2/3; D4 tiers k1024/k2048/k4096",
+      "sentinel": "manifest digest and family/tier counters",
+      "status": "preserved",
+      "test": "test_native_plane_runtime.py"
+    },
+    {
+      "historical_sources": [
+        "P1050 486fc841b8406c8c42993d0f6f6fa44ff7e90719b2612f57b4ba67748638ef7",
+        "P1157 6af0e7480190e70242e1ca0d3ea74ce316686271371e8421d22667a79ab7c70b"
+      ],
+      "id": "stable_residency",
+      "plugin_symbols": [
+        "ProjectionState.payloads",
+        "ProjectionState.pointer_tables",
+        "v4_acceleration.build_device_resident_planes"
+      ],
+      "predicate": "immutable state lifetime; selected CUDA-resident payload and metadata tables",
+      "sentinel": "stable pointer digest before/after capture",
+      "status": "ported",
+      "test": "test_native_plane_runtime.py"
+    },
+    {
+      "historical_sources": [
+        "P1235 qtip_dynamic c51ff4af",
+        "P1016 4de7935473dddae23db143cfd816dcbc7ff52cc14795d659044029781143680c"
+      ],
+      "id": "qtip2_direct",
+      "plugin_symbols": [
+        "_v4_moe.qtip2_k{2048,4096}_{variant}"
+      ],
+      "predicate": "distinct QTIP2 trellis/TLUT specializations for every projection and shape",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "historical_sources": [
+        "P1235 qtip_dynamic c51ff4af",
+        "P1016 4de7935473dddae23db143cfd816dcbc7ff52cc14795d659044029781143680c"
+      ],
+      "id": "qtip3_direct",
+      "plugin_symbols": [
+        "_v4_moe.qtip3_k{2048,4096}_{variant}"
+      ],
+      "predicate": "distinct QTIP3 trellis/TLUT specializations for every projection and shape",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "historical_sources": [
+        "P1145 78dd83ee869c2556839b6ee8357fe3fd8bfa4dbc370d9497f2dd4eb508310b85",
+        "recovered CUDA 1bc093000a71ef9bf51852fbe0174aa1e396cfb0ea6bbbd56f68a23058d831d3"
+      ],
+      "id": "d4_direct",
+      "plugin_symbols": [
+        "d4_specialized_gemv_kernel<variant,K>",
+        "d4_specialized_gemm_m4_kernel<variant,K>"
+      ],
+      "predicate": "D4 i10/i11/i12 physical tier counters and projection/shape kernel instantiations",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "historical_sources": [
+        "P965 00a5e593c37387e0d907638c4b4aed9532593765ccc35f6ca53935ccb1f707d9"
+      ],
+      "id": "native_mxfp4_direct",
+      "plugin_symbols": [
+        "mxfp4_specialized_kernel<variant,K>"
+      ],
+      "predicate": "native E2M1/UE8M0 projection/shape kernel instantiations",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "historical_sources": [
+        "recovered CUDA 1bc093000a71ef9bf51852fbe0174aa1e396cfb0ea6bbbd56f68a23058d831d3",
+        "P1321 vector source 4ff296f7"
+      ],
+      "id": "cuda_geometry",
+      "plugin_symbols": [
+        "csrc/vq_warp_gemv.cu"
+      ],
+      "predicate": "one warp/output; 16 warps/CTA; eight indices/lane; full-K padded stage; current stream; no split-K",
+      "sentinel": "physical symbol, grid, shared bytes, current-stream event",
+      "status": "ported",
+      "test": "test_v4_native_port_contract.py"
+    },
+    {
+      "historical_sources": [
+        "P1235 VQ extension 5d32e0ab",
+        "P1235 QTIP binaries c51ff4af/f3e12ea5"
+      ],
+      "id": "single_platform_extension",
+      "plugin_symbols": [
+        "banana_smasher_plugin._v4_moe",
+        "setup.py"
+      ],
+      "predicate": "one build target registers all specialized bindings; hardware wheel build delegated to Spark-8",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "historical_sources": [
+        "P1050 _group_family_experts/_inverse_family_experts 486fc841b8406c8c42993d0f6f6fa44ff7e90719b2612f57b4ba67748638ef7"
+      ],
+      "id": "device_family_compaction",
+      "plugin_symbols": [
+        "compact_routes_cuda",
+        "allocate_compaction_state"
+      ],
+      "predicate": "on-device family/expert compaction with persistent descriptors and no host route inspection",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "historical_sources": [
+        "P1321 route seal be0453e1d6081a87a0288c8611b9ee5ec33a4b2ba927cb68c358e71a10b242f7"
+      ],
+      "id": "c2_c16_graph_routes",
+      "plugin_symbols": [
+        "specialized_kernel_matrix.decode_c2",
+        "specialized_kernel_matrix.decode_c4",
+        "specialized_kernel_matrix.decode_c8",
+        "specialized_kernel_matrix.decode_c16"
+      ],
+      "predicate": "distinct shape IDs, bindings, warmup rows, and physical counters",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "historical_sources": [
+        "P1235 _mixed_exact_mblock BM16"
+      ],
+      "id": "packed_mblock16_prefill",
+      "plugin_symbols": [
+        "specialized_kernel_matrix.prefill_bm16"
+      ],
+      "predicate": "direct packed BM16 variant for every tier/projection",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "historical_sources": [
+        "P1235 P1103/P530 negative dense reconstruction control"
+      ],
+      "id": "direct_packed_large_prefill",
+      "plugin_symbols": [
+        "specialized_kernel_matrix.prefill_large",
+        "specialized_kernel_matrix.prefill_exact_2k"
+      ],
+      "predicate": "direct packed 64..8192 and exact-2K variants for every tier/projection",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "historical_sources": [
+        "P1235 SU/FWHT/lookup/Wscale/FWHT/SV order"
+      ],
+      "id": "qtip_transform_fusion",
+      "plugin_symbols": [
+        "qtip_pre_transform",
+        "qtip_trellis_tlut_kernel",
+        "qtip_post_transform"
+      ],
+      "predicate": "resident SU/FWHT/TLUT/Wscale/FWHT/SV path around specialized QTIP rows",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "ported",
+      "test": "test_specialized_kernel_matrix.py"
+    },
+    {
+      "blocked_reason": "unsupported historical claim",
+      "historical_sources": [
+        "no exact P1235 on-path source"
+      ],
+      "id": "norm_shared_expert_fusion",
+      "plugin_symbols": [],
+      "predicate": "model-level routed/shared expert path",
+      "sentinel": "exact kernel symbol and routed/shared parity",
+      "status": "blocked",
+      "test": "missing source-bound invocation test"
+    },
+    {
+      "blocked_reason": "unsupported historical claim; stock dense DeepGEMM identity is preserved separately",
+      "historical_sources": [
+        "P1235 proves FP8 KV cache, not routed FP8 expert fusion"
+      ],
+      "id": "routed_fp8_scheduler_fusion",
+      "plugin_symbols": [],
+      "predicate": "routed expert or scheduler/postprocess fusion",
+      "sentinel": "exact kernel/config counter",
+      "status": "blocked",
+      "test": "missing on-path profiler proof"
+    },
+    {
+      "historical_sources": [
+        "P1235 F521 image",
+        "P1321 route seal"
+      ],
+      "id": "same_image_f521_p1321_acceptance",
+      "plugin_symbols": [
+        "specialized_kernel_matrix.json"
+      ],
+      "predicate": "source and exhaustive physical-counter bindings ready for Spark-8 same-image build/capture",
+      "sentinel": "matrix row physical counter plus aggregate family counters",
+      "status": "awaiting_hardware",
+      "test": "test_specialized_kernel_matrix.py"
+    }
+  ],
+  "packed_families": [
+    "qtip2",
+    "qtip3",
+    "d4_k1024",
+    "d4_k2048",
+    "d4_k4096",
+    "native_mxfp4"
+  ],
+  "schema": "banana-smasher-v5-specialized-source-closure-v1",
+  "specialized_kernel_matrix": {
+    "path": "specialized_kernel_matrix.json",
+    "projections": 2,
+    "rows": 96,
+    "schema": "banana-smasher-v5-specialized-kernel-matrix-v1",
+    "tiers": 6,
+    "variants": [
+      "decode_c1",
+      "decode_c2",
+      "decode_c4",
+      "decode_c8",
+      "decode_c16",
+      "prefill_bm16",
+      "prefill_large",
+      "prefill_exact_2k"
+    ]
+  }
+}
