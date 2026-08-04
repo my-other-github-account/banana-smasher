@@ -56,7 +56,12 @@ def verify_inputs(
         path = ROOT / str(artifact["path"])
         source = ROOT / str(artifact["source"])
         verify_hash(path, str(artifact["sha256"]), "admitted binary")
-        verify_hash(source, str(artifact["source_sha256"]), "producing source")
+        source_label = (
+            "comparison oracle"
+            if artifact.get("source_role") == "binary_derived_comparison_oracle"
+            else "producing source"
+        )
+        verify_hash(source, str(artifact["source_sha256"]), source_label)
         for key, label in (
             ("reference_sass", "reference SASS"),
             ("mercury_stub", "Mercury stub"),
@@ -116,11 +121,39 @@ def cubit_root(binary: Path) -> Path:
     raise SystemExit(f"cannot locate Cubit tables above {binary}")
 
 
+def validate_external_cubit(binary: Path) -> Path:
+    """Bind an external Cubit executable to the pinned source and ISA tables."""
+    if not binary.is_file():
+        raise SystemExit(f"Cubit binary not found: {binary}")
+    root = cubit_root(binary)
+    actual = checked_output(["git", "rev-parse", "HEAD"], cwd=root)
+    if actual != CUBIT_REVISION:
+        raise SystemExit(
+            f"external Cubit git revision mismatch: expected {CUBIT_REVISION}, got {actual}"
+        )
+    verify_hash(root / "Cargo.lock", CUBIT_CARGO_LOCK_SHA256, "Cubit Cargo.lock")
+    verify_hash(
+        root / "tables/sm120.json",
+        CUBIT_SM120_TABLE_SHA256,
+        "Cubit SM120 ISA table",
+    )
+    expected_binary = (root / "target/release/cubit").resolve()
+    if binary.resolve() != expected_binary:
+        raise SystemExit(
+            f"external Cubit must be the pinned checkout build {expected_binary}, got {binary}"
+        )
+    return binary.resolve()
+
+
 def generate_sass(artifact: dict[str, object], output: Path) -> Path:
     family = str(artifact["family"])
     relative = Path(str(artifact["path"]))
     sass = output / "generated-sass" / relative.with_suffix(".sass").name
     sass.parent.mkdir(parents=True, exist_ok=True)
+    if artifact.get("source_mode") == "retained_reference_sass":
+        source = ROOT / str(artifact["source"])
+        shutil.copyfile(source, sass)
+        return sass
     k = int(str(artifact["k"]))
     variant = str(artifact["variant"])
     env = os.environ.copy()
@@ -183,7 +216,28 @@ def assemble(artifact: dict[str, object], cubit: Path, output: Path) -> dict[str
     }
 
 
-def build_m4(output: Path) -> dict[str, str]:
+def build_m4(
+    output: Path,
+    *,
+    expected_sha256: str | None,
+    required_container: str,
+) -> dict[str, str]:
+    if not expected_sha256:
+        raise SystemExit("expected M4 output SHA-256 is not bound")
+    actual_container = os.environ.get("BANANA_SMASHER_BUILD_CONTAINER_DIGEST")
+    if actual_container != required_container:
+        raise SystemExit(
+            "M4 build container mismatch: "
+            f"expected {required_container}, got {actual_container!r}"
+        )
+    import torch
+
+    if sys.version_info[:2] != (3, 12):
+        raise SystemExit(f"M4 build requires Python 3.12, got {sys.version.split()[0]}")
+    if torch.__version__.split("+")[0] != "2.9.0" or torch.version.cuda != "13.0":
+        raise SystemExit(
+            f"M4 toolchain mismatch: torch={torch.__version__} cuda={torch.version.cuda}"
+        )
     destination = output / "m4"
     build_lib = destination / "lib"
     build_temp = destination / "temp"
@@ -207,10 +261,16 @@ def build_m4(output: Path) -> dict[str, str]:
     products = sorted(build_lib.glob("vq_warp_gemv/_C*.so"))
     if len(products) != 1:
         raise SystemExit(f"expected one M4 extension, found {len(products)}")
+    actual_sha256 = sha256(products[0])
+    if actual_sha256 != expected_sha256:
+        raise SystemExit(
+            f"M4 output hash mismatch: expected {expected_sha256}, got {actual_sha256}"
+        )
     return {
         "path": str(products[0].relative_to(output)),
-        "actual_sha256": sha256(products[0]),
-        "status": "BUILT",
+        "expected_sha256": expected_sha256,
+        "actual_sha256": actual_sha256,
+        "status": "MATCH",
     }
 
 
@@ -230,9 +290,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--cubit-bin",
-        help="prebuilt Cubit executable; requires --cubit-revision matching the ledger pin",
+        help="prebuilt Cubit executable under a source checkout matching the pinned revision and table hashes",
     )
-    parser.add_argument("--cubit-revision", help="full source revision of --cubit-bin")
     return parser.parse_args()
 
 
@@ -241,6 +300,10 @@ def main() -> int:
     output = prepare_output(args.output)
     ledger = json.loads(LEDGER.read_text())
     selected_families = set(args.family or ledger["default_rebuild_families"])
+    if "MLA" in selected_families:
+        raise SystemExit(
+            "MLA source closure is blocked: retained frozen SASS is a binary-derived comparison oracle"
+        )
     requested = set(args.artifact or [])
     artifacts = [
         item
@@ -255,23 +318,24 @@ def main() -> int:
     verify_inputs(ledger, artifacts, selected_families)
 
     results: list[dict[str, str]] = []
+    if "M4" in selected_families:
+        m4 = ledger["families"]["M4"]
+        results.append(
+            build_m4(
+                output,
+                expected_sha256=m4["expected_output"]["sha256"],
+                required_container=m4["toolchain"]["container"],
+            )
+        )
+
     cubit_families = {"W2", "W3", "W4", "MLA"}
     if any(str(item["family"]) in cubit_families for item in artifacts):
         if args.cubit_bin:
-            if args.cubit_revision != CUBIT_REVISION:
-                raise SystemExit(
-                    f"external Cubit revision must be exact pin {CUBIT_REVISION}"
-                )
-            cubit = Path(args.cubit_bin).expanduser().resolve()
-            if not cubit.is_file():
-                raise SystemExit(f"Cubit binary not found: {cubit}")
+            cubit = validate_external_cubit(Path(args.cubit_bin).expanduser().resolve())
         else:
             cubit = build_cubit(output)
         for artifact in artifacts:
             results.append(assemble(artifact, cubit, output))
-
-    if "M4" in selected_families and not requested:
-        results.append(build_m4(output))
 
     receipt = {
         "schema": "banana-smasher-kernel-rebuild-v1",

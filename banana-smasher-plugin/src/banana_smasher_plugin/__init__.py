@@ -427,6 +427,9 @@ def register() -> None:
     global _REGISTERED
     if _REGISTERED:
         return
+    from .native_extensions import preflight_native_extensions
+
+    preflight_native_extensions()
     configure_flashinfer_sparse_mla_signature_compat()
     configure_stock_deepseek_v4_attention_backend()
     configure_sparse_indexer_deep_gemm_backend()

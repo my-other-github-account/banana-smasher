@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 LEDGER = ROOT / "notes/GOLDEN_CLOSURE_REUSE_LEDGER.json"
@@ -21,13 +24,7 @@ def test_kernel_closure_covers_every_checked_in_binary() -> None:
     ledger = json.loads(LEDGER.read_text())
     assert ledger["schema"] == "banana-smasher-golden-source-closure-v1"
     assert set(ledger["families"]) == {"M4", "W2", "W3", "W4", "MLA"}
-    assert set(ledger["default_rebuild_families"]) == {
-        "M4",
-        "W2",
-        "W3",
-        "W4",
-        "MLA",
-    }
+    assert set(ledger["default_rebuild_families"]) == {"M4", "W2", "W3", "W4"}
 
     expected = {
         path.relative_to(ROOT).as_posix()
@@ -54,10 +51,9 @@ def test_kernel_closure_covers_every_checked_in_binary() -> None:
     for name in ("W2", "W3", "W4", "MLA"):
         assert ledger["families"][name]["toolchain"]["cubit_commit"] == cubit
     mla = artifacts["banana-smasher/kernels/cubins-sm120/mla_prefill_state.cubin"]
-    assert mla["source"].endswith("mla_prefill_state.frozen.sass")
-    assert ledger["families"]["MLA"]["exact_source_closure"]["status"] == (
-        "BYTE_IDENTICAL_LOCAL_ROUNDTRIP"
-    )
+    assert mla["source_role"] == "binary_derived_comparison_oracle"
+    assert ledger["families"]["MLA"]["source_closure"]["status"] == "BLOCKED"
+    assert "producing_source" not in ledger["families"]["MLA"]["source_closure"]
     m4 = ledger["families"]["M4"]["toolchain"]
     assert m4["cuda_arch"] == "12.0a"
     assert m4["builder"] == (
@@ -70,6 +66,11 @@ def test_closure_sources_are_public_and_have_exact_origin_bindings() -> None:
     encoded = LEDGER.read_text()
     assert "/Use" + "rs/" not in encoded and "/ho" + "me/" not in encoded
     assert "SPDX" + "-" not in encoded
+
+    for source in (ROOT / "banana-smasher/kernels/sources").rglob("*"):
+        if source.is_file():
+            text = source.read_text(errors="ignore")
+            assert "/work" + "space/" not in text, source
 
     expected_origins = {
         "M4": {
@@ -110,20 +111,21 @@ def test_upstream_native_dependencies_have_source_rebuild_bindings() -> None:
         "ee0da84ab9e04ac7610e28580af62c365e898389"
     )
     assert dependencies["deepgemm"]["source_commit"] == (
-        "a6b593d2826719dcf4892609af7b84ee23aaf32a"
+        "f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca"
     )
     flashinfer = dependencies["flashinfer"]
-    assert flashinfer["version"] == "0.6.14"
-    assert flashinfer["source_commit"] == "19f1a41e6b21f0c422d775e377b6fdf9a1fc9d23"
-    assert flashinfer["tag_object"] == "8661c87767eac94b94528aebf1d0296cc067f112"
-    assert "flashinfer.jit" in flashinfer["jit_rebuild_path"]
+    assert flashinfer["version"] == "0.6.17"
+    assert flashinfer["source_commit"] == "d020372b068f335e2fe427372e134977a2235c49"
+    assert flashinfer["source_build_path"] == "docker/Dockerfile:29-74"
 
     registration = json.loads(LEDGER.read_text())["runtime_registration"]
     assert registration["family_mapping"] == {
-        "D4": "M4",
-        "MXFP4": "native family3",
-        "QTIP2": "W2",
-        "QTIP3": "W3",
+        "D4": "native learned-VQ",
+        "MXFP4": "native MXFP4",
+        "QTIP2": "native QTIP2 trellis+TLUT",
+        "QTIP3": "native QTIP3 trellis+TLUT",
+        "scalar W2": "Cubit fragment-major 2-bit planes",
+        "scalar W3": "Cubit fragment-major 3-bit planes",
     }
     assert "linux_aarch64" in registration["platform_wheel_example"]
     assert "importlib.resources" in registration["resource_registration_example"]
@@ -164,17 +166,64 @@ def test_w3_generator_matches_checked_in_reference_sass(tmp_path: Path) -> None:
     assert generated.read_bytes() == reference.read_bytes()
 
 
-def test_w2_generator_matches_checked_in_reference_sass(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "variant,mc,afrag,k,reference_name",
+    [
+        (entry["variant"], {"base": "1", "mc2": "2", "mc4": "4", "mc4afrag": "4"}[entry["variant"]], "1" if entry["variant"] == "mc4afrag" else "0", entry["k"], Path(entry["reference_sass"]).name)
+        for entry in json.loads(LEDGER.read_text())["artifacts"]
+        if entry["family"] == "W2"
+        and entry.get("reference_sass")
+        and entry.get("source_mode") != "retained_reference_sass"
+    ],
+)
+def test_w2_generator_matches_every_checked_in_reference_sass(
+    tmp_path: Path,
+    variant: str,
+    mc: str,
+    afrag: str,
+    k: int,
+    reference_name: str,
+) -> None:
     family = ROOT / "banana-smasher/kernels/sources/w2"
-    generated = tmp_path / "moe_w2_mm_k1024.sass"
-    env = {"MOEW2_MC": "1", "MOEW2_AFRAG": "0"}
+    generated = tmp_path / f"{variant}-{k}.sass"
+    env = {"MOEW2_MC": mc, "MOEW2_AFRAG": afrag}
     subprocess.run(
-        [sys.executable, str(family / "gen/gen_moe_w2.py"), str(generated), "1024"],
+        [sys.executable, str(family / "gen/gen_moe_w2.py"), str(generated), str(k)],
         check=True,
-        env={**__import__("os").environ, **env},
+        env={**os.environ, **env},
     )
-    reference = family / "sass/moe_w2_mm_k1024.sass"
+    reference = family / "sass" / reference_name
     assert generated.read_bytes() == reference.read_bytes()
+
+
+def test_w2_legacy_k2048_uses_retained_sass_without_false_generator_claim() -> None:
+    artifacts = json.loads(LEDGER.read_text())["artifacts"]
+    retained = {
+        Path(entry["path"]).name
+        for entry in artifacts
+        if entry.get("source_mode") == "retained_reference_sass"
+    }
+    assert retained == {"moe_w2_mm_k2048.cubin", "moe_w2_mm_mc2_k2048.cubin"}
+
+
+def test_rebuild_refuses_unbound_m4_and_validates_external_cubit() -> None:
+    ledger = json.loads(LEDGER.read_text())
+    assert ledger["families"]["M4"]["expected_output"] == {
+        "sha256": None,
+        "status": "PENDING_TARGET_BUILD",
+    }
+    assert ledger["status"] == "SOURCE_CANDIDATE_HARDWARE_GATES_OUTSTANDING"
+    text = BUILD.read_text()
+    assert "validate_external_cubit" in text
+    assert "external Cubit git revision" in text
+    assert "expected M4 output SHA-256 is not bound" in text
+    assert 'if "M4" in selected_families and not requested' not in text
+
+
+def test_plugin_build_dependencies_are_exactly_pinned() -> None:
+    pyproject = ROOT / "banana-smasher-plugin/pyproject.toml"
+    assert '"torch==2.9.0"' in pyproject.read_text()
+    assert '"quack-kernels==0.4.1"' in pyproject.read_text()
 
 
 def test_rebuild_entry_point_is_separate_output_only() -> None:

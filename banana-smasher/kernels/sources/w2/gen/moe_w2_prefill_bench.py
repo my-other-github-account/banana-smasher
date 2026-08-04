@@ -29,11 +29,16 @@ import ctypes
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
 
-sys.path.insert(0, "/workspace/cubit/tools")
+HERE = Path(__file__).resolve().parent
+tools = os.environ.get("CULAUNCH_TOOLS")
+if not tools:
+    raise RuntimeError("CULAUNCH_TOOLS must name the public Cubit tools directory")
+sys.path.insert(0, str(Path(tools).expanduser().resolve()))
 from culaunch import Cuda  # noqa: E402
 
 
@@ -41,7 +46,7 @@ def _import_packers():
     """Reuse the EXACT pack_fragment_major / pack_scales from moe_w2_check.py
     WITHOUT executing its script body (it runs a validation + sys.exit on import).
     """
-    src = open("/workspace/cubit/tools/moe_w2_check.py").read()
+    src = (HERE / "moe_w2_check.py").read_text()
     ns = {"torch": torch, "np": np}
     for node in ast.parse(src).body:
         if isinstance(node, ast.FunctionDef) and node.name in (
@@ -52,9 +57,9 @@ def _import_packers():
 
 pack_fragment_major, pack_scales = _import_packers()
 
-CUBIT = "/workspace/cubit/target/release/cubit"
-GEN = "/workspace/cubit/tools/gen_moe_w2.py"
-STUB = "/workspace/cubit/sass/qmma_e4m3.merc.stub"
+CUBIT = os.environ.get("CUBIT", "cubit")
+GEN = str(HERE / "gen_moe_w2.py")
+STUB = str(HERE.parent / "sass/qmma_e4m3.merc.stub")
 SCRATCH = "/tmp"                       # scratch cubins only -- never /tmp/cubit-share
 PROD_MC4 = "/tmp/cubit-share/moe_w2_mm_mc4_k{K}.cubin"   # read-only baseline
 
