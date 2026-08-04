@@ -93,6 +93,55 @@ def test_specialized_physical_proof_reads_each_runtime_counter_tensor_once(
     assert {row["count"] for row in proof["rows"]} == {1}
 
 
+def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tiers = (
+        "qtip2_2.0117",
+        "qtip3_3.0117",
+        "d4_k1024",
+        "d4_k2048",
+        "d4_k4096",
+        "native_mxfp4",
+    )
+    warmup_tokens = (1, 2, 4, 8, 16, 32, 64, 2048, 8192)
+    calls: list[tuple[str, str, int]] = []
+
+    class Layer:
+        device = torch.device("cpu")
+
+        def state(self, projection: str) -> SimpleNamespace:
+            return SimpleNamespace(tiers=tiers, input_width=4, output_width=4)
+
+        def forward(
+            self, x: torch.Tensor, expert_ids: torch.Tensor, projection: str
+        ) -> torch.Tensor:
+            expert = int(expert_ids[0])
+            assert torch.all(expert_ids == expert)
+            assert x.shape == (expert_ids.numel(), 4)
+            calls.append((tiers[expert], projection, x.shape[0] // 6))
+            return x
+
+    monkeypatch.setattr(native_planes, "_NATIVE_PLANE_LAYER_REGISTRY", {1: Layer()})
+    monkeypatch.setattr(
+        native_planes,
+        "specialized_physical_proof",
+        lambda: {"status": "PASS", "rows": []},
+    )
+
+    proof = native_planes.warmup_specialized_matrix()
+
+    assert proof["status"] == "PASS"
+    assert proof["warmup_execution_count"] == 108
+    assert proof["warmup_tokens"] == list(warmup_tokens)
+    assert set(calls) == {
+        (tier, projection, tokens)
+        for tier in tiers
+        for projection in ("fused13", "down")
+        for tokens in warmup_tokens
+    }
+
+
 def _tiny_pack(root: Path, *, layout: str = EXPECTED_LAYOUT_SHA256) -> Path:
     planes = root / "planes"
     planes.mkdir(parents=True)

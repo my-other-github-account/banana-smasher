@@ -429,6 +429,69 @@ def specialized_physical_proof() -> dict[str, Any]:
     return physical_proof(snapshots)
 
 
+def warmup_specialized_matrix() -> dict[str, Any]:
+    """Execute every admitted tier/projection/shape before reading its counters."""
+    from .specialized_variants import _rows, required_warmup_tokens
+
+    representatives: dict[
+        tuple[str, str], tuple[NativePlaneLayer, int, ProjectionState]
+    ] = {}
+    for layer in _NATIVE_PLANE_LAYER_REGISTRY.values():
+        for projection in _NATIVE_PLANE_PROJECTIONS:
+            state = layer.state(projection)
+            for expert, tier in enumerate(state.tiers):
+                representatives.setdefault(
+                    (tier, projection), (layer, expert, state)
+                )
+
+    required_pairs = sorted(
+        {(tier, projection) for tier, projection, _variant in _rows()}
+    )
+    missing_pairs = [pair for pair in required_pairs if pair not in representatives]
+    if missing_pairs:
+        raise _fail(
+            "specialized matrix warmup has no registered representative for "
+            + ", ".join(f"{tier}/{projection}" for tier, projection in missing_pairs)
+        )
+
+    warmup_tokens = required_warmup_tokens()
+    execution_count = 0
+    peak_estimate_bytes = 0
+    with torch.inference_mode():
+        for tier, projection in required_pairs:
+            layer, expert, state = representatives[(tier, projection)]
+            for tokens in warmup_tokens:
+                route_rows = tokens * 6
+                estimate_bytes = route_rows * (
+                    4 * state.input_width + 8 * state.output_width
+                )
+                peak_estimate_bytes = max(peak_estimate_bytes, estimate_bytes)
+                if layer.device.type == "cuda":
+                    free_bytes, _total_bytes = torch.cuda.mem_get_info(layer.device)
+                    if estimate_bytes > free_bytes - 4 * 1024**3:
+                        raise _fail(
+                            "specialized matrix warmup exceeds CUDA memory gate: "
+                            f"estimated={estimate_bytes} free={free_bytes}"
+                        )
+                x = torch.zeros(
+                    (route_rows, state.input_width),
+                    dtype=torch.bfloat16,
+                    device=layer.device,
+                )
+                expert_ids = torch.full(
+                    (route_rows,), expert, dtype=torch.int64, device=layer.device
+                )
+                result = layer.forward(x, expert_ids, projection)
+                del result, expert_ids, x
+                execution_count += 1
+
+    proof = specialized_physical_proof()
+    proof["warmup_execution_count"] = execution_count
+    proof["warmup_tokens"] = list(warmup_tokens)
+    proof["warmup_peak_estimate_bytes"] = peak_estimate_bytes
+    return proof
+
+
 def _fwht(value: torch.Tensor) -> torch.Tensor:
     """Exact normalized transform used by the sealed P1016 QTIP path."""
     width = value.shape[-1]
