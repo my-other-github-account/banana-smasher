@@ -7,6 +7,32 @@ from types import ModuleType
 from typing import Any
 
 
+_VARIANTS = (
+    "decode_c1",
+    "decode_c2",
+    "decode_c4",
+    "decode_c8",
+    "decode_c16",
+    "prefill_bm16",
+    "prefill_large",
+    "prefill_exact_2k",
+)
+_REQUIRED_QTIP_EXPORTS = tuple(
+    f"qtip{family}_k{width}_{variant}"
+    for family in (2, 3)
+    for width in (4096, 2048)
+    for variant in _VARIANTS
+)
+_REQUIRED_TORCH_OPERATORS = (
+    "compact_routes",
+    "qtip_pre_transform",
+    "qtip_post_transform",
+    "finalize_output",
+    "d4_specialized",
+    "mxfp4_specialized",
+)
+
+
 @functools.cache
 def _module() -> ModuleType:
     try:
@@ -19,7 +45,23 @@ def _module() -> ModuleType:
 
 def preflight_native_extensions() -> None:
     """Load the one required platform extension and refuse incomplete images."""
-    _module()
+    import torch
+
+    module = _module()
+    operators = torch.ops.banana_smasher_v4
+    missing = [
+        name for name in _REQUIRED_QTIP_EXPORTS if not callable(getattr(module, name, None))
+    ]
+    missing.extend(
+        f"banana_smasher_v4::{name}"
+        for name in _REQUIRED_TORCH_OPERATORS
+        if not callable(getattr(operators, name, None))
+    )
+    if missing:
+        raise RuntimeError(
+            "specialized CUDA extension is missing required exports: "
+            + ", ".join(missing)
+        )
 
 
 def specialized_qtip_gemv(

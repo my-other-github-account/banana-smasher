@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from itertools import product
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+
+import pytest
 
 
 PLUGIN = Path(__file__).resolve().parents[1]
@@ -167,3 +171,25 @@ def test_d4_tier_specialization_does_not_change_mxfp4_launch_arity() -> None:
 
     assert "auto launch = [&](auto variant_tag, auto expected_k_tag)" in mxfp4
     assert "auto launch = [&](auto index_bits_tag" not in mxfp4
+
+
+def test_native_extension_preflight_rejects_partial_registered_surface(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = PACKAGE / "native_extensions.py"
+    spec = importlib.util.spec_from_file_location("banana_smasher_native_extensions", path)
+    assert spec is not None and spec.loader is not None
+    native_extensions = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(native_extensions)
+
+    partial_extension = SimpleNamespace(qtip2_k4096_decode_c1=lambda: None)
+    partial_ops = SimpleNamespace(compact_routes=lambda: None)
+    monkeypatch.setattr(native_extensions, "_module", lambda: partial_extension)
+    monkeypatch.setitem(
+        sys.modules,
+        "torch",
+        SimpleNamespace(ops=SimpleNamespace(banana_smasher_v4=partial_ops)),
+    )
+
+    with pytest.raises(RuntimeError, match="missing required exports"):
+        native_extensions.preflight_native_extensions()
