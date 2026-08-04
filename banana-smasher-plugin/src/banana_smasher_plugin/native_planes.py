@@ -585,6 +585,7 @@ def warmup_specialized_matrix() -> dict[str, Any]:
     proof["warmup_group_count"] = len(groups)
     proof["warmup_tokens"] = list(warmup_tokens)
     proof["warmup_peak_estimate_bytes"] = peak_estimate_bytes
+    proof["process_pid"] = os.getpid()
     return proof
 
 

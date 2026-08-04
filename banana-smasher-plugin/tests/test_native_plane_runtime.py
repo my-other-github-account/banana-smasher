@@ -175,10 +175,12 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
         "_specialized_shape_physical_proof",
         lambda: shape_proof,
     )
+    monkeypatch.setattr(native_planes.os, "getpid", lambda: 4242)
 
     proof = native_planes.warmup_specialized_matrix()
 
     assert proof["status"] == "PASS"
+    assert proof["process_pid"] == 4242
     assert proof["shape_physical_proof"] == shape_proof
     assert proof["warmup_execution_count"] == 18
     assert proof["warmup_tokens"] == list(warmup_tokens)
