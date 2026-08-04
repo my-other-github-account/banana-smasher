@@ -90,6 +90,13 @@ def test_matrix_exhaustively_binds_every_admitted_tier_projection_and_shape() ->
         assert row["tokens"] == VARIANT_TOKENS[row["variant"]]
         assert row["route_rows"] == row["tokens"] * 6
         assert row["graph_replay"] is row["variant"].startswith("decode_")
+        assert row["workspace"]["persistent"] is row["graph_replay"]
+        expected_workspace_owner = (
+            "ProjectionState.vq_state.compaction"
+            if row["graph_replay"]
+            else "mixed_exact_native_gemv.dispatch_call"
+        )
+        assert row["workspace"]["owner"] == expected_workspace_owner
         assert row["build_target"] == "banana_smasher_plugin._v4_moe"
         assert row["package_member"] == "banana_smasher_plugin/_v4_moe*.so"
         assert row["counter"]["name"] not in counters
