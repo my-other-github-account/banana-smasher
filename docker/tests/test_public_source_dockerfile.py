@@ -37,6 +37,10 @@ def test_public_source_dockerfile_contract() -> None:
         'CUDA_HOME=/usr/local/cuda TORCH_CUDA_ARCH_LIST="12.0;12.1+PTX"'
         in package_builder
     )
+    assert "scipy==1.16.1" in package_builder
+    assert package_builder.index("scipy==1.16.1") < package_builder.index(
+        "python3 -m pytest -q"
+    )
     assert "python3 -m pytest -q" in text
     assert "/src/banana-smasher/tests" in text
     assert "/src/banana-smasher-plugin/tests" in text
@@ -257,7 +261,7 @@ def test_native_plugin_build_has_pinned_cuda_development_toolchain() -> None:
     text = DOCKERFILE.read_text()
     package_builder = text.index("FROM ${VLLM_IMAGE} AS package-builder")
     plugin_build = text.index(
-        "python3 -m build --wheel --no-isolation --outdir /wheels ."
+        "python3 -m build --wheel --no-isolation --outdir /wheels /src/banana-smasher-plugin"
     )
 
     for package in (

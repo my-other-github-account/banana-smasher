@@ -14,16 +14,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir \
       build==1.3.0 hatchling==1.27.0 ninja==1.13.0 \
-      pytest==8.4.2 setuptools==80.10.2 wheel==0.46.3
+      pytest==8.4.2 scipy==1.16.1 setuptools==80.10.2 wheel==0.46.3
 COPY banana-smasher /src/banana-smasher
 COPY banana-smasher-plugin /src/banana-smasher-plugin
 COPY docker /src/docker
 RUN python3 -m build --wheel --outdir /wheels /src/banana-smasher \
     && test -x /usr/local/cuda/bin/nvcc \
-    && cd /src/banana-smasher-plugin \
-    && rm -rf build dist src/*.egg-info src/banana_smasher_plugin/*.so \
+    && rm -rf /src/banana-smasher-plugin/build \
+      /src/banana-smasher-plugin/dist \
+      /src/banana-smasher-plugin/src/*.egg-info \
+      /src/banana-smasher-plugin/src/banana_smasher_plugin/*.so \
     && CUDA_HOME=/usr/local/cuda TORCH_CUDA_ARCH_LIST="12.0;12.1+PTX" \
-      python3 -m build --wheel --no-isolation --outdir /wheels . \
+      python3 -m build --wheel --no-isolation --outdir /wheels /src/banana-smasher-plugin \
     && python3 -m zipfile -t /wheels/banana_smasher-1.0.0-py3-none-any.whl \
     && set -- /wheels/banana_smasher_plugin-0.2.0-*.whl \
     && test "$#" -eq 1 \

@@ -223,7 +223,7 @@ def test_rebuild_refuses_unbound_m4_and_validates_external_cubit() -> None:
 def test_plugin_build_dependencies_are_exactly_pinned() -> None:
     pyproject = ROOT / "banana-smasher-plugin/pyproject.toml"
     assert '"torch==2.11.0"' in pyproject.read_text()
-    assert '"quack-kernels==0.4.1"' in pyproject.read_text()
+    assert '"quack-kernels>=0.4.1,<0.5.1"' in pyproject.read_text()
 
 
 def test_rebuild_entry_point_is_separate_output_only() -> None:

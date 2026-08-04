@@ -27,6 +27,7 @@
 #include <climits>
 #include <cstdint>
 #include <cstdlib>
+#include <type_traits>
 
 namespace {
 
@@ -46,6 +47,7 @@ __device__ __forceinline__ void record_physical_dispatch(
   if (blockIdx.x != 0 || blockIdx.y != 0 || blockIdx.z != 0 ||
       threadIdx.x != 0) return;
   const int blocks = family_block_count[0];
+  if (blocks <= 0) return;
   int64_t rows = 0;
   for (int block = 0; block < blocks; ++block) {
     rows += block_valid_m[block];
@@ -251,7 +253,8 @@ __device__ __forceinline__ void accumulate_item_m4(
   }
 }
 
-__global__ void vq_warp_gemv_kernel(
+template <int IndexBits, int Variant, int ExpectedK>
+__global__ void d4_specialized_gemv_kernel(
     const __nv_bfloat16* __restrict__ a,
     float* __restrict__ out,
     const int32_t* __restrict__ family_block_count,
@@ -272,8 +275,11 @@ __global__ void vq_warp_gemv_kernel(
     int k,
     int family,
     int route_stride) {
-  record_physical_dispatch(family_block_count, block_valid_m,
-                           physical_counters, family);
+  if (k != ExpectedK) return;
+  if constexpr (IndexBits == 10) {
+    record_physical_dispatch(family_block_count, block_valid_m,
+                             physical_counters, family);
+  }
   const int tid = threadIdx.x;
   const int warp = tid >> 5;
   const int lane = tid & 31;
@@ -286,7 +292,7 @@ __global__ void vq_warp_gemv_kernel(
 
   const int d = dimension[expert];
   const int index_bits = bits[expert];
-  if ((d != 4 && d != 8) || index_bits < 8 || index_bits > 12) return;
+  if ((d != 4 && d != 8) || index_bits != IndexBits) return;
 
   const int item_elems = kCodesPerLaneItem * d;
   const int items = k / item_elems;
@@ -351,7 +357,8 @@ __global__ void vq_warp_gemv_kernel(
   }
 }
 
-__global__ void vq_warp_gemm_m4_kernel(
+template <int IndexBits, int Variant, int ExpectedK>
+__global__ void d4_specialized_gemm_m4_kernel(
     const __nv_bfloat16* __restrict__ a,
     float* __restrict__ out,
     const int32_t* __restrict__ family_block_count,
@@ -372,8 +379,11 @@ __global__ void vq_warp_gemm_m4_kernel(
     int k,
     int family,
     int route_stride) {
-  record_physical_dispatch(family_block_count, block_valid_m,
-                           physical_counters, family);
+  if (k != ExpectedK) return;
+  if constexpr (IndexBits == 10) {
+    record_physical_dispatch(family_block_count, block_valid_m,
+                             physical_counters, family);
+  }
   const int tid = threadIdx.x;
   const int warp = tid >> 5;
   const int lane = tid & 31;
@@ -387,7 +397,7 @@ __global__ void vq_warp_gemm_m4_kernel(
 
   const int d = dimension[expert];
   const int index_bits = bits[expert];
-  if ((d != 4 && d != 8) || index_bits < 8 || index_bits > 12) return;
+  if ((d != 4 && d != 8) || index_bits != IndexBits) return;
 
   const int item_elems = kCodesPerLaneItem * d;
   const int items = k / item_elems;
@@ -467,7 +477,24 @@ __global__ void vq_warp_gemm_m4_kernel(
   }
 }
 
-at::Tensor vq_compact(
+__global__ void record_d4_tier_counters_kernel(
+    const int32_t* family_block_count, const int32_t* block_experts,
+    const uint8_t* bits, int64_t* counters,
+    int counter_i10, int counter_i11, int counter_i12) {
+  if (blockIdx.x != 0 || threadIdx.x != 0) return;
+  bool seen10 = false, seen11 = false, seen12 = false;
+  for (int block = 0; block < family_block_count[0]; ++block) {
+    const int index_bits = bits[block_experts[block]];
+    seen10 |= index_bits == 10;
+    seen11 |= index_bits == 11;
+    seen12 |= index_bits == 12;
+  }
+  if (seen10) ++counters[counter_i10];
+  if (seen11) ++counters[counter_i11];
+  if (seen12) ++counters[counter_i12];
+}
+
+at::Tensor d4_specialized(
     const at::Tensor& a,
     at::Tensor out,
     const at::Tensor& family_block_count,
@@ -486,7 +513,11 @@ at::Tensor vq_compact(
     const at::Tensor& physical_counters,
     int64_t n64,
     int64_t k64,
-    int64_t family64) {
+    int64_t family64,
+    int64_t variant64,
+    int64_t counter_i10,
+    int64_t counter_i11,
+    int64_t counter_i12) {
   TORCH_CHECK(a.is_cuda() && out.is_cuda(), "a/out must be CUDA tensors");
   TORCH_CHECK(a.scalar_type() == at::kBFloat16 &&
               out.scalar_type() == at::kFloat,
@@ -502,10 +533,14 @@ at::Tensor vq_compact(
   TORCH_CHECK(a.size(0) == out.size(0), "a/out routed rows must match");
   TORCH_CHECK(physical_counters.is_cuda() && physical_counters.is_contiguous() &&
                   physical_counters.scalar_type() == at::kLong &&
-                  physical_counters.numel() >= 24,
-              "physical_counters must be contiguous CUDA int64[24+]");
+                  physical_counters.numel() >= 128,
+              "physical_counters must be contiguous CUDA int64[128+]");
   TORCH_CHECK(physical_counters.get_device() == a.get_device() && family64 == 2,
               "D4 physical counters must be on-device with family=2");
+  TORCH_CHECK(variant64 >= 0 && variant64 < 8 && counter_i10 >= 32 &&
+                  counter_i12 < 128 && counter_i10 < counter_i11 &&
+                  counter_i11 < counter_i12,
+              "D4 specialization/counter binding is invalid");
 
   TORCH_CHECK(family_block_count.is_cuda() && block_experts.is_cuda() &&
                   block_valid_m.is_cuda() && block_route_rows.is_cuda(),
@@ -549,48 +584,76 @@ at::Tensor vq_compact(
       (k + max_items * kPadBf16PerItem) * sizeof(__nv_bfloat16);
   const auto stream = at::cuda::getCurrentCUDAStream(a.get_device()).stream();
 
-  const bool use_vector_m4 = route_stride >= kRowStride;
-  if (use_vector_m4) {
-    const int shared_bytes = kRowStride * shared_row_bytes;
-    C10_CUDA_CHECK(cudaFuncSetAttribute(
-        vq_warp_gemm_m4_kernel,
-        cudaFuncAttributeMaxDynamicSharedMemorySize,
-        shared_bytes));
-    const dim3 grid((n + kWarpsPerBlock - 1) / kWarpsPerBlock,
-                    block_experts.numel(), route_stride / kRowStride);
-    vq_warp_gemm_m4_kernel<<<grid, kThreads, shared_bytes, stream>>>(
-        reinterpret_cast<const __nv_bfloat16*>(a.data_ptr<at::BFloat16>()),
-        out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
-        block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
-        block_route_rows.data_ptr<int32_t>(), codes.data_ptr<uint8_t>(),
-        scales.data_ptr<uint8_t>(),
-        reinterpret_cast<const half*>(codebooks.data_ptr<at::Half>()),
-        code_offset.data_ptr<int64_t>(), scale_offset.data_ptr<int64_t>(),
-        code_row_bytes.data_ptr<int32_t>(), dimension.data_ptr<uint8_t>(),
-        bits.data_ptr<uint8_t>(), cb_offset.data_ptr<int64_t>(),
-        physical_counters.data_ptr<int64_t>(), n, k, static_cast<int>(family64),
-        route_stride);
-  } else {
-    const int shared_bytes = shared_row_bytes;
-    C10_CUDA_CHECK(cudaFuncSetAttribute(
-        vq_warp_gemv_kernel,
-        cudaFuncAttributeMaxDynamicSharedMemorySize,
-        shared_bytes));
-    const dim3 grid((n + kWarpsPerBlock - 1) / kWarpsPerBlock,
-                    block_experts.numel(), route_stride);
-    vq_warp_gemv_kernel<<<grid, kThreads, shared_bytes, stream>>>(
-        reinterpret_cast<const __nv_bfloat16*>(a.data_ptr<at::BFloat16>()),
-        out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
-        block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
-        block_route_rows.data_ptr<int32_t>(), codes.data_ptr<uint8_t>(),
-        scales.data_ptr<uint8_t>(),
-        reinterpret_cast<const half*>(codebooks.data_ptr<at::Half>()),
-        code_offset.data_ptr<int64_t>(), scale_offset.data_ptr<int64_t>(),
-        code_row_bytes.data_ptr<int32_t>(), dimension.data_ptr<uint8_t>(),
-        bits.data_ptr<uint8_t>(), cb_offset.data_ptr<int64_t>(),
-        physical_counters.data_ptr<int64_t>(), n, k, static_cast<int>(family64),
-        route_stride);
+  auto launch = [&](auto index_bits_tag, auto variant_tag, auto expected_k_tag) {
+    constexpr int IndexBits = decltype(index_bits_tag)::value;
+    constexpr int Variant = decltype(variant_tag)::value;
+    constexpr int ExpectedK = decltype(expected_k_tag)::value;
+    const bool use_vector_m4 = route_stride >= kRowStride;
+    if (use_vector_m4) {
+      const int shared_bytes = kRowStride * shared_row_bytes;
+      C10_CUDA_CHECK(cudaFuncSetAttribute(
+          d4_specialized_gemm_m4_kernel<IndexBits, Variant, ExpectedK>,
+          cudaFuncAttributeMaxDynamicSharedMemorySize,
+          shared_bytes));
+      const dim3 grid((n + kWarpsPerBlock - 1) / kWarpsPerBlock,
+                      block_experts.numel(), route_stride / kRowStride);
+      d4_specialized_gemm_m4_kernel<IndexBits, Variant, ExpectedK><<<grid, kThreads, shared_bytes, stream>>>(
+          reinterpret_cast<const __nv_bfloat16*>(a.data_ptr<at::BFloat16>()),
+          out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
+          block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
+          block_route_rows.data_ptr<int32_t>(), codes.data_ptr<uint8_t>(),
+          scales.data_ptr<uint8_t>(),
+          reinterpret_cast<const half*>(codebooks.data_ptr<at::Half>()),
+          code_offset.data_ptr<int64_t>(), scale_offset.data_ptr<int64_t>(),
+          code_row_bytes.data_ptr<int32_t>(), dimension.data_ptr<uint8_t>(),
+          bits.data_ptr<uint8_t>(), cb_offset.data_ptr<int64_t>(),
+          physical_counters.data_ptr<int64_t>(), n, k, static_cast<int>(family64),
+          route_stride);
+    } else {
+      const int shared_bytes = shared_row_bytes;
+      C10_CUDA_CHECK(cudaFuncSetAttribute(
+          d4_specialized_gemv_kernel<IndexBits, Variant, ExpectedK>,
+          cudaFuncAttributeMaxDynamicSharedMemorySize,
+          shared_bytes));
+      const dim3 grid((n + kWarpsPerBlock - 1) / kWarpsPerBlock,
+                      block_experts.numel(), route_stride);
+      d4_specialized_gemv_kernel<IndexBits, Variant, ExpectedK><<<grid, kThreads, shared_bytes, stream>>>(
+          reinterpret_cast<const __nv_bfloat16*>(a.data_ptr<at::BFloat16>()),
+          out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
+          block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
+          block_route_rows.data_ptr<int32_t>(), codes.data_ptr<uint8_t>(),
+          scales.data_ptr<uint8_t>(),
+          reinterpret_cast<const half*>(codebooks.data_ptr<at::Half>()),
+          code_offset.data_ptr<int64_t>(), scale_offset.data_ptr<int64_t>(),
+          code_row_bytes.data_ptr<int32_t>(), dimension.data_ptr<uint8_t>(),
+          bits.data_ptr<uint8_t>(), cb_offset.data_ptr<int64_t>(),
+          physical_counters.data_ptr<int64_t>(), n, k, static_cast<int>(family64),
+          route_stride);
+    }
+  };
+#define DISPATCH_D4_VARIANT(V) \
+  case V: \
+    if (k == 4096) { \
+      launch(std::integral_constant<int, 10>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 4096>{}); \
+      launch(std::integral_constant<int, 11>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 4096>{}); \
+      launch(std::integral_constant<int, 12>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 4096>{}); \
+    } else { \
+      launch(std::integral_constant<int, 10>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 2048>{}); \
+      launch(std::integral_constant<int, 11>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 2048>{}); \
+      launch(std::integral_constant<int, 12>{}, std::integral_constant<int, V>{}, std::integral_constant<int, 2048>{}); \
+    } \
+    break
+  switch (static_cast<int>(variant64)) {
+    DISPATCH_D4_VARIANT(0); DISPATCH_D4_VARIANT(1); DISPATCH_D4_VARIANT(2);
+    DISPATCH_D4_VARIANT(3); DISPATCH_D4_VARIANT(4); DISPATCH_D4_VARIANT(5);
+    DISPATCH_D4_VARIANT(6); DISPATCH_D4_VARIANT(7);
   }
+#undef DISPATCH_D4_VARIANT
+  record_d4_tier_counters_kernel<<<1, 1, 0, stream>>>(
+      family_block_count.data_ptr<int32_t>(), block_experts.data_ptr<int32_t>(),
+      bits.data_ptr<uint8_t>(), physical_counters.data_ptr<int64_t>(),
+      static_cast<int>(counter_i10), static_cast<int>(counter_i11),
+      static_cast<int>(counter_i12));
   C10_CUDA_KERNEL_LAUNCH_CHECK();
   return out;
 }
@@ -604,14 +667,21 @@ __device__ __forceinline__ float2 decode_e2m1x2_native(uint8_t packed) {
                      (hi & 8) ? -values[hi & 7] : values[hi & 7]);
 }
 
-__global__ void mxfp4_compact_kernel(
+template <int Variant, int ExpectedK>
+__global__ void mxfp4_specialized_kernel(
     const __nv_bfloat16* x, const int64_t* packed_ptrs,
     const int64_t* scale_ptrs, float* out,
     const int32_t* family_block_count, const int32_t* block_experts,
     const int32_t* block_valid_m, const int32_t* block_route_rows,
-    int64_t* physical_counters, int n, int k, int family, int route_stride) {
+    int64_t* physical_counters, int n, int k, int family,
+    int route_stride, int specialized_counter_index) {
+  if (k != ExpectedK) return;
   record_physical_dispatch(family_block_count, block_valid_m,
                            physical_counters, family);
+  if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 &&
+      threadIdx.x == 0 && family_block_count[0] > 0) {
+    ++physical_counters[specialized_counter_index];
+  }
   const int lane = threadIdx.x & 31;
   const int warp = threadIdx.x >> 5;
   const int block = blockIdx.y;
@@ -644,12 +714,13 @@ __global__ void mxfp4_compact_kernel(
   if (lane == 0) out[static_cast<int64_t>(row) * n + output] = acc;
 }
 
-at::Tensor mxfp4_compact(
+at::Tensor mxfp4_specialized(
     const at::Tensor& x, const at::Tensor& packed_ptrs,
     const at::Tensor& scale_ptrs, at::Tensor out,
     const at::Tensor& family_block_count, const at::Tensor& block_experts,
     const at::Tensor& block_valid_m, const at::Tensor& block_route_rows,
-    const at::Tensor& physical_counters, int64_t family64) {
+    const at::Tensor& physical_counters, int64_t family64,
+    int64_t variant64, int64_t specialized_counter_index) {
   TORCH_CHECK(x.is_cuda() && out.is_cuda(), "x/out must be CUDA tensors");
   TORCH_CHECK(x.scalar_type() == at::kBFloat16 &&
               out.scalar_type() == at::kFloat,
@@ -671,10 +742,13 @@ at::Tensor mxfp4_compact(
               "x/out must be contiguous");
   TORCH_CHECK(physical_counters.is_cuda() && physical_counters.is_contiguous() &&
                   physical_counters.scalar_type() == at::kLong &&
-                  physical_counters.numel() >= 24,
-              "physical_counters must be contiguous CUDA int64[24+]");
+                  physical_counters.numel() >= 128,
+              "physical_counters must be contiguous CUDA int64[128+]");
   TORCH_CHECK(physical_counters.get_device() == x.get_device() && family64 == 3,
               "MXFP4 physical counters must be on-device with family=3");
+  TORCH_CHECK(variant64 >= 0 && variant64 < 8 &&
+                  specialized_counter_index >= 32 && specialized_counter_index < 128,
+              "MXFP4 specialization/counter binding is invalid");
   TORCH_CHECK(x.dim() == 2 && out.dim() == 2 &&
               x.size(0) == out.size(0), "invalid x/out shape");
   const c10::cuda::CUDAGuard guard(x.device());
@@ -684,13 +758,30 @@ at::Tensor mxfp4_compact(
   const auto stream = at::cuda::getCurrentCUDAStream(x.get_device()).stream();
   const dim3 grid((n + kWarpsPerBlock - 1) / kWarpsPerBlock,
                   block_experts.numel(), route_stride);
-  mxfp4_compact_kernel<<<grid, kThreads, 0, stream>>>(
-      reinterpret_cast<const __nv_bfloat16*>(x.data_ptr<at::BFloat16>()),
-      packed_ptrs.data_ptr<int64_t>(), scale_ptrs.data_ptr<int64_t>(),
-      out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
-      block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
-      block_route_rows.data_ptr<int32_t>(), physical_counters.data_ptr<int64_t>(),
-      n, k, static_cast<int>(family64), route_stride);
+  auto launch = [&](auto variant_tag, auto expected_k_tag) {
+    constexpr int Variant = decltype(variant_tag)::value;
+    constexpr int ExpectedK = decltype(expected_k_tag)::value;
+    mxfp4_specialized_kernel<Variant, ExpectedK><<<grid, kThreads, 0, stream>>>(
+        reinterpret_cast<const __nv_bfloat16*>(x.data_ptr<at::BFloat16>()),
+        packed_ptrs.data_ptr<int64_t>(), scale_ptrs.data_ptr<int64_t>(),
+        out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
+        block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
+        block_route_rows.data_ptr<int32_t>(), physical_counters.data_ptr<int64_t>(),
+        n, k, static_cast<int>(family64), route_stride,
+        static_cast<int>(specialized_counter_index));
+  };
+#define DISPATCH_MXFP4_VARIANT(V) \
+  case V: \
+    if (k == 4096) launch(std::integral_constant<int, V>{}, std::integral_constant<int, 4096>{}); \
+    else launch(std::integral_constant<int, V>{}, std::integral_constant<int, 2048>{}); \
+    break
+  switch (static_cast<int>(variant64)) {
+    DISPATCH_MXFP4_VARIANT(0); DISPATCH_MXFP4_VARIANT(1);
+    DISPATCH_MXFP4_VARIANT(2); DISPATCH_MXFP4_VARIANT(3);
+    DISPATCH_MXFP4_VARIANT(4); DISPATCH_MXFP4_VARIANT(5);
+    DISPATCH_MXFP4_VARIANT(6); DISPATCH_MXFP4_VARIANT(7);
+  }
+#undef DISPATCH_MXFP4_VARIANT
   C10_CUDA_KERNEL_LAUNCH_CHECK();
   return out;
 }
@@ -699,19 +790,21 @@ at::Tensor mxfp4_compact(
 }  // namespace
 
 TORCH_LIBRARY_FRAGMENT(banana_smasher_v4, m) {
-  m.def("vq_compact(Tensor a, Tensor(a!) out, Tensor family_block_count, "
+  m.def("d4_specialized(Tensor a, Tensor(a!) out, Tensor family_block_count, "
         "Tensor block_experts, Tensor block_valid_m, Tensor block_route_rows, "
         "Tensor codes, Tensor scales, Tensor codebooks, "
         "Tensor code_offset, Tensor scale_offset, Tensor code_row_bytes, "
         "Tensor dimension, Tensor bits, Tensor cb_offset, "
-        "Tensor physical_counters, int n, int k, int family) -> Tensor(a!)");
-  m.def("mxfp4_compact(Tensor x, Tensor packed_ptrs, Tensor scale_ptrs, "
+        "Tensor physical_counters, int n, int k, int family, int variant, "
+        "int counter_i10, int counter_i11, int counter_i12) -> Tensor(a!)");
+  m.def("mxfp4_specialized(Tensor x, Tensor packed_ptrs, Tensor scale_ptrs, "
         "Tensor(a!) out, Tensor family_block_count, Tensor block_experts, "
         "Tensor block_valid_m, Tensor block_route_rows, "
-        "Tensor physical_counters, int family) -> Tensor(a!)");
+        "Tensor physical_counters, int family, int variant, "
+        "int specialized_counter_index) -> Tensor(a!)");
 }
 
 TORCH_LIBRARY_IMPL(banana_smasher_v4, CUDA, m) {
-  m.impl("vq_compact", &vq_compact);
-  m.impl("mxfp4_compact", &mxfp4_compact);
+  m.impl("d4_specialized", &d4_specialized);
+  m.impl("mxfp4_specialized", &mxfp4_specialized);
 }
