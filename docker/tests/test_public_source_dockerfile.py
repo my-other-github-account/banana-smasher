@@ -55,11 +55,10 @@ def test_public_source_dockerfile_contract() -> None:
     install = "/tmp/wheels/flashinfer_python-0.6.17-py3-none-any.whl"
     assert uninstall in text
     assert text.index(uninstall) < text.index(install, text.index("FROM ${VLLM_IMAGE} AS runtime"))
-    assert 'for name in ("flashinfer_cubin","flashinfer_jit_cache")' in text
     assert 'find_spec("flashinfer_cubin") is None' in text
-    assert 'find_spec("flashinfer_jit_cache") is None' in text
+    assert 'find_spec("flashinfer_jit_cache") is not None' in text
     assert '"flashinfer-cubin" not in names' in text
-    assert '"flashinfer-jit-cache" not in names' in text
+    assert 'm.version("flashinfer-jit-cache")=="0.6.17+cu130"' in text
     assert "FLASHINFER_DISABLE_VERSION_CHECK" not in text
     assert "flashinfer-python==0.6.12" not in text
     assert "https://github.com/deepseek-ai/DeepGEMM.git" in text
@@ -208,6 +207,52 @@ def test_runtime_removes_stale_flashinfer_binary_provider_namespaces() -> None:
     assert remove_jit_cache in text
     assert text.index(uninstall) < text.index(remove_cubin) < text.index(install_source, text.index(remove_cubin))
     assert text.index(uninstall) < text.index(remove_jit_cache) < text.index(install_source, text.index(remove_jit_cache))
+
+
+def test_source_build_includes_required_flashinfer_aot_closure() -> None:
+    text = DOCKERFILE.read_text()
+    patch = (ROOT / "docker/patches/flashinfer-u12-aot.patch").read_text()
+    defaults = json.loads((ROOT / "docker/runtime_defaults.json").read_text())
+    verifier = (ROOT / "docker/scripts/verify_public_image.py").read_text()
+
+    assert "FLASHINFER_CUDA_ARCH_LIST=\"12.0f 12.1a\"" in text
+    assert "TORCH_CUDA_ARCH_LIST=\"12.0;12.1+PTX\"" in text
+    assert "FLASHINFER_ENABLE_PTX=1" in text
+    assert "flashinfer-u12-aot.patch" in text
+    assert "python3 -m build --wheel --no-isolation --outdir /wheel ./flashinfer-jit-cache" in text
+    assert "flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl" in text
+    assert "/tmp/wheels/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl" in text
+    assert "FLASHINFER_DISABLE_JIT=1" in text
+    assert "VLLM_HAS_FLASHINFER_CUBIN=1" in text
+
+    assert '"fa2_head_dim": [' in patch
+    assert "(512, 512)" in patch
+    assert "code=compute_" in patch
+    assert '"flashinfer-jit-cache": "0.6.17+cu130"' in verifier
+    assert '"sampling"' in verifier
+    assert '"sparse_mla_sm120"' in verifier
+    assert '"head_dim_qk_512_head_dim_vo_512"' in verifier
+    assert defaults["environment"]["FLASHINFER_DISABLE_JIT"] == "1"
+    assert defaults["environment"]["VLLM_HAS_FLASHINFER_CUBIN"] == "1"
+
+
+def test_native_plugin_build_has_pinned_cuda_development_toolchain() -> None:
+    text = DOCKERFILE.read_text()
+    package_builder = text.index("FROM ${VLLM_IMAGE} AS package-builder")
+    plugin_build = text.index(
+        "python3 -m build --wheel --no-isolation --outdir /wheels /src/banana-smasher-plugin"
+    )
+
+    for package in (
+        "cuda-nvrtc-dev-13-0=13.0.88-1",
+        "libcublas-dev-13-0=13.1.1.3-1",
+        "libcusolver-dev-13-0=12.0.4.66-1",
+        "libcusparse-dev-13-0=12.6.3.3-1",
+    ):
+        assert package_builder < text.index(package, package_builder) < plugin_build
+    assert 'CUDA_HOME=/usr/local/cuda TORCH_CUDA_ARCH_LIST="12.0;12.1+PTX"' in text
+    assert "/wheels/banana_smasher_plugin-0.2.0-*.whl" in text
+    assert "/tmp/wheels/banana_smasher_plugin-0.2.0-*.whl" in text
 
 
 def test_runtime_defaults_are_baked_and_parseable() -> None:

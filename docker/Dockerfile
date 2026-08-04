@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libcusparse-dev-13-0=12.6.3.3-1 \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir \
-      build==1.3.0 ninja==1.13.0 pytest==8.4.2 scipy==1.16.1 \
-      setuptools==80.10.2 wheel==0.46.3
+      build==1.3.0 hatchling==1.27.0 ninja==1.13.0 \
+      pytest==8.4.2 scipy==1.16.1 setuptools==80.10.2 wheel==0.46.3
 COPY banana-smasher /src/banana-smasher
 COPY banana-smasher-plugin /src/banana-smasher-plugin
 COPY docker /src/docker
@@ -25,7 +25,9 @@ RUN python3 -m build --wheel --outdir /wheels /src/banana-smasher \
     && CUDA_HOME=/usr/local/cuda TORCH_CUDA_ARCH_LIST="12.0;12.1+PTX" \
       python3 -m build --wheel --no-isolation --outdir /wheels . \
     && python3 -m zipfile -t /wheels/banana_smasher-1.0.0-py3-none-any.whl \
-    && python3 -m zipfile -t /wheels/banana_smasher_plugin-0.2.0-*.whl \
+    && set -- /wheels/banana_smasher_plugin-0.2.0-*.whl \
+    && test "$#" -eq 1 \
+    && python3 -m zipfile -t "$1" \
     && python3 -m pip install --no-cache-dir --no-deps \
       /wheels/banana_smasher-1.0.0-py3-none-any.whl \
       /wheels/banana_smasher_plugin-0.2.0-*.whl \
@@ -48,8 +50,9 @@ RUN test "${FLASHINFER_SOURCE_REPO}" = "https://github.com/flashinfer-ai/flashin
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir \
-      apache-tvm-ffi==0.1.9 build==1.3.0 packaging==26.2 \
-      setuptools==80.10.2 wheel==0.46.3 \
+      apache-tvm-ffi==0.1.9 build==1.3.0 ninja==1.13.0 \
+      nvidia-ml-py==13.580.82 packaging==26.2 requests==2.32.5 \
+      setuptools==80.10.2 tqdm==4.67.1 wheel==0.46.3 \
     && git init /tmp/flashinfer \
     && git -C /tmp/flashinfer remote add origin "${FLASHINFER_SOURCE_REPO}" \
     && git -C /tmp/flashinfer fetch --depth=1 origin "${FLASHINFER_SOURCE_COMMIT}" \
@@ -68,15 +71,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
       done \
     && git -C /tmp/flashinfer submodule update --init --recursive --depth=1
 COPY docker/patches/flashinfer-real-libcudart.patch /tmp/
+COPY docker/patches/flashinfer-u12-aot.patch /tmp/
 RUN cd /tmp/flashinfer \
     && git apply --check --unidiff-zero /tmp/flashinfer-real-libcudart.patch \
     && git apply --unidiff-zero /tmp/flashinfer-real-libcudart.patch \
+    && git apply --check /tmp/flashinfer-u12-aot.patch \
+    && git apply /tmp/flashinfer-u12-aot.patch \
     && mkdir -p /wheel \
     && BUILD_NVEP=0 BUILD_NIXL_EP=0 BUILD_NCCL_EP=0 \
       python3 -m build --wheel --no-isolation --outdir /wheel . \
     && test -f /wheel/flashinfer_python-0.6.17-py3-none-any.whl \
     && python3 -m zipfile -t /wheel/flashinfer_python-0.6.17-py3-none-any.whl \
-    && sha256sum /wheel/flashinfer_python-0.6.17-py3-none-any.whl > /wheel/flashinfer-wheel.sha256 \
+    && FLASHINFER_CUDA_ARCH_LIST="12.0f 12.1a" \
+      TORCH_CUDA_ARCH_LIST="12.0;12.1+PTX" \
+      FLASHINFER_ENABLE_PTX=1 \
+      FLASHINFER_LOCAL_VERSION=cu130 \
+      MAX_JOBS=4 \
+      FLASHINFER_NVCC_THREADS=2 \
+      python3 -m build --wheel --no-isolation --outdir /wheel ./flashinfer-jit-cache \
+    && test -f /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl \
+    && python3 -m zipfile -t /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl \
+    && find ./flashinfer-jit-cache/flashinfer_jit_cache/jit_cache -name '*.so' -type f | sort > /wheel/flashinfer-aot-modules.txt \
+    && grep -qx '.*/sampling/sampling.so' /wheel/flashinfer-aot-modules.txt \
+    && grep -qx '.*/sparse_mla_sm120/sparse_mla_sm120.so' /wheel/flashinfer-aot-modules.txt \
+    && grep -q 'head_dim_qk_512_head_dim_vo_512' /wheel/flashinfer-aot-modules.txt \
+    && { \
+      printf 'source_commit=%s\n' "${FLASHINFER_SOURCE_COMMIT}"; \
+      printf 'flashinfer_cuda_arch_list=%s\n' '12.0f 12.1a'; \
+      printf 'torch_cuda_arch_list=%s\n' '12.0;12.1+PTX'; \
+      printf 'flashinfer_enable_ptx=1\n'; \
+      git submodule status --recursive; \
+    } > /wheel/flashinfer-build.txt \
+    && sha256sum /wheel/flashinfer_python-0.6.17-py3-none-any.whl \
+      /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl \
+      > /wheel/flashinfer-wheel.sha256 \
+    && sha256sum /wheel/flashinfer-aot-modules.txt /wheel/flashinfer-build.txt \
+      > /wheel/flashinfer-build-inputs.sha256 \
     && sha256sum /tmp/*.patch > /wheel/flashinfer-patches.sha256 \
     && git diff --binary | sha256sum > /wheel/flashinfer-patched-tree.sha256
 
@@ -128,17 +158,22 @@ COPY --from=package-builder /wheels/banana_smasher-1.0.0-py3-none-any.whl /tmp/w
 COPY --from=package-builder /wheels/banana_smasher_plugin-0.2.0-*.whl /tmp/wheels/
 COPY --from=package-builder /wheels/local-wheels.sha256 /opt/banana-smasher/provenance/build-local-wheels.sha256
 COPY --from=flashinfer-builder /wheel/flashinfer_python-0.6.17-py3-none-any.whl /tmp/wheels/
+COPY --from=flashinfer-builder /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl /tmp/wheels/
 COPY --from=flashinfer-builder /wheel/flashinfer-wheel.sha256 /opt/banana-smasher/provenance/build-flashinfer-wheel.sha256
+COPY --from=flashinfer-builder /wheel/flashinfer-aot-modules.txt /opt/banana-smasher/provenance/build-flashinfer-aot-modules.txt
+COPY --from=flashinfer-builder /wheel/flashinfer-build.txt /opt/banana-smasher/provenance/build-flashinfer-inputs.txt
+COPY --from=flashinfer-builder /wheel/flashinfer-build-inputs.sha256 /opt/banana-smasher/provenance/build-flashinfer-inputs.sha256
 COPY --from=flashinfer-builder /wheel/flashinfer-patches.sha256 /opt/banana-smasher/provenance/build-flashinfer-patches.sha256
 COPY --from=flashinfer-builder /wheel/flashinfer-patched-tree.sha256 /opt/banana-smasher/provenance/build-flashinfer-patched-tree.sha256
 COPY --from=deepgemm-builder /wheels/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl /tmp/wheels/
 COPY --from=deepgemm-builder /wheels/deepgemm-wheel.sha256 /opt/banana-smasher/provenance/build-deepgemm-wheel.sha256
 RUN python3 -m pip install --no-cache-dir --no-deps --force-reinstall \
       /tmp/wheels/flashinfer_python-0.6.17-py3-none-any.whl \
+      /tmp/wheels/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl \
       /tmp/wheels/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl \
       /tmp/wheels/banana_smasher-1.0.0-py3-none-any.whl \
       /tmp/wheels/banana_smasher_plugin-0.2.0-*.whl \
-    && python3 -c 'import importlib.metadata as m,importlib.util as u; names={d.metadata["Name"].lower() for d in m.distributions() if d.metadata["Name"]}; assert u.find_spec("flashinfer_cubin") is None; assert u.find_spec("flashinfer_jit_cache") is None; assert "flashinfer-cubin" not in names; assert "flashinfer-jit-cache" not in names' \
+    && python3 -c 'import importlib.metadata as m,importlib.util as u; names={d.metadata["Name"].lower() for d in m.distributions() if d.metadata["Name"]}; assert u.find_spec("flashinfer_cubin") is None; assert u.find_spec("flashinfer_jit_cache") is not None; assert "flashinfer-cubin" not in names; assert m.version("flashinfer-jit-cache")=="0.6.17+cu130"' \
     && rm -rf /tmp/wheels
 
 COPY banana-smasher/kernels/cubins-sm120 /opt/banana-smasher/aot/cubins-sm120
@@ -161,10 +196,11 @@ RUN set -eux; \
     real="$(python3 -c 'import pathlib; m=sorted(pathlib.Path("/usr/local/lib/python3.12/dist-packages/nvidia/cu13/lib").glob("libcudart.so.13")); assert len(m)==1,m; print(m[0])')"; \
     test -f "$stub"; test -f "$real"; rm -f "$stub"; ln -s "$real" "$stub"; \
     test "$(readlink -f "$stub")" = "$(readlink -f "$real")"; \
-    python3 /opt/banana-smasher/bin/verify_public_image.py; \
+    FLASHINFER_DISABLE_JIT=1 VLLM_HAS_FLASHINFER_CUBIN=1 \
+      python3 /opt/banana-smasher/bin/verify_public_image.py; \
     python3 /opt/banana-smasher/bin/write_package_receipt.py \
       /opt/banana-smasher/provenance/package-sbom.json; \
-    python3 -c 'import json; p="/opt/banana-smasher/provenance/source.json"; open(p,"w").write(json.dumps({"base_image":"vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b","deep_gemm_source_commit":"f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca","deep_gemm_source_ref":"refs/tags/nv_dev_f8e8fb5","deep_gemm_source_repo":"https://github.com/deepseek-ai/DeepGEMM.git","deep_gemm_version":"2.6.1","flashinfer_source_commit":"d020372b068f335e2fe427372e134977a2235c49","flashinfer_source_repo":"https://github.com/flashinfer-ai/flashinfer.git","flashinfer_sm120_commits":["b34f49255f1640542da91665f58558a3e5e308f1","76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9","0c5fda59bb6fa71eae875693a024bb0fb37ba7d6"],"vllm_upstream_revision":"ee0da84a","packages_built_from_checkout":["banana-smasher","banana-smasher-plugin","deep-gemm","flashinfer-python"]},indent=2,sort_keys=True)+"\n")'
+    python3 -c 'import json; p="/opt/banana-smasher/provenance/source.json"; open(p,"w").write(json.dumps({"base_image":"vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b","deep_gemm_source_commit":"f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca","deep_gemm_source_ref":"refs/tags/nv_dev_f8e8fb5","deep_gemm_source_repo":"https://github.com/deepseek-ai/DeepGEMM.git","deep_gemm_version":"2.6.1","flashinfer_source_commit":"d020372b068f335e2fe427372e134977a2235c49","flashinfer_source_repo":"https://github.com/flashinfer-ai/flashinfer.git","flashinfer_sm120_commits":["b34f49255f1640542da91665f58558a3e5e308f1","76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9","0c5fda59bb6fa71eae875693a024bb0fb37ba7d6"],"vllm_upstream_revision":"ee0da84a","packages_built_from_checkout":["banana-smasher","banana-smasher-plugin","deep-gemm","flashinfer-jit-cache","flashinfer-python"]},indent=2,sort_keys=True)+"\n")'
 
 ENV PYTHONNOUSERSITE=1 \
     PYTHONUNBUFFERED=1 \
@@ -174,6 +210,8 @@ ENV PYTHONNOUSERSITE=1 \
     MALLOC_MMAP_THRESHOLD_=65536 \
     TOKENIZERS_PARALLELISM=false \
     VLLM_NO_USAGE_STATS=1 \
+    FLASHINFER_DISABLE_JIT=1 \
+    VLLM_HAS_FLASHINFER_CUBIN=1 \
     VLLM_USE_DEEP_GEMM=1 \
     VLLM_USE_DEEP_GEMM_E8M0=1 \
     BANANA_SMASHER_AOT_ROOT=/opt/banana-smasher/aot \
