@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = ROOT / "docker/Dockerfile"
 DEPLOY = ROOT / "README.md"
+SMOKE_FLASHINFER = ROOT / "docker/scripts/smoke_flashinfer_sm121.py"
 
 
 def test_public_source_dockerfile_contract() -> None:
@@ -265,7 +266,7 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     assert "flashinfer.decode.trtllm_batch_decode_sparse_mla_dsv4" in smoke
     assert "128 * 1024 * 1024" in smoke
     assert "(num_tokens, num_heads, 512)" in smoke
-    assert "swa_topk, extra_topk = 128, 2048" in smoke
+    assert "swa_topk, extra_topk = 128, 512" in smoke
     assert "num_swa_blocks * page_block_size >= swa_topk" in smoke
     assert "compressed_kv_cache=compressed_kv_cache" in smoke
     assert "extra_sparse_indices=extra_sparse_indices" in smoke
@@ -282,16 +283,24 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
 
 
 def test_flashinfer_sm121_smoke_matches_vllm_autotuner_boot_import() -> None:
-    smoke = (ROOT / "docker/scripts/smoke_flashinfer_sm121.py").read_text()
+    smoke = SMOKE_FLASHINFER.read_text()
 
     assert "from flashinfer.autotuner import AutoTuner" in smoke
     assert "callable(AutoTuner)" in smoke
 
 
 def test_flashinfer_sm121_smoke_matches_vllm_c4_decode_index_rank() -> None:
-    smoke = (ROOT / "docker/scripts/smoke_flashinfer_sm121.py").read_text()
+    smoke = SMOKE_FLASHINFER.read_text()
 
-    assert ".reshape(num_tokens, 1, extra_topk)" in smoke
+    assert ").reshape(num_tokens, 1, extra_topk)" in smoke
+
+
+def test_flashinfer_sm121_smoke_matches_exact_u12_sparse_decode_shape() -> None:
+    smoke = SMOKE_FLASHINFER.read_text()
+
+    assert "num_tokens, num_heads = 1, 64" in smoke
+    assert "swa_topk, extra_topk = 128, 512" in smoke
+    assert "page_block_size, extra_page_block_size, bytes_per_token = 64, 64, 584" in smoke
 
 
 def test_native_plugin_build_has_pinned_cuda_development_toolchain() -> None:

@@ -85,9 +85,9 @@ def main() -> None:
     if tuple(head512.shape) != (1, 1, 512) or not torch.isfinite(head512).all().item():
         raise RuntimeError(f"invalid FA2 head512 output: shape={tuple(head512.shape)}")
 
-    num_tokens, num_heads = 1, 8
-    swa_topk, extra_topk = 128, 2048
-    page_block_size, extra_page_block_size, bytes_per_token = 64, 2, 584
+    num_tokens, num_heads = 1, 64
+    swa_topk, extra_topk = 128, 512
+    page_block_size, extra_page_block_size, bytes_per_token = 64, 64, 584
     num_swa_blocks = 2
     num_extra_blocks = extra_topk // extra_page_block_size
     assert num_swa_blocks * page_block_size >= swa_topk
