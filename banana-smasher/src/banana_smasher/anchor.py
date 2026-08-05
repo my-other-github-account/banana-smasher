@@ -1232,8 +1232,10 @@ def materialize_candidate_producer(
     model_root: Path | str,
     producer_config: Path | str,
     basis_sha256: str,
+    execution_mode: str = "auto",
+    chunk_size: int = 8,
 ) -> dict[str, Any]:
-    """Run a model/config-parameterized producer and import its exact 64 rows."""
+    """Run one selected producer backend and import its exact 64 rows."""
 
     validate_bank_manifest(manifest)
     if len(manifest["windows"]) != 64:
@@ -1242,6 +1244,12 @@ def materialize_candidate_producer(
         )
     if not _is_sha256(basis_sha256):
         raise AnchorEvaluationError("basis_sha256 must be a lowercase SHA-256")
+    if execution_mode not in {"auto", "vllm", "offline-layerwise"}:
+        raise AnchorEvaluationError(
+            "execution_mode must be auto, vllm, or offline-layerwise"
+        )
+    if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0:
+        raise AnchorEvaluationError("chunk_size must be a positive integer")
     run_root = Path(run_root).resolve()
     candidate_id = _safe_component(candidate_id, "candidate_id")
     bank_id = _safe_component(manifest["bank_id"], "bank_id")
@@ -1257,12 +1265,22 @@ def materialize_candidate_producer(
     from .contract import PackValidationError, load_manifest, verify_pack
 
     try:
-        verify_pack(model_root)
+        pack_verification = verify_pack(model_root)
         pack_manifest = load_manifest(model_root)
     except (OSError, ValueError, PackValidationError) as exc:
         raise AnchorEvaluationError(
             f"candidate model pack verification failed: {exc}"
         ) from exc
+    if not isinstance(pack_verification, Mapping) or pack_verification.get("status") != "PASS":
+        raise AnchorEvaluationError("candidate model pack verification did not return PASS")
+    reusable_pack_verification = {
+        "schema": "banana-smasher-pack-verification-receipt-v1",
+        "status": "PASS",
+        "model_root": str(model_root),
+        "basis_sha256": basis_sha256,
+        "manifest_sha256": _sha256_bytes(pack_manifest_path.read_bytes()),
+        "verification": dict(pack_verification),
+    }
     declared_layers = pack_manifest.get("layers")
     if not isinstance(declared_layers, list) or not all(
         isinstance(layer, int) and not isinstance(layer, bool)
@@ -1304,10 +1322,11 @@ def materialize_candidate_producer(
         raise AnchorEvaluationError(f"invalid candidate producer config {producer_config}: {exc}") from exc
     command = config.get("command") if isinstance(config, Mapping) else None
     external_command = command if isinstance(command, list) else []
+    configured_producer = config.get("producer") if isinstance(config, Mapping) else None
     builtin = (
         isinstance(config, Mapping)
         and config.get("schema") == "banana-smasher-candidate-producer-v1"
-        and config.get("producer") == "fixed-d4-vllm"
+        and configured_producer in {"fixed-d4-vllm", "fixed-d4-offline-layerwise"}
         and set(config) == {"schema", "producer", "parameters"}
     )
     external = (
@@ -1319,7 +1338,18 @@ def materialize_candidate_producer(
     if not builtin and not external:
         raise AnchorEvaluationError(
             "candidate producer config requires schema banana-smasher-candidate-producer-v1 "
-            "and either producer fixed-d4-vllm or a non-empty string command array"
+            "and either a fixed-d4-vllm/fixed-d4-offline-layerwise producer or "
+            "a non-empty string command array"
+        )
+    configured_mode = (
+        "offline-layerwise"
+        if configured_producer == "fixed-d4-offline-layerwise"
+        else "vllm"
+    )
+    selected_mode = configured_mode if execution_mode == "auto" else execution_mode
+    if selected_mode != configured_mode:
+        raise AnchorEvaluationError(
+            f"execution mode {selected_mode!r} does not match producer mode {configured_mode!r}"
         )
 
     bank_path = run_root / "banks" / f"{bank_id}.jsonl"
@@ -1335,7 +1365,19 @@ def materialize_candidate_producer(
     os.close(descriptor)
     temporary = Path(temporary_name)
     try:
-        if builtin:
+        if configured_producer == "fixed-d4-offline-layerwise":
+            from .fixed_d4 import produce_fixed_d4_layerwise_logits
+
+            produce_fixed_d4_layerwise_logits(
+                model_root,
+                producer_config,
+                bank_path,
+                temporary,
+                basis_sha256=basis_sha256,
+                verified_pack_receipt=reusable_pack_verification,
+            )
+            producer_backend = "fixed-d4-offline-layerwise"
+        elif builtin:
             from .fixed_d4 import produce_fixed_d4_logits
 
             produce_fixed_d4_logits(
@@ -1392,6 +1434,9 @@ def materialize_candidate_producer(
         "coverage": imported["coverage"],
         "basis_sha256": basis_sha256,
         "producer_backend": producer_backend,
+        "execution_mode": selected_mode,
+        "resumed_windows": 0,
+        "computed_windows": len(manifest["windows"]),
         "model_manifest_sha256": _sha256_bytes(pack_manifest_path.read_bytes()),
         "producer_config_sha256": _sha256_bytes(config_payload),
         "producer_sha256": producer_sha256,

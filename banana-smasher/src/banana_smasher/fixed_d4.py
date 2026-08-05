@@ -1100,6 +1100,29 @@ def produce_fixed_d4_logits(
     }
 
 
+def produce_fixed_d4_layerwise_logits(
+    model_root: str | Path,
+    producer_config: str | Path,
+    bank_path: str | Path,
+    output_path: str | Path,
+    *,
+    basis_sha256: str,
+    verified_pack_receipt: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Stream one transformer block across all windows with durable resume."""
+
+    from .offline_layerwise import produce_fixed_d4_layerwise_logits as run_layerwise
+
+    return run_layerwise(
+        model_root,
+        producer_config,
+        bank_path,
+        output_path,
+        basis_sha256=basis_sha256,
+        verified_pack_receipt=verified_pack_receipt,
+    )
+
+
 def materialize_fixed_d4(
     manifest_path: str | Path,
     output_root: str | Path,
