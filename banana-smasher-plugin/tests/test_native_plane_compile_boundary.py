@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -10,15 +11,26 @@ import banana_smasher_plugin.native_planes as native_planes
 from test_native_plane_runtime import _tiny_pack
 
 
-def test_native_plane_forward_registers_capture_safe_cudagraph_boundary(
+def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
     tmp_path: Path, monkeypatch,
 ) -> None:
     registrations: list[
         tuple[str, object, object, list[str] | None, tuple[torch.Tag, ...]]
     ] = []
     calls: list[tuple[int, int]] = []
+    eager_decorations: list[object] = []
 
     torch_utils = ModuleType("vllm.utils.torch_utils")
+    breakable = ModuleType("vllm.compilation.breakable_cudagraph")
+
+    def eager_break_during_capture(fn):
+        eager_decorations.append(fn)
+
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            return fn(*args, **kwargs)
+
+        return wrapper
 
     def direct_register_custom_op(
         name, impl, *, mutates_args=None, fake_impl, tags=(),
@@ -42,9 +54,14 @@ def test_native_plane_forward_registers_capture_safe_cudagraph_boundary(
         monkeypatch.setattr(torch.ops.vllm, name, invoke, raising=False)
 
     torch_utils.direct_register_custom_op = direct_register_custom_op
+    setattr(breakable, "eager_break_during_capture", eager_break_during_capture)
     monkeypatch.setitem(sys.modules, "vllm", ModuleType("vllm"))
     monkeypatch.setitem(sys.modules, "vllm.utils", ModuleType("vllm.utils"))
     monkeypatch.setitem(sys.modules, "vllm.utils.torch_utils", torch_utils)
+    monkeypatch.setitem(sys.modules, "vllm.compilation", ModuleType("vllm.compilation"))
+    monkeypatch.setitem(
+        sys.modules, "vllm.compilation.breakable_cudagraph", breakable
+    )
     monkeypatch.setattr(
         native_planes, "_NATIVE_PLANE_CUSTOM_OP_REGISTERED", False, raising=False
     )
@@ -71,11 +88,14 @@ def test_native_plane_forward_registers_capture_safe_cudagraph_boundary(
 
     assert registrations and registrations[0][0] == "banana_smasher_native_plane_forward"
     assert registrations[0][3] == ["output"], (
-        "CUDA graph replay requires the custom op to mutate a "
+        "breakable cudagraph replay requires the custom op to mutate a "
         "caller-owned stable output buffer"
     )
-    assert registrations[0][1] is native_planes._native_plane_forward_op
-    assert torch.Tag.cudagraph_unsafe not in registrations[0][4]
+    assert torch.Tag.cudagraph_unsafe in registrations[0][4]
+    assert eager_decorations, (
+        "the custom-op kernel must be an eager break for vLLM's automatically "
+        "selected breakable cudagraph runtime"
+    )
     assert calls == [(layer._custom_op_key, 0)]
     assert result.shape == (2, 4)
     assert torch.all(result == 7)
@@ -83,5 +103,6 @@ def test_native_plane_forward_registers_capture_safe_cudagraph_boundary(
     second = native_planes.NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
     second.forward(torch.ones((1, 2)), torch.tensor([1]), "down")
     assert len(registrations) == 1
+    assert len(eager_decorations) == 1
     assert calls[-1] == (second._custom_op_key, 1)
     assert second._custom_op_key != layer._custom_op_key
