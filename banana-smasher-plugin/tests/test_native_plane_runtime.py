@@ -218,6 +218,20 @@ def test_process_startticks_is_explicitly_unavailable_off_linux(
     assert native_planes._process_startticks() == -1
 
 
+def test_specialized_matrix_proof_path_respects_service_receipt_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    configured = tmp_path / "mounted-receipts" / "specialized.json"
+    monkeypatch.setenv("BANANA_SMASHER_SPECIALIZED_PROOF_PATH", str(configured))
+
+    assert native_planes._specialized_matrix_proof_path() == configured
+
+    monkeypatch.delenv("BANANA_SMASHER_SPECIALIZED_PROOF_PATH")
+    assert native_planes._specialized_matrix_proof_path() == Path(
+        "/tmp/banana-smasher-specialized-physical-proof.json"
+    )
+
+
 def test_specialized_matrix_warmup_runs_once_after_complete_pack_registration(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -378,6 +378,12 @@ SPECIALIZED_MATRIX_PROOF_PATH = Path(
 )
 
 
+def _specialized_matrix_proof_path() -> Path:
+    """Return the service-configured durable proof path, or the local default."""
+    configured = os.environ.get("BANANA_SMASHER_SPECIALIZED_PROOF_PATH")
+    return Path(configured) if configured else SPECIALIZED_MATRIX_PROOF_PATH
+
+
 def _native_plane_forward_op(
     x: torch.Tensor,
     expert_ids: torch.Tensor,
@@ -654,18 +660,19 @@ def _maybe_warmup_specialized_matrix(
         "registered_layers": sorted(registered_layers),
     }
     data = (json.dumps(proof, indent=2, sort_keys=True) + "\n").encode()
-    SPECIALIZED_MATRIX_PROOF_PATH.parent.mkdir(parents=True, exist_ok=True)
+    proof_path = _specialized_matrix_proof_path()
+    proof_path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(
-        prefix=f".{SPECIALIZED_MATRIX_PROOF_PATH.name}.",
-        dir=SPECIALIZED_MATRIX_PROOF_PATH.parent,
+        prefix=f".{proof_path.name}.",
+        dir=proof_path.parent,
     )
     try:
         with os.fdopen(fd, "wb") as stream:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, SPECIALIZED_MATRIX_PROOF_PATH)
-        directory_fd = os.open(SPECIALIZED_MATRIX_PROOF_PATH.parent, os.O_RDONLY)
+        os.replace(temporary, proof_path)
+        directory_fd = os.open(proof_path.parent, os.O_RDONLY)
         try:
             os.fsync(directory_fd)
         finally:
@@ -678,7 +685,7 @@ def _maybe_warmup_specialized_matrix(
         "BANANA_SMASHER_SPECIALIZED_MATRIX_PASS rows=%d executions=%d proof=%s",
         len(proof.get("rows", [])),
         proof.get("warmup_execution_count", 0),
-        SPECIALIZED_MATRIX_PROOF_PATH,
+        proof_path,
     )
     return proof
 
