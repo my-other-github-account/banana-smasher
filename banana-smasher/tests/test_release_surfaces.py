@@ -14,27 +14,34 @@ ROOT = Path(__file__).parents[1]
 EXPECTED_RELEASE_COMMANDS = [
     'smash export --source-root /path/to/materialized-quant-source --runtime-floor-bytes "${RUNTIME_FLOOR_BYTES:?required from a measured receipt}" --serving-model-root /path/to/base-model --output /model --model-id MODEL --instance-id PACK_INSTANCE --link-mode copy',
     "smash verify /model",
+    "python -m pip install --extra-index-url https://YOUR-BANANA-WHEELHOUSE/simple banana-smasher-plugin==0.2.0",
     "vllm serve /model",
 ]
 
 
 def _bash_commands(markdown: str) -> list[str]:
     commands: list[str] = []
+    continuation: list[str] = []
     in_bash = False
     for raw_line in markdown.splitlines():
         line = raw_line.strip()
         if line == "```bash":
-            assert not in_bash
+            assert not in_bash and not continuation
             in_bash = True
         elif line == "```" and in_bash:
+            assert not continuation
             in_bash = False
         elif in_bash and line and not line.startswith("#"):
-            commands.append(line)
-    assert not in_bash
+            continued = line.endswith("\\")
+            continuation.append(line[:-1].rstrip() if continued else line)
+            if not continued:
+                commands.append(" ".join(continuation))
+                continuation.clear()
+    assert not in_bash and not continuation
     return commands
 
 
-def test_release_readme_is_literal_three_command_path() -> None:
+def test_release_readme_is_literal_four_command_path() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert _bash_commands(readme) == EXPECTED_RELEASE_COMMANDS
     assert "The first sealed model instance has no special framework name" in readme
