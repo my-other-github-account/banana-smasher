@@ -1138,11 +1138,11 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 13492,
-      "output_sha256": "60fd97d9c64924203f508d374f8695eb729deab55986a9f8db226f10815fe338",
+      "bytes": 13639,
+      "output_sha256": "bf5661917f8392d875604d17a65f1244b55bca5adb7e09a2835fc33fd438e1ed",
       "path": "docker/Dockerfile",
       "source_path": "docker/Dockerfile",
-      "source_sha256": "60fd97d9c64924203f508d374f8695eb729deab55986a9f8db226f10815fe338"
+      "source_sha256": "bf5661917f8392d875604d17a65f1244b55bca5adb7e09a2835fc33fd438e1ed"
     },
     {
       "byte_preserved": true,
@@ -1194,11 +1194,11 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 8537,
-      "output_sha256": "d131beb85a3969add2b819dcda1f533e6a2868de02a0197ab4077b3eb6c565d9",
+      "bytes": 8689,
+      "output_sha256": "5833f3ea456863ee7713c044db81ee43dab1631ef5f6a704e8c4a700a11bc476",
       "path": "docker/tests/test_public_source_dockerfile.py",
       "source_path": "docker/tests/test_public_source_dockerfile.py",
-      "source_sha256": "d131beb85a3969add2b819dcda1f533e6a2868de02a0197ab4077b3eb6c565d9"
+      "source_sha256": "5833f3ea456863ee7713c044db81ee43dab1631ef5f6a704e8c4a700a11bc476"
     }
   ],
   "generated_files": [

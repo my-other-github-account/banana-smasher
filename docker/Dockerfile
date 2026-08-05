@@ -22,6 +22,8 @@ RUN python3 -m build --wheel --outdir /wheels /src/banana-smasher \
     && python3 -m pip install --no-cache-dir --no-deps \
       /wheels/banana_smasher-1.0.0-py3-none-any.whl \
       /wheels/banana_smasher_plugin-0.2.0-*.whl \
+    && cd / \
+    && python3 -c 'from banana_smasher_plugin.native_extensions import preflight_native_extensions; preflight_native_extensions()' \
     && python3 -m pytest -q \
       /src/banana-smasher/tests /src/banana-smasher-plugin/tests \
     && (cd /wheels && sha256sum *.whl > local-wheels.sha256)
