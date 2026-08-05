@@ -433,16 +433,14 @@ def _verify_artifact(artifact: Mapping[str, Any], label: str) -> None:
         _nonempty_string(value, f"{label}.missing_identity_fields[{missing_index}]")
 
 
-def _verify_qtip_details(
+def _verify_classes(
     row: Mapping[str, Any],
-    artifact: Mapping[str, Any],
     suite_lock: Mapping[str, Any],
     *,
     model_id: str,
     kld_mean: Decimal,
     matches: int,
     positions: int,
-    wire_bytes: int,
 ) -> None:
     classes = _mapping(row.get("classes"), f"{model_id}.classes")
     _require_exact_keys(classes, set(SOURCE_CLASSES), f"{model_id}.classes")
@@ -475,8 +473,7 @@ def _verify_qtip_details(
         if observed_positions != expected_positions:
             raise ReceiptError(f"{model_id}: {name} positions differ from suite lock")
         observed_matches = _integer(
-            class_row.get("top1_matches"),
-            f"{model_id}.classes.{name}.top1_matches",
+            class_row.get("top1_matches"), f"{model_id}.classes.{name}.top1_matches"
         )
         if observed_matches > observed_positions:
             raise ReceiptError(f"{model_id}: {name} Top-1 matches exceed positions")
@@ -502,6 +499,27 @@ def _verify_qtip_details(
     weighted_kld /= Decimal(positions)
     if repr(float(weighted_kld)) != str(kld_mean):
         raise ReceiptError(f"{model_id}: weighted class KLD does not round to global KLD")
+
+
+def _verify_qtip_details(
+    row: Mapping[str, Any],
+    artifact: Mapping[str, Any],
+    suite_lock: Mapping[str, Any],
+    *,
+    model_id: str,
+    kld_mean: Decimal,
+    matches: int,
+    positions: int,
+    wire_bytes: int,
+) -> None:
+    _verify_classes(
+        row,
+        suite_lock,
+        model_id=model_id,
+        kld_mean=kld_mean,
+        matches=matches,
+        positions=positions,
+    )
 
     components = _mapping(row.get("weight_components"), f"{model_id}.weight_components")
     _require_exact_keys(
@@ -705,8 +723,9 @@ def verify_result_receipt(
             "vendor",
             "wire",
         }
+        expected_row_keys.add("classes")
         if is_qtip:
-            expected_row_keys.update({"classes", "measurement", "weight_components"})
+            expected_row_keys.update({"measurement", "weight_components"})
         _require_exact_keys(
             row,
             expected_row_keys,
@@ -786,6 +805,15 @@ def verify_result_receipt(
                 matches=matches,
                 positions=top1_positions,
                 wire_bytes=wire_bytes,
+            )
+        else:
+            _verify_classes(
+                row,
+                suite_lock,
+                model_id=model_id,
+                kld_mean=kld_mean,
+                matches=matches,
+                positions=top1_positions,
             )
 
         sources = _sequence(row.get("source_receipts"), f"{model_id}.source_receipts")
