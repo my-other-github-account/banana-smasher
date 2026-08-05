@@ -102,8 +102,13 @@ def test_specialized_shape_proof_requires_large_8192_geometry(
     geometries = {
         (6, 1): counters.clone(),
         (12, 2): counters.clone(),
+        (18, 4): counters.clone(),
         (24, 4): counters.clone(),
+        (30, 4): counters.clone(),
+        (42, 4): counters.clone(),
         (48, 4): counters.clone(),
+        (54, 4): counters.clone(),
+        (90, 4): counters.clone(),
         (96, 4): counters.clone(),
         (192, 16): counters.clone(),
         (384, 16): counters.clone(),
@@ -139,7 +144,7 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
         "d4_k4096",
         "native_mxfp4",
     )
-    warmup_tokens = (1, 2, 4, 8, 16, 32, 64, 2048, 8192)
+    warmup_tokens = (1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 32, 64, 2048, 8192)
     calls: list[tuple[str, int, tuple[int, ...]]] = []
 
     class Layer:
@@ -184,7 +189,7 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
     assert proof["process_pid"] == 4242
     assert proof["process_startticks"] == 777
     assert proof["shape_physical_proof"] == shape_proof
-    assert proof["warmup_execution_count"] == 18
+    assert proof["warmup_execution_count"] == 28
     assert proof["warmup_tokens"] == list(warmup_tokens)
     assert set(calls) == {
         (projection, tokens, tuple(range(len(tiers))))

@@ -71,4 +71,23 @@ def shape_policy(route_rows: int) -> dict[str, int | str | bool]:
 
 def required_warmup_route_rows() -> tuple[int, ...]:
     """All decode and prompt-matrix shapes required before timed acceptance."""
-    return (6, 12, 24, 48, 96, 192, 378, 384, 390, 3072, 12000, 12288, 49152)
+    return (
+        6,
+        12,
+        18,
+        24,
+        30,
+        42,
+        48,
+        54,
+        90,
+        96,
+        192,
+        378,
+        384,
+        390,
+        3072,
+        12000,
+        12288,
+        49152,
+    )

@@ -80,6 +80,15 @@ def test_intermediate_scheduler_shapes_use_four_token_graph_chunks(
     assert decision["graph_reuse"] is graph_reuse
 
 
+def test_intermediate_scheduler_shapes_are_warmed_before_live_graph_replay() -> None:
+    policy = _load_policy()
+
+    route_rows = policy.required_warmup_route_rows()
+
+    for tokens in (3, 5, 7, 9, 15):
+        assert tokens * policy.TOP_K in route_rows
+
+
 def test_shape_policy_has_no_environment_driven_product_switches() -> None:
     source = SOURCE.read_text()
     assert "os.environ" not in source
