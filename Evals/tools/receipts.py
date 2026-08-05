@@ -369,8 +369,8 @@ def _verify_artifact(artifact: Mapping[str, Any], label: str) -> None:
             raise ReceiptError(f"{label}: QTIP identity must be complete as recorded")
         if artifact.get("base_model") != "DeepSeek-V4-Flash-0731":
             raise ReceiptError(f"{label}.base_model must remain DeepSeek-V4-Flash-0731")
-        if artifact.get("family") not in {"QTIP2", "QTIP3"}:
-            raise ReceiptError(f"{label}.family must be QTIP2 or QTIP3")
+        if artifact.get("family") not in {"QTIP2", "QTIP2.5", "QTIP3"}:
+            raise ReceiptError(f"{label}.family must be QTIP2, QTIP2.5, or QTIP3")
         for field in ("variant", "geometry", "description"):
             _nonempty_string(artifact.get(field), f"{label}.{field}")
         if _integer(artifact.get("layers"), f"{label}.layers", minimum=1) != 43:
