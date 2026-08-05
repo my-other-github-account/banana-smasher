@@ -232,6 +232,60 @@ def test_specialized_matrix_proof_path_respects_service_receipt_environment(
     )
 
 
+def test_live_specialized_proof_refreshes_current_engine_counters_atomically(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    live_path = tmp_path / "live" / "specialized-live.json"
+    proof = {
+        "schema": "banana-smasher-specialized-physical-proof-v1",
+        "status": "PASS",
+        "rows": [{"counter_name": "physical.qtip2.decode_c1", "count": 7}],
+        "forbidden_counters": {"mixed_exact_gemv": 0},
+    }
+    monkeypatch.setattr(native_planes, "SPECIALIZED_LIVE_PROOF_PATH", live_path)
+    monkeypatch.setattr(native_planes, "specialized_physical_proof", lambda: proof)
+    monkeypatch.setattr(native_planes.os, "getpid", lambda: 4242)
+    monkeypatch.setattr(native_planes, "_process_startticks", lambda: 777)
+    monkeypatch.setattr(native_planes.time, "time", lambda: 1234.5)
+
+    observed = native_planes._write_specialized_live_proof()
+
+    assert observed["status"] == "PASS"
+    assert observed["rows"][0]["count"] == 7
+    assert observed["process_pid"] == 4242
+    assert observed["process_startticks"] == 777
+    assert observed["captured_unix"] == 1234.5
+    assert json.loads(live_path.read_text()) == observed
+    assert not list(live_path.parent.glob(".*.tmp"))
+
+
+def test_live_specialized_proof_installs_sigusr2_refresh_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installed: list[tuple[int, object]] = []
+    refreshed: list[str] = []
+    monkeypatch.setattr(native_planes, "_LIVE_PROOF_SIGNAL_INSTALLED", False)
+    monkeypatch.setattr(
+        native_planes.signal,
+        "signal",
+        lambda signum, handler: installed.append((signum, handler)),
+    )
+    monkeypatch.setattr(
+        native_planes,
+        "_write_specialized_live_proof",
+        lambda: refreshed.append("refreshed") or {"status": "PASS"},
+    )
+
+    native_planes._install_specialized_live_proof_signal_handler()
+
+    assert installed == [
+        (native_planes.signal.SIGUSR2, native_planes._specialized_live_proof_signal_handler)
+    ]
+    assert native_planes._LIVE_PROOF_SIGNAL_INSTALLED is True
+    installed[0][1](native_planes.signal.SIGUSR2, None)
+    assert refreshed == ["refreshed"]
+
+
 def test_specialized_matrix_warmup_runs_once_after_complete_pack_registration(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -249,6 +303,11 @@ def test_specialized_matrix_warmup_runs_once_after_complete_pack_registration(
         "warmup_specialized_matrix",
         lambda: calls.append("warm") or {"status": "PASS", "rows": []},
     )
+    monkeypatch.setattr(
+        native_planes,
+        "_install_specialized_live_proof_signal_handler",
+        lambda: calls.append("install"),
+    )
     monkeypatch.setattr(native_planes, "_NATIVE_PLANE_LAYER_REGISTRY", {1: first})
 
     assert native_planes._maybe_warmup_specialized_matrix(first) is None
@@ -261,11 +320,11 @@ def test_specialized_matrix_warmup_runs_once_after_complete_pack_registration(
     assert proof is not None
     assert proof["status"] == "PASS"
     assert proof["registered_layers"] == [0, 1]
-    assert calls == ["warm"]
+    assert calls == ["warm", "install"]
     assert json.loads(proof_path.read_text()) == proof
 
     assert native_planes._maybe_warmup_specialized_matrix(second) is None
-    assert calls == ["warm"]
+    assert calls == ["warm", "install"]
 
 
 def test_payload_residency_keeps_large_immutable_planes_on_coherent_host() -> None:

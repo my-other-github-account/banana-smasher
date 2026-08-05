@@ -6,8 +6,10 @@ import json
 import logging
 import math
 import os
+import signal
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, cast
@@ -376,12 +378,59 @@ SPECIALIZED_MATRIX_REQUIRED_LAYER_COUNT = 43
 SPECIALIZED_MATRIX_PROOF_PATH = Path(
     "/tmp/banana-smasher-specialized-physical-proof.json"
 )
+SPECIALIZED_LIVE_PROOF_PATH = Path(
+    "/tmp/banana-smasher-specialized-live-proof.json"
+)
+_LIVE_PROOF_SIGNAL_INSTALLED = False
 
 
 def _specialized_matrix_proof_path() -> Path:
     """Return the service-configured durable proof path, or the local default."""
     configured = os.environ.get("BANANA_SMASHER_SPECIALIZED_PROOF_PATH")
     return Path(configured) if configured else SPECIALIZED_MATRIX_PROOF_PATH
+
+
+def _write_specialized_live_proof() -> dict[str, Any]:
+    """Atomically snapshot the current engine's live specialized counters."""
+    proof = {
+        **specialized_physical_proof(),
+        "process_pid": os.getpid(),
+        "process_startticks": _process_startticks(),
+        "captured_unix": time.time(),
+    }
+    data = (json.dumps(proof, indent=2, sort_keys=True) + "\n").encode()
+    path = SPECIALIZED_LIVE_PROOF_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return proof
+
+
+def _specialized_live_proof_signal_handler(_signum: int, _frame: Any) -> None:
+    """Refresh live counter evidence from the engine process on SIGUSR2."""
+    _write_specialized_live_proof()
+
+
+def _install_specialized_live_proof_signal_handler() -> None:
+    """Install the live-proof refresh control after full pack registration."""
+    global _LIVE_PROOF_SIGNAL_INSTALLED
+    if _LIVE_PROOF_SIGNAL_INSTALLED:
+        return
+    signal.signal(signal.SIGUSR2, _specialized_live_proof_signal_handler)
+    _LIVE_PROOF_SIGNAL_INSTALLED = True
 
 
 def _native_plane_forward_op(
@@ -717,6 +766,7 @@ def _maybe_warmup_specialized_matrix(
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+    _install_specialized_live_proof_signal_handler()
     _SPECIALIZED_MATRIX_WARMED_ROOTS.add(root)
     _LOGGER.warning(
         "BANANA_SMASHER_SPECIALIZED_MATRIX_PASS rows=%d executions=%d proof=%s",
