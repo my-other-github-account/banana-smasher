@@ -18,8 +18,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 18268,
-      "output_sha256": "9ce5dba37a12e1c13bb54e1880afa79167ecccc1b2f3fd61bb623c5cf1dbccc0",
+      "bytes": 20309,
+      "output_sha256": "ae8e1a575f2902b84f6339af1ab0374ab51239235b49f1bca0c38a91179dd14d",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/__init__.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/__init__.py",
       "source_sha256": "91732dd1a3dcd4345207d6642d2af548455effe58b8d9cf5fd77a2018a92eb56"
@@ -186,11 +186,11 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 3273,
-      "output_sha256": "344b67f2c2bc331c97aefa187ef49c059c35b160bbd842fc1cbc6048308f6637",
+      "bytes": 4787,
+      "output_sha256": "f3c4975af6dfd83651e2f9afe0a4622ed5e12edea620337e3c0206d6ca1d2fa5",
       "path": "banana-smasher-plugin/tests/test_deep_gemm_dense_capability.py",
       "source_path": "banana-smasher-plugin/tests/test_deep_gemm_dense_capability.py",
-      "source_sha256": "344b67f2c2bc331c97aefa187ef49c059c35b160bbd842fc1cbc6048308f6637"
+      "source_sha256": "f3c4975af6dfd83651e2f9afe0a4622ed5e12edea620337e3c0206d6ca1d2fa5"
     },
     {
       "byte_preserved": true,
