@@ -524,7 +524,7 @@ def test_plane_loader_moves_named_planes_and_dispatches_projection(
     assert "device_residency=true" not in caplog.text
 
 
-def test_plane_forward_uses_capture_safe_async_expert_range_guards(
+def test_plane_forward_uses_capture_safe_route_canonicalization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
@@ -555,22 +555,35 @@ def test_plane_forward_uses_capture_safe_async_expert_range_guards(
     result = layer.forward(torch.ones((2, 4)), torch.tensor([0, 1]), "fused13")
 
     assert result.shape == (2, 4)
-    assert calls == [
-        (True, "layer 0 fused13 expert id out of range"),
-    ]
+    assert calls == []
 
 
-def test_plane_forward_async_guard_rejects_out_of_range_expert(tmp_path: Path) -> None:
+def test_plane_forward_canonicalizes_every_invalid_expert_to_inactive(
+    tmp_path: Path,
+) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        observed_ids.append(kwargs["expert_ids"].clone())
+        return torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width)
+        )
+
     layer = NativePlaneLayer(
         pack,
         0,
         device="cpu",
-        dispatch=lambda **kwargs: kwargs["x"],
+        dispatch=dispatch,
     )
 
-    with pytest.raises(RuntimeError, match="expert id out of range"):
-        layer.forward(torch.ones((2, 4)), torch.tensor([0, 2]), "fused13")
+    result = layer.forward(
+        torch.ones((4, 4)), torch.tensor([-3, -1, 0, 2]), "fused13"
+    )
+
+    assert result.shape == (4, 4)
+    assert len(observed_ids) == 1
+    assert torch.equal(observed_ids[0], torch.tensor([-1, -1, 0, -1]))
 
 
 def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) -> None:
