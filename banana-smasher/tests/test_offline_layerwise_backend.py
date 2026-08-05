@@ -499,9 +499,7 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
                         basis_sha256=BASIS,
                         terminal_runtime_adapter=terminal_runtime_adapter,
                     )
-            state["binding_sha256"] = legacy_binding
-            state_path.write_text(json.dumps(state, sort_keys=True, separators=(",", ":")))
-            state_before = state_path.read_bytes()
+            state_path.write_bytes(state_before)
 
             with patch(
                 "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
@@ -530,7 +528,7 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
             assert rescored["source_runtime_adapter_sha256"] == config[
                 "parameters"
             ]["runtime_adapter"]["sha256"]
-            assert rescored["source_binding_schema"] == "legacy-producer-v1"
+            assert rescored["source_binding_schema"] == "support-width-v2"
             assert rescored["runtime_adapter_sha256"] == terminal_runtime_adapter[
                 "sha256"
             ]
@@ -564,6 +562,27 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
                 path.name: path.read_bytes() for path in final_stage.glob("*.npy")
             } == activations_before
             assert len(rescored_manifest["windows"]) == 64
+
+            state = json.loads(state_before)
+            state["binding_sha256"] = legacy_binding
+            state_path.write_text(json.dumps(state, sort_keys=True, separators=(",", ":")))
+            legacy_state = state_path.read_bytes()
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                legacy_rescore = rescore_fixed_d4_layerwise_terminal(
+                    model,
+                    config,
+                    bank_path,
+                    state_path,
+                    new_teacher_manifest,
+                    root / "legacy-rescored-candidate.json",
+                    basis_sha256=BASIS,
+                    terminal_runtime_adapter=terminal_runtime_adapter,
+                )
+            assert legacy_rescore["source_binding_schema"] == "legacy-producer-v1"
+            assert legacy_rescore["transformer_layer_forwards"] == 0
+            assert state_path.read_bytes() == legacy_state
 
 if __name__ == "__main__":
     unittest.main()
