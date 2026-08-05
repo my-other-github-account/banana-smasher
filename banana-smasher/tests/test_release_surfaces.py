@@ -14,7 +14,10 @@ ROOT = Path(__file__).parents[1]
 EXPECTED_RELEASE_COMMANDS = [
     'smash export --source-root /path/to/materialized-quant-source --runtime-floor-bytes "${RUNTIME_FLOOR_BYTES:?required from a measured receipt}" --serving-model-root /path/to/base-model --output /model --model-id MODEL --instance-id PACK_INSTANCE --link-mode copy',
     "smash verify /model",
-    "smash serve /model",
+    "python -m pip install \\",
+    "--extra-index-url https://YOUR-BANANA-WHEELHOUSE/simple \\",
+    "banana-smasher-plugin==0.2.0",
+    "vllm serve /model",
 ]
 
 
@@ -34,7 +37,7 @@ def _bash_commands(markdown: str) -> list[str]:
     return commands
 
 
-def test_release_readme_is_literal_three_command_path() -> None:
+def test_release_readme_is_literal_native_plugin_path() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert _bash_commands(readme) == EXPECTED_RELEASE_COMMANDS
     assert "The first sealed model instance has no special framework name" in readme

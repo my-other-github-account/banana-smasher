@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import runpy
 from pathlib import Path
 
 import pytest
@@ -190,38 +191,45 @@ def test_developer_and_release_interfaces_are_explicit() -> None:
     assert "expected served model" in smoke
 
 
-def test_machine_manifest_contains_the_full_serve_profile() -> None:
-    defaults = json.loads((ROOT / "docker/runtime_defaults.json").read_text())
-    assert defaults["environment"] == {
-        "BANANA_SMASHER_AOT_ROOT": "/opt/banana-smasher/aot",
-        "CUDA_MODULE_LOADING": "LAZY",
-        "FLASHINFER_DISABLE_JIT": "1",
-        "MALLOC_MMAP_THRESHOLD_": "65536",
-        "VLLM_HAS_FLASHINFER_CUBIN": "1",
-        "VLLM_MOE_W2_CUBIT_DIR": "/opt/banana-smasher/aot/cubins-sm120",
-        "VLLM_MOE_W3_CUBIT_DIR": "/opt/banana-smasher/aot/cubins-e43",
-        "VLLM_USE_DEEP_GEMM": "1",
-        "VLLM_USE_DEEP_GEMM_E8M0": "1",
-    }
-    serve = defaults["serve"]
-    expected = {
+def test_plugin_contains_the_full_native_vllm_serve_profile() -> None:
+    values = runpy.run_path(
+        str(
+            ROOT
+            / "banana-smasher-plugin/src/banana_smasher_plugin/vllm_defaults.py"
+        )
+    )
+    environment = values["RUNTIME_ENV_DEFAULTS"]
+    assert environment["CUDA_MODULE_LOADING"] == "LAZY"
+    assert environment["FLASHINFER_DISABLE_JIT"] == "1"
+    assert environment["VLLM_HAS_FLASHINFER_CUBIN"] == "1"
+    assert environment["VLLM_USE_DEEP_GEMM"] == "1"
+    assert environment["VLLM_USE_DEEP_GEMM_E8M0"] == "1"
+    assert "BANANA_SMASHER_AOT_ROOT" not in environment
+    assert "VLLM_MOE_W2_CUBIT_DIR" not in environment
+    assert "VLLM_MOE_W3_CUBIT_DIR" not in environment
+
+    engine = values["ENGINE_DEFAULTS"]
+    expected_engine = {
         "block_size": 256,
         "cudagraph_capture_sizes": [1, 2, 4, 8, 16],
-        "enable_auto_tool_choice": True,
+        "generation_config": "vllm",
+        "gpu_memory_utilization": 0.8,
         "kv_cache_dtype": "fp8",
         "kv_cache_memory_bytes": 3221225472,
         "max_model_len": 8192,
         "max_num_batched_tokens": 512,
         "max_num_seqs": 16,
-        "no_scheduler_reserve_full_isl": True,
         "reasoning_parser": "deepseek_v4",
-        "served_model_name": "banana-smasher-v5",
+        "scheduler_reserve_full_isl": False,
         "tokenizer_mode": "deepseek_v4",
+        "trust_remote_code": True,
+    }
+    assert engine == expected_engine
+    assert values["FRONTEND_DEFAULTS"] == {
+        "default_chat_template_kwargs": {"enable_thinking": True},
+        "enable_auto_tool_choice": True,
         "tool_call_parser": "deepseek_v4",
     }
-    for key, value in expected.items():
-        assert serve[key] == value
-    assert "BANANA_SMASHER_VLLM_COMPILE_FAST_PATHS" not in defaults["environment"]
 
 
 def test_image_copies_and_checks_public_manifests() -> None:
