@@ -43,8 +43,9 @@ def shape_policy(route_rows: int) -> dict[str, int | str | bool]:
         physical_symbol = "specialized_kernel_matrix.decode_c16"
     elif tokens <= 8192:
         kernel, chunk_tokens, chunks, valid_m, mblock = (
-            ("prefill_exact_2k" if tokens == 2048 else
-             ("prefill_bm16" if tokens < 64 else "prefill_large")),
+            ("prefill_large_8192" if tokens == 8192 else
+             ("prefill_exact_2k" if tokens == 2048 else
+              ("prefill_bm16" if tokens < 64 else "prefill_large"))),
             16, (tokens + 15) // 16, 16, 16
         )
         physical_symbol = f"specialized_kernel_matrix.{kernel}"

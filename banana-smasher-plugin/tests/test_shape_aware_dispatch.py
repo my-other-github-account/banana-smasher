@@ -29,6 +29,7 @@ def test_shape_policy_covers_decision_rows_and_prefill() -> None:
         48: ("decode_c8", 4, 2),
         96: ("decode_c16", 4, 4),
         192: ("prefill_bm16", 16, 2),
+        49152: ("prefill_large_8192", 16, 512),
     }
     for rows, wanted in expected.items():
         decision = policy.shape_policy(rows)
@@ -90,6 +91,7 @@ def test_shape_policy_has_no_environment_driven_product_switches() -> None:
         "prefill_bm16",
         "prefill_large",
         "prefill_exact_2k",
+        "prefill_large_8192",
     }
 
 
@@ -105,6 +107,7 @@ def policy_labels(source: str) -> set[str]:
             "prefill_bm16",
             "prefill_large",
             "prefill_exact_2k",
+            "prefill_large_8192",
         )
         if label in source
     }
