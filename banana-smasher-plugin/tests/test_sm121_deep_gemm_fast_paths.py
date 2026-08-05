@@ -46,6 +46,11 @@ def _install_sm121_layout_modules(monkeypatch: pytest.MonkeyPatch):
 
     setattr(o_proj, "compute_fp8_einsum_recipe", stock_recipe)
     setattr(o_proj, "deep_gemm_fp8_o_proj", stock_o_proj)
+    flashinfer_sparse = ModuleType(
+        "vllm.models.deepseek_v4.nvidia.flashinfer_sparse"
+    )
+    setattr(flashinfer_sparse, "compute_fp8_einsum_recipe", stock_recipe)
+    setattr(flashinfer_sparse, "deep_gemm_fp8_o_proj", stock_o_proj)
     setattr(fp8_utils, "deepgemm_post_process_fp8_weight_block", stock_postprocess)
     setattr(fp8_utils, "_upcast_e8m0_to_fp32", lambda value: value.to(torch.float32))
     setattr(
@@ -59,6 +64,7 @@ def _install_sm121_layout_modules(monkeypatch: pytest.MonkeyPatch):
         "vllm.models.deepseek_v4.nvidia.ops.o_proj",
         o_proj,
     )
+    monkeypatch.setitem(sys.modules, flashinfer_sparse.__name__, flashinfer_sparse)
     monkeypatch.setitem(
         sys.modules,
         "vllm.model_executor.layers.quantization.utils.fp8_utils",
@@ -76,6 +82,13 @@ def test_sm121_o_proj_preserves_deepgemm_and_uses_raw_e8m0_group_layout(
 
     assert banana_smasher_plugin.configure_stock_deepseek_v4_o_proj() is True
     assert o_proj.deep_gemm_fp8_o_proj is stock_o_proj
+    flashinfer_sparse = sys.modules[
+        "vllm.models.deepseek_v4.nvidia.flashinfer_sparse"
+    ]
+    assert flashinfer_sparse.compute_fp8_einsum_recipe() == (
+        (1, 128, 128),
+        False,
+    )
     assert o_proj.compute_fp8_einsum_recipe() == ((1, 128, 128), False)
 
     wq = torch.zeros((256, 512), dtype=torch.float8_e4m3fn)
