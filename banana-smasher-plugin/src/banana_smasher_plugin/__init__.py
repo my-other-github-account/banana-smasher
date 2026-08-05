@@ -490,10 +490,18 @@ def configure_stock_mhc_backend() -> bool:
 
 
 def register() -> None:
-    """Register the canonical product quantization config in every vLLM process."""
+    """Register the canonical product config and native vLLM serve defaults."""
     global _REGISTERED
     if _REGISTERED:
         return
+    from .vllm_defaults import (
+        configure_runtime_environment,
+        install_vllm_arg_defaults,
+    )
+
+    configure_runtime_environment()
+    install_vllm_arg_defaults()
+
     from .native_extensions import preflight_native_extensions
 
     preflight_native_extensions()

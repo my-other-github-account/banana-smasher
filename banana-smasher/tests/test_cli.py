@@ -79,7 +79,6 @@ def test_smash_help_exposes_public_verbs() -> None:
         "export",
         "verify",
         "serve-check",
-        "serve",
         "validate",
         "knapsack",
         "backpack-dimensions",
@@ -189,6 +188,31 @@ def test_smash_export_merges_full_serving_config_and_tokenizer_files(
     assert config["quantization_config"]["fmt"] == "e4m3"
     assert config["quantization_config"]["scale_fmt"] == "ue8m0"
     assert config["quantization_config"]["weight_block_size"] == [128, 128]
+    assert config["banana_smasher_runtime"] == {
+        "schema": "banana-smasher-vllm-runtime-v1",
+        "profile": "sm121-single-gpu-v1",
+        "served_model_name": "fixture-model",
+        "engine_args": {
+            "trust_remote_code": True,
+            "tokenizer_mode": "deepseek_v4",
+            "kv_cache_dtype": "fp8",
+            "block_size": 256,
+            "max_model_len": 8192,
+            "gpu_memory_utilization": 0.8,
+            "kv_cache_memory_bytes": 3221225472,
+            "max_num_batched_tokens": 512,
+            "max_num_seqs": 16,
+            "cudagraph_capture_sizes": [1, 2, 4, 8, 16],
+            "scheduler_reserve_full_isl": False,
+            "generation_config": "vllm",
+            "reasoning_parser": "deepseek_v4",
+        },
+        "frontend_args": {
+            "default_chat_template_kwargs": {"enable_thinking": True},
+            "enable_auto_tool_choice": True,
+            "tool_call_parser": "deepseek_v4",
+        },
+    }
     assert {row["path"] for row in manifest["files"]} >= {
         "config.json",
         "tokenizer.json",
