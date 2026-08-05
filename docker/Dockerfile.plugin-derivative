@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1.7
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+USER root
+ARG DERIVATIVE_MANIFEST_SHA256
+ARG BANANA_SMASHER_SOURCE_COMMIT
+ARG BANANA_SMASHER_SOURCE_TREE
+ARG PARENT_IMAGE_ID
+COPY apply_plugin_derivative.py /tmp/banana-smasher-plugin-derivative/apply_plugin_derivative.py
+COPY manifest.json /tmp/banana-smasher-plugin-derivative/manifest.json
+COPY assets /tmp/banana-smasher-plugin-derivative/assets
+RUN python3 /tmp/banana-smasher-plugin-derivative/apply_plugin_derivative.py apply \
+      --manifest /tmp/banana-smasher-plugin-derivative/manifest.json \
+      --assets-root /tmp/banana-smasher-plugin-derivative/assets \
+      --provenance-root /opt/banana-smasher/provenance \
+      --manifest-sha256 "${DERIVATIVE_MANIFEST_SHA256}" \
+      --source-commit "${BANANA_SMASHER_SOURCE_COMMIT}" \
+      --source-tree "${BANANA_SMASHER_SOURCE_TREE}" \
+      --parent-image-id "${PARENT_IMAGE_ID}" \
+    && rm -rf /tmp/banana-smasher-plugin-derivative
+LABEL io.banana-smasher.derivative.tier="pure-plugin" \
+      io.banana-smasher.derivative.manifest="${DERIVATIVE_MANIFEST_SHA256}" \
+      io.banana-smasher.source.commit="${BANANA_SMASHER_SOURCE_COMMIT}" \
+      io.banana-smasher.source.tree="${BANANA_SMASHER_SOURCE_TREE}" \
+      io.banana-smasher.parent.image="${PARENT_IMAGE_ID}"
