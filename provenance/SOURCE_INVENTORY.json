@@ -1231,6 +1231,14 @@
       "path": "docker/tests/test_public_source_dockerfile.py",
       "source_path": "docker/tests/test_public_source_dockerfile.py",
       "source_sha256": "d131beb85a3969add2b819dcda1f533e6a2868de02a0197ab4077b3eb6c565d9"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 445,
+      "output_sha256": "e8c0b57ff6286ec19e2155b34c8bae3e5a0a81ab5dc80d9a72c7b9caeb809fbf",
+      "path": "requirements-serve.txt",
+      "source_path": "requirements-serve.txt",
+      "source_sha256": "e8c0b57ff6286ec19e2155b34c8bae3e5a0a81ab5dc80d9a72c7b9caeb809fbf"
     }
   ],
   "generated_files": [
