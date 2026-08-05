@@ -1,0 +1,35 @@
+{
+  "schema": "banana-smasher-p1321-p1423-zero-delta-handoff-validation-v1",
+  "status": "PASS",
+  "validated_utc": "2026-08-05T00:06:52Z",
+  "handoff_path": "notes/control-plane/P1321_P1423_ZERO_DELTA_HANDOFF.json",
+  "handoff_sha256": "f2985e417ccdb6ffdaa4f42fff346778edeecf236b2f3311f3445cae91758001",
+  "handoff_bytes": 9942,
+  "checks": {
+    "json_parse": true,
+    "production_image_id_exact": true,
+    "prompt_id_count_19": true,
+    "sealed_temperature_0p0": true,
+    "three_rows_per_concurrency": true,
+    "capture_sizes_1_2_4_8_16": true,
+    "new_receipt_respects_current_naming_policy": true,
+    "local_mirror_receipts_hash_verified": 4,
+    "historical_source_commit_files_hash_verified": 7
+  },
+  "local_mirror_hashes_verified": {
+    "production_image_seal": "fe0a826c638015bc19dcc78c27f1dd66f6257ee0826b701b4eedff7463b1ffa6",
+    "build_receipt": "6779f225e717904ec2d0e81dc87d7e56913c72a3a68efe84b8f4f3b8a96f33e8",
+    "prompt_ids_receipt": "5b97aab1bad834b89de92675670de1eb1de287cab4b3ccb0fac6c3bf2559e793",
+    "container_ladder_receipt": "35f91ea4efeaa50d825d289402ea4cf7174d3cc447e7847b147dbe690320c2f0"
+  },
+  "historical_source_commit": "ccaab0075548c0c4fb01596aa3900eea604a7d68",
+  "historical_source_hashes_verified": {
+    "production_container_dockerfile": "7f555caf1b53101eff0087ae5811fccb28cec252580c2070932cf9239a949641",
+    "overlay_lock": "068027bd51e6b0c64220b96eb3e771ea6ea6cdbc46d37eb2d9b910d4ee3191bb",
+    "runtime_defaults": "d03a765d96b75847876b52c883903ddda3de108c999bace5fb619647336550cd",
+    "vendored_wheels": "b01a95bb62fd8a6fc65f7f493f78ab1b9f688d374a53185e0023dc581338c724",
+    "moe_vq_triton": "7b25bf83a0e6a36a50af2eab2c4a5305b7f146824e2acf183dcbd82ca760f13a",
+    "moe_w2_cubit": "b5532974081e73c7abeda61d9b6e2460ea2a2a50958bf0f1e89a678a204be1d7",
+    "evaluation_module": "54d22e15332e917b4652a751ae3370278557723cfbb662fadb2eea0cd7a1ccf4"
+  }
+}
