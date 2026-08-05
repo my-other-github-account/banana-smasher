@@ -524,7 +524,7 @@ def test_plane_loader_moves_named_planes_and_dispatches_projection(
     assert "device_residency=true" not in caplog.text
 
 
-def test_plane_forward_uses_capture_safe_route_canonicalization(
+def test_plane_forward_passes_routes_directly_to_capture_safe_native_compaction(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
@@ -551,6 +551,13 @@ def test_plane_forward_uses_capture_safe_route_canonicalization(
             (kwargs["x"].shape[0], kwargs["state"].output_width)
         ),
     )
+    monkeypatch.setattr(
+        torch,
+        "where",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("per-forward route canonicalization is forbidden")
+        ),
+    )
 
     result = layer.forward(torch.ones((2, 4)), torch.tensor([0, 1]), "fused13")
 
@@ -558,7 +565,7 @@ def test_plane_forward_uses_capture_safe_route_canonicalization(
     assert calls == []
 
 
-def test_plane_forward_canonicalizes_every_invalid_expert_to_inactive(
+def test_plane_forward_leaves_invalid_experts_for_native_compaction(
     tmp_path: Path,
 ) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
@@ -583,7 +590,7 @@ def test_plane_forward_canonicalizes_every_invalid_expert_to_inactive(
 
     assert result.shape == (4, 4)
     assert len(observed_ids) == 1
-    assert torch.equal(observed_ids[0], torch.tensor([-1, -1, 0, -1]))
+    assert torch.equal(observed_ids[0], torch.tensor([-3, -1, 0, 2]))
 
 
 def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) -> None:
@@ -593,11 +600,11 @@ def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) ->
     def dispatch(**kwargs):
         route_ids = kwargs["expert_ids"]
         observed_ids.append(route_ids.clone())
-        assert bool(torch.all((route_ids == -1) | ((route_ids >= 0) & (route_ids < 2))))
+        valid = (route_ids >= 0) & (route_ids < 2)
         result = torch.full(
             (route_ids.numel(), kwargs["state"].output_width), 3.0, dtype=torch.float32
         )
-        result[route_ids == -1] = 0
+        result[~valid] = 0
         return result
 
     layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
@@ -606,7 +613,7 @@ def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) ->
     result = layer.forward(torch.ones((96, 4)), expert_ids, "fused13")
 
     assert observed_ids and observed_ids[0].shape == (96,)
-    assert torch.equal(observed_ids[0][5::6], torch.full((16,), -1, dtype=torch.long))
+    assert torch.equal(observed_ids[0][5::6], torch.full((16,), -2, dtype=torch.long))
     assert torch.count_nonzero(result[5::6]) == 0
     assert torch.all(result[:5] == 3)
 
