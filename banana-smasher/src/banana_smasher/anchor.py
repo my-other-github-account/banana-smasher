@@ -5,6 +5,7 @@ import json
 import math
 import os
 import re
+import subprocess
 import tempfile
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
@@ -1221,6 +1222,231 @@ def import_producer(
         )
     _atomic_write(receipt_path, receipt_payload)
     return receipt
+
+
+def materialize_candidate_producer(
+    run_root: Path | str,
+    manifest: Mapping[str, Any],
+    *,
+    candidate_id: str,
+    model_root: Path | str,
+    producer_config: Path | str,
+    basis_sha256: str,
+    execution_mode: str = "auto",
+    chunk_size: int = 8,
+) -> dict[str, Any]:
+    """Run one selected producer backend and import its exact 64 rows."""
+
+    validate_bank_manifest(manifest)
+    if len(manifest["windows"]) != 64:
+        raise AnchorEvaluationError(
+            "candidate materialization requires an exact 64-window bank"
+        )
+    if not _is_sha256(basis_sha256):
+        raise AnchorEvaluationError("basis_sha256 must be a lowercase SHA-256")
+    if execution_mode not in {"auto", "vllm", "offline-layerwise"}:
+        raise AnchorEvaluationError(
+            "execution_mode must be auto, vllm, or offline-layerwise"
+        )
+    if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0:
+        raise AnchorEvaluationError("chunk_size must be a positive integer")
+    run_root = Path(run_root).resolve()
+    candidate_id = _safe_component(candidate_id, "candidate_id")
+    bank_id = _safe_component(manifest["bank_id"], "bank_id")
+    model_root = Path(model_root).expanduser().resolve()
+    producer_config = Path(producer_config).expanduser().resolve()
+    if not model_root.is_dir():
+        raise AnchorEvaluationError(f"candidate model root is missing: {model_root}")
+    pack_manifest_path = model_root / "BANANA_PACK_MANIFEST.json"
+    if not pack_manifest_path.is_file():
+        raise AnchorEvaluationError(
+            f"candidate model is not an exported bs-pack: {pack_manifest_path}"
+        )
+    from .contract import PackValidationError, load_manifest, verify_pack
+
+    try:
+        pack_verification = verify_pack(model_root)
+        pack_manifest = load_manifest(model_root)
+    except (OSError, ValueError, PackValidationError) as exc:
+        raise AnchorEvaluationError(
+            f"candidate model pack verification failed: {exc}"
+        ) from exc
+    if not isinstance(pack_verification, Mapping) or pack_verification.get("status") != "PASS":
+        raise AnchorEvaluationError("candidate model pack verification did not return PASS")
+    reusable_pack_verification = {
+        "schema": "banana-smasher-pack-verification-receipt-v1",
+        "status": "PASS",
+        "model_root": str(model_root),
+        "basis_sha256": basis_sha256,
+        "manifest_sha256": _sha256_bytes(pack_manifest_path.read_bytes()),
+        "verification": dict(pack_verification),
+    }
+    declared_layers = pack_manifest.get("layers")
+    if not isinstance(declared_layers, list) or not all(
+        isinstance(layer, int) and not isinstance(layer, bool)
+        for layer in declared_layers
+    ):
+        raise AnchorEvaluationError("candidate model pack has invalid layers")
+    layer_receipts = sorted((model_root / "provenance").glob("layer_*/LAYER_RECEIPT.json"))
+    if not layer_receipts:
+        single = model_root / "provenance" / "LAYER_RECEIPT.json"
+        if single.is_file():
+            layer_receipts = [single]
+    if not layer_receipts:
+        raise AnchorEvaluationError("candidate model has no fixed-D4 layer receipts")
+    receipt_layers: set[int] = set()
+    for path in layer_receipts:
+        try:
+            receipt = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise AnchorEvaluationError(f"invalid fixed-D4 layer receipt {path}: {exc}") from exc
+        receipt_layer = receipt.get("layer")
+        if not isinstance(receipt_layer, int) or isinstance(receipt_layer, bool):
+            raise AnchorEvaluationError(f"candidate model has invalid layer receipt {path}")
+        receipt_layers.add(receipt_layer)
+        if receipt.get("tier") not in {"d4_k2048", "d4_k4096"} or receipt.get(
+            "basis_sha256"
+        ) != basis_sha256:
+            raise AnchorEvaluationError(
+                f"candidate model fixed-D4 basis mismatch in {path}"
+            )
+    if receipt_layers != set(declared_layers):
+        raise AnchorEvaluationError(
+            "candidate model fixed-D4 receipts do not match the pack layer set"
+        )
+
+    try:
+        config_payload = producer_config.read_bytes()
+        config = json.loads(config_payload)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AnchorEvaluationError(f"invalid candidate producer config {producer_config}: {exc}") from exc
+    command = config.get("command") if isinstance(config, Mapping) else None
+    external_command = command if isinstance(command, list) else []
+    configured_producer = config.get("producer") if isinstance(config, Mapping) else None
+    builtin = (
+        isinstance(config, Mapping)
+        and config.get("schema") == "banana-smasher-candidate-producer-v1"
+        and configured_producer in {"fixed-d4-vllm", "fixed-d4-offline-layerwise"}
+        and set(config) == {"schema", "producer", "parameters"}
+    )
+    external = (
+        isinstance(config, Mapping)
+        and config.get("schema") == "banana-smasher-candidate-producer-v1"
+        and bool(external_command)
+        and all(isinstance(value, str) and value for value in external_command)
+    )
+    if not builtin and not external:
+        raise AnchorEvaluationError(
+            "candidate producer config requires schema banana-smasher-candidate-producer-v1 "
+            "and either a fixed-d4-vllm/fixed-d4-offline-layerwise producer or "
+            "a non-empty string command array"
+        )
+    configured_mode = (
+        "offline-layerwise"
+        if configured_producer == "fixed-d4-offline-layerwise"
+        else "vllm"
+    )
+    selected_mode = configured_mode if execution_mode == "auto" else execution_mode
+    if selected_mode != configured_mode:
+        raise AnchorEvaluationError(
+            f"execution mode {selected_mode!r} does not match producer mode {configured_mode!r}"
+        )
+
+    bank_path = run_root / "banks" / f"{bank_id}.jsonl"
+    if not bank_path.is_file():
+        raise AnchorEvaluationError(
+            f"materialized bank is missing: {bank_path}; run anchor materialize"
+        )
+    staging_root = run_root / "materializations" / "candidate" / candidate_id
+    staging_root.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{bank_id}.", suffix=".jsonl", dir=staging_root
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        if configured_producer == "fixed-d4-offline-layerwise":
+            from .fixed_d4 import produce_fixed_d4_layerwise_logits
+
+            produce_fixed_d4_layerwise_logits(
+                model_root,
+                producer_config,
+                bank_path,
+                temporary,
+                basis_sha256=basis_sha256,
+                verified_pack_receipt=reusable_pack_verification,
+            )
+            producer_backend = "fixed-d4-offline-layerwise"
+        elif builtin:
+            from .fixed_d4 import produce_fixed_d4_logits
+
+            produce_fixed_d4_logits(
+                model_root,
+                producer_config,
+                bank_path,
+                temporary,
+                basis_sha256=basis_sha256,
+            )
+            producer_backend = "fixed-d4-vllm"
+        else:
+            completed = subprocess.run(
+                [
+                    *external_command,
+                    "--model",
+                    str(model_root),
+                    "--config",
+                    str(producer_config),
+                    "--bank",
+                    str(bank_path),
+                    "--output",
+                    str(temporary),
+                    "--basis-sha256",
+                    basis_sha256,
+                ],
+                check=False,
+                text=True,
+                capture_output=True,
+            )
+            if completed.returncode != 0:
+                detail = completed.stderr.strip() or completed.stdout.strip()
+                raise AnchorEvaluationError(
+                    f"candidate producer failed with exit {completed.returncode}: {detail}"
+                )
+            producer_backend = "external-command"
+        payload = temporary.read_bytes()
+        producer_sha256 = _sha256_bytes(payload)
+        imported = import_producer(
+            run_root,
+            manifest,
+            temporary,
+            kind="candidate",
+            expected_sha256=producer_sha256,
+            candidate_id=candidate_id,
+        )
+    finally:
+        temporary.unlink(missing_ok=True)
+
+    materialization_receipt = {
+        "schema": "banana-smasher-candidate-materialization-receipt-v1",
+        "status": "PASS",
+        "candidate_id": candidate_id,
+        "bank_id": bank_id,
+        "coverage": imported["coverage"],
+        "basis_sha256": basis_sha256,
+        "producer_backend": producer_backend,
+        "execution_mode": selected_mode,
+        "resumed_windows": 0,
+        "computed_windows": len(manifest["windows"]),
+        "model_manifest_sha256": _sha256_bytes(pack_manifest_path.read_bytes()),
+        "producer_config_sha256": _sha256_bytes(config_payload),
+        "producer_sha256": producer_sha256,
+        "relative_path": imported["relative_path"],
+    }
+    receipt_path = (
+        run_root / "imports" / f"candidate-materialization--{candidate_id}--{bank_id}.json"
+    )
+    _atomic_write(receipt_path, _canonical_bytes(materialization_receipt))
+    return materialization_receipt
 
 
 def _coverage_for_path(
