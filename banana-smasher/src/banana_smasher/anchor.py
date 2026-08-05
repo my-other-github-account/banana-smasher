@@ -1361,6 +1361,99 @@ def materialize_candidate_producer(
             f"execution mode {selected_mode!r} does not match producer mode {configured_mode!r}"
         )
     producer_backend = str(configured_producer) if builtin else "external-command"
+    config_parameters = config.get("parameters") if isinstance(config, Mapping) else None
+    teacher_support = (
+        config_parameters.get("teacher_support")
+        if isinstance(config_parameters, Mapping)
+        else None
+    )
+    sidecar_output = (
+        configured_producer == "fixed-d4-offline-layerwise"
+        and isinstance(teacher_support, Mapping)
+        and set(teacher_support) == {"manifest", "sha256"}
+    )
+
+    def sidecar_output_fields(
+        candidate_path: Path, candidate_manifest: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        from .anchor_sidecars import (
+            ANCHOR_POSITION_CUTOFF,
+            load_teacher_support_manifest,
+            score_anchor_sidecars,
+        )
+
+        assert isinstance(teacher_support, Mapping)
+        teacher_path = Path(str(teacher_support["manifest"])).expanduser()
+        if not teacher_path.is_absolute():
+            teacher_path = producer_config.parent / teacher_path
+        teacher_path = teacher_path.resolve()
+        teacher_manifest = load_teacher_support_manifest(teacher_path)
+        if teacher_manifest["window_ids"] != candidate_manifest["window_ids"]:
+            raise AnchorEvaluationError(
+                "candidate and teacher sidecars differ in ordered window identities"
+            )
+        teacher_positions = [
+            entry["tensors"]["idx"]["shape"][0]
+            for entry in teacher_manifest["windows"]
+        ]
+        candidate_positions = [
+            entry["tensors"]["q_lp_at_ref"]["shape"][0]
+            for entry in candidate_manifest["windows"]
+        ]
+        configured_layers = (
+            config_parameters.get("layers")
+            if isinstance(config_parameters, Mapping)
+            else None
+        )
+        teacher_descriptor = {
+            "path": str(teacher_path),
+            "bytes": teacher_path.stat().st_size,
+            "sha256": _sha256_bytes(teacher_path.read_bytes()),
+        }
+        candidate_descriptor = {
+            "path": str(candidate_path),
+            "bytes": candidate_path.stat().st_size,
+            "sha256": _sha256_bytes(candidate_path.read_bytes()),
+        }
+        score_path = candidate_path.with_suffix(".score.json")
+        score = score_anchor_sidecars(teacher_path, candidate_path)
+        _atomic_write(score_path, _canonical_bytes(score))
+        score_descriptor = {
+            "path": str(score_path),
+            "bytes": score_path.stat().st_size,
+            "sha256": _sha256_bytes(score_path.read_bytes()),
+        }
+        authentic = (
+            candidate_manifest["support_width"] == 8192
+            and len(candidate_manifest["windows"]) == 64
+            and configured_layers == declared_layers
+            and all(value >= ANCHOR_POSITION_CUTOFF for value in teacher_positions)
+            and all(value >= ANCHOR_POSITION_CUTOFF for value in candidate_positions)
+            and score["windows"] == 64
+            and score["positions"] == 64 * ANCHOR_POSITION_CUTOFF
+            and all(
+                row["positions"] == ANCHOR_POSITION_CUTOFF
+                for row in score["per_window"]
+            )
+        )
+        return {
+            "output_format": "torch-sidecars-with-json-manifest",
+            "teacher_support_sidecar_manifest": teacher_descriptor,
+            "candidate_output_sidecar_manifest": candidate_descriptor,
+            "score": score_descriptor,
+            "classification": (
+                "authentic-top8192-anchor" if authentic else "backend-smoke-only"
+            ),
+            "quality_rail": {
+                "support_width": candidate_manifest["support_width"],
+                "position_cutoff": ANCHOR_POSITION_CUTOFF,
+                "kld_semantics": "support-renormalized",
+                "top1_semantics": "full-vocabulary-argmax",
+                "teacher_support_sidecar_manifest": teacher_descriptor,
+                "candidate_output_sidecar_manifest": candidate_descriptor,
+                "score": score_descriptor,
+            },
+        }
 
     bank_path = run_root / "banks" / f"{bank_id}.jsonl"
     if not bank_path.is_file():
@@ -1369,7 +1462,11 @@ def materialize_candidate_producer(
         )
     staging_root = run_root / "materializations" / "candidate" / candidate_id
     staging_root.mkdir(parents=True, exist_ok=True)
-    interim_path = staging_root / f"{bank_id}.interim.jsonl"
+    interim_path = staging_root / (
+        f"{bank_id}.interim.sidecars.json"
+        if sidecar_output
+        else f"{bank_id}.interim.jsonl"
+    )
     progress_path = staging_root / f"{bank_id}.progress.json"
     expected_ids = [window["id"] for window in manifest["windows"]]
     bindings = {
@@ -1383,13 +1480,23 @@ def materialize_candidate_producer(
         "producer_config_sha256": _sha256_bytes(config_payload),
     }
 
-    interim_rows = _read_jsonl(interim_path) if interim_path.exists() else []
+    if sidecar_output and interim_path.exists():
+        from .anchor_sidecars import load_candidate_manifest
+
+        sidecar_manifest = load_candidate_manifest(interim_path)
+        interim_rows = [
+            {"window_id": entry["window_id"]}
+            for entry in sidecar_manifest["windows"]
+        ]
+    else:
+        interim_rows = _read_jsonl(interim_path) if interim_path.exists() else []
     interim_ids = [row.get("window_id") for row in interim_rows]
     if interim_ids != expected_ids[: len(interim_ids)]:
         raise AnchorEvaluationError(
             "candidate interim rows must be an ordered prefix of the bank windows"
         )
-    _producer_index(interim_rows, "candidate interim")
+    if not sidecar_output:
+        _producer_index(interim_rows, "candidate interim")
     if len(interim_rows) > len(expected_ids):
         raise AnchorEvaluationError("candidate interim rows exceed bank coverage")
 
@@ -1410,23 +1517,42 @@ def materialize_candidate_producer(
             )
 
     destination = (
-        run_root / "producers" / "candidate" / candidate_id / f"{bank_id}.jsonl"
+        interim_path
+        if sidecar_output
+        else run_root
+        / "producers"
+        / "candidate"
+        / candidate_id
+        / f"{bank_id}.jsonl"
     )
     receipt_path = (
         run_root
         / "imports"
         / f"candidate-materialization--{candidate_id}--{bank_id}.json"
     )
-    if destination.exists() or receipt_path.exists():
+    if receipt_path.exists() or (destination.exists() and not sidecar_output):
         if not destination.is_file() or not receipt_path.is_file():
             raise AnchorEvaluationError(
                 "completed candidate materialization is partial; expected producer and receipt"
             )
-        final_rows = _read_jsonl(destination)
-        if [row.get("window_id") for row in final_rows] != expected_ids:
-            raise AnchorEvaluationError(
-                "completed candidate producer rows do not match ordered bank windows"
-            )
+        final_manifest: Mapping[str, Any] | None = None
+        if sidecar_output:
+            from .anchor_sidecars import load_candidate_manifest
+
+            final_manifest = load_candidate_manifest(destination)
+            if (
+                final_manifest["window_ids"] != expected_ids
+                or len(final_manifest["windows"]) != len(expected_ids)
+            ):
+                raise AnchorEvaluationError(
+                    "completed candidate sidecars do not match ordered bank windows"
+                )
+        else:
+            final_rows = _read_jsonl(destination)
+            if [row.get("window_id") for row in final_rows] != expected_ids:
+                raise AnchorEvaluationError(
+                    "completed candidate producer rows do not match ordered bank windows"
+                )
         try:
             completed_receipt = json.loads(receipt_path.read_text())
         except (OSError, json.JSONDecodeError) as exc:
@@ -1444,6 +1570,15 @@ def materialize_candidate_producer(
                 f"receipt={completed_receipt.get('producer_sha256')}, "
                 f"actual={actual_producer_sha256}"
             )
+        if sidecar_output:
+            assert final_manifest is not None
+            expected_output_fields = sidecar_output_fields(destination, final_manifest)
+            for key, value in expected_output_fields.items():
+                if completed_receipt.get(key) != value:
+                    raise AnchorEvaluationError(
+                        f"completed candidate materialization {key} differs from "
+                        "validated sidecar closure"
+                    )
         return {
             **completed_receipt,
             "resumed_windows": len(expected_ids),
@@ -1472,7 +1607,7 @@ def materialize_candidate_producer(
     if configured_producer == "fixed-d4-offline-layerwise":
         from .fixed_d4 import produce_fixed_d4_layerwise_logits
 
-        produce_fixed_d4_layerwise_logits(
+        producer_receipt = produce_fixed_d4_layerwise_logits(
             model_root,
             producer_config,
             bank_path,
@@ -1480,13 +1615,36 @@ def materialize_candidate_producer(
             basis_sha256=basis_sha256,
             verified_pack_receipt=reusable_pack_verification,
         )
-        offline_rows = _read_jsonl(interim_path)
-        if [row.get("window_id") for row in offline_rows] != expected_ids:
-            raise AnchorEvaluationError(
-                "offline-layerwise producer output does not match all ordered bank windows"
-            )
-        _producer_index(offline_rows, "offline-layerwise candidate")
-        interim_rows = offline_rows
+        if sidecar_output:
+            from .anchor_sidecars import load_candidate_manifest
+
+            offline_manifest = load_candidate_manifest(interim_path)
+            if (
+                offline_manifest["window_ids"] != expected_ids
+                or len(offline_manifest["windows"]) != len(expected_ids)
+            ):
+                raise AnchorEvaluationError(
+                    "offline-layerwise sidecars do not match all ordered bank windows"
+                )
+            interim_rows = [
+                {"window_id": entry["window_id"]}
+                for entry in offline_manifest["windows"]
+            ]
+            if producer_receipt.get("output_format") not in {
+                None,
+                "torch-sidecars-with-json-manifest",
+            }:
+                raise AnchorEvaluationError(
+                    "offline-layerwise producer returned an unexpected sidecar format"
+                )
+        else:
+            offline_rows = _read_jsonl(interim_path)
+            if [row.get("window_id") for row in offline_rows] != expected_ids:
+                raise AnchorEvaluationError(
+                    "offline-layerwise producer output does not match all ordered bank windows"
+                )
+            _producer_index(offline_rows, "offline-layerwise candidate")
+            interim_rows = offline_rows
         progress["completed_windows"] = len(interim_rows)
         _atomic_write(progress_path, _canonical_bytes(progress))
     for start in range(len(interim_rows), len(bank_rows), chunk_size):
@@ -1571,14 +1729,26 @@ def materialize_candidate_producer(
 
     payload = interim_path.read_bytes()
     producer_sha256 = _sha256_bytes(payload)
-    imported = import_producer(
-        run_root,
-        manifest,
-        interim_path,
-        kind="candidate",
-        expected_sha256=producer_sha256,
-        candidate_id=candidate_id,
-    )
+    if sidecar_output:
+        from .anchor_sidecars import load_candidate_manifest
+
+        candidate_manifest = load_candidate_manifest(interim_path)
+        candidate_relative = interim_path.relative_to(run_root).as_posix()
+        imported = {
+            "coverage": f"{len(expected_ids)}/{len(expected_ids)}",
+            "relative_path": candidate_relative,
+        }
+        output_fields = sidecar_output_fields(interim_path, candidate_manifest)
+    else:
+        imported = import_producer(
+            run_root,
+            manifest,
+            interim_path,
+            kind="candidate",
+            expected_sha256=producer_sha256,
+            candidate_id=candidate_id,
+        )
+        output_fields = {"output_format": "jsonl"}
     materialization_receipt = {
         "schema": "banana-smasher-candidate-materialization-receipt-v1",
         "status": "PASS",
@@ -1592,6 +1762,7 @@ def materialize_candidate_producer(
         "producer_config_sha256": bindings["producer_config_sha256"],
         "producer_sha256": producer_sha256,
         "relative_path": imported["relative_path"],
+        **output_fields,
         "resumed_windows": resumed_windows,
         "computed_windows": len(expected_ids) - resumed_windows,
         "completed_rerun": False,

@@ -23,6 +23,14 @@ from .anchor import (
     status_report,
     validate_bank_manifest,
 )
+from .anchor_sidecars import (
+    CandidateSidecarWriter,
+    load_candidate_manifest,
+    load_teacher_support_manifest,
+    load_teacher_window,
+    score_anchor_sidecars,
+    write_teacher_support_manifest,
+)
 from .bank import build_bank, verify_bank
 from .backpack_preview import (
     class_weight_preset,
@@ -38,6 +46,7 @@ from .fixed_d4 import (
     prepare_fixed_d4_solve_config,
     produce_fixed_d4_layerwise_logits,
     produce_fixed_d4_logits,
+    rescore_fixed_d4_layerwise_terminal,
     solve_fixed_d4_exact,
     verify_fixed_d4_model,
 )
@@ -48,6 +57,7 @@ __all__ = [
     "MANIFEST_NAME",
     "PackValidationError",
     "AnchorEvaluationError",
+    "CandidateSidecarWriter",
     "UpdateQueue",
     "aggregate_scores",
     "build_bank",
@@ -60,6 +70,9 @@ __all__ = [
     "export_pack",
     "import_producer",
     "load_manifest",
+    "load_candidate_manifest",
+    "load_teacher_support_manifest",
+    "load_teacher_window",
     "materialize_candidate_producer",
     "materialize_bank",
     "materialize_fixed_d4",
@@ -68,11 +81,13 @@ __all__ = [
     "prepare_fixed_d4_solve_config",
     "produce_fixed_d4_layerwise_logits",
     "produce_fixed_d4_logits",
+    "rescore_fixed_d4_layerwise_terminal",
     "prepare_preview_u12_options",
     "register_bank",
     "resolve_bank_identities",
     "resolve_tier_menu",
     "score_bank",
+    "score_anchor_sidecars",
     "serve_persistent_updates",
     "solve_fixed_d4_exact",
     "solve_preview_u12_options",
@@ -82,4 +97,5 @@ __all__ = [
     "verify_evaluation",
     "verify_fixed_d4_model",
     "verify_pack",
+    "write_teacher_support_manifest",
 ]

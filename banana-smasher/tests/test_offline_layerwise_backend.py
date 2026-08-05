@@ -10,11 +10,20 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import banana_smasher
+import torch
+from banana_smasher.anchor_sidecars import (
+    load_candidate_manifest,
+    write_teacher_support_manifest,
+)
 from banana_smasher.fixed_d4 import (
     produce_fixed_d4_layerwise_logits as public_layerwise,
+    rescore_fixed_d4_layerwise_terminal as public_terminal_rescore,
 )
 from banana_smasher.hf_deepseek_v4_d4_adapter import DeepseekV4D4Runtime
-from banana_smasher.offline_layerwise import produce_fixed_d4_layerwise_logits
+from banana_smasher.offline_layerwise import (
+    produce_fixed_d4_layerwise_logits,
+    rescore_fixed_d4_layerwise_terminal,
+)
 
 
 BASIS = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
@@ -75,9 +84,10 @@ class Runtime:
         self._event("terminal-enter")
         def score(activation, support_token_ids, *, window_id):
             self._event("score", window_id=window_id)
-            logits = [[-float(pair[0]), -float(pair[1])] for pair in support_token_ids]
-            top1 = [max(pair) for pair in support_token_ids]
-            return {"logits": logits, "top1_token_ids": top1}
+            support = np.asarray(support_token_ids)
+            q_lp = -support.astype(np.float16)
+            q_argmax = support.max(axis=1).astype(np.int32)
+            return {"q_lp_at_ref": q_lp, "q_argmax": q_argmax}
         try:
             yield score
         finally:
@@ -147,6 +157,30 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
             banana_smasher.produce_fixed_d4_layerwise_logits,
             public_layerwise,
         )
+        self.assertIs(
+            banana_smasher.rescore_fixed_d4_layerwise_terminal,
+            public_terminal_rescore,
+        )
+
+    def test_public_terminal_rescore_compatibly_forwards_window_id_field(self) -> None:
+        expected = {"status": "PASS"}
+        with patch(
+            "banana_smasher.offline_layerwise.rescore_fixed_d4_layerwise_terminal",
+            return_value=expected,
+        ) as terminal:
+            actual = public_terminal_rescore(
+                "model",
+                {},
+                "bank.jsonl",
+                "STATE.json",
+                "teacher.json",
+                "candidate.json",
+                basis_sha256=BASIS,
+                window_id_field="id_ds4",
+            )
+
+        self.assertEqual(actual, expected)
+        self.assertEqual(terminal.call_args.kwargs["window_id_field"], "id_ds4")
 
     def test_public_fixed_d4_route_uses_builtin_layerwise_without_resident_engine(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -297,6 +331,236 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
             self.assertEqual(len(events_after_rerun), event_count)
             self.assertEqual(completed["window_layer_forwards"], 0)
             self.assertEqual(completed["resumed_output_rows"], 64)
+
+    def test_width_8192_sidecars_emit_historical_candidate_shape_and_resume(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            model = root / "model"
+            model.mkdir()
+            pack_manifest = model / "BANANA_PACK_MANIFEST.json"
+            pack_manifest.write_text('{"model_id":"fixture-model"}\n')
+            adapter_path = root / "adapter.py"
+            adapter_path.write_text(ADAPTER_SOURCE)
+            bank_path = root / "bank.jsonl"
+            windows = list(range(64))
+            bank_path.write_text(
+                "".join(
+                    json.dumps({"window_id": window, "token_ids": [0, 1]}) + "\n"
+                    for window in windows
+                )
+            )
+            bank_sha = hashlib.sha256(bank_path.read_bytes()).hexdigest()
+            support_width = 8192
+            idx = torch.arange(support_width, dtype=torch.int32).repeat(3, 1)
+            logprob = torch.log_softmax(
+                torch.linspace(1.0, -1.0, support_width), dim=0
+            ).to(torch.float16).repeat(3, 1)
+            teacher_manifest = root / "teacher.json"
+            write_teacher_support_manifest(
+                teacher_manifest,
+                windows=[
+                    {"window_id": window, "idx": idx, "logprob": logprob}
+                    for window in windows
+                ],
+                bank_sha256=bank_sha,
+                teacher_sha256="a" * 64,
+            )
+            config = {
+                "schema": "banana-smasher-candidate-producer-v1",
+                "producer": "fixed-d4-offline-layerwise",
+                "parameters": {
+                    "input_field": "token_ids",
+                    "positions": 2,
+                    "layers": [0],
+                    "teacher_support": {
+                        "manifest": str(teacher_manifest),
+                        "sha256": hashlib.sha256(teacher_manifest.read_bytes()).hexdigest(),
+                    },
+                    "execution_mode": "offline-layerwise",
+                    "runtime_adapter": {
+                        "path": str(adapter_path),
+                        "sha256": hashlib.sha256(adapter_path.read_bytes()).hexdigest(),
+                        "class": "Runtime",
+                        "api_version": 1,
+                    },
+                    "physical_limits": {
+                        "input_scope": "local-only",
+                        "expected_read_bytes": 100,
+                        "max_read_bytes": 1 << 30,
+                        "first_output_deadline_seconds": 300,
+                        "max_elapsed_seconds": 3600,
+                        "max_resident_bytes": 1000,
+                    },
+                },
+            }
+            output = root / "candidate.json"
+            verified = {"layers": [0], "model_id": "fixture-model"}
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                first = produce_fixed_d4_layerwise_logits(
+                    model, config, bank_path, output, basis_sha256=BASIS
+                )
+            events_before = (model / "events.jsonl").read_bytes()
+            manifest = load_candidate_manifest(output)
+            first_sidecar = output.parent / manifest["windows"][0]["path"]
+            candidate = torch.load(first_sidecar, weights_only=True)
+
+            assert first["support_width"] == support_width
+            assert manifest["support_width"] == support_width
+            assert manifest["windows"][0]["tensors"]["q_lp_at_ref"]["shape"] == [
+                2,
+                support_width,
+            ]
+            assert candidate["q_lp_at_ref"].shape == (2, support_width)
+            assert candidate["q_lp_at_ref"].dtype == torch.float16
+            assert candidate["q_argmax"].shape == (2,)
+            assert candidate["q_argmax"].dtype == torch.int32
+
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                resumed = produce_fixed_d4_layerwise_logits(
+                    model, config, bank_path, output, basis_sha256=BASIS
+                )
+            assert resumed["resumed_output_rows"] == 64
+            assert (model / "events.jsonl").read_bytes() == events_before
+
+            terminal_adapter_path = root / "terminal-adapter.py"
+            terminal_adapter_path.write_text(ADAPTER_SOURCE + "\n# terminal-only revision\n")
+            terminal_runtime_adapter = {
+                "path": str(terminal_adapter_path),
+                "sha256": hashlib.sha256(
+                    terminal_adapter_path.read_bytes()
+                ).hexdigest(),
+                "class": "Runtime",
+                "api_version": 1,
+            }
+            new_teacher_manifest = root / "new-teacher.json"
+            write_teacher_support_manifest(
+                new_teacher_manifest,
+                windows=[
+                    {"window_id": window, "idx": idx, "logprob": logprob}
+                    for window in windows
+                ],
+                bank_sha256=bank_sha,
+                teacher_sha256="b" * 64,
+            )
+            state_path = Path(first["state_path"])
+            state_before = state_path.read_bytes()
+            final_stage = state_path.parent / "layer_0"
+            activations_before = {
+                path.name: path.read_bytes() for path in final_stage.glob("*.npy")
+            }
+            forward_events_before = sum(
+                json.loads(line)["kind"] == "forward"
+                for line in (model / "events.jsonl").read_text().splitlines()
+            )
+            rescored_output = root / "rescored-candidate.json"
+
+            state = json.loads(state_before)
+            source_support_sha = config["parameters"]["teacher_support"]["sha256"]
+            config_sha = hashlib.sha256(
+                json.dumps(config, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            legacy_binding_payload = {
+                "basis_sha256": BASIS,
+                "model_root": str(model.resolve()),
+                "producer_config_sha256": config_sha,
+                "bank_sha256": bank_sha,
+                "teacher_support_sha256": source_support_sha,
+                "runtime_adapter_sha256": config["parameters"]["runtime_adapter"][
+                    "sha256"
+                ],
+                "layers": [0],
+                "positions": 2,
+            }
+            legacy_binding = hashlib.sha256(
+                json.dumps(
+                    legacy_binding_payload, sort_keys=True, separators=(",", ":")
+                ).encode()
+            ).hexdigest()
+            state["binding_sha256"] = "f" * 64
+            state_path.write_text(json.dumps(state, sort_keys=True, separators=(",", ":")))
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                with self.assertRaisesRegex(ValueError, "completed state identity mismatch"):
+                    rescore_fixed_d4_layerwise_terminal(
+                        model,
+                        config,
+                        bank_path,
+                        state_path,
+                        new_teacher_manifest,
+                        rescored_output,
+                        basis_sha256=BASIS,
+                        terminal_runtime_adapter=terminal_runtime_adapter,
+                    )
+            state["binding_sha256"] = legacy_binding
+            state_path.write_text(json.dumps(state, sort_keys=True, separators=(",", ":")))
+            state_before = state_path.read_bytes()
+
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                rescored = rescore_fixed_d4_layerwise_terminal(
+                    model,
+                    config,
+                    bank_path,
+                    state_path,
+                    new_teacher_manifest,
+                    rescored_output,
+                    basis_sha256=BASIS,
+                    terminal_runtime_adapter=terminal_runtime_adapter,
+                )
+
+            forward_events_after = sum(
+                json.loads(line)["kind"] == "forward"
+                for line in (model / "events.jsonl").read_text().splitlines()
+            )
+            rescored_manifest = load_candidate_manifest(rescored_output)
+            assert rescored["terminal_only"] is True
+            assert rescored["window_layer_forwards"] == 0
+            assert rescored["transformer_layer_forwards"] == 0
+            assert rescored["classification"] == "backend-smoke-only"
+            assert rescored["output_rows"] == 64
+            assert rescored["source_runtime_adapter_sha256"] == config[
+                "parameters"
+            ]["runtime_adapter"]["sha256"]
+            assert rescored["source_binding_schema"] == "legacy-producer-v1"
+            assert rescored["runtime_adapter_sha256"] == terminal_runtime_adapter[
+                "sha256"
+            ]
+            assert rescored["windows"] == 64
+            assert rescored["positions"] == 128
+            assert isinstance(rescored["kld_sum"], float)
+            assert isinstance(rescored["top1_matches"], int)
+            assert Path(rescored["score"]["path"]).is_file()
+            assert rescored["quality_rail"] == {
+                "support_width": 8192,
+                "position_cutoff": 1024,
+                "kld_semantics": "support-renormalized",
+                "top1_semantics": "full-vocabulary-argmax",
+                "teacher_support_sidecar_manifest": rescored[
+                    "teacher_support_sidecar_manifest"
+                ],
+                "candidate_output_sidecar_manifest": rescored[
+                    "candidate_output_sidecar_manifest"
+                ],
+                "score": rescored["score"],
+            }
+            assert Path(
+                rescored["teacher_support_sidecar_manifest"]["path"]
+            ).is_file()
+            assert Path(
+                rescored["candidate_output_sidecar_manifest"]["path"]
+            ).is_file()
+            assert forward_events_after == forward_events_before
+            assert state_path.read_bytes() == state_before
+            assert {
+                path.name: path.read_bytes() for path in final_stage.glob("*.npy")
+            } == activations_before
+            assert len(rescored_manifest["windows"]) == 64
 
 
 if __name__ == "__main__":

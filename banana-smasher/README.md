@@ -68,6 +68,80 @@ caller-supplied producer command:
 smash anchor materialize-candidate --run-root "$RUN_ROOT" --bank "$BANK_ID" --candidate-id "$CANDIDATE_ID" --model /path/to/model --config /path/to/fixed_d4_vllm.json --basis-sha256 "$BASIS_SHA256"
 ```
 
+For authentic Anchor64, use the shipped
+`producer_configs/fixed_d4_offline_layerwise.json` with a top-8192 teacher
+manifest. `schema/anchor-teacher-sidecars-v1.schema.json` binds ordered windows,
+`t8192`-compatible `idx` int32 and `logprob` fp16 `[T,8192]` tensors, hashes,
+and bank/teacher identities. The layerwise producer emits
+`schema/anchor-candidate-sidecars-v1.schema.json` with `q_lp_at_ref` fp16
+`[T,8192]` full-softmax logprob and full-vocabulary `q_argmax` int32 `[T]` in
+`q8192`-compatible PyTorch sidecars. Each completed window is hash-bound before
+the next window runs, so reruns skip it. Teacher rows require unique token IDs
+ordered by descending teacher logprob. Candidate position count may be shorter
+than the teacher position count; scoring uses the historical minimum of teacher
+positions, candidate positions, and the fixed 1024-position cutoff.
+
+```python
+from banana_smasher import produce_fixed_d4_layerwise_logits, score_anchor_sidecars
+
+receipt = produce_fixed_d4_layerwise_logits(
+    "/path/to/verified-pack",
+    "/path/to/fixed_d4_offline_layerwise.json",
+    "/path/to/balanced64.jsonl",
+    "/path/to/q8192.json",
+    basis_sha256=BASIS_SHA256,
+)
+metrics = score_anchor_sidecars(
+    "/path/to/teacher_support.json", "/path/to/q8192.json"
+)
+```
+
+`materialize_candidate_producer(...)` accepts the same binary sidecar manifest
+through the ordinary public materialization route, scores the validated
+sidecars, and returns bound teacher/candidate/score descriptors under
+`quality_rail`. To rescore a
+completed physical layerwise bank against a replacement teacher without
+replaying any transformer layer, call the public terminal-only entrypoint:
+
+```python
+from banana_smasher import rescore_fixed_d4_layerwise_terminal
+
+receipt = rescore_fixed_d4_layerwise_terminal(
+    "/path/to/verified-pack",
+    "/path/to/original-producer-config.json",
+    "/path/to/balanced64.jsonl",
+    "/path/to/original-output.layerwise/STATE.json",
+    "/path/to/new-teacher-support.json",
+    "/path/to/new-q8192.json",
+    basis_sha256=BASIS_SHA256,
+    terminal_runtime_adapter={
+        "module": "banana_smasher.hf_deepseek_v4_d4_adapter",
+        "sha256": INSTALLED_ADAPTER_SHA256,
+        "class": "DeepseekV4D4Runtime",
+        "api_version": 1,
+    },
+)
+assert receipt["window_layer_forwards"] == 0
+```
+
+The original config authenticates model, bank, basis, runtime adapter, layers,
+positions, and the completed state. Only the replacement teacher and output
+identities change. `terminal_runtime_adapter` separately binds the currently
+installed adapter used for terminal scoring, so a completed state remains bound
+to its original adapter without requiring source-state or config mutation. The
+receipt binds both adapter hashes, reports exact global/per-window `kld_sum` and
+integer `top1_matches`, and writes a digest-bound score JSON. The built-in
+DeepSeek adapter discovers the bound D4 subtier per layer and streams K2048 or
+K4096 experts directly from `bs-pack` members when compatibility
+`vq3u_layer_*.pt` files are not present; it does not require generating those
+large compatibility files.
+
+The scorer renormalizes teacher and candidate logprob on the declared support,
+matching the historical Anchor64 KLD convention, while top-1 compares the
+candidate full-vocabulary argmax with `idx[:, 0]`. Width-2 JSONL remains a
+backward-compatible backend smoke path only. A width-2 hardware run is not an
+authentic top-8192 Anchor64 result and must not be published as one.
+
 The first sealed model instance has no special framework name. Reusable package, schema, CLI, and documentation names remain `banana-smasher`, `bs-pack`, and `smash`.
 
 ## Portable teacher bank and paired evaluation

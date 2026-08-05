@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://banana-smasher.dev/schema/anchor-candidate-sidecars-v1.schema.json",
+  "title": "Banana Smasher Anchor candidate tensor sidecars v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "support_width", "window_ids", "identities", "windows"],
+  "properties": {
+    "schema": {"const": "banana-smasher-anchor-candidate-sidecars-v1"},
+    "support_width": {"type": "integer", "minimum": 1},
+    "window_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": ["integer", "string"]}
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bank_sha256",
+        "basis_sha256",
+        "model_id",
+        "pack_sha256",
+        "teacher_manifest_sha256",
+        "teacher_sha256"
+      ],
+      "properties": {
+        "bank_sha256": {"$ref": "#/$defs/sha256"},
+        "basis_sha256": {"$ref": "#/$defs/sha256"},
+        "model_id": {"type": "string", "minLength": 1},
+        "pack_sha256": {"$ref": "#/$defs/sha256"},
+        "teacher_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "teacher_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "windows": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/window"}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "float16Matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape"],
+      "properties": {
+        "dtype": {"const": "float16"},
+        "shape": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "int32Vector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape"],
+      "properties": {
+        "dtype": {"const": "int32"},
+        "shape": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_id", "path", "bytes", "sha256", "tensors"],
+      "properties": {
+        "window_id": {"type": ["integer", "string"]},
+        "path": {"type": "string", "minLength": 1},
+        "bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "tensors": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["q_lp_at_ref", "q_argmax"],
+          "properties": {
+            "q_lp_at_ref": {"$ref": "#/$defs/float16Matrix"},
+            "q_argmax": {"$ref": "#/$defs/int32Vector"}
+          }
+        }
+      }
+    }
+  }
+}

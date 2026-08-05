@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
 
 import pytest
+import torch
 
 from banana_smasher.anchor import (
     AnchorEvaluationError,
     build_bank_manifest,
     materialize_candidate_producer,
+)
+from banana_smasher.anchor_sidecars import (
+    CandidateSidecarWriter,
+    load_candidate_manifest,
+    write_teacher_support_manifest,
 )
 
 
@@ -185,4 +192,147 @@ def test_resume_rejects_nonprefix_or_changed_interim_rows(
             basis_sha256=BASIS,
             execution_mode="offline-layerwise",
             chunk_size=8,
+        )
+
+
+def test_builtin_layerwise_materializer_accepts_binary_sidecar_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_root, model, _, manifest = _fixture(tmp_path, monkeypatch)
+    bank_path = run_root / "banks" / "balanced64.jsonl"
+    bank_sha = hashlib.sha256(bank_path.read_bytes()).hexdigest()
+    teacher_manifest = tmp_path / "teacher.json"
+    idx = torch.tensor([[7, 8], [9, 10]], dtype=torch.int32)
+    logprob = torch.tensor([[-0.1, -1.0], [-0.2, -1.2]], dtype=torch.float16)
+    write_teacher_support_manifest(
+        teacher_manifest,
+        windows=[
+            {"window_id": window, "idx": idx, "logprob": logprob}
+            for window in range(64)
+        ],
+        bank_sha256=bank_sha,
+        teacher_sha256="e" * 64,
+    )
+    config = tmp_path / "sidecar-producer.json"
+    config.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-candidate-producer-v1",
+                "producer": "fixed-d4-offline-layerwise",
+                "parameters": {
+                    "teacher_support": {
+                        "manifest": str(teacher_manifest),
+                        "sha256": hashlib.sha256(
+                            teacher_manifest.read_bytes()
+                        ).hexdigest(),
+                    }
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    calls = 0
+
+    def produce(
+        model_root: Path,
+        producer_config: Path,
+        bank: Path,
+        output: Path,
+        *,
+        basis_sha256: str,
+        verified_pack_receipt: dict,
+    ) -> dict:
+        nonlocal calls
+        del producer_config, bank, verified_pack_receipt
+        calls += 1
+        writer = CandidateSidecarWriter(
+            output,
+            teacher_manifest_path=teacher_manifest,
+            window_ids=list(range(64)),
+            basis_sha256=basis_sha256,
+            bank_sha256=bank_sha,
+            model_id="fixture-model",
+            pack_sha256=hashlib.sha256(
+                (model_root / "BANANA_PACK_MANIFEST.json").read_bytes()
+            ).hexdigest(),
+        )
+        for window in range(64):
+            writer.write_window(
+                window,
+                q_lp_at_ref=logprob.clone(),
+                q_argmax=torch.tensor([7, 9], dtype=torch.int32),
+            )
+        return {
+            "status": "PASS",
+            "output_format": "torch-sidecars-with-json-manifest",
+        }
+
+    monkeypatch.setattr(
+        "banana_smasher.fixed_d4.produce_fixed_d4_layerwise_logits", produce
+    )
+
+    receipt = materialize_candidate_producer(
+        run_root,
+        manifest,
+        candidate_id="candidate-sidecars",
+        model_root=model,
+        producer_config=config,
+        basis_sha256=BASIS,
+        execution_mode="offline-layerwise",
+    )
+
+    candidate_path = run_root / receipt["relative_path"]
+    candidate = load_candidate_manifest(candidate_path)
+    assert receipt["coverage"] == "64/64"
+    assert receipt["output_format"] == "torch-sidecars-with-json-manifest"
+    assert receipt["quality_rail"] == {
+        "support_width": 2,
+        "position_cutoff": 1024,
+        "kld_semantics": "support-renormalized",
+        "top1_semantics": "full-vocabulary-argmax",
+        "teacher_support_sidecar_manifest": receipt[
+            "teacher_support_sidecar_manifest"
+        ],
+        "candidate_output_sidecar_manifest": receipt[
+            "candidate_output_sidecar_manifest"
+        ],
+        "score": receipt["score"],
+    }
+    assert receipt["classification"] == "backend-smoke-only"
+    assert Path(receipt["teacher_support_sidecar_manifest"]["path"]).is_file()
+    assert Path(receipt["candidate_output_sidecar_manifest"]["path"]).is_file()
+    assert Path(receipt["score"]["path"]).is_file()
+    assert candidate["window_ids"] == list(range(64))
+    assert len(candidate["windows"]) == 64
+
+    completed = materialize_candidate_producer(
+        run_root,
+        manifest,
+        candidate_id="candidate-sidecars",
+        model_root=model,
+        producer_config=config,
+        basis_sha256=BASIS,
+        execution_mode="auto",
+    )
+    assert completed["completed_rerun"] is True
+    assert calls == 1
+
+    receipt_path = (
+        run_root
+        / "imports"
+        / "candidate-materialization--candidate-sidecars--balanced64.json"
+    )
+    tampered = json.loads(receipt_path.read_text())
+    tampered["classification"] = "authentic-top8192-anchor"
+    receipt_path.write_text(json.dumps(tampered, sort_keys=True) + "\n")
+    with pytest.raises(AnchorEvaluationError, match="classification differs"):
+        materialize_candidate_producer(
+            run_root,
+            manifest,
+            candidate_id="candidate-sidecars",
+            model_root=model,
+            producer_config=config,
+            basis_sha256=BASIS,
+            execution_mode="auto",
         )

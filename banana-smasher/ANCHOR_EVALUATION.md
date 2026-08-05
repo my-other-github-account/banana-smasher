@@ -73,6 +73,42 @@ or vocabulary dimensions; ragged matrices; non-finite values; invalid
 probability mass; identity drift; and resume rows from another basis, bank,
 teacher, candidate, producer, or scorer.
 
+The fixed-D4 offline-layerwise backend also accepts compact tensor sidecars for
+the authentic top-8192 rail. Its teacher binding is
+`{"manifest": "teacher_support.json", "sha256": "..."}`. The teacher manifest
+uses `banana-smasher-anchor-teacher-sidecars-v1`; each bound PyTorch file has
+historical keys `idx` int32 `[T,S]` and `logprob` fp16 `[T,S]`. Every row in
+every window must use the same `S` (8192 for authentic Anchor64), with exact
+ordered window coverage and bank/teacher hashes. IDs in each row are unique and
+their paired teacher logprobs are ordered descending. Candidate output uses
+`banana-smasher-anchor-candidate-sidecars-v1` and historical keys
+`q_lp_at_ref` fp16 `[T,S]` plus `q_argmax` int32 `[T]`, bound to the teacher
+manifest, bank, basis, model ID, and pack hash. See
+`schema/anchor-teacher-sidecars-v1.schema.json` and
+`schema/anchor-candidate-sidecars-v1.schema.json`.
+
+`score_anchor_sidecars(teacher_manifest, candidate_manifest)` computes the
+historical support-renormalized KLD and full-vocabulary top-1 agreement. The
+full-softmax log-sum-exp is present in emitted `q_lp_at_ref`; it cancels exactly
+when candidate values are renormalized on the same support. Candidate `T` may
+be shorter than teacher `T`; each window uses
+`min(T_teacher, T_candidate, 1024)`, matching the historical scorer. Width-2 JSONL is
+retained only for backend smoke compatibility. It is not an authentic
+top-8192 Anchor64 measurement and must not be published as one.
+
+The public `materialize_candidate_producer` route accepts the binary candidate
+manifest, scores its validated payload closure, and returns exact
+teacher/candidate/score descriptors plus `support_width`, `position_cutoff`,
+KLD semantics, and top-1 semantics under `quality_rail`.
+`rescore_fixed_d4_layerwise_terminal` authenticates an original
+completed layerwise `STATE.json` with its original producer config, then runs
+only the terminal scorer against a replacement teacher manifest. Its receipt
+sets `terminal_only: true` and `window_layer_forwards: 0`; preserved activation
+files and state are read-only inputs. Pass `terminal_runtime_adapter` to bind the
+currently installed adapter separately from the original adapter identity that
+authenticates the completed state. The receipt includes exact `kld_sum`, integer
+`top1_matches`, per-window counts, and a digest-bound score JSON descriptor.
+
 ## One-run-root workflow
 
 Set immutable inputs explicitly. The examples use shell placeholders without
@@ -210,6 +246,9 @@ The package root exports `build_bank_manifest`, `validate_bank_manifest`,
 `import_producer`, `score_bank`, `aggregate_scores`,
 `compare_training_rails`, `emit_solver_row`, and `status_report`.
 `AnchorEvaluationError` is the fail-closed contract exception.
+It also exports `write_teacher_support_manifest`, `load_teacher_window`,
+`CandidateSidecarWriter`, `load_candidate_manifest`, and
+`score_anchor_sidecars` for the compact top-support path.
 
 ## Reproducibility gates
 

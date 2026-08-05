@@ -60,11 +60,10 @@
       "api_version": 1,
       "class": "DeepseekV4D4Runtime",
       "module": "banana_smasher.hf_deepseek_v4_d4_adapter",
-      "sha256": "60a0dbce76ce900262f8d9f3237c7c647c189f023a89d04adda321cdd443aeaa"
+      "sha256": "872442f7d5cb7f4281eb2576d3cb435bc4949d7c85021a4087991b2f75ef020b"
     },
     "teacher_support": {
-      "field": "support_token_ids",
-      "path": "teacher_support.jsonl",
+      "manifest": "teacher_support.json",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
     }
   },

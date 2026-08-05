@@ -1154,6 +1154,35 @@ def produce_fixed_d4_layerwise_logits(
     )
 
 
+def rescore_fixed_d4_layerwise_terminal(
+    model_root: str | Path,
+    source_producer_config: str | Path | Mapping[str, Any],
+    bank_path: str | Path,
+    completed_state_path: str | Path,
+    teacher_manifest_path: str | Path,
+    output_path: str | Path,
+    *,
+    basis_sha256: str,
+    verified_pack_receipt: Mapping[str, Any] | None = None,
+    terminal_runtime_adapter: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Rescore a completed layerwise activation bank without layer replay."""
+
+    from .offline_layerwise import rescore_fixed_d4_layerwise_terminal as run_terminal
+
+    return run_terminal(
+        model_root,
+        source_producer_config,
+        bank_path,
+        completed_state_path,
+        teacher_manifest_path,
+        output_path,
+        basis_sha256=basis_sha256,
+        verified_pack_receipt=verified_pack_receipt,
+        terminal_runtime_adapter=terminal_runtime_adapter,
+    )
+
+
 def materialize_fixed_d4(
     manifest_path: str | Path,
     output_root: str | Path,

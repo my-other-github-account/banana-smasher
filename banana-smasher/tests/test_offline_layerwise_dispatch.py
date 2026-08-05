@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import inspect
+import hashlib
 import json
 from pathlib import Path
 
 import pytest
+import torch
 
 from banana_smasher.anchor import build_bank_manifest, materialize_candidate_producer
+from banana_smasher.anchor_sidecars import (
+    CandidateSidecarWriter,
+    write_teacher_support_manifest,
+)
 from banana_smasher.fixed_d4 import produce_fixed_d4_layerwise_logits
 from banana_smasher.offline_layerwise import _load_runtime
 
@@ -77,6 +83,19 @@ def test_auto_dispatches_builtin_offline_layerwise_as_one_model_pass(
     )
     config = tmp_path / "offline-layerwise.json"
     config.write_bytes(packaged_config.read_bytes())
+    teacher_manifest = tmp_path / "teacher_support.json"
+    teacher_idx = torch.tensor([[1, 0]], dtype=torch.int32)
+    teacher_lp = torch.tensor([[-0.1, -1.0]], dtype=torch.float16)
+    bank_sha256 = hashlib.sha256(bank_path.read_bytes()).hexdigest()
+    write_teacher_support_manifest(
+        teacher_manifest,
+        windows=[
+            {"window_id": index, "idx": teacher_idx, "logprob": teacher_lp}
+            for index in range(64)
+        ],
+        bank_sha256=bank_sha256,
+        teacher_sha256="a" * 64,
+    )
     calls: list[list[int]] = []
 
     def fake_layerwise(
@@ -92,16 +111,28 @@ def test_auto_dispatches_builtin_offline_layerwise_as_one_model_pass(
         assert verified_pack_receipt["status"] == "PASS"
         rows = [json.loads(line) for line in bank_path.read_text().splitlines()]
         calls.append([row["window_id"] for row in rows])
-        output_path.write_text(
-            "".join(
-                json.dumps(
-                    {"window_id": row["window_id"], "logits": [1.0, 0.0]}
-                )
-                + "\n"
-                for row in rows
-            )
+        writer = CandidateSidecarWriter(
+            output_path,
+            teacher_manifest_path=teacher_manifest,
+            window_ids=[row["window_id"] for row in rows],
+            basis_sha256=basis_sha256,
+            bank_sha256=bank_sha256,
+            model_id="fixture-model",
+            pack_sha256=hashlib.sha256(
+                (model_root / "BANANA_PACK_MANIFEST.json").read_bytes()
+            ).hexdigest(),
         )
-        return {"status": "PASS", "rows": len(rows)}
+        for row in rows:
+            writer.write_window(
+                row["window_id"],
+                q_lp_at_ref=torch.tensor([[-0.2, -1.2]], dtype=torch.float16),
+                q_argmax=torch.tensor([1], dtype=torch.int32),
+            )
+        return {
+            "status": "PASS",
+            "rows": len(rows),
+            "output_format": "torch-sidecars-with-json-manifest",
+        }
 
     monkeypatch.setattr(
         "banana_smasher.fixed_d4.produce_fixed_d4_layerwise_logits",
@@ -122,6 +153,8 @@ def test_auto_dispatches_builtin_offline_layerwise_as_one_model_pass(
     assert receipt["execution_mode"] == "offline-layerwise"
     assert receipt["producer_backend"] == "fixed-d4-offline-layerwise"
     assert receipt["computed_windows"] == 64
+    assert receipt["output_format"] == "torch-sidecars-with-json-manifest"
+    assert receipt["classification"] == "backend-smoke-only"
 
 
 def test_builtin_offline_layerwise_does_not_delegate_to_resident_vllm() -> None:

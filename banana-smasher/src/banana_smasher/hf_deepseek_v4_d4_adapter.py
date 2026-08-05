@@ -10,6 +10,191 @@ from typing import Any
 import numpy as np
 
 
+def _full_vocab_support_logprob(logits: Any, support_token_ids: Any) -> tuple[Any, Any]:
+    """Gather fp16 full-softmax logprob and int32 full-vocabulary argmax."""
+
+    import torch
+
+    logprob = torch.log_softmax(logits.float(), dim=-1)
+    return (
+        logprob.gather(1, support_token_ids.long()).to(torch.float16),
+        logprob.argmax(-1).to(torch.int32),
+    )
+
+
+def _unpack_le_values(
+    packed: np.ndarray, *, bits: int, value_count: int
+) -> np.ndarray:
+    """Decode a little-endian fixed-width bitstream without a compatibility file."""
+
+    source = np.asarray(packed, dtype=np.uint8)
+    padding_bits = source.size * 8 - value_count * bits
+    if (
+        source.ndim != 1
+        or bits not in {11, 12}
+        or value_count < 1
+        or padding_bits < 0
+        or padding_bits > 7
+    ):
+        raise ValueError(
+            f"le{bits} payload size does not match {value_count} values: "
+            f"got {source.shape}"
+        )
+    offsets = np.arange(value_count, dtype=np.uint64) * bits
+    byte_offsets = (offsets >> 3).astype(np.int64)
+    shifts = (offsets & 7).astype(np.uint32)
+    padded = np.pad(source, (0, 2))
+    words = (
+        padded[byte_offsets].astype(np.uint32)
+        | (padded[byte_offsets + 1].astype(np.uint32) << 8)
+        | (padded[byte_offsets + 2].astype(np.uint32) << 16)
+    )
+    return ((words >> shifts) & ((1 << bits) - 1)).astype(np.uint16)
+
+
+def _unpack_le12_values(packed: np.ndarray) -> np.ndarray:
+    """Decode little-endian packed 12-bit pairs without materializing a layer file."""
+
+    source = np.asarray(packed, dtype=np.uint8)
+    if source.ndim != 1 or source.size % 3:
+        raise ValueError(
+            "le12 payload must be a one-dimensional multiple of 3 bytes, "
+            f"got {source.shape}"
+        )
+    return _unpack_le_values(source, bits=12, value_count=source.size * 2 // 3)
+
+
+def _open_bs_pack_projection(
+    model_root: Path,
+    manifest: dict[str, Any],
+    *,
+    layer: int,
+    projection: str,
+    experts: int,
+    rows: int,
+    columns: int,
+    k: int,
+    d: int,
+    scale_group_size: int = 32,
+) -> dict[str, Any]:
+    """Open one bound bs-pack D4 projection as mmap-backed per-expert arrays."""
+
+    if projection not in ("fused13", "down"):
+        raise ValueError(f"unsupported D4 projection {projection!r}")
+    if rows <= 0 or columns <= 0 or experts <= 0 or d <= 0 or k <= 0:
+        raise ValueError("D4 packed dimensions must be positive")
+    if columns % d or columns % scale_group_size:
+        raise ValueError(
+            f"D4 packed columns {columns} must divide by d={d} "
+            f"and scale group={scale_group_size}"
+        )
+    prefix = f"layers.{layer}.truevq_d4.d4_k{k}.{projection}."
+    tensor_index = manifest.get("tensor_index")
+    if not isinstance(tensor_index, dict):
+        raise RuntimeError("bs-pack manifest has no tensor_index object")
+    code_bits = 11 if k == 2048 else 12
+    codes_per_expert = rows * (columns // d)
+    code_bytes_per_expert = (codes_per_expert * code_bits + 7) // 8
+    expected = {
+        "codebooks": ("fp16", "<f2", k * d * 2),
+        "codes": (
+            f"le{code_bits}",
+            "|u1",
+            experts * code_bytes_per_expert,
+        ),
+        "scales": (
+            "e8m0",
+            "|u1",
+            experts * rows * (columns // scale_group_size),
+        ),
+    }
+    opened: dict[str, Any] = {}
+    root = model_root.resolve()
+    for role, (encoding, dtype, expected_bytes) in expected.items():
+        entry = tensor_index.get(prefix + role)
+        if not isinstance(entry, dict):
+            raise RuntimeError(f"bs-pack manifest missing {prefix + role}")
+        if (
+            entry.get("encoding") != encoding
+            or entry.get("dtype") != dtype
+            or int(entry.get("subtier", -1)) != k
+            or int(entry.get("data_bytes", -1)) != expected_bytes
+        ):
+            raise RuntimeError(
+                f"bs-pack member schema mismatch for {prefix + role}: {entry}"
+            )
+        path = (root / str(entry.get("path", ""))).resolve()
+        try:
+            path.relative_to(root)
+        except ValueError as exc:
+            raise RuntimeError(f"bs-pack member escapes model root: {path}") from exc
+        if not path.is_file() or path.stat().st_size != expected_bytes:
+            raise RuntimeError(
+                f"bs-pack member size mismatch for {path}: expected {expected_bytes}"
+            )
+        if role == "codebooks":
+            opened["codebook"] = np.memmap(
+                path, dtype="<f2", mode="r", shape=(k, d)
+            )
+        elif role == "codes":
+            opened["codes"] = np.memmap(
+                path,
+                dtype=np.uint8,
+                mode="r",
+                shape=(experts, code_bytes_per_expert),
+            )
+            opened["code_bits"] = code_bits
+        else:
+            opened["scales"] = np.memmap(
+                path,
+                dtype=np.uint8,
+                mode="r",
+                shape=(experts, rows, columns // scale_group_size),
+            )
+        opened[f"{role}_path"] = path
+    return opened
+
+
+def _decode_bs_pack_expert(
+    torch: Any,
+    *,
+    codebook: np.ndarray,
+    packed_codes: np.ndarray,
+    scales: np.ndarray,
+    rows: int,
+    columns: int,
+    d: int,
+    scale_group_size: int,
+    device: str,
+    dtype: Any,
+    code_bits: int = 12,
+) -> Any:
+    """Reconstruct one dense expert directly from mmap-backed bs-pack members."""
+
+    expected_codes = rows * (columns // d)
+    decoded = _unpack_le_values(
+        packed_codes, bits=code_bits, value_count=expected_codes
+    )
+    if decoded.size != expected_codes:
+        raise RuntimeError(
+            f"packed expert code count mismatch: {decoded.size} != {expected_codes}"
+        )
+    codes_tensor = torch.tensor(decoded.astype(np.int64, copy=False), device=device)
+    codebook_tensor = torch.tensor(np.asarray(codebook), device=device).float()
+    scales_tensor = torch.tensor(np.asarray(scales), device=device).float()
+    scale_columns = torch.exp2(scales_tensor - 127.0).repeat_interleave(
+        scale_group_size, dim=1
+    )
+    if tuple(scale_columns.shape) != (rows, columns):
+        raise RuntimeError(
+            "packed expert scale shape mismatch: "
+            f"{tuple(scale_columns.shape)} != {(rows, columns)}"
+        )
+    return (
+        codebook_tensor[codes_tensor].reshape(rows, columns) * scale_columns
+    ).to(dtype)
+
+
 class _Activation:
     def __init__(self, hidden: Any, input_ids: Any) -> None:
         self.hidden = hidden
@@ -49,6 +234,9 @@ class DeepseekV4D4Runtime:
         self._bytes_read = 0
         self._counted_paths: set[Path] = {index_path}
         self._bytes_read += index_path.stat().st_size
+        self._d4_k = 4096
+        self._d4_d = 4
+        self._d4_scale_group_size = 32
         self._base_allocated = int(torch.cuda.memory_allocated())
         self._peak_resident = 0
         self._stage_active = False
@@ -91,7 +279,21 @@ class DeepseekV4D4Runtime:
         scale = scale.repeat_interleave(128, 0)[:rows].repeat_interleave(128, 1)[:, :columns]
         return (weight.to(torch.float32) * scale).to(torch.bfloat16)
 
+    def _ensure_materialization_memory(self, required: int, layer: int) -> None:
+        free, _ = self.torch.cuda.mem_get_info()
+        if free - (4 << 30) < required:
+            raise RuntimeError(
+                f"layer {layer}: insufficient CUDA memory for D4 materialization: "
+                f"free={free}, required_plus_guard={required + (4 << 30)}"
+            )
+
     def _load_vq3u_experts(self, layer: int) -> tuple[Any, Any]:
+        path = self.planes_dir / f"vq3u_layer_{layer:03d}.pt"
+        if path.is_file():
+            return self._load_vq3u_pt_experts(layer)
+        return self._load_bs_pack_experts(layer)
+
+    def _load_vq3u_pt_experts(self, layer: int) -> tuple[Any, Any]:
         torch = self.torch
         path = self.planes_dir / f"vq3u_layer_{layer:03d}.pt"
         self._record_path(path)
@@ -99,18 +301,13 @@ class DeepseekV4D4Runtime:
         meta = data.get("meta", {})
         k = int(meta.get("k", int(data["cb13"].shape[0])))
         d = int(meta.get("d", int(data["cb13"].shape[1])))
-        if k not in (4096, 8192) or d != 4:
+        if k not in (2048, 4096, 8192) or d != 4:
             raise RuntimeError(f"layer {layer}: unsupported VQ3U metadata {meta}")
         if data["codes13"].dtype != torch.int16 or data["codes2"].dtype != torch.int16:
             raise RuntimeError(f"layer {layer}: VQ3U codes must use int16 storage")
 
         required = (256 * 4096 * 4096 + 256 * 4096 * 2048) * 2
-        free, _ = torch.cuda.mem_get_info()
-        if free - (4 << 30) < required:
-            raise RuntimeError(
-                f"layer {layer}: insufficient CUDA memory for D4 materialization: "
-                f"free={free}, required_plus_guard={required + (4 << 30)}"
-            )
+        self._ensure_materialization_memory(required, layer)
         gate_up = torch.empty(
             256, 4096, 4096, dtype=torch.bfloat16, device=self.device
         )
@@ -132,6 +329,92 @@ class DeepseekV4D4Runtime:
                 ).to(torch.bfloat16)
                 del codes, scales, scale_columns
         del cb13, cb2, data
+        return gate_up, down
+
+    def _load_bs_pack_experts(self, layer: int) -> tuple[Any, Any]:
+        torch = self.torch
+        manifest_path = self.model_root / "BANANA_PACK_MANIFEST.json"
+        if not manifest_path.is_file():
+            raise RuntimeError(
+                f"layer {layer}: neither compatibility plane nor bound bs-pack "
+                "manifest exists"
+            )
+        self._record_path(manifest_path)
+        manifest = json.loads(manifest_path.read_text())
+        tensor_index = manifest.get("tensor_index")
+        if not isinstance(tensor_index, dict):
+            raise RuntimeError("bs-pack manifest has no tensor_index object")
+        layer_prefix = f"layers.{layer}.truevq_d4.d4_k"
+        packed_tiers = {
+            int(key[len(layer_prefix) :].split(".", 1)[0])
+            for key in tensor_index
+            if key.startswith(layer_prefix) and ".codebooks" in key
+        }
+        if len(packed_tiers) != 1:
+            raise RuntimeError(
+                f"layer {layer}: expected one bound D4 subtier, got {sorted(packed_tiers)}"
+            )
+        d4_k = packed_tiers.pop()
+        experts = int(self.config.n_routed_experts)
+        rows = int(self.config.hidden_size)
+        intermediate = int(self.config.moe_intermediate_size)
+        gate_columns = intermediate * 2
+        down_columns = intermediate
+        geometry = {"fused13": gate_columns, "down": down_columns}
+        projections: dict[str, dict[str, Any]] = {}
+        for projection, columns in geometry.items():
+            opened = _open_bs_pack_projection(
+                self.model_root,
+                manifest,
+                layer=layer,
+                projection=projection,
+                experts=experts,
+                rows=rows,
+                columns=columns,
+                k=d4_k,
+                d=self._d4_d,
+                scale_group_size=self._d4_scale_group_size,
+            )
+            for role in ("codebooks", "codes", "scales"):
+                self._record_path(Path(opened[f"{role}_path"]))
+            projections[projection] = opened
+
+        required = experts * rows * (gate_columns + down_columns) * 2
+        self._ensure_materialization_memory(required, layer)
+        gate_up = torch.empty(
+            experts,
+            rows,
+            gate_columns,
+            dtype=torch.bfloat16,
+            device=self.device,
+        )
+        down = torch.empty(
+            experts,
+            rows,
+            down_columns,
+            dtype=torch.bfloat16,
+            device=self.device,
+        )
+        for expert_id in range(experts):
+            for projection, destination, columns in (
+                ("fused13", gate_up, gate_columns),
+                ("down", down, down_columns),
+            ):
+                opened = projections[projection]
+                destination[expert_id] = _decode_bs_pack_expert(
+                    torch,
+                    codebook=opened["codebook"],
+                    packed_codes=opened["codes"][expert_id],
+                    scales=opened["scales"][expert_id],
+                    rows=rows,
+                    columns=columns,
+                    d=self._d4_d,
+                    scale_group_size=self._d4_scale_group_size,
+                    device=self.device,
+                    dtype=torch.bfloat16,
+                    code_bits=opened["code_bits"],
+                )
+        del projections
         return gate_up, down
 
     def _build_layer_state(self, layer: int) -> dict[str, Any]:
@@ -393,7 +676,7 @@ class DeepseekV4D4Runtime:
 
         def score(
             activation: _Activation,
-            support_token_ids: list[list[int]],
+            support_token_ids: Any,
             *,
             window_id: object,
         ) -> dict[str, Any]:
@@ -402,22 +685,27 @@ class DeepseekV4D4Runtime:
                 hidden = model.model.norm(
                     model.model.hc_head(activation.hidden.unsqueeze(0))
                 ).squeeze(0)
-                pairs: list[list[float]] = []
-                top1: list[int] = []
+                hidden = hidden[: len(support_token_ids)]
+                gathered: list[Any] = []
+                argmax: list[Any] = []
                 for start in range(0, hidden.shape[0], 128):
                     logits = model.lm_head(
                         hidden[start : start + 128].to(torch.bfloat16)
                     ).float()
-                    support = torch.tensor(
+                    support = torch.as_tensor(
                         support_token_ids[start : start + logits.shape[0]],
                         dtype=torch.long,
                         device=self.device,
                     )
-                    pairs.extend(logits.gather(1, support).cpu().tolist())
-                    top1.extend(logits.argmax(-1).cpu().tolist())
+                    q_lp, q_argmax = _full_vocab_support_logprob(logits, support)
+                    gathered.append(q_lp.cpu())
+                    argmax.append(q_argmax.cpu())
                     del logits, support
             self._resident_now()
-            return {"logits": pairs, "top1_token_ids": top1}
+            return {
+                "q_lp_at_ref": torch.cat(gathered),
+                "q_argmax": torch.cat(argmax),
+            }
 
         try:
             yield score
