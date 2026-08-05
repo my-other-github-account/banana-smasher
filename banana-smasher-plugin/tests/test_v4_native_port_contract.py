@@ -211,6 +211,23 @@ def test_dispatch_uses_persistent_compaction_buffers_without_python_shape_contro
         assert forbidden not in source
 
 
+def test_d4_dispatch_materializes_contiguous_graph_input() -> None:
+    tree = ast.parse(_function_source(ACCELERATION, "mixed_exact_native_gemv"))
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "specialized_d4_gemm"
+    ]
+
+    assert len(calls) == 1
+    first_argument = calls[0].args[0]
+    assert isinstance(first_argument, ast.Call)
+    assert isinstance(first_argument.func, ast.Attribute)
+    assert first_argument.func.attr == "contiguous"
+
+
 def test_physical_counters_are_written_by_the_family_kernels() -> None:
     acceleration = ACCELERATION.read_text()
     compactor = (CSRC / "route_compaction.cu").read_text()

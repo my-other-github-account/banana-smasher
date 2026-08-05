@@ -198,7 +198,7 @@ def mixed_exact_native_gemv(
         specialization=qtip3_row,
     )
     specialized_d4_gemm(
-        x.to(torch.bfloat16),
+        x.to(torch.bfloat16).contiguous(),
         out,
         compact,
         pointer_tables,
