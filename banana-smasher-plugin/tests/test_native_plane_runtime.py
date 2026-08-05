@@ -58,6 +58,66 @@ def _write_packed_codes(
     return spec
 
 
+def test_d4_boundary_normalizes_noncontiguous_graph_capture_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import banana_smasher_plugin.native_extensions as native_extensions
+
+    observed: dict[str, torch.Tensor] = {}
+
+    def d4_specialized(a: torch.Tensor, out: torch.Tensor, *args: object) -> torch.Tensor:
+        del args
+        observed["a"] = a
+        observed["out"] = out
+        return out
+
+    monkeypatch.setattr(native_extensions, "_module", lambda: object())
+    monkeypatch.setattr(
+        torch.ops.banana_smasher_v4,
+        "d4_specialized",
+        d4_specialized,
+        raising=False,
+    )
+    a = torch.empty((4096, 6), dtype=torch.bfloat16).T
+    assert a.shape == (6, 4096)
+    assert not a.is_contiguous()
+    out = torch.empty((6, 4096), dtype=torch.float32)
+    compact = {
+        "family_block_counts": torch.zeros(4, dtype=torch.int32),
+        "block_experts": torch.zeros((4, 1), dtype=torch.int32),
+        "block_valid_m": torch.zeros((4, 1), dtype=torch.int32),
+        "block_route_rows": torch.zeros((4, 1, 1), dtype=torch.int32),
+    }
+    pointer_tables = {
+        "d4_codes": torch.zeros(1, dtype=torch.int64),
+        "d4_scales": torch.zeros(1, dtype=torch.int64),
+        "d4_codebooks": torch.zeros(1, dtype=torch.int64),
+    }
+    state = {
+        "code_row_bytes": torch.zeros(1, dtype=torch.int32),
+        "dimension": torch.zeros(1, dtype=torch.uint8),
+        "bits": torch.full((1,), 10, dtype=torch.uint8),
+    }
+
+    native_extensions.specialized_d4_gemm(
+        a,
+        out,
+        compact,
+        pointer_tables,
+        state,
+        torch.zeros(160, dtype=torch.int64),
+        n=4096,
+        k=4096,
+        family=2,
+        projection="fused13",
+        tokens=1,
+    )
+
+    assert observed["a"].dtype == torch.bfloat16
+    assert observed["a"].is_contiguous()
+    assert observed["out"] is out
+
+
 def test_specialized_physical_proof_reads_each_runtime_counter_tensor_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

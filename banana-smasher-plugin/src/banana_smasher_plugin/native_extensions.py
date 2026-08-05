@@ -180,8 +180,9 @@ def specialized_d4_gemm(
         specialization_for(tier, projection, tokens)
         for tier in ("d4_k1024", "d4_k2048", "d4_k4096")
     ]
+    a_bf16 = a.to(torch.bfloat16).contiguous()
     torch.ops.banana_smasher_v4.d4_specialized(
-        a,
+        a_bf16,
         out,
         compact["family_block_counts"][family : family + 1],
         compact["block_experts"][family],
