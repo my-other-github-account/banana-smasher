@@ -193,6 +193,16 @@ def test_prefill_workspaces_are_ephemeral_instead_of_retained_by_every_layer() -
     assert 'vq_state["physical_counter_tensors"]' in counter_reader
 
 
+def test_d4_file_backed_pointer_tables_are_declared_for_every_specialization() -> None:
+    matrix = json.loads(MATRIX.read_text())
+
+    for row in matrix["rows"]:
+        if row["family"] == "d4":
+            assert "file_backed_cpu_uva_expert_pointer_tables" in row[
+                "transforms_reformats"
+            ]
+
+
 def test_large_prefill_compaction_bounds_descriptor_blocks_by_routes_and_experts() -> None:
     from banana_smasher_plugin.v4_acceleration import _max_compact_blocks
 
