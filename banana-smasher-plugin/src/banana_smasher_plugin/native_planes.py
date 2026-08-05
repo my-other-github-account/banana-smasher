@@ -941,6 +941,19 @@ class NativePlaneLayer:
             output_width=output_width,
             device=self.device,
         )
+        for table, storage, offsets in (
+            ("d4_codes", "codes", "code_offset"),
+            ("d4_scales", "scales", "scale_offset"),
+            ("d4_codebooks", "codebooks", "cb_offset"),
+        ):
+            resident = vq_state[storage]
+            pointer_tables[table] = (
+                vq_state[offsets] * resident.element_size() + resident.data_ptr()
+            )
+        for tier, payload_spec in specs.items():
+            if payload_spec.get("family") == "d4":
+                for role in ("codes", "scales", "codebooks"):
+                    payloads[tier].pop(role, None)
         return ProjectionState(
             projection,
             input_width,
