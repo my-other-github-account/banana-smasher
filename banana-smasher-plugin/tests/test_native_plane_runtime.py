@@ -259,6 +259,31 @@ def test_live_specialized_proof_refreshes_current_engine_counters_atomically(
     assert not list(live_path.parent.glob(".*.tmp"))
 
 
+def test_live_specialized_proof_includes_shape_bound_counters(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    live_path = tmp_path / "specialized-live.json"
+    shape_proof = {
+        "schema": "banana-smasher-specialized-shape-physical-proof-v1",
+        "status": "PASS",
+        "geometries": {"1": {"status": "PASS", "variant": "decode_c1"}},
+    }
+    monkeypatch.setattr(native_planes, "SPECIALIZED_LIVE_PROOF_PATH", live_path)
+    monkeypatch.setattr(
+        native_planes,
+        "specialized_physical_proof",
+        lambda: {"status": "PASS", "rows": [], "forbidden_counters": {}},
+    )
+    monkeypatch.setattr(
+        native_planes, "_specialized_shape_physical_proof", lambda: shape_proof
+    )
+
+    observed = native_planes._write_specialized_live_proof()
+
+    assert observed["shape_physical_proof"] == shape_proof
+    assert json.loads(live_path.read_text())["shape_physical_proof"] == shape_proof
+
+
 def test_live_specialized_proof_installs_sigusr2_refresh_handler(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -394,6 +394,7 @@ def _write_specialized_live_proof() -> dict[str, Any]:
     """Atomically snapshot the current engine's live specialized counters."""
     proof = {
         **specialized_physical_proof(),
+        "shape_physical_proof": _specialized_shape_physical_proof(),
         "process_pid": os.getpid(),
         "process_startticks": _process_startticks(),
         "captured_unix": time.time(),
