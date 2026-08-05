@@ -47,8 +47,13 @@ those companion wheels are published.
 
 ## Verification
 
-- Targeted API and CLI tests: `5 passed`.
+- Targeted API, CLI, and source-closure tests: `29 passed`.
 - `banana_smasher-1.0.0-py3-none-any.whl`: built and ZIP-verified.
+- `banana_smasher_plugin-0.2.0.tar.gz`: built without `CUDA_HOME`, contains
+  the required CUDA/C++ sources and `banana-smasher==1.0.0` dependency metadata;
+  test artifact SHA-256
+  `a1c9ef7e92be2d3ec73b6704551b426356d073af274c35774fae9f21abe4b82a`.
+  The platform wheel intentionally remains a CUDA-host build.
 - Installed `smash` executable: replaced itself with a fake `vllm` binary; the
   binary received the model path, all serving defaults, port override, and the
   four required FlashInfer/DeepGEMM process defaults.
