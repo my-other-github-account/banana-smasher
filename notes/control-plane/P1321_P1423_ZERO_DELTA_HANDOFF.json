@@ -1,7 +1,7 @@
 {
   "schema": "banana-smasher-p1321-p1423-zero-delta-handoff-v1",
   "status": "SEALED_CONTROL_PLANE_HANDOFF",
-  "task_id": "t_baf84aef",
+  "owner": "source-closure lane",
   "created_utc": "2026-08-05T00:06:52Z",
   "purpose": "Bind both physical owners to the already-proven P1321/P1423 artifact, boot, routing, graph, and benchmark closure before any new implementation is attempted.",
   "artifact_identity": {
@@ -178,15 +178,15 @@
       {
         "field": "service_command",
         "requested_value": "host-specific /work/build path",
-        "sealed_p1321_bare_metal_value": "host-specific /home/dnola virtualenv and model path",
+        "sealed_p1321_bare_metal_value": "host-specific virtualenv and model path",
         "sealed_p1423_product_value": "content-addressed image with embedded vllm serve /model command",
         "resolution": "For the product-path control use the exact image ID and do not override its ENTRYPOINT or CMD."
       }
     ]
   },
   "owner_handoff": {
-    "spark8_task": "t_dc5ea064",
-    "spark4_task": "t_8521a29b",
+    "spark8_owner": "native-runtime lane",
+    "spark4_owner": "api-runtime lane",
     "spark8_action": "At the natural terminal boundary of the sole protected attempt, inspect for the exact image ID locally and launch it by content ID with the exact pack. Do not rebuild it.",
     "spark4_action": "Preserve the sole build/controller. At its natural terminal boundary, accept only an exact docker-save/docker-load transfer of the same image ID plus the same pack manifest; verify both hashes before launch.",
     "missing_artifact_action": "Post an explicit rejection naming the missing image ID, pack manifest, or first mismatched payload row. Do not substitute, rebuild, retag another image, relax its admission gate, or patch around the missing control.",

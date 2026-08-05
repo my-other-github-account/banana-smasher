@@ -858,11 +858,11 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 9257,
-      "output_sha256": "f1ed37154cb88d9cddcd3568f0735dd71c1f9aad09b2026cf69acade3311050d",
+      "bytes": 10004,
+      "output_sha256": "fdd373a8d575ae0b1745cbce49dcb3f47da7e96bf9f963c125e0e747305254e1",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/acceleration_inventory.json",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/acceleration_inventory.json",
-      "source_sha256": "f1ed37154cb88d9cddcd3568f0735dd71c1f9aad09b2026cf69acade3311050d"
+      "source_sha256": "fdd373a8d575ae0b1745cbce49dcb3f47da7e96bf9f963c125e0e747305254e1"
     },
     {
       "byte_preserved": true,
@@ -882,27 +882,27 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 20920,
-      "output_sha256": "d491a392ef6a9fae3e3936899df848c2dc3dec79af9a36efb79d51180a876fe1",
+      "bytes": 21245,
+      "output_sha256": "2cd9612aeac4a53a7a71ced3153a5cfccd6efa4bd6e240e3d17245d603fe16d5",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip/inference_dynamic.cu",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip/inference_dynamic.cu",
-      "source_sha256": "d491a392ef6a9fae3e3936899df848c2dc3dec79af9a36efb79d51180a876fe1"
+      "source_sha256": "2cd9612aeac4a53a7a71ced3153a5cfccd6efa4bd6e240e3d17245d603fe16d5"
     },
     {
       "byte_preserved": true,
-      "bytes": 5373,
-      "output_sha256": "d9bb99d2a39ddb68ccb0147e8d316bbf2f876929cf610a97e3a9ee47b2f0f607",
+      "bytes": 6223,
+      "output_sha256": "0816c00c390cda1407e6d3fa5fca1f2d213fcb0f9f99cfdae7ca51e2b7390871",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip/qtip_dynamic_torch.cu",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip/qtip_dynamic_torch.cu",
-      "source_sha256": "d9bb99d2a39ddb68ccb0147e8d316bbf2f876929cf610a97e3a9ee47b2f0f607"
+      "source_sha256": "0816c00c390cda1407e6d3fa5fca1f2d213fcb0f9f99cfdae7ca51e2b7390871"
     },
     {
       "byte_preserved": true,
-      "bytes": 1341,
-      "output_sha256": "048f9d00a6a0c389a29944186d49f057e30779fc36923cf7346211a0e6a5eea8",
+      "bytes": 5062,
+      "output_sha256": "df57ecec2c26edbea825dd1b65d16c29b6752a2b2eee3b7f0244b47448abba13",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip/wrapper.cpp",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip/wrapper.cpp",
-      "source_sha256": "048f9d00a6a0c389a29944186d49f057e30779fc36923cf7346211a0e6a5eea8"
+      "source_sha256": "df57ecec2c26edbea825dd1b65d16c29b6752a2b2eee3b7f0244b47448abba13"
     },
     {
       "byte_preserved": true,
@@ -914,43 +914,43 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 10887,
-      "output_sha256": "439b876920508d24e5a9d38878cb48db58ba46df77502f38a23230a5550a2f08",
+      "bytes": 10816,
+      "output_sha256": "69b6f87d0931772f21850c0db2518430bfea6d772dc79ea008420bce1a4f8c38",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/route_compaction.cu",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/route_compaction.cu",
-      "source_sha256": "439b876920508d24e5a9d38878cb48db58ba46df77502f38a23230a5550a2f08"
+      "source_sha256": "69b6f87d0931772f21850c0db2518430bfea6d772dc79ea008420bce1a4f8c38"
     },
     {
       "byte_preserved": true,
-      "bytes": 30224,
-      "output_sha256": "9e9626037da62316d25ee99cf77ddffb64a3b97f83702ec630656cda822b6b3d",
+      "bytes": 34995,
+      "output_sha256": "9381c4162128dfbddbe98da4b1adf3dd4efb2e84f40139db5c92dfd5f5c8713e",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/vq_warp_gemv.cu",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/vq_warp_gemv.cu",
-      "source_sha256": "9e9626037da62316d25ee99cf77ddffb64a3b97f83702ec630656cda822b6b3d"
+      "source_sha256": "9381c4162128dfbddbe98da4b1adf3dd4efb2e84f40139db5c92dfd5f5c8713e"
     },
     {
       "byte_preserved": true,
-      "bytes": 2694,
-      "output_sha256": "60988f284a193d96733cfea236e8193852917afc0cb2ad9a6f537cd35947bbb5",
+      "bytes": 2853,
+      "output_sha256": "a9d02e428ae66c96481d6eed45ae32c1f92bd88de699eb1d149cde73a1bc75bd",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/dispatch_policy.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/dispatch_policy.py",
-      "source_sha256": "60988f284a193d96733cfea236e8193852917afc0cb2ad9a6f537cd35947bbb5"
+      "source_sha256": "a9d02e428ae66c96481d6eed45ae32c1f92bd88de699eb1d149cde73a1bc75bd"
     },
     {
       "byte_preserved": true,
-      "bytes": 3847,
-      "output_sha256": "f8fa5f770ba4ea1e8568d4cac6c63687633958cf756392527e2904a7aca1efae",
+      "bytes": 5702,
+      "output_sha256": "849b251408f35df2a378eeef789088793394cd6e2db01c562dfa9fb2487fe61a",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/native_extensions.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/native_extensions.py",
-      "source_sha256": "f8fa5f770ba4ea1e8568d4cac6c63687633958cf756392527e2904a7aca1efae"
+      "source_sha256": "849b251408f35df2a378eeef789088793394cd6e2db01c562dfa9fb2487fe61a"
     },
     {
       "byte_preserved": true,
-      "bytes": 33856,
-      "output_sha256": "42f8823789c8c3c58fc48a1d2162ed0a43d0cf7e74850856356c28bd932e18a9",
+      "bytes": 40902,
+      "output_sha256": "d1edb470ceb1c3e094e19ee87f515cbece5792a2ce0b0f89958e11a372dcfb68",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
-      "source_sha256": "42f8823789c8c3c58fc48a1d2162ed0a43d0cf7e74850856356c28bd932e18a9"
+      "source_sha256": "d1edb470ceb1c3e094e19ee87f515cbece5792a2ce0b0f89958e11a372dcfb68"
     },
     {
       "byte_preserved": true,
@@ -978,27 +978,43 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 2814,
-      "output_sha256": "b35f78f3b0847aa199c84579db807ba1561c47045a78421b20e4d2a07e29acc4",
+      "bytes": 4105,
+      "output_sha256": "00fb725fd460d55f401f857c470b53932d419e62ddd44b7cfe87a7998ab4f59a",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/repair.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/repair.py",
-      "source_sha256": "b35f78f3b0847aa199c84579db807ba1561c47045a78421b20e4d2a07e29acc4"
+      "source_sha256": "00fb725fd460d55f401f857c470b53932d419e62ddd44b7cfe87a7998ab4f59a"
     },
     {
       "byte_preserved": true,
-      "bytes": 8857,
-      "output_sha256": "976700cfd542722d69e566bf62b6c1987888fb46d40ff9ef42c7de579b0d5d59",
+      "bytes": 190819,
+      "output_sha256": "997adee6e991a4c06dc6d25fd8967c21938f3776deed1bc7939c850ac792073e",
+      "path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_kernel_matrix.json",
+      "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_kernel_matrix.json",
+      "source_sha256": "997adee6e991a4c06dc6d25fd8967c21938f3776deed1bc7939c850ac792073e"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 4223,
+      "output_sha256": "a4fc520a0334e82df886c9122d584fc90cb649c21061b7151adb13413c261dde",
+      "path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_variants.py",
+      "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_variants.py",
+      "source_sha256": "a4fc520a0334e82df886c9122d584fc90cb649c21061b7151adb13413c261dde"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 9880,
+      "output_sha256": "e11c6f01c34bfd528331ebd576bc270cc9bbd03069a37b8fa8e390fe34fee05f",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/v4_acceleration.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/v4_acceleration.py",
-      "source_sha256": "976700cfd542722d69e566bf62b6c1987888fb46d40ff9ef42c7de579b0d5d59"
+      "source_sha256": "e11c6f01c34bfd528331ebd576bc270cc9bbd03069a37b8fa8e390fe34fee05f"
     },
     {
       "byte_preserved": true,
-      "bytes": 1787,
-      "output_sha256": "a5d4d6adb174e9f0f0fcbe012f0c93f58c225b8f58d5429f0ed7c36b668098f2",
+      "bytes": 1679,
+      "output_sha256": "7ef7a9bb96717138be2134fb322205d0f73a73fabc7b99f1bca52693d444ce67",
       "path": "banana-smasher-plugin/tests/test_cutedsl_compat.py",
       "source_path": "banana-smasher-plugin/tests/test_cutedsl_compat.py",
-      "source_sha256": "a5d4d6adb174e9f0f0fcbe012f0c93f58c225b8f58d5429f0ed7c36b668098f2"
+      "source_sha256": "7ef7a9bb96717138be2134fb322205d0f73a73fabc7b99f1bca52693d444ce67"
     },
     {
       "byte_preserved": true,
@@ -1034,19 +1050,19 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 4090,
-      "output_sha256": "6763fe92b696ab09a9f5882973cb49d3851e27f204f124c8d98b703ab84a6287",
+      "bytes": 3345,
+      "output_sha256": "cc16c3be50bd385a41d137f47e5fd9175e814cd0a17fbf987087bfb3a83eb971",
       "path": "banana-smasher-plugin/tests/test_native_plane_compile_boundary.py",
       "source_path": "banana-smasher-plugin/tests/test_native_plane_compile_boundary.py",
-      "source_sha256": "6763fe92b696ab09a9f5882973cb49d3851e27f204f124c8d98b703ab84a6287"
+      "source_sha256": "cc16c3be50bd385a41d137f47e5fd9175e814cd0a17fbf987087bfb3a83eb971"
     },
     {
       "byte_preserved": true,
-      "bytes": 39931,
-      "output_sha256": "9bcb44fc94d5aebc63c04864beea3cacfa4df0b761e46a80d696a771513bd989",
+      "bytes": 45454,
+      "output_sha256": "a4e365239ce7af4668fb937b220f1204a4b9bc8a8eb8d59ea2807f99838f544e",
       "path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
       "source_path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
-      "source_sha256": "9bcb44fc94d5aebc63c04864beea3cacfa4df0b761e46a80d696a771513bd989"
+      "source_sha256": "a4e365239ce7af4668fb937b220f1204a4b9bc8a8eb8d59ea2807f99838f544e"
     },
     {
       "byte_preserved": true,
@@ -1058,11 +1074,19 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 3076,
-      "output_sha256": "992f630bc00e6bf2080003df6e664784beff3fa5968bb8cd03c71fed6dffa927",
+      "bytes": 503,
+      "output_sha256": "cf6ecb4b6f5b4c70c17a62af70bcc984055620b60b4c35bbcc1b4800494804b5",
+      "path": "banana-smasher-plugin/tests/test_repair_path_compat.py",
+      "source_path": "banana-smasher-plugin/tests/test_repair_path_compat.py",
+      "source_sha256": "cf6ecb4b6f5b4c70c17a62af70bcc984055620b60b4c35bbcc1b4800494804b5"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 3109,
+      "output_sha256": "5be274210adc8b4bc8567962c04be18c1588355cb3a19c822e5e1caefc7b5e3e",
       "path": "banana-smasher-plugin/tests/test_shape_aware_dispatch.py",
       "source_path": "banana-smasher-plugin/tests/test_shape_aware_dispatch.py",
-      "source_sha256": "992f630bc00e6bf2080003df6e664784beff3fa5968bb8cd03c71fed6dffa927"
+      "source_sha256": "5be274210adc8b4bc8567962c04be18c1588355cb3a19c822e5e1caefc7b5e3e"
     },
     {
       "byte_preserved": true,
@@ -1082,19 +1106,27 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 2761,
-      "output_sha256": "11de00bb904f0e00bca4202d9233a7585973948870cf20817ea17c7bdbe35a3d",
-      "path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
-      "source_path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
-      "source_sha256": "11de00bb904f0e00bca4202d9233a7585973948870cf20817ea17c7bdbe35a3d"
+      "bytes": 10788,
+      "output_sha256": "3c639940a2c4bb016fc0c4523c7a8f22b2469ae679506abd14e5698019ed6b45",
+      "path": "banana-smasher-plugin/tests/test_specialized_kernel_matrix.py",
+      "source_path": "banana-smasher-plugin/tests/test_specialized_kernel_matrix.py",
+      "source_sha256": "3c639940a2c4bb016fc0c4523c7a8f22b2469ae679506abd14e5698019ed6b45"
     },
     {
       "byte_preserved": true,
-      "bytes": 9453,
-      "output_sha256": "46911727082da438e74e75edbfffe329ca2b1eb91041d1a89af3f322dd5259f4",
+      "bytes": 2813,
+      "output_sha256": "6f9d5cca8643a16dcb79da8e01313eb8e2eb20199eecac17d55d63bfb8d01152",
+      "path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
+      "source_path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
+      "source_sha256": "6f9d5cca8643a16dcb79da8e01313eb8e2eb20199eecac17d55d63bfb8d01152"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 9624,
+      "output_sha256": "a16d38d9e4636cbbcc765915500166a825f2361b576dca22e91fb9ed03918087",
       "path": "banana-smasher-plugin/tests/test_v4_native_port_contract.py",
       "source_path": "banana-smasher-plugin/tests/test_v4_native_port_contract.py",
-      "source_sha256": "46911727082da438e74e75edbfffe329ca2b1eb91041d1a89af3f322dd5259f4"
+      "source_sha256": "a16d38d9e4636cbbcc765915500166a825f2361b576dca22e91fb9ed03918087"
     },
     {
       "byte_preserved": true,
