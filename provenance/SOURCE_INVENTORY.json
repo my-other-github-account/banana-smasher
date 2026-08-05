@@ -98,8 +98,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 2913,
-      "output_sha256": "511f8fc6540570cf70896c284ec46e05b1735174c593bc9900a40bed2b630bfe",
+      "bytes": 2899,
+      "output_sha256": "4388ae09d38250070ccc721760f78f3a29e852093704f95fc962e30969195458",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/dispatch_policy.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/dispatch_policy.py",
       "source_sha256": "60988f284a193d96733cfea236e8193852917afc0cb2ad9a6f537cd35947bbb5"
@@ -250,8 +250,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 3221,
-      "output_sha256": "bed78e65673002eff5a59ea8709ce499383160395ebf4349fb8c16c2606901ff",
+      "bytes": 3402,
+      "output_sha256": "7cc2be96e837cea5710f387ff7b2021ced829650966bf739642c6c2247324656",
       "path": "banana-smasher-plugin/tests/test_shape_aware_dispatch.py",
       "source_path": "banana-smasher-plugin/tests/test_shape_aware_dispatch.py",
       "source_sha256": "992f630bc00e6bf2080003df6e664784beff3fa5968bb8cd03c71fed6dffa927"

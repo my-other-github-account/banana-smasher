@@ -64,7 +64,7 @@ def shape_policy(route_rows: int) -> dict[str, int | str | bool]:
         "valid_m": valid_m,
         "mblock": mblock,
         "zero_dequant": True,
-        "graph_reuse": tokens in {1, 2, 4, 8, 16},
+        "graph_reuse": tokens <= 16,
         "activation": "active",
     }
 
