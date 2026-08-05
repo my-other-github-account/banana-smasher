@@ -5,14 +5,10 @@
 #include <cstdlib>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <cuda/pipeline>
 #include <cuda_fp16.h>
-#include <mma.h>
 #include <c10/cuda/CUDAStream.h>
 
 #include "inference.h"
-
-using namespace nvcuda;
 
 
 #define CHECK_CUDA(x)           TORCH_CHECK(x.is_cuda(), #x " must be a CUDA tensor")
@@ -106,7 +102,7 @@ __inline__ __device__ uint32_t ld_x(const uint32_t* p)
     return out;
 }
 
-__inline__ __device__ void prefetch(uint32_t *a){
+__inline__ __device__ void prefetch(const uint32_t *a){
     asm("prefetch.global.L1 [%0];"::"l"(a));
 }
 
@@ -206,18 +202,24 @@ qtip_trellis_tlut_kernel(
     record_physical_dispatch(family_block_count, block_valid_m,
                              physical_counters, family,
                              specialized_counter_index);
+    constexpr uint32_t RoutesPerCta =
+        (Variant >= 2 && Variant <= 4) ? 4U : 1U;
         // ** load codebook **
     extern __shared__ __align__(1<<(5+V+1)) half2 smem_codebook[];
 
     const int block = static_cast<int>(blockIdx.y);
-    const int block_row = static_cast<int>(blockIdx.z);
-    if (block >= family_block_count[0] || block_row >= block_valid_m[block]) return;
-    const int route = block_route_rows[block * route_stride + block_row];
-    if (route < 0) return;
+    const int route_base = static_cast<int>(blockIdx.z) * RoutesPerCta;
+    if (block >= family_block_count[0] || route_base >= block_valid_m[block]) return;
+    int routes[RoutesPerCta];
+#pragma unroll
+    for (uint32_t route_i = 0; route_i < RoutesPerCta; ++route_i) {
+        const int block_row = route_base + static_cast<int>(route_i);
+        routes[route_i] = block_row < block_valid_m[block]
+            ? block_route_rows[block * route_stride + block_row]
+            : -1;
+    }
     const int expert = block_experts[block];
     const auto* compressed = reinterpret_cast<const uint32_t*>(sources[expert]);
-    x += static_cast<int64_t>(route) * (K / 2);
-    out += static_cast<int64_t>(route) * M;
 
     // ** cursed indexing math **
 
@@ -269,7 +271,7 @@ qtip_trellis_tlut_kernel(
         uint4 reg_cs2;
 
         // define acc
-        float4 reg_p[2] = {};
+        float4 reg_p[RoutesPerCta][2] = {};
 
 #define LOAD_X_BUFFERED
 #ifdef PERMUTE_K
@@ -297,7 +299,7 @@ qtip_trellis_tlut_kernel(
 #endif
         }
 
-        __shared__ ditto2 x_buf[2][BLOCK_SIZE / WARP_SIZE][4][4];
+        __shared__ ditto2 x_buf[RoutesPerCta][BLOCK_SIZE / WARP_SIZE][4][4];
         uint32_t x_line;
 #pragma unroll 4
         for (uint32_t ki = 0; ki < this_warp_k; ki += 1) {
@@ -312,14 +314,23 @@ qtip_trellis_tlut_kernel(
 #ifdef LOAD_X_BUFFERED
             if (ki % 2 == 0) {
                 __syncwarp();
-                x_buf[0][warpId][laneId / 8][laneId % 4].u32[(laneId % 8) / 4] = ld_x(reinterpret_cast<const uint32_t *>(x) + x_idx);
+#pragma unroll
+                for (uint32_t route_i = 0; route_i < RoutesPerCta; ++route_i) {
+                    const int route = routes[route_i];
+                    x_buf[route_i][warpId][laneId / 8][laneId % 4]
+                        .u32[(laneId % 8) / 4] = route >= 0
+                            ? ld_x(reinterpret_cast<const uint32_t *>(
+                                  x + static_cast<int64_t>(route) * (K / 2)) + x_idx)
+                            : 0U;
+                }
                 __syncwarp();
                 x_idx += x_idx_step;
             }
 #else
 #ifdef LOAD_X_SHUFFLE
             if (ki % 2 == 0) {
-                x_line = ld_x(((uint32_t *) x) + x_idx);
+                x_line = ld_x(reinterpret_cast<const uint32_t *>(
+                    x + static_cast<int64_t>(routes[0]) * (K / 2)) + x_idx);
                 x_idx += x_idx_step;
             }
 #endif
@@ -328,29 +339,6 @@ qtip_trellis_tlut_kernel(
 
 #pragma unroll 2
             for (uint32_t subki = 0; subki < 2; subki += 1) {
-                // load activations
-                // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#matrix-fragments-for-mma-m16n8k16-with-floating-point-type
-                ditto2 reg_a;
-#define LD_X
-#ifdef LOAD_X
-#ifdef LOAD_X_SHUFFLE
-                uint32_t x_subki = (ki % 2 * 2 + subki);
-                if (x_subki != 0) {
-                    reg_a.u32x2.x = __shfl_sync(FULL_MASK, x_line, (laneId & 3) | (8 * x_subki));
-                    reg_a.u32x2.y = __shfl_sync(FULL_MASK, x_line, (laneId & 3) | (4 | (8 * x_subki)));
-                } else {
-                    reg_a.u32x2.x = x_line;
-                    reg_a.u32x2.y = __shfl_sync(FULL_MASK, x_line, (laneId & 3) | 4);
-                }
-#else
-                if (laneId < 4) {
-#ifdef LOAD_X_BUFFERED
-                    reg_a.u32x2 = x_buf[0][warpId][ki % 2 * 2 + subki][laneId].u32x2;
-#endif
-                }
-#endif
-#endif
-
 #pragma unroll 2
                 for (uint32_t submi = 0; submi < 2; submi++) {
                     uint32_t reg_c, reg_c2;
@@ -402,30 +390,44 @@ qtip_trellis_tlut_kernel(
 #endif
                     }
 
-                    //printf("%u: %f %f %f %f\n", tileIdK, __half2float(reg_w.f16x2[0].x),__half2float(reg_w.f16x2[0].y), __half2float(reg_w.f16x2[1].x),__half2float(reg_w.f16x2[1].y));
-                    asm volatile (
+                    // Decode the trellis/TLUT weight fragment once, then reuse
+                    // it across the four routed activations in decode C4+.
+#pragma unroll
+                    for (uint32_t route_i = 0; route_i < RoutesPerCta; ++route_i) {
+                        ditto2 reg_a = {};
+#define LD_X
+#ifdef LOAD_X
+#ifdef LOAD_X_SHUFFLE
+                        uint32_t x_subki = (ki % 2 * 2 + subki);
+                        if (x_subki != 0) {
+                            reg_a.u32x2.x = __shfl_sync(FULL_MASK, x_line, (laneId & 3) | (8 * x_subki));
+                            reg_a.u32x2.y = __shfl_sync(FULL_MASK, x_line, (laneId & 3) | (4 | (8 * x_subki)));
+                        } else {
+                            reg_a.u32x2.x = x_line;
+                            reg_a.u32x2.y = __shfl_sync(FULL_MASK, x_line, (laneId & 3) | 4);
+                        }
+#else
+                        if (laneId < 4) {
+#ifdef LOAD_X_BUFFERED
+                            reg_a.u32x2 = x_buf[route_i][warpId]
+                                [ki % 2 * 2 + subki][laneId].u32x2;
+#endif
+                        }
+#endif
+#endif
+                        asm volatile (
                             "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32"
                             " {%0, %1, %2, %3},"
                             " {%4, %5, %6, %7},"
                             " {%8, %9},"
                             " {%0, %1, %2, %3};"
-                            : "+f"(reg_p[submi].x), "+f"(reg_p[submi].y), "+f"(reg_p[submi].z), "+f"(reg_p[submi].w)
+                            : "+f"(reg_p[route_i][submi].x), "+f"(reg_p[route_i][submi].y), "+f"(reg_p[route_i][submi].z), "+f"(reg_p[route_i][submi].w)
                             :  "r"(reg_w.u32[0]), "r"(reg_w.u32[1]), "r"(reg_w.u32[2]), "r"(reg_w.u32[3]),
                             "r"(reg_a.u32[0]), "r"(reg_a.u32[1])
-                    );
-                    //printf("%u %u %u: %f %f %f %f\n", tileIdM, warpId, laneId, reg_p.x, reg_p.y, reg_p.z, reg_p.w);
+                        );
+                    }
 #else
-#ifdef LOAD_X
-                    reg_p.x += reg_c * reg_a.u32[0];
-                    reg_p.y += reg_c * reg_a.u32[1];
-                    reg_p.z += reg_c * reg_a.u32[0];
-                    reg_p.w += reg_c * reg_a.u32[1];
-#else
-                    reg_p.x += reg_c;
-                    reg_p.y += reg_c;
-                    reg_p.z += reg_c;
-                    reg_p.w += reg_c;
-#endif
+                    static_assert(DO_MMA, "QTIP specialized path requires MMA");
 #endif
                 }
 
@@ -435,31 +437,50 @@ qtip_trellis_tlut_kernel(
 #ifdef LOAD_X
 #ifdef PREFETCH_X
             if (ki % 2 == 0) {
-                prefetch((uint32_t *) (x + x_idx + x_idx_step*4));
+#pragma unroll
+                for (uint32_t route_i = 0; route_i < RoutesPerCta; ++route_i) {
+                    const int route = routes[route_i];
+                    if (route >= 0) {
+                        prefetch(reinterpret_cast<const uint32_t *>(
+                            x + static_cast<int64_t>(route) * (K / 2) +
+                            x_idx + x_idx_step * 4));
+                    }
+                }
             }
 #endif
 #endif
         }
 
-        __shared__ __align__(16 * 8*32) float reduce_gather[BLOCK_SIZE / WARP_SIZE][2][16];
+        __shared__ __align__(16 * 8*32) float reduce_gather
+            [BLOCK_SIZE / WARP_SIZE][RoutesPerCta][2][16];
         if (laneId % 4 == 0) {
-            for (int pi = 0; pi < 2; pi++) {
-                reduce_gather[warpId][pi][laneId / 4] = reg_p[pi].x;
-                reduce_gather[warpId][pi][laneId / 4 + 8] = reg_p[pi].z;
+#pragma unroll
+            for (uint32_t route_i = 0; route_i < RoutesPerCta; ++route_i) {
+                for (int pi = 0; pi < 2; pi++) {
+                    reduce_gather[warpId][route_i][pi][laneId / 4] =
+                        reg_p[route_i][pi].x;
+                    reduce_gather[warpId][route_i][pi][laneId / 4 + 8] =
+                        reg_p[route_i][pi].z;
+                }
             }
         }
         __syncthreads();
-        float reduced = 0.0;
         if (warpId < 1) {
             int pi = laneId / 16;
-            for (int warpi = 0; warpi < BLOCK_SIZE / WARP_SIZE; warpi++) {
-                reduced += reduce_gather[warpi][pi][laneId % 16];
+#pragma unroll
+            for (uint32_t route_i = 0; route_i < RoutesPerCta; ++route_i) {
+                float reduced = 0.0;
+                for (int warpi = 0; warpi < BLOCK_SIZE / WARP_SIZE; warpi++) {
+                    reduced += reduce_gather[warpi][route_i][pi][laneId % 16];
+                }
+                const int route = routes[route_i];
+                if (route >= 0) {
+                    // two output tiles at a time for each routed activation.
+                    float *out_tile = out + static_cast<int64_t>(route) * M +
+                        (tileIdM * 2) * f32_per_out_tile;
+                    out_tile[laneId] = reduced;
+                }
             }
-
-            // TODO: https://forums.developer.nvidia.com/t/can-float4-be-used-for-atomicadd-efficiently/215692
-            // two rows at a time
-            float *out_tile = out + (tileIdM * 2) * f32_per_out_tile;
-            out_tile[laneId] = reduced;
         }
         if constexpr(m_per_block > 1) __syncthreads();
         tileIdM += 1;
@@ -503,8 +524,10 @@ __host__ static void decompress_matvec_specialized_ptr(
         qtip_trellis_tlut_kernel<L, S, R, V, M, N, K, Variant>,
         cudaFuncAttributeMaxDynamicSharedMemorySize,
         smemCodebookSize));
+    constexpr uint32_t RoutesPerCta =
+        (Variant >= 2 && Variant <= 4) ? 4U : 1U;
     const dim3 grid(BLOCK_COUNT, static_cast<unsigned>(max_blocks),
-                    static_cast<unsigned>(route_stride));
+                    static_cast<unsigned>(ROUND_UP(route_stride, RoutesPerCta)));
     qtip_trellis_tlut_kernel<L, S, R, V, M, N, K, Variant>
         <<<grid, BLOCK_SIZE, smemCodebookSize, stream>>>(
             out, sources, x, codebook, family_block_count, block_experts,
