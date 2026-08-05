@@ -1141,6 +1141,7 @@ def solve_class_balanced_options(
     envelope_bytes: int,
     class_caps: dict[str, float],
     class_weights: dict[str, float] | None = None,
+    class_floors: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Select one tier per cell under exact bytes and aggregate class ceilings.
 
@@ -1164,6 +1165,21 @@ def solve_class_balanced_options(
         if not math.isfinite(cap) or cap < 0.0:
             raise KnapsackValidationError(f"class cap must be finite and non-negative for {name!r}")
         caps[name] = cap
+    if class_floors is None:
+        floors = {name: 0.0 for name in classes}
+    else:
+        if set(class_floors) != set(classes):
+            raise KnapsackValidationError("class_floors keys must exactly match class_caps")
+        floors = {name: float(class_floors[name]) for name in classes}
+        if any(
+            not math.isfinite(floors[name])
+            or floors[name] < 0.0
+            or floors[name] > caps[name]
+            for name in classes
+        ):
+            raise KnapsackValidationError(
+                "class floors must be finite, non-negative, and no greater than class caps"
+            )
     if class_weights is None:
         weights = {name: 1.0 / len(classes) for name in classes}
     else:
@@ -1292,7 +1308,7 @@ def solve_class_balanced_options(
         upper[cursor] = float(scaled_capacity)
         cursor += 1
     for name in classes:
-        lower[cursor] = 0.0
+        lower[cursor] = floors[name]
         upper[cursor] = caps[name]
         cursor += 1
     solution = milp(
@@ -1334,7 +1350,11 @@ def solve_class_balanced_options(
     assigned_bytes = sum(row["bytes"] for row in assignments)
     if assigned_bytes > envelope_bytes:
         raise RuntimeError(f"class-balanced solver violated envelope: {assigned_bytes} > {envelope_bytes}")
-    if any(predicted[name] < -1e-10 or predicted[name] > caps[name] + 1e-10 for name in classes):
+    if any(
+        predicted[name] < floors[name] - 1e-10
+        or predicted[name] > caps[name] + 1e-10
+        for name in classes
+    ):
         raise RuntimeError("class-balanced solver violated aggregate class bounds")
     objective_value = math.fsum(weights[name] * predicted[name] for name in classes)
     return {
@@ -1345,6 +1365,7 @@ def solve_class_balanced_options(
         "slack_bytes": envelope_bytes - assigned_bytes,
         "prediction_by_class": predicted,
         "class_caps": caps,
+        "class_floors": floors,
         "objective": {
             "name": "uniform_mean_per_class_predicted_damage" if class_weights is None else "weighted_mean_per_class_predicted_damage",
             "value": objective_value,

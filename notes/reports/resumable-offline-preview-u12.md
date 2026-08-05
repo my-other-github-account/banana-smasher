@@ -31,7 +31,7 @@ For class `c`, the option cost is:
 
 `max(0, (prediction[c] + projection_correction[c]) * routing_importance[c] * projection_weight)`
 
-Parity uses explicit raw weights of one for each of `agentic`, `chat`, `code`, `multilingual`, `prose`, and `reasoning`, normalized to a uniform one-sixth mean. The earlier `1/1/1.5/2/1.5/1` weighting remains available only as the `legacy-preview` preset. The public solve adapter feeds authenticated option costs into the exact class-balanced solver, which enforces the byte envelope and all six aggregate class caps. Pareto pruning removes an option only when another option in the same cell is no worse in bytes and every one of the six class costs, and strictly better in at least one dimension.
+Parity uses explicit raw weights of one for each of `agentic`, `chat`, `code`, `multilingual`, `prose`, and `reasoning`, normalized to a uniform one-sixth mean. The earlier `1/1/1.5/2/1.5/1` weighting remains available only as the `legacy-preview` preset. The public solve adapter feeds authenticated option costs into the exact class-balanced solver, which enforces the byte envelope and explicit `class_kld_bounds` for all six classes. Each class requires a `max_kld` ceiling and may carry a `min_kld` floor. Because lower KLD is better, a minimum-quality requirement is expressed as a maximum-KLD ceiling. The returned prediction is independently checked against every bound after the exact solve. Pareto pruning removes an option only when another option in the same cell is no worse in bytes and every one of the six class costs, and strictly better in at least one dimension.
 
 Tier menus remain generic. Callers can include and exclude arbitrary declared tiers. The current campaign policy selects `qtip2.5` by default without embedding a model-family condition in the solver.
 
@@ -46,7 +46,7 @@ python3.13 -m pytest -q \
   tests/test_backpack_preview_u12.py \
   tests/test_class_balanced_knapsack.py \
   tests/test_fixed_d4_public_closure.py
-12 passed
+15 passed
 ```
 
 Additional gates:
@@ -65,4 +65,4 @@ PASS: help exposes --execution-mode {auto,vllm,offline-layerwise} and --chunk-si
 
 A diagnostic full repository run reached `391 passed, 5 skipped` and retained one existing release-surface assertion failure because the README contains additional command examples beyond that test's literal three-command expectation. The requested changed-path tests and lint gates are green; this PoC does not alter the release README contract.
 
-The sealed fixture is `banana-smasher/tests/fixtures/f521_preview_u12.json`, SHA-256 `2ebf895ce77e8b99ae7390892dc6cd31c587f360e2032ee2eed97682b91adfc4`.
+The sealed all-ones plus per-class-ceilings parity fixture is `banana-smasher/tests/fixtures/f521_preview_u12.json`, SHA-256 `d089dc414d7f1c0ecabdad5fa7dd77d7dff50b41c2aab7d706aade894c12dc8e`.

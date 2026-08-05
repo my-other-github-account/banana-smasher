@@ -1,12 +1,24 @@
 {
   "basis_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-  "class_caps": {
-    "agentic": 100.0,
-    "chat": 100.0,
-    "code": 100.0,
-    "multilingual": 100.0,
-    "prose": 100.0,
-    "reasoning": 100.0
+  "class_kld_bounds": {
+    "agentic": {
+      "max_kld": 100.0
+    },
+    "chat": {
+      "max_kld": 1.0
+    },
+    "code": {
+      "max_kld": 100.0
+    },
+    "multilingual": {
+      "max_kld": 100.0
+    },
+    "prose": {
+      "max_kld": 100.0
+    },
+    "reasoning": {
+      "max_kld": 100.0
+    }
   },
   "expected": {
     "class_weights": {
@@ -49,6 +61,27 @@
         "multilingual": 0.3,
         "prose": 0.3,
         "reasoning": 0.3
+      }
+    },
+    "solve": {
+      "assigned_bytes": 3,
+      "assignments": [
+        {
+          "cell_id": "c0",
+          "tier": "qtip2.5"
+        },
+        {
+          "cell_id": "c1",
+          "tier": "qtip2.5"
+        }
+      ],
+      "prediction_by_class": {
+        "agentic": 0.8,
+        "chat": 0.65,
+        "code": 3.6,
+        "multilingual": 2.3,
+        "prose": 0.7,
+        "reasoning": 4.95
       }
     }
   },

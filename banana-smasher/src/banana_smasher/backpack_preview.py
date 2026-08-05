@@ -340,9 +340,15 @@ def solve_preview_u12_options(
     prepared: Mapping[str, Any],
     *,
     envelope_bytes: int,
-    class_caps: Mapping[str, object],
+    class_caps: Mapping[str, object] | None = None,
+    class_kld_bounds: Mapping[str, object] | None = None,
 ) -> dict[str, Any]:
-    """Solve authenticated Preview-U12 options with six hard class caps."""
+    """Solve authenticated options under explicit per-class KLD bounds.
+
+    Lower KLD is better, so a minimum-quality requirement is expressed as a
+    ``max_kld`` ceiling. ``class_caps`` remains a compatibility alias for
+    callers of the first Preview-U12 API revision.
+    """
 
     if (
         prepared.get("schema") != "banana-smasher-preview-u12-options-v1"
@@ -400,7 +406,41 @@ def solve_preview_u12_options(
     expected = {(cell, tier) for cell in cells for tier in tiers}
     if set(bytes_by_option) != expected:
         raise ValueError("prepared Preview-U12 options must cover every selected cell/tier")
-    caps = _six_class_values(class_caps, "class_caps", nonnegative=True)
+    if class_kld_bounds is not None and class_caps is not None:
+        raise ValueError("provide class_kld_bounds or class_caps, not both")
+    if class_kld_bounds is None:
+        if class_caps is None:
+            raise ValueError("class_kld_bounds must provide a max_kld ceiling for each class")
+        caps = _six_class_values(class_caps, "class_caps", nonnegative=True)
+        bounds = {
+            name: {"min_kld": 0.0, "max_kld": caps[name]} for name in CLASSES
+        }
+    else:
+        if set(class_kld_bounds) != set(CLASSES):
+            raise ValueError("class_kld_bounds must exactly cover the six canonical classes")
+        bounds = {}
+        for name in CLASSES:
+            value = class_kld_bounds[name]
+            if not isinstance(value, Mapping) or set(value) - {"min_kld", "max_kld"}:
+                raise ValueError(
+                    f"class_kld_bounds.{name} must contain max_kld and optional min_kld"
+                )
+            if "max_kld" not in value:
+                raise ValueError(f"class_kld_bounds.{name}.max_kld is required")
+            minimum = _finite(
+                value.get("min_kld", 0.0),
+                f"class_kld_bounds.{name}.min_kld",
+                nonnegative=True,
+            )
+            maximum = _finite(
+                value["max_kld"],
+                f"class_kld_bounds.{name}.max_kld",
+                nonnegative=True,
+            )
+            if minimum > maximum:
+                raise ValueError(f"class_kld_bounds.{name} min_kld exceeds max_kld")
+            bounds[name] = {"min_kld": minimum, "max_kld": maximum}
+        caps = {name: bounds[name]["max_kld"] for name in CLASSES}
     raw_weights = _six_class_values(
         prepared.get("raw_class_weights"), "raw_class_weights", nonnegative=True
     )
@@ -408,19 +448,35 @@ def solve_preview_u12_options(
 
     from .knapsack import solve_class_balanced_options
 
-    solved = solve_class_balanced_options(
-        cells=cells,
-        tiers=list(tiers),
-        bytes_by_option=bytes_by_option,
-        class_costs_by_option=class_costs_by_option,
-        envelope_bytes=envelope_bytes,
-        class_caps=caps,
-        class_weights=None if preset == "parity-all-ones" else raw_weights,
-    )
+    try:
+        solved = solve_class_balanced_options(
+            cells=cells,
+            tiers=list(tiers),
+            bytes_by_option=bytes_by_option,
+            class_costs_by_option=class_costs_by_option,
+            envelope_bytes=envelope_bytes,
+            class_caps=caps,
+            class_weights=None if preset == "parity-all-ones" else raw_weights,
+            class_floors={name: bounds[name]["min_kld"] for name in CLASSES},
+        )
+    except RuntimeError as exc:
+        raise ValueError(f"infeasible class_kld_bounds: {exc}") from exc
+    predicted = solved["prediction_by_class"]
+    if any(
+        predicted[name] < bounds[name]["min_kld"] - 1e-10
+        or predicted[name] > bounds[name]["max_kld"] + 1e-10
+        for name in CLASSES
+    ):
+        raise RuntimeError("Preview-U12 returned prediction violates class_kld_bounds")
     return {
         **solved,
         "schema": "banana-smasher-preview-u12-solve-v1",
         "basis_sha256": prepared.get("basis_sha256"),
         "class_weight_preset": preset,
         "raw_class_weights": raw_weights,
+        "class_kld_bounds": bounds,
+        "bounds_verification": {
+            "status": "PASS",
+            "semantics": "lower_kld_is_better; minimum quality is a max_kld ceiling",
+        },
     }

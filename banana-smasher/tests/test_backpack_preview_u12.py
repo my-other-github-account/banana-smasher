@@ -17,7 +17,7 @@ from banana_smasher.backpack_preview import (
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "f521_preview_u12.json"
-FIXTURE_SHA256 = "2ebf895ce77e8b99ae7390892dc6cd31c587f360e2032ee2eed97682b91adfc4"
+FIXTURE_SHA256 = "d089dc414d7f1c0ecabdad5fa7dd77d7dff50b41c2aab7d706aade894c12dc8e"
 
 
 def test_sealed_f521_preview_u12_fixture_parity() -> None:
@@ -40,6 +40,20 @@ def test_sealed_f521_preview_u12_fixture_parity() -> None:
     ]
     assert prepared["class_weight_preset"] == "parity-all-ones"
     assert all(row["cost_authority"]["status"] == "AUTHENTICATED" for row in prepared["options"])
+    solved = solve_preview_u12_options(
+        prepared,
+        envelope_bytes=fixture["expected"]["solve"]["assigned_bytes"],
+        class_kld_bounds=fixture["class_kld_bounds"],
+    )
+    assert solved["assigned_bytes"] == fixture["expected"]["solve"]["assigned_bytes"]
+    assert [
+        {"cell_id": row["cell_id"], "tier": row["tier"]}
+        for row in solved["assignments"]
+    ] == fixture["expected"]["solve"]["assignments"]
+    assert solved["prediction_by_class"] == pytest.approx(
+        fixture["expected"]["solve"]["prediction_by_class"]
+    )
+    assert solved["bounds_verification"]["status"] == "PASS"
 
 
 def test_legacy_weighted_objective_remains_optional() -> None:
@@ -70,7 +84,7 @@ def test_legacy_weighted_objective_remains_optional() -> None:
     solved = solve_preview_u12_options(
         weighted,
         envelope_bytes=3,
-        class_caps=fixture["class_caps"],
+        class_kld_bounds=fixture["class_kld_bounds"],
     )
     assert solved["objective"]["name"] == "weighted_mean_per_class_predicted_damage"
     assert solved["objective"]["normalized_class_weights"] == weighted[
@@ -151,3 +165,74 @@ def test_preview_solver_uses_uniform_six_class_objective_and_hard_caps() -> None
     }
     expected = sum(solved["prediction_by_class"].values()) / 6.0
     assert solved["objective"]["value"] == pytest.approx(expected)
+
+
+def test_preview_solver_exposes_explicit_per_class_max_kld_bounds() -> None:
+    fixture = json.loads(FIXTURE.read_text())
+    prepared = prepare_preview_u12_options(
+        fixture["rows"],
+        basis_sha256=fixture["basis_sha256"],
+        include_tiers=["qtip2.5", "tier-b"],
+    )
+    bounds = {name: {"max_kld": 100.0} for name in CLASSES}
+    bounds["chat"]["max_kld"] = 1.0
+
+    solved = solve_preview_u12_options(
+        prepared,
+        envelope_bytes=3,
+        class_kld_bounds=bounds,
+    )
+
+    assert solved["class_kld_bounds"] == {
+        name: {
+            "min_kld": 0.0,
+            "max_kld": 1.0 if name == "chat" else 100.0,
+        }
+        for name in CLASSES
+    }
+    assert solved["bounds_verification"] == {
+        "status": "PASS",
+        "semantics": "lower_kld_is_better; minimum quality is a max_kld ceiling",
+    }
+    assert solved["prediction_by_class"]["chat"] <= 1.0
+
+
+def test_preview_solver_accepts_explicit_min_kld_floor() -> None:
+    fixture = json.loads(FIXTURE.read_text())
+    prepared = prepare_preview_u12_options(
+        fixture["rows"],
+        basis_sha256=fixture["basis_sha256"],
+        include_tiers=["qtip2.5", "tier-b"],
+    )
+    bounds = {name: {"max_kld": 100.0} for name in CLASSES}
+    bounds["agentic"]["min_kld"] = 1.0
+
+    solved = solve_preview_u12_options(
+        prepared,
+        envelope_bytes=3,
+        class_kld_bounds=bounds,
+    )
+
+    assert solved["prediction_by_class"]["agentic"] >= 1.0
+    assert solved["class_kld_bounds"]["agentic"] == {
+        "min_kld": 1.0,
+        "max_kld": 100.0,
+    }
+
+
+def test_preview_solver_rejects_infeasible_per_class_kld_bound() -> None:
+    fixture = json.loads(FIXTURE.read_text())
+    prepared = prepare_preview_u12_options(
+        fixture["rows"],
+        basis_sha256=fixture["basis_sha256"],
+        include_tiers=["qtip2.5", "tier-b"],
+    )
+    bounds = {name: {"max_kld": 100.0} for name in CLASSES}
+    bounds["reasoning"]["max_kld"] = 0.0
+
+    with pytest.raises(ValueError, match="infeasible class_kld_bounds"):
+        solve_preview_u12_options(
+            prepared,
+            envelope_bytes=3,
+            class_kld_bounds=bounds,
+        )
