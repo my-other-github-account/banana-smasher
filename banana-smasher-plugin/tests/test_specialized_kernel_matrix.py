@@ -152,6 +152,24 @@ def test_specialization_selector_is_exact_for_decode_bm16_large_and_2k() -> None
     assert variants.specialization_for("qtip2_2.0117", "fused13", 8192)["variant"] == "prefill_large_8192"
 
 
+@pytest.mark.parametrize(
+    ("tokens", "variant"),
+    (
+        (3, "decode_c4"),
+        (5, "decode_c8"),
+        (7, "decode_c8"),
+        (9, "decode_c16"),
+        (15, "decode_c16"),
+    ),
+)
+def test_specialization_selector_uses_decode_variants_for_intermediate_scheduler_shapes(
+    tokens: int, variant: str
+) -> None:
+    variants = _load_variants()
+
+    assert variants.variant_for_tokens(tokens) == variant
+
+
 def test_product_sources_do_not_use_forbidden_generic_or_zero_offset_routes() -> None:
     native_planes = (PACKAGE / "native_planes.py").read_text()
     acceleration = (PACKAGE / "v4_acceleration.py").read_text()
