@@ -9,7 +9,9 @@ bank manifest -> materialized evaluation bank -> exact teacher/candidate produce
 It does not contain campaign orchestration, private benchmark ledgers, raw
 historical run artifacts, model weights, or logits. The generic anchor API,
 schemas, public-safe four-bank provenance bundle, and commands are documented in
-`banana-smasher/ANCHOR_EVALUATION.md`.
+`banana-smasher/ANCHOR_EVALUATION.md`. Public frozen competitive evaluation
+contracts and result tables live under [`Evals/`](Evals/); separate internal
+QTIP family-anchor calculations live under [`Backpack/`](Backpack/).
 
 ## Clone
 

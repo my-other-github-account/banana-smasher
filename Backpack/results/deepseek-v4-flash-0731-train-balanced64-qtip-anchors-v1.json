@@ -1,0 +1,203 @@
+{
+  "schema": "banana-smasher.internal-anchor-comparison.v1",
+  "comparison_id": "deepseek-v4-flash-0731-train-balanced64-uniform-qtip-anchors-v1",
+  "title": "DeepSeek-V4-Flash-0731 internal train_balanced64 uniform QTIP anchors",
+  "scope": {
+    "role": "internal solver and family-anchor evaluation",
+    "competitive_result": false,
+    "bank": "train_balanced64",
+    "windows": 64,
+    "positions_per_window": 1024,
+    "positions": 65536,
+    "class_order": [
+      "agentic",
+      "chat",
+      "code",
+      "multilingual",
+      "prose",
+      "reasoning"
+    ],
+    "class_windows": {
+      "agentic": 12,
+      "chat": 10,
+      "code": 11,
+      "multilingual": 10,
+      "prose": 10,
+      "reasoning": 11
+    },
+    "qtip2_bank_manifest_sha256": "2de62fb19539b866a3a986bbe962d383ddba0b3c9913af5ca7adacd2aa6952bc",
+    "qtip3_bank_manifest_sha256": "78a07d83774f31ffc519724f1cd626b9ece1eda3ff3eab4971d71a1a1c0a3a07",
+    "ordered_window_and_class_pairs_equal": true,
+    "competitive_balanced64_v1": {
+      "same_population": false,
+      "window_id_overlap": 0,
+      "competitive_class_windows": {
+        "agentic": 19,
+        "chat": 7,
+        "code": 9,
+        "multilingual": 10,
+        "prose": 10,
+        "reasoning": 9
+      },
+      "result_path": "Evals/results/deepseek-v4-flash-0731-balanced64-v1.json"
+    }
+  },
+  "basis": {
+    "model": "DeepSeek-V4-Flash-0731",
+    "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "fp": "FP8 own-base teacher",
+    "scorer_sha256": "53db95bcc809909d649a9f6765e5cbcac3d1da1b2ad4fe7d0efa9421a57c12c5"
+  },
+  "metrics": {
+    "kld": {
+      "direction": "KL(teacher||candidate)",
+      "lower_is_better": true
+    },
+    "top1": {
+      "definition": "teacher and candidate argmax agreement on the same scored positions",
+      "higher_is_better": true
+    }
+  },
+  "results": [
+    {
+      "candidate_id": "qtip2_genuine_all43_ff0731",
+      "display_name": "QTIP2 genuine corrected all-43",
+      "family": "QTIP2",
+      "layers": 43,
+      "identity": "uniform QTIP2 P821 K2/L16/V2 full16 128-window all 43 layers",
+      "measurement_status": "PASS",
+      "acceptance": {
+        "target_global_mean_kld_max": "0.2",
+        "outcome": "FAIL_TARGET",
+        "note": "The complete measurement exceeds the target by 0.00088080907074077."
+      },
+      "global": {
+        "mean_kld": "0.20088080907074077",
+        "top1_matches": 57124,
+        "positions": 65536,
+        "top1_rate": "0.87164306640625"
+      },
+      "by_category": {
+        "agentic": {
+          "windows": 12,
+          "positions": 12288,
+          "mean_kld": "0.26116463296024256",
+          "top1_matches": 10670,
+          "top1_rate": "0.8683268229166666"
+        },
+        "chat": {
+          "windows": 10,
+          "positions": 10240,
+          "mean_kld": "0.07059443210562813",
+          "top1_matches": 9290,
+          "top1_rate": "0.9072265625"
+        },
+        "code": {
+          "windows": 11,
+          "positions": 11264,
+          "mean_kld": "0.1278824905213041",
+          "top1_matches": 10266,
+          "top1_rate": "0.9113991477272727"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "mean_kld": "0.423045817064655",
+          "top1_matches": 8189,
+          "top1_rate": "0.79970703125"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "mean_kld": "0.3008114294217323",
+          "top1_matches": 8186,
+          "top1_rate": "0.7994140625"
+        },
+        "reasoning": {
+          "windows": 11,
+          "positions": 11264,
+          "mean_kld": "0.03374290939545452",
+          "top1_matches": 10523,
+          "top1_rate": "0.9342151988636364"
+        }
+      },
+      "identity_bindings": {
+        "candidate_sha256": "c9e3ad7f02e438f935f6e6714d608bd1a677548156bf503aaa0805a80bed81c2",
+        "teacher_sha256": "a3144885f78ead45dd121ae733652a3e2df61b62d159621502ccd43d497335d1",
+        "raw_score_sha256": "dc608311d16f883b0a18c1ccc1faed2a1e3d74cb75b6f1306e626a137e459361",
+        "aggregate_sha256": "f386f9e19e9a7a1c2b203b506f87d60cdb33ec62b3fb887f9369e0971be143cf",
+        "top1_receipt_sha256": "9b5c684b69583c0a43e7fd3c30340c5358edc31f21b309e0c4cfe56591ddcfdd",
+        "immutable_handoff_sha256": "3f324dd85f540ed9301d31f631a098e4b65424a5bd10083fbc90205bc19a618a"
+      }
+    },
+    {
+      "candidate_id": "qtip3_uniform_exact0731",
+      "display_name": "QTIP3 uniform exact",
+      "family": "QTIP3",
+      "layers": 43,
+      "measurement_status": "PASS_INTERNAL_ANCHOR",
+      "global": {
+        "mean_kld": "0.047175884822847125",
+        "top1_matches": 59796,
+        "positions": 65536,
+        "top1_rate": "0.91241455078125"
+      },
+      "by_category": {
+        "agentic": {
+          "windows": 12,
+          "positions": 12288,
+          "mean_kld": "0.06856082258666941",
+          "top1_matches": 11146,
+          "top1_rate": "0.9070638020833334"
+        },
+        "chat": {
+          "windows": 10,
+          "positions": 10240,
+          "mean_kld": "0.016910390892254247",
+          "top1_matches": 9593,
+          "top1_rate": "0.93681640625"
+        },
+        "code": {
+          "windows": 11,
+          "positions": 11264,
+          "mean_kld": "0.030649311925740972",
+          "top1_matches": 10578,
+          "top1_rate": "0.9390980113636364"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "mean_kld": "0.0898051557328945",
+          "top1_matches": 8917,
+          "top1_rate": "0.87080078125"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "mean_kld": "0.07053989790676105",
+          "top1_matches": 8814,
+          "top1_rate": "0.8607421875"
+        },
+        "reasoning": {
+          "windows": 11,
+          "positions": 11264,
+          "mean_kld": "0.00789362555635767",
+          "top1_matches": 10748,
+          "top1_rate": "0.9541903409090909"
+        }
+      },
+      "identity_bindings": {
+        "candidate_sha256": "61e98bb93277d6642f469dc5927f15a7169271c45ee0289afb67d5197e8c3bcf",
+        "candidate_producer_sha256": "9a63e70aa537b2e0d5140bb2fc9b4e956bf55694b001b3c532f3ac049d4d8add",
+        "raw_score_sha256": "2d35c5a836c821822bd282ad7a79d936261b37cf50584bdaec2256d4470b7ac9",
+        "aggregate_sha256": "ee0a3b4c70e98e04daceebe14d82836ad2dc852e8b5581fc6374ce9765be031d",
+        "top1_receipt_sha256": "aefd74f76ddb73fe53f814b2343ab3caad47f314d0b45dbc6f279bcc125705b3"
+      }
+    }
+  ],
+  "verification_scope": {
+    "publicly_verifiable": "JSON structure, category/global Top-1 arithmetic, exact basis and protected-receipt hash syntax, and the explicit separation from competitive BALANCED64_V1.",
+    "not_publicly_authenticated": "Protected source-receipt contents and historical KLD values; hashes identify but do not distribute those sources.",
+    "full_gpu_replay": "Blocked because the internal bank payloads, teacher payloads, candidate payloads, and historical execution environment are not distributed by this repository."
+  }
+}

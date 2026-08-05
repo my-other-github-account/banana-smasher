@@ -7,7 +7,7 @@ from typing import Any
 
 import torch
 
-BRANCHES = 8
+BRANCHES = 16
 PREFIXES = 4096
 STEPS = 128
 

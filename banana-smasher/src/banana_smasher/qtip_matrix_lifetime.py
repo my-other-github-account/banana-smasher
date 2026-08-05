@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 import types
-from typing import Any
+from typing import Any, cast
 
 import torch
 
@@ -70,6 +70,47 @@ def _codebook_geometry(cb: Any) -> dict[str, Any]:
         "decode_mode": str(getattr(cb, "decode_mode", "quantlut_sym")),
         "td_x": int(getattr(cb, "td_x", 16)),
         "td_y": int(getattr(cb, "td_y", 16)),
+    }
+
+
+def _decode_packed_candidate(
+    runner: Any,
+    candidate: dict[str, Any],
+    cb: Any,
+    kernel_decode: Any,
+    device: torch.device,
+) -> tuple[torch.Tensor, dict[str, Any]]:
+    """Use the codebook-bound K2 decoder instead of an inherited K3 validator."""
+    geometry = candidate["geometry"]
+    if int(geometry["K"]) != 2:
+        return runner.decode_packed(candidate, kernel_decode, device)
+    m, k = (int(candidate["shape"][0]), int(candidate["shape"][1]))
+    raw = kernel_decode.decode_compressed(
+        int(geometry["L"]),
+        int(geometry["tlut_bits"]),
+        int(geometry["K"]),
+        1,
+        m,
+        k,
+        candidate["trellis"].to(device).reshape(-1),
+        cb.lut.T.contiguous(),
+    )
+    decoded = raw * candidate["Wscale"].to(device)
+    decoded = runner.fwht(decoded.T).T * candidate["SV"].float().to(device)[:, None]
+    decoded = runner.fwht(decoded) * candidate["SU"].float().to(device)
+    stored = candidate["reconstructed_weight"]
+    decoded_fp16 = decoded.half().cpu()
+    equal = decoded_fp16.view(torch.int16).eq(stored.view(torch.int16))
+    return decoded, {
+        "path": "geometry-bound K2 tensor decompressor",
+        "shape": [m, k],
+        "geometry": geometry,
+        "geometry_bound_k": 2,
+        "fp16_bit_equal_fraction": float(equal.float().mean()),
+        "fp16_bit_exact": bool(equal.all()),
+        "max_abs_fp32_vs_stored_fp16": float(
+            (decoded - stored.to(device).float()).abs().max()
+        ),
     }
 
 
@@ -151,7 +192,27 @@ def build_qtip_bounded(
         lifetime.observe("ldlq_ready", quantized=quantized)
 
         started = time.perf_counter()
-        packed, pack_conformance = runner.pack_kernel_layout(cb, states, m, k)
+        pack = getattr(runner, "pack_kernel_layout", None)
+        if callable(pack):
+            packed, pack_conformance = cast(Any, pack)(cb, states, m, k)
+        else:
+            rate = getattr(runner, "_rate", None)
+            pack_batch = getattr(rate, "pack_kernel_layout_batch", None)
+            if not callable(pack_batch):
+                raise RuntimeError("QTIP runner lacks a canonical pack path")
+            packed_batch, pack_receipts = cast(Any, pack_batch)(
+                cb, states.unsqueeze(0), m, k
+            )
+            if (
+                not isinstance(packed_batch, torch.Tensor)
+                or packed_batch.shape[0] != 1
+                or not isinstance(pack_receipts, list)
+                or len(pack_receipts) != 1
+                or not isinstance(pack_receipts[0], dict)
+            ):
+                raise RuntimeError("QTIP runner canonical batch pack result is invalid")
+            packed = packed_batch[0]
+            pack_conformance = pack_receipts[0]
         del states
         if pack_conformance.get("canonical_pack_roundtrip_exact") is not True:
             raise RuntimeError("canonical pack roundtrip is not exact")
@@ -185,7 +246,9 @@ def build_qtip_bounded(
         "geometry": geometry,
     }
     packed_decode_started = time.perf_counter()
-    decoded, packed_decode = runner.decode_packed(candidate, kernel_decode, device)
+    decoded, packed_decode = _decode_packed_candidate(
+        runner, candidate, cb, kernel_decode, device
+    )
     if packed_decode.get("fp16_bit_exact") is not True:
         raise RuntimeError(f"packed decode conformance failed {m}x{k}: {packed_decode}")
     decoded_fp16 = decoded.to(device="cpu", dtype=torch.float16)
