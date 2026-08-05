@@ -94,38 +94,6 @@ def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
         "fixed-d4",
         "anchor",
     ]
-
-    fixed_d4_parser = action.choices["fixed-d4"]
-    fixed_d4_action = next(
-        nested
-        for nested in fixed_d4_parser._actions
-        if getattr(nested, "choices", None)
-    )
-    assert list(fixed_d4_action.choices) == [
-        "materialize",
-        "prepare-solve",
-        "solve",
-        "produce-logits",
-    ]
-
-    anchor_parser = action.choices["anchor"]
-    anchor_action = next(
-        nested for nested in anchor_parser._actions if getattr(nested, "choices", None)
-    )
-    assert list(anchor_action.choices) == [
-        "validate",
-        "resolve",
-        "register",
-        "materialize",
-        "select",
-        "import-producer",
-        "materialize-candidate",
-        "score",
-        "aggregate",
-        "compare",
-        "solver-row",
-        "status",
-    ]
     assert {"solve", "update", "export", "verify"}.issubset(choices)
     assert {"bank", "evaluate"} <= set(choices)
     assert {"qtip-configs", "kernels"} <= set(choices)

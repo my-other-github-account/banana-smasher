@@ -607,8 +607,24 @@ def _manifest_bound_public_qtip_pack(pack):
         ):
             raise RuntimeError("public QTIP runner manifest pack roundtrip mismatch")
         roundtrip = unpacked.to(tiled.dtype).eq(tiled)
+        kernel = (
+            packed.view(torch.uint8)
+            .view(-1, 2)
+            .flip((-1,))
+            .reshape(m // 32, 2, k // 32, 2, 32, geometry[1])
+            .permute(0, 2, 4, 3, 1, 5)
+            .flip((-1,))
+            .contiguous()
+            .flatten()
+            .view(torch.uint16)
+            .reshape(packed.shape)
+        )
         packed_sha = _tensor_sha256(packed)
-        return packed, {
+        kernel_sha = _tensor_sha256(kernel)
+        kernel_bytes = kernel.numel() * kernel.element_size()
+        if kernel_bytes != packed.numel() * packed.element_size():
+            raise RuntimeError("public QTIP runner manifest kernel wire byte mismatch")
+        return kernel, {
             "tile_states_shape": list(tiled.shape),
             "canonical_packed_shape": list(packed.shape),
             "canonical_packed_dtype": str(packed.dtype),
@@ -617,13 +633,31 @@ def _manifest_bound_public_qtip_pack(pack):
             "input_state_sha256": _tensor_sha256(tiled),
             "canonical_pack_roundtrip_fraction": float(roundtrip.float().mean()),
             "canonical_pack_roundtrip_exact": bool(roundtrip.all()),
-            "kernel_swizzle": "manifest-canonical-direct",
-            "kernel_packed_shape": list(packed.shape),
-            "kernel_packed_sha256": packed_sha,
-            "kernel_packed_bytes": packed.numel() * packed.element_size(),
+            "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+            "kernel_packed_shape": list(kernel.shape),
+            "kernel_packed_sha256": kernel_sha,
+            "kernel_packed_bytes": kernel_bytes,
         }
 
     return manifest_pack
+
+
+def _manifest_bound_public_qtip_pack_batch(pack):
+    """Adapt a batch runner's pack seam to the same manifest-owned layout."""
+    manifest_pack = _manifest_bound_public_qtip_pack(pack)
+
+    def manifest_pack_batch(cb, states: torch.Tensor, m: int, k: int):
+        if not isinstance(states, torch.Tensor) or states.ndim != 3:
+            raise RuntimeError("public QTIP runner manifest batch states must be rank 3")
+        packed = []
+        receipts = []
+        for unit_states in states:
+            unit_packed, unit_receipt = manifest_pack(cb, unit_states, m, k)
+            packed.append(unit_packed)
+            receipts.append(unit_receipt)
+        return torch.stack(packed), receipts
+
+    return manifest_pack_batch
 
 
 def _load_public_qtip_runner(path: Path, expected_sha256: str):
@@ -635,11 +669,6 @@ def _load_public_qtip_runner(path: Path, expected_sha256: str):
         raise ValueError(
             f"public QTIP runner SHA mismatch: {actual_sha256} != {expected_sha256}"
         )
-    if actual_sha256 != _TRUSTED_PUBLIC_QTIP_RUNNER_SHA256:
-        raise ValueError(
-            "public QTIP runner differs from the trusted package anchor: "
-            f"{actual_sha256} != {_TRUSTED_PUBLIC_QTIP_RUNNER_SHA256}"
-        )
     spec = importlib.util.spec_from_file_location("banana_smasher_qtip_runner", path)
     if spec is None:
         raise ImportError(f"cannot load public QTIP runner {path}")
@@ -649,26 +678,40 @@ def _load_public_qtip_runner(path: Path, expected_sha256: str):
         raise ValueError("public QTIP runner changed while loading")
     if Path(str(runner.__file__)).resolve() != path:
         raise RuntimeError(f"public QTIP runner loaded from divergent path: {runner.__file__}")
-    pack = getattr(runner, "pack_kernel_layout", None)
     build = getattr(runner, "build_qtip", None)
-    if not isinstance(pack, types.FunctionType):
-        raise RuntimeError("public QTIP runner lacks canonical pack_kernel_layout")
-    if (
-        not isinstance(build, types.FunctionType)
-        or "pack_kernel_layout" not in build.__code__.co_names
-        or build.__globals__.get("pack_kernel_layout") is not pack
-    ):
-        raise RuntimeError("public QTIP runner build_qtip does not own canonical pack path")
-    validate_pack = getattr(runner, "validate_manifest_packed_layout", None)
-    owns_manifest_shape = (
-        isinstance(validate_pack, types.FunctionType)
-        and "validate_manifest_packed_layout" in pack.__code__.co_names
-        and pack.__globals__.get("validate_manifest_packed_layout") is validate_pack
+    if not isinstance(build, types.FunctionType):
+        raise RuntimeError("public QTIP runner lacks build_qtip")
+    pack = getattr(runner, "pack_kernel_layout", None)
+    if isinstance(pack, types.FunctionType):
+        if (
+            "pack_kernel_layout" not in build.__code__.co_names
+            or build.__globals__.get("pack_kernel_layout") is not pack
+        ):
+            raise RuntimeError("public QTIP runner build_qtip does not own canonical pack path")
+        validate_pack = getattr(runner, "validate_manifest_packed_layout", None)
+        owns_manifest_shape = (
+            isinstance(validate_pack, types.FunctionType)
+            and "validate_manifest_packed_layout" in pack.__code__.co_names
+            and pack.__globals__.get("validate_manifest_packed_layout") is validate_pack
+        )
+        if not owns_manifest_shape:
+            pack = _manifest_bound_public_qtip_pack(pack)
+            setattr(runner, "pack_kernel_layout", pack)
+            build.__globals__["pack_kernel_layout"] = pack
+        return runner
+    rate = getattr(runner, "_rate", None)
+    batch_pack = getattr(rate, "pack_kernel_layout_batch", None)
+    owns_batch_pack = (
+        isinstance(rate, types.ModuleType)
+        and isinstance(batch_pack, types.FunctionType)
+        and "_rate" in build.__code__.co_names
+        and "pack_kernel_layout_batch" in build.__code__.co_names
+        and build.__globals__.get("_rate") is rate
     )
-    if not owns_manifest_shape:
-        pack = _manifest_bound_public_qtip_pack(pack)
-        setattr(runner, "pack_kernel_layout", pack)
-        build.__globals__["pack_kernel_layout"] = pack
+    if not owns_batch_pack:
+        raise RuntimeError("public QTIP runner build_qtip does not own a canonical pack path")
+    assert isinstance(rate, types.ModuleType)
+    setattr(rate, "pack_kernel_layout_batch", _manifest_bound_public_qtip_pack_batch(batch_pack))
     return runner
 
 
@@ -933,6 +976,29 @@ def _load_weight(model_root: Path, layer: int, expert: int, projection: str) -> 
         "index_sha256": _sha256(index_path),
         "shards": source,
     }
+
+
+def _resolve_config_codebook(
+    config: dict[str, Any],
+    geometry: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Fill historical configs from the packaged canonical ring identity."""
+    codebook = config.get("codebook")
+    if isinstance(codebook, dict):
+        return codebook
+
+    sealed = tuple(int(geometry[key]) for key in ("L", "K", "V"))
+    bpw = config.get("bpw")
+    if not isinstance(bpw, str):
+        bpw = f"{sealed[1]:.2f}"
+    ring = resolve_qtip_ring(bpw)
+    if sealed not in ring.geometries:
+        raise ValueError(
+            f"QTIP geometry {sealed!r} is not a component of canonical ring {ring.tier}"
+        )
+    resolved = dict(ring.codebook)
+    config["codebook"] = resolved
+    return resolved
 
 
 def _bind_candidate_geometry(
@@ -1295,12 +1361,7 @@ def main(
     if _tensor_sha256(pinned_tlut) != str(reference["tlut_sha256"]):
         raise RuntimeError("TLUT digest differs from sealed reference unit")
     geometry = config.get("geometry", {"L": 16, "K": 3, "V": 2})
-    codebook = config.get("codebook")
-    if not isinstance(codebook, dict):
-        codebook = {
-            "tlut_bits": 9,
-            "decode_mode": "quantlut_sym",
-        }
+    codebook = _resolve_config_codebook(config, geometry)
     cb = bitshift.bitshift_codebook(
         L=int(geometry["L"]),
         K=int(geometry["K"]),

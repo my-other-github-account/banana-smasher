@@ -104,6 +104,101 @@ def test_bounded_builder_releases_ldl_inputs_before_pack_and_preserves_weight() 
     assert receipt["phase_seconds"]["packed_decode_conformance"] >= 0.0
 
 
+def test_bounded_builder_uses_manifest_bound_batch_pack_when_top_level_is_absent() -> None:
+    runner = _Runner()
+    setattr(runner, "pack_kernel_layout", None)
+    batch_calls = []
+
+    def pack_kernel_layout_batch(cb, states, m, k):
+        del cb, m, k
+        gc.collect()
+        assert runner.ldl_inputs is not None
+        runner.pack_observed_released = all(ref() is None for ref in runner.ldl_inputs)
+        batch_calls.append(tuple(states.shape))
+        return states.to(torch.uint16), [
+            {
+                "canonical_pack_roundtrip_exact": True,
+                "canonical_packed_sha256": "test-batch-wire",
+            }
+        ]
+
+    setattr(
+        runner,
+        "_rate",
+        SimpleNamespace(pack_kernel_layout_batch=pack_kernel_layout_batch),
+    )
+    candidate, receipt = build_qtip_bounded(
+        runner,
+        torch.eye(8, dtype=torch.float32),
+        ["fit"],
+        _Codebook(),
+        _LDLQ(runner),
+        _Math(),
+        kernel_decode=None,
+        device=torch.device("cpu"),
+        rht_seed=19,
+    )
+
+    assert batch_calls == [(1, 8, 4)]
+    assert runner.pack_observed_released is True
+    assert candidate["trellis"].shape == (8, 4)
+    assert receipt["canonical_pack"]["canonical_packed_sha256"] == "test-batch-wire"
+
+
+def test_bounded_builder_decodes_k2_with_the_geometry_bound_kernel_path() -> None:
+    runner = _Runner()
+    quantized_for_decode = None
+
+    class K2Codebook(_Codebook):
+        L = 16
+        K = 2
+        V = 2
+        tlut_bits = 9
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.lut = self.lut.reshape(1, 2)
+
+    class CapturingLDLQ(_LDLQ):
+        def LDLQ(self, *args, **kwargs):
+            nonlocal quantized_for_decode
+            quantized, states = super().LDLQ(*args, **kwargs)
+            quantized_for_decode = quantized.clone()
+            return quantized, states
+
+    class KernelDecode:
+        calls = []
+
+        def decode_compressed(self, L, S, R, V, m, k, packed, expanded_lut):
+            self.calls.append((L, S, R, V, m, k, tuple(packed.shape)))
+            assert torch.equal(expanded_lut, K2Codebook().lut.T.contiguous())
+            assert quantized_for_decode is not None
+            return quantized_for_decode.clone()
+
+    def reject_k3_parent_decode(*_args, **_kwargs):
+        raise AssertionError("K2 bounded build must not use the inherited K3 decoder")
+
+    runner.decode_packed = reject_k3_parent_decode
+    kernel_decode = KernelDecode()
+    candidate, receipt = build_qtip_bounded(
+        runner,
+        torch.eye(8, dtype=torch.float32),
+        ["fit"],
+        K2Codebook(),
+        CapturingLDLQ(runner),
+        _Math(),
+        kernel_decode=kernel_decode,
+        device=torch.device("cpu"),
+        rht_seed=23,
+    )
+
+    assert kernel_decode.calls == [(16, 9, 2, 1, 8, 8, (32,))]
+    assert torch.equal(candidate["reconstructed_weight"], torch.eye(8).half())
+    assert receipt["packed_decode"]["geometry_bound_k"] == 2
+    assert receipt["packed_decode"]["runtime_check_performed"] is True
+    assert receipt["packed_decode"]["fp16_bit_exact"] is True
+
+
 def test_bounded_builder_rejects_non_exact_canonical_pack_roundtrip() -> None:
     class NonExactRunner(_Runner):
         def pack_kernel_layout(self, cb, states, m, k):

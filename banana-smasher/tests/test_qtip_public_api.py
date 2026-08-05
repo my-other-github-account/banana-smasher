@@ -37,6 +37,100 @@ def test_qtip_extension_builder_declares_runtime_setuptools_dependency() -> None
     assert '"setuptools==' in metadata
 
 
+def test_public_qtip_runner_trusts_manifest_sha_not_package_anchor(tmp_path: Path) -> None:
+    from hashlib import sha256
+
+    from banana_smasher.solver_qtip_profile import _load_public_qtip_runner
+
+    runner_path = tmp_path / "qtip2_adapter.py"
+    runner_path.write_text(
+        """from types import ModuleType
+
+
+def _legacy_pack(cb, states, m, n):
+    return states, []
+
+
+_rate = ModuleType("qtip2_rate")
+_rate.pack_kernel_layout_batch = _legacy_pack
+
+
+def build_qtip(cb, states, m, n):
+    return _rate.pack_kernel_layout_batch(cb, states, m, n)
+"""
+    )
+    runner_sha = sha256(runner_path.read_bytes()).hexdigest()
+
+    runner = _load_public_qtip_runner(runner_path, runner_sha)
+    assert runner.__file__ is not None
+    assert Path(runner.__file__).resolve() == runner_path.resolve()
+    assert runner._rate.pack_kernel_layout_batch is not runner._legacy_pack
+
+    with pytest.raises(ValueError, match="public QTIP runner SHA mismatch"):
+        _load_public_qtip_runner(runner_path, "0" * 64)
+
+
+def test_manifest_bound_batch_pack_emits_the_production_decoder_wire() -> None:
+    torch = pytest.importorskip("torch")
+    from banana_smasher.qtip_runner import pack_kernel_layout
+    from banana_smasher.solver_qtip_profile import _manifest_bound_public_qtip_pack_batch
+
+    m = k = 32
+    codebook_k = 2
+    states = torch.arange(m * k // 2, dtype=torch.int32).reshape(m, k // 2)
+    canonical = torch.arange(
+        (m // 16) * (k // 16) * 16 * codebook_k,
+        dtype=torch.int32,
+    ).to(torch.uint16).reshape((m // 16) * (k // 16), 16 * codebook_k)
+
+    class Codebook:
+        L = 16
+        K = codebook_k
+        V = 2
+        _banana_smasher_public_runner_pack_contract = {
+            "schema": "banana-smasher-public-runner-pack-contract-v1",
+            "geometry": (16, codebook_k, 2),
+            "matrix_shape": (m, k),
+            "input_tile": (16, 16),
+            "dtype": "uint16",
+            "packed_words_per_tile_per_k": 16,
+            "output_rows": "input_tile_grid",
+            "expected_shape": tuple(canonical.shape),
+        }
+
+        def pack_trellis(self, tiled):
+            self.tiled = tiled
+            return canonical.clone()
+
+        def unpack_trellis(self, packed, tile_size):
+            assert torch.equal(packed, canonical)
+            assert tile_size == 256
+            return self.tiled.clone()
+
+    codebook = Codebook()
+    expected_wire, expected_receipt = pack_kernel_layout(codebook, states, m, k)
+    pack_batch = _manifest_bound_public_qtip_pack_batch(lambda *_args: None)
+    packed_batch, receipts = pack_batch(codebook, states.unsqueeze(0), m, k)
+
+    assert torch.equal(packed_batch[0], expected_wire)
+    assert receipts[0]["canonical_packed_sha256"] == expected_receipt["canonical_packed_sha256"]
+    assert receipts[0]["kernel_packed_sha256"] == expected_receipt["kernel_packed_sha256"]
+    assert receipts[0]["kernel_swizzle"] == expected_receipt["kernel_swizzle"]
+    assert receipts[0]["canonical_pack_roundtrip_exact"] is True
+
+
+def test_historical_qtip_config_uses_canonical_ring_codebook() -> None:
+    from banana_smasher.qtip_rings import resolve_qtip_ring
+    from banana_smasher.solver_qtip_profile import _resolve_config_codebook
+
+    config = {"geometry": {"L": 16, "K": 2, "V": 2}}
+    codebook = _resolve_config_codebook(config, config["geometry"])
+
+    assert codebook == dict(resolve_qtip_ring("2.00").codebook)
+    assert config["codebook"] == codebook
+    assert codebook["pack_contract"]["dtype"] == "uint16"
+
+
 def test_qtip_accelerator_entrypoint_fails_explicitly_without_triton() -> None:
     completed = subprocess.run(
         [
