@@ -47,8 +47,14 @@ def _rows() -> dict[tuple[str, str, str], dict[str, Any]]:
 def variant_for_tokens(tokens: int) -> str:
     if not isinstance(tokens, int) or tokens <= 0 or tokens > 8192:
         raise ValueError(f"tokens must be in [1, 8192], got {tokens!r}")
-    if tokens in DECODE_VARIANTS:
+    if tokens <= 2:
         return DECODE_VARIANTS[tokens]
+    if tokens <= 4:
+        return "decode_c4"
+    if tokens <= 8:
+        return "decode_c8"
+    if tokens <= 16:
+        return "decode_c16"
     if tokens == 8192:
         return "prefill_large_8192"
     if tokens == 2048:
