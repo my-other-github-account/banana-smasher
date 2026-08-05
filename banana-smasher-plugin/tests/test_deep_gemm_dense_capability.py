@@ -4,6 +4,7 @@ import sys
 from types import ModuleType, SimpleNamespace
 
 import pytest
+import torch
 
 import banana_smasher_plugin
 
@@ -82,3 +83,44 @@ def test_pre_sm12x_preserves_stock_dense_deepgemm_support(
     assert warmup._fp8_linear_may_use_deep_gemm is predicate
     assert utils.is_deep_gemm_supported() is True
     assert warmup._fp8_linear_may_use_deep_gemm(object()) is True
+
+
+def test_sm12x_deepgemm_warmup_initializes_power_of_two_scales(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    platforms = ModuleType("vllm.platforms")
+    platforms.current_platform = SimpleNamespace(
+        get_device_capability=lambda: SimpleNamespace(major=12, minor=1)
+    )
+    warmup = ModuleType("vllm.model_executor.warmup.deep_gemm_warmup")
+    calls: list[torch.Tensor] = []
+
+    def stock_warmup(*args, **kwargs):
+        raise AssertionError("stock warmup leaves activation scales uninitialized")
+
+    def fp8_gemm_nt(activation, _weight, _out):
+        calls.append(activation[1].clone())
+
+    warmup._deepgemm_fp8_gemm_nt_warmup = stock_warmup
+    warmup.FP8_GEMM_NT_WARMUP_CACHE = set()
+    warmup.get_mk_alignment_for_contiguous_layout = lambda: (128, 128)
+    warmup._get_fp8_gemm_nt_m_values = lambda _weight, _max_tokens: (1, 2)
+    warmup.fp8_gemm_nt = fp8_gemm_nt
+    monkeypatch.setitem(sys.modules, "vllm.platforms", platforms)
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.model_executor.warmup.deep_gemm_warmup",
+        warmup,
+    )
+
+    assert banana_smasher_plugin.configure_stock_deep_gemm_warmup() is True
+    weight = torch.zeros((128, 256), dtype=torch.float8_e4m3fn)
+    weight_scales = torch.ones((1, 1), dtype=torch.float32)
+    warmup._deepgemm_fp8_gemm_nt_warmup(
+        weight,
+        weight_scales,
+        max_tokens=2,
+    )
+
+    assert len(calls) == 2
+    assert all(torch.equal(scales, torch.ones_like(scales)) for scales in calls)
