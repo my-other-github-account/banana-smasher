@@ -1,98 +1,57 @@
 # DeepSeek-V4-Flash-0731 quant results
 
-This page compares quality and size for four 0731 quants. Exact receipts and the
-full protocol are linked below the readable summary.
+This page compares quality and exact whole-model shipping size for six quants measured on the frozen competitive `BALANCED64_V1` population.
 
 ## Results
 
-Every model below ran the same 64 windows and 65,536 scored positions against the
-same FP8 copy of DeepSeek-V4-Flash-0731.
+Every model below ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. The table is ordered by Top-1 agreement; both global metrics produce the same ranking.
 
-| Quant | Top-1 ↑ | KLD ↓ | Size | bpw | FP |
+| Quant | Top-1 ↑ | KLD ↓ | Exact decimal GB | Normalized packed-wire bpw | FP basis |
 |---|---:|---:|---:|---:|---|
-| **Unsloth IQ4** | **92.44%** | **0.068** | 136.7 GB | 3.85 | FP8 e4m3 own-base |
-| **Unsloth IQ3** | **87.95%** | **0.178** | 104.2 GB | 2.93 | FP8 e4m3 own-base |
-| **Unsloth IQ2** | **84.57%** | **0.277** | 90.9 GB | 2.56 | FP8 e4m3 own-base |
-| **DwarfStar Q2** | **83.69%** | **0.310** | 93.7 GB | 2.64 | FP8 e4m3 own-base |
+| **Unsloth IQ4** | **92.4438%** (60,584/65,536) | **0.0683488486737012** | 136.662446656 | 3.84511662728346850440505038646609313779223476049666531535789 | FP8 e4m3 dynamic own-base |
+| **QTIP3 uniform exact** | **91.6809%** (60,084/65,536) | **0.11022678823825564** | 123.934682354 | 3.48700992465027274894687927721480550531597653683639523743380 | FP8 e4m3 dynamic own-base |
+| **Unsloth IQ3** | **87.9486%** (57,638/65,536) | **0.17770788160865483** | 104.207848032 | 2.93197830834883710932601535266166267708804597088615155566779 | FP8 e4m3 dynamic own-base |
+| **QTIP2 corrected all-43** | **87.1124%** (57,090/65,536) | **0.24085164613260832** | 89.296314458 | 2.5124293606557819496666946714231865550935692962972950439475838776323831162246700 | FP8 e4m3 dynamic own-base |
+| **Unsloth IQ2** | **84.5673%** (55,422/65,536) | **0.2767474104898907** | 90.860736928 | 2.55644574554192780938968595190844480957809362062402409152428 | FP8 e4m3 dynamic own-base |
+| **DwarfStar Q2** | **83.6868%** (54,845/65,536) | **0.30952134732070036** | 93.691352992 | 2.63608758687774759058919129311816402968907463449170730541087 | FP8 e4m3 dynamic own-base |
 
-IQ4 keeps the most quality. IQ3 is the middle option. IQ2 is the strongest
-compact result here: it is smaller than DwarfStar and scores better on both
-quality metrics.
+Top-1 is how often the quant selects the same next token as FP8 on the common ordered support. KLD measures movement of the full supported token distribution. Higher Top-1 and lower KLD are better.
 
-Top-1 is the easiest number to read: it is how often the quant picks the same
-next token as FP8. Higher is better. KLD measures how much the full token
-probability distribution moved; lower is better.
-
-The table is rounded for humans. The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json)
-contains the exact bytes, ratios, KLD values, Top-1 matches, and full decimals.
-All four measurements are complete. Artifact download metadata in the JSON is
-about future replay, not measurement completeness.
+The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, candidate/teacher/scorer/population identities, component-byte ledgers, source hashes, replay limits, and the six-category QTIP breakdowns.
 
 ## What makes these apples to apples
 
 - Same model family: DeepSeek-V4-Flash-0731
-- Same 64 ordered windows
-- Same 1,024 positions per window, 65,536 total
-- Same FP8 e4m3 own-base teacher
+- Same 64 ordered windows and 65,536 total positions
+- Same FP8 e4m3 dynamic own-base teacher
 - Same teacher top-8,192 token support
 - Same KLD and Top-1 definitions
 - Same packed-wire denominator: 284,334,567,511 parameters
+- Same corrected class mix: agentic/chat/code/multilingual/prose/reasoning = `19/7/9/10/10/9`
 
-The class mix is agentic/chat/code/multilingual/prose/reasoning =
-`19/7/9/10/10/9`.
+No partial run, different window bank, fallback output, or HOLDOUT result is admitted to this ranking.
 
-## Adding Banana Smasher
+## QTIP category breakdowns
 
-There is no Banana Smasher row yet. We will add it when the final pack exists and
-has passed this exact test. Internal `train_balanced64` Anchor scores do not count
-because they use different windows.
+These category rows are integer-derived from the exact 64-window competitive aggregates. KLD is the position-weighted class mean.
 
-The admission steps are:
+### Top-1 agreement
 
-1. Freeze the final candidate and count every byte shipped with it.
-2. Run the exact 64 windows from the [BALANCED64 lock](configs/balanced64-v1.json).
-3. Score the candidate against the FP8 own-base teacher on the same 65,536 positions.
-4. Save all 64 per-window receipts and aggregate them with the repository tool.
-5. Add the row only when Top-1, KLD, GB, packed-wire bpw, FP, and all 64 receipts are complete.
-
-No partial run, different window bank, fallback output, or HOLDOUT result can be
-substituted into this table.
-
-### Internal uniform QTIP Anchor64 results
-
-The two uniform QTIP families moving forward also have complete internal
-`train_balanced64` Anchor64 measurements. They share the same 64 ordered
-`(window_id, category)` pairs and the same exact FF0731 basis.
-
-These are **not competitive `BALANCED64_V1` rows**: the internal bank has 0/64
-window-ID overlap with the competitive bank. Use these numbers for QTIP family
-and solver decisions only.
-
-| Uniform anchor | Top-1 ↑ | KLD ↓ | FP |
-|---|---:|---:|---|
-| **QTIP2 genuine corrected all-43** | **87.16%** | **0.201** | FP8 own-base |
-| **QTIP3 uniform exact** | **91.24%** | **0.047** | FP8 own-base |
-
-The internal class mix is agentic/chat/code/multilingual/prose/reasoning =
-`12/10/11/10/10/11`.
-
-#### Top-1 agreement by internal category
-
-| Uniform anchor | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
+| Quant | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
 |---|---:|---:|---:|---:|---:|---:|
-| **QTIP2 all-43** | 86.83% | 90.72% | 91.14% | 79.97% | 79.94% | 93.42% |
-| **QTIP3 exact** | 90.71% | 93.68% | 93.91% | 87.08% | 86.07% | 95.42% |
+| **QTIP3 exact** | 17,851/19,456 | 6,836/7,168 | 8,694/9,216 | 8,957/10,240 | 8,856/10,240 | 8,890/9,216 |
+| **QTIP2 all-43** | 17,079/19,456 | 6,567/7,168 | 8,413/9,216 | 8,203/10,240 | 8,091/10,240 | 8,737/9,216 |
 
-#### KLD by internal category
+### KLD
 
-| Uniform anchor | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
+| Quant | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
 |---|---:|---:|---:|---:|---:|---:|
-| **QTIP2 all-43** | 0.261 | 0.071 | 0.128 | 0.423 | 0.301 | 0.034 |
-| **QTIP3 exact** | 0.069 | 0.017 | 0.031 | 0.090 | 0.071 | 0.008 |
+| **QTIP3 exact** | 0.1512717756540011 | 0.028451901956179047 | 0.052788578425696814 | 0.17923190734039318 | 0.15630093475208257 | 0.016751307708117558 |
+| **QTIP2 all-43** | 0.2895987644328912 | 0.06834523870039978 | 0.12232676385912493 | 0.44767736691985716 | 0.3548677734881941 | 0.03414665317184049 |
 
-The [machine-readable internal-anchor result](results/deepseek-v4-flash-0731-train-balanced64-qtip-anchors-v1.json)
-contains full-precision global and category KLD, exact Top-1 numerators and
-denominators, candidate/source hashes, and the population-separation statement.
+## Internal anchors are separate
+
+The internal `train_balanced64` QTIP anchors use a different population with **0/64 competitive window-ID overlap**. They are not rows in the table above. Their exact calculations and machine result now live on the [Backpack calculation page](../Backpack/README.md).
 
 ## Check the published result
 
@@ -107,7 +66,7 @@ python3 -m Evals.tools.receipts verify \
 Expected order for both metrics:
 
 ```text
-IQ4 > IQ3 > IQ2 > DwarfStar
+IQ4 > QTIP3 > IQ3 > QTIP2 > IQ2 > DwarfStar
 ```
 
 ## Aggregate a new 64-window result
@@ -120,19 +79,14 @@ python3 -m Evals.tools.receipts aggregate work/balanced64-windows \
   --output work/balanced64-aggregate.json
 ```
 
-The aggregator rejects missing or duplicate windows, changed classes, wrong
-position counts, negative or non-finite KLD, basis drift, and invalid Top-1
-counts.
+The aggregator rejects missing or duplicate windows, changed classes, wrong position counts, negative or non-finite KLD, basis drift, and invalid Top-1 counts.
 
 ## Files
 
 - [Exact competitive result JSON](results/deepseek-v4-flash-0731-balanced64-v1.json)
-- [Exact internal QTIP Anchor64 result JSON](results/deepseek-v4-flash-0731-train-balanced64-qtip-anchors-v1.json)
 - [Frozen BALANCED64 lock](configs/balanced64-v1.json)
 - [Full measurement protocol](protocols/balanced64-v1.md)
 - [One-window receipt template](templates/balanced64-window-v1.json)
 - [Verifier and aggregator](tools/receipts.py)
 - [JSON schemas](schemas/)
-
-The full protocol contains the exact math, reduction order, receipt schema, CLI
-producer commands, and replay limits. Most readers only need the table above.
+- [Separate internal Backpack anchor calculations](../Backpack/README.md)

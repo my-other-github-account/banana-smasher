@@ -3,8 +3,9 @@
 ## Scope
 
 BALANCED64 compares quantized DeepSeek-V4-Flash-0731 candidates with their own
-FP8 teacher on a frozen set of 64 windows. The initial compact receipt covers
-`UD-IQ2_XXS`, `UD-IQ3_XXS`, `UD-IQ4_XS`, and `DwarfStar-Q2-0731`.
+FP8 teacher on a frozen set of 64 windows. The compact competitive receipt covers
+`UD-IQ2_XXS`, `UD-IQ3_XXS`, `UD-IQ4_XS`, `DwarfStar-Q2-0731`, corrected all-43
+QTIP2, and exact uniform QTIP3.
 
 The paired global metrics are:
 
@@ -95,13 +96,16 @@ python3 -m Evals.tools.receipts verify \
 Expected ranking in both global metrics:
 
 ```text
-UD-IQ4_XS > UD-IQ3_XXS > UD-IQ2_XXS > DwarfStar-Q2-0731
+UD-IQ4_XS > QTIP3-uniform-exact > UD-IQ3_XXS > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
 ```
 
 This validates tracked structure, suite-lock consistency, Top-1/GB/BPW
 arithmetic, denominator/FP consistency, SHA-256 syntax, replay-status honesty,
-and rankings. It does not authenticate or retrieve protected source receipts,
-and it does not recompute historical KLD.
+and rankings. For the QTIP rows it also checks six-class position and Top-1 sums,
+integer-derived class rates, weighted class KLD, exact component-byte sums, and
+candidate/teacher/scorer/population bindings. It does not authenticate or
+retrieve protected source receipts, and it does not recompute KLD from protected
+per-position payloads.
 
 ## B. Reaggregate standardized per-window receipts
 
@@ -139,7 +143,7 @@ numerators. It reports corrected-class and global aggregates.
 
 ## C. Full GPU measurement replay boundary
 
-The historical four-model measurements are **not** currently end-to-end
+The six published measurements are **not** currently end-to-end
 replayable from a clean public clone:
 
 - protected teacher-bank payloads and corpus text are not distributed;

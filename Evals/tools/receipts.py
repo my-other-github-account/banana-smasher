@@ -348,6 +348,36 @@ def _verify_artifact(artifact: Mapping[str, Any], label: str) -> None:
             raise ReceiptError(f"{label}: recorded-complete identity status drift")
         for field in ("repository", "revision", "variant"):
             _nonempty_string(artifact.get(field), f"{label}.{field}")
+    elif "family" in artifact:
+        _require_exact_keys(
+            artifact,
+            {
+                "base_model",
+                "candidate_artifact_sha256",
+                "description",
+                "family",
+                "geometry",
+                "identity_status",
+                "layers",
+                "missing_identity_fields",
+                "units",
+                "variant",
+            },
+            label,
+        )
+        if identity_status != "complete-as-recorded" or missing_fields:
+            raise ReceiptError(f"{label}: QTIP identity must be complete as recorded")
+        if artifact.get("base_model") != "DeepSeek-V4-Flash-0731":
+            raise ReceiptError(f"{label}.base_model must remain DeepSeek-V4-Flash-0731")
+        if artifact.get("family") not in {"QTIP2", "QTIP3"}:
+            raise ReceiptError(f"{label}.family must be QTIP2 or QTIP3")
+        for field in ("variant", "geometry", "description"):
+            _nonempty_string(artifact.get(field), f"{label}.{field}")
+        if _integer(artifact.get("layers"), f"{label}.layers", minimum=1) != 43:
+            raise ReceiptError(f"{label}.layers must cover all 43 layers")
+        if _integer(artifact.get("units"), f"{label}.units", minimum=1) != 22016:
+            raise ReceiptError(f"{label}.units must cover all 22,016 QTIP units")
+        _sha256(artifact.get("candidate_artifact_sha256"), f"{label}.candidate_artifact_sha256")
     elif "base_model" in artifact:
         _require_exact_keys(
             artifact,
@@ -403,6 +433,212 @@ def _verify_artifact(artifact: Mapping[str, Any], label: str) -> None:
         _nonempty_string(value, f"{label}.missing_identity_fields[{missing_index}]")
 
 
+def _verify_qtip_details(
+    row: Mapping[str, Any],
+    artifact: Mapping[str, Any],
+    suite_lock: Mapping[str, Any],
+    *,
+    model_id: str,
+    kld_mean: Decimal,
+    matches: int,
+    positions: int,
+    wire_bytes: int,
+) -> None:
+    classes = _mapping(row.get("classes"), f"{model_id}.classes")
+    _require_exact_keys(classes, set(SOURCE_CLASSES), f"{model_id}.classes")
+    expected_class_windows = _mapping(
+        suite_lock.get("class_windows"), "suite lock class_windows"
+    )
+    positions_per_window = int(suite_lock["positions_per_window"])
+    class_matches = 0
+    class_positions = 0
+    class_windows = 0
+    weighted_kld = Decimal(0)
+    for name in SOURCE_CLASSES:
+        class_row = _mapping(classes.get(name), f"{model_id}.classes.{name}")
+        _require_exact_keys(
+            class_row,
+            {"kld_mean", "positions", "top1_matches", "top1_rate", "windows"},
+            f"{model_id}.classes.{name}",
+        )
+        windows = _integer(
+            class_row.get("windows"), f"{model_id}.classes.{name}.windows", minimum=1
+        )
+        if windows != expected_class_windows[name]:
+            raise ReceiptError(f"{model_id}: {name} window count differs from suite lock")
+        expected_positions = windows * positions_per_window
+        observed_positions = _integer(
+            class_row.get("positions"),
+            f"{model_id}.classes.{name}.positions",
+            minimum=1,
+        )
+        if observed_positions != expected_positions:
+            raise ReceiptError(f"{model_id}: {name} positions differ from suite lock")
+        observed_matches = _integer(
+            class_row.get("top1_matches"),
+            f"{model_id}.classes.{name}.top1_matches",
+        )
+        if observed_matches > observed_positions:
+            raise ReceiptError(f"{model_id}: {name} Top-1 matches exceed positions")
+        observed_rate = _decimal(
+            class_row.get("top1_rate"), f"{model_id}.classes.{name}.top1_rate"
+        )
+        if observed_rate != _ratio(observed_matches, observed_positions):
+            raise ReceiptError(f"{model_id}: {name} Top-1 rate is not integer-derived")
+        observed_kld = _decimal(
+            class_row.get("kld_mean"), f"{model_id}.classes.{name}.kld_mean"
+        )
+        class_windows += windows
+        class_positions += observed_positions
+        class_matches += observed_matches
+        weighted_kld += observed_kld * observed_positions
+
+    if class_windows != int(suite_lock["window_count"]):
+        raise ReceiptError(f"{model_id}: class windows do not sum to global windows")
+    if class_positions != positions:
+        raise ReceiptError(f"{model_id}: class positions do not sum to global positions")
+    if class_matches != matches:
+        raise ReceiptError(f"{model_id}: class Top-1 matches do not sum to global matches")
+    weighted_kld /= Decimal(positions)
+    if repr(float(weighted_kld)) != str(kld_mean):
+        raise ReceiptError(f"{model_id}: weighted class KLD does not round to global KLD")
+
+    components = _mapping(row.get("weight_components"), f"{model_id}.weight_components")
+    _require_exact_keys(
+        components,
+        {
+            "qtip_expert_payload",
+            "repair_payload",
+            "retained_non_routed_payload",
+            "runtime_and_headroom_bytes",
+            "torch_container_inflation_bytes",
+            "weight_pack_index_metadata",
+        },
+        f"{model_id}.weight_components",
+    )
+
+    payload_total = 0
+    for group_name in ("qtip_expert_payload", "retained_non_routed_payload"):
+        group = _mapping(components.get(group_name), f"{model_id}.{group_name}")
+        _require_exact_keys(group, {"bytes", "components"}, f"{model_id}.{group_name}")
+        group_bytes = _integer(group.get("bytes"), f"{model_id}.{group_name}.bytes")
+        ledger = _mapping(group.get("components"), f"{model_id}.{group_name}.components")
+        if not ledger:
+            raise ReceiptError(f"{model_id}: {group_name} component ledger is empty")
+        ledger_total = sum(
+            _integer(value, f"{model_id}.{group_name}.components.{name}")
+            for name, value in ledger.items()
+        )
+        if ledger_total != group_bytes:
+            raise ReceiptError(f"{model_id}: {group_name} components do not sum to bytes")
+        payload_total += group_bytes
+
+    index = _mapping(
+        components.get("weight_pack_index_metadata"),
+        f"{model_id}.weight_pack_index_metadata",
+    )
+    _require_exact_keys(
+        index, {"bytes", "sha256"}, f"{model_id}.weight_pack_index_metadata"
+    )
+    index_bytes = _integer(
+        index.get("bytes"), f"{model_id}.weight_pack_index_metadata.bytes", minimum=1
+    )
+    index_sha256 = _sha256(
+        index.get("sha256"), f"{model_id}.weight_pack_index_metadata.sha256"
+    )
+    repair = _mapping(components.get("repair_payload"), f"{model_id}.repair_payload")
+    _require_exact_keys(repair, {"bytes"}, f"{model_id}.repair_payload")
+    repair_bytes = _integer(repair.get("bytes"), f"{model_id}.repair_payload.bytes")
+    for excluded in ("torch_container_inflation_bytes", "runtime_and_headroom_bytes"):
+        if _integer(components.get(excluded), f"{model_id}.{excluded}") != 0:
+            raise ReceiptError(f"{model_id}: {excluded} must remain explicitly excluded")
+    if payload_total + index_bytes + repair_bytes != wire_bytes:
+        raise ReceiptError(f"{model_id}: weight components do not sum to whole-model bytes")
+
+    measurement = _mapping(row.get("measurement"), f"{model_id}.measurement")
+    _require_exact_keys(
+        measurement,
+        {
+            "artifacts",
+            "candidate_artifact_sha256",
+            "censoring_used",
+            "class_map_sha256",
+            "fallback_used",
+            "holdout_used",
+            "limitations",
+            "numeric_semantics",
+            "positions",
+            "repository_commit",
+            "scorer_source_sha256",
+            "status",
+            "suite_file_sha256",
+            "support",
+            "teacher_bank",
+            "teacher_source_model_index_sha256",
+            "window_population_sha256",
+            "windows",
+        },
+        f"{model_id}.measurement",
+    )
+    if measurement.get("status") != "PASS":
+        raise ReceiptError(f"{model_id}: measurement status must be PASS")
+    if measurement.get("candidate_artifact_sha256") != artifact.get(
+        "candidate_artifact_sha256"
+    ):
+        raise ReceiptError(f"{model_id}: candidate identity drift between artifact and measurement")
+    expected_measurement = {
+        "teacher_bank": suite_lock["teacher_bank"],
+        "teacher_source_model_index_sha256": suite_lock[
+            "teacher_source_model_index_sha256"
+        ],
+        "window_population_sha256": suite_lock["window_population_sha256"],
+        "class_map_sha256": suite_lock["class_map_sha256"],
+        "windows": suite_lock["window_count"],
+        "positions": suite_lock["positions"],
+        "support": suite_lock["support"],
+    }
+    for field, expected in expected_measurement.items():
+        if measurement.get(field) != expected:
+            raise ReceiptError(f"{model_id}: measurement {field} differs from suite lock")
+    for digest_field in ("scorer_source_sha256", "suite_file_sha256"):
+        _sha256(measurement.get(digest_field), f"{model_id}.measurement.{digest_field}")
+    repository_commit = _nonempty_string(
+        measurement.get("repository_commit"), f"{model_id}.measurement.repository_commit"
+    )
+    if _GIT_COMMIT.fullmatch(repository_commit) is None:
+        raise ReceiptError(f"{model_id}: measurement repository_commit is invalid")
+    for flag in ("holdout_used", "fallback_used", "censoring_used"):
+        if measurement.get(flag) is not False:
+            raise ReceiptError(f"{model_id}: measurement {flag} must be false")
+    _nonempty_string(
+        measurement.get("numeric_semantics"), f"{model_id}.measurement.numeric_semantics"
+    )
+    artifacts = _mapping(measurement.get("artifacts"), f"{model_id}.measurement.artifacts")
+    required_artifacts = {
+        "aggregate_sha256",
+        "independent_verification_sha256",
+        "row_collection_sha256",
+        "terminal_handoff_sha256",
+        "weight_pack_index_sha256",
+        "whole_model_receipt_sha256",
+    }
+    if not required_artifacts <= set(artifacts):
+        raise ReceiptError(f"{model_id}: measurement artifact hash set is incomplete")
+    for name, digest in artifacts.items():
+        _sha256(digest, f"{model_id}.measurement.artifacts.{name}")
+    if artifacts["weight_pack_index_sha256"] != index_sha256:
+        raise ReceiptError(f"{model_id}: weight-pack index hash drift")
+    limitations = _sequence(
+        measurement.get("limitations"), f"{model_id}.measurement.limitations"
+    )
+    if not limitations:
+        raise ReceiptError(f"{model_id}: measurement limitations must not be empty")
+    for limitation_index, limitation in enumerate(limitations):
+        _nonempty_string(
+            limitation, f"{model_id}.measurement.limitations[{limitation_index}]"
+        )
+
+
 def verify_result_receipt(
     receipt: Mapping[str, Any], suite_lock: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -455,20 +691,25 @@ def verify_result_receipt(
     top1_rows: list[tuple[Decimal, str]] = []
     for index, raw_row in enumerate(rows):
         row = _mapping(raw_row, f"results[{index}]")
+        artifact = _mapping(row.get("artifact"), f"results[{index}].artifact")
+        is_qtip = "family" in artifact
+        expected_row_keys = {
+            "artifact",
+            "display_name",
+            "fp",
+            "kld",
+            "model_id",
+            "replay",
+            "source_receipts",
+            "top1",
+            "vendor",
+            "wire",
+        }
+        if is_qtip:
+            expected_row_keys.update({"classes", "measurement", "weight_components"})
         _require_exact_keys(
             row,
-            {
-                "artifact",
-                "display_name",
-                "fp",
-                "kld",
-                "model_id",
-                "replay",
-                "source_receipts",
-                "top1",
-                "vendor",
-                "wire",
-            },
+            expected_row_keys,
             f"results[{index}]",
         )
         model_id = _nonempty_string(row.get("model_id"), f"results[{index}].model_id")
@@ -480,7 +721,6 @@ def verify_result_receipt(
         if row.get("fp") != fp:
             raise ReceiptError(f"{model_id}: FP basis differs from suite lock")
 
-        artifact = _mapping(row.get("artifact"), f"{model_id}.artifact")
         _verify_artifact(artifact, f"{model_id}.artifact")
 
         replay = _mapping(row.get("replay"), f"{model_id}.replay")
@@ -535,6 +775,18 @@ def verify_result_receipt(
         )
         if stored_bpw != expected_bpw:
             raise ReceiptError(f"{model_id}: normalized BPW does not match bytes/denominator")
+
+        if is_qtip:
+            _verify_qtip_details(
+                row,
+                artifact,
+                suite_lock,
+                model_id=model_id,
+                kld_mean=kld_mean,
+                matches=matches,
+                positions=top1_positions,
+                wire_bytes=wire_bytes,
+            )
 
         sources = _sequence(row.get("source_receipts"), f"{model_id}.source_receipts")
         if not sources:
