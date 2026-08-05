@@ -2,19 +2,24 @@
 
 `banana-smasher` is the reusable, fail-closed `bs-pack v1` build and validation toolchain. `PACK_FORMAT.md` is the versioned pack contract: plane layout, per-layer metadata, `config.json` auto-detection keys, complete byte-count/SHA-256 manifest, and rejection rules.
 
-## Three-command release path
+## Export and native serving path
 
 ```bash
 smash export --source-root /path/to/materialized-quant-source --runtime-floor-bytes "${RUNTIME_FLOOR_BYTES:?required from a measured receipt}" --serving-model-root /path/to/base-model --output /model --model-id MODEL --instance-id PACK_INSTANCE --link-mode copy
 smash verify /model
-smash serve /model
+
+# On the serving host; no Banana Smasher repository checkout is required.
+python -m pip install \
+  --extra-index-url https://YOUR-BANANA-WHEELHOUSE/simple \
+  banana-smasher-plugin==0.2.0
+vllm serve /model
 ```
 
-The P1016 export requires `RUNTIME_FLOOR_BYTES` from the caller's measured runtime receipt. The example intentionally has no default and never guesses this residency value. The first command builds `/model`, merges the full base-model `config.json` with the pack-owned `quantization_config`, copies `tokenizer.json`, `tokenizer_config.json`, and `generation_config.json`, and writes `BANANA_PACK_MANIFEST.json` last after self-verification. `--serving-model-root` must point at a serveable model directory whose config has a non-empty `architectures` list; the exporter rejects missing tokenizer metadata rather than creating a quant-only pack that vLLM cannot boot. The second command fails closed on missing or extra files, byte-count or SHA-256 drift, schema/version mismatch, invalid metadata, and incompatible config auto-detection keys. The third command performs a small launch-time identity check, applies the known working defaults, and replaces itself with stock `vllm serve`; Banana Smasher does not implement a second server.
+The P1016 export requires `RUNTIME_FLOOR_BYTES` from the caller's measured runtime receipt. The example intentionally has no default and never guesses this residency value. `smash export` builds `/model`, merges the full base-model `config.json` with the pack-owned `quantization_config` and versioned `banana_smasher_runtime` profile, copies `tokenizer.json`, `tokenizer_config.json`, and `generation_config.json`, and writes `BANANA_PACK_MANIFEST.json` last after self-verification. `--serving-model-root` must point at a serveable model directory whose config has a non-empty `architectures` list; the exporter rejects missing tokenizer metadata rather than creating a quant-only pack that vLLM cannot boot. `smash verify` fails closed on missing or extra files, byte-count or SHA-256 drift, schema/version mismatch, invalid metadata, and incompatible config auto-detection keys.
 
-Use `smash serve /model --dry-run` to inspect the exact local-pip command. Until the patched SM121 companion wheels are published, `smash serve /model --container-image banana-smasher-runtime:local` runs the same command in the dependency-complete PoC image.
+On the serving host, the installed `vllm.general_plugins` entry point recognizes the export, applies its artifact-scoped defaults, and lets the ordinary vLLM command continue. There is no `smash serve` wrapper or alternate server. Explicit vLLM options remain authoritative.
 
-To repair serving metadata in an already validated pack without touching tensor files, rerun the same verb in metadata-only mode by adding `--refresh-metadata` to that export command (and keep the same `--serving-model-root`).
+To repair serving metadata in an already validated pack without touching tensor files, rerun the same export verb in metadata-only mode by adding `--refresh-metadata` (and keep the same `--serving-model-root`).
 
 This preserves the existing pack `quantization_config`, rewrites only the four serving metadata files plus their manifest rows/provenance, revalidates the pack, and reports `tensor_payloads_rewritten: false`.
 
