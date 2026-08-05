@@ -9,6 +9,12 @@
     "production_image_size_bytes": 8508975210,
     "repository_digest_available": false,
     "model_pack_manifest_sha256": "4a4c15a52eaa8f87e4eb2f436da1580cb5e9addb15713d41bd9a74276731578a",
+    "model_pack_runtime_payload_file_count": 1763,
+    "model_pack_launcher_payload": {
+      "path": "bs_metadata/p1268/run/launch_p1268.sh",
+      "bytes": 2167,
+      "sha256": "d7aff83634ef5456385419523b3ecaf3a8213fecb8155f34053d65366953ebb2"
+    },
     "production_image_seal_sha256": "fe0a826c638015bc19dcc78c27f1dd66f6257ee0826b701b4eedff7463b1ffa6",
     "build_receipt_sha256": "6779f225e717904ec2d0e81dc87d7e56913c72a3a68efe84b8f4f3b8a96f33e8",
     "promotion_receipt_sha256": "709d2688888916f4a9156d6069b4416adab5197fda98da62abdeb76013415ad3",
@@ -83,7 +89,8 @@
     },
     "acceptance_checks": [
       "docker image inspect by content ID succeeds and reports the same image ID",
-      "the mounted pack manifest hashes to 4a4c15a52eaa50d825d289402ea4cf7174d3cc447e7847b147dbe690320c2f0",
+      "the mounted pack manifest hashes to 4a4c15a52eaa50d825d289402ea4cf7174d3cc447e7847b147dbe690320c2f0 and every one of its 1,763 runtime payload rows matches path, size, and SHA-256",
+      "bs_metadata/p1268/run/launch_p1268.sh is 2,167 bytes with SHA-256 d7aff83634ef5456385419523b3ecaf3a8213fecb8155f34053d65366953ebb2; the known 2,171-byte f5f09de2 variant must be rejected",
       "the container has exactly one read-only /model bind and no code, kernel-cache, or source overlay mount",
       "the container receives no task-supplied environment override",
       "the image ENTRYPOINT and CMD are not overridden",
@@ -182,7 +189,7 @@
     "spark4_task": "t_8521a29b",
     "spark8_action": "At the natural terminal boundary of the sole protected attempt, inspect for the exact image ID locally and launch it by content ID with the exact pack. Do not rebuild it.",
     "spark4_action": "Preserve the sole build/controller. At its natural terminal boundary, accept only an exact docker-save/docker-load transfer of the same image ID plus the same pack manifest; verify both hashes before launch.",
-    "missing_artifact_action": "Post an explicit rejection naming the missing image ID or pack manifest. Do not substitute, rebuild, retag another image, or patch around the missing control.",
+    "missing_artifact_action": "Post an explicit rejection naming the missing image ID, pack manifest, or first mismatched payload row. Do not substitute, rebuild, retag another image, relax its admission gate, or patch around the missing control.",
     "shared_acceptance": "Each owner posts image inspect identity, pack manifest identity, no-override launch receipt, READY/models receipt, route/graph evidence, exact ladder receipt, and the current all-96/forbidden-zero proof or its first real failure.",
     "new_implementation_gate": "No new implementation variant until both owners have either accepted and executed this exact control or explicitly rejected it with an immutable reason."
   }

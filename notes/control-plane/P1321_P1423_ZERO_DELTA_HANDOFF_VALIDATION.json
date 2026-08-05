@@ -3,8 +3,8 @@
   "status": "PASS",
   "validated_utc": "2026-08-05T00:06:52Z",
   "handoff_path": "notes/control-plane/P1321_P1423_ZERO_DELTA_HANDOFF.json",
-  "handoff_sha256": "f2985e417ccdb6ffdaa4f42fff346778edeecf236b2f3311f3445cae91758001",
-  "handoff_bytes": 9942,
+  "handoff_sha256": "10a0c7f186e377ef7932df8877ab2f7f1222542468b59106e1fa0e5e4aca2477",
+  "handoff_bytes": 10529,
   "checks": {
     "json_parse": true,
     "production_image_id_exact": true,
@@ -12,6 +12,8 @@
     "sealed_temperature_0p0": true,
     "three_rows_per_concurrency": true,
     "capture_sizes_1_2_4_8_16": true,
+    "all_1763_runtime_payload_rows_required": true,
+    "exact_pack_launcher_payload_bound": true,
     "new_receipt_respects_current_naming_policy": true,
     "local_mirror_receipts_hash_verified": 4,
     "historical_source_commit_files_hash_verified": 7
