@@ -131,6 +131,38 @@ def test_matrix_exhaustively_binds_every_admitted_tier_projection_and_shape() ->
             )
 
 
+def test_matrix_loader_rejects_duplicate_physical_counter_indices(
+    tmp_path: Path,
+) -> None:
+    variants = _load_variants()
+    matrix = json.loads(MATRIX.read_text())
+    matrix["rows"][1]["counter"]["index"] = matrix["rows"][0]["counter"]["index"]
+    malformed = tmp_path / "specialized_kernel_matrix.json"
+    malformed.write_text(json.dumps(matrix))
+    variants.MATRIX_PATH = malformed
+    variants._rows.cache_clear()
+
+    with pytest.raises(RuntimeError, match="duplicate physical counter indices"):
+        variants._rows()
+
+
+def test_matrix_loader_rejects_physical_counter_outside_specialized_range(
+    tmp_path: Path,
+) -> None:
+    variants = _load_variants()
+    matrix = json.loads(MATRIX.read_text())
+    matrix["rows"][-1]["counter"]["index"] = matrix["counter_layout"][
+        "specialized_end_exclusive"
+    ]
+    malformed = tmp_path / "specialized_kernel_matrix.json"
+    malformed.write_text(json.dumps(matrix))
+    variants.MATRIX_PATH = malformed
+    variants._rows.cache_clear()
+
+    with pytest.raises(RuntimeError, match="outside specialized counter range"):
+        variants._rows()
+
+
 def test_specialization_selector_is_exact_for_decode_bm16_large_and_2k() -> None:
     variants = _load_variants()
     assert variants.required_warmup_tokens() == (

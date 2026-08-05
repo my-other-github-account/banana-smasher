@@ -35,6 +35,16 @@ def _rows() -> dict[tuple[str, str, str], dict[str, Any]]:
     rows = document.get("rows")
     if not isinstance(rows, list) or len(rows) != 108:
         raise RuntimeError("specialized kernel matrix must contain exactly 108 rows")
+    counter_indices = [int(row["counter"]["index"]) for row in rows]
+    if len(set(counter_indices)) != len(counter_indices):
+        raise RuntimeError("specialized kernel matrix has duplicate physical counter indices")
+    counter_layout = document["counter_layout"]
+    counter_begin = int(counter_layout["specialized_begin"])
+    counter_end = int(counter_layout["specialized_end_exclusive"])
+    if any(index < counter_begin or index >= counter_end for index in counter_indices):
+        raise RuntimeError(
+            "specialized kernel matrix has a physical counter outside specialized counter range"
+        )
     indexed = {
         (str(row["tier"]), str(row["projection"]), str(row["variant"])): row
         for row in rows
