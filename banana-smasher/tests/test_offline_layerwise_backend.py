@@ -401,6 +401,46 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
                 first = produce_fixed_d4_layerwise_logits(
                     model, config, bank_path, output, basis_sha256=BASIS
                 )
+
+            teacher_link = root / "teacher-link.json"
+            teacher_link.symlink_to(teacher_manifest)
+            linked_config = json.loads(json.dumps(config))
+            linked_config["parameters"]["teacher_support"]["manifest"] = str(
+                teacher_link
+            )
+            linked_config_path = root / "teacher-link-producer.json"
+            linked_config_path.write_text(
+                json.dumps(linked_config, sort_keys=True, separators=(",", ":")) + "\n"
+            )
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "teacher sidecar manifest must not be a symlink"
+                ):
+                    public_layerwise(
+                        model,
+                        linked_config_path,
+                        bank_path,
+                        root / "teacher-link-candidate.json",
+                        basis_sha256=BASIS,
+                    )
+
+            output_link = root / "candidate-link.json"
+            output_link.symlink_to(output)
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "candidate sidecar manifest must not be a symlink"
+                ):
+                    public_layerwise(
+                        model,
+                        config,
+                        bank_path,
+                        output_link,
+                        basis_sha256=BASIS,
+                    )
             events_before = (model / "events.jsonl").read_bytes()
             manifest = load_candidate_manifest(output)
             first_sidecar = output.parent / manifest["windows"][0]["path"]
@@ -458,6 +498,23 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
             )
             rescored_output = root / "rescored-candidate.json"
 
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "teacher sidecar manifest must not be a symlink"
+                ):
+                    public_terminal_rescore(
+                        model,
+                        linked_config_path,
+                        bank_path,
+                        state_path,
+                        new_teacher_manifest,
+                        root / "source-teacher-link-rescore.json",
+                        basis_sha256=BASIS,
+                        terminal_runtime_adapter=terminal_runtime_adapter,
+                    )
+
             state = json.loads(state_before)
             source_support_sha = config["parameters"]["teacher_support"]["sha256"]
             config_sha = hashlib.sha256(
@@ -514,6 +571,44 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
                     basis_sha256=BASIS,
                     terminal_runtime_adapter=terminal_runtime_adapter,
                 )
+
+            new_teacher_link = root / "new-teacher-link.json"
+            new_teacher_link.symlink_to(new_teacher_manifest)
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "teacher sidecar manifest must not be a symlink"
+                ):
+                    public_terminal_rescore(
+                        model,
+                        config,
+                        bank_path,
+                        state_path,
+                        new_teacher_link,
+                        root / "teacher-link-rescore.json",
+                        basis_sha256=BASIS,
+                        terminal_runtime_adapter=terminal_runtime_adapter,
+                    )
+
+            rescored_output_link = root / "rescored-candidate-link.json"
+            rescored_output_link.symlink_to(rescored_output)
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model", return_value=verified
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "candidate sidecar manifest must not be a symlink"
+                ):
+                    public_terminal_rescore(
+                        model,
+                        config,
+                        bank_path,
+                        state_path,
+                        new_teacher_manifest,
+                        rescored_output_link,
+                        basis_sha256=BASIS,
+                        terminal_runtime_adapter=terminal_runtime_adapter,
+                    )
 
             forward_events_after = sum(
                 json.loads(line)["kind"] == "forward"

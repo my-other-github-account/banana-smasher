@@ -189,7 +189,7 @@ def _bound_path(value: object, *, root: Path, label: str) -> Path:
     path = Path(value).expanduser()
     if not path.is_absolute():
         path = root / path
-    return path.resolve()
+    return path.absolute()
 
 
 def _assert_no_resident_engine_modules() -> None:
@@ -349,7 +349,7 @@ def produce_fixed_d4_layerwise_logits(
         raise ValueError("offline-layerwise window_id_field must be non-empty")
     model_root = Path(model_root).expanduser().resolve()
     bank_path = Path(bank_path).expanduser().resolve()
-    output_path = Path(output_path).expanduser().resolve()
+    output_path = Path(output_path).expanduser().absolute()
     from .fixed_d4 import verify_fixed_d4_model
 
     verified_manifest = verify_fixed_d4_model(
@@ -891,8 +891,8 @@ def rescore_fixed_d4_layerwise_terminal(
     model_root = Path(model_root).expanduser().resolve()
     bank_path = Path(bank_path).expanduser().resolve()
     state_path = Path(completed_state_path).expanduser().resolve()
-    teacher_path = Path(teacher_manifest_path).expanduser().resolve()
-    output_path = Path(output_path).expanduser().resolve()
+    teacher_path = Path(teacher_manifest_path).expanduser().absolute()
+    output_path = Path(output_path).expanduser().absolute()
 
     from .fixed_d4 import verify_fixed_d4_model
 
