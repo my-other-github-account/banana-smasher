@@ -15,38 +15,46 @@ cd banana-smasher
 
 The repository contains two installable Python distributions: `banana-smasher` for export, verification, and pack development, and `banana-smasher-plugin` for stock-vLLM serving integration.
 
-## Simple deployment API
+## Native vLLM deployment API
 
-The user-facing serving contract is one model artifact plus one installed vLLM
-plugin. Banana Smasher remains a thin launcher around stock vLLM:
+The serving host needs only the exported model directory, stock vLLM, and the
+installed general plugin. It does **not** need this repository or the exporter
+package:
 
 ```bash
-python -m pip install --find-links /path/to/banana-wheelhouse -r requirements-serve.txt
-python -m pip install --find-links /path/to/banana-wheelhouse banana-smasher-plugin==0.2.0
-smash serve /path/to/model-pack
+python -m pip install \
+  --extra-index-url https://YOUR-BANANA-WHEELHOUSE/simple \
+  banana-smasher-plugin==0.2.0
+
+vllm serve /path/to/model-pack
 ```
 
-`banana-smasher-plugin` depends on `banana-smasher`, so installing the plugin also
-installs the `smash` API. `smash serve` checks the model identity, applies the
-known-working Boot10 arguments and process defaults, then `exec`s ordinary
-`vllm serve`. It accepts `--host`, `--port`, and `--served-model-name`; use
-`--dry-run` to print the exact launch transaction.
+The plugin recognizes a local Banana Smasher export from `config.json`, reads its
+versioned `banana_smasher_runtime` profile, fills only untouched stock vLLM
+defaults, and allows normal vLLM startup to continue. Newly exported packs carry
+the profile explicitly; pre-profile packs remain supported through their
+`quant_method=banana_smasher` manifest identity. Explicit vLLM flags remain
+authoritative, so ordinary overrides work normally:
 
-The public Python index does not yet carry the patched vLLM 0.24, FlashInfer
-0.6.17 AOT, and DeepGEMM 2.6.1 wheel closure named by
-`requirements-serve.txt`. The modestly functional deployment path available
-today is therefore the same API backed by the pinned image:
+```bash
+vllm serve /path/to/model-pack --host 0.0.0.0 --port 8000
+```
+
+`banana-smasher-plugin` declares the exact vLLM 0.24, FlashInfer 0.6.17 AOT,
+DeepGEMM 2.6.1, Quack, and safetensors package closure. Those patched Linux ARM64
+wheels must be available from the Banana wheelhouse named during installation;
+the public Python index does not currently contain the full proven closure.
+
+The dependency-complete PoC image uses the identical native command:
 
 ```bash
 IMAGE=banana-smasher-runtime:local examples/build_image.sh
-python -m pip install ./banana-smasher
-smash serve /path/to/model-pack --container-image banana-smasher-runtime:local
+MODEL_DIR=/path/to/model-pack IMAGE=banana-smasher-runtime:local examples/serve.sh
 ```
 
-This mounts only the model artifact read-only (plus the persistent FlashInfer
-cache volume) and runs the same stock `vllm serve /model` command. There is no
-campaign launcher, model-path environment variable, or alternate serving stack
-in the user flow.
+The image CMD is exactly `vllm serve /model`. It contains no Banana launcher,
+Banana-specific CLI flags, or baked Banana runtime environment; plugin discovery
+supplies the artifact-scoped runtime policy.
 
 ## Build and test both Python packages on a development host
 
@@ -106,8 +114,8 @@ MODEL_DIR="$MODEL_OUT" IMAGE=banana-smasher-runtime:local examples/serve.sh
 `/root/.cache/vllm/flashinfer_autotune_cache` by default, so a valid generated
 FlashInfer 0.6.17 cache survives container restarts. Set
 `FLASHINFER_CACHE_VOLUME=''` only for an intentionally ephemeral run. The image's
-exact `CMD` runs stock `vllm serve /model` with the pinned runtime defaults; do
-not replace it with an alternate launcher.
+exact `CMD` is `vllm serve /model`; the installed plugin recognizes the export and
+fills its runtime profile before engine creation.
 
 ## OpenAI API smoke test
 

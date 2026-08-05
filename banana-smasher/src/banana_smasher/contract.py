@@ -44,6 +44,8 @@ KERNEL_MANIFEST_NAME = "BS_KERNEL_CACHE_MANIFEST.json"
 SCHEMA = "bs-pack"
 SCHEMA_VERSION = 1
 QUANT_METHOD = "banana_smasher"
+VLLM_RUNTIME_SCHEMA = "banana-smasher-vllm-runtime-v1"
+VLLM_RUNTIME_PROFILE = "sm121-single-gpu-v1"
 DENSE_FP8_DESCRIPTOR_KEYS = (
     "activation_scheme",
     "fmt",
@@ -100,6 +102,34 @@ BANANA_SMASHER_ROLES = ("codebooks", "codes", "expert_ids", "scales")
 
 class PackValidationError(ValueError):
     """Raised when a pack fails any fail-closed contract gate."""
+
+
+def _vllm_runtime_profile(model_id: str) -> dict[str, Any]:
+    return {
+        "schema": VLLM_RUNTIME_SCHEMA,
+        "profile": VLLM_RUNTIME_PROFILE,
+        "served_model_name": model_id,
+        "engine_args": {
+            "trust_remote_code": True,
+            "tokenizer_mode": "deepseek_v4",
+            "kv_cache_dtype": "fp8",
+            "block_size": 256,
+            "max_model_len": 8192,
+            "gpu_memory_utilization": 0.80,
+            "kv_cache_memory_bytes": 3221225472,
+            "max_num_batched_tokens": 512,
+            "max_num_seqs": 16,
+            "cudagraph_capture_sizes": [1, 2, 4, 8, 16],
+            "scheduler_reserve_full_isl": False,
+            "generation_config": "vllm",
+            "reasoning_parser": "deepseek_v4",
+        },
+        "frontend_args": {
+            "default_chat_template_kwargs": {"enable_thinking": True},
+            "enable_auto_tool_choice": True,
+            "tool_call_parser": "deepseek_v4",
+        },
+    }
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -1098,6 +1128,9 @@ def refresh_serving_metadata(
     quantization_config["quant_method"] = QUANT_METHOD
     merged_config = dict(serving_config)
     merged_config["quantization_config"] = quantization_config
+    merged_config["banana_smasher_runtime"] = _vllm_runtime_profile(
+        str(current_manifest["model_id"])
+    )
 
     base_plan = _load_base_weights_plan(serving_root)
     base_paths: set[str] = set()
@@ -1452,7 +1485,7 @@ def export_pack(
             provenance_relative = Path("provenance/LAYER_RECEIPT.json")
             (output / provenance_relative).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(banana_smasher_receipt, output / provenance_relative)
-            config = {
+            config: dict[str, Any] = {
                 "_name_or_path": model_id,
                 "model_type": "deepseek_v4",
                 "bs_pack_scope": f"layer_{layer:03d}",
@@ -1460,6 +1493,7 @@ def export_pack(
 
         if serving_config is not None:
             config = dict(serving_config)
+        config["banana_smasher_runtime"] = _vllm_runtime_profile(model_id)
         config["quantization_config"] = {
             "quant_method": QUANT_METHOD,
             "format": SCHEMA,

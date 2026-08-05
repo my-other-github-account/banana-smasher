@@ -196,7 +196,6 @@ COPY runtime/ACCELERATION_MANIFEST.json /opt/banana-smasher/provenance/ACCELERAT
 COPY runtime/KERNEL_PRODUCERS.json /opt/banana-smasher/provenance/KERNEL_PRODUCERS.json
 COPY provenance/SOURCE_INVENTORY.json /opt/banana-smasher/provenance/SOURCE_INVENTORY.json
 COPY provenance/EXCLUDED_FLASHINFER_CACHE.json /opt/banana-smasher/provenance/EXCLUDED_FLASHINFER_CACHE.json
-COPY docker/runtime_defaults.json /opt/banana-smasher/runtime_defaults.json
 COPY docker/scripts/verify_public_image.py /opt/banana-smasher/bin/verify_public_image.py
 COPY docker/scripts/smoke_flashinfer_sm121.py /opt/banana-smasher/bin/smoke_flashinfer_sm121.py
 COPY docker/scripts/validate_flashinfer_cache.py /opt/banana-smasher/bin/validate_flashinfer_cache.py
@@ -221,30 +220,18 @@ RUN set -eux; \
 ENV PYTHONNOUSERSITE=1 \
     PYTHONUNBUFFERED=1 \
     NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
-    CUDA_MODULE_LOADING=LAZY \
-    MALLOC_MMAP_THRESHOLD_=65536 \
-    TOKENIZERS_PARALLELISM=false \
-    VLLM_NO_USAGE_STATS=1 \
-    FLASHINFER_DISABLE_JIT=1 \
-    VLLM_HAS_FLASHINFER_CUBIN=1 \
-    VLLM_USE_DEEP_GEMM=1 \
-    VLLM_USE_DEEP_GEMM_E8M0=1 \
-    BANANA_SMASHER_AOT_ROOT=/opt/banana-smasher/aot \
-    VLLM_MOE_W2_CUBIT_DIR=/opt/banana-smasher/aot/cubins-sm120 \
-    VLLM_MOE_W3_CUBIT_DIR=/opt/banana-smasher/aot/cubins-e43
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 LABEL org.opencontainers.image.title="banana-smasher public vLLM runtime" \
       org.opencontainers.image.version="v5" \
       org.opencontainers.image.base.name="vllm/vllm-openai:v0.24.0" \
       org.opencontainers.image.base.digest="sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b" \
       io.banana-smasher.vllm.upstream-revision="ee0da84a" \
-      io.banana-smasher.pack.mount="/model" \
-      io.banana-smasher.runtime-defaults="/opt/banana-smasher/runtime_defaults.json"
+      io.banana-smasher.pack.mount="/model"
 
 EXPOSE 8000
 HEALTHCHECK --interval=10m --timeout=30s --start-period=20m --retries=2 \
   CMD ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=20).read()"]
 WORKDIR /
 ENTRYPOINT []
-CMD ["vllm", "serve", "/model", "--served-model-name", "banana-smasher-v5", "--trust-remote-code", "--tokenizer-mode", "deepseek_v4", "--kv-cache-dtype", "fp8", "--block-size", "256", "--max-model-len", "8192", "--gpu-memory-utilization", "0.80", "--kv-cache-memory-bytes", "3221225472", "--max-num-batched-tokens", "512", "--max-num-seqs", "16", "--compilation-config", "{\"cudagraph_capture_sizes\":[1,2,4,8,16]}", "--no-scheduler-reserve-full-isl", "--generation-config", "vllm", "--reasoning-parser", "deepseek_v4", "--default-chat-template-kwargs", "{\"enable_thinking\":true}", "--enable-auto-tool-choice", "--tool-call-parser", "deepseek_v4", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["vllm", "serve", "/model"]
