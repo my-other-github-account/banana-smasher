@@ -79,6 +79,7 @@ def test_smash_help_exposes_public_verbs() -> None:
         "export",
         "verify",
         "serve-check",
+        "serve",
         "validate",
         "knapsack",
         "backpack-dimensions",

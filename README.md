@@ -15,6 +15,39 @@ cd banana-smasher
 
 The repository contains two installable Python distributions: `banana-smasher` for export, verification, and pack development, and `banana-smasher-plugin` for stock-vLLM serving integration.
 
+## Simple deployment API
+
+The user-facing serving contract is one model artifact plus one installed vLLM
+plugin. Banana Smasher remains a thin launcher around stock vLLM:
+
+```bash
+python -m pip install --find-links /path/to/banana-wheelhouse -r requirements-serve.txt
+python -m pip install --find-links /path/to/banana-wheelhouse banana-smasher-plugin==0.2.0
+smash serve /path/to/model-pack
+```
+
+`banana-smasher-plugin` depends on `banana-smasher`, so installing the plugin also
+installs the `smash` API. `smash serve` checks the model identity, applies the
+known-working Boot10 arguments and process defaults, then `exec`s ordinary
+`vllm serve`. It accepts `--host`, `--port`, and `--served-model-name`; use
+`--dry-run` to print the exact launch transaction.
+
+The public Python index does not yet carry the patched vLLM 0.24, FlashInfer
+0.6.17 AOT, and DeepGEMM 2.6.1 wheel closure named by
+`requirements-serve.txt`. The modestly functional deployment path available
+today is therefore the same API backed by the pinned image:
+
+```bash
+IMAGE=banana-smasher-runtime:local examples/build_image.sh
+python -m pip install ./banana-smasher
+smash serve /path/to/model-pack --container-image banana-smasher-runtime:local
+```
+
+This mounts only the model artifact read-only (plus the persistent FlashInfer
+cache volume) and runs the same stock `vllm serve /model` command. There is no
+campaign launcher, model-path environment variable, or alternate serving stack
+in the user flow.
+
 ## Build and test both Python packages on a development host
 
 The following is the non-GPU static development gate. It builds, inspects, installs,
