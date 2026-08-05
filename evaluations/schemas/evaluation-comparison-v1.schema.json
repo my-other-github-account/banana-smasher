@@ -104,7 +104,7 @@
       "properties": {
         "label": {"type": "string", "minLength": 1},
         "role": {"type": "string", "minLength": 1},
-        "availability": {"const": "protected-not-distributed"},
+        "availability": {"enum": ["protected-not-distributed", "public-distributed"]},
         "sha256": {"$ref": "#/$defs/sha256"}
       }
     },
@@ -209,6 +209,50 @@
         }
       ]
     },
+    "artifactQtip25": {
+      "allOf": [
+        {"$ref": "#/$defs/artifactCommon"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "identity_status", "missing_identity_fields", "base_model", "variant",
+            "candidate_manifest_sha256", "artifact_tree_sha256", "pack_admission_sha256"
+          ],
+          "properties": {
+            "identity_status": {"const": "complete-as-recorded"},
+            "missing_identity_fields": {"maxItems": 0},
+            "base_model": {"type": "string", "minLength": 1},
+            "variant": {"type": "string", "minLength": 1},
+            "candidate_manifest_sha256": {"$ref": "#/$defs/sha256"},
+            "artifact_tree_sha256": {"$ref": "#/$defs/sha256"},
+            "pack_admission_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      ]
+    },
+    "categoryMetric": {
+      "type": "object", "additionalProperties": false,
+      "required": ["windows", "positions", "top1_matches", "top1_rate", "kld_mean"],
+      "properties": {
+        "windows": {"type": "integer", "minimum": 1},
+        "positions": {"type": "integer", "minimum": 1},
+        "top1_matches": {"type": "integer", "minimum": 0},
+        "top1_rate": {"$ref": "#/$defs/decimal"},
+        "kld_mean": {"$ref": "#/$defs/decimal"}
+      }
+    },
+    "categoryMetrics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["agentic", "chat", "code", "multilingual", "prose", "reasoning"],
+      "properties": {
+        "agentic": {"$ref": "#/$defs/categoryMetric"},
+        "chat": {"$ref": "#/$defs/categoryMetric"},
+        "code": {"$ref": "#/$defs/categoryMetric"},
+        "multilingual": {"$ref": "#/$defs/categoryMetric"},
+        "prose": {"$ref": "#/$defs/categoryMetric"},
+        "reasoning": {"$ref": "#/$defs/categoryMetric"}
+      }
+    },
     "result": {
       "type": "object", "additionalProperties": false,
       "required": ["model_id", "display_name", "vendor", "fp", "artifact", "wire", "kld", "top1", "source_receipts", "replay"],
@@ -218,11 +262,13 @@
         "vendor": {"type": "string", "minLength": 1},
         "fp": {"type": "string", "minLength": 1},
         "artifact": {"oneOf": [
-          {"$ref": "#/$defs/artifactIq2"}, {"$ref": "#/$defs/artifactPartial"}, {"$ref": "#/$defs/artifactDwarf"}
+          {"$ref": "#/$defs/artifactIq2"}, {"$ref": "#/$defs/artifactPartial"},
+          {"$ref": "#/$defs/artifactDwarf"}, {"$ref": "#/$defs/artifactQtip25"}
         ]},
         "wire": {"$ref": "#/$defs/wire"},
         "kld": {"$ref": "#/$defs/kld"},
         "top1": {"$ref": "#/$defs/top1"},
+        "category_metrics": {"$ref": "#/$defs/categoryMetrics"},
         "source_receipts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source"}},
         "replay": {"$ref": "#/$defs/replay"}
       }

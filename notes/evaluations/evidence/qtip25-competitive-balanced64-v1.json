@@ -1,0 +1,92 @@
+{
+  "artifacts": {
+    "audit_sha256": "43ffaf0b43d995544e5ded2165bc97d98948844c2b5f491e44ef69cf1b2ae18b",
+    "bindings_sha256": "c9436860e9ba1ff3a5354546b50d3a8b8a7dec139d850c6809714968702f5b60",
+    "candidate_manifest_sha256": "5270594b4714a4eb84f4756a70fb2fd0bf6771b6f89ca119926ce2d90a5857ba",
+    "independent_verification_sha256": "9abe56cc706a5c09e4548d87ed1bc7a955975e54f59ecee8dd95b6d93b59a85d",
+    "rows_tree_sha256": "fcc03cb90133d6416f7f6aeb2c19443670e0aa544539b8f2f6650e27996a2b2e",
+    "shipping_index_sha256": "6e07f7e69be28049c8a2bc688bf5769ecf28d2247298f8a3a5c7834855784c90",
+    "teacher_manifest_sha256": "cdd54314f4b5de45c4163ac6416bab926afc702e9c09fce6ae347cb9055488c7"
+  },
+  "basis_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "candidate": "QTIP2.5 exact deterministic 50/50 mixed K2/K3 ring",
+  "class_metrics": {
+    "agentic": {
+      "kld_mean": "0.2331143085986479",
+      "positions": 19456,
+      "top1_matches": 17368,
+      "top1_rate": "0.8926809210526315",
+      "windows": 19
+    },
+    "chat": {
+      "kld_mean": "0.049605712918741544",
+      "positions": 7168,
+      "top1_matches": 6682,
+      "top1_rate": "0.9321986607142857",
+      "windows": 7
+    },
+    "code": {
+      "kld_mean": "0.08357888095253063",
+      "positions": 9216,
+      "top1_matches": 8579,
+      "top1_rate": "0.9308810763888888",
+      "windows": 9
+    },
+    "multilingual": {
+      "kld_mean": "0.32327961920836945",
+      "positions": 10240,
+      "top1_matches": 8530,
+      "top1_rate": "0.8330078125",
+      "windows": 10
+    },
+    "prose": {
+      "kld_mean": "0.2647344231511727",
+      "positions": 10240,
+      "top1_matches": 8423,
+      "top1_rate": "0.82255859375",
+      "windows": 10
+    },
+    "reasoning": {
+      "kld_mean": "0.026375066857074244",
+      "positions": 9216,
+      "top1_matches": 8807,
+      "top1_rate": "0.9556206597222222",
+      "windows": 9
+    }
+  },
+  "global_metrics": {
+    "kld_mean": "0.18197090324511508",
+    "top1_matches": 58389,
+    "top1_rate": "0.8909454345703125"
+  },
+  "limitations": [
+    "Protected teacher, candidate, source model, and QTIP payload bytes are not distributed by this receipt.",
+    "The receipt proves this physical exact-lock run and logical shipping-weight audit, not clean-clone GPU replay."
+  ],
+  "pack_admission_sha256": "a3241fb207a2f2f9c7bc4a496e27aee1e2752ef1930846a58ec425b3fa1d7f70",
+  "positions": 65536,
+  "safety": {
+    "censoring_used": false,
+    "fallback_used": false,
+    "holdout_used": false,
+    "internal_train_score_reused": false,
+    "repair_used": false,
+    "update12_used": false
+  },
+  "schema": "qtip25-competitive-public-safe-terminal-handoff-v1",
+  "status": "PASS",
+  "suite_file_sha256": "c8564f82d151f0f61b255432c20cd1eec24d0b8529f3bed248b8a039f52b9d42",
+  "suite_lock_sha256": "d5610f11c23b75f81e196e74407cb7e642a4f4a2e12f55925e13e5a7fe43ffb9",
+  "whole_model_shipping_weight": {
+    "artifact_tree_sha256": "ce4c7a8d77fc3bab29756b731e37f2b41742724b9daa113c5a65d28d41673230",
+    "bytes": 106623252108,
+    "decimal_gb": "106.623252108",
+    "normalized_bpw": "2.9999377997928467990522421626080526990841921473725627341420659657374837984723320",
+    "parameter_denominator": 284334567511,
+    "qtip25_expert_bytes": 86886148096,
+    "repair_bytes": 0,
+    "required_index_bytes": 28306324,
+    "retained_non_routed_bytes": 19708797688
+  },
+  "windows": 64
+}

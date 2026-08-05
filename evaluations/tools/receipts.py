@@ -331,7 +331,25 @@ def _verify_artifact(artifact: Mapping[str, Any], label: str) -> None:
         artifact.get("missing_identity_fields"),
         f"{label}.missing_identity_fields",
     )
-    if "repository" in artifact:
+    if "candidate_manifest_sha256" in artifact:
+        _require_exact_keys(
+            artifact,
+            {
+                "artifact_tree_sha256",
+                "base_model",
+                "candidate_manifest_sha256",
+                "identity_status",
+                "missing_identity_fields",
+                "pack_admission_sha256",
+                "variant",
+            },
+            label,
+        )
+        if identity_status != "complete-as-recorded" or missing_fields:
+            raise ReceiptError(f"{label}: recorded-complete identity status drift")
+        for field in ("base_model", "variant"):
+            _nonempty_string(artifact.get(field), f"{label}.{field}")
+    elif "repository" in artifact:
         _require_exact_keys(
             artifact,
             {
@@ -455,22 +473,21 @@ def verify_result_receipt(
     top1_rows: list[tuple[Decimal, str]] = []
     for index, raw_row in enumerate(rows):
         row = _mapping(raw_row, f"results[{index}]")
-        _require_exact_keys(
-            row,
-            {
-                "artifact",
-                "display_name",
-                "fp",
-                "kld",
-                "model_id",
-                "replay",
-                "source_receipts",
-                "top1",
-                "vendor",
-                "wire",
-            },
-            f"results[{index}]",
-        )
+        expected_row_keys = {
+            "artifact",
+            "display_name",
+            "fp",
+            "kld",
+            "model_id",
+            "replay",
+            "source_receipts",
+            "top1",
+            "vendor",
+            "wire",
+        }
+        if "category_metrics" in row:
+            expected_row_keys.add("category_metrics")
+        _require_exact_keys(row, expected_row_keys, f"results[{index}]")
         model_id = _nonempty_string(row.get("model_id"), f"results[{index}].model_id")
         _nonempty_string(row.get("display_name"), f"{model_id}.display_name")
         _nonempty_string(row.get("vendor"), f"{model_id}.vendor")
@@ -513,6 +530,73 @@ def verify_result_receipt(
         expected_rate = _ratio(matches, top1_positions)
         if stored_rate != expected_rate:
             raise ReceiptError(f"{model_id}: Top-1 rate does not match numerator/denominator")
+
+        if "category_metrics" in row:
+            category_metrics = _mapping(
+                row.get("category_metrics"), f"{model_id}.category_metrics"
+            )
+            _require_exact_keys(
+                category_metrics,
+                set(SOURCE_CLASSES),
+                f"{model_id}.category_metrics",
+            )
+            category_matches = 0
+            category_positions = 0
+            weighted_category_kld = Decimal(0)
+            for name in SOURCE_CLASSES:
+                category = _mapping(
+                    category_metrics.get(name),
+                    f"{model_id}.category_metrics.{name}",
+                )
+                _require_exact_keys(
+                    category,
+                    {"kld_mean", "positions", "top1_matches", "top1_rate", "windows"},
+                    f"{model_id}.category_metrics.{name}",
+                )
+                category_windows = _integer(
+                    category.get("windows"),
+                    f"{model_id}.category_metrics.{name}.windows",
+                    minimum=1,
+                )
+                if category_windows != suite_lock["class_windows"][name]:
+                    raise ReceiptError(f"{model_id}: {name} window count differs from suite lock")
+                expected_category_positions = category_windows * int(
+                    suite_lock["positions_per_window"]
+                )
+                stored_category_positions = _integer(
+                    category.get("positions"),
+                    f"{model_id}.category_metrics.{name}.positions",
+                    minimum=1,
+                )
+                if stored_category_positions != expected_category_positions:
+                    raise ReceiptError(f"{model_id}: {name} position denominator drift")
+                stored_category_matches = _integer(
+                    category.get("top1_matches"),
+                    f"{model_id}.category_metrics.{name}.top1_matches",
+                )
+                if stored_category_matches > stored_category_positions:
+                    raise ReceiptError(f"{model_id}: {name} Top-1 matches exceed positions")
+                stored_category_rate = _decimal(
+                    category.get("top1_rate"),
+                    f"{model_id}.category_metrics.{name}.top1_rate",
+                )
+                expected_category_rate = _ratio(
+                    stored_category_matches, stored_category_positions
+                )
+                if stored_category_rate != expected_category_rate:
+                    raise ReceiptError(f"{model_id}: {name} Top-1 rate drift")
+                category_kld = _decimal(
+                    category.get("kld_mean"),
+                    f"{model_id}.category_metrics.{name}.kld_mean",
+                )
+                category_matches += stored_category_matches
+                category_positions += stored_category_positions
+                weighted_category_kld += category_kld * stored_category_positions
+            if category_positions != positions or category_matches != matches:
+                raise ReceiptError(f"{model_id}: category Top-1 fan-in differs from global row")
+            reaggregated_category_kld = weighted_category_kld / category_positions
+            if abs(reaggregated_category_kld - kld_mean) > Decimal("1e-15"):
+                raise ReceiptError(f"{model_id}: category KLD fan-in differs from global row")
 
         wire = _mapping(row.get("wire"), f"{model_id}.wire")
         _require_exact_keys(
@@ -559,7 +643,10 @@ def verify_result_receipt(
             _nonempty_string(
                 source.get("role"), f"{model_id}.source_receipts[{source_index}].role"
             )
-            if source.get("availability") != "protected-not-distributed":
+            if source.get("availability") not in {
+                "protected-not-distributed",
+                "public-distributed",
+            }:
                 raise ReceiptError(f"{model_id}: unsupported source availability claim")
             digest = _sha256(
                 source.get("sha256"),

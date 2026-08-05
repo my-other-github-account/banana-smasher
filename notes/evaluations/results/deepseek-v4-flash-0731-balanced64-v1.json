@@ -1,7 +1,7 @@
 {
   "schema": "banana-smasher.evaluation-comparison.v1",
   "comparison_id": "deepseek-v4-flash-0731-balanced64-v1",
-  "title": "DeepSeek-V4-Flash-0731 BALANCED64 IQ2/IQ3/IQ4/DwarfStar comparison",
+  "title": "DeepSeek-V4-Flash-0731 BALANCED64 IQ2/IQ3/IQ4/DwarfStar/QTIP2.5 comparison",
   "fp": "FP8 e4m3 dynamic own-base teacher",
   "wire_parameter_denominator": 284334567511,
   "suite": {
@@ -252,6 +252,144 @@
           "teacher-bank payloads are not distributed by this repository",
           "frozen corpus text is not distributed by this repository",
           "historical scorer implementation and numeric environment are not present on canonical main"
+        ]
+      }
+    },
+    {
+      "model_id": "BANANA-SMASHER-QTIP2.5",
+      "display_name": "BANANA-SMASHER QTIP2.5",
+      "vendor": "Banana Smasher",
+      "fp": "FP8 e4m3 dynamic own-base teacher",
+      "artifact": {
+        "base_model": "DeepSeek-V4-Flash-0731",
+        "variant": "QTIP2.5 exact deterministic 50/50 mixed K2/K3 ring",
+        "candidate_manifest_sha256": "5270594b4714a4eb84f4756a70fb2fd0bf6771b6f89ca119926ce2d90a5857ba",
+        "artifact_tree_sha256": "ce4c7a8d77fc3bab29756b731e37f2b41742724b9daa113c5a65d28d41673230",
+        "pack_admission_sha256": "a3241fb207a2f2f9c7bc4a496e27aee1e2752ef1930846a58ec425b3fa1d7f70",
+        "identity_status": "complete-as-recorded",
+        "missing_identity_fields": []
+      },
+      "wire": {
+        "bytes": 106623252108,
+        "decimal_gb": "106.623252108",
+        "parameter_denominator": 284334567511,
+        "normalized_bpw": "2.9999377997928467990522421626080526990841921473725627341420659657374837984723320"
+      },
+      "kld": {
+        "direction": "KL(teacher||candidate)",
+        "mean": "0.18197090324511508"
+      },
+      "top1": {
+        "matches": 58389,
+        "positions": 65536,
+        "rate": "0.8909454345703125"
+      },
+      "category_metrics": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "top1_matches": 17368,
+          "top1_rate": "0.8926809210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684211",
+          "kld_mean": "0.2331143085986479"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "top1_matches": 6682,
+          "top1_rate": "0.9321986607142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857",
+          "kld_mean": "0.049605712918741544"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "top1_matches": 8579,
+          "top1_rate": "0.9308810763888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889",
+          "kld_mean": "0.08357888095253063"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "top1_matches": 8530,
+          "top1_rate": "0.8330078125",
+          "kld_mean": "0.32327961920836945"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "top1_matches": 8423,
+          "top1_rate": "0.82255859375",
+          "kld_mean": "0.2647344231511727"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "top1_matches": 8807,
+          "top1_rate": "0.9556206597222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
+          "kld_mean": "0.026375066857074244"
+        }
+      },
+      "source_receipts": [
+        {
+          "sha256": "0811769ba4888ab7ef9737d78c7741e3dfddcc452f9021ec5245c701d9b14644",
+          "label": "QTIP2.5 public-safe terminal handoff",
+          "role": "global, category, wire, safety, and evidence-index receipt",
+          "availability": "public-distributed"
+        },
+        {
+          "sha256": "5270594b4714a4eb84f4756a70fb2fd0bf6771b6f89ca119926ce2d90a5857ba",
+          "label": "QTIP2.5 candidate manifest",
+          "role": "candidate artifact identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "fcc03cb90133d6416f7f6aeb2c19443670e0aa544539b8f2f6650e27996a2b2e",
+          "label": "QTIP2.5 row tree",
+          "role": "complete per-window row-set identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "9abe56cc706a5c09e4548d87ed1bc7a955975e54f59ecee8dd95b6d93b59a85d",
+          "label": "QTIP2.5 independent verification",
+          "role": "independent global and category fan-in verification",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "6e07f7e69be28049c8a2bc688bf5769ecf28d2247298f8a3a5c7834855784c90",
+          "label": "QTIP2.5 shipping index",
+          "role": "whole-model shipping-weight accounting",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "a3241fb207a2f2f9c7bc4a496e27aee1e2752ef1930846a58ec425b3fa1d7f70",
+          "label": "QTIP2.5 pack admission",
+          "role": "candidate pack admission identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "cdd54314f4b5de45c4163ac6416bab926afc702e9c09fce6ae347cb9055488c7",
+          "label": "QTIP2.5 teacher manifest",
+          "role": "teacher artifact identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "43ffaf0b43d995544e5ded2165bc97d98948844c2b5f491e44ef69cf1b2ae18b",
+          "label": "QTIP2.5 audit",
+          "role": "measurement audit identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "c9436860e9ba1ff3a5354546b50d3a8b8a7dec139d850c6809714968702f5b60",
+          "label": "QTIP2.5 bindings",
+          "role": "suite, teacher, candidate, and result bindings",
+          "availability": "protected-not-distributed"
+        }
+      ],
+      "replay": {
+        "status": "blocked",
+        "blockers": [
+          "teacher, candidate, source-model, row, and QTIP payload bytes are not distributed by this repository",
+          "frozen corpus text is not distributed by this repository",
+          "the public receipt proves the physical exact-lock run and logical shipping-weight audit, not clean-clone GPU replay"
         ]
       }
     },

@@ -22,6 +22,7 @@ from evaluations.tools.receipts import (
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULT = ROOT / "notes/evaluations/results/deepseek-v4-flash-0731-balanced64-v1.json"
+QTIP25_EVIDENCE = ROOT / "notes/evaluations/evidence/qtip25-competitive-balanced64-v1.json"
 SUITE_LOCK = ROOT / "evaluations/configs/balanced64-v1.json"
 
 
@@ -72,21 +73,63 @@ def test_published_balanced64_receipt_is_bound_to_suite_lock() -> None:
     summary = verify_result_receipt(_load_result(), _load_lock())
 
     assert summary["suite_lock_sha256"] == BALANCED64_V1_LOCK_SHA256
-    assert summary["models"] == 4
+    assert summary["models"] == 5
     assert summary["positions"] == 65_536
     assert summary["full_gpu_replay"] == "blocked"
     assert summary["kld_ranking"] == [
         "UD-IQ4_XS",
         "UD-IQ3_XXS",
+        "BANANA-SMASHER-QTIP2.5",
         "UD-IQ2_XXS",
         "DwarfStar-Q2-0731",
     ]
     assert summary["top1_ranking"] == [
         "UD-IQ4_XS",
+        "BANANA-SMASHER-QTIP2.5",
         "UD-IQ3_XXS",
         "UD-IQ2_XXS",
         "DwarfStar-Q2-0731",
     ]
+
+
+def test_qtip25_category_breakdown_is_bound_to_public_evidence() -> None:
+    receipt = _load_result()
+    row = next(
+        item
+        for item in receipt["results"]
+        if item["model_id"] == "BANANA-SMASHER-QTIP2.5"
+    )
+
+    assert hashlib.sha256(QTIP25_EVIDENCE.read_bytes()).hexdigest() == (
+        "0811769ba4888ab7ef9737d78c7741e3dfddcc452f9021ec5245c701d9b14644"
+    )
+    assert set(row["category_metrics"]) == {
+        "agentic",
+        "chat",
+        "code",
+        "multilingual",
+        "prose",
+        "reasoning",
+    }
+    assert sum(
+        item["positions"] for item in row["category_metrics"].values()
+    ) == 65_536
+    assert sum(
+        item["top1_matches"] for item in row["category_metrics"].values()
+    ) == 58_389
+
+
+def test_verifier_rejects_qtip25_category_top1_drift() -> None:
+    receipt = _load_result()
+    row = next(
+        item
+        for item in receipt["results"]
+        if item["model_id"] == "BANANA-SMASHER-QTIP2.5"
+    )
+    row["category_metrics"]["chat"]["top1_matches"] -= 1
+
+    with pytest.raises(ReceiptError, match="chat Top-1 rate drift"):
+        verify_result_receipt(receipt, _load_lock())
 
 
 def test_suite_lock_recomputes_population_and_corrected_class_map() -> None:
