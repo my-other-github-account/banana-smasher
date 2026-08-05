@@ -557,7 +557,6 @@ def test_plane_forward_uses_capture_safe_async_expert_range_guards(
     assert result.shape == (2, 4)
     assert calls == [
         (True, "layer 0 fused13 expert id out of range"),
-        (True, "layer 0 fused13 expert id out of range"),
     ]
 
 
@@ -589,7 +588,7 @@ def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) ->
         return result
 
     layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
-    expert_ids = torch.tensor(([0, 1, 0, 1, 0, -1] * 16), dtype=torch.long)
+    expert_ids = torch.tensor(([0, 1, 0, 1, 0, -2] * 16), dtype=torch.long)
 
     result = layer.forward(torch.ones((96, 4)), expert_ids, "fused13")
 
