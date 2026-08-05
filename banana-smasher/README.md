@@ -7,11 +7,16 @@
 ```bash
 smash export --source-root /path/to/materialized-quant-source --runtime-floor-bytes "${RUNTIME_FLOOR_BYTES:?required from a measured receipt}" --serving-model-root /path/to/base-model --output /model --model-id MODEL --instance-id PACK_INSTANCE --link-mode copy
 smash verify /model
+```
 
 # On the serving host; no Banana Smasher repository checkout is required.
+```sh
 python -m pip install \
   --extra-index-url https://YOUR-BANANA-WHEELHOUSE/simple \
   banana-smasher-plugin==0.2.0
+```
+
+```bash
 vllm serve /model
 ```
 

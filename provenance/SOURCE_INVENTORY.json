@@ -338,11 +338,11 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 3732,
-      "output_sha256": "7a345248695de6e0d2c7afb0bd6e030f36e3cd76e16bf49aa55306e75f6a840e",
+      "bytes": 3755,
+      "output_sha256": "81045ac61fcfc3d4a9096b7d2cf32d28b7876830767b8b9cede54a6f101f6d48",
       "path": "banana-smasher/README.md",
       "source_path": "banana-smasher/README.md",
-      "source_sha256": "7a345248695de6e0d2c7afb0bd6e030f36e3cd76e16bf49aa55306e75f6a840e"
+      "source_sha256": "81045ac61fcfc3d4a9096b7d2cf32d28b7876830767b8b9cede54a6f101f6d48"
     },
     {
       "byte_preserved": true,
