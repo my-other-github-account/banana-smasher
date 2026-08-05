@@ -188,12 +188,17 @@ def test_cuda_source_exposes_scalar_vector_and_current_stream_without_split_k() 
         assert forbidden not in source
 
 
-def test_device_compactor_is_static_graph_safe_and_owns_inactive_rows() -> None:
+def test_device_compactor_is_static_graph_safe_and_fuses_inactive_row_zeroing() -> None:
     source = (CSRC / "route_compaction.cu").read_text()
+    acceleration = ACCELERATION.read_text()
     assert "compact_routes_cuda" in source
     assert "TORCH_LIBRARY_FRAGMENT(banana_smasher_v4" in source
-    assert "expert_id == -1" in source
-    assert "out[route * output_width + column] =" in source
+    assert "expert_id < 0 || expert_id >= experts" in source
+    assert "zero_output_kernel" not in source
+    assert "valid_route" in source
+    assert "finalize_output(Tensor out, Tensor expert_ids, int experts" in source
+    assert "torch.ops.banana_smasher_v4.finalize_output(" in acceleration
+    assert "out, expert_ids, family_codes.numel(), compact[\"result\"]" in acceleration
     assert "family_block_counts" in source
     assert "block_route_rows" in source
     assert "cudaMemcpy" not in source
