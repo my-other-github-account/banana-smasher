@@ -9,9 +9,9 @@
       "source_sha256": "2d85014fd11a1fbbbfa87674d11141f20507f59b30e46d69b0513e612afa8322"
     },
     {
-      "byte_preserved": true,
+      "byte_preserved": false,
       "bytes": 1116,
-      "output_sha256": "532335b563bf813930711bf0899f74aada1b568ce7ead680ac5d5b385dc52dd1",
+      "output_sha256": "e159fb566f41e2c5b9e1e71e1a0df11357dc59a3774f47bbad50abc9f686bc12",
       "path": "banana-smasher-plugin/pyproject.toml",
       "source_path": "banana-smasher-plugin/pyproject.toml",
       "source_sha256": "532335b563bf813930711bf0899f74aada1b568ce7ead680ac5d5b385dc52dd1"
@@ -1161,12 +1161,28 @@
       "source_sha256": "ee5d106c9eb090e0a2b4b314e6cceb32f4537d475d3aa22c1a0b6a42e2b408c5"
     },
     {
-      "byte_preserved": true,
-      "bytes": 15885,
-      "output_sha256": "482c93b721f6d3023e19f0d9688440ac4f0099398e1e2c9da8c18e49aaa70356",
+      "byte_preserved": false,
+      "bytes": 16536,
+      "output_sha256": "1fd76717857eca6a3c67b8e5f75d759ca54554e245c65e6588f8416c851db35e",
       "path": "docker/Dockerfile",
       "source_path": "docker/Dockerfile",
       "source_sha256": "482c93b721f6d3023e19f0d9688440ac4f0099398e1e2c9da8c18e49aaa70356"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 1300,
+      "output_sha256": "812c4ec032b80e9e8037381dbde427d5a7218f79e9128a5c93d9ecb3ac1b6d07",
+      "path": "docker/Dockerfile.plugin-derivative",
+      "source_path": "docker/Dockerfile.plugin-derivative",
+      "source_sha256": "812c4ec032b80e9e8037381dbde427d5a7218f79e9128a5c93d9ecb3ac1b6d07"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 88,
+      "output_sha256": "02d3cac2d90ee8b7bfa80355781eac35db25a7776606583b050d8bd24c59cb4b",
+      "path": "docker/clean-pip/INSTALL.txt",
+      "source_path": "docker/clean-pip/INSTALL.txt",
+      "source_sha256": "02d3cac2d90ee8b7bfa80355781eac35db25a7776606583b050d8bd24c59cb4b"
     },
     {
       "byte_preserved": true,
@@ -1183,6 +1199,22 @@
       "path": "docker/patches/flashinfer-u12-aot.patch",
       "source_path": "docker/patches/flashinfer-u12-aot.patch",
       "source_sha256": "aec1851b3c2c7a11a05019790851109940bfb859e7a94a14b375100723ef1da2"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 14899,
+      "output_sha256": "6262c486a230569133209290cd1a817bf89fb1849912d8da84e9b817e24633f7",
+      "path": "docker/scripts/apply_plugin_derivative.py",
+      "source_path": "docker/scripts/apply_plugin_derivative.py",
+      "source_sha256": "6262c486a230569133209290cd1a817bf89fb1849912d8da84e9b817e24633f7"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 9346,
+      "output_sha256": "8ade8a11fd001f914b7ab9e7193c70522d6671ab8c9fbf493d174e7349fd8ade",
+      "path": "docker/scripts/build_plugin_derivative.py",
+      "source_path": "docker/scripts/build_plugin_derivative.py",
+      "source_sha256": "8ade8a11fd001f914b7ab9e7193c70522d6671ab8c9fbf493d174e7349fd8ade"
     },
     {
       "byte_preserved": false,
@@ -1217,12 +1249,28 @@
       "source_sha256": "360ddce36a887a68af9949557e4f36a356075271cad88bac59a2333b7ba75e79"
     },
     {
+      "byte_preserved": true,
+      "bytes": 2090,
+      "output_sha256": "afb55c3b531801a75c9fb4a1655f71d5faa5d287d2bb03746a376658112a5328",
+      "path": "docker/tests/test_clean_pip_wheelhouse.py",
+      "source_path": "docker/tests/test_clean_pip_wheelhouse.py",
+      "source_sha256": "afb55c3b531801a75c9fb4a1655f71d5faa5d287d2bb03746a376658112a5328"
+    },
+    {
       "byte_preserved": false,
       "bytes": 3622,
       "output_sha256": "418542d6dddf9d934062e5e2beae2b19589cc78a0367202f3aafab1f8910ec99",
       "path": "docker/tests/test_exact_asset_admission.py",
       "source_path": "docker/tests/test_exact_asset_admission.py",
       "source_sha256": "2064ec236229f1d7a67abdaeab090eb88549a09cbd60e26928000cc069ebdbaf"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 11951,
+      "output_sha256": "72578b3b2a7f3d0feacd9c4f66a09fd8d1a011acc6a37a2c9ddabf96332fb7bb",
+      "path": "docker/tests/test_plugin_derivative.py",
+      "source_path": "docker/tests/test_plugin_derivative.py",
+      "source_sha256": "72578b3b2a7f3d0feacd9c4f66a09fd8d1a011acc6a37a2c9ddabf96332fb7bb"
     },
     {
       "byte_preserved": true,

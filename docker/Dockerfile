@@ -153,6 +153,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && sha256sum /wheels/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl > /wheels/deepgemm-wheel.sha256 \
     && rm -rf /tmp/deep-gemm
 
+FROM package-builder AS clean-pip-wheelhouse-builder
+COPY --from=deepgemm-builder /wheels/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl /wheelhouse/
+COPY docker/clean-pip/INSTALL.txt /wheelhouse/INSTALL.txt
+RUN set -eux; \
+    set -- /wheels/banana_smasher_plugin-0.2.0-*.whl; \
+    test "$#" -eq 1; \
+    cp "$1" /wheelhouse/; \
+    python3 -m zipfile -t /wheelhouse/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl; \
+    python3 -m zipfile -t /wheelhouse/banana_smasher_plugin-0.2.0-*.whl; \
+    (cd /wheelhouse && sha256sum *.whl > SHA256SUMS)
+
+FROM scratch AS clean-pip-wheelhouse
+COPY --from=clean-pip-wheelhouse-builder /wheelhouse/ /wheelhouse/
+
 FROM ${VLLM_IMAGE} AS runtime
 USER root
 ARG VLLM_UPSTREAM_REV
