@@ -31,7 +31,10 @@ packages = ["src/banana_smasher"]
 "BANANA_PACK_SPEC.md" = "banana_smasher/BANANA_PACK_SPEC.md"
 "PACK_FORMAT.md" = "banana_smasher/PACK_FORMAT.md"
 "README.md" = "banana_smasher/README.md"
+"ANCHOR_EVALUATION.md" = "banana_smasher/ANCHOR_EVALUATION.md"
 "schema" = "banana_smasher/schema"
+"anchor_banks" = "banana_smasher/anchor_banks"
+"producer_configs" = "banana_smasher/producer_configs"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

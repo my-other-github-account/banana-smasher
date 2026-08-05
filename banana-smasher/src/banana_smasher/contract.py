@@ -661,6 +661,25 @@ def _verify_banana_smasher_source(source_root: Path) -> tuple[int, list[Path], s
     return int(receipt_layer), planes, _sha256_file(receipt_path)
 
 
+def _verify_banana_smasher_wire(
+    source_root: Path,
+) -> dict[int, tuple[list[Path], str]]:
+    layer_roots = sorted(
+        path
+        for path in source_root.iterdir()
+        if path.is_dir() and BANANA_SMASHER_LAYER_RE.fullmatch(path.name)
+    )
+    if not layer_roots:
+        raise PackValidationError(
+            f"materialized wire contains no layer_NNN directories: {source_root}"
+        )
+    verified: dict[int, tuple[list[Path], str]] = {}
+    for layer_root in layer_roots:
+        layer, planes, receipt_sha256 = _verify_banana_smasher_source(layer_root)
+        verified[layer] = (planes, receipt_sha256)
+    return verified
+
+
 def _banana_smasher_tier_maps(planes: list[Path]) -> tuple[np.ndarray, np.ndarray]:
     tier_map = np.full(256, TIER_CODES["truevq_d4"], dtype=np.uint8)
     subtier_map = np.zeros(256, dtype=np.uint16)
@@ -694,7 +713,8 @@ def _banana_smasher_tier_maps(planes: list[Path]) -> tuple[np.ndarray, np.ndarra
                 f"banana_smasher {projection} expert partition is incomplete: "
                 f"missing={sorted(expected_ids - seen)}, extras={sorted(seen - expected_ids)}"
             )
-    for subtier in BANANA_SMASHER_SUBTIERS:
+    present_subtiers = sorted({subtier for subtier, _projection in ids_by_tier_projection})
+    for subtier in present_subtiers:
         down = ids_by_tier_projection.get((subtier, "down"))
         fused = ids_by_tier_projection.get((subtier, "fused13"))
         if down is None or fused is None or not np.array_equal(down, fused):
@@ -1215,7 +1235,8 @@ def export_pack(
             serving_model_root
         )
     banana_smasher_receipt = source_root / "LAYER_RECEIPT.json"
-    source_receipt_sha256: str | None = None
+    source_receipt_sha256: str | dict[str, str] | None = None
+    banana_smasher_layers: dict[int, tuple[list[Path], str]] = {}
     p1016_layers: list[int] = []
     p1016_meta_paths: list[Path] = []
     p1016_documents: dict[int, dict[str, Any]] = {}
@@ -1226,8 +1247,19 @@ def export_pack(
         raise PackValidationError("runtime_floor_bytes must be a non-negative integer")
     if banana_smasher_receipt.is_file():
         layer, planes, source_receipt_sha256 = _verify_banana_smasher_source(source_root)
+        banana_smasher_layers[layer] = (planes, str(source_receipt_sha256))
         tier_map, subtier_map = _banana_smasher_tier_maps(planes)
         source_format = "banana_smasher-materialized-layer-v1"
+    elif any(
+        path.is_dir() and BANANA_SMASHER_LAYER_RE.fullmatch(path.name)
+        for path in source_root.iterdir()
+    ):
+        banana_smasher_layers = _verify_banana_smasher_wire(source_root)
+        source_receipt_sha256 = {
+            str(layer): receipt_sha256
+            for layer, (_planes, receipt_sha256) in banana_smasher_layers.items()
+        }
+        source_format = "banana_smasher-materialized-wire-v1"
     elif any(source_root.glob("layer_*.meta.json")):
         (
             p1016_layers,
@@ -1388,74 +1420,102 @@ def export_pack(
                     "model_type": "deepseek_v4",
                 }
         else:
-            for source in planes:
-                descriptor = _banana_smasher_plane_descriptor(source, layer=layer)
-                name = str(descriptor["name"])
-                if name in tensor_index:
-                    raise PackValidationError(f"duplicate tensor name: {name}")
-                relative = (
-                    Path("planes")
-                    / "layers"
-                    / f"layer_{layer:03d}"
-                    / "truevq_d4"
-                    / source.name
-                )
-                actual_mode = _link_file(source, output / relative, link_mode)
-                metadata = _raw_metadata(
-                    output / relative,
-                    dtype=descriptor["dtype"],
-                    shape=descriptor["shape"],
-                )
-                metadata.update(
-                    {
+            for current_layer, (layer_planes, _receipt_sha256) in sorted(
+                banana_smasher_layers.items()
+            ):
+                tier_map, subtier_map = _banana_smasher_tier_maps(layer_planes)
+                for source in layer_planes:
+                    descriptor = _banana_smasher_plane_descriptor(
+                        source, layer=current_layer
+                    )
+                    name = str(descriptor["name"])
+                    if name in tensor_index:
+                        raise PackValidationError(f"duplicate tensor name: {name}")
+                    relative = (
+                        Path("planes")
+                        / "layers"
+                        / f"layer_{current_layer:03d}"
+                        / "truevq_d4"
+                        / source.name
+                    )
+                    actual_mode = _link_file(source, output / relative, link_mode)
+                    metadata = _raw_metadata(
+                        output / relative,
+                        dtype=descriptor["dtype"],
+                        shape=descriptor["shape"],
+                    )
+                    metadata.update(
+                        {
+                            "path": relative.as_posix(),
+                            "encoding": descriptor["encoding"],
+                            "subtier": descriptor["subtier"],
+                            "projection": descriptor["projection"],
+                            "storage": {"kind": "raw", "path": relative.as_posix()},
+                        }
+                    )
+                    tensor_index[name] = metadata
+                    linked.append(
+                        {
+                            "path": relative.as_posix(),
+                            "mode": actual_mode,
+                            "role": "banana_smasher_raw_plane",
+                        }
+                    )
+                for field, array in {
+                    "tier_map": tier_map,
+                    "subtier_map": subtier_map,
+                }.items():
+                    relative = (
+                        Path("planes")
+                        / "layers"
+                        / f"layer_{current_layer:03d}"
+                        / "experts"
+                        / f"{field}.npy"
+                    )
+                    (output / relative).parent.mkdir(parents=True, exist_ok=True)
+                    np.save(output / relative, array, allow_pickle=False)
+                    name = f"layers.{current_layer}.experts.{field}"
+                    metadata = _npy_metadata(output / relative)
+                    metadata["path"] = relative.as_posix()
+                    metadata["storage"] = {
+                        "kind": "npy",
                         "path": relative.as_posix(),
-                        "encoding": descriptor["encoding"],
-                        "subtier": descriptor["subtier"],
-                        "projection": descriptor["projection"],
-                        "storage": {"kind": "raw", "path": relative.as_posix()},
                     }
+                    tensor_index[name] = metadata
+                    linked.append(
+                        {
+                            "path": relative.as_posix(),
+                            "mode": "generated",
+                            "role": "derived_index_plane",
+                        }
+                    )
+                provenance_relative = (
+                    Path("provenance/LAYER_RECEIPT.json")
+                    if source_format == "banana_smasher-materialized-layer-v1"
+                    else Path("provenance")
+                    / f"layer_{current_layer:03d}"
+                    / "LAYER_RECEIPT.json"
                 )
-                tensor_index[name] = metadata
+                (output / provenance_relative).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(
+                    layer_planes[0].parent / "LAYER_RECEIPT.json",
+                    output / provenance_relative,
+                )
                 linked.append(
                     {
-                        "path": relative.as_posix(),
-                        "mode": actual_mode,
-                        "role": "banana_smasher_raw_plane",
+                        "path": provenance_relative.as_posix(),
+                        "mode": "copy",
+                        "role": "source_layer_receipt",
                     }
                 )
-            generated = {
-                "tier_map": tier_map,
-                "subtier_map": subtier_map,
-            }
-            for field, array in generated.items():
-                relative = (
-                    Path("planes")
-                    / "layers"
-                    / f"layer_{layer:03d}"
-                    / "experts"
-                    / f"{field}.npy"
-                )
-                (output / relative).parent.mkdir(parents=True, exist_ok=True)
-                np.save(output / relative, array, allow_pickle=False)
-                name = f"layers.{layer}.experts.{field}"
-                metadata = _npy_metadata(output / relative)
-                metadata["path"] = relative.as_posix()
-                metadata["storage"] = {"kind": "npy", "path": relative.as_posix()}
-                tensor_index[name] = metadata
-                linked.append(
-                    {
-                        "path": relative.as_posix(),
-                        "mode": "generated",
-                        "role": "derived_index_plane",
-                    }
-                )
-            provenance_relative = Path("provenance/LAYER_RECEIPT.json")
-            (output / provenance_relative).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(banana_smasher_receipt, output / provenance_relative)
             config = {
                 "_name_or_path": model_id,
                 "model_type": "deepseek_v4",
-                "bs_pack_scope": f"layer_{layer:03d}",
+                "bs_pack_scope": (
+                    f"layer_{next(iter(banana_smasher_layers)):03d}"
+                    if len(banana_smasher_layers) == 1
+                    else "materialized-wire"
+                ),
             }
 
         if serving_config is not None:
@@ -1546,14 +1606,6 @@ def export_pack(
         file_entries.extend(
             _file_entry(output, Path(row["path"]), row["role"]) for row in linked
         )
-        if source_format == "banana_smasher-materialized-layer-v1":
-            file_entries.append(
-                _file_entry(
-                    output,
-                    Path("provenance/LAYER_RECEIPT.json"),
-                    "source_layer_receipt",
-                )
-            )
         manifest: dict[str, Any] = {
             "schema": SCHEMA,
             "schema_version": SCHEMA_VERSION,
@@ -1904,9 +1956,14 @@ def _verify_tensors(root: Path, manifest: dict[str, Any]) -> tuple[int, list[int
             if family == "truevq_d4" and any(
                 field.startswith("d4_k") for field in fields
             ):
+                present_subtiers = {
+                    int(field.split(".", 1)[0].removeprefix("d4_k"))
+                    for field in fields
+                    if field.startswith("d4_k")
+                }
                 expected = {
                     f"d4_k{subtier}.{projection}.{role}"
-                    for subtier in BANANA_SMASHER_SUBTIERS
+                    for subtier in present_subtiers
                     for projection in BANANA_SMASHER_PROJECTIONS
                     for role in BANANA_SMASHER_ROLES
                 }

@@ -1,10 +1,17 @@
 # Banana Smasher runtime
 
-This standalone repository owns one path only:
+This standalone repository owns two reusable product paths:
 
 materialized quant source -> `smash export` -> `smash verify` -> self-contained `/model` pack -> pinned stock vLLM image with `vllm.general_plugins` -> OpenAI-compatible API.
 
-It does not contain training, solver orchestration, private benchmark ledgers, or raw historical run artifacts. Public frozen competitive evaluation contracts and result tables live under [`Evals/`](Evals/); separate internal QTIP family-anchor calculations live under [`Backpack/`](Backpack/).
+bank manifest -> materialized evaluation bank -> exact teacher/candidate producer rows -> resumable KLD -> measured aggregate -> optional parent estimate -> training-only solver row.
+
+It does not contain campaign orchestration, private benchmark ledgers, raw
+historical run artifacts, model weights, or logits. The generic anchor API,
+schemas, public-safe four-bank provenance bundle, and commands are documented in
+`banana-smasher/ANCHOR_EVALUATION.md`. Public frozen competitive evaluation
+contracts and result tables live under [`Evals/`](Evals/); separate internal
+QTIP family-anchor calculations live under [`Backpack/`](Backpack/).
 
 ## Clone
 
@@ -13,7 +20,7 @@ git clone https://github.com/my-other-github-account/banana-smasher.git
 cd banana-smasher
 ```
 
-The repository contains two installable Python distributions: `banana-smasher` for export, verification, and pack development, and `banana-smasher-plugin` for stock-vLLM serving integration.
+The repository contains two installable Python distributions: `banana-smasher` for export, verification, pack development, and anchor evaluation, and `banana-smasher-plugin` for stock-vLLM serving integration.
 
 ## Build and test both Python packages on a development host
 
@@ -103,8 +110,6 @@ capture, and image admission remain an explicit Linux ARM64 SM121 hardware gate.
 
 ## Verification surfaces
 
-- `Evals/` contains the frozen 0731 BALANCED64 contract, apples-to-apples evaluation steps, executable receipt checks, and sealed IQ2/IQ3/IQ4/DwarfStar/QTIP2/QTIP3 competitive results.
-- `Backpack/` contains the separate internal `train_balanced64` QTIP family-anchor calculations and their explicit 0/64 competitive-overlap warning.
 - `ACCELERATIONS.md` explains every retained acceleration.
 - `runtime/ACCELERATION_MANIFEST.json` is the machine-readable source/build/activation/test map.
 - `PROVENANCE.md` and `provenance/SOURCE_INVENTORY.json` bind retained files to source commit `c00714c6803f7e2de7a95d103dbe172236b22adf`.

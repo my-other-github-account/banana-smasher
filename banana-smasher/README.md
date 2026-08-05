@@ -24,6 +24,50 @@ The bound inputs are supplied with `--repair-checkpoint`, `--repair-checkpoint-s
 
 Repair checkpoint loading is weights-only and requires PyTorch in the export environment. Pack loading and validation retain the lightweight NumPy + safetensors runtime.
 
+## Fixed-D4 exact solve and real bank producer
+
+`smash fixed-d4 solve` exhaustively selects each normalized D4 objective vector's
+nearest K2048 or K4096 codeword and calls `persist_fixed_d4_solve` before the
+winner arrays leave memory. Its bound JSON config uses schema
+`banana-smasher-fixed-d4-exact-solve-v1`, names `tier`, `layer`, `basis_index`,
+`basis_sha256`, and `chunk_vectors`, and binds `normalized_vectors`, `scales`,
+and `codebook` NPY files by relative `path`, byte count, and SHA-256 under both
+`down` and `fused13`.
+
+`smash fixed-d4 prepare-solve` is the real source-model adapter for native
+DeepSeek packed-MXFP4 checkpoints. It verifies the exact model-index SHA,
+memory-maps the index-bound `I8` expert `w1`/`w2`/`w3` tensors and their
+`F8_E8M0` scales, decodes E2M1 values one expert at a time, and writes the six
+bound arrays plus `solve.json`. With no `--codebook`, it deterministically uses
+the K most frequent source D4 vectors (frequency descending, packed-vector key
+ascending for ties); `--codebook PATH.npy` instead binds a supplied finite
+`[K,4]` floating codebook. The command reserves 4 GiB by default and refuses
+before allocation when its streamed one-layer payload does not fit.
+
+```bash
+smash fixed-d4 prepare-solve --model /path/to/source-model --tier d4_k2048 --layer 0 --output /path/to/prepared-layer-000 --basis-sha256 "$BASIS_SHA256" --chunk-vectors 256
+smash fixed-d4 solve --config /path/to/prepared-layer-000/solve.json --output /path/to/solve-layer-000 --basis-sha256 "$BASIS_SHA256"
+smash fixed-d4 materialize --manifest /path/to/solve-layer-000/materialize.json --output /path/to/wire --basis-sha256 "$BASIS_SHA256"
+smash export --source-root /path/to/wire --serving-model-root /path/to/source-model --output /path/to/model --model-id d4-k2048 --instance-id d4-k2048-exact --link-mode hardlink
+```
+
+Repeat the prepare/solve/materialize transaction for each layer into the same
+wire root. The exported model hardlinks both wire planes and same-filesystem
+base shards, so construction does not duplicate either large payload; a
+cross-device hardlink fails loudly rather than silently consuming copy-sized
+capacity. Prepared vectors and solve winners are per-layer intermediates and
+can be released only after that layer's materialization receipt is sealed.
+
+The wheel ships `banana_smasher/producer_configs/fixed_d4_vllm.json`. This
+built-in producer loads the verified materialized model with public `vllm.LLM`,
+runs each bank token window, requests all-vocabulary next-token log
+probabilities (`logprobs=-1`), and imports the resulting real 64 rows without a
+caller-supplied producer command:
+
+```bash
+smash anchor materialize-candidate --run-root "$RUN_ROOT" --bank "$BANK_ID" --candidate-id "$CANDIDATE_ID" --model /path/to/model --config /path/to/fixed_d4_vllm.json --basis-sha256 "$BASIS_SHA256"
+```
+
 The first sealed model instance has no special framework name. Reusable package, schema, CLI, and documentation names remain `banana-smasher`, `bs-pack`, and `smash`.
 
 ## Portable teacher bank and paired evaluation
@@ -33,3 +77,12 @@ The first sealed model instance has no special framework name. Reusable package,
 Members and checkpoints use relative paths, byte counts, SHA-256 identities, and chained completion markers. Verification rejects missing, extra, tampered, unsafe, or unpaired artifacts. The optional `real_axis` object in `bs-pack-v1` binds a pack to its numerical runtime descriptor without changing the required export or repair-pack contract.
 
 These metrics compare declared numerical artifacts. They do not assert causal-context equivalence or same-work language-model equivalence. See `notes/reports/paired-real-axis-api.md` for the portable schemas, durability rules, and interpretation boundary.
+
+## Anchor evaluation
+
+`ANCHOR_EVALUATION.md` documents the generic four-bank API and the complete
+`smash anchor` workflow from manifest registration through solver-ready rows.
+The wheel includes the bank, raw-score, and aggregate schemas plus a public-safe
+four-bank provenance bundle. Training banks may drive fitting and solver rows;
+holdout banks fail closed on those uses unless an explicit diagnostic-only
+override is supplied.
