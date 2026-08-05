@@ -59,21 +59,24 @@ def test_shape_policy_fails_closed_on_unreachable_route_shapes() -> None:
 
 
 @pytest.mark.parametrize(
-    ("tokens", "kernel", "chunks"),
+    ("tokens", "kernel", "chunks", "graph_reuse"),
     (
-        (5, "decode_c8", 2),
-        (7, "decode_c8", 2),
-        (9, "decode_c16", 3),
-        (31, "prefill_bm16", 2),
+        (3, "decode_c4", 1, True),
+        (5, "decode_c8", 2, True),
+        (7, "decode_c8", 2, True),
+        (9, "decode_c16", 3, True),
+        (15, "decode_c16", 4, True),
+        (31, "prefill_bm16", 2, False),
     ),
 )
 def test_intermediate_scheduler_shapes_use_four_token_graph_chunks(
-    tokens: int, kernel: str, chunks: int
+    tokens: int, kernel: str, chunks: int, graph_reuse: bool
 ) -> None:
     decision = _load_policy().shape_policy(tokens * 6)
     assert decision["kernel"] == kernel
     assert decision["chunk_tokens"] == (16 if tokens == 31 else 4)
     assert decision["chunks"] == chunks
+    assert decision["graph_reuse"] is graph_reuse
 
 
 def test_shape_policy_has_no_environment_driven_product_switches() -> None:
