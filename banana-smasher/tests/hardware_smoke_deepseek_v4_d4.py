@@ -124,11 +124,15 @@ def main() -> int:
     parser.add_argument("--corpus", required=True, type=Path)
     parser.add_argument("--teacher-ref", required=True, type=Path)
     parser.add_argument("--expected-index-sha256", required=True)
-    parser.add_argument("--plane-0-md5", required=True)
-    parser.add_argument("--plane-1-md5", required=True)
+    parser.add_argument("--plane-0-md5")
+    parser.add_argument("--plane-1-md5")
+    parser.add_argument("--layer-count", type=int, default=2)
     parser.add_argument("--window", type=int, default=0)
     parser.add_argument("--positions", type=int, default=2048)
     args = parser.parse_args()
+    if not 1 <= args.layer_count <= 43:
+        parser.error("--layer-count must be between 1 and 43")
+    layers = list(range(args.layer_count))
 
     run_root = args.run_root.resolve()
     model_root = run_root / "model"
@@ -149,7 +153,7 @@ def main() -> int:
         "schema": "banana-smasher-d4-layerwise-intended-basis-v1",
         "model_index_sha256": index_sha,
         "model_index_source": str(args.index_source),
-        "layers": [0, 1],
+        "layers": layers,
         "window": args.window,
         "positions": args.positions,
     }
@@ -158,17 +162,20 @@ def main() -> int:
     weight_map = json.loads((model_root / "model.safetensors.index.json").read_text())[
         "weight_map"
     ]
-    stage_shards = {
-        "initial": weight_map["embed.weight"],
-        "layer_0": sorted(
-            {value for key, value in weight_map.items() if key.startswith("layers.0.")}
-        )[0],
-        "layer_1": sorted(
-            {value for key, value in weight_map.items() if key.startswith("layers.1.")}
-        )[0],
-        "terminal": weight_map["head.weight"],
-    }
-    if len(set(stage_shards.values())) != 4:
+    stage_shards = {"initial": weight_map["embed.weight"]}
+    for layer in layers:
+        layer_shards = sorted(
+            {
+                value
+                for key, value in weight_map.items()
+                if key.startswith(f"layers.{layer}.")
+            }
+        )
+        if len(layer_shards) != 1:
+            raise RuntimeError(f"layer {layer} does not map to exactly one shard: {layer_shards}")
+        stage_shards[f"layer_{layer}"] = layer_shards[0]
+    stage_shards["terminal"] = weight_map["head.weight"]
+    if len(set(stage_shards.values())) != len(stage_shards):
         raise RuntimeError(f"unexpected stage shard map: {stage_shards}")
 
     corpus = json.loads(args.corpus.read_text())
@@ -195,8 +202,9 @@ def main() -> int:
         if (
             progress.get("model_index_sha256") != index_sha
             or progress.get("window") != args.window
+            or progress.get("configured_layer_count") != args.layer_count
         ):
-            raise RuntimeError("resume progress basis/window mismatch")
+            raise RuntimeError("resume progress basis/window/layer-count mismatch")
         attempts = progress.setdefault("attempts", [progress.get("process")])
         attempts.append(process)
         progress.update({"status": "RUNNING", "process": process})
@@ -206,7 +214,7 @@ def main() -> int:
             "status": "RUNNING",
             "basis_match": True,
             "model_index_sha256": index_sha,
-            "configured_layer_count": 2,
+            "configured_layer_count": args.layer_count,
             "manifest_layer_count": 43,
             "layer": None,
             "window": args.window,
@@ -231,6 +239,10 @@ def main() -> int:
             {
                 "stage": stage,
                 "layer": layer,
+                "current_layer": layer,
+                "layers_completed": list(progress.get("completed_layers", [])),
+                "checkpoint": progress.get("resume_checkpoint"),
+                "checkpoint_sha256": progress.get("resume_checkpoint_sha256"),
                 "bytes_read": prior_bytes_read + runtime.bytes_read(),
                 "resident_peak_bytes": max(
                     prior_resident_peak, runtime.peak_resident_bytes()
@@ -251,21 +263,38 @@ def main() -> int:
         )
         _atomic_json(progress_path, progress)
 
-    plane_md5 = {0: args.plane_0_md5, 1: args.plane_1_md5}
-    for layer in (0, 1):
+    expected_plane_md5 = {
+        layer: digest
+        for layer, digest in ((0, args.plane_0_md5), (1, args.plane_1_md5))
+        if digest is not None
+    }
+    plane_md5: dict[int, str] = {
+        int(layer): str(digest)
+        for layer, digest in progress.get("plane_md5", {}).items()
+    }
+    for layer in layers:
         _remove(model_root / stage_shards[f"layer_{layer}"])
         _remove(planes_root / f"vq3u_layer_{layer:03d}.pt")
 
-    layer_zero_checkpoint = checkpoints / "layer_0.npy"
-    layer_one_checkpoint = checkpoints / "layer_1.npy"
-    if layer_one_checkpoint.is_file():
-        source_checkpoint = layer_one_checkpoint
-        remaining_layers: tuple[int, ...] = ()
-        progress["completed_layers"] = [0, 1]
-    elif layer_zero_checkpoint.is_file():
-        source_checkpoint = layer_zero_checkpoint
-        remaining_layers = (1,)
-        progress["completed_layers"] = [0]
+    sealed_layers = sorted(
+        int(path.stem.removeprefix("layer_"))
+        for path in checkpoints.glob("layer_*.npy")
+        if path.stem.removeprefix("layer_").isdigit()
+        and int(path.stem.removeprefix("layer_")) in layers
+    )
+    layer_checkpoints = dict(progress.get("layer_checkpoints", {}))
+    if sealed_layers:
+        highest = sealed_layers[-1]
+        source_checkpoint = checkpoints / f"layer_{highest}.npy"
+        actual_checkpoint_sha = _sha256(source_checkpoint)
+        recorded = layer_checkpoints.get(str(highest), {})
+        if recorded.get("sha256") != actual_checkpoint_sha:
+            raise RuntimeError(
+                f"resume checkpoint identity mismatch for layer {highest}: "
+                f"recorded={recorded.get('sha256')}, actual={actual_checkpoint_sha}"
+            )
+        remaining_layers = tuple(range(highest + 1, args.layer_count))
+        progress["completed_layers"] = list(range(highest + 1))
     else:
         initial_checkpoint = checkpoints / "initial.npy"
         if not initial_checkpoint.is_file():
@@ -285,29 +314,10 @@ def main() -> int:
                     f"initial stage retained accelerator storage: {initial_resident} bytes"
                 )
         source_checkpoint = initial_checkpoint
-        remaining_layers = (0, 1)
+        remaining_layers = tuple(layers)
         progress["completed_layers"] = []
-    layer_checkpoints = dict(progress.get("layer_checkpoints", {}))
-    prior_resume = progress.get("resume_checkpoint")
-    prior_resume_sha = progress.get("resume_checkpoint_sha256")
-    if (
-        isinstance(prior_resume, str)
-        and prior_resume.endswith("layer_0.npy")
-        and isinstance(prior_resume_sha, str)
-    ):
-        layer_checkpoints.setdefault(
-            "0",
-            {
-                "path": prior_resume,
-                "sha256": prior_resume_sha,
-                "retained": Path(prior_resume).is_file(),
-                "consumed_by_layer": 1,
-            },
-        )
-    for layer, checkpoint in (
-        (0, layer_zero_checkpoint),
-        (1, layer_one_checkpoint),
-    ):
+    for layer in layers:
+        checkpoint = checkpoints / f"layer_{layer}.npy"
         if checkpoint.is_file():
             layer_checkpoints[str(layer)] = {
                 "path": str(checkpoint),
@@ -325,10 +335,12 @@ def main() -> int:
         _stage(args.model_source, shard.name, shard)
         _stage(args.plane_source, plane.name, plane)
         actual_md5 = _md5(plane)
-        if actual_md5 != plane_md5[layer]:
+        expected_md5 = expected_plane_md5.get(layer)
+        if expected_md5 is not None and actual_md5 != expected_md5:
             raise RuntimeError(
-                f"layer {layer} plane identity mismatch: expected {plane_md5[layer]}, got {actual_md5}"
+                f"layer {layer} plane identity mismatch: expected {expected_md5}, got {actual_md5}"
             )
+        plane_md5[layer] = actual_md5
         target_checkpoint = checkpoints / f"layer_{layer}.npy"
         with runtime.layer_stage(layer) as forward:
             packed = np.load(source_checkpoint, allow_pickle=False)
@@ -342,13 +354,22 @@ def main() -> int:
         _remove(shard)
         _remove(plane)
         if source_checkpoint.name != "initial.npy":
+            previous_layer = int(source_checkpoint.stem.removeprefix("layer_"))
             _remove(source_checkpoint)
+            progress["layer_checkpoints"][str(previous_layer)]["retained"] = False
+            progress["layer_checkpoints"][str(previous_layer)]["consumed_by_layer"] = layer
         source_checkpoint = target_checkpoint
         progress["completed_layers"] = list(range(layer + 1))
         progress["layer_checkpoints"][str(layer)] = {
             "path": str(target_checkpoint),
             "sha256": _sha256(target_checkpoint),
+            "retained": True,
         }
+        progress["resume_checkpoint"] = str(target_checkpoint)
+        progress["resume_checkpoint_sha256"] = progress["layer_checkpoints"][str(layer)][
+            "sha256"
+        ]
+        progress["plane_md5"] = plane_md5
         update("layer-complete", layer)
         if layer_resident != 0:
             raise RuntimeError(
@@ -388,7 +409,7 @@ def main() -> int:
         **progress,
         "schema": "banana-smasher-d4-layerwise-hardware-receipt-v1",
         "status": "PASS",
-        "layers_completed": [0, 1],
+        "layers_completed": layers,
         "output_rows": 1,
         "output": str(output_path),
         "output_sha256": _sha256(output_path),
