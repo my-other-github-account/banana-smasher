@@ -8,6 +8,7 @@ import pytest
 
 from banana_smasher.anchor import build_bank_manifest, materialize_candidate_producer
 from banana_smasher.fixed_d4 import produce_fixed_d4_layerwise_logits
+from banana_smasher.offline_layerwise import _load_runtime
 
 
 BASIS = "b" * 64
@@ -69,20 +70,13 @@ def test_auto_dispatches_builtin_offline_layerwise_as_one_model_pass(
     monkeypatch.setattr(contract, "verify_pack", lambda _root: {"status": "PASS"})
     monkeypatch.setattr(contract, "load_manifest", lambda _root: {"layers": [0]})
 
-    config = tmp_path / "offline-layerwise.json"
-    config.write_text(
-        json.dumps(
-            {
-                "schema": "banana-smasher-candidate-producer-v1",
-                "producer": "fixed-d4-offline-layerwise",
-                "parameters": {
-                    "input_field": "tokens",
-                    "batch_size": 16,
-                    "engine": {"cpu_offload_gb": 64, "enforce_eager": True},
-                },
-            }
-        )
+    packaged_config = (
+        Path(__file__).parents[1]
+        / "producer_configs"
+        / "fixed_d4_offline_layerwise.json"
     )
+    config = tmp_path / "offline-layerwise.json"
+    config.write_bytes(packaged_config.read_bytes())
     calls: list[list[int]] = []
 
     def fake_layerwise(
@@ -135,3 +129,31 @@ def test_builtin_offline_layerwise_does_not_delegate_to_resident_vllm() -> None:
 
     assert "cpu_offload_gb" not in source
     assert "produce_fixed_d4_logits(" not in source
+
+
+def test_packaged_offline_layerwise_config_binds_genuine_adapter() -> None:
+    config_path = (
+        Path(__file__).parents[1]
+        / "producer_configs"
+        / "fixed_d4_offline_layerwise.json"
+    )
+    config = json.loads(config_path.read_text())
+
+    assert config["producer"] == "fixed-d4-offline-layerwise"
+    assert set(config["parameters"]) == {
+        "execution_mode",
+        "input_field",
+        "layers",
+        "physical_limits",
+        "positions",
+        "runtime_adapter",
+        "teacher_support",
+    }
+    assert config["parameters"]["layers"] == list(range(43))
+    adapter = _load_runtime(
+        config["parameters"]["runtime_adapter"], root=config_path.parent
+    )
+    assert adapter.__name__ == "DeepseekV4D4Runtime"
+    assert adapter.__module__ == "banana_smasher.hf_deepseek_v4_d4_adapter"
+    assert "vllm" not in config_path.read_text()
+    assert "cpu_offload" not in config_path.read_text()
