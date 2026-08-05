@@ -31,8 +31,8 @@ void specialized_qtip(
   TORCH_CHECK(routes >= 1 && routes <= 49152 && x.size(1) == K, "QTIP route/K shape invalid");
   TORCH_CHECK(out.dim() == 2 && out.size(0) == routes && out.size(1) == N, "QTIP output shape invalid");
   TORCH_CHECK(block_route_rows.size(1) >= 1 && block_route_rows.size(1) <= 16, "route tile must be in [1,16]");
-  TORCH_CHECK(physical_counters.scalar_type() == torch::kInt64 && physical_counters.numel() >= 128, "physical_counters must be CUDA int64[128+]");
-  TORCH_CHECK(specialized_counter_index >= 32 && specialized_counter_index < 128, "specialized counter is outside matrix layout");
+  TORCH_CHECK(physical_counters.scalar_type() == torch::kInt64 && physical_counters.numel() >= 160, "physical_counters must be CUDA int64[160+]");
+  TORCH_CHECK(specialized_counter_index >= 32 && specialized_counter_index < 160, "specialized counter is outside matrix layout");
   const c10::cuda::CUDAGuard guard(x.device());
   decompress_matvec_specialized_ptr<16U, 9U, R, 1U, 4096U, 1U, K, Variant>(
       out.data_ptr<float>(), sources.data_ptr<int64_t>(),
@@ -68,6 +68,7 @@ DEFINE_QTIP_SPECIALIZATION(qtip2_k4096_decode_c16, 2, 4096, 4, 36)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k4096_prefill_bm16, 2, 4096, 5, 37)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k4096_prefill_large, 2, 4096, 6, 38)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k4096_prefill_exact_2k, 2, 4096, 7, 39)
+DEFINE_QTIP_SPECIALIZATION(qtip2_k4096_prefill_large_8192, 2, 4096, 8, 128)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k2048_decode_c1, 2, 2048, 0, 40)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k2048_decode_c2, 2, 2048, 1, 41)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k2048_decode_c4, 2, 2048, 2, 42)
@@ -76,6 +77,7 @@ DEFINE_QTIP_SPECIALIZATION(qtip2_k2048_decode_c16, 2, 2048, 4, 44)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k2048_prefill_bm16, 2, 2048, 5, 45)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k2048_prefill_large, 2, 2048, 6, 46)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k2048_prefill_exact_2k, 2, 2048, 7, 47)
+DEFINE_QTIP_SPECIALIZATION(qtip2_k2048_prefill_large_8192, 2, 2048, 8, 129)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k4096_decode_c1, 3, 4096, 0, 48)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k4096_decode_c2, 3, 4096, 1, 49)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k4096_decode_c4, 3, 4096, 2, 50)
@@ -84,6 +86,7 @@ DEFINE_QTIP_SPECIALIZATION(qtip3_k4096_decode_c16, 3, 4096, 4, 52)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k4096_prefill_bm16, 3, 4096, 5, 53)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k4096_prefill_large, 3, 4096, 6, 54)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k4096_prefill_exact_2k, 3, 4096, 7, 55)
+DEFINE_QTIP_SPECIALIZATION(qtip3_k4096_prefill_large_8192, 3, 4096, 8, 130)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k2048_decode_c1, 3, 2048, 0, 56)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k2048_decode_c2, 3, 2048, 1, 57)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k2048_decode_c4, 3, 2048, 2, 58)
@@ -92,5 +95,6 @@ DEFINE_QTIP_SPECIALIZATION(qtip3_k2048_decode_c16, 3, 2048, 4, 60)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k2048_prefill_bm16, 3, 2048, 5, 61)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k2048_prefill_large, 3, 2048, 6, 62)
 DEFINE_QTIP_SPECIALIZATION(qtip3_k2048_prefill_exact_2k, 3, 2048, 7, 63)
+DEFINE_QTIP_SPECIALIZATION(qtip3_k2048_prefill_large_8192, 3, 2048, 8, 131)
 
 #undef DEFINE_QTIP_SPECIALIZATION
