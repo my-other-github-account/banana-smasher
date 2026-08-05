@@ -90,3 +90,35 @@ def test_main_requires_semantic_ok_from_stream(monkeypatch: pytest.MonkeyPatch) 
 
     with pytest.raises(SystemExit, match="streaming chat"):
         smoke_api.main()
+
+
+def test_main_disables_thinking_for_bounded_semantic_smoke(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    smoke_api = _load_smoke_api()
+    stream = (
+        'data: {"choices":[{"delta":{"content":"OK."}}]}\n\n'
+        "data: [DONE]\n\n"
+    ).encode()
+    replies = iter(
+        (
+            b"",
+            json.dumps({"data": [{"id": "banana-smasher-v5"}]}).encode(),
+            json.dumps({"choices": [{"message": {"content": "OK."}}]}).encode(),
+            stream,
+        )
+    )
+    request_payloads: list[dict[str, Any]] = []
+
+    def fake_urlopen(request: Any, **kwargs: Any) -> _Response:
+        if hasattr(request, "data"):
+            request_payloads.append(json.loads(request.data))
+        return _Response(next(replies))
+
+    monkeypatch.setattr(smoke_api.urllib.request, "urlopen", fake_urlopen)
+
+    smoke_api.main()
+
+    assert len(request_payloads) == 2
+    for payload in request_payloads:
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
