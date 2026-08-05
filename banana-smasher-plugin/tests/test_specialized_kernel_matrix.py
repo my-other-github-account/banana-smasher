@@ -34,6 +34,7 @@ VARIANT_TOKENS = {
     "prefill_bm16": 32,
     "prefill_large": 64,
     "prefill_exact_2k": 2048,
+    "prefill_large_8192": 8192,
 }
 REQUIRED_FIELDS = {
     "tier",
@@ -83,8 +84,9 @@ def test_matrix_exhaustively_binds_every_admitted_tier_projection_and_shape() ->
     expected_keys = set(product(TIERS, PROJECTIONS, VARIANT_TOKENS))
     actual_keys = {(row["tier"], row["projection"], row["variant"]) for row in rows}
     assert actual_keys == expected_keys
-    assert len(rows) == len(expected_keys) == 96
+    assert len(rows) == len(expected_keys) == 108
 
+    counter_storage = f'CUDA int64[{matrix["counter_layout"]["size"]}]'
     counters: set[str] = set()
     for row in rows:
         assert REQUIRED_FIELDS <= row.keys()
@@ -108,6 +110,7 @@ def test_matrix_exhaustively_binds_every_admitted_tier_projection_and_shape() ->
         assert row["counter"]["name"] not in counters
         counters.add(row["counter"]["name"])
         assert row["counter"]["index"] >= 32
+        assert row["counter"]["storage"] == counter_storage
         assert row["expected_physical_proof"]["counter_nonzero"] == row["counter"]["name"]
         assert row["expected_physical_proof"]["forbidden_counters_zero"] == [
             "mixed_exact_gemv",
@@ -146,7 +149,7 @@ def test_specialization_selector_is_exact_for_decode_bm16_large_and_2k() -> None
         assert row["variant"] == variant
         assert row["tier"] == tier
         assert row["projection"] == projection
-    assert variants.specialization_for("qtip2_2.0117", "fused13", 8192)["variant"] == "prefill_large"
+    assert variants.specialization_for("qtip2_2.0117", "fused13", 8192)["variant"] == "prefill_large_8192"
 
 
 def test_product_sources_do_not_use_forbidden_generic_or_zero_offset_routes() -> None:
@@ -231,10 +234,12 @@ def test_every_matrix_source_symbol_is_owned_by_compiled_specialized_source() ->
             assert "mxfp4_specialized_kernel" in source
 
     assert "qtip_trellis_tlut_kernel" in qtip_kernel
+    assert "physical_counters.numel() >= 160" in qtip
+    assert "specialized_counter_index < 160" in qtip
     assert "d4_specialized" in vq
     assert "mxfp4_specialized" in vq
-    assert "physical_counters.numel() >= 128" in vq
-    assert '"physical_counters": torch.zeros(128' in acceleration
+    assert "physical_counters.numel() >= 160" in vq
+    assert '"physical_counters": torch.zeros(160' in acceleration
 
 
 def test_d4_tier_specialization_does_not_change_mxfp4_launch_arity() -> None:
@@ -270,7 +275,7 @@ def test_native_extension_preflight_rejects_partial_registered_surface(
 def test_physical_proof_aggregates_every_matrix_counter_across_runtime_states() -> None:
     variants = _load_variants()
     matrix = json.loads(MATRIX.read_text())
-    snapshots = [[0] * 128, [0] * 128]
+    snapshots = [[0] * 160, [0] * 160]
     for position, row in enumerate(matrix["rows"]):
         snapshots[position % 2][row["counter"]["index"]] = 1
 
@@ -284,5 +289,5 @@ def test_physical_proof_aggregates_every_matrix_counter_across_runtime_states() 
         "p1016_generic": 0,
         "triton_fallback": 0,
     }
-    assert len(proof["rows"]) == 96
+    assert len(proof["rows"]) == 108
     assert {row["count"] for row in proof["rows"]} == {1}

@@ -32,7 +32,7 @@ def test_inventory_is_truthful_about_proved_port_and_historical_blockers() -> No
     inventory = json.loads(INVENTORY.read_text())
     assert inventory["schema"] == "banana-smasher-v5-specialized-source-closure-v1"
     assert inventory["basis_commit"] == "9044c81"
-    assert inventory["specialized_kernel_matrix"]["rows"] == 96
+    assert inventory["specialized_kernel_matrix"]["rows"] == 108
     items = {item["id"]: item for item in inventory["items"]}
     assert all(
         item["status"] in {"ported", "preserved", "blocked", "awaiting_hardware"}
@@ -217,7 +217,7 @@ def test_physical_counters_are_written_by_the_family_kernels() -> None:
     qtip = (CSRC / "qtip/inference_dynamic.cu").read_text()
     vq = (CSRC / "vq_warp_gemv.cu").read_text()
 
-    assert '"physical_counters": torch.zeros(128' in acceleration
+    assert '"physical_counters": torch.zeros(160' in acceleration
     assert '"physical_launches": (10, 14)' in acceleration
     assert '"physical_blocks": (14, 18)' in acceleration
     assert '"physical_rows": (18, 22)' in acceleration

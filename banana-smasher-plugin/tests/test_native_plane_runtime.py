@@ -63,7 +63,7 @@ def test_specialized_physical_proof_reads_each_runtime_counter_tensor_once(
 ) -> None:
     matrix_path = Path(native_planes.__file__).with_name("specialized_kernel_matrix.json")
     matrix = json.loads(matrix_path.read_text())
-    values = [0] * 128
+    values = [0] * 160
     for row in matrix["rows"]:
         values[row["counter"]["index"]] = 1
 
@@ -97,7 +97,7 @@ def test_specialized_physical_proof_reads_each_runtime_counter_tensor_once(
 def test_specialized_shape_proof_requires_large_8192_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    counters = torch.ones(128, dtype=torch.int64)
+    counters = torch.ones(160, dtype=torch.int64)
     counters[24:27] = 0
     geometries = {
         (6, 1): counters.clone(),
@@ -592,7 +592,7 @@ def test_native_plane_construction_preallocates_only_decode_graph_workspaces(
 
     def record_allocation(*, rows: int, block_rows: int, **_kwargs):
         allocations.append((rows, block_rows))
-        return {"physical_counters": torch.zeros(128, dtype=torch.int64)}
+        return {"physical_counters": torch.zeros(160, dtype=torch.int64)}
 
     monkeypatch.setattr(
         v4_acceleration,

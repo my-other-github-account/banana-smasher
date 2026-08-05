@@ -258,7 +258,7 @@
   "specialized_kernel_matrix": {
     "path": "specialized_kernel_matrix.json",
     "projections": 2,
-    "rows": 96,
+    "rows": 108,
     "schema": "banana-smasher-v5-specialized-kernel-matrix-v1",
     "tiers": 6,
     "variants": [
@@ -269,7 +269,8 @@
       "decode_c16",
       "prefill_bm16",
       "prefill_large",
-      "prefill_exact_2k"
+      "prefill_exact_2k",
+      "prefill_large_8192"
     ]
   }
 }

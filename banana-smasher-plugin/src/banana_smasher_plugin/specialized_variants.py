@@ -18,6 +18,7 @@ VARIANT_IDS = {
     "prefill_bm16": 5,
     "prefill_large": 6,
     "prefill_exact_2k": 7,
+    "prefill_large_8192": 8,
 }
 FORBIDDEN_COUNTERS = {
     "mixed_exact_gemv": 24,
@@ -32,8 +33,8 @@ def _rows() -> dict[tuple[str, str, str], dict[str, Any]]:
     if document.get("schema") != "banana-smasher-specialized-kernel-matrix-v1":
         raise RuntimeError("specialized kernel matrix schema drift")
     rows = document.get("rows")
-    if not isinstance(rows, list) or len(rows) != 96:
-        raise RuntimeError("specialized kernel matrix must contain exactly 96 rows")
+    if not isinstance(rows, list) or len(rows) != 108:
+        raise RuntimeError("specialized kernel matrix must contain exactly 108 rows")
     indexed = {
         (str(row["tier"]), str(row["projection"]), str(row["variant"])): row
         for row in rows
@@ -48,6 +49,8 @@ def variant_for_tokens(tokens: int) -> str:
         raise ValueError(f"tokens must be in [1, 8192], got {tokens!r}")
     if tokens in DECODE_VARIANTS:
         return DECODE_VARIANTS[tokens]
+    if tokens == 8192:
+        return "prefill_large_8192"
     if tokens == 2048:
         return "prefill_exact_2k"
     if tokens < 64:
@@ -81,12 +84,14 @@ def required_warmup_tokens() -> tuple[int, ...]:
 
 def physical_proof(counter_snapshots: list[Any]) -> dict[str, Any]:
     """Aggregate explicit runtime counter snapshots against the exact matrix."""
-    totals = [0] * 128
+    document = json.loads(MATRIX_PATH.read_text())
+    counter_size = int(document["counter_layout"]["size"])
+    totals = [0] * counter_size
     for snapshot in counter_snapshots:
         values = snapshot.detach().cpu().tolist() if hasattr(snapshot, "detach") else list(snapshot)
         if len(values) < len(totals):
             raise ValueError(
-                f"physical counter snapshot must contain at least 128 values, got {len(values)}"
+                f"physical counter snapshot must contain at least {counter_size} values, got {len(values)}"
             )
         for index, value in enumerate(values[: len(totals)]):
             totals[index] += int(value)

@@ -10,9 +10,9 @@
       "p1016_generic": 25,
       "triton_fallback": 26
     },
-    "size": 128,
+    "size": 160,
     "specialized_begin": 32,
-    "specialized_end_exclusive": 128
+    "specialized_end_exclusive": 140
   },
   "warmup_geometries": {
     "tokens": [1, 2, 4, 8, 16, 32, 64, 2048, 8192],
@@ -26,7 +26,7 @@
       "counter": {
         "index": 32,
         "name": "physical.qtip2_2.0117.fused13.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.fused13.decode_c1",
@@ -92,7 +92,7 @@
       "counter": {
         "index": 33,
         "name": "physical.qtip2_2.0117.fused13.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.fused13.decode_c2",
@@ -158,7 +158,7 @@
       "counter": {
         "index": 34,
         "name": "physical.qtip2_2.0117.fused13.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.fused13.decode_c4",
@@ -224,7 +224,7 @@
       "counter": {
         "index": 35,
         "name": "physical.qtip2_2.0117.fused13.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.fused13.decode_c8",
@@ -290,7 +290,7 @@
       "counter": {
         "index": 36,
         "name": "physical.qtip2_2.0117.fused13.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.fused13.decode_c16",
@@ -356,7 +356,7 @@
       "counter": {
         "index": 37,
         "name": "physical.qtip2_2.0117.fused13.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.fused13.prefill_bm16",
@@ -422,7 +422,7 @@
       "counter": {
         "index": 38,
         "name": "physical.qtip2_2.0117.fused13.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.fused13.prefill_large",
@@ -488,7 +488,7 @@
       "counter": {
         "index": 39,
         "name": "physical.qtip2_2.0117.fused13.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.fused13.prefill_exact_2k",
@@ -554,7 +554,7 @@
       "counter": {
         "index": 40,
         "name": "physical.qtip2_2.0117.down.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.down.decode_c1",
@@ -620,7 +620,7 @@
       "counter": {
         "index": 41,
         "name": "physical.qtip2_2.0117.down.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.down.decode_c2",
@@ -686,7 +686,7 @@
       "counter": {
         "index": 42,
         "name": "physical.qtip2_2.0117.down.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.down.decode_c4",
@@ -752,7 +752,7 @@
       "counter": {
         "index": 43,
         "name": "physical.qtip2_2.0117.down.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.down.decode_c8",
@@ -818,7 +818,7 @@
       "counter": {
         "index": 44,
         "name": "physical.qtip2_2.0117.down.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.down.decode_c16",
@@ -884,7 +884,7 @@
       "counter": {
         "index": 45,
         "name": "physical.qtip2_2.0117.down.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.down.prefill_bm16",
@@ -950,7 +950,7 @@
       "counter": {
         "index": 46,
         "name": "physical.qtip2_2.0117.down.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.down.prefill_large",
@@ -1016,7 +1016,7 @@
       "counter": {
         "index": 47,
         "name": "physical.qtip2_2.0117.down.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip2_2.0117.down.prefill_exact_2k",
@@ -1082,7 +1082,7 @@
       "counter": {
         "index": 48,
         "name": "physical.qtip3_3.0117.fused13.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.fused13.decode_c1",
@@ -1148,7 +1148,7 @@
       "counter": {
         "index": 49,
         "name": "physical.qtip3_3.0117.fused13.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.fused13.decode_c2",
@@ -1214,7 +1214,7 @@
       "counter": {
         "index": 50,
         "name": "physical.qtip3_3.0117.fused13.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.fused13.decode_c4",
@@ -1280,7 +1280,7 @@
       "counter": {
         "index": 51,
         "name": "physical.qtip3_3.0117.fused13.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.fused13.decode_c8",
@@ -1346,7 +1346,7 @@
       "counter": {
         "index": 52,
         "name": "physical.qtip3_3.0117.fused13.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.fused13.decode_c16",
@@ -1412,7 +1412,7 @@
       "counter": {
         "index": 53,
         "name": "physical.qtip3_3.0117.fused13.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.fused13.prefill_bm16",
@@ -1478,7 +1478,7 @@
       "counter": {
         "index": 54,
         "name": "physical.qtip3_3.0117.fused13.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.fused13.prefill_large",
@@ -1544,7 +1544,7 @@
       "counter": {
         "index": 55,
         "name": "physical.qtip3_3.0117.fused13.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.fused13.prefill_exact_2k",
@@ -1610,7 +1610,7 @@
       "counter": {
         "index": 56,
         "name": "physical.qtip3_3.0117.down.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.down.decode_c1",
@@ -1676,7 +1676,7 @@
       "counter": {
         "index": 57,
         "name": "physical.qtip3_3.0117.down.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.down.decode_c2",
@@ -1742,7 +1742,7 @@
       "counter": {
         "index": 58,
         "name": "physical.qtip3_3.0117.down.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.down.decode_c4",
@@ -1808,7 +1808,7 @@
       "counter": {
         "index": 59,
         "name": "physical.qtip3_3.0117.down.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.down.decode_c8",
@@ -1874,7 +1874,7 @@
       "counter": {
         "index": 60,
         "name": "physical.qtip3_3.0117.down.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.down.decode_c16",
@@ -1940,7 +1940,7 @@
       "counter": {
         "index": 61,
         "name": "physical.qtip3_3.0117.down.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.down.prefill_bm16",
@@ -2006,7 +2006,7 @@
       "counter": {
         "index": 62,
         "name": "physical.qtip3_3.0117.down.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.down.prefill_large",
@@ -2072,7 +2072,7 @@
       "counter": {
         "index": 63,
         "name": "physical.qtip3_3.0117.down.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.qtip3_3.0117.down.prefill_exact_2k",
@@ -2138,7 +2138,7 @@
       "counter": {
         "index": 64,
         "name": "physical.d4_k1024.fused13.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.fused13.decode_c1",
@@ -2205,7 +2205,7 @@
       "counter": {
         "index": 65,
         "name": "physical.d4_k1024.fused13.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.fused13.decode_c2",
@@ -2272,7 +2272,7 @@
       "counter": {
         "index": 66,
         "name": "physical.d4_k1024.fused13.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.fused13.decode_c4",
@@ -2339,7 +2339,7 @@
       "counter": {
         "index": 67,
         "name": "physical.d4_k1024.fused13.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.fused13.decode_c8",
@@ -2406,7 +2406,7 @@
       "counter": {
         "index": 68,
         "name": "physical.d4_k1024.fused13.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.fused13.decode_c16",
@@ -2473,7 +2473,7 @@
       "counter": {
         "index": 69,
         "name": "physical.d4_k1024.fused13.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.fused13.prefill_bm16",
@@ -2540,7 +2540,7 @@
       "counter": {
         "index": 70,
         "name": "physical.d4_k1024.fused13.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.fused13.prefill_large",
@@ -2607,7 +2607,7 @@
       "counter": {
         "index": 71,
         "name": "physical.d4_k1024.fused13.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.fused13.prefill_exact_2k",
@@ -2674,7 +2674,7 @@
       "counter": {
         "index": 72,
         "name": "physical.d4_k1024.down.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.down.decode_c1",
@@ -2741,7 +2741,7 @@
       "counter": {
         "index": 73,
         "name": "physical.d4_k1024.down.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.down.decode_c2",
@@ -2808,7 +2808,7 @@
       "counter": {
         "index": 74,
         "name": "physical.d4_k1024.down.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.down.decode_c4",
@@ -2875,7 +2875,7 @@
       "counter": {
         "index": 75,
         "name": "physical.d4_k1024.down.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.down.decode_c8",
@@ -2942,7 +2942,7 @@
       "counter": {
         "index": 76,
         "name": "physical.d4_k1024.down.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.down.decode_c16",
@@ -3009,7 +3009,7 @@
       "counter": {
         "index": 77,
         "name": "physical.d4_k1024.down.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.down.prefill_bm16",
@@ -3076,7 +3076,7 @@
       "counter": {
         "index": 78,
         "name": "physical.d4_k1024.down.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.down.prefill_large",
@@ -3143,7 +3143,7 @@
       "counter": {
         "index": 79,
         "name": "physical.d4_k1024.down.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k1024.down.prefill_exact_2k",
@@ -3210,7 +3210,7 @@
       "counter": {
         "index": 80,
         "name": "physical.d4_k2048.fused13.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.fused13.decode_c1",
@@ -3277,7 +3277,7 @@
       "counter": {
         "index": 81,
         "name": "physical.d4_k2048.fused13.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.fused13.decode_c2",
@@ -3344,7 +3344,7 @@
       "counter": {
         "index": 82,
         "name": "physical.d4_k2048.fused13.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.fused13.decode_c4",
@@ -3411,7 +3411,7 @@
       "counter": {
         "index": 83,
         "name": "physical.d4_k2048.fused13.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.fused13.decode_c8",
@@ -3478,7 +3478,7 @@
       "counter": {
         "index": 84,
         "name": "physical.d4_k2048.fused13.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.fused13.decode_c16",
@@ -3545,7 +3545,7 @@
       "counter": {
         "index": 85,
         "name": "physical.d4_k2048.fused13.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.fused13.prefill_bm16",
@@ -3612,7 +3612,7 @@
       "counter": {
         "index": 86,
         "name": "physical.d4_k2048.fused13.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.fused13.prefill_large",
@@ -3679,7 +3679,7 @@
       "counter": {
         "index": 87,
         "name": "physical.d4_k2048.fused13.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.fused13.prefill_exact_2k",
@@ -3746,7 +3746,7 @@
       "counter": {
         "index": 88,
         "name": "physical.d4_k2048.down.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.down.decode_c1",
@@ -3813,7 +3813,7 @@
       "counter": {
         "index": 89,
         "name": "physical.d4_k2048.down.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.down.decode_c2",
@@ -3880,7 +3880,7 @@
       "counter": {
         "index": 90,
         "name": "physical.d4_k2048.down.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.down.decode_c4",
@@ -3947,7 +3947,7 @@
       "counter": {
         "index": 91,
         "name": "physical.d4_k2048.down.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.down.decode_c8",
@@ -4014,7 +4014,7 @@
       "counter": {
         "index": 92,
         "name": "physical.d4_k2048.down.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.down.decode_c16",
@@ -4081,7 +4081,7 @@
       "counter": {
         "index": 93,
         "name": "physical.d4_k2048.down.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.down.prefill_bm16",
@@ -4148,7 +4148,7 @@
       "counter": {
         "index": 94,
         "name": "physical.d4_k2048.down.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.down.prefill_large",
@@ -4215,7 +4215,7 @@
       "counter": {
         "index": 95,
         "name": "physical.d4_k2048.down.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k2048.down.prefill_exact_2k",
@@ -4282,7 +4282,7 @@
       "counter": {
         "index": 96,
         "name": "physical.d4_k4096.fused13.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.fused13.decode_c1",
@@ -4349,7 +4349,7 @@
       "counter": {
         "index": 97,
         "name": "physical.d4_k4096.fused13.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.fused13.decode_c2",
@@ -4416,7 +4416,7 @@
       "counter": {
         "index": 98,
         "name": "physical.d4_k4096.fused13.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.fused13.decode_c4",
@@ -4483,7 +4483,7 @@
       "counter": {
         "index": 99,
         "name": "physical.d4_k4096.fused13.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.fused13.decode_c8",
@@ -4550,7 +4550,7 @@
       "counter": {
         "index": 100,
         "name": "physical.d4_k4096.fused13.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.fused13.decode_c16",
@@ -4617,7 +4617,7 @@
       "counter": {
         "index": 101,
         "name": "physical.d4_k4096.fused13.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.fused13.prefill_bm16",
@@ -4684,7 +4684,7 @@
       "counter": {
         "index": 102,
         "name": "physical.d4_k4096.fused13.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.fused13.prefill_large",
@@ -4751,7 +4751,7 @@
       "counter": {
         "index": 103,
         "name": "physical.d4_k4096.fused13.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.fused13.prefill_exact_2k",
@@ -4818,7 +4818,7 @@
       "counter": {
         "index": 104,
         "name": "physical.d4_k4096.down.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.down.decode_c1",
@@ -4885,7 +4885,7 @@
       "counter": {
         "index": 105,
         "name": "physical.d4_k4096.down.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.down.decode_c2",
@@ -4952,7 +4952,7 @@
       "counter": {
         "index": 106,
         "name": "physical.d4_k4096.down.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.down.decode_c4",
@@ -5019,7 +5019,7 @@
       "counter": {
         "index": 107,
         "name": "physical.d4_k4096.down.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.down.decode_c8",
@@ -5086,7 +5086,7 @@
       "counter": {
         "index": 108,
         "name": "physical.d4_k4096.down.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.down.decode_c16",
@@ -5153,7 +5153,7 @@
       "counter": {
         "index": 109,
         "name": "physical.d4_k4096.down.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.down.prefill_bm16",
@@ -5220,7 +5220,7 @@
       "counter": {
         "index": 110,
         "name": "physical.d4_k4096.down.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.down.prefill_large",
@@ -5287,7 +5287,7 @@
       "counter": {
         "index": 111,
         "name": "physical.d4_k4096.down.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.d4_k4096.down.prefill_exact_2k",
@@ -5354,7 +5354,7 @@
       "counter": {
         "index": 112,
         "name": "physical.native_mxfp4.fused13.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.fused13.decode_c1",
@@ -5419,7 +5419,7 @@
       "counter": {
         "index": 113,
         "name": "physical.native_mxfp4.fused13.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.fused13.decode_c2",
@@ -5484,7 +5484,7 @@
       "counter": {
         "index": 114,
         "name": "physical.native_mxfp4.fused13.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.fused13.decode_c4",
@@ -5549,7 +5549,7 @@
       "counter": {
         "index": 115,
         "name": "physical.native_mxfp4.fused13.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.fused13.decode_c8",
@@ -5614,7 +5614,7 @@
       "counter": {
         "index": 116,
         "name": "physical.native_mxfp4.fused13.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.fused13.decode_c16",
@@ -5679,7 +5679,7 @@
       "counter": {
         "index": 117,
         "name": "physical.native_mxfp4.fused13.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.fused13.prefill_bm16",
@@ -5744,7 +5744,7 @@
       "counter": {
         "index": 118,
         "name": "physical.native_mxfp4.fused13.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.fused13.prefill_large",
@@ -5809,7 +5809,7 @@
       "counter": {
         "index": 119,
         "name": "physical.native_mxfp4.fused13.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.fused13.prefill_exact_2k",
@@ -5874,7 +5874,7 @@
       "counter": {
         "index": 120,
         "name": "physical.native_mxfp4.down.decode_c1",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.down.decode_c1",
@@ -5939,7 +5939,7 @@
       "counter": {
         "index": 121,
         "name": "physical.native_mxfp4.down.decode_c2",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.down.decode_c2",
@@ -6004,7 +6004,7 @@
       "counter": {
         "index": 122,
         "name": "physical.native_mxfp4.down.decode_c4",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.down.decode_c4",
@@ -6069,7 +6069,7 @@
       "counter": {
         "index": 123,
         "name": "physical.native_mxfp4.down.decode_c8",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.down.decode_c8",
@@ -6134,7 +6134,7 @@
       "counter": {
         "index": 124,
         "name": "physical.native_mxfp4.down.decode_c16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.down.decode_c16",
@@ -6199,7 +6199,7 @@
       "counter": {
         "index": 125,
         "name": "physical.native_mxfp4.down.prefill_bm16",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.down.prefill_bm16",
@@ -6264,7 +6264,7 @@
       "counter": {
         "index": 126,
         "name": "physical.native_mxfp4.down.prefill_large",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.down.prefill_large",
@@ -6329,7 +6329,7 @@
       "counter": {
         "index": 127,
         "name": "physical.native_mxfp4.down.prefill_exact_2k",
-        "storage": "CUDA int64[128]"
+        "storage": "CUDA int64[160]"
       },
       "expected_physical_proof": {
         "counter_nonzero": "physical.native_mxfp4.down.prefill_exact_2k",
@@ -6388,7 +6388,19 @@
         "route_rows": 12288,
         "tile_m": 16
       }
-    }
+    },
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":128,"name":"physical.qtip2_2.0117.fused13.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.qtip2_2.0117.fused13.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"qtip2","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":null,"input_k":4096,"operator_schema":"_v4_moe.qtip2_k4096_prefill_large_8192(..., int specialized_counter_index)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"fused13","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/qtip/qtip_dynamic_torch.cu","source_symbol":"qtip2_k4096_prefill_large_8192","tier":"qtip2_2.0117","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","fwht_x_times_su","qtip2_trellis_tlut","fwht_raw_times_wscale_times_sv"],"tuning":{"key":"qtip2_2.0117:fused13:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":129,"name":"physical.qtip2_2.0117.down.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.qtip2_2.0117.down.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"qtip2","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":null,"input_k":2048,"operator_schema":"_v4_moe.qtip2_k2048_prefill_large_8192(..., int specialized_counter_index)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"down","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/qtip/qtip_dynamic_torch.cu","source_symbol":"qtip2_k2048_prefill_large_8192","tier":"qtip2_2.0117","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","fwht_x_times_su","qtip2_trellis_tlut","fwht_raw_times_wscale_times_sv"],"tuning":{"key":"qtip2_2.0117:down:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":130,"name":"physical.qtip3_3.0117.fused13.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.qtip3_3.0117.fused13.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"qtip3","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":null,"input_k":4096,"operator_schema":"_v4_moe.qtip3_k4096_prefill_large_8192(..., int specialized_counter_index)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"fused13","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/qtip/qtip_dynamic_torch.cu","source_symbol":"qtip3_k4096_prefill_large_8192","tier":"qtip3_3.0117","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","fwht_x_times_su","qtip3_trellis_tlut","fwht_raw_times_wscale_times_sv"],"tuning":{"key":"qtip3_3.0117:fused13:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":131,"name":"physical.qtip3_3.0117.down.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.qtip3_3.0117.down.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"qtip3","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":null,"input_k":2048,"operator_schema":"_v4_moe.qtip3_k2048_prefill_large_8192(..., int specialized_counter_index)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"down","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/qtip/qtip_dynamic_torch.cu","source_symbol":"qtip3_k2048_prefill_large_8192","tier":"qtip3_3.0117","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","fwht_x_times_su","qtip3_trellis_tlut","fwht_raw_times_wscale_times_sv"],"tuning":{"key":"qtip3_3.0117:down:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":132,"name":"physical.d4_k1024.fused13.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.d4_k1024.fused13.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"d4","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":10,"input_k":4096,"operator_schema":"banana_smasher_v4::d4_specialized(..., int variant, int counter_i10, int counter_i11, int counter_i12)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"fused13","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/vq_warp_gemv.cu","source_symbol":"d4_specialized_gemm_m4_kernel<10,8,4096>","tier":"d4_k1024","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","file_backed_cpu_uva_expert_pointer_tables","little_endian_packed_index_rows_v1","e8m0_k32_scales","fp16_codebook_1024"],"tuning":{"key":"d4_k1024:fused13:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":133,"name":"physical.d4_k1024.down.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.d4_k1024.down.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"d4","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":10,"input_k":2048,"operator_schema":"banana_smasher_v4::d4_specialized(..., int variant, int counter_i10, int counter_i11, int counter_i12)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"down","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/vq_warp_gemv.cu","source_symbol":"d4_specialized_gemm_m4_kernel<10,8,2048>","tier":"d4_k1024","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","file_backed_cpu_uva_expert_pointer_tables","little_endian_packed_index_rows_v1","e8m0_k32_scales","fp16_codebook_1024"],"tuning":{"key":"d4_k1024:down:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":134,"name":"physical.d4_k2048.fused13.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.d4_k2048.fused13.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"d4","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":11,"input_k":4096,"operator_schema":"banana_smasher_v4::d4_specialized(..., int variant, int counter_i10, int counter_i11, int counter_i12)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"fused13","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/vq_warp_gemv.cu","source_symbol":"d4_specialized_gemm_m4_kernel<11,8,4096>","tier":"d4_k2048","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","file_backed_cpu_uva_expert_pointer_tables","little_endian_packed_index_rows_v1","e8m0_k32_scales","fp16_codebook_2048"],"tuning":{"key":"d4_k2048:fused13:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":135,"name":"physical.d4_k2048.down.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.d4_k2048.down.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"d4","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":11,"input_k":2048,"operator_schema":"banana_smasher_v4::d4_specialized(..., int variant, int counter_i10, int counter_i11, int counter_i12)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"down","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/vq_warp_gemv.cu","source_symbol":"d4_specialized_gemm_m4_kernel<11,8,2048>","tier":"d4_k2048","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","file_backed_cpu_uva_expert_pointer_tables","little_endian_packed_index_rows_v1","e8m0_k32_scales","fp16_codebook_2048"],"tuning":{"key":"d4_k2048:down:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":136,"name":"physical.d4_k4096.fused13.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.d4_k4096.fused13.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"d4","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":12,"input_k":4096,"operator_schema":"banana_smasher_v4::d4_specialized(..., int variant, int counter_i10, int counter_i11, int counter_i12)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"fused13","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/vq_warp_gemv.cu","source_symbol":"d4_specialized_gemm_m4_kernel<12,8,4096>","tier":"d4_k4096","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","file_backed_cpu_uva_expert_pointer_tables","little_endian_packed_index_rows_v1","e8m0_k32_scales","fp16_codebook_4096"],"tuning":{"key":"d4_k4096:fused13:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":137,"name":"physical.d4_k4096.down.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.d4_k4096.down.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"d4","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":12,"input_k":2048,"operator_schema":"banana_smasher_v4::d4_specialized(..., int variant, int counter_i10, int counter_i11, int counter_i12)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"down","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/vq_warp_gemv.cu","source_symbol":"d4_specialized_gemm_m4_kernel<12,8,2048>","tier":"d4_k4096","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","file_backed_cpu_uva_expert_pointer_tables","little_endian_packed_index_rows_v1","e8m0_k32_scales","fp16_codebook_4096"],"tuning":{"key":"d4_k4096:down:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":138,"name":"physical.native_mxfp4.fused13.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.native_mxfp4.fused13.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"native_mxfp4","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":null,"input_k":4096,"operator_schema":"banana_smasher_v4::mxfp4_specialized(..., int variant, int specialized_counter_index)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"fused13","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/vq_warp_gemv.cu","source_symbol":"mxfp4_specialized_kernel<8,4096>","tier":"native_mxfp4","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","e2m1_nibble_pair_reformat","ue8m0_k32_scale_reformat"],"tuning":{"key":"native_mxfp4:fused13:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}},
+    {"build_target":"banana_smasher_plugin._v4_moe","counter":{"index":139,"name":"physical.native_mxfp4.down.prefill_large_8192","storage":"CUDA int64[160]"},"expected_physical_proof":{"counter_nonzero":"physical.native_mxfp4.down.prefill_large_8192","forbidden_counters_zero":["mixed_exact_gemv","p1016_generic","triton_fallback"],"fresh_process":true},"family":"native_mxfp4","flags_defaults":{"generic_fallback":false,"runtime_jit":false,"specialized_native":true},"graph_replay":false,"index_bits":null,"input_k":2048,"operator_schema":"banana_smasher_v4::mxfp4_specialized(..., int variant, int specialized_counter_index)","output_n":4096,"package_member":"banana_smasher_plugin/_v4_moe*.so","projection":"down","registration_order":["import banana_smasher_plugin._v4_moe","register banana_smasher_v4 ops","construct NativePlaneLayer","warm exact row"],"route_rows":49152,"source":"csrc/vq_warp_gemv.cu","source_symbol":"mxfp4_specialized_kernel<8,2048>","tier":"native_mxfp4","tile_m":16,"tokens":8192,"transforms_reformats":["device_route_compaction","e2m1_nibble_pair_reformat","ue8m0_k32_scale_reformat"],"tuning":{"key":"native_mxfp4:down:prefill_large_8192","mode":"compile_time","runtime_autotune":false},"variant":"prefill_large_8192","variant_id":8,"warmup":{"before_graph_capture":true,"route_rows":49152,"tokens":8192},"workspace":{"owner":"mixed_exact_native_gemv.dispatch_call","persistent":false,"route_rows":49152,"tile_m":16}}
   ],
   "schema": "banana-smasher-specialized-kernel-matrix-v1"
 }

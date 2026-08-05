@@ -16,6 +16,7 @@ _VARIANTS = (
     "prefill_bm16",
     "prefill_large",
     "prefill_exact_2k",
+    "prefill_large_8192",
 )
 _REQUIRED_QTIP_EXPORTS = tuple(
     f"qtip{family}_k{width}_{variant}"
