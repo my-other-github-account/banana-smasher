@@ -16,6 +16,11 @@ from .contract import (
 )
 from .repack import repack_to_safetensors
 from .repair import load_repair_bundle
+from .serving import (
+    DEFAULT_FLASHINFER_CACHE_VOLUME,
+    build_serve_command,
+    serve as launch_serve,
+)
 from .validation import ValidationError, validate_artifact
 
 
@@ -80,6 +85,28 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument("pack", type=Path)
     serve.add_argument("--kernel-cache", type=Path, required=True)
     serve.add_argument("--architecture", required=True)
+
+    launch = subparsers.add_parser(
+        "serve", help="launch stock vllm serve with Banana Smasher defaults"
+    )
+    launch.add_argument("model", type=Path)
+    launch.add_argument("--host", default="0.0.0.0")
+    launch.add_argument("--port", type=int, default=8000)
+    launch.add_argument("--served-model-name", default="banana-smasher-v5")
+    launch.add_argument(
+        "--container-image",
+        help="run through the pinned dependency-complete image instead of local pip",
+    )
+    launch.add_argument(
+        "--no-cache-volume",
+        action="store_true",
+        help="do not persist the FlashInfer autotune cache in container mode",
+    )
+    launch.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="validate the artifact and print the exact launch command",
+    )
 
     validate = subparsers.add_parser(
         "validate", help="run a banked-teacher KLD validation ceremony"
@@ -207,6 +234,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "command": "serve-check",
             }
+        elif args.command == "serve":
+            cache_volume = (
+                None if args.no_cache_volume else DEFAULT_FLASHINFER_CACHE_VOLUME
+            )
+            if args.dry_run:
+                command, _ = build_serve_command(
+                    args.model,
+                    container_image=args.container_image,
+                    host=args.host,
+                    port=args.port,
+                    served_model_name=args.served_model_name,
+                    cache_volume=cache_volume,
+                )
+                result = {
+                    "status": "READY",
+                    "command": "serve",
+                    "backend": "container" if args.container_image else "local-pip",
+                    "model": str(args.model.expanduser().resolve()),
+                    "argv": command,
+                }
+            else:
+                launch_serve(
+                    args.model,
+                    container_image=args.container_image,
+                    host=args.host,
+                    port=args.port,
+                    served_model_name=args.served_model_name,
+                    cache_volume=cache_volume,
+                )
+                raise RuntimeError("serve process replacement unexpectedly returned")
         elif args.command == "validate":
             result = {
                 **validate_artifact(

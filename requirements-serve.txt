@@ -1,0 +1,10 @@
+# Banana Smasher SM121 serving wheelhouse contract.
+#
+# Install these from the Banana Smasher release wheelhouse, then install the
+# banana-smasher-plugin wheel.  The public package index does not currently
+# carry the patched 0.24/0.6.17/2.6.1 closure, so the proven path today is the
+# pinned runtime image used by `smash serve --container-image ...`.
+vllm==0.24.0
+flashinfer-python==0.6.17
+flashinfer-jit-cache==0.6.17+cu130
+deep-gemm==2.6.1
