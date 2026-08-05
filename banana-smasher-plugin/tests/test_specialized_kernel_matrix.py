@@ -137,6 +137,9 @@ def test_matrix_exhaustively_binds_every_admitted_tier_projection_and_shape() ->
             assert row["family"] in source_symbol
             assert f"k{row['input_k']}" in source_symbol
             assert row["variant"] in source_symbol
+            if row["variant"] in {"decode_c4", "decode_c8", "decode_c16"}:
+                assert row["tuning"]["routes_per_cta"] == 4
+                assert row["tuning"]["weight_decode_reuse"] is True
         elif row["family"] == "d4":
             assert source_symbol.startswith("d4_specialized_")
             assert f"<{row['index_bits']},{row['variant_id']},{row['input_k']}>" in source_symbol
@@ -310,6 +313,16 @@ def test_every_matrix_source_symbol_is_owned_by_compiled_specialized_source() ->
     assert "mxfp4_specialized" in vq
     assert "physical_counters.numel() >= 160" in vq
     assert '"physical_counters": torch.zeros(160' in acceleration
+
+
+def test_qtip_decode_c4_variants_vectorize_four_routes_per_weight_decode() -> None:
+    qtip_kernel = (PACKAGE / "csrc/qtip/inference_dynamic.cu").read_text()
+
+    assert "constexpr uint32_t RoutesPerCta =" in qtip_kernel
+    assert "(Variant >= 2 && Variant <= 4) ? 4U : 1U" in qtip_kernel
+    assert "float4 reg_p[RoutesPerCta][2]" in qtip_kernel
+    assert "x_buf[RoutesPerCta]" in qtip_kernel
+    assert "ROUND_UP(route_stride, RoutesPerCta)" in qtip_kernel
 
 
 def test_d4_tier_specialization_does_not_change_mxfp4_launch_arity() -> None:
