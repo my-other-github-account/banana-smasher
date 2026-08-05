@@ -158,7 +158,6 @@ def test_source_inventory_covers_and_hashes_every_retained_source_file() -> None
     entries = source_entries + generated_entries
     paths = {entry["path"] for entry in entries}
     retained_roots = (ROOT / "banana-smasher", ROOT / "banana-smasher-plugin", ROOT / "docker")
-    retained_top_level_files = (ROOT / "requirements-serve.txt",)
     actual = {
         path.relative_to(ROOT).as_posix()
         for base in retained_roots
@@ -168,7 +167,6 @@ def test_source_inventory_covers_and_hashes_every_retained_source_file() -> None
         and ".pytest_cache" not in path.parts
         and not any(part.endswith(".egg-info") for part in path.parts)
     }
-    actual.update(path.relative_to(ROOT).as_posix() for path in retained_top_level_files)
     assert paths == actual
     for entry in source_entries:
         path = ROOT / entry["path"]
@@ -176,8 +174,7 @@ def test_source_inventory_covers_and_hashes_every_retained_source_file() -> None
         assert digest == entry["output_sha256"]
         assert re.fullmatch(r"[0-9a-f]{64}", entry["source_sha256"])
         assert not Path(entry["source_path"]).is_absolute()
-        source_path = entry["source_path"]
-        assert source_path in {"requirements-serve.txt"} or source_path.split("/", 1)[0] in {
+        assert entry["source_path"].split("/", 1)[0] in {
             "banana-smasher",
             "banana-smasher-plugin",
             "docker",
