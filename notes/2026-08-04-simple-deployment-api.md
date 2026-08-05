@@ -54,6 +54,16 @@ those companion wheels are published.
   four required FlashInfer/DeepGEMM process defaults.
 - Live Spark-4 comparison: the generated default `vllm serve /model` argv
   matches the running Boot10 process argv argument-for-argument.
+- Published-package real-host boundary: commit `ddf07fceaec8e20308af29507902384e162f16ec`
+  was cloned and installed on Spark-4, then run against the actual read-only model
+  mount and live image reference. Receipt
+  `/home/dnola/missions/SMASH_API_DDF07FC/REAL_SPARK4_DEPLOYMENT_BOUNDARY.json`
+  has SHA-256
+  `9f5c782328502844541dc2aa223b40a9c18a909feeebc96d5dec1bdc13524d2f`.
+  It records exact generated/live argv equality, plugin distribution `0.2.0`
+  with `banana_smasher_plugin:register`, and unchanged service PID/startticks
+  with health `200 -> 200`.
 
-A second real GPU boot through this wrapper remains the final deployment proof;
-the healthy Spark-4 endpoint was not interrupted for this API slice.
+A second real GPU boot through this wrapper remains the final deployment proof.
+At verification time Spark-8 was already owned by an active `run514-a32` image
+build, so neither it nor the healthy Spark-4 endpoint was interrupted.
