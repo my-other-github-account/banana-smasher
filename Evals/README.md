@@ -58,6 +58,42 @@ The admission steps are:
 No partial run, different window bank, fallback output, or HOLDOUT result can be
 substituted into this table.
 
+### Internal uniform QTIP Anchor64 results
+
+The two uniform QTIP families moving forward also have complete internal
+`train_balanced64` Anchor64 measurements. They share the same 64 ordered
+`(window_id, category)` pairs and the same exact FF0731 basis.
+
+These are **not competitive `BALANCED64_V1` rows**: the internal bank has 0/64
+window-ID overlap with the competitive bank. Use these numbers for QTIP family
+and solver decisions only.
+
+| Uniform anchor | Top-1 ↑ | KLD ↓ | FP |
+|---|---:|---:|---|
+| **QTIP2 genuine corrected all-43** | **87.16%** | **0.201** | FP8 own-base |
+| **QTIP3 uniform exact** | **91.24%** | **0.047** | FP8 own-base |
+
+The internal class mix is agentic/chat/code/multilingual/prose/reasoning =
+`12/10/11/10/10/11`.
+
+#### Top-1 agreement by internal category
+
+| Uniform anchor | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
+|---|---:|---:|---:|---:|---:|---:|
+| **QTIP2 all-43** | 86.83% | 90.72% | 91.14% | 79.97% | 79.94% | 93.42% |
+| **QTIP3 exact** | 90.71% | 93.68% | 93.91% | 87.08% | 86.07% | 95.42% |
+
+#### KLD by internal category
+
+| Uniform anchor | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
+|---|---:|---:|---:|---:|---:|---:|
+| **QTIP2 all-43** | 0.261 | 0.071 | 0.128 | 0.423 | 0.301 | 0.034 |
+| **QTIP3 exact** | 0.069 | 0.017 | 0.031 | 0.090 | 0.071 | 0.008 |
+
+The [machine-readable internal-anchor result](results/deepseek-v4-flash-0731-train-balanced64-qtip-anchors-v1.json)
+contains full-precision global and category KLD, exact Top-1 numerators and
+denominators, candidate/source hashes, and the population-separation statement.
+
 ## Check the published result
 
 From the repository root:
@@ -90,7 +126,8 @@ counts.
 
 ## Files
 
-- [Exact result JSON](results/deepseek-v4-flash-0731-balanced64-v1.json)
+- [Exact competitive result JSON](results/deepseek-v4-flash-0731-balanced64-v1.json)
+- [Exact internal QTIP Anchor64 result JSON](results/deepseek-v4-flash-0731-train-balanced64-qtip-anchors-v1.json)
 - [Frozen BALANCED64 lock](configs/balanced64-v1.json)
 - [Full measurement protocol](protocols/balanced64-v1.md)
 - [One-window receipt template](templates/balanced64-window-v1.json)
