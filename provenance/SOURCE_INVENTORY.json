@@ -953,9 +953,9 @@
       "source_sha256": "cfcad226f5f9439bece9489d7cdb8427ce706af6facdea584be21756ae734eeb"
     },
     {
-      "byte_preserved": true,
-      "bytes": 828,
-      "output_sha256": "0fcdeaf08e7b106b76fbad9d795e8429ef7e2748b74f5321deaa5c58a5a94d91",
+      "byte_preserved": false,
+      "bytes": 934,
+      "output_sha256": "cc1f6fc677ba90bcb1771f20998ffc8ee382187cacad3e1799f19bf36d8dbd00",
       "path": "banana-smasher/pyproject.toml",
       "source_path": "banana-smasher/pyproject.toml",
       "source_sha256": "0fcdeaf08e7b106b76fbad9d795e8429ef7e2748b74f5321deaa5c58a5a94d91"
@@ -1162,8 +1162,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 16751,
-      "output_sha256": "170e87869a561867e5a196b3b072dd25ba32c90efec0dc0a5cd022477eb308e5",
+      "bytes": 16838,
+      "output_sha256": "929cb40ae6e6170f07f4c39e420e99a3751e0ea6e25d4cd6c2ede774ae6b95b2",
       "path": "docker/Dockerfile",
       "source_path": "docker/Dockerfile",
       "source_sha256": "482c93b721f6d3023e19f0d9688440ac4f0099398e1e2c9da8c18e49aaa70356"
@@ -1177,9 +1177,9 @@
       "source_sha256": "812c4ec032b80e9e8037381dbde427d5a7218f79e9128a5c93d9ecb3ac1b6d07"
     },
     {
-      "byte_preserved": true,
-      "bytes": 88,
-      "output_sha256": "02d3cac2d90ee8b7bfa80355781eac35db25a7776606583b050d8bd24c59cb4b",
+      "byte_preserved": false,
+      "bytes": 81,
+      "output_sha256": "036af14b86c5433e7fa4228a4000a27d80da1c89c2602b722346d74b809ba51b",
       "path": "docker/clean-pip/INSTALL.txt",
       "source_path": "docker/clean-pip/INSTALL.txt",
       "source_sha256": "02d3cac2d90ee8b7bfa80355781eac35db25a7776606583b050d8bd24c59cb4b"
@@ -1250,8 +1250,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 2000,
-      "output_sha256": "f219133af558cc412b2aa57f0fa7c9d2d297213c004c1fbb372d068fc8d9dc89",
+      "bytes": 2426,
+      "output_sha256": "fda9c988de0bd4ba051700e0e14827941341a3b54bdc61b9a62e2d147b5c9401",
       "path": "docker/tests/test_clean_pip_wheelhouse.py",
       "source_path": "docker/tests/test_clean_pip_wheelhouse.py",
       "source_sha256": "afb55c3b531801a75c9fb4a1655f71d5faa5d287d2bb03746a376658112a5328"

@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_PYPROJECT = ROOT / "banana-smasher-plugin" / "pyproject.toml"
+PACKAGE_PYPROJECT = ROOT / "banana-smasher" / "pyproject.toml"
 DOCKERFILE = ROOT / "docker" / "Dockerfile"
 INSTALL = ROOT / "docker" / "clean-pip" / "INSTALL.txt"
 
@@ -27,10 +28,20 @@ def test_plugin_runtime_dependencies_match_stock_vllm_0240() -> None:
     assert "deep-gemm==2.6.1;sys_platform=='linux'andplatform_machine=='aarch64'" in dependencies
 
 
+def test_normal_package_pulls_runtime_plugin_on_linux_aarch64() -> None:
+    package = PACKAGE_PYPROJECT.read_text()
+
+    assert (
+        "banana-smasher-plugin==0.2.0; sys_platform == 'linux' and platform_machine == 'aarch64'"
+        in package
+    )
+
+
 def test_clean_pip_wheelhouse_stage_exports_only_resolver_inputs() -> None:
     dockerfile = DOCKERFILE.read_text()
 
     assert "FROM package-builder AS clean-pip-wheelhouse-builder" in dockerfile
+    assert "COPY --from=package-builder /wheels/banana_smasher-1.0.0-py3-none-any.whl /wheelhouse/" in dockerfile
     assert "COPY --from=deepgemm-builder /wheels/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl /wheelhouse/" in dockerfile
     assert "COPY --from=flashinfer-builder /wheel/flashinfer_python-0.6.17-py3-none-any.whl /wheelhouse/" in dockerfile
     assert "COPY --from=flashinfer-builder /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl /wheelhouse/" in dockerfile
@@ -41,5 +52,5 @@ def test_clean_pip_wheelhouse_stage_exports_only_resolver_inputs() -> None:
 def test_clean_pip_install_is_one_ordinary_resolver_command() -> None:
     assert INSTALL.read_text() == (
         "python3 -m pip install --no-index --find-links /wheelhouse "
-        "banana-smasher-plugin==0.2.0\n"
+        "banana-smasher==1.0.0\n"
     )

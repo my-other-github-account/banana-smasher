@@ -7,7 +7,11 @@ name = "banana-smasher"
 version = "1.0.0"
 description = "Fail-closed bs-pack tooling and shared serving loader"
 requires-python = ">=3.10"
-dependencies = ["numpy==2.3.5", "safetensors==0.8.0"]
+dependencies = [
+    "banana-smasher-plugin==0.2.0; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "numpy==2.3.5",
+    "safetensors==0.8.0",
+]
 
 [project.optional-dependencies]
 knapsack = ["scipy==1.16.1"]
