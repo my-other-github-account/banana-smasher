@@ -377,13 +377,20 @@ def test_plane_loader_moves_named_planes_and_dispatches_projection(
     assert layer.state("fused13").families.tolist() == [2, 2]
     state = layer.state("fused13")
     assert set(state.payloads) == {"d4_k16"}
-    assert not ({"codes", "scales", "codebooks"} & set(state.payloads["d4_k16"]))
+    payload = state.payloads["d4_k16"]
+    assert {"codes", "scales", "codebooks"} <= set(payload)
     assert state.pointer_tables["d4_index_bits"].tolist() == [4, 4]
     assert state.vq_state is not None
+    assert not ({"codes", "scales", "codebooks"} & set(state.vq_state))
     assert state.pointer_tables["d4_codes"].tolist() == [
-        state.vq_state["codes"].data_ptr()
-        + int(offset) * state.vq_state["codes"].element_size()
-        for offset in state.vq_state["code_offset"].tolist()
+        payload["codes"][slot].data_ptr() for slot in state.slots.tolist()
+    ]
+    assert state.pointer_tables["d4_scales"].tolist() == [
+        payload["scales"][slot].data_ptr() for slot in state.slots.tolist()
+    ]
+    assert state.pointer_tables["d4_codebooks"].tolist() == [
+        payload["codebooks"][int(payload["codebook_index"][slot])].data_ptr()
+        for slot in state.slots.tolist()
     ]
     assert "packed_payload_residency=cpu_uva" in caplog.text
     assert "device_metadata_residency=true" in caplog.text
@@ -610,6 +617,7 @@ def test_native_plane_construction_preallocates_only_decode_graph_workspaces(
     assert allocations == [(6, 1), (12, 2), (24, 4), (48, 4), (96, 4)]
     assert set(resident["compaction"]) == set(allocations)
     assert resident["physical_counter_tensors"] == {}
+    assert not ({"codes", "scales", "codebooks"} & set(resident))
 
 
 def _install_fake_vllm(monkeypatch: pytest.MonkeyPatch) -> None:
