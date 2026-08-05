@@ -84,6 +84,7 @@ def main() -> None:
     chat_payload = {
         "model": model,
         "messages": [{"role": "user", "content": "Reply with OK."}],
+        "chat_template_kwargs": {"enable_thinking": False},
         "max_tokens": 8,
     }
     body = post_json(chat_url, chat_payload)
