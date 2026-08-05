@@ -1089,16 +1089,10 @@ class NativePlaneLayer:
                 f"layer {self.layer_index} {projection} routed shape mismatch: "
                 f"x={tuple(x.shape)} ids={tuple(expert_ids.shape)} expected_k={state.input_width}"
             )
-        # Stock vLLM's ignore-invalid-experts path may place graph-padding
-        # sentinels on either side of the physical expert interval. Canonicalize
-        # every invalid route to -1 before any device pointer-table lookup. This
-        # tensor-only mask remains capture-safe and the native compaction kernel
-        # skips -1 rows while leaving their pre-zeroed output rows untouched.
-        expert_count = len(state.tiers)
-        valid_expert = (expert_ids >= 0) & (expert_ids < expert_count)
-        expert_ids = torch.where(
-            valid_expert, expert_ids, torch.full_like(expert_ids, -1)
-        )
+        # The native compaction kernel rejects every route outside
+        # [0, expert_count) before indexing family_codes. Forward the stock
+        # graph-padding sentinels unchanged so the captured hot path does not
+        # add comparison/where kernels at every routed projection.
         result = self._dispatch(
             projection=projection,
             x=x,
