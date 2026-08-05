@@ -351,9 +351,16 @@ def test_plane_loader_moves_named_planes_and_dispatches_projection(tmp_path: Pat
     assert result.shape == (2, 4)
     assert calls == [("fused13", (2, 4), (1, 0))]
     assert layer.state("fused13").families.tolist() == [2, 2]
-    assert set(layer.state("fused13").payloads) == {"d4_k16"}
-    assert layer.state("fused13").payloads["d4_k16"]["codes"].dtype == torch.uint8
-    assert layer.state("fused13").pointer_tables["d4_index_bits"].tolist() == [4, 4]
+    state = layer.state("fused13")
+    assert set(state.payloads) == {"d4_k16"}
+    assert not ({"codes", "scales", "codebooks"} & set(state.payloads["d4_k16"]))
+    assert state.pointer_tables["d4_index_bits"].tolist() == [4, 4]
+    assert state.vq_state is not None
+    assert state.pointer_tables["d4_codes"].tolist() == [
+        state.vq_state["codes"].data_ptr()
+        + int(offset) * state.vq_state["codes"].element_size()
+        for offset in state.vq_state["code_offset"].tolist()
+    ]
 
 
 def test_plane_forward_uses_capture_safe_async_expert_range_guards(

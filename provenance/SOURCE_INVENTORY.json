@@ -946,8 +946,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 42484,
-      "output_sha256": "d0740a4e7947f9131d71f341d809aa5872c069d3ba39d426e001c9f539324b3f",
+      "bytes": 43083,
+      "output_sha256": "eadf501dea6ecd81b1ef5ce3248bc06479f83c33dee6e33a8e80e3b46bd26cf7",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
       "source_sha256": "42f8823789c8c3c58fc48a1d2162ed0a43d0cf7e74850856356c28bd932e18a9"
@@ -1042,8 +1042,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 45576,
-      "output_sha256": "321960d5484fd5632d12bf9e25d746841de85a368432837e7e74d412234579b5",
+      "bytes": 45845,
+      "output_sha256": "016018ac8c6dedebca96432a54f6ccd901aa1a922c4a2471c22dde414617fb2d",
       "path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
       "source_path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
       "source_sha256": "9bcb44fc94d5aebc63c04864beea3cacfa4df0b761e46a80d696a771513bd989"
