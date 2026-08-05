@@ -1,45 +1,64 @@
-# Banana Smasher evaluations
+# DeepSeek-V4-Flash-0731 quant results
 
-This folder is the public entry point for frozen evaluation contracts, executable
-receipt checks, and sealed result tables.
+This page compares quality and size for four 0731 quants. Exact receipts and the
+full protocol are linked below the readable summary.
 
-## DeepSeek-V4-Flash-0731 BALANCED64
+## Results
 
-All rows below are complete 64-window measurements under the same contract:
+Every model below ran the same 64 windows and 65,536 scored positions against the
+same FP8 copy of DeepSeek-V4-Flash-0731.
 
-- 64 ordered windows × 1,024 positions = 65,536 scored positions
-- FP8 e4m3 dynamic own-base teacher
-- teacher top-8,192 support
-- `KL(teacher || candidate)`; lower is better
-- teacher/candidate Top-1 agreement on the same ordered support; higher is better
-- packed-wire size with one denominator: `284,334,567,511` parameters
-- corrected class split: agentic/chat/code/multilingual/prose/reasoning = `19/7/9/10/10/9`
+| Quant | Top-1 ↑ | KLD ↓ | Size | bpw | FP |
+|---|---:|---:|---:|---:|---|
+| **Unsloth IQ4** | **92.44%** | **0.068** | 136.7 GB | 3.85 | FP8 e4m3 own-base |
+| **Unsloth IQ3** | **87.95%** | **0.178** | 104.2 GB | 2.93 | FP8 e4m3 own-base |
+| **Unsloth IQ2** | **84.57%** | **0.277** | 90.9 GB | 2.56 | FP8 e4m3 own-base |
+| **DwarfStar Q2** | **83.69%** | **0.310** | 93.7 GB | 2.64 | FP8 e4m3 own-base |
 
-| Quant | FP | Decimal GB | Packed-wire bpw | KLD ↓ | Top-1 ↑ |
-|---|---|---:|---:|---:|---:|
-| Unsloth UD-IQ4_XS | FP8 e4m3 own-base | 136.662446656 | 3.845116627283469 | 0.0683488486737012 | 60,584/65,536 (92.44384765625%) |
-| Unsloth UD-IQ3_XXS | FP8 e4m3 own-base | 104.207848032 | 2.931978308348837 | 0.17770788160865483 | 57,638/65,536 (87.9486083984375%) |
-| Unsloth UD-IQ2_XXS | FP8 e4m3 own-base | 90.860736928 | 2.556445745541928 | 0.2767474104898907 | 55,422/65,536 (84.5672607421875%) |
-| DwarfStar Q2 0731 | FP8 e4m3 own-base | 93.691352992 | 2.636087586877748 | 0.30952134732070036 | 54,845/65,536 (83.68682861328125%) |
+IQ4 keeps the most quality. IQ3 is the middle option. IQ2 is the strongest
+compact result here: it is smaller than DwarfStar and scores better on both
+quality metrics.
 
-These four BALANCED64 measurements are complete. Artifact-download metadata in
-the machine receipt is replay provenance only; it does not make any measurement
-row partial.
+Top-1 is the easiest number to read: it is how often the quant picks the same
+next token as FP8. Higher is better. KLD measures how much the full token
+probability distribution moved; lower is better.
 
-There is no admitted Banana Smasher row yet. A Banana row is added only after the
-final pack is measured on this exact frozen population—not the separate
-`train_balanced64` Anchor bank.
+The table is rounded for humans. The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json)
+contains the exact bytes, ratios, KLD values, Top-1 matches, and full decimals.
+All four measurements are complete. Artifact download metadata in the JSON is
+about future replay, not measurement completeness.
 
-Machine result:
-[`results/deepseek-v4-flash-0731-balanced64-v1.json`](results/deepseek-v4-flash-0731-balanced64-v1.json)
+## What makes these apples to apples
 
-Frozen suite lock:
-[`configs/balanced64-v1.json`](configs/balanced64-v1.json)
+- Same model family: DeepSeek-V4-Flash-0731
+- Same 64 ordered windows
+- Same 1,024 positions per window, 65,536 total
+- Same FP8 e4m3 own-base teacher
+- Same teacher top-8,192 token support
+- Same KLD and Top-1 definitions
+- Same packed-wire denominator: 284,334,567,511 parameters
 
-Full metric and row contract:
-[`protocols/balanced64-v1.md`](protocols/balanced64-v1.md)
+The class mix is agentic/chat/code/multilingual/prose/reasoning =
+`19/7/9/10/10/9`.
 
-## Validate the published table
+## Adding Banana Smasher
+
+There is no Banana Smasher row yet. We will add it when the final pack exists and
+has passed this exact test. Internal `train_balanced64` Anchor scores do not count
+because they use different windows.
+
+The admission steps are:
+
+1. Freeze the final candidate and count every byte shipped with it.
+2. Run the exact 64 windows from the [BALANCED64 lock](configs/balanced64-v1.json).
+3. Score the candidate against the FP8 own-base teacher on the same 65,536 positions.
+4. Save all 64 per-window receipts and aggregate them with the repository tool.
+5. Add the row only when Top-1, KLD, GB, packed-wire bpw, FP, and all 64 receipts are complete.
+
+No partial run, different window bank, fallback output, or HOLDOUT result can be
+substituted into this table.
+
+## Check the published result
 
 From the repository root:
 
@@ -49,78 +68,34 @@ python3 -m Evals.tools.receipts verify \
   --suite-lock Evals/configs/balanced64-v1.json
 ```
 
-This recomputes the suite-lock identities, Top-1 rates, decimal GB, normalized
-packed-wire bpw, shared denominator, and rankings. Historical KLD cannot be
-recomputed without the protected per-position source rows.
+Expected order for both metrics:
 
-## Apples-to-apples steps for a new 0731 quant
-
-1. **Freeze identity and size.** Bind the exact candidate artifact revision/tree,
-   every shipped quant payload byte, and the common parameter denominator. Never
-   derive VQ bpw from an in-memory integer container.
-2. **Use the exact frozen population.** Resolve the 64 ordered window IDs and
-   corrected classes in `configs/balanced64-v1.json`. Reject missing, reordered,
-   substituted, truncated, or fallback windows. Do not use `train_balanced64`.
-3. **Use the same teacher and support.** Run the DeepSeek-V4-Flash-0731 FP8 e4m3
-   dynamic own-base teacher and preserve its ordered top-8,192 token IDs and
-   log-probabilities for the first 1,024 scored positions of every window.
-4. **Score the candidate on the same positions.** Gather candidate
-   log-probabilities on exactly the teacher support, renormalize both arms on that
-   support, calculate `KL(teacher || candidate)`, and compare deterministic
-   first-index argmax token IDs for Top-1.
-5. **Emit all 64 row receipts.** Each row must bind suite lock, candidate and
-   teacher identities, ordinal, window ID, corrected class, 1,024 binary64 KLD
-   values, and integer Top-1 matches. Start from
-   `templates/balanced64-window-v1.json`.
-6. **Aggregate without hand editing.** Put only the 64 receipts in one directory:
-
-   ```bash
-   python3 -m Evals.tools.receipts aggregate work/balanced64-windows \
-     --suite-lock Evals/configs/balanced64-v1.json \
-     --output work/balanced64-aggregate.json
-   ```
-
-7. **Add the size columns.** Report decimal GB from packed wire bytes and compute
-   normalized bpw as `packed_wire_bytes × 8 / 284334567511`. FP remains FP8, so
-   its logical basis is 8 bpw—not 16.
-8. **Admit only a complete row.** Require 64/64 windows, 65,536/65,536 positions,
-   KLD, Top-1, FP, GB, bpw, and all source identities. HOLDOUT results are reported
-   separately and never substituted into BALANCED64.
-
-## Banana Smasher CLI producer surface
-
-The repository also exposes manifest-bound paired evaluation commands:
-
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install ./banana-smasher
-
-smash bank \
-  --model-root "$FP8_MODEL_ROOT" \
-  --corpus "$CORPUS_ROOT" \
-  --windows-manifest "$BALANCED64_WINDOWS_MANIFEST" \
-  --instrument-profile "$BALANCED64_INSTRUMENT_PROFILE" \
-  --output "$TEACHER_BANK"
-
-smash evaluate \
-  --model-root "$MODEL_ROOT" \
-  --candidate "$CANDIDATE_PACK" \
-  --reference "$FP8_REFERENCE_PACK" \
-  --bank "$TEACHER_BANK" \
-  --output "$EVALUATION_ROOT"
+```text
+IQ4 > IQ3 > IQ2 > DwarfStar
 ```
 
-`smash evaluate` is required to run paired candidate/reference arms and seals an
-`EVALUATION_COMPLETE` marker plus `evaluation.json`. A result is comparable to
-the table above only if the supplied manifests bind the exact BALANCED64 lock,
-teacher basis, support, population, and metric semantics listed here.
+## Aggregate a new 64-window result
 
-## Layout
+Put the 64 completed row receipts in one directory, then run:
 
-- `configs/` — frozen suite lock and all 64 ordered window IDs
-- `protocols/` — exact metric, aggregation, and replay procedure
-- `results/` — machine-readable sealed comparison
-- `schemas/` — closed JSON contracts
-- `templates/` — one-window producer template
-- `tools/receipts.py` — pure-Python fail-closed verifier and aggregator
+```bash
+python3 -m Evals.tools.receipts aggregate work/balanced64-windows \
+  --suite-lock Evals/configs/balanced64-v1.json \
+  --output work/balanced64-aggregate.json
+```
+
+The aggregator rejects missing or duplicate windows, changed classes, wrong
+position counts, negative or non-finite KLD, basis drift, and invalid Top-1
+counts.
+
+## Files
+
+- [Exact result JSON](results/deepseek-v4-flash-0731-balanced64-v1.json)
+- [Frozen BALANCED64 lock](configs/balanced64-v1.json)
+- [Full measurement protocol](protocols/balanced64-v1.md)
+- [One-window receipt template](templates/balanced64-window-v1.json)
+- [Verifier and aggregator](tools/receipts.py)
+- [JSON schemas](schemas/)
+
+The full protocol contains the exact math, reduction order, receipt schema, CLI
+producer commands, and replay limits. Most readers only need the table above.
