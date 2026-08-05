@@ -30,10 +30,12 @@ class DeepseekV4D4Runtime:
         if self.device != "cuda" or not torch.cuda.is_available():
             raise RuntimeError("DeepSeek-V4 D4 layerwise runtime requires CUDA")
         self.model_root = Path(model_root).expanduser().resolve()
-        planes_value = os.environ.get("BANANA_SMASHER_D4_PLANES_DIR", "")
-        if not planes_value:
-            raise RuntimeError("BANANA_SMASHER_D4_PLANES_DIR is required")
-        self.planes_dir = Path(planes_value).expanduser().resolve()
+        planes_value = os.environ.get("BANANA_SMASHER_D4_PLANES_DIR")
+        self.planes_dir = (
+            Path(planes_value).expanduser().resolve()
+            if planes_value
+            else self.model_root / "planes"
+        )
         self.positions = int(parameters["positions"])
         self.config = AutoConfig.from_pretrained(self.model_root, trust_remote_code=False)
         index_path = self.model_root / "model.safetensors.index.json"

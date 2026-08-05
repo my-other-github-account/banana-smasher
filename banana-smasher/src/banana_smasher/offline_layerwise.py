@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 import hashlib
+import importlib
 import importlib.util
 import json
 import os
@@ -197,11 +198,25 @@ def _assert_no_resident_engine_modules() -> None:
 
 
 def _load_runtime(binding: Mapping[str, Any], *, root: Path) -> type[Any]:
-    if set(binding) != {"path", "sha256", "class", "api_version"}:
+    path_binding = {"path", "sha256", "class", "api_version"}
+    module_binding = {"module", "sha256", "class", "api_version"}
+    if set(binding) not in (path_binding, module_binding):
         raise ValueError(
-            "offline-layerwise runtime_adapter requires path, sha256, class, and api_version"
+            "offline-layerwise runtime_adapter requires either path or module, plus "
+            "sha256, class, and api_version"
         )
-    path = _bound_path(binding.get("path"), root=root, label="runtime_adapter")
+    module_path = binding.get("module")
+    if module_path is not None:
+        if not isinstance(module_path, str) or not module_path:
+            raise ValueError("offline-layerwise runtime_adapter module must be non-empty")
+        spec = importlib.util.find_spec(module_path)
+        if spec is None or spec.origin is None:
+            raise ValueError(
+                f"cannot locate offline-layerwise runtime_adapter module {module_path}"
+            )
+        path = Path(spec.origin).resolve()
+    else:
+        path = _bound_path(binding.get("path"), root=root, label="runtime_adapter")
     expected_sha = binding.get("sha256")
     class_name = binding.get("class")
     api_version = binding.get("api_version")
@@ -221,12 +236,15 @@ def _load_runtime(binding: Mapping[str, Any], *, root: Path) -> type[Any]:
             "offline-layerwise runtime_adapter contains forbidden resident-engine source: "
             + ", ".join(forbidden)
         )
-    module_name = f"_banana_smasher_offline_{actual_sha[:16]}"
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    if spec is None or spec.loader is None:
-        raise ValueError(f"cannot import offline-layerwise runtime_adapter {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    if module_path is not None:
+        module = importlib.import_module(module_path)
+    else:
+        module_name = f"_banana_smasher_offline_{actual_sha[:16]}"
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        if spec is None or spec.loader is None:
+            raise ValueError(f"cannot import offline-layerwise runtime_adapter {path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
     _assert_no_resident_engine_modules()
     runtime = getattr(module, class_name, None)
     required = {
