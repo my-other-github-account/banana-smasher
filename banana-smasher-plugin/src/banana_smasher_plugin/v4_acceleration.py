@@ -68,39 +68,20 @@ def build_device_resident_planes(
     output_width: int,
     device: torch.device,
 ) -> dict[str, Any]:
-    """Consolidate admitted packed D4 planes into stable CUDA-owned storage."""
-    codes: list[torch.Tensor] = []
-    scales: list[torch.Tensor] = []
-    codebooks: list[torch.Tensor] = []
-    code_offset: list[int] = []
-    scale_offset: list[int] = []
-    cb_offset: list[int] = []
+    """Build graph-stable device metadata without copying packed D4 planes."""
     code_row_bytes: list[int] = []
     dimensions: list[int] = []
     bits_values: list[int] = []
     kind: list[int] = []
-    code_cursor = scale_cursor = cb_cursor = 0
     family_values = families.tolist()
     for expert, (state, family) in enumerate(
         zip(states, family_values, strict=True)
     ):
-        code_offset.append(code_cursor)
-        scale_offset.append(scale_cursor)
-        cb_offset.append(cb_cursor)
         if family == 2:
-            code = state["codes"].contiguous().reshape(-1)
-            scale = state["scales"].contiguous().reshape(-1)
-            codebook = state["codebook"].to(torch.float16).contiguous().reshape(-1)
             bits = int(d4_bits[expert])
             if input_width in (2048, 4096) and bits not in (10, 11, 12):
                 raise ValueError(f"unsupported F521 D4 index width: {bits}")
             row_bytes = int(state["codes"].shape[-1])
-            codes.append(code)
-            scales.append(scale)
-            codebooks.append(codebook)
-            code_cursor += code.numel()
-            scale_cursor += scale.numel()
-            cb_cursor += codebook.numel()
             code_row_bytes.append(row_bytes)
             dimensions.append(4)
             bits_values.append(bits)
@@ -110,22 +91,12 @@ def build_device_resident_planes(
             dimensions.append(4)
             bits_values.append(8)
             kind.append(1)
-    if not codes:
-        codes = [torch.zeros(1, dtype=torch.uint8, device=device)]
-        scales = [torch.zeros(1, dtype=torch.uint8, device=device)]
-        codebooks = [torch.zeros(4, dtype=torch.float16, device=device)]
     resident: dict[str, Any] = {
-        "codes": torch.cat(codes).contiguous(),
-        "scales": torch.cat(scales).contiguous(),
-        "codebooks": torch.cat(codebooks).contiguous(),
-        "code_offset": torch.tensor(code_offset, dtype=torch.int64, device=device),
-        "scale_offset": torch.tensor(scale_offset, dtype=torch.int64, device=device),
         "code_row_bytes": torch.tensor(
             code_row_bytes, dtype=torch.int32, device=device
         ),
         "dimension": torch.tensor(dimensions, dtype=torch.uint8, device=device),
         "bits": torch.tensor(bits_values, dtype=torch.uint8, device=device),
-        "cb_offset": torch.tensor(cb_offset, dtype=torch.int64, device=device),
         "kind": torch.tensor(kind, dtype=torch.int32, device=device),
         "input_width": torch.tensor(input_width, dtype=torch.int32, device=device),
         "output_width": torch.tensor(output_width, dtype=torch.int32, device=device),
@@ -230,6 +201,7 @@ def mixed_exact_native_gemv(
         x.to(torch.bfloat16),
         out,
         compact,
+        pointer_tables,
         vq_state,
         compact["physical_counters"],
         n=out.shape[1],

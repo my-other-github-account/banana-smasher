@@ -261,15 +261,12 @@ __global__ void d4_specialized_gemv_kernel(
     const int32_t* __restrict__ block_experts,
     const int32_t* __restrict__ block_valid_m,
     const int32_t* __restrict__ block_route_rows,
-    const uint8_t* __restrict__ codes,
-    const uint8_t* __restrict__ scales,
-    const half* __restrict__ codebooks,
-    const int64_t* __restrict__ code_offset,
-    const int64_t* __restrict__ scale_offset,
+    const int64_t* __restrict__ code_ptrs,
+    const int64_t* __restrict__ scale_ptrs,
+    const int64_t* __restrict__ codebook_ptrs,
     const int32_t* __restrict__ code_row_bytes,
     const uint8_t* __restrict__ dimension,
     const uint8_t* __restrict__ bits,
-    const int64_t* __restrict__ cb_offset,
     int64_t* __restrict__ physical_counters,
     int n,
     int k,
@@ -312,11 +309,13 @@ __global__ void d4_specialized_gemv_kernel(
   if (out_row >= n) return;
 
   const int64_t row_bytes = static_cast<int64_t>(code_row_bytes[expert]);
-  const uint8_t* code_row = codes + code_offset[expert] +
-      static_cast<int64_t>(out_row) * row_bytes;
-  const uint8_t* scale_row = scales + scale_offset[expert] +
-      static_cast<int64_t>(out_row) * (k / 32);
-  const half* codebook = codebooks + cb_offset[expert];
+  const auto* codes = reinterpret_cast<const uint8_t*>(code_ptrs[expert]);
+  const auto* scales = reinterpret_cast<const uint8_t*>(scale_ptrs[expert]);
+  const auto* codebook = reinterpret_cast<const half*>(codebook_ptrs[expert]);
+  const uint8_t* code_row =
+      codes + static_cast<int64_t>(out_row) * row_bytes;
+  const uint8_t* scale_row =
+      scales + static_cast<int64_t>(out_row) * (k / 32);
 
   float acc = 0.0f;
   // Give each lane a contiguous K interval before the warp tree reduction.
@@ -365,15 +364,12 @@ __global__ void d4_specialized_gemm_m4_kernel(
     const int32_t* __restrict__ block_experts,
     const int32_t* __restrict__ block_valid_m,
     const int32_t* __restrict__ block_route_rows,
-    const uint8_t* __restrict__ codes,
-    const uint8_t* __restrict__ scales,
-    const half* __restrict__ codebooks,
-    const int64_t* __restrict__ code_offset,
-    const int64_t* __restrict__ scale_offset,
+    const int64_t* __restrict__ code_ptrs,
+    const int64_t* __restrict__ scale_ptrs,
+    const int64_t* __restrict__ codebook_ptrs,
     const int32_t* __restrict__ code_row_bytes,
     const uint8_t* __restrict__ dimension,
     const uint8_t* __restrict__ bits,
-    const int64_t* __restrict__ cb_offset,
     int64_t* __restrict__ physical_counters,
     int n,
     int k,
@@ -424,11 +420,13 @@ __global__ void d4_specialized_gemm_m4_kernel(
   if (out_row >= n) return;
 
   const int64_t row_bytes = static_cast<int64_t>(code_row_bytes[expert]);
-  const uint8_t* code_row = codes + code_offset[expert] +
-      static_cast<int64_t>(out_row) * row_bytes;
-  const uint8_t* scale_row = scales + scale_offset[expert] +
-      static_cast<int64_t>(out_row) * (k / 32);
-  const half* codebook = codebooks + cb_offset[expert];
+  const auto* codes = reinterpret_cast<const uint8_t*>(code_ptrs[expert]);
+  const auto* scales = reinterpret_cast<const uint8_t*>(scale_ptrs[expert]);
+  const auto* codebook = reinterpret_cast<const half*>(codebook_ptrs[expert]);
+  const uint8_t* code_row =
+      codes + static_cast<int64_t>(out_row) * row_bytes;
+  const uint8_t* scale_row =
+      scales + static_cast<int64_t>(out_row) * (k / 32);
 
   float acc[kRowStride] = {0.0f, 0.0f, 0.0f, 0.0f};
   const int items_per_lane = (items + 31) / 32;
@@ -501,15 +499,12 @@ at::Tensor d4_specialized(
     const at::Tensor& block_experts,
     const at::Tensor& block_valid_m,
     const at::Tensor& block_route_rows,
-    const at::Tensor& codes,
-    const at::Tensor& scales,
-    const at::Tensor& codebooks,
-    const at::Tensor& code_offset,
-    const at::Tensor& scale_offset,
+    const at::Tensor& code_ptrs,
+    const at::Tensor& scale_ptrs,
+    const at::Tensor& codebook_ptrs,
     const at::Tensor& code_row_bytes,
     const at::Tensor& dimension,
     const at::Tensor& bits,
-    const at::Tensor& cb_offset,
     const at::Tensor& physical_counters,
     int64_t n64,
     int64_t k64,
@@ -555,25 +550,22 @@ at::Tensor d4_specialized(
                   block_route_rows.dim() == 2 &&
                   block_route_rows.size(0) == block_experts.numel(),
               "invalid compact D4 descriptor shapes");
-  TORCH_CHECK(code_offset.is_cuda() && scale_offset.is_cuda() &&
-              code_row_bytes.is_cuda() && dimension.is_cuda() &&
-              bits.is_cuda() && cb_offset.is_cuda(),
+  TORCH_CHECK(code_ptrs.is_cuda() && scale_ptrs.is_cuda() &&
+              codebook_ptrs.is_cuda() && code_row_bytes.is_cuda() &&
+              dimension.is_cuda() && bits.is_cuda(),
               "projection metadata must be CUDA-resident");
-  TORCH_CHECK(code_offset.scalar_type() == at::kLong &&
-              scale_offset.scalar_type() == at::kLong &&
-              cb_offset.scalar_type() == at::kLong,
-              "offset tensors must be int64");
+  TORCH_CHECK(code_ptrs.scalar_type() == at::kLong &&
+              scale_ptrs.scalar_type() == at::kLong &&
+              codebook_ptrs.scalar_type() == at::kLong,
+              "D4 pointer tables must be int64");
   TORCH_CHECK(code_row_bytes.scalar_type() == at::kInt,
               "code_row_bytes must be int32");
   TORCH_CHECK(dimension.scalar_type() == at::kByte &&
               bits.scalar_type() == at::kByte,
               "canonical dimension/bits metadata must be uint8");
-  TORCH_CHECK(codes.scalar_type() == at::kByte && codes.is_contiguous(),
-              "codes must be contiguous uint8 CPU-UVA or CUDA storage");
-  TORCH_CHECK(scales.scalar_type() == at::kByte && scales.is_contiguous(),
-              "real wire scales must be contiguous uint8 exponents");
-  TORCH_CHECK(codebooks.scalar_type() == at::kHalf && codebooks.is_contiguous(),
-              "codebooks must be contiguous FP16 CPU-UVA or CUDA storage");
+  TORCH_CHECK(code_ptrs.is_contiguous() && scale_ptrs.is_contiguous() &&
+              codebook_ptrs.is_contiguous(),
+              "D4 pointer tables must be contiguous");
 
   const c10::cuda::CUDAGuard guard(a.device());
   const int n = static_cast<int>(n64);
@@ -601,12 +593,10 @@ at::Tensor d4_specialized(
           reinterpret_cast<const __nv_bfloat16*>(a.data_ptr<at::BFloat16>()),
           out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
           block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
-          block_route_rows.data_ptr<int32_t>(), codes.data_ptr<uint8_t>(),
-          scales.data_ptr<uint8_t>(),
-          reinterpret_cast<const half*>(codebooks.data_ptr<at::Half>()),
-          code_offset.data_ptr<int64_t>(), scale_offset.data_ptr<int64_t>(),
+          block_route_rows.data_ptr<int32_t>(), code_ptrs.data_ptr<int64_t>(),
+          scale_ptrs.data_ptr<int64_t>(), codebook_ptrs.data_ptr<int64_t>(),
           code_row_bytes.data_ptr<int32_t>(), dimension.data_ptr<uint8_t>(),
-          bits.data_ptr<uint8_t>(), cb_offset.data_ptr<int64_t>(),
+          bits.data_ptr<uint8_t>(),
           physical_counters.data_ptr<int64_t>(), n, k, static_cast<int>(family64),
           route_stride);
     } else {
@@ -621,12 +611,10 @@ at::Tensor d4_specialized(
           reinterpret_cast<const __nv_bfloat16*>(a.data_ptr<at::BFloat16>()),
           out.data_ptr<float>(), family_block_count.data_ptr<int32_t>(),
           block_experts.data_ptr<int32_t>(), block_valid_m.data_ptr<int32_t>(),
-          block_route_rows.data_ptr<int32_t>(), codes.data_ptr<uint8_t>(),
-          scales.data_ptr<uint8_t>(),
-          reinterpret_cast<const half*>(codebooks.data_ptr<at::Half>()),
-          code_offset.data_ptr<int64_t>(), scale_offset.data_ptr<int64_t>(),
+          block_route_rows.data_ptr<int32_t>(), code_ptrs.data_ptr<int64_t>(),
+          scale_ptrs.data_ptr<int64_t>(), codebook_ptrs.data_ptr<int64_t>(),
           code_row_bytes.data_ptr<int32_t>(), dimension.data_ptr<uint8_t>(),
-          bits.data_ptr<uint8_t>(), cb_offset.data_ptr<int64_t>(),
+          bits.data_ptr<uint8_t>(),
           physical_counters.data_ptr<int64_t>(), n, k, static_cast<int>(family64),
           route_stride);
     }
@@ -792,9 +780,8 @@ at::Tensor mxfp4_specialized(
 TORCH_LIBRARY_FRAGMENT(banana_smasher_v4, m) {
   m.def("d4_specialized(Tensor a, Tensor(a!) out, Tensor family_block_count, "
         "Tensor block_experts, Tensor block_valid_m, Tensor block_route_rows, "
-        "Tensor codes, Tensor scales, Tensor codebooks, "
-        "Tensor code_offset, Tensor scale_offset, Tensor code_row_bytes, "
-        "Tensor dimension, Tensor bits, Tensor cb_offset, "
+        "Tensor code_ptrs, Tensor scale_ptrs, Tensor codebook_ptrs, "
+        "Tensor code_row_bytes, Tensor dimension, Tensor bits, "
         "Tensor physical_counters, int n, int k, int family, int variant, "
         "int counter_i10, int counter_i11, int counter_i12) -> Tensor(a!)");
   m.def("mxfp4_specialized(Tensor x, Tensor packed_ptrs, Tensor scale_ptrs, "

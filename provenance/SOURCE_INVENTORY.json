@@ -90,8 +90,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 34995,
-      "output_sha256": "9381c4162128dfbddbe98da4b1adf3dd4efb2e84f40139db5c92dfd5f5c8713e",
+      "bytes": 34319,
+      "output_sha256": "615c3e1bdc6b58fe341d44c88d03298db472de0d3631ddddb20fab719026fb2c",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/vq_warp_gemv.cu",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/vq_warp_gemv.cu",
       "source_sha256": "9e9626037da62316d25ee99cf77ddffb64a3b97f83702ec630656cda822b6b3d"
@@ -106,16 +106,16 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 5702,
-      "output_sha256": "849b251408f35df2a378eeef789088793394cd6e2db01c562dfa9fb2487fe61a",
+      "bytes": 5685,
+      "output_sha256": "126e2f3abdf2e3eb03ce7e2d01defc119f32b0c4f325ddeab30f647dd520e4f0",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/native_extensions.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/native_extensions.py",
       "source_sha256": "f8fa5f770ba4ea1e8568d4cac6c63687633958cf756392527e2904a7aca1efae"
     },
     {
       "byte_preserved": false,
-      "bytes": 43974,
-      "output_sha256": "ce104f521be67af1e4144c0d19d65a01dac5cf24d9942c41a90417101fcc4b24",
+      "bytes": 43375,
+      "output_sha256": "fe541b77acfef1e38a3487e55043d9a2107a9d8394d7d07d5020f679c97540d9",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
       "source_sha256": "42f8823789c8c3c58fc48a1d2162ed0a43d0cf7e74850856356c28bd932e18a9"
@@ -170,8 +170,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 9880,
-      "output_sha256": "e11c6f01c34bfd528331ebd576bc270cc9bbd03069a37b8fa8e390fe34fee05f",
+      "bytes": 8472,
+      "output_sha256": "bf8bc33f0adeb6c978661a98330b90c4096b5903b142e47ea7de1509dbd50126",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/v4_acceleration.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/v4_acceleration.py",
       "source_sha256": "976700cfd542722d69e566bf62b6c1987888fb46d40ff9ef42c7de579b0d5d59"
@@ -226,8 +226,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 47844,
-      "output_sha256": "5ebb0adc7aee6085b33f4d81e66f18a52c7e6fe01d23731f633cf04e71351be2",
+      "bytes": 48235,
+      "output_sha256": "5cbb1479e5c1ad4e2dd499679707818d9ffedb571a654ae6b1481f7781b8956a",
       "path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
       "source_path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
       "source_sha256": "9bcb44fc94d5aebc63c04864beea3cacfa4df0b761e46a80d696a771513bd989"
