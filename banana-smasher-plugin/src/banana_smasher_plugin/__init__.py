@@ -244,6 +244,62 @@ def configure_stock_deepseek_v4_o_proj() -> bool:
     return True
 
 
+def configure_stock_deep_gemm_warmup() -> bool:
+    """Initialize SM12x DeepGEMM dummy activation scales to valid UE8M0 values."""
+    from vllm.platforms import current_platform
+
+    capability = current_platform.get_device_capability()
+    if capability is None or capability.major != 12:
+        return False
+
+    module = importlib.import_module(
+        "vllm.model_executor.warmup.deep_gemm_warmup"
+    )
+    original = module._deepgemm_fp8_gemm_nt_warmup
+    if getattr(original, "_banana_smasher_sm12x_initialized_scales", False):
+        return True
+
+    @functools.wraps(original)
+    def sm12x_fp8_gemm_nt_warmup(w, ws, max_tokens, pbar=None):
+        if w.size() in module.FP8_GEMM_NT_WARMUP_CACHE:
+            return
+
+        n, k = w.size()
+        block_m = module.get_mk_alignment_for_contiguous_layout()[0]
+        device = w.device
+        a1q = torch.zeros(
+            (max_tokens, k), device=device, dtype=torch.float8_e4m3fn
+        )
+        a1q_scales = torch.ones(
+            (max_tokens, k // block_m), device=device, dtype=torch.float32
+        )
+        out = torch.empty(
+            (max_tokens, n), device=device, dtype=torch.bfloat16
+        )
+
+        for num_tokens in module._get_fp8_gemm_nt_m_values(w, max_tokens):
+            module.fp8_gemm_nt(
+                (a1q[:num_tokens], a1q_scales[:num_tokens]),
+                (w, ws),
+                out[:num_tokens],
+            )
+            if pbar is not None:
+                pbar.update(1)
+
+        module.FP8_GEMM_NT_WARMUP_CACHE.add(w.size())
+
+    sm12x_fp8_gemm_nt_warmup._banana_smasher_sm12x_initialized_scales = True  # type: ignore[attr-defined]
+    module._deepgemm_fp8_gemm_nt_warmup = sm12x_fp8_gemm_nt_warmup
+    _LOG.warning(
+        "BANANA_SMASHER_DEEPGEMM_WARMUP_SCALES "
+        "compute_capability=%d.%d activation=zero scales=one "
+        "reason=valid_ue8m0_power_of_two",
+        capability.major,
+        capability.minor,
+    )
+    return True
+
+
 def configure_stock_deepseek_v4_attention_backend() -> bool:
     """Route explicit stock FlashMLA DSv4 requests to FlashInfer on SM12x."""
     from vllm.platforms import current_platform
@@ -444,6 +500,7 @@ def register() -> None:
     configure_flashinfer_sparse_mla_signature_compat()
     configure_stock_deepseek_v4_attention_backend()
     configure_sparse_indexer_deep_gemm_backend()
+    configure_stock_deep_gemm_warmup()
     configure_sparse_indexer_topk_backend()
     configure_stock_deepseek_v4_o_proj()
     from .quantization import (
@@ -466,6 +523,7 @@ __all__ = [
     "configure_flashinfer_sparse_mla_signature_compat",
     "configure_sparse_indexer_deep_gemm_backend",
     "configure_sparse_indexer_topk_backend",
+    "configure_stock_deep_gemm_warmup",
     "configure_stock_deepseek_v4_attention_backend",
     "configure_stock_deepseek_v4_o_proj",
     "configure_stock_mhc_backend",
