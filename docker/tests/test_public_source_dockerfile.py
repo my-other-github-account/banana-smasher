@@ -78,7 +78,7 @@ def test_public_source_dockerfile_contract() -> None:
     assert "banana_smasher_plugin:register" not in text  # verified by the image script
     assert "libcudart_stub.so" in text
     assert "libcudart.so.13" in text
-    assert "runtime_defaults.json" in text
+    assert "runtime_defaults.json" not in text
     assert "cubins-sm120" in text and "cubins-e43" in text
     assert "runtime/ASSET_MANIFEST.json" in text
     assert "runtime/ACCELERATION_MANIFEST.json" in text
@@ -260,7 +260,10 @@ def test_runtime_removes_stale_flashinfer_binary_provider_namespaces() -> None:
 def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     text = DOCKERFILE.read_text()
     patch = (ROOT / "docker/patches/flashinfer-u12-aot.patch").read_text()
-    defaults = json.loads((ROOT / "docker/runtime_defaults.json").read_text())
+    plugin_defaults = (
+        ROOT
+        / "banana-smasher-plugin/src/banana_smasher_plugin/vllm_defaults.py"
+    ).read_text()
     verifier = (ROOT / "docker/scripts/verify_public_image.py").read_text()
     smoke_path = ROOT / "docker/scripts/smoke_flashinfer_sm121.py"
     smoke = smoke_path.read_text()
@@ -323,8 +326,8 @@ def test_source_build_includes_required_flashinfer_aot_closure() -> None:
     assert "callable(flashinfer_autotune)" in smoke
     assert "callable(trtllm_batch_decode_with_kv_cache_mla)" in smoke
     assert "torch.cuda.synchronize()" in smoke
-    assert defaults["environment"]["FLASHINFER_DISABLE_JIT"] == "1"
-    assert defaults["environment"]["VLLM_HAS_FLASHINFER_CUBIN"] == "1"
+    assert '"FLASHINFER_DISABLE_JIT": "1"' in plugin_defaults
+    assert '"VLLM_HAS_FLASHINFER_CUBIN": "1"' in plugin_defaults
 
 
 def test_flashinfer_sm121_smoke_matches_vllm_autotuner_boot_import() -> None:
@@ -391,17 +394,25 @@ def test_native_plugin_build_has_pinned_cuda_development_toolchain() -> None:
     assert "/tmp/wheels/banana_smasher_plugin-0.2.0-*.whl" in text
 
 
-def test_runtime_defaults_are_baked_and_parseable() -> None:
-    defaults = json.loads((ROOT / "docker/runtime_defaults.json").read_text())
-    assert defaults["model"] == "/model"
-    assert defaults["serve"]["cudagraph_capture_sizes"] == [1, 2, 4, 8, 16]
-    assert defaults["serve"]["max_num_seqs"] == 16
-    assert defaults["serve"]["kv_cache_dtype"] == "fp8"
-    assert defaults["environment"]["VLLM_USE_DEEP_GEMM"] == "1"
-    assert defaults["environment"]["VLLM_USE_DEEP_GEMM_E8M0"] == "1"
+def test_runtime_defaults_are_plugin_owned_and_image_cmd_is_plain_vllm() -> None:
+    plugin = (
+        ROOT
+        / "banana-smasher-plugin/src/banana_smasher_plugin/vllm_defaults.py"
+    ).read_text()
+    assert '"cudagraph_capture_sizes": [1, 2, 4, 8, 16]' in plugin
+    assert '"max_num_seqs": 16' in plugin
+    assert '"kv_cache_dtype": "fp8"' in plugin
+    assert '"VLLM_USE_DEEP_GEMM": "1"' in plugin
+    assert '"VLLM_USE_DEEP_GEMM_E8M0": "1"' in plugin
+
     dockerfile = DOCKERFILE.read_text()
-    assert "VLLM_USE_DEEP_GEMM=1" in dockerfile
-    assert "VLLM_USE_DEEP_GEMM_E8M0=1" in dockerfile
+    runtime_env = dockerfile[
+        dockerfile.index("ENV PYTHONNOUSERSITE") : dockerfile.index("\nLABEL ")
+    ]
+    assert 'CMD ["vllm", "serve", "/model"]' in dockerfile
+    assert "VLLM_USE_DEEP_GEMM" not in runtime_env
+    assert "FLASHINFER_DISABLE_JIT" not in runtime_env
+    assert "--max-model-len" not in dockerfile.split("\nCMD ", 1)[1]
 
 
 def test_readme_uses_release_helpers_and_no_runtime_environment_flags() -> None:
