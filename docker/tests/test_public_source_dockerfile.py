@@ -25,6 +25,8 @@ def test_public_source_dockerfile_contract() -> None:
     assert "COPY banana-smasher-plugin /src/banana-smasher-plugin" in text
     assert "COPY docker /src/docker" in text
     assert "python3 -m build --wheel" in text
+    assert "from banana_smasher_plugin.native_extensions import preflight_native_extensions" in text
+    assert "preflight_native_extensions()" in text
     assert "ARG BANANA_SMASHER_SOURCE_COMMIT" in text
     assert "--stamp-provenance" in text
     package_builder = text.split("FROM ${VLLM_IMAGE} AS flashinfer-builder", 1)[0]

@@ -946,8 +946,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 33356,
-      "output_sha256": "722da6234ae83281dce82b4e73f9b58dee4d9fea0060352258f83e4a9089d27d",
+      "bytes": 42484,
+      "output_sha256": "d0740a4e7947f9131d71f341d809aa5872c069d3ba39d426e001c9f539324b3f",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
       "source_sha256": "42f8823789c8c3c58fc48a1d2162ed0a43d0cf7e74850856356c28bd932e18a9"
@@ -977,17 +977,17 @@
       "source_sha256": "6a820e1da436dacb41c8dcf7c8c192e7c6c83e86dfcaf46f45ed7f0d432c796c"
     },
     {
-      "byte_preserved": true,
-      "bytes": 2814,
-      "output_sha256": "b35f78f3b0847aa199c84579db807ba1561c47045a78421b20e4d2a07e29acc4",
+      "byte_preserved": false,
+      "bytes": 4105,
+      "output_sha256": "00fb725fd460d55f401f857c470b53932d419e62ddd44b7cfe87a7998ab4f59a",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/repair.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/repair.py",
       "source_sha256": "b35f78f3b0847aa199c84579db807ba1561c47045a78421b20e4d2a07e29acc4"
     },
     {
       "byte_preserved": false,
-      "bytes": 9421,
-      "output_sha256": "94207abe5347dfb5ec34f74467ffd1d3ff99bb3914ed5745ac06a8169a8886c7",
+      "bytes": 9880,
+      "output_sha256": "e11c6f01c34bfd528331ebd576bc270cc9bbd03069a37b8fa8e390fe34fee05f",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/v4_acceleration.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/v4_acceleration.py",
       "source_sha256": "976700cfd542722d69e566bf62b6c1987888fb46d40ff9ef42c7de579b0d5d59"
@@ -1033,17 +1033,17 @@
       "source_sha256": "ca991364783bc91fa37a4c293d58579060aa356292da08b4952b66c0ccfdb171"
     },
     {
-      "byte_preserved": true,
-      "bytes": 4090,
-      "output_sha256": "6763fe92b696ab09a9f5882973cb49d3851e27f204f124c8d98b703ab84a6287",
+      "byte_preserved": false,
+      "bytes": 3345,
+      "output_sha256": "cc16c3be50bd385a41d137f47e5fd9175e814cd0a17fbf987087bfb3a83eb971",
       "path": "banana-smasher-plugin/tests/test_native_plane_compile_boundary.py",
       "source_path": "banana-smasher-plugin/tests/test_native_plane_compile_boundary.py",
       "source_sha256": "6763fe92b696ab09a9f5882973cb49d3851e27f204f124c8d98b703ab84a6287"
     },
     {
       "byte_preserved": false,
-      "bytes": 39863,
-      "output_sha256": "ed9be45ca614740ba4d59f79e072580d7b60ff07b456d8f7cf61dffc3477c6d8",
+      "bytes": 45576,
+      "output_sha256": "321960d5484fd5632d12bf9e25d746841de85a368432837e7e74d412234579b5",
       "path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
       "source_path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
       "source_sha256": "9bcb44fc94d5aebc63c04864beea3cacfa4df0b761e46a80d696a771513bd989"
@@ -1055,6 +1055,14 @@
       "path": "banana-smasher-plugin/tests/test_plugin_contract.py",
       "source_path": "banana-smasher-plugin/tests/test_plugin_contract.py",
       "source_sha256": "01be3c13673a98e70a9f6e2dedbf616685a3cc1dd0604e989689554f19050fdf"
+    },
+    {
+      "byte_preserved": true,
+      "bytes": 503,
+      "output_sha256": "cf6ecb4b6f5b4c70c17a62af70bcc984055620b60b4c35bbcc1b4800494804b5",
+      "path": "banana-smasher-plugin/tests/test_repair_path_compat.py",
+      "source_path": "banana-smasher-plugin/tests/test_repair_path_compat.py",
+      "source_sha256": "cf6ecb4b6f5b4c70c17a62af70bcc984055620b60b4c35bbcc1b4800494804b5"
     },
     {
       "byte_preserved": false,
@@ -1106,8 +1114,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 16882,
-      "output_sha256": "e7531aabe89f45de18bc2a23ea38096ad66f82ee857a99e41c6c85c381063215",
+      "bytes": 17140,
+      "output_sha256": "4828de7b13baf6719fa5357f4484768a033aa917424d983f79b73114bffb5996",
       "path": "docker/Dockerfile",
       "source_path": "docker/Dockerfile",
       "source_sha256": "60fd97d9c64924203f508d374f8695eb729deab55986a9f8db226f10815fe338"
@@ -1145,9 +1153,9 @@
       "source_sha256": "1c63d529c78cff15e325f81e4503b437f49193ca999f819b242d4d702afdd8ed"
     },
     {
-      "byte_preserved": true,
-      "bytes": 2197,
-      "output_sha256": "360ddce36a887a68af9949557e4f36a356075271cad88bac59a2333b7ba75e79",
+      "byte_preserved": false,
+      "bytes": 2311,
+      "output_sha256": "883b346bd15526814178ace92e78816913652a60c85b2787d35ebfd1d2c1abb2",
       "path": "docker/scripts/write_package_receipt.py",
       "source_path": "docker/scripts/write_package_receipt.py",
       "source_sha256": "360ddce36a887a68af9949557e4f36a356075271cad88bac59a2333b7ba75e79"
@@ -1162,32 +1170,32 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 12839,
-      "output_sha256": "7e03fc281f76527ca94b1e6e68f5cde06e3c8eac261fed2cad79bd1bd03a4f1b",
+      "bytes": 17380,
+      "output_sha256": "911f26bd14a7c9481ce76f3a036029aa0515adfa22db73e3a9789b25f58cf1a6",
       "path": "docker/tests/test_public_source_dockerfile.py",
       "source_path": "docker/tests/test_public_source_dockerfile.py",
       "source_sha256": "d131beb85a3969add2b819dcda1f533e6a2868de02a0197ab4077b3eb6c565d9"
     },
     {
-      "byte_preserved": true,
-      "bytes": 190498,
-      "output_sha256": "9173487b6253e665a9d603673677c20bf8b8dea797162f20f98acb3cb755b242",
+      "byte_preserved": false,
+      "bytes": 190819,
+      "output_sha256": "997adee6e991a4c06dc6d25fd8967c21938f3776deed1bc7939c850ac792073e",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_kernel_matrix.json",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_kernel_matrix.json",
       "source_sha256": "9173487b6253e665a9d603673677c20bf8b8dea797162f20f98acb3cb755b242"
     },
     {
-      "byte_preserved": true,
-      "bytes": 2097,
-      "output_sha256": "205799a5297198cf0358207d44174439bf2f193c0d949ea9f0eb64a9f3c99346",
+      "byte_preserved": false,
+      "bytes": 4223,
+      "output_sha256": "a4fc520a0334e82df886c9122d584fc90cb649c21061b7151adb13413c261dde",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_variants.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_variants.py",
       "source_sha256": "205799a5297198cf0358207d44174439bf2f193c0d949ea9f0eb64a9f3c99346"
     },
     {
-      "byte_preserved": true,
-      "bytes": 7411,
-      "output_sha256": "a876de89e623844c6ffc32424b2c2b3c23092cc1b9357b58e1f71918854af71e",
+      "byte_preserved": false,
+      "bytes": 10788,
+      "output_sha256": "3c639940a2c4bb016fc0c4523c7a8f22b2469ae679506abd14e5698019ed6b45",
       "path": "banana-smasher-plugin/tests/test_specialized_kernel_matrix.py",
       "source_path": "banana-smasher-plugin/tests/test_specialized_kernel_matrix.py",
       "source_sha256": "a876de89e623844c6ffc32424b2c2b3c23092cc1b9357b58e1f71918854af71e"
@@ -1201,9 +1209,9 @@
       "source_sha256": "aec1851b3c2c7a11a05019790851109940bfb859e7a94a14b375100723ef1da2"
     },
     {
-      "byte_preserved": true,
-      "bytes": 3597,
-      "output_sha256": "6c0d873db79dc9b7c8b6caf6141db042c4f7a1139661069164b976aa51f75127",
+      "byte_preserved": false,
+      "bytes": 8267,
+      "output_sha256": "ba3d8692468b641ebeb9d9f99fca2a68ed1cbd335534194ba980f7919c85fe7d",
       "path": "docker/scripts/smoke_flashinfer_sm121.py",
       "source_path": "docker/scripts/smoke_flashinfer_sm121.py",
       "source_sha256": "6c0d873db79dc9b7c8b6caf6141db042c4f7a1139661069164b976aa51f75127"

@@ -99,6 +99,10 @@ def test_acceleration_manifest_is_exact_and_test_mapped() -> None:
         "real-libcudart-link",
     }
     assert set(by_id) == required_ids
+    assert by_id["sm121-deepgemm-dense-e8m0"]["build_dependency_or_asset"] == [
+        "DeepGEMM f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca",
+        "deep_gemm-2.6.1 ARM64 wheel",
+    ]
     for entry in entries:
         assert entry["source"]
         assert entry["build_dependency_or_asset"]
