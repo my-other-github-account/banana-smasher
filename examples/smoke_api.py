@@ -23,6 +23,43 @@ def post_json(url: str, payload: dict[str, Any], *, timeout: int = 120) -> Any:
         return json.load(response)
 
 
+def require_semantic_ok(message: Any, *, response_kind: str) -> str:
+    if not isinstance(message, str) or message.strip() not in {"OK", "OK."}:
+        raise SystemExit(f"{response_kind} did not return the semantic OK answer")
+    return message.strip()
+
+
+def post_chat_stream(
+    url: str, payload: dict[str, Any], *, timeout: int = 120
+) -> str:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps({**payload, "stream": True}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    chunks: list[str] = []
+    done = False
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        for raw_line in response:
+            line = raw_line.decode().strip()
+            if not line.startswith("data:"):
+                continue
+            data = line.removeprefix("data:").strip()
+            if data == "[DONE]":
+                done = True
+                break
+            event = json.loads(data)
+            choices = event.get("choices", [])
+            if choices:
+                content = choices[0].get("delta", {}).get("content")
+                if isinstance(content, str):
+                    chunks.append(content)
+    if not done:
+        raise SystemExit("streaming chat did not terminate with [DONE]")
+    return "".join(chunks)
+
+
 def main() -> None:
     api_base = os.environ.get("OPENAI_BASE_URL", "http://localhost:8000/v1").rstrip("/")
     service_base = api_base[:-3] if api_base.endswith("/v1") else api_base
@@ -43,18 +80,22 @@ def main() -> None:
             f"expected served model {model!r} is absent from /v1/models: {sorted(model_ids)}"
         )
 
-    body = post_json(
-        f"{api_base}/chat/completions",
-        {
-            "model": model,
-            "messages": [{"role": "user", "content": "Reply with OK."}],
-            "max_tokens": 8,
-        },
+    chat_url = f"{api_base}/chat/completions"
+    chat_payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": "Reply with OK."}],
+        "max_tokens": 8,
+    }
+    body = post_json(chat_url, chat_payload)
+    message = require_semantic_ok(
+        body["choices"][0]["message"]["content"], response_kind="nonstreaming chat"
     )
-    message = body["choices"][0]["message"]["content"]
-    if not isinstance(message, str) or not message.strip():
-        raise SystemExit("empty chat completion")
     print(message)
+
+    stream_message = require_semantic_ok(
+        post_chat_stream(chat_url, chat_payload), response_kind="streaming chat"
+    )
+    print(stream_message)
 
 
 if __name__ == "__main__":
