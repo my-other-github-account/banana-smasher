@@ -13,7 +13,7 @@ from packaging.version import Version
 import pytest
 
 
-def test_plugin_requires_first_quack_release_compatible_with_stock_cutlass_45() -> None:
+def test_plugin_pins_first_quack_release_compatible_with_stock_cutlass_45() -> None:
     pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     requirements = [Requirement(item) for item in pyproject["project"]["dependencies"]]
     quack = next((item for item in requirements if item.name == "quack-kernels"), None)
@@ -21,10 +21,8 @@ def test_plugin_requires_first_quack_release_compatible_with_stock_cutlass_45() 
     assert quack is not None, (
         "plugin metadata must install the public quack/CUTLASS compatibility contract"
     )
-    assert Version("0.4.0") not in quack.specifier
+    assert str(quack.specifier) == "==0.4.1"
     assert Version("0.4.1") in quack.specifier
-    assert Version("0.5.0") in quack.specifier
-    assert Version("0.5.1") not in quack.specifier
 
 
 def test_real_stock_deepseek_v4_fused_indexer_imports_supported_quack() -> None:
