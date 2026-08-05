@@ -155,6 +155,17 @@ def configure_stock_deepseek_v4_o_proj() -> bool:
 
     sm12x_fp8_einsum_recipe._banana_smasher_sm12x_deep_gemm = True  # type: ignore[attr-defined]
     setattr(module, "compute_fp8_einsum_recipe", sm12x_fp8_einsum_recipe)
+    for loaded in tuple(sys.modules.values()):
+        if (
+            loaded is not None
+            and getattr(loaded, "compute_fp8_einsum_recipe", None)
+            is original_recipe
+        ):
+            setattr(
+                loaded,
+                "compute_fp8_einsum_recipe",
+                sm12x_fp8_einsum_recipe,
+            )
 
     fp8_utils = importlib.import_module(
         "vllm.model_executor.layers.quantization.utils.fp8_utils"

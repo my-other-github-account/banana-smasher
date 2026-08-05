@@ -102,6 +102,24 @@ def test_sm121_o_proj_preserves_deepgemm_and_uses_raw_e8m0_group_layout(
     assert len(delegated) == 1
 
 
+def test_sm121_updates_loaded_o_proj_recipe_consumers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    o_proj, _fp8_utils, _stock_o_proj, _delegated = _install_sm121_layout_modules(
+        monkeypatch
+    )
+    consumer = ModuleType("vllm.models.deepseek_v4.nvidia.flashinfer_sparse")
+    setattr(consumer, "compute_fp8_einsum_recipe", o_proj.compute_fp8_einsum_recipe)
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.models.deepseek_v4.nvidia.flashinfer_sparse",
+        consumer,
+    )
+
+    assert banana_smasher_plugin.configure_stock_deepseek_v4_o_proj() is True
+    assert consumer.compute_fp8_einsum_recipe() == ((1, 128, 128), False)
+
+
 def test_sm121_mhc_preserves_stock_public_deepgemm(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
