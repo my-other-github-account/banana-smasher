@@ -332,6 +332,12 @@ def _parser() -> argparse.ArgumentParser:
     anchor_candidate.add_argument("--model", type=Path, required=True)
     anchor_candidate.add_argument("--config", type=Path, required=True)
     anchor_candidate.add_argument("--basis-sha256", required=True)
+    anchor_candidate.add_argument(
+        "--execution-mode",
+        choices=("auto", "vllm", "offline-layerwise"),
+        default="auto",
+    )
+    anchor_candidate.add_argument("--chunk-size", type=int, default=8)
 
     anchor_score = anchor_commands.add_parser(
         "score", help="score exact producer rows with resumable per-window KLD"
@@ -496,6 +502,8 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
             model_root=args.model,
             producer_config=args.config,
             basis_sha256=args.basis_sha256,
+            execution_mode=args.execution_mode,
+            chunk_size=args.chunk_size,
         )
     if command == "score":
         manifest = load_registered_bank(args.run_root, args.bank)

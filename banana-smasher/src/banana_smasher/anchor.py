@@ -1232,8 +1232,10 @@ def materialize_candidate_producer(
     model_root: Path | str,
     producer_config: Path | str,
     basis_sha256: str,
+    execution_mode: str = "auto",
+    chunk_size: int = 8,
 ) -> dict[str, Any]:
-    """Run a model/config-parameterized producer and import its exact 64 rows."""
+    """Run a producer in bounded window chunks with validated resume."""
 
     validate_bank_manifest(manifest)
     if len(manifest["windows"]) != 64:
@@ -1242,6 +1244,13 @@ def materialize_candidate_producer(
         )
     if not _is_sha256(basis_sha256):
         raise AnchorEvaluationError("basis_sha256 must be a lowercase SHA-256")
+    if execution_mode not in {"auto", "vllm", "offline-layerwise"}:
+        raise AnchorEvaluationError(
+            "execution_mode must be auto, vllm, or offline-layerwise"
+        )
+    if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0:
+        raise AnchorEvaluationError("chunk_size must be a positive integer")
+
     run_root = Path(run_root).resolve()
     candidate_id = _safe_component(candidate_id, "candidate_id")
     bank_id = _safe_component(manifest["bank_id"], "bank_id")
@@ -1269,7 +1278,9 @@ def materialize_candidate_producer(
         for layer in declared_layers
     ):
         raise AnchorEvaluationError("candidate model pack has invalid layers")
-    layer_receipts = sorted((model_root / "provenance").glob("layer_*/LAYER_RECEIPT.json"))
+    layer_receipts = sorted(
+        (model_root / "provenance").glob("layer_*/LAYER_RECEIPT.json")
+    )
     if not layer_receipts:
         single = model_root / "provenance" / "LAYER_RECEIPT.json"
         if single.is_file():
@@ -1281,7 +1292,9 @@ def materialize_candidate_producer(
         try:
             receipt = json.loads(path.read_text())
         except (OSError, json.JSONDecodeError) as exc:
-            raise AnchorEvaluationError(f"invalid fixed-D4 layer receipt {path}: {exc}") from exc
+            raise AnchorEvaluationError(
+                f"invalid fixed-D4 layer receipt {path}: {exc}"
+            ) from exc
         receipt_layer = receipt.get("layer")
         if not isinstance(receipt_layer, int) or isinstance(receipt_layer, bool):
             raise AnchorEvaluationError(f"candidate model has invalid layer receipt {path}")
@@ -1301,7 +1314,9 @@ def materialize_candidate_producer(
         config_payload = producer_config.read_bytes()
         config = json.loads(config_payload)
     except (OSError, json.JSONDecodeError) as exc:
-        raise AnchorEvaluationError(f"invalid candidate producer config {producer_config}: {exc}") from exc
+        raise AnchorEvaluationError(
+            f"invalid candidate producer config {producer_config}: {exc}"
+        ) from exc
     command = config.get("command") if isinstance(config, Mapping) else None
     external_command = command if isinstance(command, list) else []
     builtin = (
@@ -1321,6 +1336,15 @@ def materialize_candidate_producer(
             "candidate producer config requires schema banana-smasher-candidate-producer-v1 "
             "and either producer fixed-d4-vllm or a non-empty string command array"
         )
+    configured_mode = "vllm" if builtin else str(config.get("producer", "vllm"))
+    if configured_mode not in {"vllm", "offline-layerwise"}:
+        configured_mode = "vllm"
+    selected_mode = configured_mode if execution_mode == "auto" else execution_mode
+    if selected_mode != configured_mode:
+        raise AnchorEvaluationError(
+            f"execution mode {selected_mode!r} does not match producer mode {configured_mode!r}"
+        )
+    producer_backend = "fixed-d4-vllm" if builtin else "external-command"
 
     bank_path = run_root / "banks" / f"{bank_id}.jsonl"
     if not bank_path.is_file():
@@ -1329,61 +1353,179 @@ def materialize_candidate_producer(
         )
     staging_root = run_root / "materializations" / "candidate" / candidate_id
     staging_root.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{bank_id}.", suffix=".jsonl", dir=staging_root
-    )
-    os.close(descriptor)
-    temporary = Path(temporary_name)
-    try:
-        if builtin:
-            from .fixed_d4 import produce_fixed_d4_logits
+    interim_path = staging_root / f"{bank_id}.interim.jsonl"
+    progress_path = staging_root / f"{bank_id}.progress.json"
+    expected_ids = [window["id"] for window in manifest["windows"]]
+    bindings = {
+        "basis_sha256": basis_sha256,
+        "bank_content_sha256": manifest["content_hashes"][
+            "manifest_payload_sha256"
+        ],
+        "candidate_id": candidate_id,
+        "execution_mode": selected_mode,
+        "model_manifest_sha256": _sha256_bytes(pack_manifest_path.read_bytes()),
+        "producer_config_sha256": _sha256_bytes(config_payload),
+    }
 
-            produce_fixed_d4_logits(
-                model_root,
-                producer_config,
-                bank_path,
-                temporary,
-                basis_sha256=basis_sha256,
-            )
-            producer_backend = "fixed-d4-vllm"
-        else:
-            completed = subprocess.run(
-                [
-                    *external_command,
-                    "--model",
-                    str(model_root),
-                    "--config",
-                    str(producer_config),
-                    "--bank",
-                    str(bank_path),
-                    "--output",
-                    str(temporary),
-                    "--basis-sha256",
-                    basis_sha256,
-                ],
-                check=False,
-                text=True,
-                capture_output=True,
-            )
-            if completed.returncode != 0:
-                detail = completed.stderr.strip() or completed.stdout.strip()
-                raise AnchorEvaluationError(
-                    f"candidate producer failed with exit {completed.returncode}: {detail}"
-                )
-            producer_backend = "external-command"
-        payload = temporary.read_bytes()
-        producer_sha256 = _sha256_bytes(payload)
-        imported = import_producer(
-            run_root,
-            manifest,
-            temporary,
-            kind="candidate",
-            expected_sha256=producer_sha256,
-            candidate_id=candidate_id,
+    interim_rows = _read_jsonl(interim_path) if interim_path.exists() else []
+    interim_ids = [row.get("window_id") for row in interim_rows]
+    if interim_ids != expected_ids[: len(interim_ids)]:
+        raise AnchorEvaluationError(
+            "candidate interim rows must be an ordered prefix of the bank windows"
         )
-    finally:
-        temporary.unlink(missing_ok=True)
+    _producer_index(interim_rows, "candidate interim")
+    if len(interim_rows) > len(expected_ids):
+        raise AnchorEvaluationError("candidate interim rows exceed bank coverage")
 
+    if progress_path.exists():
+        try:
+            progress = json.loads(progress_path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise AnchorEvaluationError(
+                f"invalid candidate progress {progress_path}: {exc}"
+            ) from exc
+        if progress.get("bindings") != bindings:
+            raise AnchorEvaluationError(
+                "candidate progress bindings differ from the requested same-work materialization"
+            )
+        if progress.get("completed_windows") != len(interim_rows):
+            raise AnchorEvaluationError(
+                "candidate progress completed_windows differs from validated interim rows"
+            )
+
+    destination = (
+        run_root / "producers" / "candidate" / candidate_id / f"{bank_id}.jsonl"
+    )
+    receipt_path = (
+        run_root
+        / "imports"
+        / f"candidate-materialization--{candidate_id}--{bank_id}.json"
+    )
+    if destination.exists() or receipt_path.exists():
+        if not destination.is_file() or not receipt_path.is_file():
+            raise AnchorEvaluationError(
+                "completed candidate materialization is partial; expected producer and receipt"
+            )
+        final_rows = _read_jsonl(destination)
+        if [row.get("window_id") for row in final_rows] != expected_ids:
+            raise AnchorEvaluationError(
+                "completed candidate producer rows do not match ordered bank windows"
+            )
+        try:
+            completed_receipt = json.loads(receipt_path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise AnchorEvaluationError(
+                f"invalid candidate materialization receipt {receipt_path}: {exc}"
+            ) from exc
+        if completed_receipt.get("bindings") != bindings:
+            raise AnchorEvaluationError(
+                "completed candidate materialization bindings differ from requested same work"
+            )
+        return {
+            **completed_receipt,
+            "resumed_windows": len(expected_ids),
+            "computed_windows": 0,
+            "completed_rerun": True,
+        }
+
+    resumed_windows = len(interim_rows)
+    progress = {
+        "schema": "banana-smasher-candidate-materialization-progress-v1",
+        "status": "IN_PROGRESS",
+        "bank_id": bank_id,
+        "candidate_id": candidate_id,
+        "execution_mode": selected_mode,
+        "completed_windows": len(interim_rows),
+        "total_windows": len(expected_ids),
+        "bindings": bindings,
+    }
+    _atomic_write(progress_path, _canonical_bytes(progress))
+
+    bank_rows = _read_jsonl(bank_path)
+    if [row.get("window_id") for row in bank_rows] != expected_ids:
+        raise AnchorEvaluationError(
+            "materialized bank rows do not match ordered manifest windows"
+        )
+    for start in range(len(interim_rows), len(bank_rows), chunk_size):
+        chunk = bank_rows[start : start + chunk_size]
+        chunk_payload = b"".join(_canonical_bytes(row) for row in chunk)
+        bank_descriptor, chunk_bank_name = tempfile.mkstemp(
+            prefix=f".{bank_id}.bank.", suffix=".jsonl", dir=staging_root
+        )
+        output_descriptor, chunk_output_name = tempfile.mkstemp(
+            prefix=f".{bank_id}.output.", suffix=".jsonl", dir=staging_root
+        )
+        os.close(output_descriptor)
+        chunk_bank = Path(chunk_bank_name)
+        chunk_output = Path(chunk_output_name)
+        try:
+            with os.fdopen(bank_descriptor, "wb") as stream:
+                stream.write(chunk_payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            if builtin:
+                from .fixed_d4 import produce_fixed_d4_logits
+
+                produce_fixed_d4_logits(
+                    model_root,
+                    producer_config,
+                    chunk_bank,
+                    chunk_output,
+                    basis_sha256=basis_sha256,
+                )
+            else:
+                completed = subprocess.run(
+                    [
+                        *external_command,
+                        "--model",
+                        str(model_root),
+                        "--config",
+                        str(producer_config),
+                        "--bank",
+                        str(chunk_bank),
+                        "--output",
+                        str(chunk_output),
+                        "--basis-sha256",
+                        basis_sha256,
+                    ],
+                    check=False,
+                    text=True,
+                    capture_output=True,
+                )
+                if completed.returncode != 0:
+                    detail = completed.stderr.strip() or completed.stdout.strip()
+                    raise AnchorEvaluationError(
+                        f"candidate producer failed with exit {completed.returncode}: {detail}"
+                    )
+            chunk_rows = _read_jsonl(chunk_output)
+            if [row.get("window_id") for row in chunk_rows] != [
+                row.get("window_id") for row in chunk
+            ]:
+                raise AnchorEvaluationError(
+                    "candidate producer chunk does not match requested ordered windows"
+                )
+            _producer_index(chunk_rows, "candidate chunk")
+            interim_rows.extend(chunk_rows)
+            _atomic_write(
+                interim_path,
+                b"".join(_canonical_bytes(row) for row in interim_rows),
+            )
+            progress["completed_windows"] = len(interim_rows)
+            _atomic_write(progress_path, _canonical_bytes(progress))
+        finally:
+            chunk_bank.unlink(missing_ok=True)
+            chunk_output.unlink(missing_ok=True)
+
+    payload = interim_path.read_bytes()
+    producer_sha256 = _sha256_bytes(payload)
+    imported = import_producer(
+        run_root,
+        manifest,
+        interim_path,
+        kind="candidate",
+        expected_sha256=producer_sha256,
+        candidate_id=candidate_id,
+    )
     materialization_receipt = {
         "schema": "banana-smasher-candidate-materialization-receipt-v1",
         "status": "PASS",
@@ -1392,15 +1534,20 @@ def materialize_candidate_producer(
         "coverage": imported["coverage"],
         "basis_sha256": basis_sha256,
         "producer_backend": producer_backend,
-        "model_manifest_sha256": _sha256_bytes(pack_manifest_path.read_bytes()),
-        "producer_config_sha256": _sha256_bytes(config_payload),
+        "execution_mode": selected_mode,
+        "model_manifest_sha256": bindings["model_manifest_sha256"],
+        "producer_config_sha256": bindings["producer_config_sha256"],
         "producer_sha256": producer_sha256,
         "relative_path": imported["relative_path"],
+        "resumed_windows": resumed_windows,
+        "computed_windows": len(expected_ids) - resumed_windows,
+        "completed_rerun": False,
+        "bindings": bindings,
     }
-    receipt_path = (
-        run_root / "imports" / f"candidate-materialization--{candidate_id}--{bank_id}.json"
-    )
     _atomic_write(receipt_path, _canonical_bytes(materialization_receipt))
+    progress["status"] = "PASS"
+    progress["completed_windows"] = len(expected_ids)
+    _atomic_write(progress_path, _canonical_bytes(progress))
     return materialization_receipt
 
 
