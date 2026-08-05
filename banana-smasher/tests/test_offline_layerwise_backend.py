@@ -251,6 +251,7 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
                     "input_field": "token_ids",
                     "positions": positions,
                     "layers": [0, 1],
+                    "checkpoint_retention": "all",
                     "teacher_support": {
                         "path": str(support_path),
                         "sha256": hashlib.sha256(support_payload).hexdigest(),
@@ -266,7 +267,7 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
                     "physical_limits": {
                         "input_scope": "local-only",
                         "expected_read_bytes": 100,
-                        "max_read_bytes": 4096,
+                        "max_read_bytes": 1 << 20,
                         "first_output_deadline_seconds": 300,
                         "max_elapsed_seconds": 3600,
                         "max_resident_bytes": 1000,
@@ -315,6 +316,18 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
             self.assertEqual(progress["manifest_layer_count"], 3)
             self.assertEqual(progress["output_rows"], 64)
 
+            run_root = Path(receipt["state_path"]).parent
+            state = json.loads(Path(receipt["state_path"]).read_text())
+            self.assertEqual(
+                sorted(state["checkpoints"]),
+                ["initial", "layer_0", "layer_1"],
+            )
+            self.assertEqual(receipt["checkpoint_stages_retained"], 3)
+            self.assertEqual(receipt["checkpoint_files_retained"], 64 * 3)
+            self.assertEqual(receipt["checkpoint_retention"], "all")
+            for stage in ("initial", "layer_0", "layer_1"):
+                self.assertEqual(len(list((run_root / stage).glob("window_*.npy"))), 64)
+
             event_count = len(events)
             with patch(
                 "banana_smasher.fixed_d4.verify_fixed_d4_model",
@@ -331,6 +344,33 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
             self.assertEqual(len(events_after_rerun), event_count)
             self.assertEqual(completed["window_layer_forwards"], 0)
             self.assertEqual(completed["resumed_output_rows"], 64)
+
+            frontier_config = json.loads(json.dumps(config))
+            frontier_config["parameters"].pop("checkpoint_retention")
+            frontier_output = root / "frontier-candidate.jsonl"
+            with patch(
+                "banana_smasher.fixed_d4.verify_fixed_d4_model",
+                return_value={"layers": [0, 1, 2]},
+            ):
+                frontier = produce_fixed_d4_layerwise_logits(
+                    model,
+                    frontier_config,
+                    bank_path,
+                    frontier_output,
+                    basis_sha256=BASIS,
+                )
+            frontier_root = Path(frontier["state_path"]).parent
+            frontier_state = json.loads(Path(frontier["state_path"]).read_text())
+            self.assertEqual(frontier["checkpoint_retention"], "frontier")
+            self.assertEqual(frontier["checkpoint_stages_retained"], 1)
+            self.assertEqual(frontier["checkpoint_files_retained"], 64)
+            self.assertEqual(sorted(frontier_state["checkpoints"]), ["layer_1"])
+            self.assertFalse((frontier_root / "initial").exists())
+            self.assertFalse((frontier_root / "layer_0").exists())
+            self.assertEqual(
+                len(list((frontier_root / "layer_1").glob("window_*.npy"))),
+                64,
+            )
 
     def test_width_8192_sidecars_emit_historical_candidate_shape_and_resume(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -372,6 +412,7 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
                     "input_field": "token_ids",
                     "positions": 2,
                     "layers": [0],
+                    "checkpoint_retention": "all",
                     "teacher_support": {
                         "manifest": str(teacher_manifest),
                         "sha256": hashlib.sha256(teacher_manifest.read_bytes()).hexdigest(),

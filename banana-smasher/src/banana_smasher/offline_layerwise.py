@@ -374,16 +374,28 @@ def produce_fixed_d4_layerwise_logits(
         "runtime_adapter",
         "physical_limits",
     }
-    if not isinstance(parameters, Mapping) or set(parameters) != required_parameters:
+    optional_parameters = {"checkpoint_retention"}
+    if (
+        not isinstance(parameters, Mapping)
+        or not required_parameters <= set(parameters)
+        or set(parameters) - required_parameters - optional_parameters
+    ):
         raise ValueError(
             "offline-layerwise parameters require input_field, positions, layers, "
-            "teacher_support, execution_mode, runtime_adapter, and physical_limits"
+            "teacher_support, execution_mode, runtime_adapter, and physical_limits; "
+            "checkpoint_retention is optional"
         )
     if parameters.get("execution_mode") != "offline-layerwise":
         raise ValueError("offline-layerwise execution_mode must be offline-layerwise")
     input_field = parameters.get("input_field")
     positions = parameters.get("positions")
     layers = parameters.get("layers")
+    checkpoint_retention = parameters.get("checkpoint_retention", "frontier")
+    if not isinstance(checkpoint_retention, str) or checkpoint_retention not in (
+        "frontier",
+        "all",
+    ):
+        raise ValueError("offline-layerwise checkpoint_retention must be frontier or all")
     if not isinstance(input_field, str) or not input_field:
         raise ValueError("offline-layerwise input_field must be non-empty")
     if isinstance(positions, bool) or not isinstance(positions, int) or positions < 1:
@@ -689,7 +701,7 @@ def produce_fixed_d4_layerwise_logits(
         previous = run_root / source_stage
         source_stage = target_stage
         _atomic_json(state_path, state)
-        if previous != target_dir:
+        if checkpoint_retention == "frontier" and previous != target_dir:
             shutil.rmtree(previous)
             state["checkpoints"].pop(previous.name, None)
             _atomic_json(state_path, state)
@@ -857,6 +869,11 @@ def produce_fixed_d4_layerwise_logits(
         ),
         "output_rows": len(bank_rows),
         "resumed_output_rows": resumed_output_rows,
+        "checkpoint_retention": checkpoint_retention,
+        "checkpoint_stages_retained": len(state["checkpoints"]),
+        "checkpoint_files_retained": sum(
+            len(stage) for stage in state["checkpoints"].values()
+        ),
         "bytes_read": read_bytes,
         "peak_resident_bytes": peak_resident,
         "elapsed_seconds": elapsed,
@@ -912,14 +929,22 @@ def rescore_fixed_d4_layerwise_terminal(
         "runtime_adapter",
         "physical_limits",
     }
+    optional_parameters = {"checkpoint_retention"}
     if (
         config.get("schema") != "banana-smasher-candidate-producer-v1"
         or config.get("producer") != "fixed-d4-offline-layerwise"
         or set(config) != {"schema", "producer", "parameters"}
         or not isinstance(parameters, Mapping)
-        or set(parameters) != required_parameters
+        or not required_parameters <= set(parameters)
+        or set(parameters) - required_parameters - optional_parameters
     ):
         raise ValueError("terminal rescore requires the original offline-layerwise config")
+    checkpoint_retention = parameters.get("checkpoint_retention", "frontier")
+    if not isinstance(checkpoint_retention, str) or checkpoint_retention not in (
+        "frontier",
+        "all",
+    ):
+        raise ValueError("terminal rescore checkpoint_retention must be frontier or all")
     positions = parameters["positions"]
     layers = parameters["layers"]
     if (
