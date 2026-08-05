@@ -17,9 +17,9 @@
       "source_sha256": "3cfb151b0263dc238cd3a362a430aaef809e1e3f2de76209352a930f3bc554c1"
     },
     {
-      "byte_preserved": true,
-      "bytes": 17923,
-      "output_sha256": "91732dd1a3dcd4345207d6642d2af548455effe58b8d9cf5fd77a2018a92eb56",
+      "byte_preserved": false,
+      "bytes": 18268,
+      "output_sha256": "9ce5dba37a12e1c13bb54e1880afa79167ecccc1b2f3fd61bb623c5cf1dbccc0",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/__init__.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/__init__.py",
       "source_sha256": "91732dd1a3dcd4345207d6642d2af548455effe58b8d9cf5fd77a2018a92eb56"
@@ -257,9 +257,9 @@
       "source_sha256": "992f630bc00e6bf2080003df6e664784beff3fa5968bb8cd03c71fed6dffa927"
     },
     {
-      "byte_preserved": true,
-      "bytes": 3432,
-      "output_sha256": "6e6df55d19d4726bdcc0f2c0a5cc15069c92f6b2d4dd9ba5df8e43851b131e1c",
+      "byte_preserved": false,
+      "bytes": 4092,
+      "output_sha256": "358198d4a21287c7ad3a4c8763f9aab5bc57c88e0f49d53e537a948e22ffddd6",
       "path": "banana-smasher-plugin/tests/test_sm121_deep_gemm_fast_paths.py",
       "source_path": "banana-smasher-plugin/tests/test_sm121_deep_gemm_fast_paths.py",
       "source_sha256": "6e6df55d19d4726bdcc0f2c0a5cc15069c92f6b2d4dd9ba5df8e43851b131e1c"
