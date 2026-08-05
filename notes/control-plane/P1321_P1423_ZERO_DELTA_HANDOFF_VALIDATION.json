@@ -3,8 +3,8 @@
   "status": "PASS",
   "validated_utc": "2026-08-05T00:06:52Z",
   "handoff_path": "notes/control-plane/P1321_P1423_ZERO_DELTA_HANDOFF.json",
-  "handoff_sha256": "f2985e417ccdb6ffdaa4f42fff346778edeecf236b2f3311f3445cae91758001",
-  "handoff_bytes": 9942,
+  "handoff_sha256": "58fcbaa5bd17f274de8b88502b400143c7afb821d19d047e0fcadaa8e58b92ab",
+  "handoff_bytes": 9954,
   "checks": {
     "json_parse": true,
     "production_image_id_exact": true,
