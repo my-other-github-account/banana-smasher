@@ -355,7 +355,9 @@ def test_pack_binds_quant_config_root_and_every_declared_layer(tmp_path: Path) -
     assert pack.meta_path(0) == root.resolve() / "planes/layer_000.meta.json"
 
 
-def test_plane_loader_moves_named_planes_and_dispatches_projection(tmp_path: Path) -> None:
+def test_plane_loader_moves_named_planes_and_dispatches_projection(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
     calls: list[tuple[str, tuple[int, ...], tuple[int, ...]]] = []
 
@@ -383,6 +385,9 @@ def test_plane_loader_moves_named_planes_and_dispatches_projection(tmp_path: Pat
         + int(offset) * state.vq_state["codes"].element_size()
         for offset in state.vq_state["code_offset"].tolist()
     ]
+    assert "packed_payload_residency=cpu_uva" in caplog.text
+    assert "device_metadata_residency=true" in caplog.text
+    assert "device_residency=true" not in caplog.text
 
 
 def test_plane_forward_uses_capture_safe_async_expert_range_guards(

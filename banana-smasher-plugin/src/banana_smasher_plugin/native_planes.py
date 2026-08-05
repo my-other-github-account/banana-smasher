@@ -760,7 +760,8 @@ class NativePlaneLayer:
         self._custom_op_key = _register_native_plane_layer(self)
         _maybe_warmup_specialized_matrix(self)
         _LOGGER.warning(
-            "BANANA_SMASHER_V4_NATIVE_SOURCE_READY layer=%d device_residency=true "
+            "BANANA_SMASHER_V4_NATIVE_SOURCE_READY layer=%d "
+            "packed_payload_residency=cpu_uva device_metadata_residency=true "
             "runtime_activation=false graph_boundary=true",
             self.layer_index,
         )
