@@ -54,8 +54,8 @@ def allocate_compaction_state(
         "expert_route_counts": torch.empty(experts, dtype=torch.int32, device=device),
         "expert_last_block": torch.empty(experts, dtype=torch.int32, device=device),
         # [0:24] aggregate compaction/family receipts, [24:27] forbidden routes,
-        # [32:128] exhaustive tier x projection x shape physical counters.
-        "physical_counters": torch.zeros(128, dtype=torch.int64, device=device),
+        # [32:140] exhaustive tier x projection x shape physical counters.
+        "physical_counters": torch.zeros(160, dtype=torch.int64, device=device),
     }
 
 

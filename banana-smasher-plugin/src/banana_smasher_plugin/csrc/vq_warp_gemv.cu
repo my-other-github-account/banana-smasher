@@ -528,12 +528,12 @@ at::Tensor d4_specialized(
   TORCH_CHECK(a.size(0) == out.size(0), "a/out routed rows must match");
   TORCH_CHECK(physical_counters.is_cuda() && physical_counters.is_contiguous() &&
                   physical_counters.scalar_type() == at::kLong &&
-                  physical_counters.numel() >= 128,
-              "physical_counters must be contiguous CUDA int64[128+]");
+                  physical_counters.numel() >= 160,
+              "physical_counters must be contiguous CUDA int64[160+]");
   TORCH_CHECK(physical_counters.get_device() == a.get_device() && family64 == 2,
               "D4 physical counters must be on-device with family=2");
-  TORCH_CHECK(variant64 >= 0 && variant64 < 8 && counter_i10 >= 32 &&
-                  counter_i12 < 128 && counter_i10 < counter_i11 &&
+  TORCH_CHECK(variant64 >= 0 && variant64 < 9 && counter_i10 >= 32 &&
+                  counter_i12 < 160 && counter_i10 < counter_i11 &&
                   counter_i11 < counter_i12,
               "D4 specialization/counter binding is invalid");
 
@@ -634,7 +634,7 @@ at::Tensor d4_specialized(
   switch (static_cast<int>(variant64)) {
     DISPATCH_D4_VARIANT(0); DISPATCH_D4_VARIANT(1); DISPATCH_D4_VARIANT(2);
     DISPATCH_D4_VARIANT(3); DISPATCH_D4_VARIANT(4); DISPATCH_D4_VARIANT(5);
-    DISPATCH_D4_VARIANT(6); DISPATCH_D4_VARIANT(7);
+    DISPATCH_D4_VARIANT(6); DISPATCH_D4_VARIANT(7); DISPATCH_D4_VARIANT(8);
   }
 #undef DISPATCH_D4_VARIANT
   record_d4_tier_counters_kernel<<<1, 1, 0, stream>>>(
@@ -730,12 +730,12 @@ at::Tensor mxfp4_specialized(
               "x/out must be contiguous");
   TORCH_CHECK(physical_counters.is_cuda() && physical_counters.is_contiguous() &&
                   physical_counters.scalar_type() == at::kLong &&
-                  physical_counters.numel() >= 128,
-              "physical_counters must be contiguous CUDA int64[128+]");
+                  physical_counters.numel() >= 160,
+              "physical_counters must be contiguous CUDA int64[160+]");
   TORCH_CHECK(physical_counters.get_device() == x.get_device() && family64 == 3,
               "MXFP4 physical counters must be on-device with family=3");
-  TORCH_CHECK(variant64 >= 0 && variant64 < 8 &&
-                  specialized_counter_index >= 32 && specialized_counter_index < 128,
+  TORCH_CHECK(variant64 >= 0 && variant64 < 9 &&
+                  specialized_counter_index >= 32 && specialized_counter_index < 160,
               "MXFP4 specialization/counter binding is invalid");
   TORCH_CHECK(x.dim() == 2 && out.dim() == 2 &&
               x.size(0) == out.size(0), "invalid x/out shape");
@@ -768,6 +768,7 @@ at::Tensor mxfp4_specialized(
     DISPATCH_MXFP4_VARIANT(2); DISPATCH_MXFP4_VARIANT(3);
     DISPATCH_MXFP4_VARIANT(4); DISPATCH_MXFP4_VARIANT(5);
     DISPATCH_MXFP4_VARIANT(6); DISPATCH_MXFP4_VARIANT(7);
+    DISPATCH_MXFP4_VARIANT(8);
   }
 #undef DISPATCH_MXFP4_VARIANT
   C10_CUDA_KERNEL_LAUNCH_CHECK();
