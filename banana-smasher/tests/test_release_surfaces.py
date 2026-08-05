@@ -14,7 +14,7 @@ ROOT = Path(__file__).parents[1]
 EXPECTED_RELEASE_COMMANDS = [
     'smash export --source-root /path/to/materialized-quant-source --runtime-floor-bytes "${RUNTIME_FLOOR_BYTES:?required from a measured receipt}" --serving-model-root /path/to/base-model --output /model --model-id MODEL --instance-id PACK_INSTANCE --link-mode copy',
     "smash verify /model",
-    "vllm serve /model",
+    "smash serve /model",
 ]
 
 

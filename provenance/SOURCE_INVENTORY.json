@@ -1098,11 +1098,11 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 3731,
-      "output_sha256": "4be5e5a9fd3cb73ed40ac6a1041def3700e13ed80bb90e902b429e2bb9f196e6",
+      "bytes": 3732,
+      "output_sha256": "dff06e644881c2d875bac024656760199f26a1c26043e63c05e675cd57c53ef9",
       "path": "banana-smasher/tests/test_release_surfaces.py",
       "source_path": "banana-smasher/tests/test_release_surfaces.py",
-      "source_sha256": "4be5e5a9fd3cb73ed40ac6a1041def3700e13ed80bb90e902b429e2bb9f196e6"
+      "source_sha256": "dff06e644881c2d875bac024656760199f26a1c26043e63c05e675cd57c53ef9"
     },
     {
       "byte_preserved": true,
