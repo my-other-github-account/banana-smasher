@@ -186,11 +186,11 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 8073,
-      "output_sha256": "e3f9ba9b85e033c8846f3b2be87f460a942427b01115a92c1cb084e575ba4565",
+      "bytes": 8120,
+      "output_sha256": "fd29b8930cb8e46c8d5bc6d41934a8d6b77a5d1d5cb07aa31e8811e2afa6e146",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/vllm_defaults.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/vllm_defaults.py",
-      "source_sha256": "e3f9ba9b85e033c8846f3b2be87f460a942427b01115a92c1cb084e575ba4565"
+      "source_sha256": "fd29b8930cb8e46c8d5bc6d41934a8d6b77a5d1d5cb07aa31e8811e2afa6e146"
     },
     {
       "byte_preserved": true,
@@ -314,11 +314,11 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 6312,
-      "output_sha256": "c0de9dca2d1bba5992b2b26c13fc655c1f381a2ebbecfb85c22b32c7892594aa",
+      "bytes": 6542,
+      "output_sha256": "05bc22e21f574e7a25220e3154e669c3318559b917540ce0d9909522e1f2ae6d",
       "path": "banana-smasher-plugin/tests/test_vllm_defaults.py",
       "source_path": "banana-smasher-plugin/tests/test_vllm_defaults.py",
-      "source_sha256": "c0de9dca2d1bba5992b2b26c13fc655c1f381a2ebbecfb85c22b32c7892594aa"
+      "source_sha256": "05bc22e21f574e7a25220e3154e669c3318559b917540ce0d9909522e1f2ae6d"
     },
     {
       "byte_preserved": true,

@@ -89,6 +89,9 @@ def test_plain_vllm_namespace_receives_export_profile(
         assert __import__("os").environ[name] == value
     assert args.compilation_config == {"cudagraph_mode": "PIECEWISE"}
     assert __import__("os").environ["VLLM_USE_BREAKABLE_CUDAGRAPH"] == "1"
+    # vLLM 0.24.0's shared-expert auxiliary stream is not capture-safe on
+    # SM121: capture otherwise fails with cudaErrorStreamCaptureIsolation.
+    assert __import__("os").environ["VLLM_DISABLE_SHARED_EXPERTS_STREAM"] == "1"
 
 
 def test_explicit_vllm_arguments_remain_authoritative(tmp_path: Path) -> None:
