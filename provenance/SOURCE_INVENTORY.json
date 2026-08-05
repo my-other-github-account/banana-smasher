@@ -24,62 +24,7 @@
       "source_path": "banana-smasher-plugin/setup.py",
       "source_sha256": "3cfb151b0263dc238cd3a362a430aaef809e1e3f2de76209352a930f3bc554c1"
     },
-    {
-      "byte_preserved": true,
-      "bytes": 567,
-      "output_sha256": "d4246d02a89f5b8c1d3bea4d9fb6c4f704535d09d4c6ed97b5d3abceeb936f62",
-      "path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/PKG-INFO",
-      "source_path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/PKG-INFO",
-      "source_sha256": "d4246d02a89f5b8c1d3bea4d9fb6c4f704535d09d4c6ed97b5d3abceeb936f62"
-    },
-    {
-      "byte_preserved": true,
-      "bytes": 1938,
-      "output_sha256": "878616c7f46913796c3d73a0194d399025481a4dbf76d1de0b56d120f731f582",
-      "path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/SOURCES.txt",
-      "source_path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/SOURCES.txt",
-      "source_sha256": "878616c7f46913796c3d73a0194d399025481a4dbf76d1de0b56d120f731f582"
-    },
-    {
-      "byte_preserved": true,
-      "bytes": 1,
-      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-      "path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/dependency_links.txt",
-      "source_path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/dependency_links.txt",
-      "source_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-    },
-    {
-      "byte_preserved": true,
-      "bytes": 78,
-      "output_sha256": "01421317c37a8b50bd9f2940c66fd7afb95fba8f54600109ed02f8bfce3c2d7a",
-      "path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/entry_points.txt",
-      "source_path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/entry_points.txt",
-      "source_sha256": "01421317c37a8b50bd9f2940c66fd7afb95fba8f54600109ed02f8bfce3c2d7a"
-    },
-    {
-      "byte_preserved": true,
-      "bytes": 1,
-      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-      "path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/not-zip-safe",
-      "source_path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/not-zip-safe",
-      "source_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-    },
-    {
-      "byte_preserved": true,
-      "bytes": 200,
-      "output_sha256": "31e032f7055d87817783c97e04017af401d2a7e94b957855aa98d0629710a71b",
-      "path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/requires.txt",
-      "source_path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/requires.txt",
-      "source_sha256": "31e032f7055d87817783c97e04017af401d2a7e94b957855aa98d0629710a71b"
-    },
-    {
-      "byte_preserved": true,
-      "bytes": 22,
-      "output_sha256": "8255cb685e29b4e92c5a22c84cac2db8f66df18bc27e8d4e4b4419c45df47db1",
-      "path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/top_level.txt",
-      "source_path": "banana-smasher-plugin/src/banana_smasher_plugin.egg-info/top_level.txt",
-      "source_sha256": "8255cb685e29b4e92c5a22c84cac2db8f66df18bc27e8d4e4b4419c45df47db1"
-    },
+
     {
       "byte_preserved": true,
       "bytes": 20488,

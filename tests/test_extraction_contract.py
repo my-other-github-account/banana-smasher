@@ -165,6 +165,7 @@ def test_source_inventory_covers_and_hashes_every_retained_source_file() -> None
         if path.is_file()
         and "__pycache__" not in path.parts
         and ".pytest_cache" not in path.parts
+        and not any(part.endswith(".egg-info") for part in path.parts)
     }
     assert paths == actual
     for entry in source_entries:
