@@ -88,7 +88,9 @@ def configure_flashinfer_sparse_mla_signature_compat() -> bool:
             query = kwargs["query"]
             swa_kv_cache = kwargs["swa_kv_cache"]
             if swa_kv_cache.dtype == torch.uint8:
-                swa_kv_cache = swa_kv_cache.view(torch.float8_e4m3fn)
+                swa_kv_cache = swa_kv_cache[..., :512].view(
+                    torch.float8_e4m3fn
+                )
                 kwargs["swa_kv_cache"] = swa_kv_cache
                 query = query.to(dtype=torch.float8_e4m3fn)
                 kwargs["query"] = query
@@ -107,9 +109,9 @@ def configure_flashinfer_sparse_mla_signature_compat() -> bool:
             if compressed_kv_cache is None:
                 kwargs["compressed_kv_cache"] = swa_kv_cache
             elif compressed_kv_cache.dtype == torch.uint8:
-                kwargs["compressed_kv_cache"] = compressed_kv_cache.view(
-                    torch.float8_e4m3fn
-                )
+                kwargs["compressed_kv_cache"] = compressed_kv_cache[
+                    ..., :512
+                ].view(torch.float8_e4m3fn)
             total_topk_lens = torch.full_like(swa_topk_lens, 128)
             if extra_topk_lens is not None:
                 total_topk_lens = total_topk_lens + extra_topk_lens
