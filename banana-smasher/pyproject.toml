@@ -9,7 +9,7 @@ description = "Fail-closed bs-pack tooling and shared serving loader"
 requires-python = ">=3.10"
 dependencies = [
     "banana-smasher-plugin==0.2.0; sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "numpy==2.3.5",
+    "numpy>=2.2,<2.3",
     "safetensors==0.8.0",
 ]
 

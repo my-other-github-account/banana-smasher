@@ -37,6 +37,13 @@ def test_normal_package_pulls_runtime_plugin_on_linux_aarch64() -> None:
     )
 
 
+def test_normal_package_preserves_stock_vllm_numpy_constraint() -> None:
+    package = PACKAGE_PYPROJECT.read_text()
+
+    assert '"numpy>=2.2,<2.3"' in package
+    assert '"numpy==2.3.5"' not in package
+
+
 def test_clean_pip_wheelhouse_stage_exports_only_resolver_inputs() -> None:
     dockerfile = DOCKERFILE.read_text()
 
