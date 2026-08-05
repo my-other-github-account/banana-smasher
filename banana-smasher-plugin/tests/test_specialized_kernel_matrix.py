@@ -334,6 +334,15 @@ def test_qtip_decode_c4_skips_padded_routes_before_mma() -> None:
     assert "if (routes[route_i] < 0) continue;" in vectorized_mma
 
 
+def test_qtip_decode_does_not_issue_out_of_row_activation_prefetch() -> None:
+    qtip_kernel = (PACKAGE / "csrc/qtip/inference_dynamic.cu").read_text()
+
+    # The former x_idx + 4 * x_idx_step address starts beyond both K=2048
+    # and K=4096 activation rows. Keep the helper definition at most; a launch
+    # must not issue that invalid global prefetch.
+    assert qtip_kernel.count("prefetch(") <= 1
+
+
 def test_d4_tier_specialization_does_not_change_mxfp4_launch_arity() -> None:
     vq = (PACKAGE / "csrc/vq_warp_gemv.cu").read_text()
     mxfp4 = vq.split("at::Tensor mxfp4_specialized(", 1)[1]

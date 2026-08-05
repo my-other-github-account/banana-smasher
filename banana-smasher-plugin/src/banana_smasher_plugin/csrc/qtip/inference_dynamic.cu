@@ -434,22 +434,6 @@ qtip_trellis_tlut_kernel(
 
             }
             //if constexpr(enable_kim4_sync) {if (ki % 4 == 0) __syncthreads();} // slower with 7b even with this if constexpr thing fsr
-#define PREFETCH_X
-#ifdef LOAD_X
-#ifdef PREFETCH_X
-            if (ki % 2 == 0) {
-#pragma unroll
-                for (uint32_t route_i = 0; route_i < RoutesPerCta; ++route_i) {
-                    const int route = routes[route_i];
-                    if (route >= 0) {
-                        prefetch(reinterpret_cast<const uint32_t *>(
-                            x + static_cast<int64_t>(route) * (K / 2) +
-                            x_idx + x_idx_step * 4));
-                    }
-                }
-            }
-#endif
-#endif
         }
 
         __shared__ __align__(16 * 8*32) float reduce_gather

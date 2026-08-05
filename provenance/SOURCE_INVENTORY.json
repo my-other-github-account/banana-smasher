@@ -58,8 +58,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 22558,
-      "output_sha256": "25de0d9622f99f9e4f3d7c37430ba5ff3a177b4997baa9bedab73fd3f02624c3",
+      "bytes": 22025,
+      "output_sha256": "9493246492c562387c2cb5e0fbb7e027a6ed3ee5aa76b0022cfb55673ce3bb91",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip/inference_dynamic.cu",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/csrc/qtip/inference_dynamic.cu",
       "source_sha256": "d491a392ef6a9fae3e3936899df848c2dc3dec79af9a36efb79d51180a876fe1"
@@ -290,8 +290,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 14210,
-      "output_sha256": "bf6a7224758e6cee603bca602cdb55ef7785a62460b5c7a7c6986e11c9a6c80d",
+      "bytes": 14617,
+      "output_sha256": "44053deb8d283cbfd14ab2fe0727e2fc9361a56432e0bdc9df3a6d7ba683d057",
       "path": "banana-smasher-plugin/tests/test_specialized_kernel_matrix.py",
       "source_path": "banana-smasher-plugin/tests/test_specialized_kernel_matrix.py",
       "source_sha256": "a876de89e623844c6ffc32424b2c2b3c23092cc1b9357b58e1f71918854af71e"
