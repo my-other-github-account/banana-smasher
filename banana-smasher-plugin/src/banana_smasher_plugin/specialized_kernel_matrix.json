@@ -2176,6 +2176,7 @@
       "tokens": 1,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2242,6 +2243,7 @@
       "tokens": 2,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2308,6 +2310,7 @@
       "tokens": 4,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2374,6 +2377,7 @@
       "tokens": 8,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2440,6 +2444,7 @@
       "tokens": 16,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2506,6 +2511,7 @@
       "tokens": 32,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2572,6 +2578,7 @@
       "tokens": 64,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2638,6 +2645,7 @@
       "tokens": 2048,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2704,6 +2712,7 @@
       "tokens": 1,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2770,6 +2779,7 @@
       "tokens": 2,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2836,6 +2846,7 @@
       "tokens": 4,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2902,6 +2913,7 @@
       "tokens": 8,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -2968,6 +2980,7 @@
       "tokens": 16,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -3034,6 +3047,7 @@
       "tokens": 32,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -3100,6 +3114,7 @@
       "tokens": 64,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -3166,6 +3181,7 @@
       "tokens": 2048,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_1024"
@@ -3232,6 +3248,7 @@
       "tokens": 1,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3298,6 +3315,7 @@
       "tokens": 2,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3364,6 +3382,7 @@
       "tokens": 4,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3430,6 +3449,7 @@
       "tokens": 8,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3496,6 +3516,7 @@
       "tokens": 16,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3562,6 +3583,7 @@
       "tokens": 32,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3628,6 +3650,7 @@
       "tokens": 64,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3694,6 +3717,7 @@
       "tokens": 2048,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3760,6 +3784,7 @@
       "tokens": 1,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3826,6 +3851,7 @@
       "tokens": 2,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3892,6 +3918,7 @@
       "tokens": 4,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -3958,6 +3985,7 @@
       "tokens": 8,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -4024,6 +4052,7 @@
       "tokens": 16,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -4090,6 +4119,7 @@
       "tokens": 32,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -4156,6 +4186,7 @@
       "tokens": 64,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -4222,6 +4253,7 @@
       "tokens": 2048,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_2048"
@@ -4288,6 +4320,7 @@
       "tokens": 1,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4354,6 +4387,7 @@
       "tokens": 2,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4420,6 +4454,7 @@
       "tokens": 4,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4486,6 +4521,7 @@
       "tokens": 8,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4552,6 +4588,7 @@
       "tokens": 16,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4618,6 +4655,7 @@
       "tokens": 32,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4684,6 +4722,7 @@
       "tokens": 64,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4750,6 +4789,7 @@
       "tokens": 2048,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4816,6 +4856,7 @@
       "tokens": 1,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4882,6 +4923,7 @@
       "tokens": 2,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -4948,6 +4990,7 @@
       "tokens": 4,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -5014,6 +5057,7 @@
       "tokens": 8,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -5080,6 +5124,7 @@
       "tokens": 16,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -5146,6 +5191,7 @@
       "tokens": 32,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -5212,6 +5258,7 @@
       "tokens": 64,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
@@ -5278,6 +5325,7 @@
       "tokens": 2048,
       "transforms_reformats": [
         "device_route_compaction",
+        "file_backed_cpu_uva_expert_pointer_tables",
         "little_endian_packed_index_rows_v1",
         "e8m0_k32_scales",
         "fp16_codebook_4096"
