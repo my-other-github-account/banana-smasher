@@ -15,6 +15,7 @@ DECLARE_QTIP_SPECIALIZATION(qtip2_k4096_decode_c16)
 DECLARE_QTIP_SPECIALIZATION(qtip2_k4096_prefill_bm16)
 DECLARE_QTIP_SPECIALIZATION(qtip2_k4096_prefill_large)
 DECLARE_QTIP_SPECIALIZATION(qtip2_k4096_prefill_exact_2k)
+DECLARE_QTIP_SPECIALIZATION(qtip2_k4096_prefill_large_8192)
 DECLARE_QTIP_SPECIALIZATION(qtip2_k2048_decode_c1)
 DECLARE_QTIP_SPECIALIZATION(qtip2_k2048_decode_c2)
 DECLARE_QTIP_SPECIALIZATION(qtip2_k2048_decode_c4)
@@ -23,6 +24,7 @@ DECLARE_QTIP_SPECIALIZATION(qtip2_k2048_decode_c16)
 DECLARE_QTIP_SPECIALIZATION(qtip2_k2048_prefill_bm16)
 DECLARE_QTIP_SPECIALIZATION(qtip2_k2048_prefill_large)
 DECLARE_QTIP_SPECIALIZATION(qtip2_k2048_prefill_exact_2k)
+DECLARE_QTIP_SPECIALIZATION(qtip2_k2048_prefill_large_8192)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k4096_decode_c1)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k4096_decode_c2)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k4096_decode_c4)
@@ -31,6 +33,7 @@ DECLARE_QTIP_SPECIALIZATION(qtip3_k4096_decode_c16)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k4096_prefill_bm16)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k4096_prefill_large)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k4096_prefill_exact_2k)
+DECLARE_QTIP_SPECIALIZATION(qtip3_k4096_prefill_large_8192)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k2048_decode_c1)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k2048_decode_c2)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k2048_decode_c4)
@@ -39,6 +42,7 @@ DECLARE_QTIP_SPECIALIZATION(qtip3_k2048_decode_c16)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k2048_prefill_bm16)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k2048_prefill_large)
 DECLARE_QTIP_SPECIALIZATION(qtip3_k2048_prefill_exact_2k)
+DECLARE_QTIP_SPECIALIZATION(qtip3_k2048_prefill_large_8192)
 
 #undef DECLARE_QTIP_SPECIALIZATION
 
@@ -51,6 +55,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("qtip2_k4096_prefill_bm16", &qtip2_k4096_prefill_bm16, "qtip2_k4096_prefill_bm16");
   m.def("qtip2_k4096_prefill_large", &qtip2_k4096_prefill_large, "qtip2_k4096_prefill_large");
   m.def("qtip2_k4096_prefill_exact_2k", &qtip2_k4096_prefill_exact_2k, "qtip2_k4096_prefill_exact_2k");
+  m.def("qtip2_k4096_prefill_large_8192", &qtip2_k4096_prefill_large_8192, "qtip2_k4096_prefill_large_8192");
   m.def("qtip2_k2048_decode_c1", &qtip2_k2048_decode_c1, "qtip2_k2048_decode_c1");
   m.def("qtip2_k2048_decode_c2", &qtip2_k2048_decode_c2, "qtip2_k2048_decode_c2");
   m.def("qtip2_k2048_decode_c4", &qtip2_k2048_decode_c4, "qtip2_k2048_decode_c4");
@@ -59,6 +64,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("qtip2_k2048_prefill_bm16", &qtip2_k2048_prefill_bm16, "qtip2_k2048_prefill_bm16");
   m.def("qtip2_k2048_prefill_large", &qtip2_k2048_prefill_large, "qtip2_k2048_prefill_large");
   m.def("qtip2_k2048_prefill_exact_2k", &qtip2_k2048_prefill_exact_2k, "qtip2_k2048_prefill_exact_2k");
+  m.def("qtip2_k2048_prefill_large_8192", &qtip2_k2048_prefill_large_8192, "qtip2_k2048_prefill_large_8192");
   m.def("qtip3_k4096_decode_c1", &qtip3_k4096_decode_c1, "qtip3_k4096_decode_c1");
   m.def("qtip3_k4096_decode_c2", &qtip3_k4096_decode_c2, "qtip3_k4096_decode_c2");
   m.def("qtip3_k4096_decode_c4", &qtip3_k4096_decode_c4, "qtip3_k4096_decode_c4");
@@ -67,6 +73,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("qtip3_k4096_prefill_bm16", &qtip3_k4096_prefill_bm16, "qtip3_k4096_prefill_bm16");
   m.def("qtip3_k4096_prefill_large", &qtip3_k4096_prefill_large, "qtip3_k4096_prefill_large");
   m.def("qtip3_k4096_prefill_exact_2k", &qtip3_k4096_prefill_exact_2k, "qtip3_k4096_prefill_exact_2k");
+  m.def("qtip3_k4096_prefill_large_8192", &qtip3_k4096_prefill_large_8192, "qtip3_k4096_prefill_large_8192");
   m.def("qtip3_k2048_decode_c1", &qtip3_k2048_decode_c1, "qtip3_k2048_decode_c1");
   m.def("qtip3_k2048_decode_c2", &qtip3_k2048_decode_c2, "qtip3_k2048_decode_c2");
   m.def("qtip3_k2048_decode_c4", &qtip3_k2048_decode_c4, "qtip3_k2048_decode_c4");
@@ -75,4 +82,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("qtip3_k2048_prefill_bm16", &qtip3_k2048_prefill_bm16, "qtip3_k2048_prefill_bm16");
   m.def("qtip3_k2048_prefill_large", &qtip3_k2048_prefill_large, "qtip3_k2048_prefill_large");
   m.def("qtip3_k2048_prefill_exact_2k", &qtip3_k2048_prefill_exact_2k, "qtip3_k2048_prefill_exact_2k");
+  m.def("qtip3_k2048_prefill_large_8192", &qtip3_k2048_prefill_large_8192, "qtip3_k2048_prefill_large_8192");
 }
