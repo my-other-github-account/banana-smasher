@@ -1,0 +1,189 @@
+{
+  "schema": "banana-smasher-p1321-p1423-zero-delta-handoff-v1",
+  "status": "SEALED_CONTROL_PLANE_HANDOFF",
+  "task_id": "t_baf84aef",
+  "created_utc": "2026-08-05T00:06:52Z",
+  "purpose": "Bind both physical owners to the already-proven P1321/P1423 artifact, boot, routing, graph, and benchmark closure before any new implementation is attempted.",
+  "artifact_identity": {
+    "production_image_id": "sha256:b35d6936cb21c2390675d131780b8074e23e3c8bf8f1c5ae648219a612dcfd49",
+    "production_image_size_bytes": 8508975210,
+    "repository_digest_available": false,
+    "model_pack_manifest_sha256": "4a4c15a52eaa8f87e4eb2f436da1580cb5e9addb15713d41bd9a74276731578a",
+    "production_image_seal_sha256": "fe0a826c638015bc19dcc78c27f1dd66f6257ee0826b701b4eedff7463b1ffa6",
+    "build_receipt_sha256": "6779f225e717904ec2d0e81dc87d7e56913c72a3a68efe84b8f4f3b8a96f33e8",
+    "promotion_receipt_sha256": "709d2688888916f4a9156d6069b4416adab5197fda98da62abdeb76013415ad3",
+    "serve_receipt_sha256": "d101b3e69f199f30a230c99eebe7fd574bc8305cabe358cc370e30f0a402bb44",
+    "dockerfile_sha256": "7f555caf1b53101eff0087ae5811fccb28cec252580c2070932cf9239a949641",
+    "dependency_lock_sha256": "b01a95bb62fd8a6fc65f7f493f78ab1b9f688d374a53185e0023dc581338c724",
+    "overlay_lock_sha256": "068027bd51e6b0c64220b96eb3e771ea6ea6cdbc46d37eb2d9b910d4ee3191bb",
+    "runtime_defaults_sha256": "d03a765d96b75847876b52c883903ddda3de108c999bace5fb619647336550cd",
+    "exact_source_commit": "ccaab0075548c0c4fb01596aa3900eea604a7d68",
+    "exact_source_tree_repository": "read-only historical source closure identified by commit; use the commit and file hashes, not the current production-container tree",
+    "legacy_tag_and_embedded_product_alias": "omitted from this new receipt; select and run by content-addressed image ID and resolve the served model from /v1/models"
+  },
+  "source_binary_closure": {
+    "p1321_source_admission_receipt_sha256": "4e100694739cd73ca9e2d1611a91d75143b9167bfd1c73882b460c82ef1712de",
+    "p1321_boot_config_freeze_sha256": "cff72b34c5cd9d29a17d9a1842005febf5402141f6709c10f85a25cd8a61d707",
+    "p1321_winning_boot_config_sha256": "091e8eb3e4caa9793454f4a529d8c1f5fc0af0fcb4fa28cc89e34c8a4c314da2",
+    "p1321_ladder_seal_sha256": "be0453e1d6081a87a0288c8611b9ee5ec33a4b2ba927cb68c358e71a10b242f7",
+    "moe_vq_triton_sha256": "7b25bf83a0e6a36a50af2eab2c4a5305b7f146824e2acf183dcbd82ca760f13a",
+    "moe_w2_cubit_sha256": "b5532974081e73c7abeda61d9b6e2460ea2a2a50958bf0f1e89a678a204be1d7",
+    "vector_m4_cuda_source_sha256": "4ff296f7e42e2a906543aa4563fc50e1e04d58e6d41de46cda9bce4ae686fef5",
+    "vector_m4_extension_sha256": "b98e7917881bc846b4f3ad3d1da8671a87fb9021f28ce6bd33f6c3b97c4135e5",
+    "container_overlay_receipt_sha256": "ed25337352f371446f99ddaf1fea55ce3b38e897f25c7fbce6e359ebb2c1b4f6",
+    "evaluation_module_sha256": "54d22e15332e917b4652a751ae3370278557723cfbb662fadb2eea0cd7a1ccf4",
+    "note": "The compiled extension and inherited AOT runtime are accepted only through the exact image ID. Rebuilding from a newer tree is protocol drift."
+  },
+  "boot_closure": {
+    "launch_command_template": [
+      "docker",
+      "run",
+      "--gpus",
+      "all",
+      "--name",
+      "banana-smasher-p1423-exact",
+      "-v",
+      "<EXACT_PACK_WITH_MANIFEST_4a4c15a5>:/model:ro",
+      "-p",
+      "8000:8000",
+      "sha256:b35d6936cb21c2390675d131780b8074e23e3c8bf8f1c5ae648219a612dcfd49"
+    ],
+    "entrypoint_override_forbidden": true,
+    "cmd_override_forbidden": true,
+    "runtime_environment_injection_forbidden": true,
+    "embedded_serve_contract": {
+      "model_root": "/model",
+      "tokenizer_mode": "deepseek_v4",
+      "kv_cache_dtype": "fp8",
+      "block_size": 256,
+      "max_model_len": 8192,
+      "gpu_memory_utilization": 0.8,
+      "kv_cache_memory_bytes": 3221225472,
+      "max_num_batched_tokens": 512,
+      "max_num_seqs": 16,
+      "scheduler_reserve_full_isl": false,
+      "reasoning_parser": "deepseek_v4",
+      "tool_call_parser": "deepseek_v4",
+      "enable_thinking": true,
+      "listen": "0.0.0.0:8000"
+    },
+    "baked_runtime_defaults": {
+      "cudagraph_capture_sizes": [1, 2, 4, 8, 16],
+      "breakable_cudagraph": false,
+      "vq_fast": true,
+      "vq_cuda_warp": true,
+      "vq_cuda_warp_max_m": 4,
+      "vq_m1_fast": false,
+      "vq_d4_fast": true,
+      "vq_group_fast": true,
+      "vector_m4": true,
+      "w2_decode_graph": true,
+      "w2_decode_graph_max_t": 2,
+      "w2_layer_count": 43
+    },
+    "acceptance_checks": [
+      "docker image inspect by content ID succeeds and reports the same image ID",
+      "the mounted pack manifest hashes to 4a4c15a52eaa50d825d289402ea4cf7174d3cc447e7847b147dbe690320c2f0",
+      "the container has exactly one read-only /model bind and no code, kernel-cache, or source overlay mount",
+      "the container receives no task-supplied environment override",
+      "the image ENTRYPOINT and CMD are not overridden",
+      "/health returns HTTP 200 and /v1/models returns exactly one model rooted at /model"
+    ]
+  },
+  "routing_and_graph_closure": {
+    "scalar": {
+      "kernel": "vq_warp_gemv_kernel",
+      "condition": "valid_m < 4",
+      "expected_rungs": [1, 2],
+      "grid_z": "valid_m"
+    },
+    "vector": {
+      "kernel": "vq_warp_gemm_m4_kernel",
+      "condition": "valid_m == 4",
+      "expected_rungs": [4, 8, 16],
+      "compact_expert_block_reuse_for": [8, 16],
+      "grid_z": 1
+    },
+    "captured_batch_sizes": [1, 2, 4, 8, 16],
+    "historical_direct_graph_replay_metric_exported": false,
+    "historical_graph_evidence": "captured-shape plus advancing engine iteration-token proxies with zero measured compilation markers",
+    "current_acceptance_extension": "The current all-96 nonzero, forbidden-zero, same-process graph proof remains a new physical acceptance layer; it is not fabricated from the P1321 seal."
+  },
+  "benchmark_closure": {
+    "endpoint": "/v1/completions",
+    "prompt_ids_receipt_sha256": "5b97aab1bad834b89de92675670de1eb1de287cab4b3ccb0fac6c3bf2559e793",
+    "prompt_ids": [21750, 260, 15255, 12124, 396, 20685, 411, 46360, 55, 23809, 418, 330, 20925, 2123, 14, 4761, 8499, 5833, 16],
+    "prompt_token_count": 19,
+    "max_tokens": 256,
+    "temperature": 0.0,
+    "ignore_eos": true,
+    "stream": true,
+    "include_usage": true,
+    "concurrencies": [1, 2, 4, 8, 16],
+    "rows_per_concurrency": 3,
+    "warmup_policy": {
+      "excluded": true,
+      "minimum": 3,
+      "maximum": 8,
+      "stability_window": 3,
+      "stable_when_relative_range_le": 0.05,
+      "formula": "(max(last_window)-min(last_window))/median(last_window)"
+    },
+    "aggregate_formula": "sum(completion_tokens)/barriered_batch_wall",
+    "p1321_reference_medians_tok_s": {
+      "1": 13.64548789173549,
+      "2": 21.39482948124557,
+      "4": 28.569399279500455,
+      "8": 40.284133334843396,
+      "16": 52.25428885405555
+    },
+    "plus_minus_3_percent_acceptance_intervals_tok_s": {
+      "1": [13.236123254983426, 14.054852528487555],
+      "2": [20.7529845968082, 22.036674365682938],
+      "4": [27.71231730111544, 29.42648125788547],
+      "8": [39.075609334798095, 41.4926573348887],
+      "16": [50.68666018843388, 53.82191751967722]
+    },
+    "p1423_container_ladder_receipt_sha256": "35f91ea4efeaa50d825d289402ea4cf7174d3cc447e7847b147dbe690320c2f0",
+    "p1423_container_medians_tok_s": {
+      "1": 13.922238647772199,
+      "2": 21.503008180803295,
+      "4": 30.110997598510888,
+      "8": 39.97618866340757,
+      "16": 52.99359859175793
+    }
+  },
+  "directive_reconciliation": {
+    "zero_delta_authority": "immutable artifact receipts and hash-matched source at ccaab0075548c0c4fb01596aa3900eea604a7d68",
+    "discrepancies": [
+      {
+        "field": "temperature",
+        "requested_value": 0.2,
+        "sealed_p1321_p1423_value": 0.0,
+        "resolution": "Use 0.0 for a zero-delta P1321/P1423 reproduction. A 0.2 run is a separately labeled protocol variant and cannot claim exact reproduction."
+      },
+      {
+        "field": "sample_count",
+        "requested_value": 5,
+        "sealed_p1321_p1423_value": "3 measured rows at each of five concurrency rungs",
+        "resolution": "Use three measured rows per rung after excluded stabilization. If n=5 meant the five rungs, the sealed ladder already supplies them."
+      },
+      {
+        "field": "service_command",
+        "requested_value": "host-specific /work/build path",
+        "sealed_p1321_bare_metal_value": "host-specific /home/dnola virtualenv and model path",
+        "sealed_p1423_product_value": "content-addressed image with embedded vllm serve /model command",
+        "resolution": "For the product-path control use the exact image ID and do not override its ENTRYPOINT or CMD."
+      }
+    ]
+  },
+  "owner_handoff": {
+    "spark8_task": "t_dc5ea064",
+    "spark4_task": "t_8521a29b",
+    "spark8_action": "At the natural terminal boundary of the sole protected attempt, inspect for the exact image ID locally and launch it by content ID with the exact pack. Do not rebuild it.",
+    "spark4_action": "Preserve the sole build/controller. At its natural terminal boundary, accept only an exact docker-save/docker-load transfer of the same image ID plus the same pack manifest; verify both hashes before launch.",
+    "missing_artifact_action": "Post an explicit rejection naming the missing image ID or pack manifest. Do not substitute, rebuild, retag another image, or patch around the missing control.",
+    "shared_acceptance": "Each owner posts image inspect identity, pack manifest identity, no-override launch receipt, READY/models receipt, route/graph evidence, exact ladder receipt, and the current all-96/forbidden-zero proof or its first real failure.",
+    "new_implementation_gate": "No new implementation variant until both owners have either accepted and executed this exact control or explicitly rejected it with an immutable reason."
+  }
+}
