@@ -49,6 +49,7 @@ class DeepseekV4D4Runtime:
         self._bytes_read += index_path.stat().st_size
         self._base_allocated = int(torch.cuda.memory_allocated())
         self._peak_resident = 0
+        self._stage_active = False
 
     def _record_path(self, path: Path) -> None:
         if path not in self._counted_paths:
@@ -66,7 +67,12 @@ class DeepseekV4D4Runtime:
     def _resident_now(self) -> int:
         value = max(0, int(self.torch.cuda.memory_allocated()) - self._base_allocated)
         self._peak_resident = max(self._peak_resident, value)
-        return value
+        return value if self._stage_active else 0
+
+    def _begin_stage(self) -> None:
+        if self._stage_active:
+            raise RuntimeError("DeepSeek-V4 D4 runtime stages cannot overlap")
+        self._stage_active = True
 
     def _release(self) -> None:
         gc.collect()
@@ -272,6 +278,7 @@ class DeepseekV4D4Runtime:
     @contextmanager
     def initial_stage(self):
         torch = self.torch
+        self._begin_stage()
         resources = [
             self._get_tensor("embed.weight").to(self.device).to(torch.bfloat16)
         ]
@@ -289,10 +296,12 @@ class DeepseekV4D4Runtime:
         finally:
             resources.clear()
             self._release()
+            self._stage_active = False
 
     @contextmanager
     def layer_stage(self, layer: int):
         torch = self.torch
+        self._begin_stage()
         from transformers.cache_utils import DynamicCache
         from transformers.masking_utils import create_sliding_window_causal_mask
         from transformers.models.deepseek_v4.modeling_deepseek_v4 import (
@@ -350,10 +359,12 @@ class DeepseekV4D4Runtime:
             while resources:
                 self._dematerialize(resources.pop())
             self._release()
+            self._stage_active = False
 
     @contextmanager
     def terminal_stage(self):
         torch = self.torch
+        self._begin_stage()
         model = self.model
         model.model.norm.weight = torch.nn.Parameter(
             self._get_tensor("norm.weight").to(self.device).to(torch.bfloat16),
@@ -412,6 +423,7 @@ class DeepseekV4D4Runtime:
             while resources:
                 self._dematerialize(resources.pop())
             self._release()
+            self._stage_active = False
 
     def export_activation(self, activation: _Activation) -> np.ndarray:
         torch = self.torch
