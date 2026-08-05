@@ -394,6 +394,7 @@ qtip_trellis_tlut_kernel(
                     // it across the four routed activations in decode C4+.
 #pragma unroll
                     for (uint32_t route_i = 0; route_i < RoutesPerCta; ++route_i) {
+                        if (routes[route_i] < 0) continue;
                         ditto2 reg_a = {};
 #define LD_X
 #ifdef LOAD_X

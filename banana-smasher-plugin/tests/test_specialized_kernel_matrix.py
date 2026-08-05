@@ -325,6 +325,15 @@ def test_qtip_decode_c4_variants_vectorize_four_routes_per_weight_decode() -> No
     assert "ROUND_UP(route_stride, RoutesPerCta)" in qtip_kernel
 
 
+def test_qtip_decode_c4_skips_padded_routes_before_mma() -> None:
+    qtip_kernel = (PACKAGE / "csrc/qtip/inference_dynamic.cu").read_text()
+    vectorized_mma = qtip_kernel.split(
+        "Decode the trellis/TLUT weight fragment once", 1
+    )[1].split("#else", 1)[0]
+
+    assert "if (routes[route_i] < 0) continue;" in vectorized_mma
+
+
 def test_d4_tier_specialization_does_not_change_mxfp4_launch_arity() -> None:
     vq = (PACKAGE / "csrc/vq_warp_gemv.cu").read_text()
     mxfp4 = vq.split("at::Tensor mxfp4_specialized(", 1)[1]
