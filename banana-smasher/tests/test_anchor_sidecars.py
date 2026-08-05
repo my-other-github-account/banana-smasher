@@ -171,6 +171,34 @@ def test_sidecar_loaders_reject_symlink_payloads(tmp_path: Path) -> None:
         load_candidate_manifest(candidate_manifest)
 
 
+def test_sidecar_loaders_reject_symlink_manifests(tmp_path: Path) -> None:
+    teacher_manifest = _teacher_manifest(tmp_path / "teacher", width=2)
+    teacher_link = tmp_path / "teacher-link.json"
+    teacher_link.symlink_to(teacher_manifest)
+    with pytest.raises(ValueError, match="manifest must not be a symlink"):
+        load_teacher_support_manifest(teacher_link)
+
+    candidate_manifest = tmp_path / "candidate.json"
+    writer = CandidateSidecarWriter(
+        candidate_manifest,
+        teacher_manifest_path=teacher_manifest,
+        window_ids=["window-a", "window-b"],
+        basis_sha256=BASIS_SHA,
+        bank_sha256=BANK_SHA,
+        model_id="fixture/model",
+        pack_sha256=PACK_SHA,
+    )
+    writer.write_window(
+        "window-a",
+        q_lp_at_ref=torch.tensor([[-1.0, -2.0], [-2.0, -1.0]], dtype=torch.float16),
+        q_argmax=torch.tensor([1, 3], dtype=torch.int32),
+    )
+    candidate_link = tmp_path / "candidate-link.json"
+    candidate_link.symlink_to(candidate_manifest)
+    with pytest.raises(ValueError, match="manifest must not be a symlink"):
+        load_candidate_manifest(candidate_link)
+
+
 def test_candidate_sidecar_resume_preserves_completed_window_bytes(tmp_path: Path) -> None:
     teacher_manifest = _teacher_manifest(tmp_path, width=2)
     candidate_manifest = tmp_path / "candidate.json"

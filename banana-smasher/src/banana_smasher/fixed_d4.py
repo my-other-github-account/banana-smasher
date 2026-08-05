@@ -1163,6 +1163,7 @@ def rescore_fixed_d4_layerwise_terminal(
     output_path: str | Path,
     *,
     basis_sha256: str,
+    window_id_field: str = "window_id",
     verified_pack_receipt: Mapping[str, Any] | None = None,
     terminal_runtime_adapter: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -1178,6 +1179,7 @@ def rescore_fixed_d4_layerwise_terminal(
         teacher_manifest_path,
         output_path,
         basis_sha256=basis_sha256,
+        window_id_field=window_id_field,
         verified_pack_receipt=verified_pack_receipt,
         terminal_runtime_adapter=terminal_runtime_adapter,
     )

@@ -142,6 +142,13 @@ def _read_manifest(path: Path, *, label: str) -> dict[str, Any]:
     return value
 
 
+def _manifest_path(value: str | Path, *, label: str) -> Path:
+    path = Path(value).expanduser()
+    if path.is_symlink():
+        raise ValueError(f"{label} manifest must not be a symlink")
+    return path.resolve()
+
+
 def _payload_path(manifest_path: Path, relative_path: Path, *, label: str) -> Path:
     path = manifest_path.parent
     for part in relative_path.parts:
@@ -220,7 +227,7 @@ def write_teacher_support_manifest(
         raise ValueError("teacher sidecar identities require lowercase SHA-256 values")
     if not isinstance(windows, Sequence) or isinstance(windows, (str, bytes)) or not windows:
         raise ValueError("teacher sidecars require at least one window")
-    manifest_path = Path(manifest_path).expanduser().resolve()
+    manifest_path = _manifest_path(manifest_path, label="teacher sidecar")
     width: int | None = None
     window_ids: list[object] = []
     entries: list[dict[str, Any]] = []
@@ -289,7 +296,7 @@ def load_teacher_support_manifest(
     expected_bank_sha256: str | None = None,
     expected_teacher_sha256: str | None = None,
 ) -> dict[str, Any]:
-    manifest_path = Path(manifest_path).expanduser().resolve()
+    manifest_path = _manifest_path(manifest_path, label="teacher sidecar")
     manifest = _read_manifest(manifest_path, label="teacher sidecar")
     if set(manifest) != {"schema", "support_width", "window_ids", "identities", "windows"}:
         raise ValueError("teacher sidecar manifest fields mismatch")
@@ -328,7 +335,7 @@ def load_teacher_window(
     *,
     manifest: Mapping[str, Any] | None = None,
 ) -> tuple[Any, Any]:
-    manifest_path = Path(manifest_path).expanduser().resolve()
+    manifest_path = _manifest_path(manifest_path, label="teacher sidecar")
     if manifest is None:
         manifest = load_teacher_support_manifest(manifest_path)
     keys = [_window_key(value) for value in manifest["window_ids"]]
@@ -431,8 +438,10 @@ class CandidateSidecarWriter:
         model_id: str,
         pack_sha256: str,
     ) -> None:
-        self.manifest_path = Path(manifest_path).expanduser().resolve()
-        self.teacher_manifest_path = Path(teacher_manifest_path).expanduser().resolve()
+        self.manifest_path = _manifest_path(manifest_path, label="candidate sidecar")
+        self.teacher_manifest_path = _manifest_path(
+            teacher_manifest_path, label="teacher sidecar"
+        )
         self.teacher = load_teacher_support_manifest(
             self.teacher_manifest_path, expected_bank_sha256=bank_sha256
         )
@@ -631,7 +640,7 @@ def load_candidate_manifest(
     expected_pack_sha256: str | None = None,
     expected_teacher_manifest_sha256: str | None = None,
 ) -> dict[str, Any]:
-    manifest_path = Path(manifest_path).expanduser().resolve()
+    manifest_path = _manifest_path(manifest_path, label="candidate sidecar")
     manifest = _read_manifest(manifest_path, label="candidate sidecar")
     if set(manifest) != {"schema", "support_width", "window_ids", "identities", "windows"}:
         raise ValueError("candidate sidecar manifest fields mismatch")
@@ -689,8 +698,8 @@ def score_anchor_sidecars(
     """Score support-renormalized KLD and full-vocabulary top-1 like kld_score.py."""
 
     torch = _torch()
-    teacher_path = Path(teacher_manifest_path).expanduser().resolve()
-    candidate_path = Path(candidate_manifest_path).expanduser().resolve()
+    teacher_path = _manifest_path(teacher_manifest_path, label="teacher sidecar")
+    candidate_path = _manifest_path(candidate_manifest_path, label="candidate sidecar")
     teacher = load_teacher_support_manifest(teacher_path)
     candidate = load_candidate_manifest(candidate_path)
     if candidate["identities"]["teacher_manifest_sha256"] != _sha256_file(teacher_path):

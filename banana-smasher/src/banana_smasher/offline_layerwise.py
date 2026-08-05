@@ -987,31 +987,41 @@ def rescore_fixed_d4_layerwise_terminal(
     )
     if not isinstance(active_runtime_binding, Mapping):
         raise ValueError("terminal rescore active runtime adapter is invalid")
-    binding = _sha(
-        _canonical(
-            {
-                "basis_sha256": basis_sha256,
-                "model_root": str(model_root),
-                "producer_config_sha256": _sha(config_payload),
-                "bank_sha256": bank_sha,
-                "teacher_support_sha256": source_support_sha,
-                "runtime_adapter_sha256": runtime_binding["sha256"],
-                "layers": layers,
-                "positions": positions,
-                "support_width": source_support_width,
-            }
-        )
-    )
+    source_binding_fields = {
+        "basis_sha256": basis_sha256,
+        "model_root": str(model_root),
+        "producer_config_sha256": _sha(config_payload),
+        "bank_sha256": bank_sha,
+        "teacher_support_sha256": source_support_sha,
+        "runtime_adapter_sha256": runtime_binding["sha256"],
+        "layers": layers,
+        "positions": positions,
+    }
+    accepted_bindings = {
+        "legacy-producer-v1": _sha(_canonical(source_binding_fields)),
+        "support-width-v2": _sha(
+            _canonical({**source_binding_fields, "support_width": source_support_width})
+        ),
+    }
     try:
         state = json.loads(state_path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"invalid completed offline-layerwise state {state_path}: {exc}") from exc
+    source_binding_schema = next(
+        (
+            schema
+            for schema, digest in accepted_bindings.items()
+            if state.get("binding_sha256") == digest
+        ),
+        None,
+    )
     if (
         state.get("schema") != _STATE_SCHEMA
-        or state.get("binding_sha256") != binding
+        or source_binding_schema is None
         or state.get("completed_layers") != layers
     ):
         raise ValueError("terminal rescore completed state identity mismatch")
+    binding = accepted_bindings[source_binding_schema]
     final_stage = f"layer_{layers[-1]}"
     final_receipts = state.get("checkpoints", {}).get(final_stage)
     if not isinstance(final_receipts, dict) or len(final_receipts) != len(bank_rows):
@@ -1123,6 +1133,7 @@ def rescore_fixed_d4_layerwise_terminal(
         "transformer_layer_forwards": 0,
         "source_state_path": str(state_path),
         "source_binding_sha256": binding,
+        "source_binding_schema": source_binding_schema,
         "basis_sha256": basis_sha256,
         "bank_sha256": bank_sha,
         "teacher_sha256": teacher["identities"]["teacher_sha256"],

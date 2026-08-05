@@ -461,7 +461,9 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
             state = json.loads(state_before)
             source_support_sha = config["parameters"]["teacher_support"]["sha256"]
             config_sha = hashlib.sha256(
-                json.dumps(config, sort_keys=True, separators=(",", ":")).encode()
+                (
+                    json.dumps(config, sort_keys=True, separators=(",", ":")) + "\n"
+                ).encode()
             ).hexdigest()
             legacy_binding_payload = {
                 "basis_sha256": BASIS,
@@ -479,6 +481,7 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
                 json.dumps(
                     legacy_binding_payload, sort_keys=True, separators=(",", ":")
                 ).encode()
+                + b"\n"
             ).hexdigest()
             state["binding_sha256"] = "f" * 64
             state_path.write_text(json.dumps(state, sort_keys=True, separators=(",", ":")))
@@ -561,7 +564,6 @@ class OfflineLayerwiseBackendTests(unittest.TestCase):
                 path.name: path.read_bytes() for path in final_stage.glob("*.npy")
             } == activations_before
             assert len(rescored_manifest["windows"]) == 64
-
 
 if __name__ == "__main__":
     unittest.main()
