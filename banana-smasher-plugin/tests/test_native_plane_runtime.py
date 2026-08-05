@@ -224,6 +224,27 @@ def test_specialized_matrix_warmup_runs_once_after_complete_pack_registration(
     assert calls == ["warm"]
 
 
+def test_payload_residency_keeps_large_immutable_planes_on_coherent_host() -> None:
+    for family, role in (
+        ("qtip2", "trellis"),
+        ("qtip3", "trellis"),
+        ("d4", "codes"),
+        ("d4", "scales"),
+        ("d4", "codebooks"),
+        ("native", "packed"),
+        ("native", "scales"),
+    ):
+        assert native_planes._payload_residency(family, role) == "cpu_uva"
+    for family, role in (
+        ("qtip2", "SU"),
+        ("qtip2", "SV"),
+        ("qtip3", "Wscale"),
+        ("d4", "expert_ids"),
+        ("native", "expert_ids"),
+    ):
+        assert native_planes._payload_residency(family, role) == "device"
+
+
 def _tiny_pack(root: Path, *, layout: str = EXPECTED_LAYOUT_SHA256) -> Path:
     planes = root / "planes"
     planes.mkdir(parents=True)

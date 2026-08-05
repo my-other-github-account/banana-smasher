@@ -341,6 +341,21 @@ _NATIVE_PLANE_CUSTOM_OP_REGISTERED = False
 _NATIVE_PLANE_CUSTOM_OP_AVAILABLE = False
 _NATIVE_PLANE_PROJECTIONS = ("fused13", "down")
 _SPECIALIZED_MATRIX_WARMED_ROOTS: set[Path] = set()
+
+
+def _payload_residency(family: str, role: str) -> str:
+    """Keep large immutable payload bytes file-backed on coherent host memory."""
+    if (family, role) in {
+        ("qtip2", "trellis"),
+        ("qtip3", "trellis"),
+        ("d4", "codes"),
+        ("d4", "scales"),
+        ("d4", "codebooks"),
+        ("native", "packed"),
+        ("native", "scales"),
+    }:
+        return "cpu_uva"
+    return "device"
 SPECIALIZED_MATRIX_REQUIRED_LAYER_COUNT = 43
 SPECIALIZED_MATRIX_PROOF_PATH = Path(
     "/tmp/banana-smasher-specialized-physical-proof.json"
@@ -750,7 +765,7 @@ class NativePlaneLayer:
             self.layer_index,
         )
 
-    def _tensor(self, spec: dict[str, Any]) -> torch.Tensor:
+    def _tensor(self, spec: dict[str, Any], *, residency: str = "device") -> torch.Tensor:
         relative = spec.get("file")
         if not isinstance(relative, str) or Path(relative).is_absolute() or ".." in Path(relative).parts:
             raise _fail(f"layer {self.layer_index} has unsafe plane path {relative!r}")
@@ -768,8 +783,10 @@ class NativePlaneLayer:
                 f"expected={spec.get('shape')}/{spec.get('dtype')}"
             )
         tensor = torch.from_numpy(array.copy() if self.device.type == "cpu" else array)
-        if tensor.device != self.device:
-            tensor = tensor.to(self.device)
+        if residency not in {"device", "cpu_uva"}:
+            raise _fail(f"unsupported payload residency: {residency}")
+        if residency == "device" and tensor.device != self.device:
+            tensor = tensor.to(self.device, non_blocking=False)
         tensor = tensor.contiguous()
         _release_mmap_pages(path, array)
         del array
@@ -851,7 +868,14 @@ class NativePlaneLayer:
             tensor_specs = payload_spec.get("tensors") if isinstance(payload_spec, dict) else None
             if not isinstance(tensor_specs, dict) or not tensor_specs:
                 raise _fail(f"layer {self.layer_index} {projection}/{tier} tensor map missing")
-            payloads[tier] = {name: self._tensor(spec) for name, spec in tensor_specs.items()}
+            payload_family = str(payload_spec.get("family"))
+            payloads[tier] = {
+                name: self._tensor(
+                    spec,
+                    residency=_payload_residency(payload_family, name),
+                )
+                for name, spec in tensor_specs.items()
+            }
         states: list[dict[str, torch.Tensor]] = []
         for expert, tier in enumerate(tiers):
             if tier not in payloads:
