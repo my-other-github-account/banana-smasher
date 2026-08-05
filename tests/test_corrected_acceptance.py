@@ -202,6 +202,7 @@ def test_plugin_contains_the_full_native_vllm_serve_profile() -> None:
     assert environment["CUDA_MODULE_LOADING"] == "LAZY"
     assert environment["FLASHINFER_DISABLE_JIT"] == "1"
     assert environment["VLLM_HAS_FLASHINFER_CUBIN"] == "1"
+    assert environment["VLLM_USE_BREAKABLE_CUDAGRAPH"] == "1"
     assert environment["VLLM_USE_DEEP_GEMM"] == "1"
     assert environment["VLLM_USE_DEEP_GEMM_E8M0"] == "1"
     assert "BANANA_SMASHER_AOT_ROOT" not in environment
@@ -211,6 +212,7 @@ def test_plugin_contains_the_full_native_vllm_serve_profile() -> None:
     engine = values["ENGINE_DEFAULTS"]
     expected_engine = {
         "block_size": 256,
+        "compilation_config": {"cudagraph_mode": "PIECEWISE"},
         "cudagraph_capture_sizes": [1, 2, 4, 8, 16],
         "generation_config": "vllm",
         "gpu_memory_utilization": 0.8,

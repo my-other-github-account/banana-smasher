@@ -26,6 +26,7 @@ RUNTIME_ENV_DEFAULTS = {
     "VLLM_HAS_FLASHINFER_CUBIN": "1",
     "VLLM_MLA_DISABLE": "0",
     "VLLM_NO_USAGE_STATS": "1",
+    "VLLM_USE_BREAKABLE_CUDAGRAPH": "1",
     "VLLM_USE_DEEP_GEMM": "1",
     "VLLM_USE_DEEP_GEMM_E8M0": "1",
 }
@@ -41,6 +42,7 @@ ENGINE_DEFAULTS: dict[str, Any] = {
     "max_num_batched_tokens": 512,
     "max_num_seqs": 16,
     "cudagraph_capture_sizes": [1, 2, 4, 8, 16],
+    "compilation_config": {"cudagraph_mode": "PIECEWISE"},
     "scheduler_reserve_full_isl": False,
     "generation_config": "vllm",
     "reasoning_parser": "deepseek_v4",
@@ -64,6 +66,7 @@ _STOCK_DEFAULTS: dict[str, Any] = {
     "max_num_batched_tokens": None,
     "max_num_seqs": None,
     "cudagraph_capture_sizes": None,
+    "compilation_config": None,
     "scheduler_reserve_full_isl": True,
     "generation_config": "auto",
     "reasoning_parser": "",
@@ -81,6 +84,19 @@ def configure_runtime_environment() -> dict[str, str]:
             os.environ[name] = value
             applied[name] = value
     return applied
+
+
+def _is_untouched_stock_default(name: str, value: Any) -> bool:
+    if name != "compilation_config":
+        return value == _STOCK_DEFAULTS[name]
+    if value is None or value == {}:
+        return True
+    if isinstance(value, dict):
+        return False
+    try:
+        return value == type(value)()
+    except Exception:
+        return False
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -179,7 +195,7 @@ def apply_runtime_profile(args: Namespace) -> dict[str, Any] | None:
     for name, value in desired.items():
         if not hasattr(args, name):
             continue
-        if getattr(args, name) == _STOCK_DEFAULTS[name]:
+        if _is_untouched_stock_default(name, getattr(args, name)):
             setattr(args, name, value)
             applied[name] = value
     setattr(args, "_banana_smasher_runtime_profile", profile["profile"])

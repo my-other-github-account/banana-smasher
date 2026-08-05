@@ -422,17 +422,41 @@ def _native_plane_forward_fake(
     layer.state(projection)
 
 
+def _require_native_plane_breakable_cudagraph() -> bool:
+    """Fail closed unless vLLM will execute native planes outside capture."""
+    try:
+        envs = importlib.import_module("vllm.envs")
+        config_module = importlib.import_module("vllm.config")
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+    if not bool(envs.VLLM_USE_BREAKABLE_CUDAGRAPH):
+        raise _fail(
+            "native planes require VLLM_USE_BREAKABLE_CUDAGRAPH=1; "
+            "capturing the stateful native kernel sequence is unsafe"
+        )
+    config = config_module.get_current_vllm_config_or_none()
+    if config is None:
+        raise _fail("native-plane CUDA-graph contract requires an active vLLM config")
+    mode = config.compilation_config.cudagraph_mode
+    if mode != config_module.CUDAGraphMode.PIECEWISE:
+        raise _fail(
+            "native planes require cudagraph_mode=PIECEWISE; "
+            f"full capture is unsafe for stateful native kernels (actual={mode})"
+        )
+    return True
+
+
 def _ensure_native_plane_custom_op() -> bool:
     global _NATIVE_PLANE_CUSTOM_OP_AVAILABLE
     global _NATIVE_PLANE_CUSTOM_OP_REGISTERED
     if _NATIVE_PLANE_CUSTOM_OP_REGISTERED:
         return _NATIVE_PLANE_CUSTOM_OP_AVAILABLE
+    if not _require_native_plane_breakable_cudagraph():
+        return False
     try:
+        from vllm.compilation.breakable_cudagraph import eager_break_during_capture
         from vllm.utils.torch_utils import direct_register_custom_op
-        eager_break_during_capture = getattr(
-            importlib.import_module("vllm.compilation.breakable_cudagraph"),
-            "eager_break_during_capture",
-        )
     except (ImportError, ModuleNotFoundError):
         return False
     direct_register_custom_op(
@@ -449,12 +473,20 @@ def _ensure_native_plane_custom_op() -> bool:
 
 def _register_native_plane_layer(layer: "NativePlaneLayer") -> int | None:
     global _NATIVE_PLANE_NEXT_KEY
-    if not _ensure_native_plane_custom_op():
-        if layer.device.type == "cuda":
-            raise _fail(
-                "CUDA graph custom-op registration is unavailable for native planes"
-            )
-        return None
+    # CPU construction never enters a CUDA graph. Keep package/source tests
+    # graph-neutral when an installed vLLM has its process-wide flag disabled,
+    # while CUDA remains fail-closed on the exact breakable boundary contract.
+    if layer.device.type != "cuda":
+        try:
+            if not _ensure_native_plane_custom_op():
+                return None
+        except NativePlanePrerequisiteError:
+            return None
+    elif not _ensure_native_plane_custom_op():
+        raise _fail(
+            "CUDA native planes require the registered breakable-cudagraph "
+            "custom op; direct Python dispatch is not an accepted fallback"
+        )
     key = _NATIVE_PLANE_NEXT_KEY
     _NATIVE_PLANE_NEXT_KEY += 1
     _NATIVE_PLANE_LAYER_REGISTRY[key] = layer

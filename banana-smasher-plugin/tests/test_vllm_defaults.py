@@ -57,6 +57,7 @@ def _stock_args(model: Path) -> Namespace:
         max_num_batched_tokens=None,
         max_num_seqs=None,
         cudagraph_capture_sizes=None,
+        compilation_config=None,
         scheduler_reserve_full_isl=True,
         generation_config="auto",
         reasoning_parser="",
@@ -86,6 +87,8 @@ def test_plain_vllm_namespace_receives_export_profile(
     assert {name: result["applied"][name] for name in ENGINE_DEFAULTS} == ENGINE_DEFAULTS
     for name, value in RUNTIME_ENV_DEFAULTS.items():
         assert __import__("os").environ[name] == value
+    assert args.compilation_config == {"cudagraph_mode": "PIECEWISE"}
+    assert __import__("os").environ["VLLM_USE_BREAKABLE_CUDAGRAPH"] == "1"
 
 
 def test_explicit_vllm_arguments_remain_authoritative(tmp_path: Path) -> None:
@@ -95,6 +98,7 @@ def test_explicit_vllm_arguments_remain_authoritative(tmp_path: Path) -> None:
     args.served_model_name = ["custom-name"]
     args.enable_auto_tool_choice = True
     args.tool_call_parser = "custom-parser"
+    args.compilation_config = {"cudagraph_mode": "FULL"}
 
     result = apply_runtime_profile(args)
 
@@ -103,6 +107,7 @@ def test_explicit_vllm_arguments_remain_authoritative(tmp_path: Path) -> None:
     assert args.gpu_memory_utilization == 0.7
     assert args.served_model_name == ["custom-name"]
     assert args.tool_call_parser == "custom-parser"
+    assert args.compilation_config == {"cudagraph_mode": "FULL"}
 
 
 def test_positional_vllm_model_takes_precedence(tmp_path: Path) -> None:
