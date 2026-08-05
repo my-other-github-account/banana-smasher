@@ -370,7 +370,6 @@ def _index_parent(
         )
     rows = _parse_jsonl(payload, parent_path)
     id_field = manifest["dataset_fields"]["window_id"]
-    class_field = manifest["dataset_fields"]["class"]
     index: dict[str, dict[str, Any]] = {}
     for row_number, row in enumerate(rows, 1):
         if id_field not in row:
@@ -1319,10 +1318,12 @@ def materialize_candidate_producer(
         ) from exc
     command = config.get("command") if isinstance(config, Mapping) else None
     external_command = command if isinstance(command, list) else []
+    configured_producer = config.get("producer") if isinstance(config, Mapping) else None
     builtin = (
         isinstance(config, Mapping)
         and config.get("schema") == "banana-smasher-candidate-producer-v1"
-        and config.get("producer") == "fixed-d4-vllm"
+        and configured_producer
+        in {"fixed-d4-vllm", "fixed-d4-offline-layerwise"}
         and set(config) == {"schema", "producer", "parameters"}
     )
     external = (
@@ -1334,9 +1335,14 @@ def materialize_candidate_producer(
     if not builtin and not external:
         raise AnchorEvaluationError(
             "candidate producer config requires schema banana-smasher-candidate-producer-v1 "
-            "and either producer fixed-d4-vllm or a non-empty string command array"
+            "and either a fixed-d4-vllm/fixed-d4-offline-layerwise producer or "
+            "a non-empty string command array"
         )
-    configured_mode = "vllm" if builtin else str(config.get("producer", "vllm"))
+    configured_mode = (
+        "offline-layerwise"
+        if configured_producer == "fixed-d4-offline-layerwise"
+        else "vllm" if builtin else str(config.get("producer", "vllm"))
+    )
     if configured_mode not in {"vllm", "offline-layerwise"}:
         configured_mode = "vllm"
     selected_mode = configured_mode if execution_mode == "auto" else execution_mode
@@ -1344,7 +1350,7 @@ def materialize_candidate_producer(
         raise AnchorEvaluationError(
             f"execution mode {selected_mode!r} does not match producer mode {configured_mode!r}"
         )
-    producer_backend = "fixed-d4-vllm" if builtin else "external-command"
+    producer_backend = str(configured_producer) if builtin else "external-command"
 
     bank_path = run_root / "banks" / f"{bank_id}.jsonl"
     if not bank_path.is_file():
@@ -1421,6 +1427,13 @@ def materialize_candidate_producer(
             raise AnchorEvaluationError(
                 "completed candidate materialization bindings differ from requested same work"
             )
+        actual_producer_sha256 = _sha256_bytes(destination.read_bytes())
+        if completed_receipt.get("producer_sha256") != actual_producer_sha256:
+            raise AnchorEvaluationError(
+                "completed candidate producer SHA-256 mismatch: "
+                f"receipt={completed_receipt.get('producer_sha256')}, "
+                f"actual={actual_producer_sha256}"
+            )
         return {
             **completed_receipt,
             "resumed_windows": len(expected_ids),
@@ -1463,10 +1476,20 @@ def materialize_candidate_producer(
                 stream.write(chunk_payload)
                 stream.flush()
                 os.fsync(stream.fileno())
-            if builtin:
+            if configured_producer == "fixed-d4-vllm":
                 from .fixed_d4 import produce_fixed_d4_logits
 
                 produce_fixed_d4_logits(
+                    model_root,
+                    producer_config,
+                    chunk_bank,
+                    chunk_output,
+                    basis_sha256=basis_sha256,
+                )
+            elif configured_producer == "fixed-d4-offline-layerwise":
+                from .fixed_d4 import produce_fixed_d4_layerwise_logits
+
+                produce_fixed_d4_layerwise_logits(
                     model_root,
                     producer_config,
                     chunk_bank,

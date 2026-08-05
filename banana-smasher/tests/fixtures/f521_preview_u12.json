@@ -1,0 +1,179 @@
+{
+  "basis_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "class_caps": {
+    "agentic": 100.0,
+    "chat": 100.0,
+    "code": 100.0,
+    "multilingual": 100.0,
+    "prose": 100.0,
+    "reasoning": 100.0
+  },
+  "expected": {
+    "class_weights": {
+      "agentic": 0.16666666666666666,
+      "chat": 0.16666666666666666,
+      "code": 0.16666666666666666,
+      "multilingual": 0.16666666666666666,
+      "prose": 0.16666666666666666,
+      "reasoning": 0.16666666666666666
+    },
+    "costs": {
+      "c0:qtip2.5": {
+        "agentic": 0.55,
+        "chat": 0.525,
+        "code": 3.1,
+        "multilingual": 2.05,
+        "prose": 0.6375,
+        "reasoning": 4.575
+      },
+      "c0:tier-b": {
+        "agentic": 1.5,
+        "chat": 1.5,
+        "code": 1.5,
+        "multilingual": 1.5,
+        "prose": 1.5,
+        "reasoning": 1.5
+      },
+      "c1:qtip2.5": {
+        "agentic": 0.25,
+        "chat": 0.125,
+        "code": 0.5,
+        "multilingual": 0.25,
+        "prose": 0.0625,
+        "reasoning": 0.375
+      },
+      "c1:tier-b": {
+        "agentic": 0.3,
+        "chat": 0.3,
+        "code": 0.3,
+        "multilingual": 0.3,
+        "prose": 0.3,
+        "reasoning": 0.3
+      }
+    }
+  },
+  "rows": [
+    {
+      "authority": {
+        "physical_bytes_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "projection_correction_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "routing_importance_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "six_class_predictions_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "basis_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "cell_id": "c0",
+      "physical_bytes": 1,
+      "projection_correction": 0.1,
+      "projection_weight": 0.5,
+      "routing_importance_by_class": {
+        "agentic": 1.0,
+        "chat": 0.5,
+        "code": 2.0,
+        "multilingual": 1.0,
+        "prose": 0.25,
+        "reasoning": 1.5
+      },
+      "six_class_predictions": {
+        "agentic": 1.0,
+        "chat": 2.0,
+        "code": 3.0,
+        "multilingual": 4.0,
+        "prose": 5.0,
+        "reasoning": 6.0
+      },
+      "tier": "qtip2.5"
+    },
+    {
+      "authority": {
+        "physical_bytes_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "projection_correction_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "routing_importance_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+        "six_class_predictions_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "basis_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "cell_id": "c0",
+      "physical_bytes": 2,
+      "projection_correction": 0.0,
+      "projection_weight": 0.75,
+      "routing_importance_by_class": {
+        "agentic": 1.0,
+        "chat": 1.0,
+        "code": 1.0,
+        "multilingual": 1.0,
+        "prose": 1.0,
+        "reasoning": 1.0
+      },
+      "six_class_predictions": {
+        "agentic": 2.0,
+        "chat": 2.0,
+        "code": 2.0,
+        "multilingual": 2.0,
+        "prose": 2.0,
+        "reasoning": 2.0
+      },
+      "tier": "tier-b"
+    },
+    {
+      "authority": {
+        "physical_bytes_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "projection_correction_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "routing_importance_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "six_class_predictions_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "basis_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "cell_id": "c1",
+      "physical_bytes": 2,
+      "projection_correction": 0.05,
+      "projection_weight": 1.0,
+      "routing_importance_by_class": {
+        "agentic": 1.0,
+        "chat": 0.5,
+        "code": 2.0,
+        "multilingual": 1.0,
+        "prose": 0.25,
+        "reasoning": 1.5
+      },
+      "six_class_predictions": {
+        "agentic": 0.2,
+        "chat": 0.2,
+        "code": 0.2,
+        "multilingual": 0.2,
+        "prose": 0.2,
+        "reasoning": 0.2
+      },
+      "tier": "qtip2.5"
+    },
+    {
+      "authority": {
+        "physical_bytes_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "projection_correction_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "routing_importance_sha256": "1212121212121212121212121212121212121212121212121212121212121212",
+        "six_class_predictions_sha256": "1313131313131313131313131313131313131313131313131313131313131313"
+      },
+      "basis_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "cell_id": "c1",
+      "physical_bytes": 1,
+      "projection_correction": 0.0,
+      "projection_weight": 1.0,
+      "routing_importance_by_class": {
+        "agentic": 1.0,
+        "chat": 1.0,
+        "code": 1.0,
+        "multilingual": 1.0,
+        "prose": 1.0,
+        "reasoning": 1.0
+      },
+      "six_class_predictions": {
+        "agentic": 0.3,
+        "chat": 0.3,
+        "code": 0.3,
+        "multilingual": 0.3,
+        "prose": 0.3,
+        "reasoning": 0.3
+      },
+      "tier": "tier-b"
+    }
+  ],
+  "schema": "banana-smasher-f521-preview-u12-fixture-v1",
+  "status": "SEALED"
+}

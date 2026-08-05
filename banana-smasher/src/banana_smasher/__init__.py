@@ -24,11 +24,19 @@ from .anchor import (
     validate_bank_manifest,
 )
 from .bank import build_bank, verify_bank
+from .backpack_preview import (
+    class_weight_preset,
+    pareto_prune_six_class_options,
+    prepare_preview_u12_options,
+    resolve_tier_menu,
+    solve_preview_u12_options,
+)
 from .evaluate import evaluate_paired, verify_evaluation
 from .fixed_d4 import (
     materialize_fixed_d4,
     persist_fixed_d4_solve,
     prepare_fixed_d4_solve_config,
+    produce_fixed_d4_layerwise_logits,
     produce_fixed_d4_logits,
     solve_fixed_d4_exact,
     verify_fixed_d4_model,
@@ -44,6 +52,7 @@ __all__ = [
     "aggregate_scores",
     "build_bank",
     "build_bank_manifest",
+    "class_weight_preset",
     "compare_training_rails",
     "create_balanced_subset",
     "emit_solver_row",
@@ -54,14 +63,19 @@ __all__ = [
     "materialize_candidate_producer",
     "materialize_bank",
     "materialize_fixed_d4",
+    "pareto_prune_six_class_options",
     "persist_fixed_d4_solve",
     "prepare_fixed_d4_solve_config",
+    "produce_fixed_d4_layerwise_logits",
     "produce_fixed_d4_logits",
+    "prepare_preview_u12_options",
     "register_bank",
     "resolve_bank_identities",
+    "resolve_tier_menu",
     "score_bank",
     "serve_persistent_updates",
     "solve_fixed_d4_exact",
+    "solve_preview_u12_options",
     "status_report",
     "validate_bank_manifest",
     "verify_bank",

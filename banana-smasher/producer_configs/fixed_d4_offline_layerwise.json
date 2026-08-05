@@ -1,0 +1,14 @@
+{
+  "parameters": {
+    "batch_size": 8,
+    "engine": {
+      "cpu_offload_gb": 64,
+      "enforce_eager": true,
+      "max_logprobs": -1,
+      "tensor_parallel_size": 1
+    },
+    "input_field": "tokens"
+  },
+  "producer": "fixed-d4-offline-layerwise",
+  "schema": "banana-smasher-candidate-producer-v1"
+}

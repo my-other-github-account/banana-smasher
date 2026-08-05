@@ -147,6 +147,23 @@ def test_partial_resume_and_completed_rerun_are_validated(
     assert imported.read_bytes() == original
     assert int((tmp_path / "calls.txt").read_text()) == call_count
 
+    tampered = [json.loads(line) for line in imported.read_text().splitlines()]
+    tampered[0]["logits"] = [999.0, 0.0]
+    imported.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in tampered)
+    )
+    with pytest.raises(AnchorEvaluationError, match="producer SHA-256 mismatch"):
+        materialize_candidate_producer(
+            run_root,
+            manifest,
+            candidate_id="candidate-a",
+            model_root=model,
+            producer_config=config,
+            basis_sha256=BASIS,
+            execution_mode="auto",
+            chunk_size=8,
+        )
+
 
 def test_resume_rejects_nonprefix_or_changed_interim_rows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

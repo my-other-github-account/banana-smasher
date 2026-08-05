@@ -952,6 +952,7 @@ def produce_fixed_d4_logits(
     output_path: str | Path,
     *,
     basis_sha256: str,
+    _expected_producer: str = "fixed-d4-vllm",
 ) -> dict[str, Any]:
     """Run the materialized fixed-D4 pack through public vLLM offline inference."""
 
@@ -970,11 +971,12 @@ def produce_fixed_d4_logits(
     if (
         not isinstance(config, Mapping)
         or config.get("schema") != "banana-smasher-candidate-producer-v1"
-        or config.get("producer") != "fixed-d4-vllm"
+        or config.get("producer") != _expected_producer
         or set(config) != {"schema", "producer", "parameters"}
     ):
         raise ValueError(
-            "fixed D4 producer requires candidate-producer-v1 with producer fixed-d4-vllm"
+            "fixed D4 producer requires candidate-producer-v1 with producer "
+            f"{_expected_producer}"
         )
     parameters = config.get("parameters")
     if not isinstance(parameters, Mapping) or set(parameters) != {
@@ -1097,7 +1099,49 @@ def produce_fixed_d4_logits(
         "producer_config_sha256": _sha256(config_payload),
         "output_sha256": _sha256(payload),
         "output": str(output_path),
+        "producer_backend": _expected_producer,
     }
+
+
+def produce_fixed_d4_layerwise_logits(
+    model_root: str | Path,
+    producer_config: str | Path,
+    bank_path: str | Path,
+    output_path: str | Path,
+    *,
+    basis_sha256: str,
+) -> dict[str, Any]:
+    """Run a bounded chunk through vLLM's public layerwise CPU-offload path."""
+
+    producer_config = Path(producer_config).expanduser().resolve()
+    try:
+        config = json.loads(producer_config.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            f"invalid fixed D4 producer config {producer_config}: {exc}"
+        ) from exc
+    parameters = config.get("parameters") if isinstance(config, Mapping) else None
+    engine = parameters.get("engine") if isinstance(parameters, Mapping) else None
+    cpu_offload_gb = engine.get("cpu_offload_gb") if isinstance(engine, Mapping) else None
+    if (
+        isinstance(cpu_offload_gb, bool)
+        or not isinstance(cpu_offload_gb, (int, float))
+        or not np.isfinite(cpu_offload_gb)
+        or cpu_offload_gb <= 0
+    ):
+        raise ValueError(
+            "fixed-d4-offline-layerwise requires positive engine.cpu_offload_gb "
+            "for public vLLM layerwise weight offload"
+        )
+
+    return produce_fixed_d4_logits(
+        model_root,
+        producer_config,
+        bank_path,
+        output_path,
+        basis_sha256=basis_sha256,
+        _expected_producer="fixed-d4-offline-layerwise",
+    )
 
 
 def materialize_fixed_d4(
