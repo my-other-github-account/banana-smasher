@@ -884,14 +884,42 @@ def solve_fixed_d4_exact(
 
 
 def verify_fixed_d4_model(
-    model_root: str | Path, *, basis_sha256: str
+    model_root: str | Path,
+    *,
+    basis_sha256: str,
+    verified_pack_receipt: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Verify a serveable pack and every fixed-D4 layer/basis binding."""
+    """Verify fixed-D4 bindings, reusing one exact authenticated pack scan."""
 
     from .contract import load_manifest, verify_pack
 
     model_root = Path(model_root).expanduser().resolve()
-    verify_pack(model_root)
+    manifest_path = model_root / "BANANA_PACK_MANIFEST.json"
+    if verified_pack_receipt is None:
+        verify_pack(model_root)
+    else:
+        verification = verified_pack_receipt.get("verification")
+        expected_keys = {
+            "schema",
+            "status",
+            "model_root",
+            "basis_sha256",
+            "manifest_sha256",
+            "verification",
+        }
+        if (
+            set(verified_pack_receipt) != expected_keys
+            or verified_pack_receipt.get("schema")
+            != "banana-smasher-pack-verification-receipt-v1"
+            or verified_pack_receipt.get("status") != "PASS"
+            or verified_pack_receipt.get("model_root") != str(model_root)
+            or verified_pack_receipt.get("basis_sha256") != basis_sha256
+            or verified_pack_receipt.get("manifest_sha256")
+            != _sha256_file(manifest_path)
+            or not isinstance(verification, Mapping)
+            or verification.get("status") != "PASS"
+        ):
+            raise ValueError("fixed D4 reusable pack verification receipt mismatch")
     manifest = load_manifest(model_root)
     layers = manifest.get("layers")
     if not isinstance(layers, list) or not all(
@@ -1110,37 +1138,19 @@ def produce_fixed_d4_layerwise_logits(
     output_path: str | Path,
     *,
     basis_sha256: str,
+    verified_pack_receipt: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run a bounded chunk through vLLM's public layerwise CPU-offload path."""
+    """Stream one transformer block across all windows with durable resume."""
 
-    producer_config = Path(producer_config).expanduser().resolve()
-    try:
-        config = json.loads(producer_config.read_text())
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(
-            f"invalid fixed D4 producer config {producer_config}: {exc}"
-        ) from exc
-    parameters = config.get("parameters") if isinstance(config, Mapping) else None
-    engine = parameters.get("engine") if isinstance(parameters, Mapping) else None
-    cpu_offload_gb = engine.get("cpu_offload_gb") if isinstance(engine, Mapping) else None
-    if (
-        isinstance(cpu_offload_gb, bool)
-        or not isinstance(cpu_offload_gb, (int, float))
-        or not np.isfinite(cpu_offload_gb)
-        or cpu_offload_gb <= 0
-    ):
-        raise ValueError(
-            "fixed-d4-offline-layerwise requires positive engine.cpu_offload_gb "
-            "for public vLLM layerwise weight offload"
-        )
+    from .offline_layerwise import produce_fixed_d4_layerwise_logits as run_layerwise
 
-    return produce_fixed_d4_logits(
+    return run_layerwise(
         model_root,
         producer_config,
         bank_path,
         output_path,
         basis_sha256=basis_sha256,
-        _expected_producer="fixed-d4-offline-layerwise",
+        verified_pack_receipt=verified_pack_receipt,
     )
 
 

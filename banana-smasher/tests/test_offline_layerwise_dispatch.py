@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 
@@ -43,7 +44,7 @@ def _manifest() -> dict:
     )
 
 
-def test_auto_dispatches_builtin_offline_layerwise_in_bounded_chunks(
+def test_auto_dispatches_builtin_offline_layerwise_as_one_model_pass(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     run_root = tmp_path / "run"
@@ -91,7 +92,10 @@ def test_auto_dispatches_builtin_offline_layerwise_in_bounded_chunks(
         output_path: Path,
         *,
         basis_sha256: str,
+        verified_pack_receipt: dict | None = None,
     ) -> dict[str, object]:
+        assert verified_pack_receipt is not None
+        assert verified_pack_receipt["status"] == "PASS"
         rows = [json.loads(line) for line in bank_path.read_text().splitlines()]
         calls.append([row["window_id"] for row in rows])
         output_path.write_text(
@@ -120,64 +124,14 @@ def test_auto_dispatches_builtin_offline_layerwise_in_bounded_chunks(
         chunk_size=16,
     )
 
-    assert calls == [
-        list(range(0, 16)),
-        list(range(16, 32)),
-        list(range(32, 48)),
-        list(range(48, 64)),
-    ]
+    assert calls == [list(range(64))]
     assert receipt["execution_mode"] == "offline-layerwise"
     assert receipt["producer_backend"] == "fixed-d4-offline-layerwise"
     assert receipt["computed_windows"] == 64
 
 
-def test_builtin_offline_layerwise_requires_public_vllm_weight_offload(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = tmp_path / "offline-layerwise.json"
-    config.write_text(
-        json.dumps(
-            {
-                "schema": "banana-smasher-candidate-producer-v1",
-                "producer": "fixed-d4-offline-layerwise",
-                "parameters": {
-                    "input_field": "tokens",
-                    "batch_size": 1,
-                    "engine": {"enforce_eager": True},
-                },
-            }
-        )
-    )
-    with pytest.raises(ValueError, match="cpu_offload_gb"):
-        produce_fixed_d4_layerwise_logits(
-            tmp_path / "model",
-            config,
-            tmp_path / "bank.jsonl",
-            tmp_path / "output.jsonl",
-            basis_sha256=BASIS,
-        )
+def test_builtin_offline_layerwise_does_not_delegate_to_resident_vllm() -> None:
+    source = inspect.getsource(produce_fixed_d4_layerwise_logits)
 
-    value = json.loads(config.read_text())
-    value["parameters"]["engine"]["cpu_offload_gb"] = 64
-    config.write_text(json.dumps(value))
-    called: dict[str, object] = {}
-
-    def fake_vllm(*args: object, **kwargs: object) -> dict[str, object]:
-        called["args"] = args
-        called["kwargs"] = kwargs
-        return {"status": "PASS"}
-
-    monkeypatch.setattr("banana_smasher.fixed_d4.produce_fixed_d4_logits", fake_vllm)
-    receipt = produce_fixed_d4_layerwise_logits(
-        tmp_path / "model",
-        config,
-        tmp_path / "bank.jsonl",
-        tmp_path / "output.jsonl",
-        basis_sha256=BASIS,
-    )
-
-    assert receipt == {"status": "PASS"}
-    assert called["kwargs"] == {
-        "basis_sha256": BASIS,
-        "_expected_producer": "fixed-d4-offline-layerwise",
-    }
+    assert "cpu_offload_gb" not in source
+    assert "produce_fixed_d4_logits(" not in source

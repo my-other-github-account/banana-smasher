@@ -1265,12 +1265,22 @@ def materialize_candidate_producer(
     from .contract import PackValidationError, load_manifest, verify_pack
 
     try:
-        verify_pack(model_root)
+        pack_verification = verify_pack(model_root)
         pack_manifest = load_manifest(model_root)
     except (OSError, ValueError, PackValidationError) as exc:
         raise AnchorEvaluationError(
             f"candidate model pack verification failed: {exc}"
         ) from exc
+    if not isinstance(pack_verification, Mapping) or pack_verification.get("status") != "PASS":
+        raise AnchorEvaluationError("candidate model pack verification did not return PASS")
+    reusable_pack_verification = {
+        "schema": "banana-smasher-pack-verification-receipt-v1",
+        "status": "PASS",
+        "model_root": str(model_root),
+        "basis_sha256": basis_sha256,
+        "manifest_sha256": _sha256_bytes(pack_manifest_path.read_bytes()),
+        "verification": dict(pack_verification),
+    }
     declared_layers = pack_manifest.get("layers")
     if not isinstance(declared_layers, list) or not all(
         isinstance(layer, int) and not isinstance(layer, bool)
@@ -1459,6 +1469,26 @@ def materialize_candidate_producer(
         raise AnchorEvaluationError(
             "materialized bank rows do not match ordered manifest windows"
         )
+    if configured_producer == "fixed-d4-offline-layerwise":
+        from .fixed_d4 import produce_fixed_d4_layerwise_logits
+
+        produce_fixed_d4_layerwise_logits(
+            model_root,
+            producer_config,
+            bank_path,
+            interim_path,
+            basis_sha256=basis_sha256,
+            verified_pack_receipt=reusable_pack_verification,
+        )
+        offline_rows = _read_jsonl(interim_path)
+        if [row.get("window_id") for row in offline_rows] != expected_ids:
+            raise AnchorEvaluationError(
+                "offline-layerwise producer output does not match all ordered bank windows"
+            )
+        _producer_index(offline_rows, "offline-layerwise candidate")
+        interim_rows = offline_rows
+        progress["completed_windows"] = len(interim_rows)
+        _atomic_write(progress_path, _canonical_bytes(progress))
     for start in range(len(interim_rows), len(bank_rows), chunk_size):
         chunk = bank_rows[start : start + chunk_size]
         chunk_payload = b"".join(_canonical_bytes(row) for row in chunk)
