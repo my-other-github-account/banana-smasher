@@ -12,6 +12,26 @@ _LOG = logging.getLogger("banana_smasher_plugin")
 _REGISTERED = False
 
 
+def configure_flashinfer_cuda_runtime_binding() -> str:
+    """Bind FlashInfer comms to real CUDA before TileLang maps its stub."""
+    importlib.import_module("flashinfer.comm")
+    cuda_ipc = importlib.import_module("flashinfer.comm.cuda_ipc")
+    cudart = getattr(cuda_ipc, "cudart", None)
+    library = getattr(cudart, "lib", None)
+    bound = str(getattr(library, "_name", ""))
+    filename = bound.rsplit("/", 1)[-1]
+    if not bound or "libcudart_stub" in filename or "libcudart" not in filename:
+        raise RuntimeError(
+            "FlashInfer comms must bind a real CUDA runtime before TileLang; "
+            f"resolved={bound!r}"
+        )
+    _LOG.warning(
+        "BANANA_SMASHER_FLASHINFER_CUDART_BOUND path=%s order=before_tilelang",
+        bound,
+    )
+    return bound
+
+
 def configure_flashinfer_sparse_mla_signature_compat() -> bool:
     """Bridge vLLM 0.24 and installed FlashInfer sparse-MLA API variants."""
     api_name = "trtllm_batch_decode_sparse_mla_dsv4"
@@ -500,6 +520,7 @@ def register() -> None:
     )
 
     configure_runtime_environment()
+    configure_flashinfer_cuda_runtime_binding()
     install_vllm_arg_defaults()
 
     from .native_extensions import preflight_native_extensions
@@ -528,6 +549,7 @@ def register() -> None:
 
 
 __all__ = [
+    "configure_flashinfer_cuda_runtime_binding",
     "configure_flashinfer_sparse_mla_signature_compat",
     "configure_sparse_indexer_deep_gemm_backend",
     "configure_sparse_indexer_topk_backend",
