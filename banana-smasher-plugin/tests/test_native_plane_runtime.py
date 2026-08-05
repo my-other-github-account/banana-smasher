@@ -12,6 +12,7 @@ import pytest
 import torch
 
 import banana_smasher_plugin.native_planes as native_planes
+import banana_smasher_plugin.v4_acceleration as v4_acceleration
 
 from banana_smasher_plugin.native_planes import (
     EXPECTED_LAYOUT_SHA256,
@@ -375,6 +376,40 @@ def test_streamed_plane_load_releases_mmap_pages_and_logs_watermark(
     assert "BANANA_SMASHER_PLANE_LOAD_WATERMARK loaded=50" in caplog.text
     assert "total=10" in caplog.text
     assert "MemAvailable_kB=" in caplog.text
+
+
+def test_native_plane_construction_preallocates_only_decode_graph_workspaces(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allocations: list[tuple[int, int]] = []
+
+    def record_allocation(*, rows: int, block_rows: int, **_kwargs):
+        allocations.append((rows, block_rows))
+        return {"physical_counters": torch.zeros(128, dtype=torch.int64)}
+
+    monkeypatch.setattr(
+        v4_acceleration,
+        "allocate_compaction_state",
+        record_allocation,
+    )
+    state = {
+        "codes": torch.zeros(1, dtype=torch.uint8),
+        "scales": torch.zeros(1, dtype=torch.uint8),
+        "codebook": torch.zeros(4, dtype=torch.float16),
+    }
+
+    resident = v4_acceleration.build_device_resident_planes(
+        [state],
+        torch.tensor([2], dtype=torch.int8),
+        [4],
+        input_width=4,
+        output_width=4,
+        device=torch.device("cpu"),
+    )
+
+    assert allocations == [(6, 1), (12, 2), (24, 4), (48, 4), (96, 4)]
+    assert set(resident["compaction"]) == set(allocations)
+    assert resident["physical_counter_tensors"] == {}
 
 
 def _install_fake_vllm(monkeypatch: pytest.MonkeyPatch) -> None:
