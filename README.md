@@ -4,7 +4,7 @@ This standalone repository owns one path only:
 
 materialized quant source -> `smash export` -> `smash verify` -> self-contained `/model` pack -> pinned stock vLLM image with `vllm.general_plugins` -> OpenAI-compatible API.
 
-It does not contain training, solver orchestration, benchmark ledgers, or historical run artifacts.
+It does not contain training, solver orchestration, private benchmark ledgers, or raw historical run artifacts. Public frozen evaluation contracts and compact result tables live under [`Evals/`](Evals/).
 
 ## Clone
 
@@ -103,6 +103,7 @@ capture, and image admission remain an explicit Linux ARM64 SM121 hardware gate.
 
 ## Verification surfaces
 
+- `Evals/` contains the frozen 0731 BALANCED64 contract, apples-to-apples evaluation steps, executable receipt checks, and sealed IQ2/IQ3/IQ4/DwarfStar results.
 - `ACCELERATIONS.md` explains every retained acceleration.
 - `runtime/ACCELERATION_MANIFEST.json` is the machine-readable source/build/activation/test map.
 - `PROVENANCE.md` and `provenance/SOURCE_INVENTORY.json` bind retained files to source commit `c00714c6803f7e2de7a95d103dbe172236b22adf`.
