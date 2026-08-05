@@ -10,8 +10,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 1651,
-      "output_sha256": "6259e5aac05ce6a21ea2f848b44fae11bd358bdaf562e25ea4d62449254e02d4",
+      "bytes": 2103,
+      "output_sha256": "1e44ebc8a1e813443667ceb6130237d9cef696516b8cc2da8e3f1997e5302588",
       "path": "banana-smasher-plugin/setup.py",
       "source_path": "banana-smasher-plugin/setup.py",
       "source_sha256": "3cfb151b0263dc238cd3a362a430aaef809e1e3f2de76209352a930f3bc554c1"
