@@ -10,11 +10,44 @@ from safetensors.torch import load_file
 from .contract import RuntimeContract
 
 
-def _resolve(root: Any, dotted: str) -> Any:
+def _translate_stock_dsv4_repair_path(dotted: str) -> str:
+    """Translate exported Hugging Face repair names to stock-vLLM V4 names."""
+    translated = dotted.replace(
+        ".self_attn.compressor.indexer.kv_norm",
+        ".attn.indexer.compressor.norm",
+    )
+    translated = translated.replace(
+        ".self_attn.compressor.kv_norm",
+        ".attn.compressor.norm",
+    )
+    translated = translated.replace(".self_attn.", ".attn.")
+    translated = translated.replace(".input_layernorm", ".attn_norm")
+    translated = translated.replace(".post_attention_layernorm", ".ffn_norm")
+    translated = translated.replace(".q_a_norm", ".q_norm")
+    return translated.replace(".o_b_proj", ".wo_b")
+
+
+def _resolve_exact(root: Any, dotted: str) -> Any:
     obj = root
     for part in dotted.split("."):
         obj = getattr(obj, part)
     return obj
+
+
+def _resolve(root: Any, dotted: str) -> Any:
+    try:
+        return _resolve_exact(root, dotted)
+    except AttributeError:
+        translated = _translate_stock_dsv4_repair_path(dotted)
+        if translated == dotted:
+            raise
+        try:
+            return _resolve_exact(root, translated)
+        except AttributeError as translated_error:
+            raise AttributeError(
+                "repair target is absent from both exported and stock-vLLM "
+                f"DeepSeek-V4 module paths: {dotted!r} -> {translated!r}"
+            ) from translated_error
 
 
 def apply_dense_norm_repair(module: Any, contract: RuntimeContract) -> tuple[str, ...]:
