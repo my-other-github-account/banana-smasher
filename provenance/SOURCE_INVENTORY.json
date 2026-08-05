@@ -154,8 +154,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 190819,
-      "output_sha256": "997adee6e991a4c06dc6d25fd8967c21938f3776deed1bc7939c850ac792073e",
+      "bytes": 193363,
+      "output_sha256": "5f639b54ddd7379987af44f7799e23651a603b77e54ce0be1fa395025c0afb1a",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_kernel_matrix.json",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/specialized_kernel_matrix.json",
       "source_sha256": "9173487b6253e665a9d603673677c20bf8b8dea797162f20f98acb3cb755b242"
@@ -274,8 +274,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 10788,
-      "output_sha256": "3c639940a2c4bb016fc0c4523c7a8f22b2469ae679506abd14e5698019ed6b45",
+      "bytes": 11112,
+      "output_sha256": "55f7eaa7b82ebd55a3437cf2fec85dca2faf6cb0fcea6ec3ddd8d302b7d09d0a",
       "path": "banana-smasher-plugin/tests/test_specialized_kernel_matrix.py",
       "source_path": "banana-smasher-plugin/tests/test_specialized_kernel_matrix.py",
       "source_sha256": "a876de89e623844c6ffc32424b2c2b3c23092cc1b9357b58e1f71918854af71e"
