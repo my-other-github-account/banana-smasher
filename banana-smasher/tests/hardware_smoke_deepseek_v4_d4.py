@@ -189,21 +189,33 @@ def main() -> int:
         "startticks": _process_startticks(),
         "argv": argv,
     }
-    progress: dict[str, Any] = {
-        "schema": "banana-smasher-d4-layerwise-hardware-progress-v1",
-        "status": "RUNNING",
-        "basis_match": True,
-        "model_index_sha256": index_sha,
-        "configured_layer_count": 2,
-        "manifest_layer_count": 43,
-        "layer": None,
-        "window": args.window,
-        "output_rows": 0,
-        "bytes_read": 0,
-        "resident_peak_bytes": 0,
-        "process": process,
-    }
     progress_path = receipts / "PROGRESS.json"
+    if progress_path.is_file():
+        progress: dict[str, Any] = json.loads(progress_path.read_text())
+        if (
+            progress.get("model_index_sha256") != index_sha
+            or progress.get("window") != args.window
+        ):
+            raise RuntimeError("resume progress basis/window mismatch")
+        attempts = progress.setdefault("attempts", [progress.get("process")])
+        attempts.append(process)
+        progress.update({"status": "RUNNING", "process": process})
+    else:
+        progress = {
+            "schema": "banana-smasher-d4-layerwise-hardware-progress-v1",
+            "status": "RUNNING",
+            "basis_match": True,
+            "model_index_sha256": index_sha,
+            "configured_layer_count": 2,
+            "manifest_layer_count": 43,
+            "layer": None,
+            "window": args.window,
+            "output_rows": 0,
+            "bytes_read": 0,
+            "resident_peak_bytes": 0,
+            "process": process,
+            "attempts": [process],
+        }
     _atomic_json(progress_path, progress)
 
     os.environ["BANANA_SMASHER_D4_PLANES_DIR"] = str(planes_root)
@@ -224,22 +236,44 @@ def main() -> int:
         )
         _atomic_json(progress_path, progress)
 
-    initial_shard = model_root / stage_shards["initial"]
-    _stage(args.model_source, initial_shard.name, initial_shard)
-    with runtime.initial_stage() as embed:
-        activation = embed(tokens, window_id=args.window)
-        packed = runtime.export_activation(activation)
-        _atomic_npy(checkpoints / "initial.npy", packed)
-        del packed, activation
-        runtime.synchronize()
-    if runtime.resident_bytes() != 0:
-        raise RuntimeError("initial stage retained accelerator storage")
-    _remove(initial_shard)
-    update("initial-complete", None)
-
-    source_checkpoint = checkpoints / "initial.npy"
     plane_md5 = {0: args.plane_0_md5, 1: args.plane_1_md5}
     for layer in (0, 1):
+        _remove(model_root / stage_shards[f"layer_{layer}"])
+        _remove(planes_root / f"vq3u_layer_{layer:03d}.pt")
+
+    layer_zero_checkpoint = checkpoints / "layer_0.npy"
+    layer_one_checkpoint = checkpoints / "layer_1.npy"
+    if layer_one_checkpoint.is_file():
+        source_checkpoint = layer_one_checkpoint
+        remaining_layers: tuple[int, ...] = ()
+    elif layer_zero_checkpoint.is_file():
+        source_checkpoint = layer_zero_checkpoint
+        remaining_layers = (1,)
+    else:
+        initial_checkpoint = checkpoints / "initial.npy"
+        if not initial_checkpoint.is_file():
+            initial_shard = model_root / stage_shards["initial"]
+            _stage(args.model_source, initial_shard.name, initial_shard)
+            with runtime.initial_stage() as embed:
+                activation = embed(tokens, window_id=args.window)
+                packed = runtime.export_activation(activation)
+                _atomic_npy(initial_checkpoint, packed)
+                del packed, activation
+                runtime.synchronize()
+            initial_resident = runtime.resident_bytes()
+            _remove(initial_shard)
+            update("initial-complete", None)
+            if initial_resident != 0:
+                raise RuntimeError(
+                    f"initial stage retained accelerator storage: {initial_resident} bytes"
+                )
+        source_checkpoint = initial_checkpoint
+        remaining_layers = (0, 1)
+    progress["resume_checkpoint"] = str(source_checkpoint)
+    progress["resume_checkpoint_sha256"] = _sha256(source_checkpoint)
+    update("resumed", None)
+
+    for layer in remaining_layers:
         shard = model_root / stage_shards[f"layer_{layer}"]
         plane = planes_root / f"vq3u_layer_{layer:03d}.pt"
         _stage(args.model_source, shard.name, shard)
@@ -258,14 +292,17 @@ def main() -> int:
             _atomic_npy(target_checkpoint, exported)
             del packed, activation, output, exported
             runtime.synchronize()
-        if runtime.resident_bytes() != 0:
-            raise RuntimeError(f"layer {layer} retained accelerator storage")
+        layer_resident = runtime.resident_bytes()
         _remove(shard)
         _remove(plane)
         if source_checkpoint.name != "initial.npy":
             _remove(source_checkpoint)
         source_checkpoint = target_checkpoint
         update("layer-complete", layer)
+        if layer_resident != 0:
+            raise RuntimeError(
+                f"layer {layer} retained accelerator storage: {layer_resident} bytes"
+            )
 
     terminal_shard = model_root / stage_shards["terminal"]
     _stage(args.model_source, terminal_shard.name, terminal_shard)
