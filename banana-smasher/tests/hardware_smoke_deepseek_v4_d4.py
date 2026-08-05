@@ -234,6 +234,17 @@ def main() -> int:
                 "elapsed_seconds": time.time() - started,
             }
         )
+        progress.setdefault("history", []).append(
+            {
+                "stage": stage,
+                "layer": layer,
+                "window": args.window,
+                "output_rows": progress["output_rows"],
+                "bytes_read": progress["bytes_read"],
+                "resident_peak_bytes": progress["resident_peak_bytes"],
+                "process": process,
+            }
+        )
         _atomic_json(progress_path, progress)
 
     plane_md5 = {0: args.plane_0_md5, 1: args.plane_1_md5}
@@ -246,9 +257,11 @@ def main() -> int:
     if layer_one_checkpoint.is_file():
         source_checkpoint = layer_one_checkpoint
         remaining_layers: tuple[int, ...] = ()
+        progress["completed_layers"] = [0, 1]
     elif layer_zero_checkpoint.is_file():
         source_checkpoint = layer_zero_checkpoint
         remaining_layers = (1,)
+        progress["completed_layers"] = [0]
     else:
         initial_checkpoint = checkpoints / "initial.npy"
         if not initial_checkpoint.is_file():
@@ -269,6 +282,35 @@ def main() -> int:
                 )
         source_checkpoint = initial_checkpoint
         remaining_layers = (0, 1)
+        progress["completed_layers"] = []
+    layer_checkpoints = dict(progress.get("layer_checkpoints", {}))
+    prior_resume = progress.get("resume_checkpoint")
+    prior_resume_sha = progress.get("resume_checkpoint_sha256")
+    if (
+        isinstance(prior_resume, str)
+        and prior_resume.endswith("layer_0.npy")
+        and isinstance(prior_resume_sha, str)
+    ):
+        layer_checkpoints.setdefault(
+            "0",
+            {
+                "path": prior_resume,
+                "sha256": prior_resume_sha,
+                "retained": Path(prior_resume).is_file(),
+                "consumed_by_layer": 1,
+            },
+        )
+    for layer, checkpoint in (
+        (0, layer_zero_checkpoint),
+        (1, layer_one_checkpoint),
+    ):
+        if checkpoint.is_file():
+            layer_checkpoints[str(layer)] = {
+                "path": str(checkpoint),
+                "sha256": _sha256(checkpoint),
+                "retained": True,
+            }
+    progress["layer_checkpoints"] = layer_checkpoints
     progress["resume_checkpoint"] = str(source_checkpoint)
     progress["resume_checkpoint_sha256"] = _sha256(source_checkpoint)
     update("resumed", None)
@@ -298,6 +340,11 @@ def main() -> int:
         if source_checkpoint.name != "initial.npy":
             _remove(source_checkpoint)
         source_checkpoint = target_checkpoint
+        progress["completed_layers"] = list(range(layer + 1))
+        progress["layer_checkpoints"][str(layer)] = {
+            "path": str(target_checkpoint),
+            "sha256": _sha256(target_checkpoint),
+        }
         update("layer-complete", layer)
         if layer_resident != 0:
             raise RuntimeError(
