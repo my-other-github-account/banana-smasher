@@ -488,7 +488,8 @@ def test_plane_loader_moves_named_planes_and_dispatches_projection(
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
     calls: list[tuple[str, tuple[int, ...], tuple[int, ...]]] = []
 
-    def dispatch(*, projection, x, expert_ids, state):
+    def dispatch(*, projection, x, expert_ids, state, output=None):
+        del output
         calls.append((projection, tuple(x.shape), tuple(expert_ids.tolist())))
         width = state.output_width
         return torch.full((x.shape[0], width), 3.0, dtype=torch.float32)
@@ -903,7 +904,8 @@ def test_native_moe_apply_uses_two_accelerated_projections_and_original_route_or
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
     calls: list[tuple[str, tuple[int, ...]]] = []
 
-    def dispatch(*, projection, x, expert_ids, state):
+    def dispatch(*, projection, x, expert_ids, state, output=None):
+        del output
         calls.append((projection, tuple(expert_ids.tolist())))
         family = expert_ids.to(torch.float32).reshape(-1, 1) + 1
         if projection == "fused13":

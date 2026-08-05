@@ -130,6 +130,7 @@ def mixed_exact_native_gemv(
     vq_state: dict[str, Any],
     *,
     projection: str,
+    result: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Compact on-device and launch each physical packed family independently."""
     from .native_extensions import (
@@ -219,8 +220,10 @@ def mixed_exact_native_gemv(
         family=3,
         specialization=native_row,
     )
+    if result is None:
+        result = compact["result"]
     return torch.ops.banana_smasher_v4.finalize_output(
-        out, expert_ids, family_codes.numel(), compact["result"]
+        out, expert_ids, family_codes.numel(), result
     )
 
 

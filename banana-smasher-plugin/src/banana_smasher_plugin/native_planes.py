@@ -450,7 +450,9 @@ def _native_plane_forward_op(
             f"native-plane custom-op binding is unavailable: "
             f"layer_key={layer_key} projection_key={projection_key}"
         ) from exc
-    output.copy_(layer._forward_impl(x, expert_ids, projection))
+    result = layer._forward_impl(x, expert_ids, projection, output=output)
+    if result is not output:
+        raise _fail("native-plane dispatch did not preserve the caller-owned output buffer")
 
 
 def _native_plane_forward_fake(
@@ -832,7 +834,14 @@ def _load_accelerated_dispatch() -> Dispatch:
         blocked = ",".join(sentinel.get("blocked", ()))
         raise _fail(f"mixed-QTIP native activation is blocked: {blocked}")
 
-    def run(*, projection: str, x: torch.Tensor, expert_ids: torch.Tensor, state: ProjectionState) -> torch.Tensor:
+    def run(
+        *,
+        projection: str,
+        x: torch.Tensor,
+        expert_ids: torch.Tensor,
+        state: ProjectionState,
+        output: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         if state.qtip_codebook is None or state.vq_state is None:
             raise _fail("resident QTIP/VQ state is unavailable")
         return dispatch(
@@ -843,6 +852,7 @@ def _load_accelerated_dispatch() -> Dispatch:
             state.qtip_codebook,
             state.vq_state,
             projection=projection,
+            result=output,
         )
 
     return run
@@ -1080,6 +1090,8 @@ class NativePlaneLayer:
         x: torch.Tensor,
         expert_ids: torch.Tensor,
         projection: str,
+        *,
+        output: torch.Tensor | None = None,
     ) -> torch.Tensor:
         state = self.state(projection)
         x = x.reshape(-1, x.shape[-1])
@@ -1098,6 +1110,7 @@ class NativePlaneLayer:
             x=x,
             expert_ids=expert_ids,
             state=state,
+            output=output,
         )
         if tuple(result.shape) != (x.shape[0], state.output_width):
             raise _fail(

@@ -198,7 +198,7 @@ def test_device_compactor_is_static_graph_safe_and_fuses_inactive_row_zeroing() 
     assert "valid_route" in source
     assert "finalize_output(Tensor out, Tensor expert_ids, int experts" in source
     assert "torch.ops.banana_smasher_v4.finalize_output(" in acceleration
-    assert "out, expert_ids, family_codes.numel(), compact[\"result\"]" in acceleration
+    assert "out, expert_ids, family_codes.numel(), result" in acceleration
     assert "family_block_counts" in source
     assert "block_route_rows" in source
     assert "cudaMemcpy" not in source
@@ -214,6 +214,26 @@ def test_dispatch_uses_persistent_compaction_buffers_without_python_shape_contro
     assert "block_route_rows" in source
     for forbidden in ("torch.nonzero", ".item(", "tolist()", "unique_consecutive"):
         assert forbidden not in source
+
+
+def test_dispatch_finalizes_directly_into_caller_owned_output() -> None:
+    tree = ast.parse(_function_source(ACCELERATION, "mixed_exact_native_gemv"))
+    function = cast(ast.FunctionDef, tree.body[0])
+    assert [argument.arg for argument in function.args.kwonlyargs] == [
+        "projection",
+        "result",
+    ]
+    finalize_calls = [
+        node
+        for node in ast.walk(function)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "finalize_output"
+    ]
+    assert len(finalize_calls) == 1
+    destination = finalize_calls[0].args[3]
+    assert isinstance(destination, ast.Name)
+    assert destination.id == "result"
 
 
 def test_d4_dispatch_materializes_contiguous_graph_input() -> None:

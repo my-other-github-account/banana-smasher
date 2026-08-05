@@ -20,6 +20,7 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
         tuple[str, object, object, list[str] | None, tuple[torch.Tag, ...]]
     ] = []
     calls: list[tuple[int, int]] = []
+    dispatch_outputs: list[torch.Tensor] = []
     eager_decorations: list[object] = []
 
     torch_utils = ModuleType("vllm.utils.torch_utils")
@@ -88,11 +89,13 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
 
     pack = native_planes.NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
 
-    def dispatch(*, projection, x, expert_ids, state):
+    def dispatch(*, projection, x, expert_ids, state, output=None):
         del projection, expert_ids
-        return torch.full(
-            (x.shape[0], state.output_width), 7.0, dtype=torch.bfloat16
-        )
+        assert output is not None
+        assert tuple(output.shape) == (x.shape[0], state.output_width)
+        dispatch_outputs.append(output)
+        output.fill_(7)
+        return output
 
     layer = native_planes.NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
     result = layer.forward(
@@ -109,6 +112,8 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
     assert torch.Tag.cudagraph_unsafe in registrations[0][4]
     assert eager_decorations == [native_planes._native_plane_forward_op]
     assert calls == [(layer._custom_op_key, 0)]
+    assert len(dispatch_outputs) == 1
+    assert dispatch_outputs[0] is result
     assert result.shape == (2, 4)
     assert torch.all(result == 7)
 
