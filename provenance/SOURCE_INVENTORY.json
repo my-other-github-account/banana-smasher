@@ -9,9 +9,9 @@
       "source_sha256": "2d85014fd11a1fbbbfa87674d11141f20507f59b30e46d69b0513e612afa8322"
     },
     {
-      "byte_preserved": false,
+      "byte_preserved": true,
       "bytes": 1116,
-      "output_sha256": "e159fb566f41e2c5b9e1e71e1a0df11357dc59a3774f47bbad50abc9f686bc12",
+      "output_sha256": "532335b563bf813930711bf0899f74aada1b568ce7ead680ac5d5b385dc52dd1",
       "path": "banana-smasher-plugin/pyproject.toml",
       "source_path": "banana-smasher-plugin/pyproject.toml",
       "source_sha256": "532335b563bf813930711bf0899f74aada1b568ce7ead680ac5d5b385dc52dd1"
@@ -1162,8 +1162,8 @@
     },
     {
       "byte_preserved": false,
-      "bytes": 16536,
-      "output_sha256": "1fd76717857eca6a3c67b8e5f75d759ca54554e245c65e6588f8416c851db35e",
+      "bytes": 16751,
+      "output_sha256": "170e87869a561867e5a196b3b072dd25ba32c90efec0dc0a5cd022477eb308e5",
       "path": "docker/Dockerfile",
       "source_path": "docker/Dockerfile",
       "source_sha256": "482c93b721f6d3023e19f0d9688440ac4f0099398e1e2c9da8c18e49aaa70356"
@@ -1249,9 +1249,9 @@
       "source_sha256": "360ddce36a887a68af9949557e4f36a356075271cad88bac59a2333b7ba75e79"
     },
     {
-      "byte_preserved": true,
-      "bytes": 2090,
-      "output_sha256": "afb55c3b531801a75c9fb4a1655f71d5faa5d287d2bb03746a376658112a5328",
+      "byte_preserved": false,
+      "bytes": 2000,
+      "output_sha256": "f219133af558cc412b2aa57f0fa7c9d2d297213c004c1fbb372d068fc8d9dc89",
       "path": "docker/tests/test_clean_pip_wheelhouse.py",
       "source_path": "docker/tests/test_clean_pip_wheelhouse.py",
       "source_sha256": "afb55c3b531801a75c9fb4a1655f71d5faa5d287d2bb03746a376658112a5328"

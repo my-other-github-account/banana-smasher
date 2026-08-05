@@ -155,6 +155,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 FROM package-builder AS clean-pip-wheelhouse-builder
 COPY --from=deepgemm-builder /wheels/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl /wheelhouse/
+COPY --from=flashinfer-builder /wheel/flashinfer_python-0.6.17-py3-none-any.whl /wheelhouse/
+COPY --from=flashinfer-builder /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl /wheelhouse/
 COPY docker/clean-pip/INSTALL.txt /wheelhouse/INSTALL.txt
 RUN set -eux; \
     set -- /wheels/banana_smasher_plugin-0.2.0-*.whl; \

@@ -9,8 +9,8 @@ description = "Stock-vLLM banana_smasher runtime plugin for native-plane packs"
 requires-python = ">=3.10"
 dependencies = [
     "deep-gemm==2.6.1; sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "flashinfer-jit-cache==0.6.12+cu130; sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "flashinfer-python==0.6.12; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "flashinfer-jit-cache==0.6.17+cu130; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "flashinfer-python==0.6.17; sys_platform == 'linux' and platform_machine == 'aarch64'",
     "quack-kernels>=0.4.1,<0.5.1",
     "safetensors==0.8.0",
     "vllm==0.24.0",
