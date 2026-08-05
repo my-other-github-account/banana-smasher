@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+import torch
+
+from banana_smasher_plugin import native_extensions
 
 
 PLUGIN = Path(__file__).resolve().parents[1]
@@ -235,3 +238,61 @@ def test_compaction_tensor_ranges_have_explicit_const_pointer_types() -> None:
     assert "#include <array>" in source
     assert source.count("std::array<const at::Tensor*,") == 2
     assert "for (const at::Tensor* tensor : {" not in source
+
+
+def test_d4_boundary_materializes_strided_vllm_activation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, torch.Tensor] = {}
+
+    def d4_specialized(a: torch.Tensor, out: torch.Tensor, *_args: object) -> None:
+        if not a.is_contiguous() or not out.is_contiguous():
+            raise RuntimeError("a/out must be contiguous")
+        captured["a"] = a
+        captured["out"] = out
+
+    monkeypatch.setattr(native_extensions, "_module", lambda: object())
+    monkeypatch.setattr(
+        torch.ops.banana_smasher_v4,
+        "d4_specialized",
+        d4_specialized,
+        raising=False,
+    )
+    activation = torch.zeros((4096, 6), dtype=torch.bfloat16).t()
+    assert activation.shape == (6, 4096)
+    assert not activation.is_contiguous()
+    out = torch.empty((6, 4096), dtype=torch.float32)
+    compact = {
+        "family_block_counts": torch.zeros(4, dtype=torch.int32),
+        "block_experts": torch.zeros((4, 1), dtype=torch.int32),
+        "block_valid_m": torch.ones((4, 1), dtype=torch.int32),
+        "block_route_rows": torch.zeros((4, 1, 1), dtype=torch.int32),
+    }
+    pointers = {
+        "d4_codes": torch.zeros(1, dtype=torch.int64),
+        "d4_scales": torch.zeros(1, dtype=torch.int64),
+        "d4_codebooks": torch.zeros(1, dtype=torch.int64),
+    }
+    state = {
+        "code_row_bytes": torch.zeros(1, dtype=torch.int32),
+        "dimension": torch.zeros(1, dtype=torch.uint8),
+        "bits": torch.zeros(1, dtype=torch.uint8),
+    }
+
+    native_extensions.specialized_d4_gemm(
+        activation,
+        out,
+        compact,
+        pointers,
+        state,
+        torch.zeros(160, dtype=torch.int64),
+        n=4096,
+        k=4096,
+        family=2,
+        projection="fused13",
+        tokens=1,
+    )
+
+    assert captured["a"].dtype is torch.bfloat16
+    assert captured["a"].is_contiguous()
+    assert captured["out"] is out
