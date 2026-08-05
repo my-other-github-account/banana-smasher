@@ -47,6 +47,8 @@ def test_public_source_dockerfile_contract() -> None:
     assert package_builder.index("scipy==1.16.1") < package_builder.index(
         "python3 -m pytest -q"
     )
+    assert "from banana_smasher_plugin.native_extensions import preflight_native_extensions" in text
+    assert "preflight_native_extensions()" in text
     assert "python3 -m pytest -q" in text
     assert "/src/banana-smasher/tests" in text
     assert "/src/banana-smasher-plugin/tests" in text
