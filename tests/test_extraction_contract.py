@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_CLOSURE_COMMIT = "4e2381dd466b88da552b10ef410976d70988ce7b"
 
 
 def test_required_source_surfaces_exist() -> None:
@@ -78,8 +79,8 @@ def test_documented_product_path_and_examples_exist() -> None:
 def test_acceleration_manifest_is_exact_and_test_mapped() -> None:
     manifest = json.loads((ROOT / "runtime/ACCELERATION_MANIFEST.json").read_text())
     assert manifest["schema"] == "banana-smasher-acceleration-manifest-v1"
-    assert manifest["source_commit"] is None
-    assert manifest["source_status"] == "WORKTREE_CANDIDATE_UNSEALED"
+    assert manifest["source_commit"] == SOURCE_CLOSURE_COMMIT
+    assert manifest["source_status"] == "SOURCE_CLOSURE_SEALED"
     entries = manifest["accelerations"]
     by_id = {entry["id"]: entry for entry in entries}
     required_ids = {
@@ -99,6 +100,10 @@ def test_acceleration_manifest_is_exact_and_test_mapped() -> None:
         "real-libcudart-link",
     }
     assert set(by_id) == required_ids
+    assert by_id["sm121-deepgemm-dense-e8m0"]["build_dependency_or_asset"] == [
+        "DeepGEMM f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca",
+        "deep_gemm-2.6.1 ARM64 wheel",
+    ]
     for entry in entries:
         assert entry["source"]
         assert entry["build_dependency_or_asset"]
@@ -147,8 +152,8 @@ def test_runtime_pins_hooks_assets_and_exact_command() -> None:
 
 def test_source_inventory_covers_and_hashes_every_retained_source_file() -> None:
     inventory = json.loads((ROOT / "provenance/SOURCE_INVENTORY.json").read_text())
-    assert inventory["source_commit"] is None
-    assert inventory["source_status"] == "WORKTREE_CANDIDATE_UNSEALED"
+    assert inventory["source_commit"] == SOURCE_CLOSURE_COMMIT
+    assert inventory["source_status"] == "SOURCE_CLOSURE_SEALED"
     source_entries = inventory["files"]
     generated_entries = inventory.get("generated_files", [])
     entries = source_entries + generated_entries

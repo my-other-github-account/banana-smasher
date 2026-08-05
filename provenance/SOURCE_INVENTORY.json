@@ -1170,11 +1170,11 @@
     },
     {
       "byte_preserved": true,
-      "bytes": 9915,
-      "output_sha256": "1c63d529c78cff15e325f81e4503b437f49193ca999f819b242d4d702afdd8ed",
+      "bytes": 10253,
+      "output_sha256": "c578d03a98d3833c4031e335eca541f8b8fb5b1c0f0b24e7de5287cb0697b8c3",
       "path": "docker/scripts/verify_public_image.py",
       "source_path": "docker/scripts/verify_public_image.py",
-      "source_sha256": "1c63d529c78cff15e325f81e4503b437f49193ca999f819b242d4d702afdd8ed"
+      "source_sha256": "c578d03a98d3833c4031e335eca541f8b8fb5b1c0f0b24e7de5287cb0697b8c3"
     },
     {
       "byte_preserved": true,
@@ -1210,7 +1210,7 @@
     }
   ],
   "schema": "banana-smasher-source-inventory-v1",
-  "source_commit": null,
+  "source_commit": "4e2381dd466b88da552b10ef410976d70988ce7b",
   "source_scope": "authoritative runtime/export/serve subtree",
-  "source_status": "WORKTREE_CANDIDATE_UNSEALED"
+  "source_status": "SOURCE_CLOSURE_SEALED"
 }

@@ -17,7 +17,8 @@ EXPECTED_PACKAGES = {
     "tilelang": "0.1.9",
     "vllm": "0.24.0",
 }
-SOURCE_COMMIT = "c00714c6803f7e2de7a95d103dbe172236b22adf"
+ASSET_SOURCE_COMMIT = "c00714c6803f7e2de7a95d103dbe172236b22adf"
+RUNTIME_SOURCE_COMMIT = "4e2381dd466b88da552b10ef410976d70988ce7b"
 
 
 def sha256(path: Path) -> str:
@@ -77,7 +78,7 @@ def verify_asset_set(
     manifest = _load_object(manifest_path)
     if manifest.get("schema") != "banana-smasher-active-assets-v1":
         raise RuntimeError("active asset manifest schema mismatch")
-    if manifest.get("source_commit") != SOURCE_COMMIT:
+    if manifest.get("source_commit") != ASSET_SOURCE_COMMIT:
         raise RuntimeError("active asset manifest source commit mismatch")
     groups = manifest.get("groups")
     if not isinstance(groups, dict) or set(groups) != {"sm120_cubins", "e43_cubins"}:
@@ -129,8 +130,14 @@ def verify_provenance_manifests(provenance_root: Path) -> dict[str, Any]:
     for name, schema in schemas.items():
         if required[name].get("schema") != schema:
             raise RuntimeError(f"provenance schema mismatch: {name}")
+    source_commits = {
+        "ASSET_MANIFEST.json": ASSET_SOURCE_COMMIT,
+        "ACCELERATION_MANIFEST.json": RUNTIME_SOURCE_COMMIT,
+        "KERNEL_PRODUCERS.json": ASSET_SOURCE_COMMIT,
+        "SOURCE_INVENTORY.json": RUNTIME_SOURCE_COMMIT,
+    }
     for name, payload in required.items():
-        if payload.get("source_commit") != SOURCE_COMMIT:
+        if payload.get("source_commit") != source_commits[name]:
             raise RuntimeError(f"provenance source commit mismatch: {name}")
 
     asset_manifest = required["ASSET_MANIFEST.json"]
