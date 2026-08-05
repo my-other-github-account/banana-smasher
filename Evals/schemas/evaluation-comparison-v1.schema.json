@@ -224,7 +224,7 @@
             "missing_identity_fields": {"maxItems": 0},
             "base_model": {"const": "DeepSeek-V4-Flash-0731"},
             "variant": {"type": "string", "minLength": 1},
-            "family": {"enum": ["QTIP2", "QTIP3"]},
+            "family": {"enum": ["QTIP2", "QTIP2.5", "QTIP3"]},
             "geometry": {"type": "string", "minLength": 1},
             "description": {"type": "string", "minLength": 1},
             "layers": {"const": 43},

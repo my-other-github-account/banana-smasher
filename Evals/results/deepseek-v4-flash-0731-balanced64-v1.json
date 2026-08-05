@@ -353,6 +353,195 @@
       }
     },
     {
+      "model_id": "QTIP2.5-all43-FF0731",
+      "display_name": "QTIP2.5 deterministic mixed ring",
+      "vendor": "Banana Smasher",
+      "fp": "FP8 e4m3 dynamic own-base teacher",
+      "artifact": {
+        "base_model": "DeepSeek-V4-Flash-0731",
+        "variant": "deterministic-mixed-ring-ff0731-qtip25",
+        "family": "QTIP2.5",
+        "geometry": "deterministic 50/50 K2/L16/V2 and K3/L16/V2 ring",
+        "description": "exact mixed QTIP2.5 candidate across L000-L042",
+        "layers": 43,
+        "units": 22016,
+        "candidate_artifact_sha256": "9eb76ed85235fd15f8fb6e28eaa62395bafd927034b6258343dff9d0f74bdca0",
+        "identity_status": "complete-as-recorded",
+        "missing_identity_fields": []
+      },
+      "wire": {
+        "bytes": 106623252108,
+        "decimal_gb": "106.623252108",
+        "parameter_denominator": 284334567511,
+        "normalized_bpw": "2.9999377997928467990522421626080526990841921473725627341420659657374837984723320"
+      },
+      "kld": {
+        "direction": "KL(teacher||candidate)",
+        "mean": "0.18197090324511508"
+      },
+      "top1": {
+        "matches": 58389,
+        "positions": 65536,
+        "rate": "0.8909454345703125"
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.2331143085986479",
+          "top1_matches": 17368,
+          "top1_rate": "0.8926809210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684211"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.049605712918741544",
+          "top1_matches": 6682,
+          "top1_rate": "0.9321986607142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.08357888095253063",
+          "top1_matches": 8579,
+          "top1_rate": "0.9308810763888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.32327961920836945",
+          "top1_matches": 8530,
+          "top1_rate": "0.8330078125"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.2647344231511727",
+          "top1_matches": 8423,
+          "top1_rate": "0.82255859375"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.026375066857074244",
+          "top1_matches": 8807,
+          "top1_rate": "0.9556206597222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "weight_components": {
+        "qtip_expert_payload": {
+          "bytes": 86886148096,
+          "components": {
+            "SU": 135266304,
+            "SV": 180355072,
+            "Wscale": 88064,
+            "shared_tlut": 4096,
+            "trellis": 86570434560
+          }
+        },
+        "retained_non_routed_payload": {
+          "bytes": 19708797688,
+          "components": {
+            "attention": 5468544164,
+            "embedding_and_lm_head": 1059061760,
+            "mtp": 10862838300,
+            "normalization": 360448,
+            "other_retained": 1126961720,
+            "routing": 108834816,
+            "shared_expert": 1082196480
+          }
+        },
+        "weight_pack_index_metadata": {
+          "bytes": 28306324,
+          "sha256": "6e07f7e69be28049c8a2bc688bf5769ecf28d2247298f8a3a5c7834855784c90"
+        },
+        "repair_payload": {
+          "bytes": 0
+        },
+        "torch_container_inflation_bytes": 0,
+        "runtime_and_headroom_bytes": 0
+      },
+      "measurement": {
+        "status": "PASS",
+        "candidate_artifact_sha256": "9eb76ed85235fd15f8fb6e28eaa62395bafd927034b6258343dff9d0f74bdca0",
+        "teacher_bank": "TEACHER_0731_BALANCED64_V2",
+        "teacher_source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "scorer_source_sha256": "f08e1d2c073b2338d3d375ad16f57fce8bc2c76813cd7f492d1d0a430495837d",
+        "repository_commit": "2c719c9488c6dd889fe011b94fb244a24c7e209f",
+        "suite_file_sha256": "c8564f82d151f0f61b255432c20cd1eec24d0b8529f3bed248b8a039f52b9d42",
+        "window_population_sha256": "24089eea1b3e5650265b971930571dbf249aba0b2f62e954a9628dcbfd182f09",
+        "class_map_sha256": "c9ccf14df02d8f5d41508bb2e6e9c9525f1ea1d16533f2d65398d708a6ac9aaa",
+        "windows": 64,
+        "positions": 65536,
+        "support": 8192,
+        "holdout_used": false,
+        "fallback_used": false,
+        "censoring_used": false,
+        "numeric_semantics": "binary64 normalization and per-position KLD on common ordered teacher top-8192 support; no clamp; exact ordered math.fsum reduction; first-index Top-1 ties",
+        "artifacts": {
+          "terminal_handoff_sha256": "0811769ba4888ab7ef9737d78c7741e3dfddcc452f9021ec5245c701d9b14644",
+          "aggregate_sha256": "c9436860e9ba1ff3a5354546b50d3a8b8a7dec139d850c6809714968702f5b60",
+          "row_collection_sha256": "fcc03cb90133d6416f7f6aeb2c19443670e0aa544539b8f2f6650e27996a2b2e",
+          "whole_model_receipt_sha256": "43ffaf0b43d995544e5ded2165bc97d98948844c2b5f491e44ef69cf1b2ae18b",
+          "independent_verification_sha256": "d34392334e191106f0ce637368e1014d63542f058ddeb679ca130f34e6d4e56f",
+          "weight_pack_index_sha256": "6e07f7e69be28049c8a2bc688bf5769ecf28d2247298f8a3a5c7834855784c90",
+          "candidate_manifest_sha256": "5270594b4714a4eb84f4756a70fb2fd0bf6771b6f89ca119926ce2d90a5857ba",
+          "shipping_artifact_tree_sha256": "ce4c7a8d77fc3bab29756b731e37f2b41742724b9daa113c5a65d28d41673230"
+        },
+        "limitations": [
+          "Protected teacher, candidate, source model, and QTIP payloads are not distributed by this receipt.",
+          "This proves the fresh competitive measurement and exact shipping-weight audit, not clean-clone GPU replay.",
+          "The internal train_balanced64 score is separate and was not reused or relabeled."
+        ]
+      },
+      "source_receipts": [
+        {
+          "sha256": "0811769ba4888ab7ef9737d78c7741e3dfddcc452f9021ec5245c701d9b14644",
+          "label": "QTIP2.5 public-safe terminal handoff",
+          "role": "terminal measurement and artifact evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "c9436860e9ba1ff3a5354546b50d3a8b8a7dec139d850c6809714968702f5b60",
+          "label": "QTIP2.5 position-exact bindings",
+          "role": "global and six-category KLD and Top-1 evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "fcc03cb90133d6416f7f6aeb2c19443670e0aa544539b8f2f6650e27996a2b2e",
+          "label": "QTIP2.5 row tree",
+          "role": "64-row collection identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "43ffaf0b43d995544e5ded2165bc97d98948844c2b5f491e44ef69cf1b2ae18b",
+          "label": "QTIP2.5 whole-model shipping-weight audit",
+          "role": "exact bytes and component evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "d34392334e191106f0ce637368e1014d63542f058ddeb679ca130f34e6d4e56f",
+          "label": "QTIP2.5 independent verification",
+          "role": "independent arithmetic and public-safety verification",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "5270594b4714a4eb84f4756a70fb2fd0bf6771b6f89ca119926ce2d90a5857ba",
+          "label": "QTIP2.5 candidate manifest",
+          "role": "64 candidate files and tree identity",
+          "availability": "protected-not-distributed"
+        }
+      ],
+      "replay": {
+        "status": "blocked",
+        "blockers": [
+          "teacher-bank payloads and frozen corpus text are not distributed by this repository",
+          "candidate model and QTIP tensor payloads are not distributed by this repository",
+          "the protected physical measurement environment is not reproducible from a clean public clone"
+        ]
+      }
+    },
+    {
       "model_id": "UD-IQ3_XXS",
       "display_name": "UD-IQ3_XXS",
       "vendor": "Unsloth",
