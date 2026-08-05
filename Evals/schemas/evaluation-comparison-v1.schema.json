@@ -334,7 +334,7 @@
     },
     "result": {
       "type": "object", "additionalProperties": false,
-      "required": ["model_id", "display_name", "vendor", "fp", "artifact", "wire", "kld", "top1", "source_receipts", "replay"],
+      "required": ["model_id", "display_name", "vendor", "fp", "artifact", "wire", "kld", "top1", "classes", "source_receipts", "replay"],
       "properties": {
         "model_id": {"type": "string", "minLength": 1},
         "display_name": {"type": "string", "minLength": 1},
@@ -356,7 +356,7 @@
       "allOf": [
         {
           "if": {"properties": {"artifact": {"required": ["family"]}}},
-          "then": {"required": ["classes", "weight_components", "measurement"]}
+          "then": {"required": ["weight_components", "measurement"]}
         }
       ]
     }

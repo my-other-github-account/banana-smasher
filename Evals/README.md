@@ -17,7 +17,7 @@ Every model below ran the same 64 windows and 65,536 scored positions against th
 
 Top-1 is how often the quant selects the same next token as FP8 on the common ordered support. KLD measures movement of the full supported token distribution. Higher Top-1 and lower KLD are better.
 
-The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, candidate/teacher/scorer/population identities, component-byte ledgers, source hashes, replay limits, and the six-category QTIP breakdowns.
+The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, candidate/teacher/scorer/population identities, component-byte ledgers, source hashes, replay limits, and the six-category breakdowns for all six quants.
 
 ## What makes these apples to apples
 
@@ -31,23 +31,31 @@ The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json)
 
 No partial run, different window bank, fallback output, or HOLDOUT result is admitted to this ranking.
 
-## QTIP category breakdowns
+## Category breakdowns
 
-These category rows are integer-derived from the exact 64-window competitive aggregates. KLD is the position-weighted class mean.
+These category rows are derived from the exact same 64-window competitive aggregates as the global table. Top-1 percentages are rounded for readability, with exact integer counts beside them. KLD is the position-weighted class mean; exact decimals remain in the machine-readable result.
 
 ### Top-1 agreement
 
 | Quant | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
 |---|---:|---:|---:|---:|---:|---:|
-| **QTIP3 exact** | 17,851/19,456 | 6,836/7,168 | 8,694/9,216 | 8,957/10,240 | 8,856/10,240 | 8,890/9,216 |
-| **QTIP2 all-43** | 17,079/19,456 | 6,567/7,168 | 8,413/9,216 | 8,203/10,240 | 8,091/10,240 | 8,737/9,216 |
+| **Unsloth IQ4** | 92.12% (17,922/19,456) | 94.45% (6,770/7,168) | 94.61% (8,719/9,216) | 89.90% (9,206/10,240) | 89.05% (9,119/10,240) | 96.01% (8,848/9,216) |
+| **QTIP3 exact** | 91.75% (17,851/19,456) | 95.37% (6,836/7,168) | 94.34% (8,694/9,216) | 87.47% (8,957/10,240) | 86.48% (8,856/10,240) | 96.46% (8,890/9,216) |
+| **Unsloth IQ3** | 87.68% (17,059/19,456) | 91.35% (6,548/7,168) | 91.46% (8,429/9,216) | 83.54% (8,555/10,240) | 82.17% (8,414/10,240) | 93.67% (8,633/9,216) |
+| **QTIP2 all-43** | 87.78% (17,079/19,456) | 91.62% (6,567/7,168) | 91.29% (8,413/9,216) | 80.11% (8,203/10,240) | 79.01% (8,091/10,240) | 94.80% (8,737/9,216) |
+| **Unsloth IQ2** | 84.43% (16,426/19,456) | 88.85% (6,369/7,168) | 89.08% (8,210/9,216) | 78.76% (8,065/10,240) | 76.81% (7,865/10,240) | 92.09% (8,487/9,216) |
+| **DwarfStar Q2** | 83.13% (16,174/19,456) | 88.38% (6,335/7,168) | 88.10% (8,119/9,216) | 77.75% (7,962/10,240) | 76.12% (7,795/10,240) | 91.80% (8,460/9,216) |
 
 ### KLD
 
 | Quant | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
 |---|---:|---:|---:|---:|---:|---:|
-| **QTIP3 exact** | 0.1512717756540011 | 0.028451901956179047 | 0.052788578425696814 | 0.17923190734039318 | 0.15630093475208257 | 0.016751307708117558 |
-| **QTIP2 all-43** | 0.2895987644328912 | 0.06834523870039978 | 0.12232676385912493 | 0.44767736691985716 | 0.3548677734881941 | 0.03414665317184049 |
+| **Unsloth IQ4** | 0.1061 | 0.0256 | 0.0332 | 0.0941 | 0.0823 | 0.0131 |
+| **QTIP3 exact** | 0.1513 | 0.0285 | 0.0528 | 0.1792 | 0.1563 | 0.0168 |
+| **Unsloth IQ3** | 0.2507 | 0.0736 | 0.0894 | 0.2688 | 0.2279 | 0.0360 |
+| **QTIP2 all-43** | 0.2896 | 0.0683 | 0.1223 | 0.4477 | 0.3549 | 0.0341 |
+| **Unsloth IQ2** | 0.3770 | 0.1123 | 0.1441 | 0.4302 | 0.3623 | 0.0601 |
+| **DwarfStar Q2** | 0.4198 | 0.1250 | 0.1745 | 0.4674 | 0.4150 | 0.0625 |
 
 ## Internal anchors are separate
 

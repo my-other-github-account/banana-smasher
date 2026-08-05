@@ -108,6 +108,12 @@
           "label": "IQ3/IQ4 Top-1 agreement attachment",
           "role": "Top-1 evidence",
           "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "10ca38e8bbba7d987284606178cdc6f3fb7d126578941078466db36438304000",
+          "label": "all-six-model independent class reaggregation",
+          "role": "corrected six-category KLD and Top-1 evidence",
+          "availability": "protected-not-distributed"
         }
       ],
       "replay": {
@@ -118,6 +124,50 @@
           "frozen corpus text is not distributed by this repository",
           "historical scorer implementation and numeric environment are not present on canonical main"
         ]
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.10606380474315474",
+          "top1_matches": 17922,
+          "top1_rate": "0.9211554276315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.02557872106232073",
+          "top1_matches": 6770,
+          "top1_rate": "0.9444754464285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.03317447642657932",
+          "top1_matches": 8719,
+          "top1_rate": "0.9460720486111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.09412694641540638",
+          "top1_matches": 9206,
+          "top1_rate": "0.8990234375"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.08227391876350858",
+          "top1_matches": 9119,
+          "top1_rate": "0.89052734375"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.013053781992480907",
+          "top1_matches": 8848,
+          "top1_rate": "0.9600694444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444"
+        }
       }
     },
     {
@@ -362,6 +412,12 @@
           "label": "IQ3/IQ4 Top-1 agreement attachment",
           "role": "Top-1 evidence",
           "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "10ca38e8bbba7d987284606178cdc6f3fb7d126578941078466db36438304000",
+          "label": "all-six-model independent class reaggregation",
+          "role": "corrected six-category KLD and Top-1 evidence",
+          "availability": "protected-not-distributed"
         }
       ],
       "replay": {
@@ -372,6 +428,50 @@
           "frozen corpus text is not distributed by this repository",
           "historical scorer implementation and numeric environment are not present on canonical main"
         ]
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.25067474663444833",
+          "top1_matches": 17059,
+          "top1_rate": "0.8767989309210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.07359327397856029",
+          "top1_matches": 6548,
+          "top1_rate": "0.9135044642857142857142857142857142857142857142857142857142857142857142857142857142857142857142857143"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.08938356283023303",
+          "top1_matches": 8429,
+          "top1_rate": "0.9146050347222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.2688291653433928",
+          "top1_matches": 8555,
+          "top1_rate": "0.83544921875"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.22788978254808093",
+          "top1_matches": 8414,
+          "top1_rate": "0.8216796875"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.03596553051807053",
+          "top1_matches": 8633,
+          "top1_rate": "0.9367404513888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889"
+        }
       }
     },
     {
@@ -610,6 +710,12 @@
           "label": "teacher tree identity",
           "role": "teacher artifact identity",
           "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "10ca38e8bbba7d987284606178cdc6f3fb7d126578941078466db36438304000",
+          "label": "all-six-model independent class reaggregation",
+          "role": "corrected six-category KLD and Top-1 evidence",
+          "availability": "protected-not-distributed"
         }
       ],
       "replay": {
@@ -619,6 +725,50 @@
           "frozen corpus text is not distributed by this repository",
           "historical scorer implementation and numeric environment are not present on canonical main"
         ]
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.37698177388138493",
+          "top1_matches": 16426,
+          "top1_rate": "0.8442639802631578947368421052631578947368421052631578947368421052631578947368421052631578947368421053"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.11225090858651612",
+          "top1_matches": 6369,
+          "top1_rate": "0.8885323660714285714285714285714285714285714285714285714285714285714285714285714285714285714285714286"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.14406174637027722",
+          "top1_matches": 8210,
+          "top1_rate": "0.8908420138888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.4302104775621963",
+          "top1_matches": 8065,
+          "top1_rate": "0.78759765625"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.36234150359849987",
+          "top1_matches": 7865,
+          "top1_rate": "0.76806640625"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.0601498531735135",
+          "top1_matches": 8487,
+          "top1_rate": "0.9208984375"
+        }
       }
     },
     {
@@ -677,6 +827,12 @@
           "label": "DwarfStar measurement contract",
           "role": "measurement contract identity",
           "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "10ca38e8bbba7d987284606178cdc6f3fb7d126578941078466db36438304000",
+          "label": "all-six-model independent class reaggregation",
+          "role": "corrected six-category KLD and Top-1 evidence",
+          "availability": "protected-not-distributed"
         }
       ],
       "replay": {
@@ -686,6 +842,50 @@
           "frozen corpus text is not distributed by this repository",
           "historical scorer implementation and numeric environment are not present on canonical main"
         ]
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.4198161331855748",
+          "top1_matches": 16174,
+          "top1_rate": "0.8313116776315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.12503407694417448",
+          "top1_matches": 6335,
+          "top1_rate": "0.8837890625"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.17446432814768387",
+          "top1_matches": 8119,
+          "top1_rate": "0.8809678819444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.46741712580868977",
+          "top1_matches": 7962,
+          "top1_rate": "0.7775390625"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.4150344098583775",
+          "top1_matches": 7795,
+          "top1_rate": "0.76123046875"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.06254742770998356",
+          "top1_matches": 8460,
+          "top1_rate": "0.91796875"
+        }
       }
     }
   ],
