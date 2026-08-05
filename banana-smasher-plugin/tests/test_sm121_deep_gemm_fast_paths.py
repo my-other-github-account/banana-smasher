@@ -115,6 +115,33 @@ def test_sm121_o_proj_preserves_deepgemm_and_uses_raw_e8m0_group_layout(
     assert len(delegated) == 1
 
 
+def test_sm121_target_profile_o_proj_uses_consumer_recipe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_sm121_layout_modules(monkeypatch)
+    flashinfer_sparse = sys.modules[
+        "vllm.models.deepseek_v4.nvidia.flashinfer_sparse"
+    ]
+
+    def target_profile_o_proj(x, x_scale, weight, weight_scale):
+        assert x.shape == (512, 8, 4096)
+        assert x_scale.shape == (512, 8, 8)
+        assert weight.shape == (8, 1024, 4096)
+        assert weight_scale.shape == (8, 8, 32)
+        return flashinfer_sparse.compute_fp8_einsum_recipe()
+
+    setattr(flashinfer_sparse, "deep_gemm_fp8_o_proj", target_profile_o_proj)
+    assert banana_smasher_plugin.configure_stock_deepseek_v4_o_proj() is True
+
+    recipe = flashinfer_sparse.deep_gemm_fp8_o_proj(
+        torch.empty((512, 8, 4096), dtype=torch.float8_e4m3fn, device="meta"),
+        torch.empty((512, 8, 8), dtype=torch.int32, device="meta"),
+        torch.empty((8, 1024, 4096), dtype=torch.float8_e4m3fn, device="meta"),
+        torch.empty((8, 8, 32), dtype=torch.float32, device="meta"),
+    )
+    assert recipe == ((1, 128, 128), False)
+
+
 def test_sm121_mhc_preserves_stock_public_deepgemm(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
