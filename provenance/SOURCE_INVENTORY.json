@@ -11,10 +11,10 @@
     {
       "byte_preserved": true,
       "bytes": 1116,
-      "output_sha256": "532335b563bf813930711bf0899f74aada1b568ce7ead680ac5d5b385dc52dd1",
+      "output_sha256": "e159fb566f41e2c5b9e1e71e1a0df11357dc59a3774f47bbad50abc9f686bc12",
       "path": "banana-smasher-plugin/pyproject.toml",
       "source_path": "banana-smasher-plugin/pyproject.toml",
-      "source_sha256": "532335b563bf813930711bf0899f74aada1b568ce7ead680ac5d5b385dc52dd1"
+      "source_sha256": "e159fb566f41e2c5b9e1e71e1a0df11357dc59a3774f47bbad50abc9f686bc12"
     },
     {
       "byte_preserved": false,

@@ -23,8 +23,8 @@ def _normalized_dependencies() -> set[str]:
 def test_plugin_runtime_dependencies_match_stock_vllm_0240() -> None:
     dependencies = _normalized_dependencies()
 
-    assert "flashinfer-python==0.6.17;sys_platform=='linux'andplatform_machine=='aarch64'" in dependencies
-    assert "flashinfer-jit-cache==0.6.17+cu130;sys_platform=='linux'andplatform_machine=='aarch64'" in dependencies
+    assert "flashinfer-python==0.6.12;sys_platform=='linux'andplatform_machine=='aarch64'" in dependencies
+    assert "flashinfer-jit-cache==0.6.12+cu130;sys_platform=='linux'andplatform_machine=='aarch64'" in dependencies
     assert "deep-gemm==2.6.1;sys_platform=='linux'andplatform_machine=='aarch64'" in dependencies
 
 
@@ -43,8 +43,9 @@ def test_clean_pip_wheelhouse_stage_exports_only_resolver_inputs() -> None:
     assert "FROM package-builder AS clean-pip-wheelhouse-builder" in dockerfile
     assert "COPY --from=package-builder /wheels/banana_smasher-1.0.0-py3-none-any.whl /wheelhouse/" in dockerfile
     assert "COPY --from=deepgemm-builder /wheels/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl /wheelhouse/" in dockerfile
-    assert "COPY --from=flashinfer-builder /wheel/flashinfer_python-0.6.17-py3-none-any.whl /wheelhouse/" in dockerfile
-    assert "COPY --from=flashinfer-builder /wheel/flashinfer_jit_cache-0.6.17+cu130-cp39-abi3-manylinux_2_28_aarch64.whl /wheelhouse/" in dockerfile
+    clean_stage = dockerfile.split("FROM package-builder AS clean-pip-wheelhouse-builder", 1)[1].split("FROM scratch AS clean-pip-wheelhouse", 1)[0]
+    assert "flashinfer_python" not in clean_stage
+    assert "flashinfer_jit_cache" not in clean_stage
     assert "FROM scratch AS clean-pip-wheelhouse" in dockerfile
     assert "COPY --from=clean-pip-wheelhouse-builder /wheelhouse/ /wheelhouse/" in dockerfile
 
