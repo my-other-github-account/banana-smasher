@@ -219,6 +219,8 @@ def main() -> int:
     _atomic_json(progress_path, progress)
 
     os.environ["BANANA_SMASHER_D4_PLANES_DIR"] = str(planes_root)
+    prior_bytes_read = int(progress.get("bytes_read", 0))
+    prior_resident_peak = int(progress.get("resident_peak_bytes", 0))
     runtime = DeepseekV4D4Runtime(
         model_root=model_root,
         parameters={"positions": args.positions},
@@ -229,8 +231,10 @@ def main() -> int:
             {
                 "stage": stage,
                 "layer": layer,
-                "bytes_read": runtime.bytes_read(),
-                "resident_peak_bytes": runtime.peak_resident_bytes(),
+                "bytes_read": prior_bytes_read + runtime.bytes_read(),
+                "resident_peak_bytes": max(
+                    prior_resident_peak, runtime.peak_resident_bytes()
+                ),
                 "elapsed_seconds": time.time() - started,
             }
         )
