@@ -4,6 +4,56 @@
 
 ## End-to-end Backpack plans
 
+### Five-minute quickstart
+
+The public surface has two layers. Family providers expose independently
+callable generation, materialization, receipt pricing, prediction, and
+verification bindings; `build_backpack` and `smash backpack build` compose the
+same public stage APIs into one resumable run.
+
+```python
+from banana_smasher import (
+    BackpackPlan,
+    build_backpack,
+    builtin_backpack_family_providers,
+    resolve_backpack_family_provider,
+)
+
+providers = builtin_backpack_family_providers()
+assert set(providers) == {
+    "native-mxfp4", "qtip@2.00", "qtip@2.50", "qtip@3.00",
+    "d4-k2048", "d4-k4096",
+}
+qtip15 = resolve_backpack_family_provider(
+    {"kind": "qtip_ring", "bpw": 1.5}
+)
+plan = BackpackPlan.from_mapping(plan_mapping, base_dir=".")
+result = build_backpack(plan, run_root="./backpack-run")
+```
+
+The provider menu is declaration-driven: QTIP rates use the packaged ring
+table, D4K2048/K4096 bind the production fixed-D4 prepare/materialize/logit
+APIs, and `vector_vq_backpack_provider(...)` covers independently callable D4
+or D8 vector-VQ fixtures. Prices are read from candidate receipts as per-cell
+payload bytes plus shared activation artifacts; the exact solver charges each
+activation identity once.
+
+The equivalent CLI path is:
+
+```console
+smash backpack build --plan plan.json --run-root ./backpack-run
+smash backpack status --run-root ./backpack-run
+smash verify ./backpack-run/pre-repair-pack
+```
+
+Migration: callers using `generate_vector_vq_backpack_candidate`,
+`generate_qtip_backpack_candidate`, or `materialize_backpack_source` may keep
+those specialized functions. New integrations should use
+`generate_backpack_candidate`, `materialize_backpack_assignment`,
+`price_backpack_candidate`, `predict_backpack_candidate`, and
+`verify_backpack_candidate`; the specialized functions remain implementation
+bindings rather than competing workflows.
+
 `BackpackPlan` is the versioned public input for the complete resumable path:
 model inspection, D4/D8/QTIP candidates, same-instrument Anchor64, six-class
 prediction rows, exact-byte assignment/materialization, pre-repair anchor,

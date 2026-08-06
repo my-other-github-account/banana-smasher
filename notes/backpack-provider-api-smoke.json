@@ -1,0 +1,40 @@
+{
+  "schema": "banana-smasher-backpack-provider-smoke-v1",
+  "status": "PASS",
+  "source": {
+    "command": "PYTHONPATH=src python3.13 tests/backpack_provider_flat_smoke.py --root <temporary-root>",
+    "module_origin": "source-tree",
+    "result": {
+      "candidate_tiers": ["d4-k4", "d8-k4", "qtip-2.0"],
+      "prediction_rows": 12,
+      "assignment_count": 4,
+      "pre_repair_pack": "PASS",
+      "final_workflow": "PASS",
+      "cli_status": "PASS"
+    }
+  },
+  "installed_wheel": {
+    "filename": "banana_smasher-1.0.0-py3-none-any.whl",
+    "sha256": "1caa8f769b2dfcfc28684ce66c66b541d8a90f036967cae5889af6e70f148c0c",
+    "module_origin": "isolated-site-packages",
+    "dependency_install": "ordinary wheel install",
+    "result": {
+      "providers": [
+        "d4-k2048",
+        "d4-k4096",
+        "native-mxfp4",
+        "qtip@2.00",
+        "qtip@2.50",
+        "qtip@3.00"
+      ],
+      "qtip15_declaration": "qtip@1.50",
+      "native_incremental_bytes": 0,
+      "candidate_tiers": ["d4-k4", "d8-k4", "qtip-2.0"],
+      "prediction_rows": 12,
+      "assignment_count": 4,
+      "pre_repair_pack": "PASS",
+      "final_workflow": "PASS",
+      "cli_status": "PASS"
+    }
+  }
+}

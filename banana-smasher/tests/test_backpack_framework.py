@@ -1304,21 +1304,111 @@ def test_public_stage_apis_compose_without_private_orchestrator(tmp_path: Path) 
     assert status_backpack(run_root)["status"] == "PASS"
 
 
+def test_qtip15_is_a_declaration_only_end_to_end_extension(tmp_path: Path) -> None:
+    plan = _fixture_plan(tmp_path)
+    activation = tmp_path / "qtip15.tlut"
+    activation.write_bytes(b"qtip15-shared-tlut")
+    plan["tiers"] = [
+        {
+            "id": "qtip-1.5",
+            "family": "qtip",
+            "bpw": 1.5,
+            "backend": "fixture_reference",
+            "activation_artifacts": [
+                {
+                    "id": "qtip15-tlut",
+                    "path": str(activation),
+                    "bytes": activation.stat().st_size,
+                    "sha256": hashlib.sha256(activation.read_bytes()).hexdigest(),
+                }
+            ],
+        }
+    ]
+    plan["repair"] = {"method": "none"}
+    plan["target"] = {"exact_bytes": 1_000_000}
+
+    sizing_run = tmp_path / "qtip15-sizing"
+    inspected = inspect_backpack(plan, run_root=sizing_run)
+    generated = generate_backpack_candidates(plan, run_root=sizing_run)
+    payload_bytes = sum(
+        int(cell["cell_payload_bytes"])
+        for tier in generated["candidate_tiers"]
+        for cell in tier["cells"]
+    )
+    plan["target"] = {
+        "exact_bytes": int(inspected["fixed_total_bytes"])
+        + payload_bytes
+        + activation.stat().st_size
+    }
+
+    run_root = tmp_path / "qtip15-run"
+    result = build_backpack(plan, run_root=run_root)
+
+    assert result["status"] == "PASS"
+    assert {row["tier"] for row in result["assignment"]} == {"qtip-1.5"}
+    assert verify_pack(Path(result["final_pack"]))["status"] == "PASS"
+    assert status_backpack(run_root)["status"] == "PASS"
+    manifest = load_manifest(Path(result["final_pack"]))
+    activation_rows = [
+        row for row in manifest["files"] if row["role"] == "backpack_activation"
+    ]
+    assert len(activation_rows) == 1
+    assert activation_rows[0]["artifact_id"] == "qtip15-tlut"
+    assert manifest["backpack_byte_accounting"]["activated_family_bytes"] == (
+        activation.stat().st_size
+    )
+    _manifest, cells = backpack_module._load_cells(BackpackPlan.from_mapping(plan))
+    for projection in ("fused13", "down"):
+        geometry = np.concatenate(
+            [
+                np.load(
+                    run_root
+                    / "candidates"
+                    / "qtip-1.5"
+                    / str(cell["cell_id"])
+                    / "record_geometry.npy",
+                    allow_pickle=False,
+                )[:, 1]
+                for cell in cells
+                if cell["projection"] == projection
+            ]
+        )
+        values, counts = np.unique(geometry, return_counts=True)
+        assert dict(zip(values.tolist(), counts.tolist(), strict=True)) == {1: 128, 2: 128}
+
+
 def test_orchestrator_calls_public_stage_api(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     plan = _fixture_plan(tmp_path)
     observed: list[str] = []
-    original = backpack_module.inspect_backpack
+    stage_names = (
+        "inspect_backpack",
+        "generate_backpack_candidates",
+        "anchor_backpack_candidates",
+        "predict_backpack",
+        "solve_backpack",
+        "anchor_backpack",
+        "repair_backpack",
+        "score_backpack",
+    )
 
-    def observed_inspect(plan: object, *, run_root: str | Path) -> dict[str, object]:
-        observed.append("inspect_backpack")
-        return original(plan, run_root=run_root)  # type: ignore[arg-type]
+    def observe(name: str, original):
+        def wrapper(plan: object, *, run_root: str | Path) -> dict[str, object]:
+            observed.append(name)
+            return original(plan, run_root=run_root)
 
-    monkeypatch.setattr(backpack_module, "inspect_backpack", observed_inspect)
+        return wrapper
+
+    for name in stage_names:
+        monkeypatch.setattr(
+            backpack_module,
+            name,
+            observe(name, getattr(backpack_module, name)),
+        )
     result = build_backpack(plan, run_root=tmp_path / "instrumented-run")
     assert result["status"] == "PASS"
-    assert observed == ["inspect_backpack"]
+    assert observed == list(stage_names)
 
 
 def test_public_candidate_and_materializer_apis_are_importable_and_used(
@@ -1360,6 +1450,16 @@ def test_public_candidate_and_materializer_apis_are_importable_and_used(
     candidates = generate_backpack_candidates(plan, run_root=run_root)
     assert candidates["status"] == "PASS"
     assert {"vq", "qtip"} <= set(calls)
+    parsed = BackpackPlan.from_mapping(plan)
+    _manifest, cells = backpack_module._load_cells(parsed)
+    candidate_receipt = json.loads(
+        Path(candidates["candidate_tiers"][0]["cells"][0]["receipt"]).read_text()
+    )
+    assert banana_smasher.verify_backpack_candidate(
+        candidate_receipt,
+        tier=parsed.tiers[0],
+        cell=cells[0],
+    )
 
     anchor_backpack_candidates(plan, run_root=run_root)
     predict_backpack(plan, run_root=run_root)

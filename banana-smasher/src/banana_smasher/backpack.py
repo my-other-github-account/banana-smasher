@@ -129,6 +129,35 @@ def _positive_int(value: object, label: str) -> int:
     return value
 
 
+def _activation_artifacts(value: object, label: str) -> list[dict[str, Any]]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise BackpackPlanError(f"{label} must be an array")
+    parsed: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, raw in enumerate(value):
+        row = _object(raw, f"{label}[{index}]")
+        _reject_unknown(row, {"id", "bytes", "sha256", "path"}, f"{label}[{index}]")
+        artifact_id = _safe_id(row.get("id"), f"{label}[{index}].id")
+        if artifact_id in seen:
+            raise BackpackPlanError(f"{label} has duplicate id {artifact_id!r}")
+        byte_count = row.get("bytes")
+        if isinstance(byte_count, bool) or not isinstance(byte_count, int) or byte_count < 0:
+            raise BackpackPlanError(f"{label}[{index}].bytes must be non-negative")
+        sha256 = _nonempty(row.get("sha256"), f"{label}[{index}].sha256")
+        if re.fullmatch(r"[0-9a-f]{64}", sha256) is None:
+            raise BackpackPlanError(f"{label}[{index}].sha256 must be lowercase SHA-256")
+        parsed_row: dict[str, Any] = {
+            "id": artifact_id,
+            "bytes": byte_count,
+            "sha256": sha256,
+        }
+        if "path" in row:
+            parsed_row["path"] = _nonempty(row["path"], f"{label}[{index}].path")
+        parsed.append(parsed_row)
+        seen.add(artifact_id)
+    return parsed
+
+
 def _path(value: object, label: str, *, base_dir: Path) -> str:
     raw = Path(_nonempty(value, label)).expanduser()
     candidate = base_dir / raw if not raw.is_absolute() else raw
@@ -215,7 +244,15 @@ class BackpackPlan:
             if family == "vector_vq":
                 _reject_unknown(
                     tier,
-                    {"id", "family", "dimension", "bits", "codebook_size", "bpw"},
+                    {
+                        "id",
+                        "family",
+                        "dimension",
+                        "bits",
+                        "codebook_size",
+                        "bpw",
+                        "activation_artifacts",
+                    },
                     f"tiers[{index}]",
                 )
                 dimension = tier.get("dimension")
@@ -256,7 +293,14 @@ class BackpackPlan:
             elif family == "qtip":
                 _reject_unknown(
                     tier,
-                    {"id", "family", "bpw", "backend", "source_root"},
+                    {
+                        "id",
+                        "family",
+                        "bpw",
+                        "backend",
+                        "source_root",
+                        "activation_artifacts",
+                    },
                     f"tiers[{index}]",
                 )
                 bpw = Decimal(str(_positive_number(tier.get("bpw"), f"tiers[{index}].bpw")))
@@ -292,6 +336,20 @@ class BackpackPlan:
                 raise BackpackPlanError(
                     f"tiers[{index}].family must be vector_vq or qtip"
                 )
+            if "activation_artifacts" in tier:
+                tier["activation_artifacts"] = _activation_artifacts(
+                    tier["activation_artifacts"],
+                    f"tiers[{index}].activation_artifacts",
+                )
+                for artifact_index, artifact in enumerate(
+                    tier["activation_artifacts"]
+                ):
+                    if "path" in artifact:
+                        artifact["path"] = _path(
+                            artifact["path"],
+                            f"tiers[{index}].activation_artifacts[{artifact_index}].path",
+                            base_dir=base,
+                        )
             tiers.append(tier)
 
         anchor = _object(value.get("anchor"), "anchor")
@@ -988,15 +1046,20 @@ def _write_candidate_artifact(
         array_rows.append(
             {"name": name, "path": str(path), "bytes": path.stat().st_size, "sha256": _sha_file(path)}
         )
+    cell_payload_bytes = len(packed) + sum(
+        int(value.nbytes) for value in extra_arrays.values()
+    )
     receipt = {
         "schema": "banana-smasher-backpack-candidate-cell-v1",
         "status": "PASS",
         "tier": tier["id"],
         "family": tier["family"],
         "cell_id": cell["cell_id"],
+        "receipt": str(destination / "RECEIPT.json"),
         "weight_count": int(decoded.size),
-        "physical_bytes": len(packed)
-        + sum(int(value.nbytes) for value in extra_arrays.values()),
+        "cell_payload_bytes": cell_payload_bytes,
+        "physical_bytes": cell_payload_bytes,
+        "activation_artifacts": list(tier.get("activation_artifacts", ())),
         "wire": {
             "path": str(destination / "wire.bin"),
             "bytes": len(packed),
@@ -1490,6 +1553,8 @@ def generate_qtip_backpack_candidate(
 
 
 def _stage_candidates(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[str, Any]:
+    from .backpack_providers import generate_backpack_candidate, price_backpack_candidate
+
     _manifest, cells = _load_cells(plan)
     tiers: list[dict[str, Any]] = []
     for tier in plan.tiers:
@@ -1500,24 +1565,19 @@ def _stage_candidates(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) ->
         )
         cell_rows = []
         for cell in cells:
-            if tier["family"] == "vector_vq":
-                receipt = generate_vector_vq_backpack_candidate(
-                    root,
-                    tier=tier,
-                    cell=cell,
-                )
-            else:
-                assert qtip_geometries is not None
-                receipt = generate_qtip_backpack_candidate(
-                    root,
-                    tier=tier,
-                    cell=cell,
-                    geometry_by_identity=qtip_geometries,
-                )
+            receipt = generate_backpack_candidate(
+                root,
+                tier=tier,
+                cell=cell,
+                geometry_by_identity=qtip_geometries,
+            )
+            price = price_backpack_candidate(receipt)
             cell_rows.append(
                 {
                     "cell_id": cell["cell_id"],
-                    "physical_bytes": receipt["physical_bytes"],
+                    "cell_payload_bytes": price.cell_payload_bytes,
+                    "physical_bytes": price.cell_payload_bytes,
+                    "activation_artifacts": list(price.activation_artifacts),
                     "projection": cell["projection"],
                     "receipt": str(
                         _candidate_root(root, str(tier["id"]), str(cell["cell_id"]))
@@ -1611,6 +1671,8 @@ def _stage_candidate_anchor(
 
 
 def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[str, Any]:
+    from .backpack_providers import predict_backpack_candidate, price_backpack_candidate
+
     manifest, cells = _load_cells(plan)
     features, classes = _load_anchor(plan, weight_count=int(manifest["weight_count"]))
     teacher = _teacher_weights(plan, cells)
@@ -1625,16 +1687,19 @@ def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[
                 cell_id=str(cell["cell_id"]),
             )
             pieces[cell_index] = np.load(artifact_root / "decoded.npy")
-            metrics = _anchor_metrics(
+            metrics = predict_backpack_candidate(
                 features, classes, teacher, np.concatenate(pieces).astype(np.float32)
             )
             candidate_receipt = json.loads((artifact_root / "RECEIPT.json").read_text())
+            price = price_backpack_candidate(candidate_receipt)
             rows.append(
                 {
                     "cell_id": cell["cell_id"],
                     "tier": tier["id"],
                     "family": tier["family"],
-                    "physical_bytes": candidate_receipt["physical_bytes"],
+                    "cell_payload_bytes": price.cell_payload_bytes,
+                    "physical_bytes": price.cell_payload_bytes,
+                    "activation_artifacts": list(price.activation_artifacts),
                     "prediction_by_class": {
                         name: metrics["by_class"][name]["kld"] for name in CLASSES
                     },
@@ -1822,6 +1887,46 @@ def _repair_state_bytes(pack_manifest: Mapping[str, Any]) -> int:
     return value
 
 
+def _activation_artifacts_from_manifest(
+    pack_manifest: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    rows = pack_manifest.get("files")
+    if not isinstance(rows, list):
+        raise BackpackPlanError("pack manifest files must be an array")
+    activations: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, Mapping) or row.get("role") != "backpack_activation":
+            continue
+        artifact_id = row.get("artifact_id")
+        byte_count = row.get("bytes")
+        sha256 = row.get("sha256")
+        path = row.get("path")
+        if (
+            not isinstance(artifact_id, str)
+            or not artifact_id
+            or artifact_id in seen
+            or isinstance(byte_count, bool)
+            or not isinstance(byte_count, int)
+            or byte_count < 0
+            or not isinstance(sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
+            or not isinstance(path, str)
+            or not path
+        ):
+            raise BackpackPlanError("pack contains a malformed activation artifact row")
+        activations.append(
+            {
+                "id": artifact_id,
+                "path": path,
+                "bytes": byte_count,
+                "sha256": sha256,
+            }
+        )
+        seen.add(artifact_id)
+    return sorted(activations, key=lambda row: str(row["id"]))
+
+
 def _backpack_accounting(
     plan: BackpackPlan,
     pack_manifest: Mapping[str, Any],
@@ -1835,6 +1940,8 @@ def _backpack_accounting(
     _model_path, model_manifest = _model_manifest(plan)
     tensor_bytes = sum(int(row["data_bytes"]) for row in tensor_index.values())
     fixed_bytes = sum(int(record["bytes"]) for record in fixed)
+    activated_artifacts = _activation_artifacts_from_manifest(pack_manifest)
+    activated_family_bytes = sum(int(row["bytes"]) for row in activated_artifacts)
     repair_state_bytes = _repair_state_bytes(pack_manifest)
     declared_repair_bytes = (
         int(model_manifest.get("repair_bytes", 0))
@@ -1847,7 +1954,9 @@ def _backpack_accounting(
             "pack repair-state byte accounting mismatch: "
             f"{repair_state_bytes} != {expected_repair_bytes}"
         )
-    whole_model_bytes = tensor_bytes + fixed_bytes + repair_state_bytes
+    whole_model_bytes = (
+        tensor_bytes + fixed_bytes + activated_family_bytes + repair_state_bytes
+    )
     target_bytes = _target_whole_model_bytes(plan, model_manifest)
     materialization_target_bytes = target_bytes - (
         declared_repair_bytes if not include_repair else 0
@@ -1860,6 +1969,8 @@ def _backpack_accounting(
     return {
         "tensor_bytes": tensor_bytes,
         "fixed_bytes": fixed_bytes,
+        "activated_family_bytes": activated_family_bytes,
+        "activated_artifacts": activated_artifacts,
         "repair_state_bytes": repair_state_bytes,
         "whole_model_bytes": whole_model_bytes,
         "target_whole_model_bytes": target_bytes,
@@ -1868,8 +1979,12 @@ def _backpack_accounting(
     }
 
 
-def _attach_fixed_artifacts(
-    plan: BackpackPlan, output: Path, *, include_repair: bool
+def _attach_backpack_artifacts(
+    plan: BackpackPlan,
+    output: Path,
+    *,
+    activation_artifacts: Sequence[Mapping[str, Any]],
+    include_repair: bool,
 ) -> None:
     from .contract import MANIFEST_NAME
 
@@ -1895,6 +2010,57 @@ def _attach_fixed_artifacts(
                 "sha256": str(record["sha256"]),
             }
         )
+    seen_activation_ids: set[str] = set()
+    for index, record in enumerate(
+        sorted(activation_artifacts, key=lambda row: str(row.get("id", "")))
+    ):
+        artifact_id = record.get("id")
+        source_value = record.get("path")
+        expected_bytes = record.get("bytes")
+        expected_sha256 = record.get("sha256")
+        if (
+            not isinstance(artifact_id, str)
+            or not artifact_id
+            or artifact_id in seen_activation_ids
+            or not isinstance(source_value, str)
+            or not source_value
+            or isinstance(expected_bytes, bool)
+            or not isinstance(expected_bytes, int)
+            or expected_bytes < 0
+            or not isinstance(expected_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
+        ):
+            raise BackpackPlanError(
+                "selected activation artifacts require unique id/path/bytes/sha256 bindings"
+            )
+        source = Path(source_value)
+        if (
+            source.is_symlink()
+            or not source.is_file()
+            or source.stat().st_size != expected_bytes
+            or _sha_file(source) != expected_sha256
+        ):
+            raise BackpackPlanError(
+                f"selected activation artifact binding drift: {artifact_id}"
+            )
+        relative = (
+            Path("backpack-activation")
+            / artifact_id
+            / f"{index:04d}-{source.name}"
+        )
+        destination = output / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        file_rows.append(
+            {
+                "path": relative.as_posix(),
+                "role": "backpack_activation",
+                "artifact_id": artifact_id,
+                "bytes": expected_bytes,
+                "sha256": expected_sha256,
+            }
+        )
+        seen_activation_ids.add(artifact_id)
     pack_manifest["backpack_byte_accounting"] = _backpack_accounting(
         plan,
         pack_manifest,
@@ -1905,7 +2071,11 @@ def _attach_fixed_artifacts(
 
 
 def _verify_backpack_accounting(
-    plan: BackpackPlan, output: Path, *, include_repair: bool
+    plan: BackpackPlan,
+    output: Path,
+    *,
+    activation_artifacts: Sequence[Mapping[str, Any]],
+    include_repair: bool,
 ) -> None:
     from .contract import load_manifest
 
@@ -1923,6 +2093,20 @@ def _verify_backpack_accounting(
     )
     if dict(accounting) != expected:
         raise BackpackPlanError(f"pack Backpack byte accounting mismatch: {output}")
+    expected_activation_identity = sorted(
+        (
+            str(row.get("id")),
+            int(row.get("bytes", -1)),
+            str(row.get("sha256")),
+        )
+        for row in activation_artifacts
+    )
+    actual_activation_identity = sorted(
+        (str(row["id"]), int(row["bytes"]), str(row["sha256"]))
+        for row in expected["activated_artifacts"]
+    )
+    if actual_activation_identity != expected_activation_identity:
+        raise BackpackPlanError(f"pack activation artifact mismatch: {output}")
 
 
 def _configured_repair_bundle(plan: BackpackPlan) -> RepairBundle | None:
@@ -2111,6 +2295,7 @@ def _export_verified_pack(
     plan: BackpackPlan,
     suffix: str,
     repair: RepairBundle | None = None,
+    activation_artifacts: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     from .contract import export_pack, verify_pack
 
@@ -2125,7 +2310,10 @@ def _export_verified_pack(
                 f"expected {expected_instance!r}: {output}"
             )
         _verify_backpack_accounting(
-            plan, output, include_repair=repair is not None
+            plan,
+            output,
+            activation_artifacts=activation_artifacts,
+            include_repair=repair is not None,
         )
         _verify_pack_repair_contract(output, plan=plan, repair=repair)
         return verification
@@ -2138,9 +2326,19 @@ def _export_verified_pack(
         repair=repair,
         runtime_floor_bytes=0,
     )
-    _attach_fixed_artifacts(plan, output, include_repair=repair is not None)
+    _attach_backpack_artifacts(
+        plan,
+        output,
+        activation_artifacts=activation_artifacts,
+        include_repair=repair is not None,
+    )
     verification = verify_pack(output)
-    _verify_backpack_accounting(plan, output, include_repair=repair is not None)
+    _verify_backpack_accounting(
+        plan,
+        output,
+        activation_artifacts=activation_artifacts,
+        include_repair=repair is not None,
+    )
     _verify_pack_repair_contract(output, plan=plan, repair=repair)
     return verification
 
@@ -2148,6 +2346,11 @@ def _export_verified_pack(
 def _stage_solve_materialize(
     plan: BackpackPlan, root: Path, prior: dict[str, Any]
 ) -> dict[str, Any]:
+    from .backpack_providers import (
+        activation_artifacts_for_options,
+        materialize_backpack_assignment,
+    )
+
     inspect = prior["inspect"]
     pred_rows = prior["pred"]["rows"]
     tiers = [str(tier["id"]) for tier in plan.tiers]
@@ -2180,6 +2383,17 @@ def _stage_solve_materialize(
         for group in groups
         for tier in tiers
     }
+    activation_artifacts_by_option = {
+        (group, tier): activation_artifacts_for_options(
+            [
+                rows_by_option[(cell_id, tier)]
+                for cell_id, candidate_group in cell_group.items()
+                if candidate_group == group
+            ]
+        )
+        for group in groups
+        for tier in tiers
+    }
     from .knapsack import solve_class_balanced_options
 
     solved = solve_class_balanced_options(
@@ -2190,6 +2404,7 @@ def _stage_solve_materialize(
         envelope_bytes=int(inspect["payload_envelope_bytes"]),
         class_caps=dict(plan.prediction["class_caps"]),
         exact_envelope=True,
+        activation_artifacts_by_option=activation_artifacts_by_option,
     )
     selected_by_group = {
         str(row["cell_id"]): str(row["tier"]) for row in solved["assignments"]
@@ -2210,7 +2425,9 @@ def _stage_solve_materialize(
         }
         for cell in model_cells
     ]
-    if sum(int(row["bytes"]) for row in assignment) != int(solved["assigned_bytes"]):
+    if sum(int(row["bytes"]) for row in assignment) != int(
+        solved["cell_payload_bytes"]
+    ):
         raise RuntimeError("coupled assignment byte accounting drift")
     artifact_roots = {
         str(row["cell_id"]): candidate_artifact_root(
@@ -2221,7 +2438,7 @@ def _stage_solve_materialize(
         for row in assignment
     }
     source = root / "materialized" / "pre-repair-source"
-    materialize_backpack_source(
+    materialize_backpack_assignment(
         source,
         plan=plan,
         cells=model_cells,
@@ -2229,7 +2446,13 @@ def _stage_solve_materialize(
         artifact_roots=artifact_roots,
     )
     pre_pack = root / "pre-repair-pack"
-    verification = _export_verified_pack(source, pre_pack, plan=plan, suffix="pre-repair")
+    verification = _export_verified_pack(
+        source,
+        pre_pack,
+        plan=plan,
+        suffix="pre-repair",
+        activation_artifacts=solved["activated_artifacts"],
+    )
     fixed = int(inspect["fixed_total_bytes"])
     whole = fixed + int(solved["assigned_bytes"])
     if whole > int(inspect["target_whole_model_bytes"]):
@@ -2241,7 +2464,10 @@ def _stage_solve_materialize(
             "schema": "banana-smasher-backpack-assignment-v1",
             "status": "PASS",
             "assignments": assignment,
+            "activated_artifacts": solved["activated_artifacts"],
             "byte_accounting": {
+                "cell_payload_bytes": solved["cell_payload_bytes"],
+                "activated_family_bytes": solved["activation_bytes"],
                 "candidate_payload_bytes": solved["assigned_bytes"],
                 "fixed_bytes": fixed,
                 "whole_model_bytes": whole,
@@ -2252,8 +2478,11 @@ def _stage_solve_materialize(
     )
     return {
         "assignment": assignment,
+        "activated_artifacts": solved["activated_artifacts"],
         "assignment_receipt": str(assignment_path),
         "byte_accounting": {
+            "cell_payload_bytes": solved["cell_payload_bytes"],
+            "activated_family_bytes": solved["activation_bytes"],
             "candidate_payload_bytes": solved["assigned_bytes"],
             "fixed_bytes": fixed,
             "whole_model_bytes": whole,
@@ -2650,6 +2879,9 @@ def _stage_repair(plan: BackpackPlan, root: Path, prior: dict[str, Any]) -> dict
         plan=plan,
         suffix="final",
         repair=bundle,
+        activation_artifacts=prior["solve_materialize"].get(
+            "activated_artifacts", ()
+        ),
     )
     arrays = root / "repair" / "cells"
     arrays.mkdir(parents=True, exist_ok=True)
@@ -2849,6 +3081,8 @@ def _validate_stage_artifacts(
         rows = reuse.get("receipts")
         return isinstance(rows, list) and all(_validate_bound_file(row) for row in rows)
     if stage == "candidates":
+        from .backpack_providers import verify_backpack_candidate
+
         tier_rows = result.get("candidate_tiers")
         if not isinstance(tier_rows, list):
             return False
@@ -2896,7 +3130,7 @@ def _validate_stage_artifacts(
                 if (
                     expected_cell is None
                     or cell_row.get("projection") != expected_cell["projection"]
-                    or not _validate_candidate_receipt(
+                    or not verify_backpack_candidate(
                         cell_row.get("receipt"),
                         tier=expected_tier,
                         cell=expected_cell,
@@ -2936,7 +3170,7 @@ def _validate_stage_artifacts(
         ) and _validate_status_json_receipt(result.get("receipt"))
     if stage not in {"solve_materialize", "repair", "final_score"}:
         return True
-    from .contract import verify_pack
+    from .contract import load_manifest, verify_pack
 
     if stage == "solve_materialize":
         pack_value = result.get("pre_repair_pack")
@@ -2951,9 +3185,11 @@ def _validate_stage_artifacts(
         return False
     try:
         verification = verify_pack(pack)
+        activation_artifacts = _activation_artifacts_from_manifest(load_manifest(pack))
         _verify_backpack_accounting(
             plan,
             pack,
+            activation_artifacts=activation_artifacts,
             include_repair=(
                 stage != "solve_materialize"
                 and plan.repair["method"] == REPAIR_BUNDLE_METHOD
@@ -3181,6 +3417,10 @@ def _validate_candidate_receipt(
     )
     if (
         receipt.get("physical_bytes") != physical_bytes
+        or receipt.get("cell_payload_bytes", receipt.get("physical_bytes"))
+        != physical_bytes
+        or receipt.get("activation_artifacts", [])
+        != list(tier.get("activation_artifacts", ()))
         or receipt.get("weight_count") != int(decoded.size)
         or decoded.dtype != np.float32
         or decoded.size != np.asarray(cell["weights"]).size
@@ -3616,18 +3856,6 @@ def score_backpack(
     return _execute_public_stage(plan, run_root=run_root, stage="final_score")
 
 
-_PUBLIC_STAGE_APIS = (
-    "inspect_backpack",
-    "generate_backpack_candidates",
-    "anchor_backpack_candidates",
-    "predict_backpack",
-    "solve_backpack",
-    "anchor_backpack",
-    "repair_backpack",
-    "score_backpack",
-)
-
-
 def reuse_backpack_receipts(
     receipts: Sequence[Mapping[str, Any]], *, output: str | Path
 ) -> dict[str, Any]:
@@ -3678,7 +3906,17 @@ def build_backpack(
     resumed: list[str] = []
     final_result: dict[str, Any] | None = None
     prior_stage_sha256: dict[str, str] = {}
-    for index, (stage, stage_api_name) in enumerate(zip(STAGES, _PUBLIC_STAGE_APIS), 1):
+    public_stages = (
+        ("inspect", inspect_backpack),
+        ("candidates", generate_backpack_candidates),
+        ("candidate_anchor", anchor_backpack_candidates),
+        ("pred", predict_backpack),
+        ("solve_materialize", solve_backpack),
+        ("pre_repair_anchor", anchor_backpack),
+        ("repair", repair_backpack),
+        ("final_score", score_backpack),
+    )
+    for index, (stage, stage_api) in enumerate(public_stages, 1):
         path = _stage_path(root, index, stage)
         existing = _load_verified_stage(
             path,
@@ -3689,7 +3927,7 @@ def build_backpack(
         )
         if existing is not None:
             resumed.append(stage)
-        final_result = globals()[stage_api_name](parsed, run_root=root)
+        final_result = stage_api(parsed, run_root=root)
         prior_stage_sha256[stage] = _sha_file(path)
 
     assert final_result is not None

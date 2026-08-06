@@ -259,6 +259,9 @@ def _parser() -> argparse.ArgumentParser:
         "status", help="show completed stages and the first incomplete boundary"
     )
     backpack_status.add_argument("--run-root", type=Path, required=True)
+    backpack_commands.add_parser(
+        "providers", help="list built-in family providers and their public operations"
+    )
     backpack_export = backpack_commands.add_parser(
         "export", help="export one lifecycle model from a completed Backpack run"
     )
@@ -1056,6 +1059,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = build_backpack(plan, run_root=args.run_root)
             elif args.backpack_command == "status":
                 result = status_backpack(args.run_root)
+            elif args.backpack_command == "providers":
+                from .backpack_providers import builtin_backpack_family_providers
+
+                result = {
+                    "schema": "banana-smasher-backpack-provider-menu-v1",
+                    "status": "PASS",
+                    "providers": [
+                        {
+                            "id": provider.provider_id,
+                            "kind": provider.kind,
+                            "runtime_family": provider.runtime_family,
+                            "operations": [
+                                "generate",
+                                "materialize",
+                                "price",
+                                "predict",
+                                "verify",
+                            ],
+                        }
+                        for provider in builtin_backpack_family_providers().values()
+                    ],
+                }
             elif args.backpack_command == "export":
                 result = export_backpack_lifecycle(
                     args.run_root,
