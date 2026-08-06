@@ -102,6 +102,7 @@ from .fixed_d4 import (
 )
 from .persistent import UpdateQueue
 from .qtip1 import (
+    EncodedQtip,
     QTIP1_GEOMETRY,
     QTIP2_GEOMETRY,
     QtipGeometry,
@@ -118,6 +119,7 @@ from .qtip1 import (
     qtip_provider_counts,
     unpack_qtip_states,
     verify_qtip_wire,
+    write_encoded_qtip_wire,
     write_qtip_wire,
 )
 from .update_service import serve_persistent_updates
@@ -178,6 +180,7 @@ __all__ = [
     "BackpackWirePrice",
     "ContextualValuationError",
     "EXACT64_TERMINAL_SCHEMA",
+    "EncodedQtip",
     "QTIP1_GEOMETRY",
     "QTIP2_GEOMETRY",
     "QtipGeometry",
@@ -271,5 +274,6 @@ __all__ = [
     "verify_fixed_d4_model",
     "verify_pack",
     "verify_qtip_wire",
+    "write_encoded_qtip_wire",
     "write_qtip_wire",
 ]

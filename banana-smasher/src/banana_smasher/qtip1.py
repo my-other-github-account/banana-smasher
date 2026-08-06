@@ -592,34 +592,65 @@ def _write_qtip_wire_into(
     root: str | Path,
     *,
     declaration: QtipProviderDeclaration,
-    matrices: Mapping[Identity, np.ndarray],
     tlut: np.ndarray,
+    matrices: Mapping[Identity, np.ndarray] | None = None,
+    encodings: Mapping[Identity, EncodedQtip] | None = None,
 ) -> dict[str, Any]:
     """Write one exact provider wire into a new staging directory."""
-    if not matrices:
-        raise ValueError("QTIP wire requires at least one matrix")
+    if (matrices is None) == (encodings is None):
+        raise ValueError("QTIP wire requires exactly one of matrices or encodings")
+    members_input: Mapping[Identity, np.ndarray | EncodedQtip]
+    members_input = matrices if matrices is not None else encodings  # type: ignore[assignment]
+    if not members_input:
+        raise ValueError("QTIP wire requires at least one member")
     output = Path(root).resolve()
     if output.exists():
         raise FileExistsError(f"QTIP wire output already exists: {output}")
     table = np.asarray(tlut, dtype=np.float32)
     if table.ndim != 2 or not table.size or not np.isfinite(table).all():
         raise ValueError("shared QTIP TLUT must be a finite non-empty matrix")
-    assignments = assign_qtip_provider_components(declaration, matrices)
-    for identity, raw_matrix in matrices.items():
-        matrix = np.asarray(raw_matrix)
+    assignments = assign_qtip_provider_components(declaration, members_input)
+    for component in set(assignments.values()):
+        _state_lut(component.geometry, table)
+    for identity, raw_member in members_input.items():
         component = assignments[identity]
+        if matrices is not None:
+            matrix = np.asarray(raw_member)
+            if (
+                matrix.ndim != 2
+                or matrix.size == 0
+                or matrix.shape[1] % component.geometry.V
+                or matrix.shape[1] // component.geometry.V * component.geometry.branch_bits
+                < component.geometry.L
+                or not np.isfinite(matrix).all()
+            ):
+                raise ValueError(
+                    f"QTIP wire member {identity!r} must be a finite non-empty matrix "
+                    "with sufficient geometry-aligned columns"
+                )
+            continue
+        encoded = raw_member
+        if not isinstance(encoded, EncodedQtip) or encoded.geometry != component.geometry:
+            raise ValueError(f"QTIP encoded member {identity!r} geometry drift")
+        rows, width = encoded.shape
+        if rows < 1 or width < 1 or width % encoded.geometry.V:
+            raise ValueError(f"QTIP encoded member {identity!r} has invalid shape")
+        steps = width // encoded.geometry.V
+        states = unpack_qtip_states(
+            encoded.packed,
+            steps=steps,
+            geometry=encoded.geometry,
+        )
+        scales = np.asarray(encoded.scales)
         if (
-            matrix.ndim != 2
-            or matrix.size == 0
-            or matrix.shape[1] % component.geometry.V
-            or matrix.shape[1] // component.geometry.V * component.geometry.branch_bits
-            < component.geometry.L
-            or not np.isfinite(matrix).all()
+            states.shape != (rows, steps)
+            or not np.array_equal(np.asarray(encoded.states), states)
+            or scales.dtype != np.float32
+            or scales.shape != (rows,)
+            or np.any(~np.isfinite(scales))
+            or np.any(scales <= 0)
         ):
-            raise ValueError(
-                f"QTIP wire member {identity!r} must be a finite non-empty matrix "
-                "with sufficient geometry-aligned columns"
-            )
+            raise ValueError(f"QTIP encoded member {identity!r} state/scale drift")
     output.mkdir(parents=True)
     tlut_path = output / "shared_tlut.npy"
     np.save(tlut_path, table, allow_pickle=False)
@@ -629,13 +660,16 @@ def _write_qtip_wire_into(
     index_data_bytes = 0
     scale_data_bytes = 0
     member_physical_bytes = 0
-    for identity in sorted(matrices):
+    for identity in sorted(members_input):
         component = assignments[identity]
-        encoded = encode_qtip(
-            matrices[identity],
-            geometry=component.geometry,
-            tlut=table,
-        )
+        if matrices is not None:
+            encoded = encode_qtip(
+                matrices[identity],
+                geometry=component.geometry,
+                tlut=table,
+            )
+        else:
+            encoded = encodings[identity]  # type: ignore[index]
         layer, expert, projection = identity
         stem = f"L{layer:03d}_E{expert:03d}_{projection}.{component.name}"
         packed_path = output / f"{stem}.trellis.npy"
@@ -735,6 +769,35 @@ def write_qtip_wire(
         shutil.rmtree(staging_parent, ignore_errors=True)
 
 
+def write_encoded_qtip_wire(
+    root: str | Path,
+    *,
+    declaration: QtipProviderDeclaration,
+    encodings: Mapping[Identity, EncodedQtip],
+    tlut: np.ndarray,
+) -> dict[str, Any]:
+    """Materialize validated quality-fitted QTIP paths through the public wire API."""
+    output = Path(root).resolve()
+    if output.exists():
+        raise FileExistsError(f"QTIP wire output already exists: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging_parent = Path(
+        tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent)
+    )
+    staging = staging_parent / "wire"
+    try:
+        receipt = _write_qtip_wire_into(
+            staging,
+            declaration=declaration,
+            encodings=encodings,
+            tlut=tlut,
+        )
+        os.replace(staging, output)
+        return receipt
+    finally:
+        shutil.rmtree(staging_parent, ignore_errors=True)
+
+
 class QtipWireConsumer:
     """Generic runtime-side reader; dispatch is by declared component geometry."""
 
@@ -762,6 +825,8 @@ class QtipWireConsumer:
         raw_members = receipt.get("members")
         if not isinstance(raw_members, list):
             raise ValueError("QTIP wire members must be a list")
+        if not raw_members:
+            raise ValueError("QTIP wire requires at least one member")
         self._members: dict[Identity, dict[str, object]] = {}
         for row in raw_members:
             if not isinstance(row, dict) or not isinstance(row.get("identity"), dict):
@@ -889,5 +954,6 @@ __all__ = [
     "qtip_provider_counts",
     "unpack_qtip_states",
     "verify_qtip_wire",
+    "write_encoded_qtip_wire",
     "write_qtip_wire",
 ]
