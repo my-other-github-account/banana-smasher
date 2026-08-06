@@ -61,7 +61,13 @@
         "bytes": 136662446656,
         "decimal_gb": "136.662446656",
         "parameter_denominator": 284334567511,
-        "normalized_bpw": "3.84511662728346850440505038646609313779223476049666531535789"
+        "normalized_bpw": "3.84511662728346850440505038646609313779223476049666531535789",
+        "total_model_parameters": 284334567511,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 0
+        },
+        "total_model_bpw": "3.84511662728346850440505038646609313779223476049666531535789"
       },
       "kld": {
         "direction": "KL(teacher||candidate)",
@@ -191,7 +197,13 @@
         "bytes": 123934682354,
         "decimal_gb": "123.934682354",
         "parameter_denominator": 284334567511,
-        "normalized_bpw": "3.48700992465027274894687927721480550531597653683639523743380"
+        "normalized_bpw": "3.48700992465027274894687927721480550531597653683639523743380",
+        "total_model_parameters": 284334567511,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 0
+        },
+        "total_model_bpw": "3.48700992465027274894687927721480550531597653683639523743380"
       },
       "kld": {
         "direction": "KL(teacher||candidate)",
@@ -373,7 +385,13 @@
         "bytes": 106623252108,
         "decimal_gb": "106.623252108",
         "parameter_denominator": 284334567511,
-        "normalized_bpw": "2.9999377997928467990522421626080526990841921473725627341420659657374837984723320"
+        "normalized_bpw": "2.9999377997928467990522421626080526990841921473725627341420659657374837984723320",
+        "total_model_parameters": 284334567511,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 0
+        },
+        "total_model_bpw": "2.9999377997928467990522421626080526990841921473725627341420659657374837984723320"
       },
       "kld": {
         "direction": "KL(teacher||candidate)",
@@ -560,7 +578,13 @@
         "bytes": 104207848032,
         "decimal_gb": "104.207848032",
         "parameter_denominator": 284334567511,
-        "normalized_bpw": "2.93197830834883710932601535266166267708804597088615155566779"
+        "normalized_bpw": "2.93197830834883710932601535266166267708804597088615155566779",
+        "total_model_parameters": 284334567511,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 0
+        },
+        "total_model_bpw": "2.93197830834883710932601535266166267708804597088615155566779"
       },
       "kld": {
         "direction": "KL(teacher||candidate)",
@@ -684,7 +708,13 @@
         "bytes": 89296314458,
         "decimal_gb": "89.296314458",
         "parameter_denominator": 284334567511,
-        "normalized_bpw": "2.5124293606557819496666946714231865550935692962972950439475838776323831162246700"
+        "normalized_bpw": "2.5124293606557819496666946714231865550935692962972950439475838776323831162246700",
+        "total_model_parameters": 284334567511,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 0
+        },
+        "total_model_bpw": "2.5124293606557819496666946714231865550935692962972950439475838776323831162246700"
       },
       "kld": {
         "direction": "KL(teacher||candidate)",
@@ -864,7 +894,13 @@
         "bytes": 90860736928,
         "decimal_gb": "90.860736928",
         "parameter_denominator": 284334567511,
-        "normalized_bpw": "2.55644574554192780938968595190844480957809362062402409152428"
+        "normalized_bpw": "2.55644574554192780938968595190844480957809362062402409152428",
+        "total_model_parameters": 284334567511,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 0
+        },
+        "total_model_bpw": "2.55644574554192780938968595190844480957809362062402409152428"
       },
       "kld": {
         "direction": "KL(teacher||candidate)",
@@ -981,7 +1017,13 @@
         "bytes": 93691352992,
         "decimal_gb": "93.691352992",
         "parameter_denominator": 284334567511,
-        "normalized_bpw": "2.63608758687774759058919129311816402968907463449170730541087"
+        "normalized_bpw": "2.63608758687774759058919129311816402968907463449170730541087",
+        "total_model_parameters": 304180418494,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 19845850983
+        },
+        "total_model_bpw": "2.464099522404939413068858133872326001823927255892520785440878485452689555401858115769576234883829175"
       },
       "kld": {
         "direction": "KL(teacher||candidate)",

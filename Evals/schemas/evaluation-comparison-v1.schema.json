@@ -116,14 +116,28 @@
         "blockers": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
       }
     },
+    "modelParameterComponents": {
+      "type": "object", "additionalProperties": false,
+      "required": ["base_model", "auxiliary_models"],
+      "properties": {
+        "base_model": {"type": "integer", "minimum": 1},
+        "auxiliary_models": {"type": "integer", "minimum": 0}
+      }
+    },
     "wire": {
       "type": "object", "additionalProperties": false,
-      "required": ["bytes", "decimal_gb", "parameter_denominator", "normalized_bpw"],
+      "required": [
+        "bytes", "decimal_gb", "parameter_denominator", "normalized_bpw",
+        "total_model_parameters", "total_model_parameter_components", "total_model_bpw"
+      ],
       "properties": {
         "bytes": {"type": "integer", "minimum": 1},
         "decimal_gb": {"$ref": "#/$defs/decimal"},
         "parameter_denominator": {"type": "integer", "minimum": 1},
-        "normalized_bpw": {"$ref": "#/$defs/decimal"}
+        "normalized_bpw": {"$ref": "#/$defs/decimal"},
+        "total_model_parameters": {"type": "integer", "minimum": 1},
+        "total_model_parameter_components": {"$ref": "#/$defs/modelParameterComponents"},
+        "total_model_bpw": {"$ref": "#/$defs/decimal"}
       }
     },
     "kld": {

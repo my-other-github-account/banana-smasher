@@ -5,7 +5,7 @@
 BALANCED64 compares quantized DeepSeek-V4-Flash-0731 candidates with their own
 FP8 teacher on a frozen set of 64 windows. The compact competitive receipt covers
 `UD-IQ2_XXS`, `UD-IQ3_XXS`, `UD-IQ4_XS`, `DwarfStar-Q2-0731`, corrected all-43
-QTIP2, and exact uniform QTIP3.
+QTIP2, deterministic mixed QTIP2.5, and exact uniform QTIP3.
 
 The paired global metrics are:
 
@@ -34,7 +34,8 @@ The executable authority is
 | Positions | 1,024 per window; 65,536 total |
 | Support | teacher top 8,192 token IDs per position |
 | FP | `FP8 e4m3 dynamic own-base teacher` |
-| BPW denominator | `284334567511` parameters |
+| Base-model parameter count | `284334567511` parameters |
+| Total-model BPW denominator | Every base and auxiliary-model tensor parameter shipped in that artifact |
 | Classes | agentic 19, chat 7, code 9, multilingual 10, prose 10, reasoning 9 |
 
 The tracked lock contains all 64 `(ordinal, window_id, source_class)` triples.
@@ -93,14 +94,21 @@ python3 -m Evals.tools.receipts verify \
   --suite-lock Evals/configs/balanced64-v1.json
 ```
 
-Expected ranking in both global metrics:
+Expected KLD ranking, from lower to higher:
 
 ```text
-UD-IQ4_XS > QTIP3-uniform-exact > UD-IQ3_XXS > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
+UD-IQ4_XS > QTIP3-uniform-exact > UD-IQ3_XXS > QTIP2.5-all43-FF0731 > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
 ```
 
-This validates tracked structure, suite-lock consistency, Top-1/GB/BPW
-arithmetic, denominator/FP consistency, SHA-256 syntax, replay-status honesty,
+Expected Top-1 ranking, from higher to lower:
+
+```text
+UD-IQ4_XS > QTIP3-uniform-exact > QTIP2.5-all43-FF0731 > UD-IQ3_XXS > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
+```
+
+This validates tracked structure, suite-lock consistency, Top-1/GB arithmetic,
+base-normalized and total-model BPW arithmetic, denominator/FP consistency,
+SHA-256 syntax, replay-status honesty,
 and rankings. For the QTIP rows it also checks six-class position and Top-1 sums,
 integer-derived class rates, weighted class KLD, exact component-byte sums, and
 candidate/teacher/scorer/population bindings. It does not authenticate or
@@ -143,7 +151,7 @@ numerators. It reports corrected-class and global aggregates.
 
 ## C. Full GPU measurement replay boundary
 
-The six published measurements are **not** currently end-to-end
+The seven published measurements are **not** currently end-to-end
 replayable from a clean public clone:
 
 - protected teacher-bank payloads and corpus text are not distributed;
