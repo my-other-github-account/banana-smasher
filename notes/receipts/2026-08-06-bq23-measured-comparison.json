@@ -99,22 +99,19 @@
     }
   },
   "paired_comparison": {
-    "scope": "BQ23-PRE versus capped WITH retired-average menu; exact matching basis, bank, windows, reducer, repair=false, and HOLDOUT=false.",
+    "scope": "BQ23-PRE versus capped WITH retired-average menu; exact matching cap, basis, bank, windows, teacher, scorer, support, reducer, repair=false, and HOLDOUT=false.",
+    "cap_bytes": 101346700411,
+    "cap_regime": "CAPPED_MATCHED",
     "bq23_top1_match_advantage": 357,
     "bq23_top1_percentage_point_advantage": 0.54473876953125,
     "bq23_kld_reduction": 0.013171871549275238,
     "retired_menu_kld_percent_worse_than_bq23": 12.439417517707675,
     "bq23_package_byte_difference": 2695852
   },
-  "standalone_average_comparison": {
-    "scope": "Measured directional comparison; not package-matched.",
-    "bq23_top1_match_advantage": 653,
-    "bq23_top1_percentage_point_advantage": 0.99639892578125,
-    "bq23_kld_reduction": 0.044082041665830546,
-    "fixed_average_kld_percent_worse_than_bq23": 41.63075226347954,
-    "bq23_package_bytes_smaller": 5280809101
-  },
   "decision": {
+    "comparison_policy": "Only identical windows/bank, teacher, scorer, support, reducer, repair state, and cap regime may produce deltas, percentages, rankings, or decisions; capped compares only with the same cap and uncapped only with uncapped.",
+    "decision_evidence": "paired_comparison_only",
+    "nonpaired_comparisons_excluded": true,
     "retire_fixed_qtip2_5_average": true,
     "retain_bq23": true,
     "retain_dynamic_qtip2_qtip3_options": true,
@@ -130,9 +127,8 @@
     "d4_total": 4717,
     "same_assignment_lineage_as_bq23": false,
     "historical_pre_repair_measurement": {
-      "absolute_kld_above_bq23_pre": 0.012249920610707218,
-      "bq23_pre_fraction_lower": 0.10369154066333666,
-      "bq23_pre_mean_kld": 0.1058881698481855,
+      "comparison_permitted": false,
+      "comparison_reason": "The historical seal and BQ23-PRE use different 64-window banks.",
       "historical_mean_kld": 0.11813809045889272,
       "same_64_window_bank_as_bq23": false,
       "strict_paired_comparison": false,
