@@ -1,6 +1,11 @@
 {
   "schema": "banana-smasher-backpack-provider-smoke-v1",
   "status": "PASS",
+  "source_commit": "be5af861e89cc78d7bd7a7328dc091d49ea27f01",
+  "focused_tests": {
+    "command": "PYTHONPATH=src python3.13 -m pytest -q tests/test_backpack_family_providers.py tests/test_qtip1.py",
+    "result": "11 passed"
+  },
   "source": {
     "command": "PYTHONPATH=src python3.13 tests/backpack_provider_flat_smoke.py --root <temporary-root>",
     "module_origin": "source-tree",
@@ -16,7 +21,7 @@
   "installed_wheel": {
     "clean_git_archive": true,
     "filename": "banana_smasher-1.0.0-py3-none-any.whl",
-    "sha256": "bbed56b2218464667017d030bace513c93df92e82c55e28fd6a5e4f3009f5b2e",
+    "sha256": "8b8120bd73c7fa18f82d0ec1a8d1a53cdb725759fb8b3b8144c898e7caee9bb8",
     "module_origin": "isolated-site-packages",
     "dependency_install": "ordinary wheel install",
     "update_backends": [
