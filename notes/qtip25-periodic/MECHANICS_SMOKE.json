@@ -3,9 +3,10 @@
   "status": "PASS",
   "quality_evidence": false,
   "fixture": "deterministic-synthetic-transitions",
-  "provider_id": "qtip25-periodic",
+  "public_name": "QTIP2.5-PERIODIC",
+  "provider_id": "qtip25_periodic_23",
   "runtime_family": "qtip25_periodic",
-  "codec_form": "qtip25_periodic_23",
+  "codec_form": "periodic_2_3",
   "rate_num": 5,
   "rate_den": 2,
   "transition_k": [2, 3],
@@ -35,27 +36,31 @@
     "torch_vectorized": {
       "device": "cpu",
       "implementation": "torch-vectorized-direct-packed-decode",
-      "iterations": 200,
-      "elapsed_ns": 6303834,
-      "mean_decode_ns": 31519.17,
-      "coded_positions_per_second": 8122041.284716571,
+      "iterations": 3000,
+      "elapsed_ns": 89190834,
+      "mean_decode_ns": 29730.278,
+      "coded_positions_per_second": 8610750.273528418,
       "torch_version": "2.13.0"
     }
   },
   "source": {
-    "commit": "faef1b8eb993bdcd9a909298e724acdf3c9df9fc",
-    "codec_sha256": "e198dcf5f391949f0b494901440293221d1a629f08d3a9f5b6084082dd921131",
-    "provider_sha256": "1009a10875bfdcfc87a0d30ae11ec8a16fb00910560eb9a2c946da9d4bb27223",
+    "commit": "c4b7921919b2f9c42f01b7ad498a8250d14fdca7",
+    "consumer_commit": "faef1b8eb993bdcd9a909298e724acdf3c9df9fc",
+    "taxonomy_source_commit": "ae71cb2148a3046eb3ceb82af2c08d33efa300c2",
+    "taxonomy_adopt_commit": "7c2ba0e7f91c3d2dbbbfde781b26623687488a8e",
+    "codec_sha256": "741e4d4fc026bbc4dbae5c1de4073de2f88a4dfebd511c8af292b183503241a4",
+    "provider_sha256": "45be9faedc968e32bbe17a57fcd2bebd46aa623447799845b6c2972fe7655970",
     "torch_consumer_sha256": "7a67f9ac42f743615ea6a5dd122d7e8d77b5e3334ded190646ac9198fcd1b59e"
   },
-  "ephemeral_readback": {
-    "candidate_receipt": "/var/folders/tb/60hn5r7j7tl_1yg1pcqkrsth0000gn/T/qtip25-periodic-mechanics-t_7002ac79-tswfhc4e/candidate/QTIP25_PERIODIC_RECEIPT.json",
-    "candidate_receipt_sha256": "560ff825350518a9d2181b151bb405683b96dfa454e86cfd3163cbb3051f71fc",
-    "codes_npy_sha256": "c130f02ff2ff1b4da4a949f8cadd698c9cc728f4e96c0db86c7a20fd9c020814"
+  "provider_readback": {
+    "status": "PASS",
+    "provider_id": "qtip25_periodic_23",
+    "codec_form": "periodic_2_3",
+    "codes_data_sha256": "76d61b102eefcfe496f010a511b62aeed72406cc36b59f69a0d403172c8926e2"
   },
   "focused_test": {
-    "command": "PYTHONPATH=banana-smasher/src:banana-smasher-plugin/src /Users/macmini/clawd/banana-smasher-runtime/.venv/bin/python3.13 -m pytest banana-smasher/tests/test_qtip_periodic.py banana-smasher/tests/test_fixed_qtip_export.py banana-smasher-plugin/tests/test_periodic_qtip_runtime.py -q",
-    "result": "6 passed in 0.98s"
+    "command": "PYTHONPATH=banana-smasher/src:banana-smasher-plugin/src /Users/macmini/clawd/banana-smasher-runtime/.venv/bin/python3.13 -m pytest banana-smasher/tests/test_qtip_periodic.py banana-smasher/tests/test_qtip25_codec_taxonomy.py banana-smasher/tests/test_fixed_qtip_export.py banana-smasher-plugin/tests/test_periodic_qtip_runtime.py -q",
+    "result": "12 passed in 1.37s"
   },
   "limitations": [
     "Synthetic mechanics only; this is not FF0731 quality evidence.",
