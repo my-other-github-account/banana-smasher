@@ -106,6 +106,7 @@ def _write_unit(path: Path, *, k: int, projection: str) -> dict[str, object]:
         "SU": torch.arange(input_width, dtype=torch.float16) + 1,
         "SV": torch.arange(output_width, dtype=torch.float16) + 1,
         "Wscale": torch.tensor(1.0, dtype=torch.float32),
+        "tlut": torch.arange(1024, dtype=torch.float32).reshape(512, 2),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(payload, path)
@@ -115,6 +116,11 @@ def _write_unit(path: Path, *, k: int, projection: str) -> dict[str, object]:
         "canonical_packed_sha256": _tensor_sha256(canonical),
         "kernel_packed_sha256": _tensor_sha256(trellis),
         "kernel_packed_bytes": trellis.numel() * trellis.element_size(),
+        "selectable_data_bytes": sum(
+            payload[name].numel() * payload[name].element_size()
+            for name in ("trellis", "SU", "SV", "Wscale")
+        ),
+        "shared_tlut_bytes": payload["tlut"].numel() * payload["tlut"].element_size(),
     }
 
 
@@ -158,10 +164,12 @@ def test_fixed_qtip_manifest_survives_public_build_backpack(
             templates[(projection, k)] = (path, _write_unit(path, k=k, projection=projection))
 
     rows = []
+    selectable_expert_bytes = 0
     for expert in range(256):
         for projection in ("down", "fused13"):
             k = 2 if (expert + (projection == "fused13")) % 2 == 0 else 3
             source, binding = templates[(projection, k)]
+            selectable_expert_bytes += int(binding["selectable_data_bytes"])
             staged = member_root / "L000" / f"E{expert:03d}_{projection}" / "QTIP_UNIT.pt"
             staged.parent.mkdir(parents=True)
             os.link(source, staged)
@@ -217,7 +225,10 @@ def test_fixed_qtip_manifest_survives_public_build_backpack(
         {
             "schema": "banana-smasher-backpack-plan-v1",
             "model": {"root": str(model), "revision": "fixture-model-r1"},
-            "target": {"whole_model_bpw": 2.5},
+            "target": {
+                "exact_bytes": selectable_expert_bytes
+                + int(templates[("down", 2)][1]["shared_tlut_bytes"])
+            },
             "tiers": [
                 {
                     "id": "qtip25-fixed",
@@ -254,6 +265,9 @@ def test_fixed_qtip_manifest_survives_public_build_backpack(
     )
     assert result["status"] == "PASS"
     assert result["execution"] == "fixed_assignment_streaming"
+    assert result["expert_plane_bytes"] == selectable_expert_bytes + 4096
+    assert result["shared_tlut_bytes"] == 4096
+    assert result["routing_index_bytes"] == 1024
     receipt = verify_pack(output)
     assert receipt["status"] == "PASS"
     manifest = json.loads((output / "BANANA_PACK_MANIFEST.json").read_text())

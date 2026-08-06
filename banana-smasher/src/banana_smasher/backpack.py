@@ -4660,9 +4660,22 @@ def _build_fixed_assignment_backpack(
         link_mode="hardlink",
     )
     verification = verify_pack(destination)
-    expert_plane_bytes = sum(
-        int(row["data_bytes"]) for row in manifest["tensor_index"].values()
+    routing_index_bytes = sum(
+        int(row["data_bytes"])
+        for name, row in manifest["tensor_index"].items()
+        if name.endswith(".expert_ids")
     )
+    selectable_expert_bytes = sum(
+        int(row["data_bytes"])
+        for name, row in manifest["tensor_index"].items()
+        if not name.endswith(".expert_ids")
+    )
+    shared_tlut = manifest.get("fixed_assignment", {}).get("shared_tlut", {})
+    shared_tlut_bytes = shared_tlut.get("data_bytes")
+    if not isinstance(shared_tlut_bytes, int) or shared_tlut_bytes <= 0:
+        shutil.rmtree(destination, ignore_errors=True)
+        raise BackpackPlanError("fixed assignment lacks shared TLUT byte accounting")
+    expert_plane_bytes = selectable_expert_bytes + shared_tlut_bytes
     base_weight_file_bytes = sum(
         int(row["bytes"])
         for row in manifest["files"]
@@ -4687,6 +4700,9 @@ def _build_fixed_assignment_backpack(
         "members_manifest_sha256": fixed["sha256"],
         "pack_admission_sha256": admission["sha256"],
         "expert_plane_bytes": expert_plane_bytes,
+        "selectable_expert_bytes": selectable_expert_bytes,
+        "shared_tlut_bytes": shared_tlut_bytes,
+        "routing_index_bytes": routing_index_bytes,
         "base_weight_file_bytes": base_weight_file_bytes,
         "whole_model_bytes": whole_model_bytes,
         "verification": verification,

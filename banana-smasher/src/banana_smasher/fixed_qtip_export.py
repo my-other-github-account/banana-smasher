@@ -24,7 +24,8 @@ from .contract import (
 _FIXED_SCHEMA = "banana-smasher-fixed-qtip-members-v1"
 _PROJECTIONS = {"fused13": "13", "down": "2"}
 _FAMILY_CODES = {"qtip2": 0, "qtip3": 1, "d4": 2, "native": 3}
-_REQUIRED_TENSORS = ("trellis", "SU", "SV", "Wscale")
+_PAYLOAD_TENSORS = ("trellis", "SU", "SV", "Wscale")
+_REQUIRED_TENSORS = (*_PAYLOAD_TENSORS, "tlut")
 
 
 def _read_json(path: Path) -> tuple[dict[str, Any], bytes]:
@@ -303,9 +304,13 @@ def _write_group(
     k: int,
     rows: list[dict[str, Any]],
     member_root: Path | None,
+    shared_tlut_sha256: str,
 ) -> tuple[dict[str, dict[str, str]], dict[int, int], dict[str, int]]:
     rows = sorted(rows, key=lambda row: int(row["expert"]))
-    first = _load_member(rows[0], member_root)
+    first_member = _load_member(rows[0], member_root)
+    if _tensor_sha256(first_member["tlut"]) != shared_tlut_sha256:
+        raise PackValidationError("fixed QTIP shared TLUT drift")
+    first = {name: first_member[name] for name in _PAYLOAD_TENSORS}
     suffix = _PROJECTIONS[projection]
     tier = f"qtip25k{k}"
     arrays: dict[str, np.memmap] = {}
@@ -333,7 +338,10 @@ def _write_group(
         specs["expert_ids"] = {"file": expert_name}
         slots: dict[int, int] = {}
         for slot, row in enumerate(rows):
-            tensors = first if slot == 0 else _load_member(row, member_root)
+            member = first_member if slot == 0 else _load_member(row, member_root)
+            if _tensor_sha256(member["tlut"]) != shared_tlut_sha256:
+                raise PackValidationError("fixed QTIP shared TLUT drift")
+            tensors = {name: member[name] for name in _PAYLOAD_TENSORS}
             for name, target in arrays.items():
                 value = tensors[name].numpy()
                 if value.shape != target.shape[1:] or value.dtype != target.dtype:
@@ -372,6 +380,13 @@ def materialize_fixed_qtip_source(
     admission, _ = _read_json(admission_path)
     grouped = _validate_contract(rows, admission, members_sha256=members_manifest_sha256)
     relocated_root = Path(member_root).expanduser().resolve() if member_root is not None else None
+    shared_tlut = _load_member(rows[0], relocated_root)["tlut"]
+    if str(shared_tlut.dtype) != "torch.float32" or tuple(shared_tlut.shape) != (512, 2):
+        raise PackValidationError(
+            f"fixed QTIP shared TLUT shape/dtype drift: {tuple(shared_tlut.shape)}/{shared_tlut.dtype}"
+        )
+    shared_tlut_sha256 = _tensor_sha256(shared_tlut)
+    shared_tlut_bytes = shared_tlut.numel() * shared_tlut.element_size()
 
     output.mkdir(parents=True)
     layer_documents: dict[int, dict[str, Any]] = {}
@@ -397,6 +412,7 @@ def materialize_fixed_qtip_source(
                         k=k,
                         rows=grouped[(layer, projection, k)],
                         member_root=relocated_root,
+                        shared_tlut_sha256=shared_tlut_sha256,
                     )
                     if projection_dimensions is None:
                         projection_dimensions = dimensions
@@ -434,6 +450,13 @@ def materialize_fixed_qtip_source(
             "member_count": len(rows),
             "members_manifest_sha256": members_manifest_sha256,
             "pack_admission_sha256": pack_admission_sha256,
+            "shared_tlut": {
+                "data_bytes": shared_tlut_bytes,
+                "data_sha256": shared_tlut_sha256,
+                "dtype": "float32",
+                "shape": [512, 2],
+                "storage": "runtime-shared",
+            },
         }
         _write_bytes_durable(output / "FIXED_QTIP_SOURCE.json", _canonical_json_bytes(receipt))
         return receipt
