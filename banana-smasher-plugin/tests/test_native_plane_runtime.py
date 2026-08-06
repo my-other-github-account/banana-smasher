@@ -196,7 +196,9 @@ def test_mixed_qtip_offset_tables_cover_qtip3_speculative_loads(
     setattr(
         kernels,
         "qtip_offset_map",
-        lambda rate: torch.arange(128 * rate, dtype=torch.int32),
+        lambda rate: torch.arange(128 * rate, dtype=torch.int32).reshape(
+            2, 2, rate * 16, 2
+        ),
     )
     monkeypatch.setitem(sys.modules, kernels.__name__, kernels)
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
@@ -208,6 +210,8 @@ def test_mixed_qtip_offset_tables_cover_qtip3_speculative_loads(
     )
 
     state = layer.state("fused13")
+    assert state.offsets2.shape == (384,)
+    assert state.offsets3.shape == (384,)
     assert state.offsets2.numel() == 384
     assert state.offsets3.numel() == 384
     assert torch.equal(state.offsets2[:256], torch.arange(256, dtype=torch.int32))

@@ -664,8 +664,8 @@ class NativePlaneLayer:
         ).contiguous()
         try:
             kernels = importlib.import_module("banana_smasher_plugin.p1016_kernels")
-            offsets2 = kernels.qtip_offset_map(2).to(self.device)
-            offsets3 = kernels.qtip_offset_map(3).to(self.device)
+            offsets2 = kernels.qtip_offset_map(2).to(self.device).reshape(-1)
+            offsets3 = kernels.qtip_offset_map(3).to(self.device).reshape(-1)
         except Exception:
             offsets2 = torch.zeros(256, dtype=torch.int64, device=self.device)
             offsets3 = torch.zeros(384, dtype=torch.int64, device=self.device)
