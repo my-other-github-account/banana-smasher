@@ -594,8 +594,11 @@ def test_plane_forward_uses_capture_safe_async_expert_range_guards(
 
     assert result.shape == (2, 4)
     assert calls == [
-        (True, "layer 0 fused13 expert id out of range"),
-        (True, "layer 0 fused13 expert id out of range"),
+        (
+            True,
+            "layer 0 fused13 expert id out of range: "
+            "nonzero-weight padding route",
+        ),
     ]
 
 
@@ -609,7 +612,12 @@ def test_plane_forward_async_guard_rejects_out_of_range_expert(tmp_path: Path) -
     )
 
     with pytest.raises(RuntimeError, match="expert id out of range"):
-        layer.forward(torch.ones((2, 4)), torch.tensor([0, 3]), "fused13")
+        layer.forward(
+            torch.ones((2, 4)),
+            torch.tensor([0, 3]),
+            "fused13",
+            route_weights=torch.tensor([1.0, 1.0]),
+        )
 
 
 def test_plane_forward_normalizes_num_experts_padding_at_native_boundary(
@@ -626,7 +634,12 @@ def test_plane_forward_normalizes_num_experts_padding_at_native_boundary(
         )
 
     layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
-    layer.forward(torch.ones((2, 4)), torch.tensor([0, 2]), "fused13")
+    layer.forward(
+        torch.ones((2, 4)),
+        torch.tensor([0, 999]),
+        "fused13",
+        route_weights=torch.tensor([1.0, 0.0]),
+    )
 
     assert observed_ids
     assert torch.equal(observed_ids[0], torch.tensor([0, -1]))

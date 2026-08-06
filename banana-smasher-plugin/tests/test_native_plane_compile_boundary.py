@@ -52,16 +52,22 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
 
         if mutates_args:
 
-            def invoke_mutating(x, expert_ids, output, layer_key, projection_key):
+            def invoke_mutating(
+                x, expert_ids, route_weights, output, layer_key, projection_key
+            ):
                 calls.append((layer_key, projection_key))
-                return impl(x, expert_ids, output, layer_key, projection_key)
+                return impl(
+                    x, expert_ids, route_weights, output, layer_key, projection_key
+                )
 
             invoke = invoke_mutating
         else:
 
-            def invoke_functional(x, expert_ids, layer_key, projection_key):
+            def invoke_functional(
+                x, expert_ids, route_weights, layer_key, projection_key
+            ):
                 calls.append((layer_key, projection_key))
-                return impl(x, expert_ids, layer_key, projection_key)
+                return impl(x, expert_ids, route_weights, layer_key, projection_key)
 
             invoke = invoke_functional
         monkeypatch.setattr(torch.ops.vllm, name, invoke, raising=False)

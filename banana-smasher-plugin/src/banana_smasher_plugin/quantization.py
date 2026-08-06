@@ -288,25 +288,19 @@ class BananaSmasherMoEMethod(FusedMoEMethodBase):
                 f"stock DeepSeek-V4 top-k route shape mismatch for {self.prefix}: "
                 f"weights={tuple(weights.shape)} ids={tuple(ids.shape)}"
             )
-        expert_count = len(native_layer.state("fused13").tiers)
-        padding = (ids == -1) | (ids == expert_count)
-        torch.ops.aten._assert_async.msg(
-            torch.all((ids >= -1) & (ids <= expert_count)),
-            f"stock DeepSeek-V4 expert id out of range for {self.prefix}",
-        )
-        torch.ops.aten._assert_async.msg(
-            torch.all((~padding) | (weights == 0)),
-            f"stock DeepSeek-V4 nonzero-weight padding route for {self.prefix}",
-        )
-        ids = torch.where(padding, -1, ids)
         routed_ids = ids.reshape(-1)
+        routed_weights = weights.reshape(-1)
         expanded = flat[:, None, :].expand(
             flat.shape[0], ids.shape[1], flat.shape[1]
         ).reshape(-1, flat.shape[1])
-        fused = native_layer.forward(expanded, routed_ids, "fused13")
+        fused = native_layer.forward(
+            expanded, routed_ids, "fused13", route_weights=routed_weights
+        )
         gate, up = fused.chunk(2, dim=-1)
         activated = F.silu(gate) * up
-        down = native_layer.forward(activated, routed_ids, "down")
+        down = native_layer.forward(
+            activated, routed_ids, "down", route_weights=routed_weights
+        )
         result = (
             down.reshape(flat.shape[0], ids.shape[1], flat.shape[1])
             * weights[..., None].to(down.dtype)

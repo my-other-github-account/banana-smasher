@@ -506,6 +506,7 @@ def _install_specialized_live_proof_signal_handler() -> None:
 def _native_plane_forward_op(
     x: torch.Tensor,
     expert_ids: torch.Tensor,
+    route_weights: torch.Tensor,
     output: torch.Tensor,
     layer_key: int,
     projection_key: int,
@@ -519,17 +520,18 @@ def _native_plane_forward_op(
             f"native-plane custom-op binding is unavailable: "
             f"layer_key={layer_key} projection_key={projection_key}"
         ) from exc
-    output.copy_(layer._forward_impl(x, expert_ids, projection))
+    output.copy_(layer._forward_impl(x, expert_ids, route_weights, projection))
 
 
 def _native_plane_forward_fake(
     x: torch.Tensor,
     expert_ids: torch.Tensor,
+    route_weights: torch.Tensor,
     output: torch.Tensor,
     layer_key: int,
     projection_key: int,
 ) -> None:
-    del x, expert_ids, output
+    del x, expert_ids, route_weights, output
     try:
         layer = _NATIVE_PLANE_LAYER_REGISTRY[int(layer_key)]
         projection = _NATIVE_PLANE_PROJECTIONS[int(projection_key)]
@@ -1171,31 +1173,38 @@ class NativePlaneLayer:
         self,
         x: torch.Tensor,
         expert_ids: torch.Tensor,
+        route_weights: torch.Tensor,
         projection: str,
     ) -> torch.Tensor:
         state = self.state(projection)
         x = x.reshape(-1, x.shape[-1])
         expert_ids = expert_ids.to(device=x.device, dtype=torch.int64).reshape(-1)
-        if x.shape[0] != expert_ids.numel() or x.shape[1] != state.input_width:
+        route_weights = route_weights.to(device=x.device).reshape(-1)
+        if (
+            x.shape[0] != expert_ids.numel()
+            or route_weights.numel() != expert_ids.numel()
+            or x.shape[1] != state.input_width
+        ):
             raise _fail(
                 f"layer {self.layer_index} {projection} routed shape mismatch: "
-                f"x={tuple(x.shape)} ids={tuple(expert_ids.shape)} expected_k={state.input_width}"
+                f"x={tuple(x.shape)} ids={tuple(expert_ids.shape)} "
+                f"weights={tuple(route_weights.shape)} expected_k={state.input_width}"
             )
         range_error = (
-            f"layer {self.layer_index} {projection} expert id out of range"
+            f"layer {self.layer_index} {projection} expert id out of range: "
+            "nonzero-weight padding route"
         )
-        # Stock vLLM uses both -1 and num_experts as graph-padding sentinels
-        # for inactive routed rows. Normalize the upper sentinel again at this
-        # eager breakable-custom-op boundary: the upstream normalization can be
-        # captured in a preceding graph segment whose output is not materialized
-        # before this stateful native pointer-table lookup. Values below -1 or
-        # above num_experts still fail closed without a host synchronization.
+        # Validate and normalize graph-padding at the eager custom-op boundary,
+        # where both router outputs are materialized. Stock vLLM may leave an
+        # arbitrary expert id in an inactive zero-weight route during dummy
+        # CUDA-graph capture. Only zero-weight out-of-range rows are padding;
+        # nonzero-weight invalid routes fail closed before any pointer lookup.
         expert_count = len(state.tiers)
-        torch.ops.aten._assert_async.msg(torch.all(expert_ids >= -1), range_error)
+        padding = (expert_ids < 0) | (expert_ids >= expert_count)
         torch.ops.aten._assert_async.msg(
-            torch.all(expert_ids <= expert_count), range_error
+            torch.all((~padding) | (route_weights == 0)), range_error
         )
-        expert_ids = torch.where(expert_ids == expert_count, -1, expert_ids)
+        expert_ids = torch.where(padding, -1, expert_ids)
         result = self._dispatch(
             projection=projection,
             x=x,
@@ -1214,17 +1223,25 @@ class NativePlaneLayer:
         x: torch.Tensor,
         expert_ids: torch.Tensor,
         projection: str,
+        route_weights: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if projection not in _NATIVE_PLANE_PROJECTIONS:
             raise ValueError(f"unknown projection: {projection}")
+        if route_weights is None:
+            route_weights = torch.where(
+                expert_ids == -1,
+                torch.zeros_like(expert_ids, dtype=x.dtype),
+                torch.ones_like(expert_ids, dtype=x.dtype),
+            )
         if self._custom_op_key is None:
-            return self._forward_impl(x, expert_ids, projection)
+            return self._forward_impl(x, expert_ids, route_weights, projection)
         output = x.new_empty(
             (x.shape[0], self.state(projection).output_width), dtype=torch.bfloat16
         )
         torch.ops.vllm.banana_smasher_native_plane_forward(
             x,
             expert_ids,
+            route_weights,
             output,
             self._custom_op_key,
             _NATIVE_PLANE_PROJECTIONS.index(projection),
