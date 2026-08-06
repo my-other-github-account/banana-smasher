@@ -88,6 +88,7 @@ from .qtip1 import (
     qtip1_5_provider_declaration,
     qtip1_provider_declaration,
     qtip_provider_counts,
+    verify_qtip_wire,
     write_qtip_wire,
 )
 from .update_service import serve_persistent_updates
@@ -140,6 +141,7 @@ __all__ = [
     "materialize_fixed_d4",
     "pareto_prune_six_class_options",
     "persist_fixed_d4_solve",
+    "price_backpack_selection",
     "predict_backpack",
     "prepare_fixed_d4_solve_config",
     "prepare_preview_u12_options",
@@ -169,6 +171,7 @@ __all__ = [
     "verify_evaluation",
     "verify_fixed_d4_model",
     "verify_pack",
+    "verify_qtip_wire",
     "write_qtip_wire",
     "write_teacher_support_manifest",
 ]
