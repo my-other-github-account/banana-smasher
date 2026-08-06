@@ -597,7 +597,12 @@ def test_plane_forward_uses_capture_safe_async_expert_range_guards(
         (
             True,
             "layer 0 fused13 expert id out of range: "
-            "nonzero-weight negative padding route",
+            "nonzero-weight canonical -1 padding route",
+        ),
+        (
+            True,
+            "layer 0 fused13 expert id out of range: "
+            "nonzero-weight below--1 padding route",
         ),
         (
             True,

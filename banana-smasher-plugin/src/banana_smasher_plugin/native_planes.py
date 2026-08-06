@@ -1196,19 +1196,27 @@ class NativePlaneLayer:
         # CUDA-graph capture. Only zero-weight out-of-range rows are padding;
         # nonzero-weight invalid routes fail closed before any pointer lookup.
         expert_count = len(state.tiers)
-        negative_padding = expert_ids < 0
+        canonical_padding = expert_ids == -1
+        negative_padding = expert_ids < -1
         upper_padding = expert_ids >= expert_count
+        torch.ops.aten._assert_async.msg(
+            torch.all((~canonical_padding) | (route_weights == 0)),
+            f"layer {self.layer_index} {projection} expert id out of range: "
+            "nonzero-weight canonical -1 padding route",
+        )
         torch.ops.aten._assert_async.msg(
             torch.all((~negative_padding) | (route_weights == 0)),
             f"layer {self.layer_index} {projection} expert id out of range: "
-            "nonzero-weight negative padding route",
+            "nonzero-weight below--1 padding route",
         )
         torch.ops.aten._assert_async.msg(
             torch.all((~upper_padding) | (route_weights == 0)),
             f"layer {self.layer_index} {projection} expert id out of range: "
             "nonzero-weight upper padding route",
         )
-        expert_ids = torch.where(negative_padding | upper_padding, -1, expert_ids)
+        expert_ids = torch.where(
+            canonical_padding | negative_padding | upper_padding, -1, expert_ids
+        )
         result = self._dispatch(
             projection=projection,
             x=x,
