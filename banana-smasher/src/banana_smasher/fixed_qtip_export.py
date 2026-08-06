@@ -84,6 +84,60 @@ def _tensor_sha256(tensor: Any) -> str:
     return hashlib.sha256(tensor.detach().cpu().contiguous().numpy().tobytes()).hexdigest()
 
 
+def _canonical_trellis_from_kernel(
+    trellis: Any,
+    *,
+    shape: Any,
+    k: int,
+    expected_bytes: Any,
+) -> Any:
+    import torch
+
+    if (
+        trellis.dtype != torch.uint16
+        or not isinstance(shape, (list, tuple))
+        or len(shape) != 2
+    ):
+        raise PackValidationError("fixed QTIP canonical wire shape/dtype drift")
+    try:
+        m, n = (int(value) for value in shape)
+    except (TypeError, ValueError) as exc:
+        raise PackValidationError("fixed QTIP canonical wire shape/dtype drift") from exc
+    required_elements = m * n * k // 16
+    required_bytes = m * n * k // 8
+    actual_bytes = trellis.numel() * trellis.element_size()
+    if (
+        m <= 0
+        or n <= 0
+        or m % 32 != 0
+        or n % 32 != 0
+        or trellis.numel() != required_elements
+        or actual_bytes != required_bytes
+        or expected_bytes != required_bytes
+    ):
+        raise PackValidationError(
+            "fixed QTIP canonical wire geometry drift: "
+            f"shape={(m, n)} K={k} elements={trellis.numel()}/{required_elements} "
+            f"bytes={actual_bytes}/{required_bytes}/{expected_bytes!r}"
+        )
+    return (
+        trellis.contiguous()
+        .view(torch.uint8)
+        .flatten()
+        .reshape(m // 32, n // 32, 32, 2, 2, k)
+        .flip((-1,))
+        .permute(0, 4, 1, 3, 2, 5)
+        .contiguous()
+        .flatten()
+        .view(-1, 2)
+        .flip((-1,))
+        .contiguous()
+        .flatten()
+        .view(torch.uint16)
+        .reshape(trellis.shape)
+    )
+
+
 def _load_member(row: dict[str, Any], member_root: Path | None) -> dict[str, Any]:
     try:
         import torch
@@ -125,12 +179,29 @@ def _load_member(row: dict[str, Any], member_root: Path | None) -> dict[str, Any
         if not isinstance(tensor, torch.Tensor):
             raise PackValidationError(f"fixed QTIP member lacks tensor {name}: {path}")
         tensors[name] = tensor.detach().cpu().contiguous()
-    packed_sha = _tensor_sha256(tensors["trellis"])
-    expected_packed_sha = row.get("canonical_packed_sha256")
-    if not isinstance(expected_packed_sha, str) or packed_sha != expected_packed_sha:
+    trellis = tensors["trellis"]
+    kernel_packed_sha = _tensor_sha256(trellis)
+    expected_kernel_sha = row.get("kernel_packed_sha256")
+    if expected_kernel_sha is not None:
+        if not isinstance(expected_kernel_sha, str) or kernel_packed_sha != expected_kernel_sha:
+            raise PackValidationError(
+                f"fixed QTIP kernel payload drift: expected={expected_kernel_sha!r} "
+                f"actual={kernel_packed_sha} path={path}"
+            )
+    if row.get("canonical_pack_roundtrip_exact") is not True:
+        raise PackValidationError(f"fixed QTIP canonical roundtrip attestation drift: {path}")
+    canonical = _canonical_trellis_from_kernel(
+        trellis,
+        shape=payload.get("shape"),
+        k=int(geometry["K"]),
+        expected_bytes=row.get("kernel_packed_bytes"),
+    )
+    canonical_sha = _tensor_sha256(canonical)
+    expected_canonical_sha = row.get("canonical_packed_sha256")
+    if not isinstance(expected_canonical_sha, str) or canonical_sha != expected_canonical_sha:
         raise PackValidationError(
-            f"fixed QTIP canonical payload drift: expected={expected_packed_sha!r} "
-            f"actual={packed_sha} path={path}"
+            f"fixed QTIP canonical payload drift: expected={expected_canonical_sha!r} "
+            f"actual={canonical_sha} path={path}"
         )
     return tensors
 

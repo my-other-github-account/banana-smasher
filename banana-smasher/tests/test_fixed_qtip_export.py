@@ -6,9 +6,11 @@ import os
 from pathlib import Path
 
 import torch
+import pytest
 
 from banana_smasher import build_backpack
-from banana_smasher.contract import verify_pack
+from banana_smasher.contract import PackValidationError, verify_pack
+from banana_smasher.fixed_qtip_export import _load_member
 
 
 CLASSES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
@@ -20,6 +22,32 @@ def _sha256(path: Path) -> str:
 
 def _tensor_sha256(tensor: torch.Tensor) -> str:
     return hashlib.sha256(tensor.contiguous().numpy().tobytes()).hexdigest()
+
+
+def _kernel_swizzle(
+    canonical: torch.Tensor,
+    *,
+    m: int,
+    n: int,
+    k: int,
+) -> torch.Tensor:
+    paired = (
+        canonical.contiguous()
+        .view(torch.uint8)
+        .flatten()
+        .view(-1, 2)
+        .flip((-1,))
+        .contiguous()
+    )
+    return (
+        paired.reshape(m // 32, 2, n // 32, 2, 32, k)
+        .permute(0, 2, 4, 3, 1, 5)
+        .contiguous()
+        .flip((-1,))
+        .flatten()
+        .view(torch.uint16)
+        .reshape(canonical.shape)
+    )
 
 
 def _write_model(root: Path) -> None:
@@ -46,8 +74,18 @@ def _write_model(root: Path) -> None:
 
 
 def _write_unit(path: Path, *, k: int, projection: str) -> dict[str, object]:
-    input_width, output_width = ((3, 4) if projection == "fused13" else (2, 3))
-    trellis = torch.arange(4 * k, dtype=torch.int16).reshape(4, k)
+    input_width = output_width = 32
+    canonical = (
+        torch.arange(output_width * input_width * k // 16, dtype=torch.int32)
+        .to(torch.uint16)
+        .reshape(output_width, input_width * k // 16)
+    )
+    trellis = _kernel_swizzle(
+        canonical,
+        m=output_width,
+        n=input_width,
+        k=k,
+    )
     payload = {
         "schema": "ds4-qtip-hyb-bounded36-unit-v1",
         "geometry": {
@@ -70,8 +108,39 @@ def _write_unit(path: Path, *, k: int, projection: str) -> dict[str, object]:
     return {
         "bytes": path.stat().st_size,
         "sha256": _sha256(path),
-        "canonical_packed_sha256": _tensor_sha256(trellis),
+        "canonical_packed_sha256": _tensor_sha256(canonical),
+        "kernel_packed_sha256": _tensor_sha256(trellis),
+        "kernel_packed_bytes": trellis.numel() * trellis.element_size(),
     }
+
+
+def test_fixed_qtip_member_recomputes_canonical_hash_from_kernel_wire(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "QTIP_UNIT.pt"
+    binding = _write_unit(path, k=2, projection="down")
+    row = {
+        "layer": 0,
+        "expert": 0,
+        "projection": "down",
+        "geometry": {"L": 16, "K": 2, "V": 2},
+        "canonical_pack_roundtrip_exact": True,
+        "canonical_packed_sha256": binding["canonical_packed_sha256"],
+        "kernel_packed_sha256": binding["kernel_packed_sha256"],
+        "kernel_packed_bytes": binding["kernel_packed_bytes"],
+        "artifact": {
+            "path": str(path),
+            "bytes": binding["bytes"],
+            "sha256": binding["sha256"],
+        },
+    }
+
+    loaded = _load_member(row, None)
+    assert _tensor_sha256(loaded["trellis"]) == binding["kernel_packed_sha256"]
+
+    row["canonical_packed_sha256"] = "0" * 64
+    with pytest.raises(PackValidationError, match="canonical payload drift"):
+        _load_member(row, None)
 
 
 def test_fixed_qtip_manifest_survives_public_build_backpack(
@@ -99,7 +168,10 @@ def test_fixed_qtip_manifest_survives_public_build_backpack(
                     "projection": projection,
                     "tier": "qtip@2.50",
                     "geometry": {"L": 16, "K": k, "V": 2},
+                    "canonical_pack_roundtrip_exact": True,
                     "canonical_packed_sha256": binding["canonical_packed_sha256"],
+                    "kernel_packed_sha256": binding["kernel_packed_sha256"],
+                    "kernel_packed_bytes": binding["kernel_packed_bytes"],
                     "artifact": {
                         "path": "/sealed/source/QTIP_UNIT.pt",
                         "ssh": "sealed-source",
