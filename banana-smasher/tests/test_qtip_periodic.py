@@ -11,6 +11,7 @@ from banana_smasher.qtip_periodic import (
     periodic_wire_accounting,
     unpack_symbols,
 )
+from banana_smasher.qtip_periodic_provider import periodic_qtip25_provider
 
 
 def test_periodic_qtip25_symbol_wire_roundtrips_and_decodes_exactly() -> None:
@@ -72,3 +73,31 @@ def test_periodic_qtip25_rejects_unpaired_or_out_of_range_symbols() -> None:
         pack_symbols(np.array([16, 0], dtype=np.uint8))
     with pytest.raises(ValueError, match="6-bit transition"):
         pack_symbols(np.array([0, 64], dtype=np.uint8))
+
+
+def test_periodic_provider_generates_prices_materializes_and_verifies(tmp_path) -> None:
+    provider = periodic_qtip25_provider()
+    symbols = np.array([0, 63, 15, 32], dtype=np.uint8)
+
+    receipt = provider.generate(
+        tmp_path / "candidate",
+        symbols=symbols,
+        intended_basis_sha256="a" * 64,
+    )
+
+    assert provider.provider_id == "qtip25-periodic"
+    assert provider.kind == "qtip_periodic"
+    assert provider.runtime_family == "qtip25_periodic"
+    assert receipt["status"] == "PASS"
+    assert receipt["codec_form"] == "qtip25_periodic_23"
+    assert receipt["rate_num"] == 5
+    assert receipt["rate_den"] == 2
+    assert receipt["position_count"] == 8
+    assert receipt["cell_payload_bytes"] == 3
+    assert receipt["assignment_map_bytes"] == 0
+    assert receipt["routing_bytes"] == 0
+    assert provider.price(tmp_path / "candidate").cell_payload_bytes == 3
+    assert provider.verify(tmp_path / "candidate") is True
+    materialized = provider.materialize(tmp_path / "candidate")
+    assert materialized["runtime_family"] == "qtip25_periodic"
+    assert materialized["codes"].tolist() == [0x0F, 0xFE, 0x00]
