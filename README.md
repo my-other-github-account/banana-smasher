@@ -65,6 +65,12 @@ smash verify "$MODEL_OUT"
 
 `examples/export_model.sh` provides the same fail-closed command. The resulting directory is self-contained and is the only directory mounted at `/model` for serving.
 
+For model-size reports and public names, use `smash bpw` rather than dividing by
+container tensor counts. It emits the versioned whole-model accounting record,
+uses canonical base-model logical parameters for the comparable/publication BPW,
+and reports any auxiliary-model denominator separately. See
+[`banana-smasher/README.md`](banana-smasher/README.md#standard-whole-model-bpw-accounting).
+
 ## Build and serve the pinned Linux ARM64 image
 
 The release helper uses Docker Buildx with `--platform linux/arm64` and

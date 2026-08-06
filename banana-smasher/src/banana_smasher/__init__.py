@@ -24,6 +24,13 @@ from .anchor import (
     validate_bank_manifest,
 )
 from .bank import build_bank, verify_bank
+from .bpw import (
+    BPW_ACCOUNTING_SCHEMA,
+    BpwAccountingError,
+    build_bpw_accounting,
+    require_comparable_bpw,
+    verify_bpw_accounting,
+)
 from .evaluate import evaluate_paired, verify_evaluation
 from .fixed_d4 import (
     materialize_fixed_d4,
@@ -39,12 +46,15 @@ from .update_service import serve_persistent_updates
 
 __all__ = [
     "MANIFEST_NAME",
+    "BPW_ACCOUNTING_SCHEMA",
+    "BpwAccountingError",
     "PackValidationError",
     "AnchorEvaluationError",
     "UpdateQueue",
     "aggregate_scores",
     "build_bank",
     "build_bank_manifest",
+    "build_bpw_accounting",
     "compare_training_rails",
     "create_balanced_subset",
     "emit_solver_row",
@@ -60,6 +70,7 @@ __all__ = [
     "produce_fixed_d4_layerwise_logits",
     "produce_fixed_d4_logits",
     "register_bank",
+    "require_comparable_bpw",
     "resolve_bank_identities",
     "score_bank",
     "serve_persistent_updates",
@@ -67,6 +78,7 @@ __all__ = [
     "status_report",
     "validate_bank_manifest",
     "verify_bank",
+    "verify_bpw_accounting",
     "verify_evaluation",
     "verify_fixed_d4_model",
     "verify_pack",

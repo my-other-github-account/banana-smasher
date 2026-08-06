@@ -77,6 +77,21 @@ def _parser() -> argparse.ArgumentParser:
     verify = subparsers.add_parser("verify", help="verify manifest, schema, and bytes")
     verify.add_argument("pack", type=Path)
 
+    bpw = subparsers.add_parser(
+        "bpw", help="compute standardized whole-model BPW accounting"
+    )
+    bpw.add_argument("--weight-bytes", type=int, required=True)
+    bpw.add_argument("--base-model-parameters", type=int, required=True)
+    bpw.add_argument("--base-parameter-inventory-sha256", required=True)
+    bpw.add_argument(
+        "--auxiliary-model-parameters",
+        action="append",
+        default=[],
+        metavar="NAME=COUNT",
+        help="separately shipped auxiliary model; repeat for multiple models",
+    )
+    bpw.add_argument("--publication-decimal-places", type=int, default=1)
+
     serve = subparsers.add_parser(
         "serve-check", help="verify pack/kernel-cache compatibility before vllm serve"
     )
@@ -674,6 +689,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = {
                 **verify_pack(args.pack),
                 "command": reported_command or "verify",
+            }
+        elif args.command == "bpw":
+            from .bpw import build_bpw_accounting
+
+            auxiliary: dict[str, int] = {}
+            for value in args.auxiliary_model_parameters:
+                name, separator, count = value.partition("=")
+                if not separator or not name or name in auxiliary:
+                    raise ValueError(
+                        "--auxiliary-model-parameters must use unique NAME=COUNT values"
+                    )
+                auxiliary[name] = int(count)
+            result = {
+                **build_bpw_accounting(
+                    weight_bytes=args.weight_bytes,
+                    base_model_parameters=args.base_model_parameters,
+                    base_parameter_inventory_sha256=(
+                        args.base_parameter_inventory_sha256
+                    ),
+                    auxiliary_model_parameters=auxiliary,
+                    publication_decimal_places=args.publication_decimal_places,
+                ),
+                "command": "bpw",
             }
         elif args.command == "serve-check":
             result = {

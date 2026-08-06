@@ -16,6 +16,35 @@ To repair serving metadata in an already validated pack without touching tensor 
 
 This preserves the existing pack `quantization_config`, rewrites only the four serving metadata files plus their manifest rows/provenance, revalidates the pack, and reports `tensor_payloads_rewritten: false`.
 
+## Standard whole-model BPW accounting
+
+Use the public `build_bpw_accounting(...)` API or `smash bpw` command for model
+sizes, comparison tables, and repository names. The versioned
+`banana-smasher.bpw-accounting.v1` record keeps the two valid denominators
+separate:
+
+- `bpw.comparison` is complete shipped model-weight bytes × 8 divided by the
+  canonical base-model logical parameter inventory. This apples-to-apples value
+  supplies `publication.label` and is the only BPW used in public model names.
+- `bpw.including_auxiliary` divides the same bytes by the base plus separately
+  shipped auxiliary-model parameters. It is useful operational accounting, but
+  never changes the public quant label.
+
+Packed-container element counts such as Hugging Face `safetensors.total` are
+storage metadata and are not a substitute for the canonical logical parameter
+inventory. Comparisons should call `require_comparable_bpw(...)`, which rejects
+a different inventory SHA or parameter count.
+
+```bash
+smash bpw \
+  --weight-bytes 106623252108 \
+  --base-model-parameters 284334567511 \
+  --base-parameter-inventory-sha256 98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b
+```
+
+For the deterministic FF0731 QTIP2.5 artifact this emits exact comparison BPW
+`2.9999377997928467...` and publication label `3.0bpw`.
+
 ## Bound repair-checkpoint export
 
 `smash export` can materialize a sealed `banana-smasher-basic-repair-v1` checkpoint directly into a canonical plane source. Every repair input requires its expected SHA-256; the active overlay must bind the exact assignment. The exporter replaces codebook planes by their source-wire hashes (including indexed multi-codebook planes), writes the 235 RMSNorm tensors and 43 attention output gains to `repair/repair_state.safetensors`, binds both repair files in the pack manifest, and fails if any of the 196 checkpoint codebooks is not consumed.
