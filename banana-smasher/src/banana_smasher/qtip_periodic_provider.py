@@ -13,6 +13,7 @@ from .qtip_periodic import (
     decode_packed,
     pack_symbols,
     periodic_wire_accounting,
+    solve_periodic,
     unpack_symbols,
 )
 
@@ -41,6 +42,7 @@ class PeriodicQTIP25Provider:
     codec_form: str
     rate_num: int
     rate_den: int
+    encode: Callable[..., dict[str, Any]]
     generate: Callable[..., dict[str, Any]]
     materialize: Callable[..., dict[str, Any]]
     price: Callable[..., PeriodicWirePrice]
@@ -220,6 +222,7 @@ def periodic_qtip25_provider() -> PeriodicQTIP25Provider:
         codec_form="qtip25_periodic_23",
         rate_num=5,
         rate_den=2,
+        encode=solve_periodic,
         generate=generate_periodic_candidate,
         materialize=materialize_periodic_candidate,
         price=price_periodic_candidate,

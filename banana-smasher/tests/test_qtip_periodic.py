@@ -9,6 +9,8 @@ from banana_smasher.qtip_periodic import (
     decode_symbols,
     pack_symbols,
     periodic_wire_accounting,
+    solve_periodic,
+    states_from_symbols,
     unpack_symbols,
 )
 from banana_smasher.qtip_periodic_provider import periodic_qtip25_provider
@@ -88,6 +90,7 @@ def test_periodic_provider_generates_prices_materializes_and_verifies(tmp_path) 
     assert provider.provider_id == "qtip25-periodic"
     assert provider.kind == "qtip_periodic"
     assert provider.runtime_family == "qtip25_periodic"
+    assert provider.encode is solve_periodic
     assert receipt["status"] == "PASS"
     assert receipt["codec_form"] == "qtip25_periodic_23"
     assert receipt["rate_num"] == 5
@@ -101,3 +104,22 @@ def test_periodic_provider_generates_prices_materializes_and_verifies(tmp_path) 
     materialized = provider.materialize(tmp_path / "candidate")
     assert materialized["runtime_family"] == "qtip25_periodic"
     assert materialized["codes"].tolist() == [0x0F, 0xFE, 0x00]
+
+
+def test_periodic_viterbi_recovers_a_cyclic_zero_distortion_path() -> None:
+    symbols = np.array([0, 63, 15, 32], dtype=np.uint8)
+    states = states_from_symbols(symbols)
+    lut = np.full((1 << 16, 2), 1000.0, dtype=np.float32)
+    target = np.empty((len(symbols), 2), dtype=np.float32)
+    for index, state in enumerate(states):
+        target[index] = (index, index + 0.25)
+        lut[state] = target[index]
+
+    solved = solve_periodic(target, lut, overlap_candidates=8)
+
+    assert solved["distortion"] == 0.0
+    assert np.array_equal(solved["states"], states)
+    assert np.array_equal(solved["symbols"], symbols)
+    assert np.array_equal(
+        decode_packed(solved["packed"], len(symbols), lut), target
+    )

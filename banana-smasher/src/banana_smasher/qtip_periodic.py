@@ -127,6 +127,129 @@ def decode_packed(
     return _decode_bits(code_bits, symbols.size, lut)
 
 
+def states_from_symbols(symbols: np.ndarray) -> np.ndarray:
+    """Return the circular 16-bit QTIP state at every periodic transition."""
+    validated = _symbols(symbols)
+    if validated.size == 0:
+        return np.empty(0, dtype=np.uint16)
+    bits = _logical_bits(validated)
+    states = np.empty(validated.size, dtype=np.uint16)
+    cursor = 0
+    for transition in range(validated.size):
+        state = 0
+        for offset in range(16):
+            state = (state << 1) | int(bits[(cursor + offset) % bits.size])
+        states[transition] = state
+        cursor += 4 if transition % 2 == 0 else 6
+    return states
+
+
+def _viterbi_pass(
+    target: np.ndarray,
+    lut: np.ndarray,
+    *,
+    closing_prefix: int | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Solve one open path or one exact cyclic-prefix-conditioned path."""
+    transitions = target.shape[0]
+    widths = np.resize(np.array([4, 6], dtype=np.int64), transitions)
+    state_ids = np.arange(1 << 16, dtype=np.int64)
+    backpointers: list[np.ndarray] = []
+    reduced_costs: np.ndarray | None = None
+    for step, width_value in enumerate(widths.tolist()):
+        difference = lut - target[step]
+        distortion = np.sum(difference * difference, axis=1, dtype=np.float32)
+        if step == 0:
+            candidate = distortion
+            if closing_prefix is not None:
+                valid = (state_ids >> int(widths[-1])) == closing_prefix
+                candidate = np.where(valid, candidate, np.float32(np.inf))
+        else:
+            assert reduced_costs is not None
+            candidate = reduced_costs[state_ids >> int(widths[step - 1])] + distortion
+        prefix_count = 1 << (16 - width_value)
+        by_branch = candidate.reshape(1 << width_value, prefix_count)
+        branch = np.argmin(by_branch, axis=0)
+        prefix = np.arange(prefix_count)
+        reduced_costs = by_branch[branch, prefix]
+        backpointers.append((branch * prefix_count + prefix).astype(np.uint16))
+    assert reduced_costs is not None
+    if closing_prefix is None:
+        final_prefix = int(np.argmin(reduced_costs))
+    else:
+        final_prefix = int(closing_prefix)
+    states = np.empty(transitions, dtype=np.uint16)
+    for step in range(transitions - 1, -1, -1):
+        state = int(backpointers[step][final_prefix])
+        states[step] = state
+        if step:
+            final_prefix = state >> int(widths[step - 1])
+    return states, reduced_costs
+
+
+def solve_periodic(
+    target: np.ndarray,
+    lut: np.ndarray,
+    *,
+    overlap_candidates: int = 8,
+) -> dict[str, Any]:
+    """Encode a target sequence with cyclic alternating K2/K3 Viterbi.
+
+    The open pass ranks closing prefixes.  Each retained prefix is then solved
+    with the exact last-to-first overlap constraint, and the least-distortion
+    cyclic wire is returned.  ``overlap_candidates`` controls this explicit
+    quality/speed tradeoff; it is part of the result identity.
+    """
+    values = np.asarray(target, dtype=np.float32)
+    table = np.asarray(lut, dtype=np.float32)
+    if values.ndim != 2 or values.shape[1] != 2 or values.shape[0] % 2:
+        raise ValueError("periodic target must have an even number of V=2 rows")
+    if not values.shape[0]:
+        raise ValueError("periodic target must contain at least one transition")
+    if table.shape != (1 << 16, 2):
+        raise ValueError(f"QTIP LUT must have shape (65536, 2), got {table.shape}")
+    if not bool(np.isfinite(values).all() and np.isfinite(table).all()):
+        raise ValueError("periodic target and QTIP LUT must be finite")
+    candidate_count = int(overlap_candidates)
+    final_prefix_count = 1 << (16 - 6)
+    if not 1 <= candidate_count <= final_prefix_count:
+        raise ValueError(
+            f"overlap_candidates must be in [1, {final_prefix_count}]"
+        )
+    _, open_costs = _viterbi_pass(values, table, closing_prefix=None)
+    overlaps = np.argsort(open_costs, kind="stable")[:candidate_count]
+    best: dict[str, Any] | None = None
+    for overlap_value in overlaps.tolist():
+        states, _ = _viterbi_pass(
+            values, table, closing_prefix=int(overlap_value)
+        )
+        symbols = np.empty(states.size, dtype=np.uint8)
+        for transition, state in enumerate(states.tolist()):
+            width = 4 if transition % 2 == 0 else 6
+            symbols[transition] = state >> (16 - width)
+        packed = pack_symbols(symbols)
+        observed_states = states_from_symbols(symbols)
+        if not np.array_equal(observed_states, states):
+            raise RuntimeError("periodic cyclic Viterbi traceback does not match packed wire")
+        difference = table[states] - values
+        distortion = float(np.sum(difference * difference, dtype=np.float64))
+        result = {
+            "codec_form": "qtip25_periodic_23",
+            "rate_num": 5,
+            "rate_den": 2,
+            "overlap_candidates": candidate_count,
+            "closing_prefix": int(overlap_value),
+            "distortion": distortion,
+            "states": states,
+            "symbols": symbols,
+            "packed": packed,
+        }
+        if best is None or distortion < best["distortion"]:
+            best = result
+    assert best is not None
+    return best
+
+
 def periodic_wire_accounting(
     *,
     position_count: int,
