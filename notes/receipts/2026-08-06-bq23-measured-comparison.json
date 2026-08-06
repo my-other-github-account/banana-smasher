@@ -129,6 +129,15 @@
     "d4_fraction": 0.21425327034883722,
     "d4_total": 4717,
     "same_assignment_lineage_as_bq23": false,
+    "historical_pre_repair_measurement": {
+      "absolute_kld_above_bq23_pre": 0.012249920610707218,
+      "bq23_pre_fraction_lower": 0.10369154066333666,
+      "bq23_pre_mean_kld": 0.1058881698481855,
+      "historical_mean_kld": 0.11813809045889272,
+      "same_64_window_bank_as_bq23": false,
+      "strict_paired_comparison": false,
+      "window_output_set_sha256": "7cdc29eca57eb822aa7f7a5904ae8f7cb96061d4216af8ce9d0ffda0c8d643e3"
+    },
     "selection_authority": {
       "definitive_rerun_required": true,
       "mode": "OPERATOR_AUTHORIZED_BASELINE_PREVIEW",
