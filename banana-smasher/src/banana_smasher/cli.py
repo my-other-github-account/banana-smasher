@@ -241,6 +241,56 @@ def _parser() -> argparse.ArgumentParser:
     backpack_stage.add_argument("--output", type=Path, required=True)
     backpack_stage.add_argument("--parallelism", type=int, default=8)
 
+    backpack_prepare = backpack_subparsers.add_parser(
+        "prepare-contextual",
+        help="derive contextual anchor and option artifacts from a scored Backpack assignment",
+    )
+    backpack_prepare.add_argument("--virtual-manifest", type=Path, required=True)
+    backpack_prepare.add_argument("--score-receipt", type=Path, required=True)
+    backpack_prepare.add_argument("--output", type=Path, required=True)
+
+    backpack_materialize = backpack_subparsers.add_parser(
+        "materialize-contextual",
+        help="materialize one zero-copy contextual physical candidate",
+    )
+    backpack_materialize.add_argument("--virtual-manifest", type=Path, required=True)
+    backpack_materialize.add_argument("--inventory", type=Path, required=True)
+    backpack_materialize.add_argument("--request", type=Path, required=True)
+    backpack_materialize.add_argument("--output", type=Path, required=True)
+
+    backpack_record = backpack_subparsers.add_parser(
+        "record-contextual",
+        help="derive and append one paired physical contextual swap measurement",
+    )
+    backpack_record.add_argument("--anchor", type=Path, required=True)
+    backpack_record.add_argument("--change", type=Path, required=True)
+    backpack_record.add_argument("--anchor-score", type=Path, required=True)
+    backpack_record.add_argument("--candidate-score", type=Path, required=True)
+    backpack_record.add_argument("--measurements", type=Path, required=True)
+    backpack_record.add_argument("--output", type=Path, required=True)
+
+    backpack_value = backpack_subparsers.add_parser(
+        "value-contextual",
+        help="build repeatable physical marginal values against a scored anchor",
+    )
+    backpack_value.add_argument("--anchor", type=Path, required=True)
+    backpack_value.add_argument("--options", type=Path, required=True)
+    backpack_value.add_argument("--measurements", type=Path, required=True)
+    backpack_value.add_argument("--output", type=Path, required=True)
+
+    backpack_solve = backpack_subparsers.add_parser(
+        "solve-contextual",
+        help="solve measured physical substitutions inside a caller-supplied trust region",
+    )
+    backpack_solve.add_argument("--anchor", type=Path, required=True)
+    backpack_solve.add_argument("--ledger", type=Path, required=True)
+    backpack_solve.add_argument("--max-changes", type=int, required=True)
+    backpack_solve.add_argument(
+        "--uncertainty-multiplier", type=float, required=True
+    )
+    backpack_solve.add_argument("--time-limit-seconds", type=float, required=True)
+    backpack_solve.add_argument("--output", type=Path, required=True)
+
     backpack_select = backpack_subparsers.add_parser(
         "select-measured",
         help="retain the baseline unless an expanded tier menu is physically non-worse",
@@ -623,6 +673,73 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.output,
                     parallelism=args.parallelism,
                 )
+            elif args.backpack_command == "prepare-contextual":
+                from .backpack_contextual_prepare import prepare_contextual_iteration
+
+                result = {
+                    **prepare_contextual_iteration(
+                        args.virtual_manifest,
+                        args.score_receipt,
+                        output_root=args.output,
+                    ),
+                    "command": "backpack prepare-contextual",
+                }
+            elif args.backpack_command == "materialize-contextual":
+                from .backpack_contextual_candidate import (
+                    materialize_contextual_change,
+                )
+
+                result = {
+                    **materialize_contextual_change(
+                        args.virtual_manifest,
+                        args.inventory,
+                        args.request,
+                        output_root=args.output,
+                    ),
+                    "command": "backpack materialize-contextual",
+                }
+            elif args.backpack_command == "record-contextual":
+                from .backpack_contextual_measure import (
+                    record_contextual_swap_measurement,
+                )
+
+                result = {
+                    **record_contextual_swap_measurement(
+                        args.anchor,
+                        args.change,
+                        args.anchor_score,
+                        args.candidate_score,
+                        measurement_manifest_path=args.measurements,
+                        output_path=args.output,
+                    ),
+                    "command": "backpack record-contextual",
+                }
+            elif args.backpack_command == "value-contextual":
+                from .backpack_contextual import run_contextual_value_update
+
+                result = {
+                    **run_contextual_value_update(
+                        args.anchor,
+                        args.options,
+                        args.measurements,
+                        output_path=args.output,
+                    ),
+                    "command": "backpack value-contextual",
+                }
+            elif args.backpack_command == "solve-contextual":
+                from .backpack_contextual import run_contextual_trust_solve
+
+                result = {
+                    **run_contextual_trust_solve(
+                        args.anchor,
+                        args.ledger,
+                        output_path=args.output,
+                        max_changes=args.max_changes,
+                        uncertainty_multiplier=args.uncertainty_multiplier,
+                        time_limit_seconds=args.time_limit_seconds,
+                    ),
+                    "command": "backpack solve-contextual",
+                }
             elif args.backpack_command == "select-measured":
                 from .backpack_selection import select_measured_nonworse
 

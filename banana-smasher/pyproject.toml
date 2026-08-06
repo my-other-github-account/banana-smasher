@@ -14,6 +14,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+backpack = ["scipy==1.16.1"]
 knapsack = ["scipy==1.16.1"]
 test = ["pytest==8.4.2", "ruff==0.12.7", "scipy==1.16.1"]
 solve = [
