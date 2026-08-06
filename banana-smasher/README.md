@@ -16,7 +16,7 @@ from banana_smasher import (
     BackpackPlan,
     build_backpack,
     builtin_backpack_family_providers,
-    resolve_backpack_family_provider,
+    qtip1_5_provider_declaration,
 )
 
 providers = builtin_backpack_family_providers()
@@ -24,9 +24,9 @@ assert set(providers) == {
     "native-mxfp4", "qtip@2.00", "qtip@2.50", "qtip@3.00",
     "d4-k2048", "d4-k4096",
 }
-qtip15 = resolve_backpack_family_provider(
-    {"kind": "qtip_ring", "bpw": 1.5}
-)
+qtip15 = qtip1_5_provider_declaration()
+assert qtip15.tier == "qtip@1.50"
+assert [(row.geometry.K, row.geometry.V) for row in qtip15.components] == [(1, 1), (2, 2)]
 plan = BackpackPlan.from_mapping(plan_mapping, base_dir=".")
 result = build_backpack(plan, run_root="./backpack-run")
 ```

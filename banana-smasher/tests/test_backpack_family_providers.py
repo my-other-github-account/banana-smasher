@@ -14,6 +14,7 @@ from banana_smasher import (
     materialize_backpack_assignment,
     native_mxfp4_backpack_provider,
     predict_backpack_candidate,
+    qtip1_5_provider_declaration,
     qtip_ring_backpack_provider,
     resolve_backpack_family_provider,
     vector_vq_backpack_provider,
@@ -52,21 +53,20 @@ def test_builtin_provider_menu_and_declaration_only_qtip_extension():
         {"family": "vector_vq", "dimension": 8, "bits": 2}
     ) == vector_vq_backpack_provider(dimension=8, codebook_size=4)
 
-    extension = resolve_backpack_family_provider(
-        {"id": "qtip-1.5", "family": "qtip", "bpw": 1.5}
-    )
-    assert extension.provider_id == "qtip@1.50"
-    assert extension == backpack_provider_from_declaration(
-        {"kind": "qtip_ring", "bpw": 1.5}
-    )
-    assert extension.runtime_family == "qtip2"
-    assert callable(extension.generate)
-    assert callable(extension.materialize)
-    assert callable(extension.price)
-    assert callable(extension.predict)
-    assert callable(extension.verify)
+    assert backpack_provider_from_declaration("qtip@2.00") == providers["qtip@2.00"]
+    assert backpack_provider_from_declaration("qtip2") == providers["qtip@2.00"]
+    assert backpack_provider_from_declaration("qtip2.5") == providers["qtip@2.50"]
+    assert backpack_provider_from_declaration("qtip3") == providers["qtip@3.00"]
 
-    price = extension.price(
+    extension = qtip1_5_provider_declaration()
+    assert extension.provider_id == "qtip1_5"
+    assert extension.tier == "qtip@1.50"
+    assert [(row.geometry.K, row.geometry.V, row.quarters) for row in extension.components] == [
+        (1, 1, 2),
+        (2, 2, 2),
+    ]
+
+    price = providers["qtip@2.00"].price(
         {
             "physical_bytes": 7,
             "activation_artifacts": ({"id": "qtip-lut", "bytes": 11},),

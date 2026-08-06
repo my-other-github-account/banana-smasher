@@ -19,7 +19,7 @@ from banana_smasher import (
     inspect_backpack,
     predict_backpack,
     price_backpack_candidate,
-    resolve_backpack_family_provider,
+    qtip1_5_provider_declaration,
     solve_backpack,
     verify_pack,
 )
@@ -120,7 +120,7 @@ def main() -> int:
     )
     native_price = price_backpack_candidate(native_receipt)
     providers = builtin_backpack_family_providers()
-    qtip15 = resolve_backpack_family_provider({"kind": "qtip_ring", "bpw": 1.5})
+    qtip15 = qtip1_5_provider_declaration()
     cli = subprocess.run(
         [
             sys.executable,
@@ -141,7 +141,7 @@ def main() -> int:
         "module": str(Path(banana_smasher.__file__).resolve()),
         "python": sys.executable,
         "providers": sorted(providers),
-        "qtip15_provider": qtip15.provider_id,
+        "qtip15_provider": qtip15.tier,
         "native_incremental_bytes": native_price.full_wire_bytes,
         "candidate_tiers": [row["tier"] for row in generated["candidate_tiers"]],
         "prediction_rows": len(predicted["rows"]),

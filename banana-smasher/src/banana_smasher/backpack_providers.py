@@ -421,17 +421,22 @@ def vector_vq_backpack_provider(
 def fixed_d4_backpack_provider(codebook_size: int) -> BackpackFamilyProvider:
     if codebook_size not in {2048, 4096}:
         raise ValueError("fixed D4 provider requires K2048 or K4096")
-    from .backpack import generate_fixed_d4_backpack_candidate
+    from .fixed_d4 import (
+        materialize_fixed_d4,
+        prepare_fixed_d4_solve_config,
+        produce_fixed_d4_layerwise_logits,
+        verify_fixed_d4_model,
+    )
 
     return BackpackFamilyProvider(
         provider_id=f"d4-k{codebook_size}",
         kind="fixed_d4",
         runtime_family="truevq_d4",
-        generate=generate_fixed_d4_backpack_candidate,
-        materialize=_materialize_provider_assignment,
+        generate=prepare_fixed_d4_solve_config,
+        materialize=materialize_fixed_d4,
         price=price_backpack_candidate,
-        predict=predict_backpack_candidate,
-        verify=verify_backpack_candidate,
+        predict=produce_fixed_d4_layerwise_logits,
+        verify=verify_fixed_d4_model,
     )
 
 
@@ -459,9 +464,9 @@ def backpack_provider_from_declaration(
             "native_mxfp4": "native-mxfp4",
             "d4_k2048": "d4-k2048",
             "d4_k4096": "d4-k4096",
-            "qtip@2.00": "qtip2",
-            "qtip@2.50": "qtip2.5",
-            "qtip@3.00": "qtip3",
+            "qtip2": "qtip@2.00",
+            "qtip2.5": "qtip@2.50",
+            "qtip3": "qtip@3.00",
         }
         provider_id = aliases.get(declaration, declaration)
         try:
