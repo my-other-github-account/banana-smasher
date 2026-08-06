@@ -11,7 +11,10 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
+import shutil
+import tempfile
 from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
@@ -47,6 +50,8 @@ class QtipGeometry:
             raise ValueError("canonical quantlut_sym requires V=2")
         if self.decode_mode == "quantlut_sym" and self.tlut_bits >= self.L:
             raise ValueError("canonical quantlut_sym requires tlut_bits < L")
+        if self.decode_mode != "lut" and self.L > 16:
+            raise ValueError("canonical QTIP quantlut uses a 16-bit hash lane")
 
     @property
     def branch_bits(self) -> int:
@@ -315,10 +320,10 @@ def _state_lut(geometry: QtipGeometry, tlut: np.ndarray) -> np.ndarray:
     state = np.arange(geometry.states, dtype=np.uint64)
     hashed = (state + 1) * state
     if geometry.decode_mode == "quantlut":
-        indices = (hashed >> (geometry.L - geometry.tlut_bits)) & (expected - 1)
+        indices = (hashed >> (16 - geometry.tlut_bits)) & (expected - 1)
         return table[indices.astype(np.int64), : geometry.V].T.copy()
-    sign = 1.0 - 2.0 * ((hashed >> (geometry.L - 1)) & 1).astype(np.float32)
-    indices = (hashed >> (geometry.L - geometry.tlut_bits - 1)) & (expected - 1)
+    sign = 1.0 - 2.0 * ((hashed >> 15) & 1).astype(np.float32)
+    indices = (hashed >> (16 - geometry.tlut_bits - 1)) & (expected - 1)
     result = table[indices.astype(np.int64), : geometry.V].T.copy()
     result[0] *= sign
     return result
@@ -408,7 +413,8 @@ def encode_qtip(
     if values.ndim != 2 or values.shape[1] % geometry.V:
         raise ValueError("QTIP matrix must be [rows, steps*V]")
     state_lut = _state_lut(geometry, tlut)
-    if scales is None:
+    automatic_scales = scales is None
+    if automatic_scales:
         source_rms = np.sqrt(np.mean(values * values, axis=1, dtype=np.float32))
         lut_rms = np.float32(np.sqrt(np.mean(state_lut * state_lut, dtype=np.float32)))
         row_scales = np.where(source_rms == 0, 1.0, source_rms / lut_rms).astype(
@@ -422,12 +428,37 @@ def encode_qtip(
             raise ValueError("QTIP scales must contain one value per matrix row")
     if np.any(~np.isfinite(row_scales)) or np.any(row_scales <= 0):
         raise ValueError("QTIP scales must be finite and positive")
-    normalized = values / row_scales[:, None]
     steps = values.shape[1] // geometry.V
-    rolled = np.roll(normalized, (steps // 2) * geometry.V, axis=1)
-    first = _viterbi(rolled, state_lut, geometry)
-    overlap = first[:, steps // 2] >> geometry.branch_bits
-    states = _viterbi(normalized, state_lut, geometry, overlap=overlap)
+
+    def encode_states(candidate_scales: np.ndarray) -> np.ndarray:
+        normalized = values / candidate_scales[:, None]
+        rolled = np.roll(normalized, (steps // 2) * geometry.V, axis=1)
+        first = _viterbi(rolled, state_lut, geometry)
+        overlap = first[:, steps // 2] >> geometry.branch_bits
+        return _viterbi(normalized, state_lut, geometry, overlap=overlap)
+
+    if automatic_scales and geometry.K == 1 and geometry.V == 1:
+        # The cyclic K1 path samples a biased subset of the global LUT.  Search a
+        # tiny fixed scale grid and keep the lowest-error path independently per row.
+        best_error = np.full((values.shape[0],), np.inf, dtype=np.float32)
+        best_scales = row_scales.copy()
+        states = np.empty((values.shape[0], steps), dtype=np.int32)
+        for multiplier in (0.5, 0.65, 0.8, 1.0):
+            candidate_scales = row_scales * np.float32(multiplier)
+            candidate_states = encode_states(candidate_scales)
+            unit = state_lut[:, candidate_states].transpose(1, 2, 0).reshape(values.shape)
+            decoded = unit * candidate_scales[:, None]
+            error = np.asarray(
+                np.mean((values - decoded) ** 2, axis=1, dtype=np.float32),
+                dtype=np.float32,
+            )
+            improved = error < best_error
+            best_error[improved] = error[improved]
+            best_scales[improved] = candidate_scales[improved]
+            states[improved] = candidate_states[improved]
+        row_scales = best_scales
+    else:
+        states = encode_states(row_scales)
     packed = pack_qtip_states(states, geometry)
     return EncodedQtip(
         geometry=geometry,
@@ -557,24 +588,70 @@ def _artifact(path: Path, *, root: Path, data_bytes: int) -> dict[str, Any]:
     }
 
 
-def write_qtip_wire(
+def _write_qtip_wire_into(
     root: str | Path,
     *,
     declaration: QtipProviderDeclaration,
-    matrices: Mapping[Identity, np.ndarray],
     tlut: np.ndarray,
+    matrices: Mapping[Identity, np.ndarray] | None = None,
+    encodings: Mapping[Identity, EncodedQtip] | None = None,
 ) -> dict[str, Any]:
-    """Write one exact provider wire with a physically shared TLUT artifact."""
-    if not matrices:
-        raise ValueError("QTIP wire requires at least one matrix")
+    """Write one exact provider wire into a new staging directory."""
+    if (matrices is None) == (encodings is None):
+        raise ValueError("QTIP wire requires exactly one of matrices or encodings")
+    members_input: Mapping[Identity, np.ndarray | EncodedQtip]
+    members_input = matrices if matrices is not None else encodings  # type: ignore[assignment]
+    if not members_input:
+        raise ValueError("QTIP wire requires at least one member")
     output = Path(root).resolve()
     if output.exists():
         raise FileExistsError(f"QTIP wire output already exists: {output}")
-    output.mkdir(parents=True)
     table = np.asarray(tlut, dtype=np.float32)
-    if table.ndim != 2:
-        raise ValueError("shared QTIP TLUT must be a matrix")
-    assignments = assign_qtip_provider_components(declaration, matrices)
+    if table.ndim != 2 or not table.size or not np.isfinite(table).all():
+        raise ValueError("shared QTIP TLUT must be a finite non-empty matrix")
+    assignments = assign_qtip_provider_components(declaration, members_input)
+    for component in set(assignments.values()):
+        _state_lut(component.geometry, table)
+    for identity, raw_member in members_input.items():
+        component = assignments[identity]
+        if matrices is not None:
+            matrix = np.asarray(raw_member)
+            if (
+                matrix.ndim != 2
+                or matrix.size == 0
+                or matrix.shape[1] % component.geometry.V
+                or matrix.shape[1] // component.geometry.V * component.geometry.branch_bits
+                < component.geometry.L
+                or not np.isfinite(matrix).all()
+            ):
+                raise ValueError(
+                    f"QTIP wire member {identity!r} must be a finite non-empty matrix "
+                    "with sufficient geometry-aligned columns"
+                )
+            continue
+        encoded = raw_member
+        if not isinstance(encoded, EncodedQtip) or encoded.geometry != component.geometry:
+            raise ValueError(f"QTIP encoded member {identity!r} geometry drift")
+        rows, width = encoded.shape
+        if rows < 1 or width < 1 or width % encoded.geometry.V:
+            raise ValueError(f"QTIP encoded member {identity!r} has invalid shape")
+        steps = width // encoded.geometry.V
+        states = unpack_qtip_states(
+            encoded.packed,
+            steps=steps,
+            geometry=encoded.geometry,
+        )
+        scales = np.asarray(encoded.scales)
+        if (
+            states.shape != (rows, steps)
+            or not np.array_equal(np.asarray(encoded.states), states)
+            or scales.dtype != np.float32
+            or scales.shape != (rows,)
+            or np.any(~np.isfinite(scales))
+            or np.any(scales <= 0)
+        ):
+            raise ValueError(f"QTIP encoded member {identity!r} state/scale drift")
+    output.mkdir(parents=True)
     tlut_path = output / "shared_tlut.npy"
     np.save(tlut_path, table, allow_pickle=False)
     tlut_artifact = _artifact(tlut_path, root=output, data_bytes=table.nbytes)
@@ -583,13 +660,16 @@ def write_qtip_wire(
     index_data_bytes = 0
     scale_data_bytes = 0
     member_physical_bytes = 0
-    for identity in sorted(matrices):
+    for identity in sorted(members_input):
         component = assignments[identity]
-        encoded = encode_qtip(
-            matrices[identity],
-            geometry=component.geometry,
-            tlut=table,
-        )
+        if matrices is not None:
+            encoded = encode_qtip(
+                matrices[identity],
+                geometry=component.geometry,
+                tlut=table,
+            )
+        else:
+            encoded = encodings[identity]  # type: ignore[index]
         layer, expert, projection = identity
         stem = f"L{layer:03d}_E{expert:03d}_{projection}.{component.name}"
         packed_path = output / f"{stem}.trellis.npy"
@@ -660,23 +740,93 @@ def write_qtip_wire(
     return receipt
 
 
+def write_qtip_wire(
+    root: str | Path,
+    *,
+    declaration: QtipProviderDeclaration,
+    matrices: Mapping[Identity, np.ndarray],
+    tlut: np.ndarray,
+) -> dict[str, Any]:
+    """Materialize one provider wire transactionally with a shared TLUT."""
+    output = Path(root).resolve()
+    if output.exists():
+        raise FileExistsError(f"QTIP wire output already exists: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging_parent = Path(
+        tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent)
+    )
+    staging = staging_parent / "wire"
+    try:
+        receipt = _write_qtip_wire_into(
+            staging,
+            declaration=declaration,
+            matrices=matrices,
+            tlut=tlut,
+        )
+        os.replace(staging, output)
+        return receipt
+    finally:
+        shutil.rmtree(staging_parent, ignore_errors=True)
+
+
+def write_encoded_qtip_wire(
+    root: str | Path,
+    *,
+    declaration: QtipProviderDeclaration,
+    encodings: Mapping[Identity, EncodedQtip],
+    tlut: np.ndarray,
+) -> dict[str, Any]:
+    """Materialize validated quality-fitted QTIP paths through the public wire API."""
+    output = Path(root).resolve()
+    if output.exists():
+        raise FileExistsError(f"QTIP wire output already exists: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    staging_parent = Path(
+        tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent)
+    )
+    staging = staging_parent / "wire"
+    try:
+        receipt = _write_qtip_wire_into(
+            staging,
+            declaration=declaration,
+            encodings=encodings,
+            tlut=tlut,
+        )
+        os.replace(staging, output)
+        return receipt
+    finally:
+        shutil.rmtree(staging_parent, ignore_errors=True)
+
+
 class QtipWireConsumer:
     """Generic runtime-side reader; dispatch is by declared component geometry."""
 
-    def __init__(self, root: str | Path):
+    def __init__(
+        self,
+        root: str | Path,
+        *,
+        expected_receipt_sha256: str | None = None,
+    ):
         self.root = Path(root).resolve()
+        receipt_path = self.root / "QTIP_WIRE.json"
         try:
-            receipt = json.loads((self.root / "QTIP_WIRE.json").read_text())
+            receipt = json.loads(receipt_path.read_text())
         except (OSError, json.JSONDecodeError) as exc:
             raise ValueError(f"invalid QTIP wire receipt: {self.root}") from exc
         if not isinstance(receipt, dict) or receipt.get("schema") != _QTIP_WIRE_SCHEMA:
             raise ValueError("unsupported QTIP wire schema")
+        if receipt.get("status") != "PASS":
+            raise ValueError("QTIP wire receipt status must be PASS")
+        if expected_receipt_sha256 is not None and _sha256(receipt_path) != expected_receipt_sha256:
+            raise ValueError("QTIP wire receipt SHA-256 drift")
         self.receipt = receipt
         self.declaration = QtipProviderDeclaration.from_mapping(receipt.get("provider"))
         self._components = {row.name: row for row in self.declaration.components}
         raw_members = receipt.get("members")
         if not isinstance(raw_members, list):
             raise ValueError("QTIP wire members must be a list")
+        if not raw_members:
+            raise ValueError("QTIP wire requires at least one member")
         self._members: dict[Identity, dict[str, object]] = {}
         for row in raw_members:
             if not isinstance(row, dict) or not isinstance(row.get("identity"), dict):
@@ -694,6 +844,8 @@ class QtipWireConsumer:
             if component is None or row.get("geometry") != component.geometry.as_mapping():
                 raise ValueError("QTIP wire component/geometry drift")
             self._members[identity] = row  # type: ignore[index]
+        if receipt.get("counts") != self.counts:
+            raise ValueError("QTIP wire receipt component counts drift")
         self._tlut = self._load_array(
             receipt.get("shared_tlut"), dtype=np.dtype(np.float32)
         )
@@ -741,6 +893,8 @@ class QtipWireConsumer:
             raise ValueError("invalid QTIP wire member shape")
         if packed.shape[0] != shape[0] or scales.shape != (shape[0],):
             raise ValueError("QTIP wire member row/scale shape drift")
+        if np.any(~np.isfinite(scales)) or np.any(scales <= 0):
+            raise ValueError("QTIP wire scales must be finite and positive")
         encoded = EncodedQtip(
             geometry=component.geometry,
             shape=(shape[0], shape[1]),
@@ -749,6 +903,37 @@ class QtipWireConsumer:
             scales=scales,
         )
         return decode_qtip(encoded, tlut=self._tlut)
+
+
+def verify_qtip_wire(
+    root: str | Path,
+    *,
+    expected_receipt_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Verify every declared artifact and runtime-decode every provider member."""
+    try:
+        consumer = QtipWireConsumer(
+            root,
+            expected_receipt_sha256=expected_receipt_sha256,
+        )
+        decoded = 0
+        for identity in sorted(consumer._members):
+            value = consumer.decode(identity)
+            if not np.isfinite(value).all():
+                raise ValueError(f"QTIP wire member {identity!r} decoded non-finite values")
+            decoded += 1
+        return {
+            "schema": "banana-smasher-qtip-wire-verification-v1",
+            "status": "PASS",
+            "members": decoded,
+            "counts": consumer.counts,
+        }
+    except (KeyError, OSError, TypeError, ValueError) as exc:
+        return {
+            "schema": "banana-smasher-qtip-wire-verification-v1",
+            "status": "FAIL",
+            "error": str(exc),
+        }
 
 
 __all__ = [
@@ -768,5 +953,7 @@ __all__ = [
     "qtip1_provider_declaration",
     "qtip_provider_counts",
     "unpack_qtip_states",
+    "verify_qtip_wire",
+    "write_encoded_qtip_wire",
     "write_qtip_wire",
 ]

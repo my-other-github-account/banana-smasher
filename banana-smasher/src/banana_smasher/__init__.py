@@ -102,6 +102,7 @@ from .fixed_d4 import (
 )
 from .persistent import UpdateQueue
 from .qtip1 import (
+    EncodedQtip,
     QTIP1_GEOMETRY,
     QTIP2_GEOMETRY,
     QtipGeometry,
@@ -112,9 +113,13 @@ from .qtip1 import (
     decode_qtip,
     encode_qtip,
     gaussian_tlut,
+    pack_qtip_states,
     qtip1_5_provider_declaration,
     qtip1_provider_declaration,
     qtip_provider_counts,
+    unpack_qtip_states,
+    verify_qtip_wire,
+    write_encoded_qtip_wire,
     write_qtip_wire,
 )
 from .update_service import serve_persistent_updates
@@ -175,6 +180,7 @@ __all__ = [
     "BackpackWirePrice",
     "ContextualValuationError",
     "EXACT64_TERMINAL_SCHEMA",
+    "EncodedQtip",
     "QTIP1_GEOMETRY",
     "QTIP2_GEOMETRY",
     "QtipGeometry",
@@ -222,6 +228,7 @@ __all__ = [
     "materialize_candidate_producer",
     "materialize_fixed_d4",
     "native_mxfp4_backpack_provider",
+    "pack_qtip_states",
     "persist_fixed_d4_solve",
     "prepare_fixed_d4_solve_config",
     "price_backpack_candidate",
@@ -256,6 +263,7 @@ __all__ = [
     "status_report",
     "stage_qsfp_manifest",
     "select_measured_nonworse",
+    "unpack_qtip_states",
     "validate_bank_manifest",
     "vector_vq_backpack_provider",
     "verify_bank",
@@ -265,5 +273,7 @@ __all__ = [
     "verify_virtual_backpack",
     "verify_fixed_d4_model",
     "verify_pack",
+    "verify_qtip_wire",
+    "write_encoded_qtip_wire",
     "write_qtip_wire",
 ]
