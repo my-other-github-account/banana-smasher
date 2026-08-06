@@ -1,0 +1,127 @@
+{
+  "schema": "banana-smasher-bq23-measured-comparison-v1",
+  "status": "PASS",
+  "nickname": "BQ23",
+  "family_name": "BANANA-SMASHER-BQ23",
+  "definition": {
+    "description": "Dynamic Backpack assignment with native MXFP4, physical QTIP2, physical QTIP3, D4-K2048, and D4-K4096 options; the retired fixed-average QTIP2.5 portfolio is not an option tier.",
+    "option_menu": [
+      "native_mxfp4",
+      "qtip2",
+      "qtip3",
+      "d4_k2048",
+      "d4_k4096"
+    ],
+    "option_rows_per_tier": 22016,
+    "pre_repair_name": "BQ23-PRE",
+    "post_repair_name": "BQ23-U12",
+    "deploy_name": "BANANA-SMASHER-BQ23-U12",
+    "pre_repair_assignment_sha256": "020a8bd13281b8aac1988f62e5570772549effc39391d6650f2a3c47b54c394a",
+    "repair_update": 12
+  },
+  "exact64_contract": {
+    "windows": 64,
+    "positions": 65536,
+    "positions_per_window": 1024,
+    "support_width": 8192,
+    "kld": "support-renormalized",
+    "top1": "full-vocabulary integer argmax",
+    "full_window_forwards": 64,
+    "transformer_layer_forwards": 2752,
+    "repair_applied": false,
+    "holdout_used": false
+  },
+  "arms": {
+    "bq23_pre": {
+      "status": "PASS",
+      "top1_matches": 59043,
+      "top1_rate": 0.9009246826171875,
+      "mean_kld": 0.1058881698481855,
+      "kld_sum": 6939.487099170685,
+      "package_bytes": 101342443007,
+      "package_bpw": 2.92658930043726,
+      "assignment_counts": {
+        "native_mxfp4": 1951,
+        "qtip2": 4236,
+        "qtip3": 15829,
+        "d4_k2048": 0,
+        "d4_k4096": 0
+      },
+      "terminal_receipt_sha256": "25e6f9d5d2e372a67e80f7dd17f3147b24f30dd08a3d08ee35f92193a03b7052",
+      "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "bank_sha256": "56a8afbd8eef83a845d699d3cf2f2d44faf44c49d98ca7a66d3afa9e88a8383f",
+      "pack_sha256": "1f844a19bddc77e0cf978510ac975ae7133c6cf79289e84b1c5de69f84a99628",
+      "candidate_manifest_sha256": "2a726b71cc9f119d478602e87cdbe8a9a8eeb6886718f3a72377424ad406021b",
+      "score_receipt_sha256": "d54890a54d20dde85bfd046ba652789238880edeba13daa35f5e38e92c7978c6",
+      "top1_receipt_sha256": "1509ffe18082c235803c4b65f1c10c8655cf8b5023f1fbb01676611ce2ccbf7b"
+    },
+    "capped_with_retired_average_menu": {
+      "status": "PASS",
+      "top1_matches": 58686,
+      "top1_rate": 0.895477294921875,
+      "mean_kld": 0.11906004139746074,
+      "kld_sum": 7802.718873023987,
+      "package_bytes": 101339747155,
+      "package_bpw": 2.926276915526205,
+      "assignment_sha256": "413d46a8d3833e57f98a8ff6a0ca70045ba1e86877fb5960d2954eea88967575",
+      "assignment_counts": {
+        "native_mxfp4": 3146,
+        "qtip2": 2024,
+        "retired_qtip2_5_labels": 3690,
+        "qtip3": 13156,
+        "d4": 0
+      },
+      "terminal_receipt_sha256": "1710005b5468914c27e8278d771831dcecb6177387ad135f3292c5400e3eb38d",
+      "final_report_sha256": "57903591f6d2f2698eb60089ba36b52d37785366caf9fc5d5d11a364dfe4655b",
+      "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "bank_sha256": "56a8afbd8eef83a845d699d3cf2f2d44faf44c49d98ca7a66d3afa9e88a8383f",
+      "pack_sha256": "4359caf1470d98851bee43ca48e2b41f848c4e1b4b9b7a72a473ca25f739c467",
+      "candidate_manifest_sha256": "060fce9eb6b149cab5b9eec15f2ee99be7ab276dc69991b776ccc47d5fb0d0a9",
+      "score_receipt_sha256": "ef75b671151028c2b127e4d11b9b7ce67c19e01fe4184e0b89bf41fbcd541870",
+      "top1_receipt_sha256": "d005884f1b6fa636f424e60e54a8bf93c2fb8cb072030bfd80317c022dccabd2"
+    },
+    "fixed_qtip2_5_average_authority": {
+      "status": "PASS",
+      "description": "Retired static whole-model portfolio; every member is a physical QTIP2 or QTIP3 artifact, not a native 2.5-bit codec.",
+      "top1_matches": 58390,
+      "top1_rate": 0.890960693359375,
+      "mean_kld": 0.14997021151401604,
+      "expert_payload_bytes": 86886148096,
+      "whole_shipping_bytes": 106623252108,
+      "physical_assignment_counts": {
+        "qtip2": 11008,
+        "qtip3": 11008,
+        "total": 22016
+      },
+      "normalized_authority_sha256": "7337b736818a946bf21f1f3e4caa423c6777bad3bfb29bef8602ab795a53c823",
+      "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "comparison_scope": "Measured directional comparison only; this standalone authority is not package-matched to BQ23-PRE."
+    }
+  },
+  "paired_comparison": {
+    "scope": "BQ23-PRE versus capped WITH retired-average menu; exact matching basis, bank, windows, reducer, repair=false, and HOLDOUT=false.",
+    "bq23_top1_match_advantage": 357,
+    "bq23_top1_percentage_point_advantage": 0.54473876953125,
+    "bq23_kld_reduction": 0.013171871549275238,
+    "retired_menu_kld_percent_worse_than_bq23": 12.439417517707675,
+    "bq23_package_byte_difference": 2695852
+  },
+  "standalone_average_comparison": {
+    "scope": "Measured directional comparison; not package-matched.",
+    "bq23_top1_match_advantage": 653,
+    "bq23_top1_percentage_point_advantage": 0.99639892578125,
+    "bq23_kld_reduction": 0.044082041665830546,
+    "fixed_average_kld_percent_worse_than_bq23": 41.63075226347954,
+    "bq23_package_bytes_smaller": 5280809101
+  },
+  "decision": {
+    "retire_fixed_qtip2_5_average": true,
+    "retain_bq23": true,
+    "retain_dynamic_qtip2_qtip3_options": true,
+    "retain_d4_k2048_option": true,
+    "retain_d4_k4096_option": true,
+    "prioritize_modern_qtip2_5_styles": true,
+    "post_repair_claim_status": "NOT_YET_MEASURED"
+  },
+  "implementation_revision_before_report_commit": "9a8b3d5f5e1999b1447432c9523324f1c4154d3c"
+}

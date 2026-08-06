@@ -55,11 +55,13 @@ from .backpack import (
     status_backpack,
 )
 from .backpack_providers import (
+    BQ23_PROVIDER_IDS,
     BackpackFamilyActivation,
     BackpackFamilyProvider,
     BackpackWireArtifact,
     BackpackWirePrice,
     backpack_provider_from_declaration,
+    bq23_backpack_family_providers,
     bind_native_mxfp4_backpack_candidate,
     builtin_backpack_family_providers,
     fixed_d4_backpack_provider,
@@ -73,6 +75,21 @@ from .backpack_providers import (
     vector_vq_backpack_provider,
     verify_backpack_candidate,
 )
+from .backpack_contextual import (
+    ContextualValuationError,
+    build_contextual_delta_ledger,
+    run_contextual_trust_solve,
+    run_contextual_value_update,
+    solve_contextual_trust_region,
+)
+from .backpack_contextual_candidate import materialize_contextual_change
+from .backpack_contextual_measure import record_contextual_swap_measurement
+from .backpack_contextual_prepare import prepare_contextual_iteration
+from .backpack_exact64 import EXACT64_TERMINAL_SCHEMA, bind_backpack_exact64
+from .backpack_selection import select_measured_nonworse
+from .backpack_virtual import materialize_virtual_backpack, verify_virtual_backpack
+from .locality import require_local_backpack_inputs, require_local_path
+from .staging import stage_qsfp_manifest
 from .evaluate import evaluate_paired, verify_evaluation
 from .fixed_d4 import (
     materialize_fixed_d4,
@@ -146,6 +163,7 @@ def solve_qtip_profiles(
 
 __all__ = [
     "MANIFEST_NAME",
+    "BQ23_PROVIDER_IDS",
     "BPW_ACCOUNTING_SCHEMA",
     "BpwAccountingError",
     "PackValidationError",
@@ -155,6 +173,8 @@ __all__ = [
     "BackpackPlan",
     "BackpackWireArtifact",
     "BackpackWirePrice",
+    "ContextualValuationError",
+    "EXACT64_TERMINAL_SCHEMA",
     "QTIP1_GEOMETRY",
     "QTIP2_GEOMETRY",
     "QtipGeometry",
@@ -167,11 +187,14 @@ __all__ = [
     "anchor_backpack_candidates",
     "assign_qtip_provider_components",
     "backpack_provider_from_declaration",
+    "bq23_backpack_family_providers",
     "bind_native_mxfp4_backpack_candidate",
+    "bind_backpack_exact64",
     "build_bank",
     "build_bank_manifest",
     "build_bpw_accounting",
     "build_backpack",
+    "build_contextual_delta_ledger",
     "builtin_backpack_family_providers",
     "candidate_artifact_root",
     "compare_training_rails",
@@ -193,6 +216,8 @@ __all__ = [
     "load_manifest",
     "materialize_backpack_assignment",
     "materialize_backpack_source",
+    "materialize_contextual_change",
+    "materialize_virtual_backpack",
     "materialize_bank",
     "materialize_candidate_producer",
     "materialize_fixed_d4",
@@ -202,6 +227,7 @@ __all__ = [
     "price_backpack_candidate",
     "predict_backpack",
     "predict_backpack_candidate",
+    "prepare_contextual_iteration",
     "produce_fixed_d4_layerwise_logits",
     "produce_fixed_d4_logits",
     "qtip1_5_provider_declaration",
@@ -211,23 +237,32 @@ __all__ = [
     "register_bank",
     "require_comparable_bpw",
     "repair_backpack",
+    "record_contextual_swap_measurement",
     "resolve_bank_identities",
     "resolve_backpack_family_provider",
     "reuse_backpack_receipts",
+    "require_local_backpack_inputs",
+    "require_local_path",
+    "run_contextual_trust_solve",
+    "run_contextual_value_update",
     "score_bank",
     "score_backpack",
     "serve_persistent_updates",
     "solve_backpack",
+    "solve_contextual_trust_region",
     "solve_fixed_d4_exact",
     "solve_qtip_profiles",
     "status_backpack",
     "status_report",
+    "stage_qsfp_manifest",
+    "select_measured_nonworse",
     "validate_bank_manifest",
     "vector_vq_backpack_provider",
     "verify_bank",
     "verify_bpw_accounting",
     "verify_evaluation",
     "verify_backpack_candidate",
+    "verify_virtual_backpack",
     "verify_fixed_d4_model",
     "verify_pack",
     "write_qtip_wire",
