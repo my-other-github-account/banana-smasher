@@ -609,7 +609,27 @@ def test_plane_forward_async_guard_rejects_out_of_range_expert(tmp_path: Path) -
     )
 
     with pytest.raises(RuntimeError, match="expert id out of range"):
-        layer.forward(torch.ones((2, 4)), torch.tensor([0, 2]), "fused13")
+        layer.forward(torch.ones((2, 4)), torch.tensor([0, 3]), "fused13")
+
+
+def test_plane_forward_normalizes_num_experts_padding_at_native_boundary(
+    tmp_path: Path,
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        observed_ids.append(kwargs["expert_ids"].clone())
+        return torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width),
+            dtype=kwargs["x"].dtype,
+        )
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    layer.forward(torch.ones((2, 4)), torch.tensor([0, 2]), "fused13")
+
+    assert observed_ids
+    assert torch.equal(observed_ids[0], torch.tensor([0, -1]))
 
 
 def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) -> None:

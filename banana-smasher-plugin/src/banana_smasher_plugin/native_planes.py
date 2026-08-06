@@ -1184,16 +1184,18 @@ class NativePlaneLayer:
         range_error = (
             f"layer {self.layer_index} {projection} expert id out of range"
         )
-        # Stock vLLM uses -1 as a graph-padding sentinel for inactive routed rows.
-        # Accept only that sentinel, clamp every id before any device pointer-table
-        # lookup, and zero inactive outputs.  The async guards still fail closed on
-        # values below -1 or above the immutable expert table without introducing
-        # a host synchronization during CUDA-graph capture.
+        # Stock vLLM uses both -1 and num_experts as graph-padding sentinels
+        # for inactive routed rows. Normalize the upper sentinel again at this
+        # eager breakable-custom-op boundary: the upstream normalization can be
+        # captured in a preceding graph segment whose output is not materialized
+        # before this stateful native pointer-table lookup. Values below -1 or
+        # above num_experts still fail closed without a host synchronization.
         expert_count = len(state.tiers)
         torch.ops.aten._assert_async.msg(torch.all(expert_ids >= -1), range_error)
         torch.ops.aten._assert_async.msg(
-            torch.all(expert_ids < expert_count), range_error
+            torch.all(expert_ids <= expert_count), range_error
         )
+        expert_ids = torch.where(expert_ids == expert_count, -1, expert_ids)
         result = self._dispatch(
             projection=projection,
             x=x,
