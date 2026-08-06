@@ -597,7 +597,12 @@ def test_plane_forward_uses_capture_safe_async_expert_range_guards(
         (
             True,
             "layer 0 fused13 expert id out of range: "
-            "nonzero-weight padding route",
+            "nonzero-weight negative padding route",
+        ),
+        (
+            True,
+            "layer 0 fused13 expert id out of range: "
+            "nonzero-weight upper padding route",
         ),
     ]
 
@@ -1025,7 +1030,7 @@ def test_native_moe_apply_rejects_nonzero_weight_padding_sentinel(
     ids = torch.tensor([[0, 1, 2, 0, 1, 0]], dtype=torch.long)
     weights = torch.tensor([[0.4, 0.2, 0.1, 0.1, 0.1, 0.1]])
 
-    with pytest.raises(RuntimeError, match="nonzero-weight padding route"):
+    with pytest.raises(RuntimeError, match="nonzero-weight upper padding route"):
         BananaSmasherMoEMethod.apply(method, object(), x, weights, ids, None, None)
 
 

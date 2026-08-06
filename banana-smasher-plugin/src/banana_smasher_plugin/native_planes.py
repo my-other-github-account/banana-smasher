@@ -1190,21 +1190,25 @@ class NativePlaneLayer:
                 f"x={tuple(x.shape)} ids={tuple(expert_ids.shape)} "
                 f"weights={tuple(route_weights.shape)} expected_k={state.input_width}"
             )
-        range_error = (
-            f"layer {self.layer_index} {projection} expert id out of range: "
-            "nonzero-weight padding route"
-        )
         # Validate and normalize graph-padding at the eager custom-op boundary,
         # where both router outputs are materialized. Stock vLLM may leave an
         # arbitrary expert id in an inactive zero-weight route during dummy
         # CUDA-graph capture. Only zero-weight out-of-range rows are padding;
         # nonzero-weight invalid routes fail closed before any pointer lookup.
         expert_count = len(state.tiers)
-        padding = (expert_ids < 0) | (expert_ids >= expert_count)
+        negative_padding = expert_ids < 0
+        upper_padding = expert_ids >= expert_count
         torch.ops.aten._assert_async.msg(
-            torch.all((~padding) | (route_weights == 0)), range_error
+            torch.all((~negative_padding) | (route_weights == 0)),
+            f"layer {self.layer_index} {projection} expert id out of range: "
+            "nonzero-weight negative padding route",
         )
-        expert_ids = torch.where(padding, -1, expert_ids)
+        torch.ops.aten._assert_async.msg(
+            torch.all((~upper_padding) | (route_weights == 0)),
+            f"layer {self.layer_index} {projection} expert id out of range: "
+            "nonzero-weight upper padding route",
+        )
+        expert_ids = torch.where(negative_padding | upper_padding, -1, expert_ids)
         result = self._dispatch(
             projection=projection,
             x=x,
