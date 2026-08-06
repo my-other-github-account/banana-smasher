@@ -37,6 +37,7 @@ class PeriodicWirePrice:
 @dataclass(frozen=True)
 class PeriodicQTIP25Provider:
     provider_id: str
+    public_name: str
     kind: str
     runtime_family: str
     codec_form: str
@@ -100,7 +101,7 @@ def generate_periodic_candidate(
             "schema": "banana-smasher-qtip25-periodic-candidate-v1",
             "status": "PASS",
             **PERIODIC_QTIP25_FORMAT,
-            "provider_id": "qtip25-periodic",
+            "provider_id": "qtip25_periodic_23",
             "runtime_family": "qtip25_periodic",
             "intended_basis_sha256": intended_basis_sha256,
             "transition_count": transition_count,
@@ -150,7 +151,7 @@ def verify_periodic_candidate(value: str | Path) -> bool:
         if (
             receipt.get("schema") != "banana-smasher-qtip25-periodic-candidate-v1"
             or receipt.get("status") != "PASS"
-            or receipt.get("provider_id") != "qtip25-periodic"
+            or receipt.get("provider_id") != "qtip25_periodic_23"
             or receipt.get("runtime_family") != "qtip25_periodic"
             or receipt.get("assignment_map_bytes") != 0
             or receipt.get("routing_bytes") != 0
@@ -202,7 +203,7 @@ def materialize_periodic_candidate(value: str | Path) -> dict[str, Any]:
     receipt = _receipt(root)
     return {
         "runtime_family": "qtip25_periodic",
-        "codec_form": "qtip25_periodic_23",
+        "codec_form": "periodic_2_3",
         "rate_num": 5,
         "rate_den": 2,
         "transition_count": int(receipt["transition_count"]),
@@ -223,10 +224,11 @@ def predict_periodic_candidate(
 def periodic_qtip25_provider() -> PeriodicQTIP25Provider:
     """Return the clean public provider lifecycle for the periodic codec."""
     return PeriodicQTIP25Provider(
-        provider_id="qtip25-periodic",
+        provider_id="qtip25_periodic_23",
+        public_name="QTIP2.5-PERIODIC",
         kind="qtip_periodic",
         runtime_family="qtip25_periodic",
-        codec_form="qtip25_periodic_23",
+        codec_form="periodic_2_3",
         rate_num=5,
         rate_den=2,
         encode=solve_periodic,

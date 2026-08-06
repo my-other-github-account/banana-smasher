@@ -23,7 +23,7 @@ def test_periodic_qtip25_symbol_wire_roundtrips_and_decodes_exactly() -> None:
     packed = pack_symbols(symbols)
 
     assert PERIODIC_QTIP25_FORMAT == {
-        "codec_form": "qtip25_periodic_23",
+        "codec_form": "periodic_2_3",
         "rate_num": 5,
         "rate_den": 2,
         "transition_k": [2, 3],
@@ -47,7 +47,7 @@ def test_periodic_qtip25_symbol_wire_roundtrips_and_decodes_exactly() -> None:
         shared_tlut_bytes=4096,
     )
     assert accounting == {
-        "codec_form": "qtip25_periodic_23",
+        "codec_form": "periodic_2_3",
         "rate_num": 5,
         "rate_den": 2,
         "position_count": 8,
@@ -90,12 +90,13 @@ def test_periodic_provider_generates_prices_materializes_and_verifies(tmp_path) 
         intended_basis_sha256="a" * 64,
     )
 
-    assert provider.provider_id == "qtip25-periodic"
+    assert provider.provider_id == "qtip25_periodic_23"
+    assert provider.public_name == "QTIP2.5-PERIODIC"
     assert provider.kind == "qtip_periodic"
     assert provider.runtime_family == "qtip25_periodic"
     assert provider.encode is solve_periodic
     assert receipt["status"] == "PASS"
-    assert receipt["codec_form"] == "qtip25_periodic_23"
+    assert receipt["codec_form"] == "periodic_2_3"
     assert receipt["rate_num"] == 5
     assert receipt["rate_den"] == 2
     assert receipt["position_count"] == 8

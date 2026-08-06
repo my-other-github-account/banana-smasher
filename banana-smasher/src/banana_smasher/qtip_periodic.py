@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 
 PERIODIC_QTIP25_FORMAT: dict[str, Any] = {
-    "codec_form": "qtip25_periodic_23",
+    "codec_form": "periodic_2_3",
     "rate_num": 5,
     "rate_den": 2,
     "transition_k": [2, 3],
@@ -234,7 +234,7 @@ def solve_periodic(
         difference = table[states] - values
         distortion = float(np.sum(difference * difference, dtype=np.float64))
         result = {
-            "codec_form": "qtip25_periodic_23",
+            "codec_form": "periodic_2_3",
             "rate_num": 5,
             "rate_den": 2,
             "overlap_candidates": candidate_count,
@@ -273,7 +273,7 @@ def periodic_wire_accounting(
         return 0.0 if count == 0 else byte_count * 8.0 / count
 
     return {
-        "codec_form": "qtip25_periodic_23",
+        "codec_form": "periodic_2_3",
         "rate_num": 5,
         "rate_den": 2,
         "position_count": count,
