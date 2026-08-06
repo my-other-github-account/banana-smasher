@@ -123,5 +123,43 @@
     "prioritize_modern_qtip2_5_styles": true,
     "post_repair_claim_status": "NOT_YET_MEASURED"
   },
+  "historical_f521_dq_bq_comparison": {
+    "assignment_map_sha256": "786b01a3f8c0197407e0025c80ca92c29b347a9c18de4b1ca48b7cf52ae08df6",
+    "assignment_source_sha256": "f521cf07e0dce3c39739c7493b6eda82cd78d6b1566fadb2101691321566ca39",
+    "d4_fraction": 0.21425327034883722,
+    "d4_total": 4717,
+    "same_assignment_lineage_as_bq23": false,
+    "selection_authority": {
+      "definitive_rerun_required": true,
+      "mode": "OPERATOR_AUTHORIZED_BASELINE_PREVIEW",
+      "retrodiction_gate_passed": false
+    },
+    "selected_counts": {
+      "d4_k1024": 197,
+      "d4_k2048": 2610,
+      "d4_k4096": 1910,
+      "native_mxfp4": 54,
+      "qtip2": 2266,
+      "qtip3": 14979
+    },
+    "total_cells": 22016
+  },
+  "modern_d4_selection_diagnostic": {
+    "d4_k1024_admitted": false,
+    "d4_k2048": {
+      "equal_class_prediction_better_than_qtip3_cells": 0,
+      "pareto_dominated_rows": 11027,
+      "payload_cheaper_than_qtip3_cells": 11008,
+      "selected_cells": 0
+    },
+    "d4_k4096": {
+      "equal_class_prediction_better_than_qtip3_cells": 0,
+      "pareto_dominated_rows": 22016,
+      "payload_byte_delta_vs_qtip3_max": 380926,
+      "payload_byte_delta_vs_qtip3_min": 376830,
+      "selected_cells": 0
+    },
+    "interpretation": "The corrected full-wire BQ23 ledger explains zero D4 without a tier-filter failure, but BQ23 is a new lineage and must not be conflated with the historical D4-rich F521/U012 DQ-BQ assignment."
+  },
   "implementation_revision_before_report_commit": "9a8b3d5f5e1999b1447432c9523324f1c4154d3c"
 }
