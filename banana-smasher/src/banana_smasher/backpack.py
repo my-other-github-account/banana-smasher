@@ -322,9 +322,11 @@ class BackpackPlan:
                         "id",
                         "family",
                         "provider",
+                        "runtime_family",
                         "bpw",
                         "backend",
                         "source_root",
+                        "fixed_assignment",
                         "activation_artifacts",
                     },
                     f"tiers[{index}]",
@@ -349,15 +351,69 @@ class BackpackPlan:
                     )
                 tier["backend"] = backend
                 if backend == "packaged_qtip":
-                    tier["source_root"] = _path(
-                        tier.get("source_root"),
-                        f"tiers[{index}].source_root",
-                        base_dir=base,
-                    )
+                    fixed_assignment = tier.get("fixed_assignment")
+                    if fixed_assignment is not None:
+                        fixed = _object(
+                            fixed_assignment, f"tiers[{index}].fixed_assignment"
+                        )
+                        _reject_unknown(
+                            fixed,
+                            {"path", "sha256", "member_root"},
+                            f"tiers[{index}].fixed_assignment",
+                        )
+                        fixed_sha = _nonempty(
+                            fixed.get("sha256"),
+                            f"tiers[{index}].fixed_assignment.sha256",
+                        )
+                        if re.fullmatch(r"[0-9a-f]{64}", fixed_sha) is None:
+                            raise BackpackPlanError(
+                                f"tiers[{index}].fixed_assignment.sha256 must be a lowercase SHA-256"
+                            )
+                        tier["fixed_assignment"] = {
+                            "path": _path(
+                                fixed.get("path"),
+                                f"tiers[{index}].fixed_assignment.path",
+                                base_dir=base,
+                            ),
+                            "sha256": fixed_sha,
+                            **(
+                                {
+                                    "member_root": _path(
+                                        fixed.get("member_root"),
+                                        f"tiers[{index}].fixed_assignment.member_root",
+                                        base_dir=base,
+                                    )
+                                }
+                                if "member_root" in fixed
+                                else {}
+                            ),
+                        }
+                        if "source_root" in tier:
+                            raise BackpackPlanError(
+                                f"tiers[{index}] cannot combine source_root and fixed_assignment"
+                            )
+                    else:
+                        tier["source_root"] = _path(
+                            tier.get("source_root"),
+                            f"tiers[{index}].source_root",
+                            base_dir=base,
+                        )
                 elif "source_root" in tier:
                     raise BackpackPlanError(
                         f"tiers[{index}].source_root is only valid for packaged_qtip"
                     )
+                if "fixed_assignment" in tier and backend != "packaged_qtip":
+                    raise BackpackPlanError(
+                        f"tiers[{index}].fixed_assignment requires packaged_qtip"
+                    )
+                runtime_family = tier.get(
+                    "runtime_family", "qtip2" if bpw < Decimal("3.00") else "qtip3"
+                )
+                if runtime_family not in {"qtip2", "qtip3"}:
+                    raise BackpackPlanError(
+                        f"tiers[{index}].runtime_family must be qtip2 or qtip3"
+                    )
+                tier["runtime_family"] = runtime_family
                 provider = tier.get("provider")
                 if provider is not None:
                     provider = _nonempty(provider, f"tiers[{index}].provider")
@@ -369,7 +425,12 @@ class BackpackPlan:
                         "qtip3": Decimal("3.00"),
                         "qtip@3.00": Decimal("3.00"),
                     }
-                    if provider not in expected or bpw != expected[provider]:
+                    if "fixed_assignment" in tier:
+                        if provider != "packaged_qtip":
+                            raise BackpackPlanError(
+                                f"tiers[{index}].provider must be packaged_qtip for a fixed assignment"
+                            )
+                    elif provider not in expected or bpw != expected[provider]:
                         raise BackpackPlanError(
                             f"tiers[{index}].provider does not match its QTIP bpw"
                         )
@@ -405,6 +466,12 @@ class BackpackPlan:
                             base_dir=base,
                         )
             tiers.append(tier)
+
+        fixed_tiers = [tier for tier in tiers if "fixed_assignment" in tier]
+        if fixed_tiers and len(tiers) != 1:
+            raise BackpackPlanError(
+                "a fixed-assignment Backpack plan must declare exactly one selected tier"
+            )
 
         anchor = _object(value.get("anchor"), "anchor")
         _reject_unknown(anchor, {"bank", "teacher"}, "anchor")
@@ -4270,12 +4337,167 @@ def reuse_backpack_receipts(
     }
 
 
+def _fixed_assignment_admission(plan: BackpackPlan) -> dict[str, Any] | None:
+    fixed_tiers = [tier for tier in plan.tiers if "fixed_assignment" in tier]
+    if len(fixed_tiers) != 1:
+        return None
+    admissions = [
+        row
+        for row in plan.reuse_receipts
+        if row["role"] == "fixed-qtip-pack-admission"
+        and row["admission"] == "admitted"
+    ]
+    if not admissions:
+        return None
+    if len(admissions) != 1:
+        raise BackpackPlanError(
+            "fixed assignment production export requires exactly one admitted pack receipt"
+        )
+    return {"tier": fixed_tiers[0], "admission": admissions[0]}
+
+
+def _build_fixed_assignment_backpack(
+    plan: BackpackPlan,
+    *,
+    root: Path,
+    plan_sha256: str,
+    binding: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Stream one sealed whole-model fixed assignment through public build_backpack."""
+
+    from .contract import MANIFEST_NAME, verify_pack
+    from .fixed_qtip_export import export_fixed_qtip_pack
+
+    tier = binding["tier"]
+    fixed = tier["fixed_assignment"]
+    admission = binding["admission"]
+    destination = Path(plan.output["pack"])
+    final_path = root / "FINAL_RECEIPT.json"
+    stage_path = root / "FIXED_ASSIGNMENT_EXPORT.json"
+    if final_path.is_file() and stage_path.is_file() and destination.is_dir():
+        final_payload = json.loads(final_path.read_text())
+        if (
+            final_payload.get("status") != "PASS"
+            or final_payload.get("plan_sha256") != plan_sha256
+        ):
+            raise BackpackPlanError(
+                "fixed assignment run root contains a mismatched final receipt"
+            )
+        verify_pack(destination)
+        return {
+            **final_payload,
+            "resumed_stages": ["fixed_assignment_export"],
+            "final_receipt": str(final_path),
+            "final_receipt_sha256": _sha_file(final_path),
+        }
+    if destination.exists():
+        raise BackpackPlanError(
+            f"fixed assignment output exists without a matching final receipt: {destination}"
+        )
+    if plan.repair["method"] != "none":
+        raise BackpackPlanError("fixed assignment production export requires repair.method=none")
+    serving_root = Path(plan.model["root"])
+    index_path = serving_root / "model.safetensors.index.json"
+    if index_path.is_file() and plan.model["revision"] != _sha_file(index_path):
+        raise BackpackPlanError(
+            "fixed assignment production model revision must equal the serving index SHA-256"
+        )
+    manifest = export_fixed_qtip_pack(
+        members_manifest=fixed["path"],
+        members_manifest_sha256=fixed["sha256"],
+        pack_admission=admission["path"],
+        pack_admission_sha256=admission["sha256"],
+        output=destination,
+        model_id=plan.output["model_id"],
+        instance_id=plan.output["instance_id"],
+        serving_model_root=serving_root,
+        runtime_floor_bytes=0,
+        member_root=fixed.get("member_root"),
+        link_mode="hardlink",
+    )
+    verification = verify_pack(destination)
+    routing_index_bytes = sum(
+        int(row["data_bytes"])
+        for name, row in manifest["tensor_index"].items()
+        if name.endswith(".expert_ids")
+    )
+    selectable_expert_bytes = sum(
+        int(row["data_bytes"])
+        for name, row in manifest["tensor_index"].items()
+        if not name.endswith(".expert_ids")
+    )
+    shared_tlut = manifest.get("fixed_assignment", {}).get("shared_tlut", {})
+    shared_tlut_bytes = shared_tlut.get("data_bytes")
+    if not isinstance(shared_tlut_bytes, int) or shared_tlut_bytes <= 0:
+        shutil.rmtree(destination, ignore_errors=True)
+        raise BackpackPlanError("fixed assignment lacks shared TLUT byte accounting")
+    expert_plane_bytes = selectable_expert_bytes + shared_tlut_bytes
+    base_weight_file_bytes = sum(
+        int(row["bytes"])
+        for row in manifest["files"]
+        if row.get("role") == "base_weights_shard"
+    )
+    whole_model_bytes = expert_plane_bytes + base_weight_file_bytes
+    if "exact_bytes" in plan.target and whole_model_bytes != int(plan.target["exact_bytes"]):
+        shutil.rmtree(destination, ignore_errors=True)
+        raise BackpackPlanError(
+            f"fixed assignment whole-model bytes {whole_model_bytes} "
+            f"!= target {plan.target['exact_bytes']}"
+        )
+    result = {
+        "schema": "banana-smasher-backpack-fixed-assignment-build-v1",
+        "status": "PASS",
+        "plan_sha256": plan_sha256,
+        "execution": "fixed_assignment_streaming",
+        "provider": tier["provider"],
+        "model": str(destination),
+        "pack_manifest": str(destination / MANIFEST_NAME),
+        "pack_manifest_sha256": _sha_file(destination / MANIFEST_NAME),
+        "members_manifest_sha256": fixed["sha256"],
+        "pack_admission_sha256": admission["sha256"],
+        "expert_plane_bytes": expert_plane_bytes,
+        "selectable_expert_bytes": selectable_expert_bytes,
+        "shared_tlut_bytes": shared_tlut_bytes,
+        "routing_index_bytes": routing_index_bytes,
+        "base_weight_file_bytes": base_weight_file_bytes,
+        "whole_model_bytes": whole_model_bytes,
+        "verification": verification,
+        "stages": ["fixed_assignment_export"],
+        "resumed_stages": [],
+        "run_root": str(root),
+    }
+    _atomic_json(
+        stage_path,
+        {
+            "schema": STAGE_SCHEMA,
+            "status": "PASS",
+            "stage": "fixed_assignment_export",
+            "plan_sha256": plan_sha256,
+            "result": result,
+        },
+    )
+    _atomic_json(final_path, result)
+    return {
+        **result,
+        "final_receipt": str(final_path),
+        "final_receipt_sha256": _sha_file(final_path),
+    }
+
+
 def build_backpack(
     plan: BackpackPlan | Mapping[str, Any], *, run_root: str | Path
 ) -> dict[str, Any]:
     """Execute or resume the complete eight-stage Backpack construction DAG."""
 
     parsed, root, plan_sha256 = _bind_run(plan, run_root)
+    fixed_assignment = _fixed_assignment_admission(parsed)
+    if fixed_assignment is not None:
+        return _build_fixed_assignment_backpack(
+            parsed,
+            root=root,
+            plan_sha256=plan_sha256,
+            binding=fixed_assignment,
+        )
     resumed: list[str] = []
     final_result: dict[str, Any] | None = None
     prior_stage_sha256: dict[str, str] = {}

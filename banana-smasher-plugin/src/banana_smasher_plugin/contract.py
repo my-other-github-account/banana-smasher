@@ -7,6 +7,15 @@ from pathlib import Path
 from typing import Any
 
 
+SUPPORTED_PACK_SOURCE_FORMATS = frozenset(
+    {
+        "p1016-true-c-native-planes-v1",
+        "banana_smasher-materialized-wire-v1",
+        "canonical-npy-v1",
+    }
+)
+
+
 class PackContractError(RuntimeError):
     pass
 
@@ -51,13 +60,9 @@ def load_runtime_contract(root: str | Path) -> RuntimeContract:
         raise PackContractError("unsupported pack format")
     manifest_path = root / q.get("pack_manifest", "")
     manifest = _load(manifest_path)
-    source_format = manifest.get("source_format")
-    if source_format not in {
-        "p1016-true-c-native-planes-v1",
-        "canonical-npy-v1",
-    }:
+    if manifest.get("source_format") not in SUPPORTED_PACK_SOURCE_FORMATS:
         raise PackContractError(
-            "source_format must be p1016-true-c-native-planes-v1 or canonical-npy-v1"
+            f"source_format must be one of {sorted(SUPPORTED_PACK_SOURCE_FORMATS)}"
         )
     if manifest.get("quant_method") != "banana_smasher":
         raise PackContractError("manifest quant_method mismatch")
