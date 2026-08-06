@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
+import runpy
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
@@ -146,12 +146,8 @@ class PackLoader:
         path = self.kernel_cache_root / contract["path"]
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         module_name = f"_banana_smasher_runtime_{digest[:16]}"
-        spec = importlib.util.spec_from_file_location(module_name, path)
-        if spec is None or spec.loader is None:
-            raise PackValidationError(f"cannot import runtime adapter: {path}")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        adapter_class = getattr(module, contract["class"], None)
+        namespace = runpy.run_path(str(path), run_name=module_name)
+        adapter_class = namespace.get(contract["class"])
         if (
             not isinstance(adapter_class, type)
             or getattr(adapter_class, "API_VERSION", None) != 1

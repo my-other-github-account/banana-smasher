@@ -92,6 +92,7 @@ def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
         "kernels",
         "knapsack",
         "backpack-dimensions",
+        "backpack",
         "fixed-d4",
         "anchor",
     ]

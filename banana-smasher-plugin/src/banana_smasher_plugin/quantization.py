@@ -190,6 +190,7 @@ class BananaSmasherMoEMethod(FusedMoEMethodBase):
         self.layer_index = int(layer_index)
         self.prefix = prefix
         self.native_layer: NativePlaneLayer | None = None
+        self.runtime_state: Any | None = None
 
     @property
     def supports_internal_mk(self) -> bool:
@@ -227,8 +228,10 @@ class BananaSmasherMoEMethod(FusedMoEMethodBase):
                 f"stock DeepSeek-V4 MoE shape prerequisite mismatch for {self.prefix}: "
                 f"actual={actual} expected={expected}"
             )
-        pack = self.quant_config.pack
-        if pack is None:
+        if self.quant_config.pack is None and (
+            self.quant_config.runtime_loader is None
+            or self.quant_config.runtime_adapter is None
+        ):
             raise _fail("quantization config was not bound to the stock model root")
         device = next(layer.buffers(), torch.empty(0)).device
         if device.type != "cuda":
@@ -245,6 +248,23 @@ class BananaSmasherMoEMethod(FusedMoEMethodBase):
             raise _fail(
                 "DENSE_WEIGHT_MAP_PREFLIGHT did not pass before expert plane allocation"
             )
+        runtime_loader = self.quant_config.runtime_loader
+        if runtime_loader is not None:
+            adapter = self.quant_config.runtime_adapter
+            if adapter is None:
+                raise _fail("Backpack runtime adapter was not initialized")
+            if self.runtime_state is None:
+                self.runtime_state = adapter.build_layer(
+                    loader=runtime_loader,
+                    layer_index=self.layer_index,
+                    device=self.native_device,
+                )
+                if self.runtime_state is None:
+                    raise _fail(
+                        f"Backpack runtime adapter returned no state for layer {self.layer_index}"
+                    )
+            layer.bs_native_plane_layer = self.runtime_state
+            return
         if self.native_layer is None:
             pack = self.quant_config.pack
             if pack is None:
@@ -274,9 +294,27 @@ class BananaSmasherMoEMethod(FusedMoEMethodBase):
         shared_experts_input: torch.Tensor | None,
     ) -> torch.Tensor:
         del layer, shared_experts, shared_experts_input
-        native_layer = self.native_layer
-        if native_layer is None:
+        native_layer = getattr(self, "native_layer", None)
+        runtime_state = getattr(self, "runtime_state", None)
+        runtime_adapter = getattr(
+            getattr(self, "quant_config", None), "runtime_adapter", None
+        )
+        if native_layer is None and runtime_state is None:
             raise _fail(f"native planes were not loaded for {self.prefix}")
+
+        def project(
+            value: torch.Tensor, expert_ids: torch.Tensor, projection: str
+        ) -> torch.Tensor:
+            if runtime_adapter is not None:
+                return runtime_adapter.forward(
+                    runtime_state,
+                    projection=projection,
+                    x=value,
+                    expert_ids=expert_ids,
+                )
+            assert native_layer is not None
+            return native_layer.forward(value, expert_ids, projection)
+
         original_shape = x.shape
         flat = x.reshape(-1, x.shape[-1])
         weights = topk_weights.reshape(flat.shape[0], -1)
@@ -292,10 +330,10 @@ class BananaSmasherMoEMethod(FusedMoEMethodBase):
         expanded = flat[:, None, :].expand(
             flat.shape[0], ids.shape[1], flat.shape[1]
         ).reshape(-1, flat.shape[1])
-        fused = native_layer.forward(expanded, routed_ids, "fused13")
+        fused = project(expanded, routed_ids, "fused13")
         gate, up = fused.chunk(2, dim=-1)
         activated = F.silu(gate) * up
-        down = native_layer.forward(activated, routed_ids, "down")
+        down = project(activated, routed_ids, "down")
         result = (
             down.reshape(flat.shape[0], ids.shape[1], flat.shape[1])
             * weights[..., None].to(down.dtype)
@@ -309,6 +347,8 @@ class BananaSmasherQuantizationConfig(QuantizationConfig):
         self.raw = dict(raw)
         self.model_root: Path | None = None
         self.pack: NativePlanePack | None = None
+        self.runtime_loader: Any | None = None
+        self.runtime_adapter: Any | None = None
         activation_scheme = self.raw.get("activation_scheme")
         fmt = self.raw.get("fmt")
         weight_block_size = self.raw.get("weight_block_size")
@@ -387,10 +427,48 @@ class BananaSmasherQuantizationConfig(QuantizationConfig):
                 f"{model_name}"
             )
         self.model_root = root.resolve()
-        self.pack = NativePlanePack.from_model_root(self.model_root)
-        if self.pack.architecture not in {"sm_120", "sm_121", "sm_121a"}:
+        manifest_name = self.raw.get("pack_manifest", "BANANA_PACK_MANIFEST.json")
+        if (
+            not isinstance(manifest_name, str)
+            or Path(manifest_name).is_absolute()
+            or ".." in Path(manifest_name).parts
+        ):
+            raise _fail(f"unsafe pack_manifest path: {manifest_name!r}")
+        try:
+            manifest = json.loads((self.model_root / manifest_name).read_text())
+        except Exception as exc:
+            raise _fail(f"cannot read bs-pack manifest before runtime selection: {exc}") from exc
+        if manifest.get("source_format") == "p1016-true-c-native-planes-v1":
+            self.pack = NativePlanePack.from_model_root(self.model_root)
+            architecture = self.pack.architecture
+        else:
+            from banana_smasher.loader import PackLoader
+
+            cache_relative = self.raw.get("kernel_cache_root", "kernel-cache")
+            cache_path = Path(cache_relative) if isinstance(cache_relative, str) else None
+            if (
+                cache_path is None
+                or cache_path.is_absolute()
+                or ".." in cache_path.parts
+            ):
+                raise _fail(f"unsafe kernel_cache_root path: {cache_relative!r}")
+            architecture = self.raw.get("architecture")
+            if not isinstance(architecture, str):
+                raise _fail("Backpack runtime requires a configured architecture")
+            cache_root = (self.model_root / cache_path).resolve()
+            if self.model_root not in cache_root.parents:
+                raise _fail(f"kernel_cache_root escapes model directory: {cache_relative!r}")
+            runtime_loader = PackLoader(
+                self.model_root,
+                kernel_cache_root=cache_root,
+                architecture=architecture,
+            )
+            self.runtime_loader = runtime_loader
+            adapter_class = runtime_loader.runtime_adapter_class()
+            self.runtime_adapter = adapter_class()
+        if architecture not in {"sm_120", "sm_121", "sm_121a"}:
             raise _fail(
-                f"native-plane architecture prerequisite mismatch: {self.pack.architecture}"
+                f"native-plane architecture prerequisite mismatch: {architecture}"
             )
 
     def _select_stock_dense_backend(self) -> None:
@@ -447,7 +525,12 @@ class BananaSmasherQuantizationConfig(QuantizationConfig):
                 f"stock DeepSeek-V4 routed-expert prefix mismatch: {prefix}"
             )
         layer_index = int(match.group("layer"))
-        if self.pack is None or layer_index not in self.pack.layers:
+        layers = (
+            self.pack.layers
+            if self.pack is not None
+            else tuple(self.runtime_loader.layers) if self.runtime_loader is not None else ()
+        )
+        if layer_index not in layers:
             raise _fail(
                 f"stock DeepSeek-V4 layer {layer_index} is not bound by the native-plane pack"
             )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -77,6 +78,20 @@ def _wire_sha(array: np.ndarray) -> str:
     return hashlib.sha256(
         np.ascontiguousarray(array).tobytes(order="C")
     ).hexdigest()
+
+
+def apply_residual_update(
+    original: np.ndarray, quantized: np.ndarray, *, strength: float
+) -> np.ndarray:
+    """Apply the package repair/update primitive to one physical cell."""
+
+    if not 0.0 <= strength <= 1.0:
+        raise ValueError("repair strength must be in [0,1]")
+    return np.ascontiguousarray(
+        quantized.astype(np.float32)
+        + strength * (original.astype(np.float32) - quantized.astype(np.float32)),
+        dtype=np.float32,
+    )
 
 
 def _require_sha256(value: str, label: str) -> str:
@@ -284,17 +299,23 @@ def materialize_codebook_plane(
 ) -> list[dict[str, Any]] | None:
     if source.name != "codebooks.npy" and not source.name.endswith(".codebooks.npy"):
         return None
+    if not repairs:
+        return None
     base = np.load(source, mmap_mode="r", allow_pickle=False)
     if base.dtype != np.dtype("float16"):
-        raise ValueError(f"repair codebook source must be float16: {source}")
+        if _wire_sha(base) in repairs:
+            raise ValueError(f"repair codebook source must be float16: {source}")
+        return None
     if base.ndim == 2:
         slices = [(None, base)]
     elif base.ndim == 3:
         slices = [(index, base[index]) for index in range(base.shape[0])]
     else:
-        raise ValueError(
-            f"repair codebook source must be a matrix or matrix stack: {source}"
-        )
+        if _wire_sha(base) in repairs:
+            raise ValueError(
+                f"repair codebook source must be a matrix or matrix stack: {source}"
+            )
+        return None
     selected: list[tuple[int | None, str, CodebookRepair]] = []
     for index, array in slices:
         source_wire_sha = _wire_sha(array)
@@ -343,10 +364,132 @@ def materialize_codebook_plane(
     return rows
 
 
+def materialize_dense_repair_shards(root: Path, bundle: RepairBundle) -> dict[str, Any]:
+    """Apply norms and fold output gains into copied serving tensors once."""
+
+    from safetensors.numpy import load_file, save_file
+
+    index_path = root / "model.safetensors.index.json"
+    if index_path.is_symlink() or not index_path.is_file():
+        raise ValueError("dense repair requires a regular model.safetensors.index.json")
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    weight_map = index.get("weight_map") if isinstance(index, dict) else None
+    if not isinstance(weight_map, dict) or not weight_map:
+        raise ValueError("dense repair requires a non-empty safetensors weight_map")
+
+    operations: dict[str, tuple[str, np.ndarray | float]] = {}
+    for name, value in sorted(bundle.dense_tensors.items()):
+        if name.startswith("norms/"):
+            target = name.removeprefix("norms/")
+            if target not in weight_map:
+                raise ValueError(f"repair norm tensor is missing from serving model: {target}")
+            operations[target] = ("replace", np.asarray(value))
+            continue
+        if not name.startswith("outputs/"):
+            raise ValueError(f"unsupported repair dense tensor: {name}")
+        checkpoint_name = name.removeprefix("outputs/")
+        match = _OUTPUT_RE.fullmatch(checkpoint_name)
+        if match is None:
+            raise ValueError(f"repair output key is malformed: {checkpoint_name!r}")
+        prefix = checkpoint_name.removesuffix(".output_log_gain")
+        candidates = (
+            f"{prefix}.weight_scale_inv",
+            f"{prefix}.weight_scale",
+            f"{prefix}.weight",
+        )
+        target = next((candidate for candidate in candidates if candidate in weight_map), None)
+        if target is None:
+            raise ValueError(
+                f"repair output gain has no serving weight/scale target: {checkpoint_name}"
+            )
+        multiplier = float(np.exp(np.asarray(value, dtype=np.float64)))
+        if not np.isfinite(multiplier) or multiplier <= 0:
+            raise ValueError(f"repair output gain is not finite: {checkpoint_name}")
+        operations[target] = ("multiply", multiplier)
+
+    shards: dict[str, list[str]] = {}
+    for name in operations:
+        shard = weight_map.get(name)
+        if not isinstance(shard, str) or Path(shard).name != shard:
+            raise ValueError(f"repair tensor has unsafe shard binding: {name} -> {shard!r}")
+        shards.setdefault(shard, []).append(name)
+
+    rows: list[dict[str, Any]] = []
+    total_size_delta = 0
+    for shard, names in sorted(shards.items()):
+        path = root / shard
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"repair serving shard is missing/non-regular: {path}")
+        with safe_open(path, framework="np") as handle:
+            metadata = handle.metadata()
+        tensors = load_file(path)
+        for name in sorted(names):
+            if name not in tensors:
+                raise ValueError(f"repair tensor is absent from bound shard: {name}")
+            original = np.asarray(tensors[name])
+            operation, operand = operations[name]
+            if operation == "replace":
+                replacement = np.asarray(operand)
+                if replacement.shape != original.shape:
+                    raise ValueError(
+                        f"repair tensor shape drift for {name}: "
+                        f"checkpoint={replacement.shape} target={original.shape}"
+                    )
+                materialized = np.ascontiguousarray(replacement)
+            else:
+                materialized = np.ascontiguousarray(
+                    original.astype(np.float64) * float(operand), dtype=original.dtype
+                )
+                if not bool(np.isfinite(materialized).all()):
+                    raise ValueError(f"folded repair output tensor is non-finite: {name}")
+            tensors[name] = materialized
+            total_size_delta += int(materialized.nbytes - original.nbytes)
+            rows.append(
+                {
+                    "name": name,
+                    "operation": operation,
+                    "shape": list(materialized.shape),
+                    "dtype": str(materialized.dtype),
+                    "data_bytes": int(materialized.nbytes),
+                    "data_sha256": _wire_sha(materialized),
+                    "shard": shard,
+                }
+            )
+        temporary = path.with_name(f".{path.name}.repair-{os.getpid()}.tmp")
+        save_file(tensors, temporary, metadata=metadata)
+        os.replace(temporary, path)
+
+    metadata = index.get("metadata")
+    if total_size_delta and isinstance(metadata, dict) and isinstance(
+        metadata.get("total_size"), int
+    ):
+        metadata["total_size"] += total_size_delta
+        temporary_index = index_path.with_name(
+            f".{index_path.name}.repair-{os.getpid()}.tmp"
+        )
+        temporary_index.write_text(
+            json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        os.replace(temporary_index, index_path)
+
+    return {
+        "method": "export-folded-v1",
+        "runtime_output_gain": False,
+        "rewritten_files": sorted(
+            [*shards, *([index_path.name] if total_size_delta else [])]
+        ),
+        "norms_materialized": sum(row["operation"] == "replace" for row in rows),
+        "outputs_folded": sum(row["operation"] == "multiply" for row in rows),
+        "tensors": rows,
+    }
+
+
 def write_repair_payload(
     root: Path,
     bundle: RepairBundle,
     codebook_rows: list[dict[str, Any]],
+    *,
+    dense_application: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     covered = {row["checkpoint_key"] for row in codebook_rows}
     expected = {repair.checkpoint_key for repair in bundle.codebooks.values()}
@@ -417,6 +560,11 @@ def write_repair_payload(
             "outputs": bundle.output_count,
             "tensors": dense_rows,
         },
+        **(
+            {"dense_application": dict(dense_application)}
+            if dense_application is not None
+            else {}
+        ),
     }
     manifest_path = root / REPAIR_MANIFEST_PATH
     manifest_path.write_text(
@@ -438,6 +586,11 @@ def write_repair_payload(
         "codebook_target_files": len(normalized_codebooks),
         "norms": bundle.norm_count,
         "outputs": bundle.output_count,
+        **(
+            {"dense_application": dict(dense_application)}
+            if dense_application is not None
+            else {}
+        ),
     }
 
 
@@ -467,6 +620,11 @@ def verify_repair_payload(root: Path, summary: Mapping[str, Any]) -> dict[str, A
         "codebook_target_files": document.get("codebook_target_files"),
         "norms": document.get("dense_state", {}).get("norms"),
         "outputs": document.get("dense_state", {}).get("outputs"),
+        **(
+            {"dense_application": document["dense_application"]}
+            if "dense_application" in document
+            else {}
+        ),
     }
     for key, value in expected_summary.items():
         if summary.get(key) != value:
