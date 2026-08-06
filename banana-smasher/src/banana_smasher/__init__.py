@@ -86,6 +86,7 @@ from .backpack_contextual_candidate import materialize_contextual_change
 from .backpack_contextual_measure import record_contextual_swap_measurement
 from .backpack_contextual_prepare import prepare_contextual_iteration
 from .backpack_exact64 import EXACT64_TERMINAL_SCHEMA, bind_backpack_exact64
+from .backpack_runtime_exact64 import run_backpack_exact64
 from .backpack_selection import select_measured_nonworse
 from .backpack_virtual import materialize_virtual_backpack, verify_virtual_backpack
 from .locality import require_local_backpack_inputs, require_local_path
@@ -252,6 +253,7 @@ __all__ = [
     "require_local_path",
     "run_contextual_trust_solve",
     "run_contextual_value_update",
+    "run_backpack_exact64",
     "score_bank",
     "score_backpack",
     "serve_persistent_updates",

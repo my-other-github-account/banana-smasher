@@ -518,6 +518,20 @@ def _parser() -> argparse.ArgumentParser:
     anchor_status.add_argument("--run-root", type=Path, required=True)
     anchor_status.add_argument("--format", choices=("human", "json"), default="human")
 
+    exact64 = subparsers.add_parser(
+        "backpack-exact64",
+        help="run the single-host full-layer Backpack exact64 evaluator",
+    )
+    exact64.add_argument("--model-root", type=Path, required=True)
+    exact64.add_argument("--bank", type=Path, required=True)
+    exact64.add_argument("--teacher-manifest", type=Path, required=True)
+    exact64.add_argument("--virtual-manifest", type=Path, required=True)
+    exact64.add_argument("--materialization-index", type=Path, required=True)
+    exact64.add_argument("--qtip2-root-map", type=Path, required=True)
+    exact64.add_argument("--qtip3-root-map", type=Path, required=True)
+    exact64.add_argument("--output-root", type=Path, required=True)
+    exact64.add_argument("--basis-sha256", required=True)
+
     return parser
 
 
@@ -1348,6 +1362,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
         elif args.command == "anchor":
             result = _run_anchor(args)
+        elif args.command == "backpack-exact64":
+            from .backpack_runtime_exact64 import run_backpack_exact64
+
+            result = run_backpack_exact64(
+                model_root=args.model_root,
+                bank_path=args.bank,
+                teacher_manifest_path=args.teacher_manifest,
+                virtual_manifest_path=args.virtual_manifest,
+                materialization_index_path=args.materialization_index,
+                qtip2_root_map_path=args.qtip2_root_map,
+                qtip3_root_map_path=args.qtip3_root_map,
+                output_root=args.output_root,
+                basis_sha256=args.basis_sha256,
+            )
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2
