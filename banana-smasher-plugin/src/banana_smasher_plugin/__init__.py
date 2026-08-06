@@ -12,6 +12,7 @@ from pathlib import Path
 
 _LOG = logging.getLogger("banana_smasher_plugin")
 _REGISTERED = False
+_SUPPORTED_VLLM_VERSION = "0.24.0"
 _REAL_CUDART_PATH = Path("/usr/local/cuda/lib64/libcudart.so.13")
 _REAL_CUDA_RUNTIME = None
 _FLASHINFER_CUBIN_DIR_OVERRIDE: Path | None = None
@@ -65,6 +66,17 @@ def configure_flashinfer_cuda_runtime() -> bool:
 configure_flashinfer_cuda_runtime()
 
 import torch  # noqa: E402
+
+
+def _require_supported_vllm_version() -> str:
+    """Fail loudly unless the stock runtime matches this platform wheel."""
+    actual = importlib.metadata.version("vllm")
+    if actual != _SUPPORTED_VLLM_VERSION:
+        raise RuntimeError(
+            "banana-smasher-plugin requires stock vLLM "
+            f"{_SUPPORTED_VLLM_VERSION}; found {actual}"
+        )
+    return actual
 
 
 def configure_flashinfer_sparse_mla_signature_compat() -> bool:
@@ -520,6 +532,7 @@ def register() -> None:
     global _REGISTERED
     if _REGISTERED:
         return
+    _require_supported_vllm_version()
     from .vllm_defaults import (
         configure_runtime_environment,
         install_vllm_arg_defaults,
@@ -554,6 +567,7 @@ def register() -> None:
 
 
 __all__ = [
+    "_require_supported_vllm_version",
     "configure_deep_gemm_ue8m0_warmup_contract",
     "configure_flashinfer_sparse_mla_signature_compat",
     "configure_sparse_indexer_deep_gemm_backend",

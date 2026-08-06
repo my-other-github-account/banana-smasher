@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "banana-smasher-plugin"
-version = "0.2.1"
+version = "0.2.2"
 description = "Stock-vLLM banana_smasher runtime plugin for native-plane packs"
 requires-python = ">=3.10"
 dependencies = [
@@ -16,7 +16,6 @@ dependencies = [
     "numpy==2.3.5",
     "quack-kernels>=0.4.1,<0.5.1",
     "safetensors==0.8.0",
-    "vllm==0.24.0",
 ]
 
 [project.entry-points."vllm.general_plugins"]
