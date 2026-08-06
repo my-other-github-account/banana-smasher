@@ -520,6 +520,22 @@ def builtin_backpack_family_providers() -> dict[str, BackpackFamilyProvider]:
     return {provider.provider_id: provider for provider in providers}
 
 
+BQ23_PROVIDER_IDS = (
+    "native-mxfp4",
+    "qtip@2.00",
+    "qtip@3.00",
+    "d4-k2048",
+    "d4-k4096",
+)
+
+
+def bq23_backpack_family_providers() -> dict[str, BackpackFamilyProvider]:
+    """Return the canonical dynamic QTIP2/QTIP3 plus fixed-D4 BQ23 menu."""
+
+    providers = builtin_backpack_family_providers()
+    return {provider_id: providers[provider_id] for provider_id in BQ23_PROVIDER_IDS}
+
+
 def backpack_provider_from_declaration(
     declaration: str | Mapping[str, Any],
 ) -> BackpackFamilyProvider:

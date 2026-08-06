@@ -370,7 +370,6 @@ def _index_parent(
         )
     rows = _parse_jsonl(payload, parent_path)
     id_field = manifest["dataset_fields"]["window_id"]
-    class_field = manifest["dataset_fields"]["class"]
     index: dict[str, dict[str, Any]] = {}
     for row_number, row in enumerate(rows, 1):
         if id_field not in row:
@@ -683,6 +682,17 @@ def _mean_position_kld(
     return math.fsum(values) / len(values)
 
 
+def _top1_matches(
+    teacher: Sequence[Sequence[float]],
+    candidate: Sequence[Sequence[float]],
+) -> int:
+    return sum(
+        max(range(len(teacher_row)), key=teacher_row.__getitem__)
+        == max(range(len(candidate_row)), key=candidate_row.__getitem__)
+        for teacher_row, candidate_row in zip(teacher, candidate, strict=True)
+    )
+
+
 def score_bank(
     manifest: Mapping[str, Any],
     teacher_path: Path | str,
@@ -801,6 +811,18 @@ def score_bank(
                 raise AnchorEvaluationError(
                     f"resume KLD is invalid for window {window['id']!r}"
                 )
+            position_count = row.get("position_count")
+            top1_matches = row.get("top1_matches")
+            if (
+                not isinstance(position_count, int)
+                or isinstance(position_count, bool)
+                or not isinstance(top1_matches, int)
+                or isinstance(top1_matches, bool)
+                or not 0 <= top1_matches <= position_count
+            ):
+                raise AnchorEvaluationError(
+                    f"resume Top-1 count is invalid for window {window['id']!r}"
+                )
             rows.append(row)
             continue
         teacher_probabilities = _probabilities(
@@ -820,6 +842,9 @@ def score_bank(
                 "position_count": len(teacher_probabilities),
                 "kld": _mean_position_kld(
                     teacher_probabilities, candidate_probabilities, window["id"]
+                ),
+                "top1_matches": _top1_matches(
+                    teacher_probabilities, candidate_probabilities
                 ),
                 "bindings": bindings,
             }
