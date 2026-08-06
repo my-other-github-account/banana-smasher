@@ -13,6 +13,7 @@ import importlib.util
 import json
 import math
 import os
+from collections import defaultdict
 from pathlib import Path
 import sys
 import time
@@ -20,6 +21,7 @@ import types
 from types import MappingProxyType
 from typing import Any, Mapping
 import weakref
+from collections.abc import Sequence
 
 import torch
 from safetensors import safe_open
@@ -2002,22 +2004,43 @@ def main_many(
     resume: bool = True,
     resume_flag_explicit: bool = False,
     kernel_cache_root: Path | None = None,
+    batch_size: int = 1,
+    config_paths: Sequence[Path] | None = None,
 ) -> dict[str, Any]:
     """Solve an ordered config directory in one resident public process."""
     batch_started = time.perf_counter()
     epoch_started = time.time()
     if limit is not None and limit < 1:
         raise ValueError("--qtip-units must be positive")
+    if batch_size < 1:
+        raise ValueError("QTIP cross-unit batch size must be positive")
+    if profile_mode and batch_size != 1:
+        raise ValueError("QTIP profiling does not admit cross-unit batching")
     if all_cells and limit is not None:
         raise ValueError("--all-cells refuses a QTIP unit limit")
     if not resume:
         raise ValueError("resident QTIP solve requires hash-validating resume")
-    paths = _ordered_qtip_configs(
+    discovered_paths = _ordered_qtip_configs(
         config_root,
         layer,
         tier=tier,
         all_cells=all_cells,
     )
+    if config_paths is None:
+        paths = discovered_paths
+    else:
+        if all_cells:
+            raise ValueError("explicit QTIP config paths refuse --all-cells")
+        paths = [Path(path).resolve() for path in config_paths]
+        if not paths or len(set(paths)) != len(paths):
+            raise ValueError("explicit QTIP config paths must be non-empty and unique")
+        discoverable = {path.resolve() for path in discovered_paths}
+        unknown = [path for path in paths if path not in discoverable]
+        if unknown:
+            raise ValueError(
+                "explicit QTIP configs are not discoverable under the materialized root: "
+                + ", ".join(str(path) for path in unknown)
+            )
     if limit is not None:
         paths = paths[:limit]
     ordered_assignments = []
@@ -2041,12 +2064,53 @@ def main_many(
     ]
     resume_preflight_seconds = time.perf_counter() - resume_preflight_started
     unit_dispatch_started = time.perf_counter()
+    computed_by_path: dict[Path, dict[str, Any]] = {}
+    if batch_size > 1:
+        from .qtip_batch_controller import main_batch
+
+        batchable: dict[tuple[str, tuple[int, int, int]], list[Path]] = defaultdict(list)
+        unsupported: list[tuple[Path, tuple[int, ...]]] = []
+        for path, existing in zip(paths, existing_units, strict=True):
+            if existing is not None:
+                continue
+            config = _read_qtip_config(path)
+            geometry = config.get("geometry")
+            sealed = (
+                tuple(int(geometry[key]) for key in ("L", "K", "V"))
+                if isinstance(geometry, dict)
+                else ()
+            )
+            if sealed != (16, 2, 2):
+                unsupported.append((path, sealed))
+                continue
+            projection = validate_qtip_projection(config["projection"])
+            batchable[(projection, (16, 2, 2))].append(path)
+        if unsupported:
+            detail = ", ".join(
+                f"{path.name}:{geometry}" for path, geometry in unsupported
+            )
+            raise ValueError(
+                "accelerated QTIP batch command refuses serial fallback for " + detail
+            )
+        for grouped_paths in batchable.values():
+            for start in range(0, len(grouped_paths), batch_size):
+                chunk = grouped_paths[start : start + batch_size]
+                rows = main_batch(
+                    chunk,
+                    root,
+                    layer,
+                    kernel_cache_root=kernel_cache_root,
+                )
+                computed_by_path.update(zip(chunk, rows, strict=True))
     for path, existing in zip(paths, existing_units, strict=True):
         if existing is None:
-            main_kwargs: dict[str, Any] = {"profile_mode": profile_mode}
-            if kernel_cache_root is not None:
-                main_kwargs["kernel_cache_root"] = kernel_cache_root
-            receipt = main(path, root, layer, **main_kwargs)
+            if batch_size > 1:
+                receipt = computed_by_path[path]
+            else:
+                main_kwargs: dict[str, Any] = {"profile_mode": profile_mode}
+                if kernel_cache_root is not None:
+                    main_kwargs["kernel_cache_root"] = kernel_cache_root
+                receipt = main(path, root, layer, **main_kwargs)
             computed_units += 1
         else:
             receipt = existing
@@ -2104,6 +2168,7 @@ def main_many(
         "epoch_started": epoch_started,
         "epoch_ended": time.time(),
         "units": len(unit_receipts),
+        "cross_unit_batch_size": batch_size,
         "resumed_units": resumed_units,
         "computed_units": computed_units,
         "resume": {

@@ -149,6 +149,18 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="receipt-bound QTIP kernel cache produced by smash kernels build",
     )
+    solve.add_argument(
+        "--qtip-profile-configs",
+        type=Path,
+        nargs="+",
+        help="explicit materialized QTIP configs for one accelerated exact batch",
+    )
+    solve.add_argument(
+        "--qtip-batch-size",
+        type=int,
+        default=1,
+        help="build this many same-shape K2 units per exact cross-unit batch",
+    )
 
     update = subparsers.add_parser(
         "update", help="run one resumable memory-sized physical tensor update"
@@ -246,6 +258,45 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--basis-sha256", required=True)
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
+
+    backpack = subparsers.add_parser(
+        "backpack", help="build or inspect one declarative end-to-end Backpack plan"
+    )
+    backpack_commands = backpack.add_subparsers(
+        dest="backpack_command", required=True
+    )
+    backpack_build = backpack_commands.add_parser(
+        "build", help="execute or resume the complete Backpack construction DAG"
+    )
+    backpack_build.add_argument("--plan", type=Path, required=True)
+    backpack_build.add_argument("--run-root", type=Path, required=True)
+    backpack_status = backpack_commands.add_parser(
+        "status", help="show completed stages and the first incomplete boundary"
+    )
+    backpack_status.add_argument("--run-root", type=Path, required=True)
+    backpack_commands.add_parser(
+        "providers", help="list built-in family providers and their public operations"
+    )
+    backpack_export = backpack_commands.add_parser(
+        "export", help="export one lifecycle model from a completed Backpack run"
+    )
+    backpack_export.add_argument("--run-root", type=Path, required=True)
+    backpack_export.add_argument(
+        "--lifecycle",
+        choices=("uniform-anchor", "pre-repair", "post-repair"),
+        required=True,
+    )
+    backpack_export.add_argument("--tier")
+    backpack_export.add_argument("--output", type=Path, required=True)
+    backpack_export.add_argument("--serving-model-root", type=Path, required=True)
+    backpack_export.add_argument(
+        "--kernel-cache-root",
+        type=Path,
+        help=(
+            "verified kernel cache to embed in the movable model; defaults to "
+            "SERVING_MODEL_ROOT/kernel-cache"
+        ),
+    )
 
     fixed_d4 = subparsers.add_parser(
         "fixed-d4", help="persist exact fixed-D4 assignments as executable wire"
@@ -734,13 +785,51 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "command": "validate",
             }
         elif args.command == "solve":
+            if args.qtip_profile_configs is not None:
+                if args.root is None or args.layers is None:
+                    raise ValueError("--qtip-profile-configs requires --root and --layers")
+                if args.qtip_batch_size < 2:
+                    raise ValueError(
+                        "--qtip-profile-configs requires --qtip-batch-size greater than one"
+                    )
+                if args.kernel_cache_root is None:
+                    raise ValueError(
+                        "--qtip-profile-configs requires --kernel-cache-root from smash kernels build"
+                    )
+                if (
+                    args.qtip_profile_config is not None
+                    or args.output is not None
+                    or args.tier is not None
+                    or args.bpw is not None
+                    or args.all_cells
+                    or args.reference_search
+                ):
+                    raise ValueError(
+                        "--qtip-profile-configs refuses single-config/tier/all-cells/output options"
+                    )
+                selected_layers = _parse_layers(args.layers)
+                if len(selected_layers) != 1:
+                    raise ValueError("--qtip-profile-configs requires exactly one layer")
+                from . import solve_qtip_profiles
+
+                result = solve_qtip_profiles(
+                    args.source_root,
+                    args.root,
+                    selected_layers[0],
+                    config_paths=args.qtip_profile_configs,
+                    batch_size=args.qtip_batch_size,
+                    profile_mode=False,
+                    kernel_cache_root=args.kernel_cache_root,
+                )
+                _emit(result)
+                return 0
             if args.qtip_profile_config is not None:
                 if args.root is None or args.layers is None:
                     raise ValueError("--qtip-profile-config requires --root and --layers")
                 if any(
                     value is not None
                     for value in (args.output, args.tier, args.bpw, args.kernel_cache_root)
-                ) or args.all_cells or args.reference_search:
+                ) or args.all_cells or args.reference_search or args.qtip_batch_size != 1:
                     raise ValueError(
                         "--qtip-profile-config is a one-config solve and refuses "
                         "tier/all-cells/output options"
@@ -767,7 +856,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.bpw,
                     args.kernel_cache_root,
                 )
-            ) or args.all_cells
+            ) or args.all_cells or args.qtip_batch_size != 1
             if not qtip_requested:
                 if args.output is None:
                     raise ValueError("exact solve requires --output")
@@ -825,7 +914,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     require_qtip_ring_manifest,
                 )
                 from .qtip_rings import canonical_qtip_tier
-                from .solver_qtip_profile import main_many as qtip_profile_main_many
+                from . import solve_qtip_profiles
 
                 selected_tier = canonical_qtip_tier(selected_bpw)
                 selected_layers = _parse_layers(args.layers)
@@ -838,13 +927,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.source_root, selected_bpw
                 )
                 layer_receipts = [
-                    qtip_profile_main_many(
+                    solve_qtip_profiles(
                         args.source_root,
                         args.root,
                         layer,
                         tier=selected_tier,
                         all_cells=True,
                         profile_mode=False,
+                        **(
+                            {"batch_size": args.qtip_batch_size}
+                            if args.qtip_batch_size != 1
+                            else {}
+                        ),
                         **(
                             {"resume": args.resume, "resume_flag_explicit": True}
                             if "--resume" in tokens
@@ -988,6 +1082,56 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=args.output,
                 receipt=args.receipt,
             )
+        elif args.command == "backpack":
+            from .backpack import (
+                BackpackPlan,
+                build_backpack,
+                export_backpack_lifecycle,
+                status_backpack,
+            )
+
+            if args.backpack_command == "build":
+                plan = BackpackPlan.from_mapping(
+                    _load_json_object(args.plan), base_dir=args.plan.parent
+                )
+                result = build_backpack(plan, run_root=args.run_root)
+            elif args.backpack_command == "status":
+                result = status_backpack(args.run_root)
+            elif args.backpack_command == "providers":
+                from .backpack_providers import builtin_backpack_family_providers
+
+                result = {
+                    "schema": "banana-smasher-backpack-provider-menu-v1",
+                    "status": "PASS",
+                    "providers": [
+                        {
+                            "id": provider.provider_id,
+                            "kind": provider.kind,
+                            "runtime_family": provider.runtime_family,
+                            "operations": [
+                                "generate",
+                                "materialize",
+                                "price",
+                                "predict",
+                                "verify",
+                            ],
+                        }
+                        for provider in builtin_backpack_family_providers().values()
+                    ],
+                }
+            elif args.backpack_command == "export":
+                result = export_backpack_lifecycle(
+                    args.run_root,
+                    lifecycle=args.lifecycle,
+                    tier=args.tier,
+                    output=args.output,
+                    serving_model_root=args.serving_model_root,
+                    kernel_cache_root=args.kernel_cache_root,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported backpack command {args.backpack_command!r}"
+                )
         elif args.command == "fixed-d4":
             from .fixed_d4 import (
                 materialize_fixed_d4,

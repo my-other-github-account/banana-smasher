@@ -19,6 +19,7 @@ from .repair import (
     REPAIR_STATE_PATH,
     RepairBundle,
     materialize_codebook_plane,
+    materialize_dense_repair_shards,
     verify_repair_payload,
     write_repair_payload,
 )
@@ -1017,6 +1018,83 @@ def _materialize_base_weights(
     return rows
 
 
+def _materialize_kernel_cache(
+    kernel_cache_root: str | Path,
+    output: Path,
+) -> list[dict[str, str]]:
+    unresolved = Path(kernel_cache_root).expanduser()
+    if unresolved.is_symlink():
+        raise PackValidationError(
+            f"kernel cache root must not be a direct symlink: {unresolved}"
+        )
+    root = unresolved.resolve()
+    manifest_path = root / KERNEL_MANIFEST_NAME
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise PackValidationError(
+            f"kernel cache manifest is missing/non-regular: {manifest_path}"
+        )
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise PackValidationError(f"cannot read {KERNEL_MANIFEST_NAME}: {exc}") from exc
+    file_rows = manifest.get("files") if isinstance(manifest, dict) else None
+    if not isinstance(file_rows, list) or not file_rows:
+        raise PackValidationError("kernel manifest files must be a non-empty list")
+
+    planned: list[tuple[Path, Path]] = []
+    expected_paths = {KERNEL_MANIFEST_NAME}
+    for row in file_rows:
+        if not isinstance(row, dict) or not isinstance(row.get("path"), str):
+            raise PackValidationError("malformed kernel manifest file row")
+        relative = Path(row["path"])
+        if relative.is_absolute() or ".." in relative.parts:
+            raise PackValidationError(f"unsafe kernel cache path: {relative}")
+        source = root / relative
+        if source.is_symlink() or not source.is_file():
+            raise PackValidationError(
+                f"missing/non-regular kernel cache file: {relative}"
+            )
+        if source.stat().st_size != row.get("bytes"):
+            raise PackValidationError(f"kernel byte count mismatch: {relative}")
+        if _sha256_file(source) != row.get("sha256"):
+            raise PackValidationError(f"kernel sha256 mismatch: {relative}")
+        expected_paths.add(relative.as_posix())
+        planned.append((source, relative))
+    actual_paths = {
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if path.is_file() or path.is_symlink()
+    }
+    if actual_paths != expected_paths:
+        raise PackValidationError(
+            "kernel cache file-set mismatch: "
+            f"extras={sorted(actual_paths - expected_paths)}, "
+            f"missing={sorted(expected_paths - actual_paths)}"
+        )
+
+    cache_output = output / "kernel-cache"
+    _write_bytes_durable(cache_output / KERNEL_MANIFEST_NAME, manifest_path.read_bytes())
+    rows = [
+        {
+            "path": f"kernel-cache/{KERNEL_MANIFEST_NAME}",
+            "mode": "copy",
+            "role": "kernel_cache_manifest",
+        }
+    ]
+    for source, relative in planned:
+        destination = cache_output / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        rows.append(
+            {
+                "path": (Path("kernel-cache") / relative).as_posix(),
+                "mode": "copy",
+                "role": "kernel_cache_file",
+            }
+        )
+    return rows
+
+
 def _clone_pack_with_hardlinks(
     source: Path,
     destination: Path,
@@ -1218,6 +1296,7 @@ def export_pack(
     link_mode: Literal["hardlink", "copy", "auto"] = "hardlink",
     repair: RepairBundle | None = None,
     serving_model_root: str | Path | None = None,
+    kernel_cache_root: str | Path | None = None,
     runtime_floor_bytes: int | None = None,
 ) -> dict[str, Any]:
     """Export canonical planes, optionally materializing a bound repair checkpoint."""
@@ -1225,6 +1304,10 @@ def export_pack(
     output = Path(output).resolve()
     if output.exists():
         raise FileExistsError(f"output already exists: {output}")
+    if repair is not None and repair.dense_tensors and serving_model_root is None:
+        raise PackValidationError(
+            "repair export requires serving_model_root so dense repair state can be applied"
+        )
 
     config_source = source_root / "config.json"
     serving_root: Path | None = None
@@ -1233,6 +1316,41 @@ def export_pack(
     if serving_model_root is not None:
         serving_root, serving_config, serving_payloads = _load_serving_model_metadata(
             serving_model_root
+        )
+        serving_quantization = serving_config.get("quantization_config")
+        if (
+            repair is not None
+            and isinstance(serving_quantization, dict)
+            and serving_quantization.get("repair_application") == "export-folded-v1"
+        ):
+            raise PackValidationError(
+                "serving model already has export-folded repair; refusing to apply "
+                "output gains a second time"
+            )
+    kernel_architecture = "sm_120"
+    if kernel_cache_root is not None:
+        kernel_manifest_path = (
+            Path(kernel_cache_root).expanduser().resolve() / KERNEL_MANIFEST_NAME
+        )
+        try:
+            kernel_manifest = json.loads(kernel_manifest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise PackValidationError(
+                f"cannot read {KERNEL_MANIFEST_NAME}: {exc}"
+            ) from exc
+        kernel_architectures = (
+            kernel_manifest.get("architectures")
+            if isinstance(kernel_manifest, dict)
+            else None
+        )
+        if (
+            not isinstance(kernel_architectures, list)
+            or not kernel_architectures
+            or not all(isinstance(value, str) and value for value in kernel_architectures)
+        ):
+            raise PackValidationError("kernel manifest architectures must be non-empty")
+        kernel_architecture = (
+            "sm_120" if "sm_120" in kernel_architectures else kernel_architectures[0]
         )
     banana_smasher_receipt = source_root / "LAYER_RECEIPT.json"
     source_receipt_sha256: str | dict[str, str] | None = None
@@ -1288,6 +1406,7 @@ def export_pack(
     tensor_index: dict[str, dict[str, Any]] = {}
     repair_rows: list[dict[str, Any]] = []
     repair_summary: dict[str, Any] | None = None
+    dense_application: dict[str, Any] | None = None
     try:
         if source_format in {
             "canonical-npy-v1",
@@ -1527,7 +1646,7 @@ def export_pack(
             "pack_manifest": MANIFEST_NAME,
             "pack_root": ".",
             "kernel_cache_root": "kernel-cache",
-            "architecture": "sm_120",
+            "architecture": kernel_architecture,
             "tensor_container": None,
             "kernel_cache_manifest": "BS_KERNEL_CACHE_MANIFEST.json",
         }
@@ -1542,6 +1661,14 @@ def export_pack(
                     "repair_state": REPAIR_STATE_PATH.as_posix(),
                     "repair_format": repair.checkpoint_format,
                     "repair_update": repair.update,
+                    **(
+                        {
+                            "repair_application": "export-folded-v1",
+                            "runtime_output_gain": False,
+                        }
+                        if serving_root is not None
+                        else {}
+                    ),
                 }
             )
         if serving_root is None:
@@ -1552,6 +1679,24 @@ def export_pack(
             linked.extend(
                 _materialize_base_weights(serving_root, output, link_mode=link_mode)
             )
+            if kernel_cache_root is not None:
+                linked.extend(_materialize_kernel_cache(kernel_cache_root, output))
+            if repair is not None:
+                covered = {row["checkpoint_key"] for row in repair_rows}
+                expected = {
+                    codebook.checkpoint_key for codebook in repair.codebooks.values()
+                }
+                missing = sorted(expected - covered)
+                if missing:
+                    raise ValueError(
+                        "checkpoint codebooks were not materialized into the plane source: "
+                        f"missing={missing[:8]} count={len(missing)}"
+                    )
+                dense_application = materialize_dense_repair_shards(output, repair)
+                rewritten = set(dense_application["rewritten_files"])
+                for row in linked:
+                    if row["path"] in rewritten:
+                        row["mode"] = "generated"
 
         if source_format == "p1016-true-c-native-planes-v1":
             layers = p1016_layers
@@ -1574,7 +1719,12 @@ def export_pack(
                 )
 
         if repair is not None:
-            repair_summary = write_repair_payload(output, repair, repair_rows)
+            repair_summary = write_repair_payload(
+                output,
+                repair,
+                repair_rows,
+                dense_application=dense_application,
+            )
             linked.extend(
                 [
                     {
@@ -1626,7 +1776,7 @@ def export_pack(
             "provenance": {
                 "source_root": str(source_root),
                 "source_layer_receipt_sha256": source_receipt_sha256,
-                "port_base": "glm52-ds4-bq3-ptq-opd/docker/scripts/export_pack.py",
+                "port_base": "canonical-p1016-export",
             },
         }
         if source_format == "p1016-true-c-native-planes-v1":
@@ -1665,6 +1815,12 @@ def export_pack(
             manifest["repair"] = repair_summary
         _write_bytes_durable(output / MANIFEST_NAME, _canonical_json_bytes(manifest))
         verify_pack(output)
+        if kernel_cache_root is not None:
+            verify_serve_compatibility(
+                output,
+                output / "kernel-cache",
+                architecture=kernel_architecture,
+            )
         return manifest
     except Exception:
         shutil.rmtree(output, ignore_errors=True)
@@ -1780,13 +1936,16 @@ def _verify_config(root: Path) -> None:
         "pack_manifest": MANIFEST_NAME,
         "pack_root": ".",
         "kernel_cache_root": "kernel-cache",
-        "architecture": "sm_120",
     }
     for key, value in expected.items():
         if quant.get(key) != value:
             raise PackValidationError(
                 f"config quantization_config.{key} mismatch: expected {value!r}, got {quant.get(key)!r}"
             )
+    if quant.get("architecture") not in {"sm_120", "sm_121", "sm_121a"}:
+        raise PackValidationError(
+            "config quantization_config.architecture must be sm_120, sm_121, or sm_121a"
+        )
 
 
 def _verify_layer_meta(root: Path, manifest: dict[str, Any]) -> None:
@@ -1835,6 +1994,203 @@ def _verify_layer_meta(root: Path, manifest: dict[str, Any]) -> None:
             raise PackValidationError(
                 f"layer meta mismatch for layer {layer}: expected {expected!r}, got {actual!r}"
             )
+
+
+def _load_record_tensor(
+    root: Path, name: str, metadata: dict[str, Any]
+) -> np.ndarray:
+    storage = metadata.get("storage", {"kind": "npy", "path": metadata.get("path")})
+    if not isinstance(storage, dict):
+        raise PackValidationError(f"invalid tensor storage metadata: {name}")
+    if storage.get("kind") == "npy":
+        return np.asarray(
+            np.load(root / str(storage.get("path")), mmap_mode="r", allow_pickle=False)
+        )
+    if storage.get("kind") == "safetensors":
+        from .repack import load_tensor_numpy
+
+        return np.asarray(load_tensor_numpy(root, name, metadata))
+    raise PackValidationError(
+        f"record metadata tensor {name} must use npy or safetensors storage"
+    )
+
+
+def _decode_record_labels(name: str, array: np.ndarray, width: int) -> list[str]:
+    if array.dtype != np.dtype("uint8") or tuple(array.shape[1:]) != (width,):
+        raise PackValidationError(
+            f"{name} must be uint8[records,{width}], got {array.dtype}{tuple(array.shape)}"
+        )
+    labels = []
+    for row in array:
+        raw = bytes(row)
+        value, separator, padding = raw.partition(b"\0")
+        if separator and any(padding):
+            raise PackValidationError(f"{name} contains non-zero bytes after label terminator")
+        try:
+            labels.append(value.decode("utf-8"))
+        except UnicodeDecodeError as exc:
+            raise PackValidationError(f"{name} contains invalid UTF-8 metadata") from exc
+    return labels
+
+
+def _verify_record_layouts(root: Path, index: dict[str, Any]) -> None:
+    suffixes = {
+        name.rsplit(".", 1)[0]
+        for name in index
+        if name.endswith((".record_tiers", ".record_geometry", ".record_projections"))
+    }
+    required = {
+        "codes",
+        "scales",
+        "codebooks",
+        "expert_ids",
+        "tensor_offsets",
+        "record_tiers",
+        "record_geometry",
+        "record_projections",
+    }
+    for prefix in sorted(suffixes):
+        parts = prefix.split(".")
+        if len(parts) != 3 or parts[0] != "layers":
+            raise PackValidationError(f"invalid record metadata prefix: {prefix}")
+        layer = int(parts[1])
+        family = parts[2]
+        names = {field: f"{prefix}.{field}" for field in required}
+        missing = sorted(name for name in names.values() if name not in index)
+        if missing:
+            raise PackValidationError(f"{prefix} record layout is incomplete: {missing}")
+        arrays = {
+            field: _load_record_tensor(root, name, index[name])
+            for field, name in names.items()
+        }
+        expert_ids = arrays["expert_ids"]
+        if expert_ids.dtype != np.dtype("int16") or expert_ids.ndim != 1:
+            raise PackValidationError(
+                f"{prefix}.expert_ids must be int16[records], got "
+                f"{expert_ids.dtype}{tuple(expert_ids.shape)}"
+            )
+        if np.any(expert_ids < 0) or np.any(expert_ids >= 256):
+            raise PackValidationError(f"{prefix}.expert_ids contains out-of-range experts")
+        record_count = int(expert_ids.size)
+        offsets = arrays["tensor_offsets"]
+        if offsets.dtype != np.dtype("int64") or tuple(offsets.shape) != (
+            record_count + 1,
+            3,
+        ):
+            raise PackValidationError(
+                f"{prefix}.tensor_offsets must be int64[records+1,3]"
+            )
+        if not np.array_equal(offsets[0], np.zeros(3, dtype=np.int64)):
+            raise PackValidationError(f"{prefix}.tensor_offsets must start at zero")
+        if np.any(np.diff(offsets, axis=0) < 0):
+            raise PackValidationError(f"{prefix}.tensor_offsets must be monotonic")
+        terminal = [
+            int(arrays[field].nbytes) for field in ("codes", "scales", "codebooks")
+        ]
+        if offsets[-1].tolist() != terminal:
+            raise PackValidationError(
+                f"{prefix}.tensor_offsets terminal mismatch: "
+                f"{offsets[-1].tolist()} != {terminal}"
+            )
+        tiers = _decode_record_labels(
+            names["record_tiers"], arrays["record_tiers"], 32
+        )
+        projections = _decode_record_labels(
+            names["record_projections"], arrays["record_projections"], 8
+        )
+        geometry = arrays["record_geometry"]
+        if geometry.dtype != np.dtype("int32") or tuple(geometry.shape) != (
+            record_count,
+            3,
+        ):
+            raise PackValidationError(
+                f"{prefix}.record_geometry must be int32[records,3]"
+            )
+        if any(projection not in BANANA_SMASHER_PROJECTIONS for projection in projections):
+            raise PackValidationError(f"{prefix}.record_projections contains an invalid label")
+        identities = list(
+            zip((int(value) for value in expert_ids), projections, strict=True)
+        )
+        if len(set(identities)) != record_count:
+            raise PackValidationError(f"{prefix} contains duplicate expert/projection records")
+        tier_map_name = f"layers.{layer}.experts.tier_map"
+        if tier_map_name not in index:
+            raise PackValidationError(f"{prefix} lacks its layer tier map")
+        tier_map = _load_record_tensor(root, tier_map_name, index[tier_map_name])
+        expected_experts = {
+            int(expert)
+            for expert in np.flatnonzero(tier_map == TIER_CODES[family])
+        }
+        if {int(value) for value in expert_ids} != expected_experts:
+            raise PackValidationError(f"{prefix}.expert_ids disagrees with the tier map")
+        expected_identities = {
+            (expert, projection)
+            for expert in expected_experts
+            for projection in BANANA_SMASHER_PROJECTIONS
+        }
+        if set(identities) != expected_identities:
+            raise PackValidationError(
+                f"{prefix} must contain fused13 and down records for every routed expert"
+            )
+        boundary_name = f"{prefix}.record_boundaries"
+        if boundary_name in index:
+            boundaries = _load_record_tensor(root, boundary_name, index[boundary_name])
+            if (
+                boundaries.dtype != np.dtype("int64")
+                or boundaries.ndim != 2
+                or boundaries.shape[1] != 3
+                or np.any(boundaries[:, 0] != boundaries[:, 1])
+                or np.any(boundaries[:, 0] != boundaries[:, 2])
+                or np.any(np.diff(boundaries[:, 0]) <= 0)
+                or np.any(boundaries <= 0)
+                or np.any(boundaries >= record_count)
+            ):
+                raise PackValidationError(
+                    f"{boundary_name} must contain increasing repeated record boundaries"
+                )
+        if family in {"truevq_d4", "truevq_d8"}:
+            dimension = 4 if family == "truevq_d4" else 8
+            for row in geometry:
+                observed_dimension, bits, codebook_size = (int(value) for value in row)
+                if (
+                    observed_dimension != dimension
+                    or not 1 <= bits <= 16
+                    or codebook_size != 1 << bits
+                ):
+                    raise PackValidationError(f"{prefix} contains invalid vector geometry")
+        elif family in {"qtip2", "qtip3"}:
+            from .qtip_rings import assign_ring_geometries, resolve_qtip_ring
+
+            for tier, row in zip(tiers, geometry, strict=True):
+                if not tier.startswith("qtip@"):
+                    raise PackValidationError(f"{prefix} contains invalid QTIP tier labels")
+                ring = resolve_qtip_ring(tier.removeprefix("qtip@"))
+                observed = tuple(int(value) for value in row)
+                admitted = {component.geometry for component in ring.components}
+                if observed not in admitted:
+                    raise PackValidationError(
+                        f"{prefix} geometry {observed} is not admitted by {tier}"
+                    )
+            for tier in sorted(set(tiers)):
+                for projection in BANANA_SMASHER_PROJECTIONS:
+                    full_identities = [
+                        (layer, expert, projection) for expert in range(256)
+                    ]
+                    expected_geometry = assign_ring_geometries(
+                        resolve_qtip_ring(tier.removeprefix("qtip@")),
+                        full_identities,
+                    )
+                    for offset, (expert, record_projection, record_tier) in enumerate(
+                        zip(expert_ids, projections, tiers, strict=True)
+                    ):
+                        if record_projection != projection or record_tier != tier:
+                            continue
+                        identity = (layer, int(expert), projection)
+                        observed = tuple(int(value) for value in geometry[offset])
+                        if observed != expected_geometry[identity]:
+                            raise PackValidationError(
+                                f"{prefix} QTIP ring assignment mismatch for {identity}"
+                            )
 
 
 def _verify_tensors(root: Path, manifest: dict[str, Any]) -> tuple[int, list[int]]:
@@ -1935,6 +2291,8 @@ def _verify_tensors(root: Path, manifest: dict[str, Any]) -> tuple[int, list[int
         else:
             family, field = suffix.split(".", 1)
             layer_fields.setdefault(layer, {}).setdefault(family, set()).add(field)
+
+    _verify_record_layouts(root, index)
 
     declared_layers = manifest.get("layers")
     if manifest.get("source_format") == "p1016-true-c-native-planes-v1":

@@ -22,6 +22,39 @@ cd banana-smasher
 
 The repository contains two installable Python distributions: `banana-smasher` for export, verification, pack development, and anchor evaluation, and `banana-smasher-plugin` for stock-vLLM serving integration.
 
+## Five-minute Backpack quickstart
+
+Install the ordinary wheel, inspect the built-in tier menu, and run the small
+end-to-end fixture. The smoke calls the public generate, candidate-anchor,
+predict, exact-solve, materialize, pack-verify, and one-plan build APIs; it also
+checks the installed `smash backpack status` CLI.
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install ./banana-smasher
+smash backpack providers
+python banana-smasher/tests/backpack_provider_flat_smoke.py --root /tmp/banana-backpack-smoke
+```
+
+For a real model, create a `banana-smasher-backpack-plan-v1` JSON document using
+`banana-smasher/schema/banana-smasher-backpack-plan-v1.schema.json`, then run:
+
+```bash
+smash backpack build --plan plan.json --run-root ./backpack-run
+smash backpack status --run-root ./backpack-run
+smash verify ./backpack-run/final-pack
+```
+
+Plans can compose native MXFP4, QTIP2/QTIP2.5/QTIP3, and fixed D4 K2048/K4096
+providers. Authentic QTIP1/QTIP1.5 declarations are public extension points but
+do not yet claim stock-vLLM K1/V1 execution. Python users can independently call
+`generate_backpack_candidate`, `anchor_backpack_candidates`,
+`predict_backpack_candidate`, `solve_backpack`,
+`materialize_backpack_assignment`, and `verify_backpack_candidate`; the
+`build_backpack` orchestration path calls those same provider operations rather
+than a private duplicate implementation.
+
 ## Build and test both Python packages on a development host
 
 The following is the non-GPU static development gate. It builds, inspects, installs,
