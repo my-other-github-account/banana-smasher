@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import banana_smasher
 
 from banana_smasher.qtip1 import (
     QTIP1_GEOMETRY,
@@ -158,6 +159,12 @@ def test_qtip1_minimal_cycle_roundtrips_and_noncycle_is_refused() -> None:
         assert "does not close" in str(exc)
     else:
         raise AssertionError("non-cyclic two-step K1 path was accepted")
+
+
+def test_qtip_runtime_wire_steps_are_top_level_public_api() -> None:
+    assert banana_smasher.pack_qtip_states is pack_qtip_states
+    assert banana_smasher.unpack_qtip_states is unpack_qtip_states
+    assert banana_smasher.verify_qtip_wire is verify_qtip_wire
 
 
 def test_reduced_geometry_quantlut_uses_canonical_16bit_hash_shift() -> None:
