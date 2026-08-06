@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-import importlib
 import json
 from pathlib import Path
 import time
@@ -10,6 +9,7 @@ from typing import Any
 from ..production_update import run_full_depth_update
 from ..token_sizing import MemoryBudget
 from ..update_checkpoint import atomic_json
+from .physical_bundle import PhysicalBundleRuntime
 
 _REQUEST_SCHEMA = "banana-smasher-physical-repair-request-v1"
 _INIT_MAX_SECONDS = 180.0
@@ -18,19 +18,6 @@ _REQUIRED_DECODE_STATUS = "PASS_DECODED_ONCE"
 _REQUIRED_LAYOUT_STATUS = "PASS_PERSISTENT_LAYOUTS"
 _REQUIRED_STAGE_STATUS = "PASS_STAGED_LARGEST_FIRST"
 _REQUIRED_CHECKPOINT_STATUS = "PASS_DEPTH_CHECKPOINTING"
-
-
-def _load_object(specification: str) -> Any:
-    module_name, separator, attribute_name = specification.partition(":")
-    if not separator or not module_name or not attribute_name:
-        raise ValueError("runtime_factory must use the form 'module:callable'")
-    module = importlib.import_module(module_name)
-    try:
-        return getattr(module, attribute_name)
-    except AttributeError as exc:
-        raise RuntimeError(
-            f"physical repair runtime factory is missing: {specification}"
-        ) from exc
 
 
 def _callable(value: Any, name: str) -> Callable[..., Any]:
@@ -156,20 +143,22 @@ class PhysicalRepairBackend:
             raise ValueError(
                 f"physical repair request schema must be {_REQUEST_SCHEMA!r}"
             )
-        factory_spec = request.get("runtime_factory")
-        if not isinstance(factory_spec, str):
-            raise ValueError("physical repair request requires runtime_factory")
+        if not isinstance(request.get("bundle"), str) or not isinstance(
+            request.get("bundle_sha256"), str
+        ):
+            raise ValueError(
+                "physical repair request requires bundle and bundle_sha256"
+            )
         self.request = dict(request)
         self.context = dict(context)
-        self.factory_spec = factory_spec
         self._worker: dict[str, Any] | None = None
 
     def initialize(self) -> dict[str, Any]:
         if self._worker is not None:
             raise RuntimeError("physical repair backend cannot initialize twice")
         started = time.perf_counter()
-        factory = _load_object(self.factory_spec)
-        runtime = _callable(factory, self.factory_spec)(self.request, self.context)
+        runtime = PhysicalBundleRuntime(self.request, self.context)
+        runtime.retain_optimizer_contract()
 
         aot = _require_status(
             _callable(getattr(runtime, "authenticate_aot", None), "authenticate_aot")(),
@@ -231,6 +220,7 @@ class PhysicalRepairBackend:
             "decoded_once": True,
             "persistent_layouts": True,
             "largest_first_staging": True,
+            "source_retired": staged.get("source_retired") is True,
             "aot": {key: value for key, value in aot.items() if key != "module"},
             "decode": {key: value for key, value in decode.items() if key != "tensors"},
             "layouts": layouts,
