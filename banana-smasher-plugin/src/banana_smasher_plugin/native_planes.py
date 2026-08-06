@@ -14,7 +14,7 @@ import numpy as np
 import torch
 
 FAST_PATH_ERROR = "BANANA_SMASHER_FAST_PATH_PREREQUISITE_MISSING"
-EXPECTED_LAYOUT_SHA256 = "0dae88283affb718f7b9cd7d6b2f9bd11016fb9b792ecf98ea96dce426ee4cc8"
+EXPECTED_LAYOUT_SHA256 = "8264c6393ff40c545de05ac06a39cd7668aab1e31b96aca82a914079721444f8"
 EXPECTED_FAMILY_CODES = {"qtip2": 0, "qtip3": 1, "d4": 2, "native": 3}
 _LOGGER = logging.getLogger(__name__)
 _posix_fadvise = getattr(os, "posix_fadvise", None)

@@ -1,11 +1,16 @@
 # syntax=docker/dockerfile:1.7
-ARG VLLM_IMAGE=vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b
+ARG VLLM_UPSTREAM_TAG=refs/tags/v0.24.0
+ARG VLLM_UPSTREAM_COMMIT=ee0da84ab9e04ac7610e28580af62c365e898389
 ARG VLLM_UPSTREAM_REV=ee0da84a
 
-FROM ${VLLM_IMAGE} AS package-builder
+FROM vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b AS package-builder
 USER root
+ARG VLLM_UPSTREAM_TAG
+ARG VLLM_UPSTREAM_COMMIT
 ARG VLLM_UPSTREAM_REV
-RUN test "${VLLM_UPSTREAM_REV}" = "ee0da84a"
+RUN test "${VLLM_UPSTREAM_TAG}" = "refs/tags/v0.24.0" \
+    && test "${VLLM_UPSTREAM_COMMIT}" = "ee0da84ab9e04ac7610e28580af62c365e898389" \
+    && test "${VLLM_UPSTREAM_REV}" = "ee0da84a"
 RUN python3 -m pip install --no-cache-dir \
       build==1.3.0 hatchling==1.27.0 pytest==8.4.2 wheel==0.46.3
 COPY banana-smasher /src/banana-smasher
@@ -22,7 +27,7 @@ RUN python3 -m build --wheel --outdir /wheels /src/banana-smasher \
       /src/banana-smasher/tests /src/banana-smasher-plugin/tests \
     && (cd /wheels && sha256sum *.whl > local-wheels.sha256)
 
-FROM ${VLLM_IMAGE} AS flashinfer-builder
+FROM vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b AS flashinfer-builder
 USER root
 ARG FLASHINFER_SOURCE_REPO=https://github.com/flashinfer-ai/flashinfer.git
 ARG FLASHINFER_SOURCE_COMMIT=d020372b068f335e2fe427372e134977a2235c49
@@ -69,7 +74,7 @@ RUN cd /tmp/flashinfer \
     && sha256sum /tmp/*.patch > /wheel/flashinfer-patches.sha256 \
     && git diff --binary | sha256sum > /wheel/flashinfer-patched-tree.sha256
 
-FROM ${VLLM_IMAGE} AS deepgemm-builder
+FROM vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b AS deepgemm-builder
 USER root
 ARG DEEPGEMM_SOURCE_REPO=https://github.com/deepseek-ai/DeepGEMM.git
 # Official nv_dev tag used by the proven SM120/SM121 dense FP8 E8M0 path.
@@ -100,10 +105,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && sha256sum /wheels/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl > /wheels/deepgemm-wheel.sha256 \
     && rm -rf /tmp/deep-gemm
 
-FROM ${VLLM_IMAGE} AS runtime
+FROM vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b AS runtime
 USER root
+ARG VLLM_UPSTREAM_TAG
+ARG VLLM_UPSTREAM_COMMIT
 ARG VLLM_UPSTREAM_REV
-RUN test "${VLLM_UPSTREAM_REV}" = "ee0da84a"
+RUN test "${VLLM_UPSTREAM_TAG}" = "refs/tags/v0.24.0" \
+    && test "${VLLM_UPSTREAM_COMMIT}" = "ee0da84ab9e04ac7610e28580af62c365e898389" \
+    && test "${VLLM_UPSTREAM_REV}" = "ee0da84a"
 # The base image's binary-provider distributions share namespace directories.
 # Uninstalling metadata alone leaves importable residue, so remove both public
 # companion namespaces and prove their absence before installing the pinned
@@ -153,7 +162,7 @@ RUN set -eux; \
     python3 /opt/banana-smasher/bin/verify_public_image.py; \
     python3 /opt/banana-smasher/bin/write_package_receipt.py \
       /opt/banana-smasher/provenance/package-sbom.json; \
-    python3 -c 'import json; p="/opt/banana-smasher/provenance/source.json"; open(p,"w").write(json.dumps({"base_image":"vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b","deep_gemm_source_commit":"f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca","deep_gemm_source_ref":"refs/tags/nv_dev_f8e8fb5","deep_gemm_source_repo":"https://github.com/deepseek-ai/DeepGEMM.git","deep_gemm_version":"2.6.1","flashinfer_source_commit":"d020372b068f335e2fe427372e134977a2235c49","flashinfer_source_repo":"https://github.com/flashinfer-ai/flashinfer.git","flashinfer_sm120_commits":["b34f49255f1640542da91665f58558a3e5e308f1","76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9","0c5fda59bb6fa71eae875693a024bb0fb37ba7d6"],"vllm_upstream_revision":"ee0da84a","packages_built_from_checkout":["banana-smasher","banana-smasher-plugin","deep-gemm","flashinfer-python"]},indent=2,sort_keys=True)+"\n")'
+    python3 -c 'import json; p="/opt/banana-smasher/provenance/source.json"; open(p,"w").write(json.dumps({"base_image":"vllm/vllm-openai:v0.24.0@sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b","deep_gemm_source_commit":"f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca","deep_gemm_source_ref":"refs/tags/nv_dev_f8e8fb5","deep_gemm_source_repo":"https://github.com/deepseek-ai/DeepGEMM.git","deep_gemm_version":"2.6.1","flashinfer_source_commit":"d020372b068f335e2fe427372e134977a2235c49","flashinfer_source_repo":"https://github.com/flashinfer-ai/flashinfer.git","flashinfer_sm120_commits":["b34f49255f1640542da91665f58558a3e5e308f1","76fd3daf7064b73924ebb3bcb1e93a8a26fc6da9","0c5fda59bb6fa71eae875693a024bb0fb37ba7d6"],"vllm_upstream_commit":"ee0da84ab9e04ac7610e28580af62c365e898389","vllm_upstream_revision":"ee0da84a","vllm_upstream_tag":"refs/tags/v0.24.0","packages_built_from_checkout":["banana-smasher","banana-smasher-plugin","deep-gemm","flashinfer-python"]},indent=2,sort_keys=True)+"\n")'
 
 ENV PYTHONNOUSERSITE=1 \
     PYTHONUNBUFFERED=1 \
@@ -173,6 +182,8 @@ LABEL org.opencontainers.image.title="banana-smasher public vLLM runtime" \
       org.opencontainers.image.version="v5" \
       org.opencontainers.image.base.name="vllm/vllm-openai:v0.24.0" \
       org.opencontainers.image.base.digest="sha256:32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b" \
+      io.banana-smasher.vllm.upstream-tag="refs/tags/v0.24.0" \
+      io.banana-smasher.vllm.upstream-commit="ee0da84ab9e04ac7610e28580af62c365e898389" \
       io.banana-smasher.vllm.upstream-revision="ee0da84a" \
       io.banana-smasher.pack.mount="/model" \
       io.banana-smasher.runtime-defaults="/opt/banana-smasher/runtime_defaults.json"

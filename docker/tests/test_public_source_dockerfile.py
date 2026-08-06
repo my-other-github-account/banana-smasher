@@ -33,8 +33,12 @@ def test_public_source_dockerfile_contract() -> None:
     assert "BUILD_NVEP=0" in text
     uninstall = "pip uninstall -y flashinfer-cubin flashinfer-jit-cache"
     install = "/tmp/wheels/flashinfer_python-0.6.17-py3-none-any.whl"
+    runtime_stage = (
+        "FROM vllm/vllm-openai:v0.24.0@sha256:"
+        "32445b36556244d8a721cd21a2b47a7915bc6408432d05aaeab205bb223ced8b AS runtime"
+    )
     assert uninstall in text
-    assert text.index(uninstall) < text.index(install, text.index("FROM ${VLLM_IMAGE} AS runtime"))
+    assert text.index(uninstall) < text.index(install, text.index(runtime_stage))
     assert 'for name in ("flashinfer_cubin","flashinfer_jit_cache")' in text
     assert 'find_spec("flashinfer_cubin") is None' in text
     assert 'find_spec("flashinfer_jit_cache") is None' in text

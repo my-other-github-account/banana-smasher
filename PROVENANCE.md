@@ -1,13 +1,18 @@
 # Provenance
 
-The retained implementation and binary assets were extracted directly from Git objects at immutable source commit:
+The standalone extraction is rooted at immutable source commit:
 
 `c00714c6803f7e2de7a95d103dbe172236b22adf`
 
-No bytes were copied from a working tree. `provenance/SOURCE_INVENTORY.json` records, for every retained source file:
+Runtime corrections proven after that extraction are ported from the immutable successor snapshot:
+
+`50468029e846c926e8f0aaeb6c9efc1c1a1ac0de`
+
+No extraction bytes were copied from an uncommitted working tree. `provenance/SOURCE_INVENTORY.json` records, for every retained source file:
 
 - its path in this repository;
 - its path relative to the authoritative source subtree;
+- the immutable source commit for successor-derived files;
 - SHA-256 of the source object bytes;
 - SHA-256 of the current repository bytes; and
 - whether the bytes remain identical.

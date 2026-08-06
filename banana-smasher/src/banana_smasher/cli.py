@@ -14,6 +14,7 @@ from .contract import (
     verify_pack,
     verify_serve_compatibility,
 )
+from .fixed_qtip_export import export_fixed_qtip_pack
 from .repack import repack_to_safetensors
 from .repair import load_repair_bundle
 from .validation import ValidationError, validate_artifact
@@ -70,6 +71,14 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--assignment", type=Path)
     export.add_argument("--assignment-sha256")
     export.add_argument("--repair-update", type=int)
+    export.add_argument(
+        "--fixed-members-manifest",
+        type=Path,
+        help="sealed JSONL assignment/member manifest for a repair-absent QTIP export",
+    )
+    export.add_argument("--fixed-members-manifest-sha256")
+    export.add_argument("--fixed-pack-admission", type=Path)
+    export.add_argument("--fixed-pack-admission-sha256")
 
     verify = subparsers.add_parser("verify", help="verify manifest, schema, and bytes")
     verify.add_argument("pack", type=Path)
@@ -171,16 +180,50 @@ def main(argv: Sequence[str] | None = None) -> int:
                 repair = (
                     load_repair_bundle(**repair_values) if supplied_repair else None
                 )
-                manifest = export_pack(
-                    source_root=args.source_root,
-                    output=args.output,
-                    model_id=args.model_id,
-                    instance_id=args.instance_id,
-                    link_mode=args.link_mode,
-                    repair=repair,
-                    serving_model_root=args.serving_model_root,
-                    runtime_floor_bytes=args.runtime_floor_bytes,
-                )
+                fixed_values = {
+                    "members_manifest": args.fixed_members_manifest,
+                    "members_manifest_sha256": args.fixed_members_manifest_sha256,
+                    "pack_admission": args.fixed_pack_admission,
+                    "pack_admission_sha256": args.fixed_pack_admission_sha256,
+                }
+                supplied_fixed = [
+                    name for name, value in fixed_values.items() if value is not None
+                ]
+                if supplied_fixed and len(supplied_fixed) != len(fixed_values):
+                    missing = sorted(set(fixed_values) - set(supplied_fixed))
+                    raise ValueError(
+                        "fixed QTIP export requires every sealed input; "
+                        f"missing={missing}"
+                    )
+                if supplied_fixed:
+                    if repair is not None:
+                        raise ValueError("fixed QTIP export requires repair absent")
+                    if args.serving_model_root is None or args.runtime_floor_bytes is None:
+                        raise ValueError(
+                            "fixed QTIP export requires --serving-model-root and "
+                            "--runtime-floor-bytes"
+                        )
+                    manifest = export_fixed_qtip_pack(
+                        **fixed_values,
+                        member_root=args.source_root,
+                        output=args.output,
+                        model_id=args.model_id,
+                        instance_id=args.instance_id,
+                        link_mode=args.link_mode,
+                        serving_model_root=args.serving_model_root,
+                        runtime_floor_bytes=args.runtime_floor_bytes,
+                    )
+                else:
+                    manifest = export_pack(
+                        source_root=args.source_root,
+                        output=args.output,
+                        model_id=args.model_id,
+                        instance_id=args.instance_id,
+                        link_mode=args.link_mode,
+                        repair=repair,
+                        serving_model_root=args.serving_model_root,
+                        runtime_floor_bytes=args.runtime_floor_bytes,
+                    )
                 receipt = verify_pack(args.output)
                 result = {
                     **receipt,

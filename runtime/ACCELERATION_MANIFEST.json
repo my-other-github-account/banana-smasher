@@ -1,6 +1,7 @@
 {
   "schema": "banana-smasher-acceleration-manifest-v1",
   "source_commit": "c00714c6803f7e2de7a95d103dbe172236b22adf",
+  "successor_commits": ["50468029e846c926e8f0aaeb6c9efc1c1a1ac0de"],
   "accelerations": [
     {
       "id": "bs-pack-export-verify",
@@ -33,9 +34,16 @@
     {
       "id": "sm121-deepgemm-dense-e8m0",
       "source": ["banana-smasher-plugin/src/banana_smasher_plugin/__init__.py", "banana-smasher-plugin/src/banana_smasher_plugin/quantization.py", "docker/Dockerfile"],
-      "build_dependency_or_asset": ["DeepGEMM a6b593d2826719dcf4892609af7b84ee23aaf32a", "deep_gemm-2.5.0 ARM64 wheel"],
+      "build_dependency_or_asset": ["DeepGEMM f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca", "deep_gemm-2.6.1 ARM64 wheel"],
       "runtime_activation": ["VLLM_USE_DEEP_GEMM=1", "VLLM_USE_DEEP_GEMM_E8M0=1", "configure_stock_deepseek_v4_o_proj"],
       "tests": ["banana-smasher-plugin/tests/test_sm121_deep_gemm_fast_paths.py", "banana-smasher-plugin/tests/test_deep_gemm_dense_capability.py", "banana-smasher-plugin/tests/test_v4_fast_path_contract.py"]
+    },
+    {
+      "id": "deepgemm-ue8m0-warmup",
+      "source": ["banana-smasher-plugin/src/banana_smasher_plugin/__init__.py", "docker/Dockerfile"],
+      "build_dependency_or_asset": ["DeepGEMM 2.6.1 UE8M0 activation-scale contract", "stock vLLM 0.24 warmup module"],
+      "runtime_activation": ["configure_deep_gemm_ue8m0_warmup_contract initializes every dense and grouped dummy scale to one on SM12x"],
+      "tests": ["banana-smasher-plugin/tests/test_deep_gemm_dense_capability.py"]
     },
     {
       "id": "sm121-deepgemm-sparse-indexer",
