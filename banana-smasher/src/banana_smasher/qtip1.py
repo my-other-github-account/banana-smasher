@@ -413,7 +413,8 @@ def encode_qtip(
     if values.ndim != 2 or values.shape[1] % geometry.V:
         raise ValueError("QTIP matrix must be [rows, steps*V]")
     state_lut = _state_lut(geometry, tlut)
-    if scales is None:
+    automatic_scales = scales is None
+    if automatic_scales:
         source_rms = np.sqrt(np.mean(values * values, axis=1, dtype=np.float32))
         lut_rms = np.float32(np.sqrt(np.mean(state_lut * state_lut, dtype=np.float32)))
         row_scales = np.where(source_rms == 0, 1.0, source_rms / lut_rms).astype(
@@ -427,12 +428,37 @@ def encode_qtip(
             raise ValueError("QTIP scales must contain one value per matrix row")
     if np.any(~np.isfinite(row_scales)) or np.any(row_scales <= 0):
         raise ValueError("QTIP scales must be finite and positive")
-    normalized = values / row_scales[:, None]
     steps = values.shape[1] // geometry.V
-    rolled = np.roll(normalized, (steps // 2) * geometry.V, axis=1)
-    first = _viterbi(rolled, state_lut, geometry)
-    overlap = first[:, steps // 2] >> geometry.branch_bits
-    states = _viterbi(normalized, state_lut, geometry, overlap=overlap)
+
+    def encode_states(candidate_scales: np.ndarray) -> np.ndarray:
+        normalized = values / candidate_scales[:, None]
+        rolled = np.roll(normalized, (steps // 2) * geometry.V, axis=1)
+        first = _viterbi(rolled, state_lut, geometry)
+        overlap = first[:, steps // 2] >> geometry.branch_bits
+        return _viterbi(normalized, state_lut, geometry, overlap=overlap)
+
+    if automatic_scales and geometry.K == 1 and geometry.V == 1:
+        # The cyclic K1 path samples a biased subset of the global LUT.  Search a
+        # tiny fixed scale grid and keep the lowest-error path independently per row.
+        best_error = np.full((values.shape[0],), np.inf, dtype=np.float32)
+        best_scales = row_scales.copy()
+        states = np.empty((values.shape[0], steps), dtype=np.int32)
+        for multiplier in (0.5, 0.65, 0.8, 1.0):
+            candidate_scales = row_scales * np.float32(multiplier)
+            candidate_states = encode_states(candidate_scales)
+            unit = state_lut[:, candidate_states].transpose(1, 2, 0).reshape(values.shape)
+            decoded = unit * candidate_scales[:, None]
+            error = np.asarray(
+                np.mean((values - decoded) ** 2, axis=1, dtype=np.float32),
+                dtype=np.float32,
+            )
+            improved = error < best_error
+            best_error[improved] = error[improved]
+            best_scales[improved] = candidate_scales[improved]
+            states[improved] = candidate_states[improved]
+        row_scales = best_scales
+    else:
+        states = encode_states(row_scales)
     packed = pack_qtip_states(states, geometry)
     return EncodedQtip(
         geometry=geometry,

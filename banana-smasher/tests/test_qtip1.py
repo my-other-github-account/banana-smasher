@@ -94,6 +94,30 @@ def test_qtip1_l16_roundtrip_shape_and_exact_code_byte_accounting() -> None:
     )
 
 
+def test_qtip1_auto_scale_grid_improves_over_global_lut_rms() -> None:
+    matrix = np.linspace(-2.0, 2.0, 512, dtype=np.float32).reshape(16, 32)
+    tlut = gaussian_tlut(bits=9, columns=2)
+    state_lut = _state_lut(QTIP1_GEOMETRY, tlut)
+    source_rms = np.sqrt(np.mean(matrix * matrix, axis=1, dtype=np.float32))
+    lut_rms = np.float32(np.sqrt(np.mean(state_lut * state_lut, dtype=np.float32)))
+    old_scales = source_rms / lut_rms
+    old = encode_qtip(
+        matrix,
+        geometry=QTIP1_GEOMETRY,
+        tlut=tlut,
+        scales=old_scales,
+    )
+    improved = encode_qtip(matrix, geometry=QTIP1_GEOMETRY, tlut=tlut)
+
+    old_mse = np.mean((matrix - decode_qtip(old, tlut=tlut)) ** 2, dtype=np.float64)
+    improved_mse = np.mean(
+        (matrix - decode_qtip(improved, tlut=tlut)) ** 2,
+        dtype=np.float64,
+    )
+    assert improved_mse < old_mse
+    assert np.all(improved.scales <= old_scales)
+
+
 def test_qtip1_l16_matches_pinned_public_canonical_source_fixture() -> None:
     """Exact fixture from qtip bitshift.py at e90c6688c8dfae326a3a81b5eb032db7c6680ec0."""
     matrix = np.linspace(-2.0, 2.0, 32, dtype=np.float32).reshape(1, 32)
