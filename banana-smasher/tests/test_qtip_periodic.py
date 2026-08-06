@@ -54,6 +54,7 @@ def test_periodic_qtip25_symbol_wire_roundtrips_and_decodes_exactly() -> None:
         "code_bits": 20,
         "code_payload_bytes": 3,
         "code_padding_bits": 4,
+        "code_alignment_padding_bytes": 0,
         "selected_indices_bytes": 0,
         "assignment_map_bytes": 0,
         "routing_bytes": 0,
@@ -61,7 +62,9 @@ def test_periodic_qtip25_symbol_wire_roundtrips_and_decodes_exactly() -> None:
         "scale_bytes": 4,
         "auxiliary_bytes": 24,
         "logical_expert_plane_bytes": 27,
+        "logical_expert_plane_wire_bytes": 27,
         "deduplicated_shared_tlut_bytes": 4096,
+        "full_wire_bytes": 4123,
         "code_bpw": 2.5,
         "auxiliary_bpw": 24.0,
         "logical_expert_plane_bpw": 27.0,
@@ -99,6 +102,12 @@ def test_periodic_provider_generates_prices_materializes_and_verifies(tmp_path) 
     assert receipt["cell_payload_bytes"] == 3
     assert receipt["assignment_map_bytes"] == 0
     assert receipt["routing_bytes"] == 0
+    assert receipt["selected_indices_bytes"] == 0
+    assert receipt["whole_model_bytes"] is None
+    assert receipt["fp8_control"] is None
+    assert receipt["unique_physical_tree_bytes_excluding_receipt"] == (
+        tmp_path / "candidate" / "codes.npy"
+    ).stat().st_size
     assert provider.price(tmp_path / "candidate").cell_payload_bytes == 3
     assert provider.verify(tmp_path / "candidate") is True
     materialized = provider.materialize(tmp_path / "candidate")

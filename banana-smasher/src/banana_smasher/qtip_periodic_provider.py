@@ -106,6 +106,13 @@ def generate_periodic_candidate(
             "transition_count": transition_count,
             **accounting,
             "cell_payload_bytes": int(packed.nbytes),
+            "unique_physical_tree_bytes_excluding_receipt": int(
+                (root / _CODES_NAME).stat().st_size
+            ),
+            "whole_model_bytes": None,
+            "whole_model_gb": None,
+            "whole_model_bpw": None,
+            "fp8_control": None,
             "codes": {
                 "file": _CODES_NAME,
                 "dtype": str(packed.dtype),
