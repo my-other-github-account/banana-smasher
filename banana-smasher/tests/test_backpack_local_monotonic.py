@@ -91,14 +91,18 @@ def test_batched_stage_groups_relative_files(tmp_path: Path) -> None:
                 "items": [
                     {
                         "source_host": "dnola@192.168.200.1",
-                        "source_root": "/source",
+                        "source_root": "/source0",
                         "destination": "qtip2",
-                        "relative_paths": [
-                            "L000/E000_down/QTIP_UNIT.pt",
-                            "L000/E000_down/QTIP_SOLVE_RECEIPT.json",
-                        ],
-                        "bytes": 2,
-                    }
+                        "relative_paths": ["L000/E000_down/QTIP_UNIT.pt"],
+                        "bytes": 1,
+                    },
+                    {
+                        "source_host": "dnola@192.168.200.3",
+                        "source_root": "/source1",
+                        "destination": "qtip2",
+                        "relative_paths": ["L001/E000_down/QTIP_UNIT.pt"],
+                        "bytes": 1,
+                    },
                 ],
             }
         )
@@ -111,7 +115,7 @@ def test_batched_stage_groups_relative_files(tmp_path: Path) -> None:
             target = root / str(item["destination"]) / str(relative)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(b"x")
-        return {**item, "actual_bytes": 2, "status": "PASS"}
+        return {**item, "actual_bytes": len(relative_paths), "status": "PASS"}
 
     receipt = stage_qsfp_manifest(
         manifest, tmp_path / "batch-output", transfer=fake_transfer

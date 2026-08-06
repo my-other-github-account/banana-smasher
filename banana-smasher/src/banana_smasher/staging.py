@@ -261,7 +261,15 @@ def stage_qsfp_manifest(
     batched = manifest["schema"] == BATCH_SCHEMA
     validator = _validate_batch_item if batched else _validate_item
     items = [validator(item, output_root) for item in manifest["items"]]
-    if len({item["destination"] for item in items}) != len(items):
+    if batched:
+        targets = [
+            (item["destination"], relative)
+            for item in items
+            for relative in item["relative_paths"]
+        ]
+        if len(set(targets)) != len(targets):
+            raise ValueError("batched stage manifest has duplicate destination files")
+    elif len({item["destination"] for item in items}) != len(items):
         raise ValueError("stage manifest has duplicate destinations")
     output_root.mkdir(parents=True, exist_ok=True)
     runner = transfer or (_rsync_batch_item if batched else _rsync_item)
