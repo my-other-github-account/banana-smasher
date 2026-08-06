@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flashinfer-cubin"
-version = "0.6.17"
-description = "Compatibility shim for stock vLLM images using FlashInfer 0.6.17 JIT assets"
+version = "0.6.12+banana.617"
+description = "vLLM-0.24-compatible metadata shim for FlashInfer 0.6.17 JIT assets"
 requires-python = ">=3.10"
 
 [tool.hatch.build.targets.wheel]
