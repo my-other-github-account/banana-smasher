@@ -418,25 +418,91 @@ def vector_vq_backpack_provider(
     )
 
 
+def _fixed_d4_candidate_tier(tier: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize a fixed-D4 declaration for the shared vector candidate path."""
+
+    codebook_size = tier.get("codebook_size")
+    if codebook_size not in {2048, 4096}:
+        provider = str(tier.get("provider", ""))
+        if "2048" in provider:
+            codebook_size = 2048
+        elif "4096" in provider:
+            codebook_size = 4096
+        else:
+            raise ValueError("fixed D4 candidate requires K2048 or K4096")
+    normalized = {
+        **tier,
+        "provider": f"d4-k{codebook_size}",
+        "family": "vector_vq",
+        "dimension": 4,
+        "codebook_size": codebook_size,
+    }
+    normalized.pop("bits", None)
+    normalized.pop("bpw", None)
+    return normalized
+
+
+def _fixed_d4_generate(*args: Any, **kwargs: Any) -> Any:
+    """Dispatch plan candidates or the full-model fixed-D4 source adapter."""
+
+    if "tier" in kwargs and "cell" in kwargs:
+        from .backpack import generate_fixed_d4_backpack_candidate
+
+        return generate_fixed_d4_backpack_candidate(
+            *args,
+            **{**kwargs, "tier": _fixed_d4_candidate_tier(kwargs["tier"])},
+        )
+    from .fixed_d4 import prepare_fixed_d4_solve_config
+
+    return prepare_fixed_d4_solve_config(*args, **kwargs)
+
+
+def _fixed_d4_materialize(*args: Any, **kwargs: Any) -> Any:
+    """Dispatch one plan assignment or a full fixed-D4 solve manifest."""
+
+    if "tier" in kwargs and "cell" in kwargs and "artifact_root" in kwargs:
+        return _materialize_provider_assignment(*args, **kwargs)
+    from .fixed_d4 import materialize_fixed_d4
+
+    return materialize_fixed_d4(*args, **kwargs)
+
+
+def _fixed_d4_predict(*args: Any, **kwargs: Any) -> Any:
+    """Dispatch plan-local prediction or public layerwise model prediction."""
+
+    if len(args) == 4 and not kwargs:
+        return predict_backpack_candidate(*args)
+    from .fixed_d4 import produce_fixed_d4_layerwise_logits
+
+    return produce_fixed_d4_layerwise_logits(*args, **kwargs)
+
+
+def _fixed_d4_verify(*args: Any, **kwargs: Any) -> Any:
+    """Dispatch candidate-receipt or full-model fixed-D4 verification."""
+
+    if "tier" in kwargs and "cell" in kwargs:
+        return verify_backpack_candidate(
+            *args,
+            **{**kwargs, "tier": _fixed_d4_candidate_tier(kwargs["tier"])},
+        )
+    from .fixed_d4 import verify_fixed_d4_model
+
+    return verify_fixed_d4_model(*args, **kwargs)
+
+
 def fixed_d4_backpack_provider(codebook_size: int) -> BackpackFamilyProvider:
     if codebook_size not in {2048, 4096}:
         raise ValueError("fixed D4 provider requires K2048 or K4096")
-    from .fixed_d4 import (
-        materialize_fixed_d4,
-        prepare_fixed_d4_solve_config,
-        produce_fixed_d4_layerwise_logits,
-        verify_fixed_d4_model,
-    )
 
     return BackpackFamilyProvider(
         provider_id=f"d4-k{codebook_size}",
         kind="fixed_d4",
         runtime_family="truevq_d4",
-        generate=prepare_fixed_d4_solve_config,
-        materialize=materialize_fixed_d4,
+        generate=_fixed_d4_generate,
+        materialize=_fixed_d4_materialize,
         price=price_backpack_candidate,
-        predict=produce_fixed_d4_layerwise_logits,
-        verify=verify_fixed_d4_model,
+        predict=_fixed_d4_predict,
+        verify=_fixed_d4_verify,
     )
 
 
