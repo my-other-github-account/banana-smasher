@@ -60,6 +60,7 @@ class BackpackFamilyBinding:
     materialize: Callable[..., None]
     price: Callable[..., dict[str, Any]]
     predict: Callable[..., dict[str, Any]]
+    verify: Callable[..., bool]
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -265,7 +266,16 @@ class BackpackPlan:
             elif family == "qtip":
                 _reject_unknown(
                     tier,
-                    {"id", "family", "provider", "bpw", "backend", "source_root"},
+                    {
+                        "id",
+                        "family",
+                        "provider",
+                        "runtime_family",
+                        "bpw",
+                        "backend",
+                        "source_root",
+                        "fixed_assignment",
+                    },
                     f"tiers[{index}]",
                 )
                 bpw = Decimal(str(_positive_number(tier.get("bpw"), f"tiers[{index}].bpw")))
@@ -288,15 +298,70 @@ class BackpackPlan:
                     )
                 tier["backend"] = backend
                 if backend == "packaged_qtip":
-                    tier["source_root"] = _path(
-                        tier.get("source_root"),
-                        f"tiers[{index}].source_root",
-                        base_dir=base,
-                    )
+                    fixed_assignment = tier.get("fixed_assignment")
+                    if fixed_assignment is not None:
+                        fixed = _object(
+                            fixed_assignment, f"tiers[{index}].fixed_assignment"
+                        )
+                        _reject_unknown(
+                            fixed,
+                            {"path", "sha256", "member_root"},
+                            f"tiers[{index}].fixed_assignment",
+                        )
+                        fixed_path = _path(
+                            fixed.get("path"),
+                            f"tiers[{index}].fixed_assignment.path",
+                            base_dir=base,
+                        )
+                        fixed_sha = _nonempty(
+                            fixed.get("sha256"),
+                            f"tiers[{index}].fixed_assignment.sha256",
+                        )
+                        if re.fullmatch(r"[0-9a-f]{64}", fixed_sha) is None:
+                            raise BackpackPlanError(
+                                f"tiers[{index}].fixed_assignment.sha256 must be a lowercase SHA-256"
+                            )
+                        tier["fixed_assignment"] = {
+                            "path": fixed_path,
+                            "sha256": fixed_sha,
+                            **(
+                                {
+                                    "member_root": _path(
+                                        fixed.get("member_root"),
+                                        f"tiers[{index}].fixed_assignment.member_root",
+                                        base_dir=base,
+                                    )
+                                }
+                                if "member_root" in fixed
+                                else {}
+                            ),
+                        }
+                        if "source_root" in tier:
+                            raise BackpackPlanError(
+                                f"tiers[{index}] cannot combine source_root and fixed_assignment"
+                            )
+                    else:
+                        tier["source_root"] = _path(
+                            tier.get("source_root"),
+                            f"tiers[{index}].source_root",
+                            base_dir=base,
+                        )
                 elif "source_root" in tier:
                     raise BackpackPlanError(
                         f"tiers[{index}].source_root is only valid for packaged_qtip"
                     )
+                if "fixed_assignment" in tier and backend != "packaged_qtip":
+                    raise BackpackPlanError(
+                        f"tiers[{index}].fixed_assignment requires packaged_qtip"
+                    )
+                runtime_family = tier.get(
+                    "runtime_family", "qtip2" if bpw < Decimal("3.00") else "qtip3"
+                )
+                if runtime_family not in {"qtip2", "qtip3"}:
+                    raise BackpackPlanError(
+                        f"tiers[{index}].runtime_family must be qtip2 or qtip3"
+                    )
+                tier["runtime_family"] = runtime_family
             else:
                 raise BackpackPlanError(
                     f"tiers[{index}].family must be vector_vq or qtip"
@@ -306,6 +371,12 @@ class BackpackPlan:
                     tier.get("provider"), f"tiers[{index}].provider"
                 )
             tiers.append(tier)
+
+        fixed_tiers = [tier for tier in tiers if "fixed_assignment" in tier]
+        if fixed_tiers and len(tiers) != 1:
+            raise BackpackPlanError(
+                "a fixed-assignment Backpack plan must declare exactly one selected tier"
+            )
 
         anchor = _object(value.get("anchor"), "anchor")
         _reject_unknown(anchor, {"bank", "teacher"}, "anchor")
@@ -564,27 +635,40 @@ def _candidate_pricing(
 ) -> dict[str, Any]:
     if payload_bytes < 0:
         raise BackpackPlanError("candidate payload_bytes must be non-negative")
+    activations: list[dict[str, Any]] = []
+    for raw in activation_artifacts:
+        key = _nonempty(raw.get("key"), "candidate activation key")
+        path_value = _nonempty(raw.get("path"), "candidate activation path")
+        sha256 = _nonempty(raw.get("sha256"), "candidate activation sha256")
+        size = raw.get("bytes")
+        if (
+            isinstance(size, bool)
+            or not isinstance(size, int)
+            or size < 0
+            or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
+        ):
+            raise BackpackPlanError(
+                "candidate activation requires non-negative bytes and lowercase SHA-256"
+            )
+        path = Path(path_value)
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or path.stat().st_size != size
+            or _sha_file(path) != sha256
+        ):
+            raise BackpackPlanError(f"candidate activation identity mismatch: {path}")
+        activations.append(
+            {
+                "key": key,
+                "path": str(path.resolve()),
+                "bytes": size,
+                "sha256": sha256,
+            }
+        )
     return {
         "payload_bytes": int(payload_bytes),
-        "activation_artifacts": [
-            {
-                "key": _nonempty(row.get("key"), "candidate activation key"),
-                "bytes": (
-                    int(row["bytes"])
-                    if (
-                        not isinstance(row.get("bytes"), bool)
-                        and isinstance(row.get("bytes"), int)
-                        and int(row["bytes"]) >= 0
-                    )
-                    else (_ for _ in ()).throw(
-                        BackpackPlanError(
-                            "candidate activation bytes must be a non-negative integer"
-                        )
-                    )
-                ),
-            }
-            for row in activation_artifacts
-        ],
+        "activation_artifacts": activations,
     }
 
 
@@ -609,18 +693,35 @@ def _pricing_from_receipt(
                 f"{label} pricing.activation_artifacts[{index}] must be an object"
             )
         key = raw.get("key")
+        path_value = raw.get("path")
+        sha256 = raw.get("sha256")
         size = raw.get("bytes")
         if (
             not isinstance(key, str)
             or not key
+            or not isinstance(path_value, str)
+            or not isinstance(sha256, str)
             or isinstance(size, bool)
             or not isinstance(size, int)
             or size < 0
+            or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
         ):
             raise BackpackPlanError(
-                f"{label} pricing.activation_artifacts[{index}] must include key/bytes"
+                f"{label} pricing.activation_artifacts[{index}] must include key/path/bytes/sha256"
             )
-        artifacts.append({"key": key, "bytes": size})
+        path = Path(path_value)
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or path.stat().st_size != size
+            or _sha_file(path) != sha256
+        ):
+            raise BackpackPlanError(
+                f"{label} activation identity mismatch: {path}"
+            )
+        artifacts.append(
+            {"key": key, "path": str(path.resolve()), "bytes": size, "sha256": sha256}
+        )
     return {
         "payload_bytes": int(payload),
         "activation_artifacts": artifacts,
@@ -805,6 +906,22 @@ def _fixed_artifacts(
                 f"manifest-bound fixed artifacts={totals[role]}"
             )
     return records
+
+
+def _provider_activation_artifacts(plan: BackpackPlan) -> list[dict[str, Any]]:
+    artifacts: dict[str, dict[str, Any]] = {}
+    for tier in plan.tiers:
+        if "fixed_assignment" not in tier:
+            continue
+        _rows, activation = _fixed_qtip_assignment_index(tier)
+        key = str(activation["key"])
+        prior = artifacts.get(key)
+        if prior is not None and prior != activation:
+            raise BackpackPlanError(
+                f"provider activation key has conflicting artifacts: {key}"
+            )
+        artifacts[key] = activation
+    return [artifacts[key] for key in sorted(artifacts)]
 
 
 def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -1011,7 +1128,11 @@ def _stage_inspect(plan: BackpackPlan, root: Path) -> dict[str, Any]:
             raise BackpackPlanError(f"model {field} must be a non-negative integer")
         fixed[field] = value
     fixed_artifacts = _fixed_artifacts(plan, manifest)
+    provider_activations = _provider_activation_artifacts(plan)
     fixed["routing_bytes"] = 256 * len({int(cell["layer"]) for cell in cells})
+    fixed["provider_activation_bytes"] = sum(
+        int(row["bytes"]) for row in provider_activations
+    )
     target_bytes = (
         int(plan.target["exact_bytes"])
         if "exact_bytes" in plan.target
@@ -1050,6 +1171,7 @@ def _stage_inspect(plan: BackpackPlan, root: Path) -> dict[str, Any]:
         ],
         "fixed_bytes": fixed,
         "fixed_artifacts": fixed_artifacts,
+        "provider_activations": provider_activations,
         "fixed_total_bytes": fixed_bytes,
         "target_whole_model_bytes": target_bytes,
         "payload_envelope_bytes": target_bytes - fixed_bytes,
@@ -1320,6 +1442,180 @@ def generate_vector_vq_backpack_candidate(
     )
 
 
+def _fixed_qtip_assignment_index(
+    tier: Mapping[str, Any],
+) -> tuple[dict[tuple[int, int, str], dict[str, Any]], dict[str, Any]]:
+    fixed = tier.get("fixed_assignment")
+    if not isinstance(fixed, Mapping):
+        raise BackpackPlanError("packaged QTIP fixed_assignment must be an object")
+    manifest = Path(str(fixed.get("path", ""))).expanduser()
+    expected_sha = str(fixed.get("sha256", ""))
+    if manifest.is_symlink() or not manifest.is_file():
+        raise BackpackPlanError(
+            f"fixed-assignment manifest must be a regular file: {manifest}"
+        )
+    actual_sha = _sha_file(manifest)
+    if actual_sha != expected_sha:
+        raise BackpackPlanError(
+            "fixed-assignment manifest SHA-256 mismatch: "
+            f"expected={expected_sha} actual={actual_sha}"
+        )
+    rows: dict[tuple[int, int, str], dict[str, Any]] = {}
+    try:
+        for line in manifest.read_text().splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            identity = (
+                int(row["layer"]),
+                int(row["expert"]),
+                str(row["projection"]),
+            )
+            if identity in rows:
+                raise BackpackPlanError(
+                    f"duplicate fixed-assignment identity: {identity!r}"
+                )
+            if row.get("tier", tier["id"]) != tier["id"]:
+                raise BackpackPlanError(
+                    f"fixed-assignment tier mismatch for {identity!r}"
+                )
+            rows[identity] = dict(row)
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise BackpackPlanError(
+            f"cannot parse fixed-assignment manifest {manifest}: {exc}"
+        ) from exc
+    if not rows:
+        raise BackpackPlanError("fixed-assignment manifest contains no members")
+    activation = {
+        "key": f"fixed-assignment:{actual_sha}",
+        "path": str(manifest.resolve()),
+        "bytes": manifest.stat().st_size,
+        "sha256": actual_sha,
+    }
+    return rows, activation
+
+
+def _fixed_qtip_artifact_path(
+    row: Mapping[str, Any], fixed: Mapping[str, Any]
+) -> Path:
+    artifact = row.get("artifact")
+    if not isinstance(artifact, Mapping) or not isinstance(artifact.get("path"), str):
+        raise BackpackPlanError("fixed-assignment member lacks artifact.path")
+    declared = Path(str(artifact["path"])).expanduser()
+    member_root_value = fixed.get("member_root")
+    if member_root_value is None:
+        return declared.resolve()
+    member_root = Path(str(member_root_value)).expanduser().resolve()
+    if declared.is_absolute():
+        candidate = (
+            member_root
+            / f"L{int(row['layer']):03d}"
+            / f"E{int(row['expert']):03d}_{row['projection']}"
+            / declared.name
+        )
+        if candidate.is_file():
+            return candidate.resolve()
+        return (member_root / declared.name).resolve()
+    return (member_root / declared).resolve()
+
+
+def _fixed_qtip_record(
+    tier: Mapping[str, Any],
+    *,
+    row: Mapping[str, Any],
+    identity: tuple[int, int, str],
+    geometry: tuple[int, int, int],
+    weight_count: int,
+    payload_cache: dict[tuple[str, str], dict[str, Any]],
+) -> dict[str, Any]:
+    fixed = tier["fixed_assignment"]
+    artifact_row = row.get("artifact")
+    if not isinstance(fixed, Mapping) or not isinstance(artifact_row, Mapping):
+        raise BackpackPlanError(f"fixed-assignment artifact binding is missing: {identity!r}")
+    row_geometry = row.get("geometry")
+    if (
+        not isinstance(row_geometry, Mapping)
+        or tuple(row_geometry.get(key) for key in ("L", "K", "V")) != geometry
+    ):
+        raise BackpackPlanError(
+            f"fixed-assignment geometry mismatch for {identity!r}"
+        )
+    artifact = _fixed_qtip_artifact_path(row, fixed)
+    if artifact.is_symlink() or not artifact.is_file():
+        raise BackpackPlanError(
+            f"fixed-assignment artifact must be a regular file: {artifact}"
+        )
+    expected_bytes = artifact_row.get("bytes")
+    expected_sha = artifact_row.get("sha256")
+    actual_sha = _sha_file(artifact)
+    if artifact.stat().st_size != expected_bytes or actual_sha != expected_sha:
+        raise BackpackPlanError(
+            f"fixed-assignment artifact identity mismatch: {artifact}"
+        )
+    cache_key = (str(artifact), actual_sha)
+    payload = payload_cache.get(cache_key)
+    if payload is None:
+        if artifact.suffix == ".npz":
+            try:
+                with np.load(artifact, allow_pickle=False) as archive:
+                    payload = {name: np.asarray(archive[name]) for name in archive.files}
+            except (OSError, KeyError, ValueError) as exc:
+                raise BackpackPlanError(
+                    f"cannot load packaged QTIP NPZ {artifact}: {exc}"
+                ) from exc
+        else:
+            try:
+                import torch
+
+                loaded = torch.load(
+                    artifact,
+                    map_location="cpu",
+                    mmap=True,
+                    weights_only=True,
+                )
+                payload = {
+                    name: value.detach().cpu().contiguous().numpy()
+                    for name, value in loaded.items()
+                    if isinstance(value, torch.Tensor)
+                }
+            except (ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                raise BackpackPlanError(
+                    f"cannot load packaged QTIP artifact {artifact}: {exc}"
+                ) from exc
+        payload_cache[cache_key] = payload
+    required = {"trellis", "SU", "SV", "Wscale", "tlut", "reconstructed_weight"}
+    if not required <= set(payload):
+        raise BackpackPlanError(
+            f"fixed-assignment artifact lacks packaged QTIP tensors: {artifact}"
+        )
+    decoded = np.asarray(payload["reconstructed_weight"], dtype=np.float32).reshape(-1)
+    if decoded.size != weight_count or not np.isfinite(decoded).all():
+        raise BackpackPlanError(
+            f"fixed-assignment reconstructed weight size mismatch: {decoded.size} != {weight_count}"
+        )
+
+    def tensor_bytes(name: str) -> bytes:
+        return np.ascontiguousarray(payload[name]).tobytes(order="C")
+
+    return {
+        "codes": tensor_bytes("trellis"),
+        "scales": b"".join(tensor_bytes(name) for name in ("SU", "SV", "Wscale")),
+        "codebooks": tensor_bytes("tlut"),
+        "decoded": np.ascontiguousarray(decoded),
+        "source_unit": {
+            "kind": "fixed_assignment",
+            "identity": {
+                "layer": identity[0],
+                "expert": identity[1],
+                "projection": identity[2],
+            },
+            "artifact": str(artifact),
+            "artifact_bytes": artifact.stat().st_size,
+            "artifact_sha256": actual_sha,
+        },
+    }
+
+
 def _packaged_qtip_record(
     source_root: Path,
     *,
@@ -1504,16 +1800,23 @@ def generate_qtip_backpack_candidate(
 
     backend = tier.get("backend")
     source_path: Path | None = None
+    fixed_rows: dict[tuple[int, int, str], dict[str, Any]] | None = None
+    activation_artifact: dict[str, Any] | None = None
     if backend != "fixture_reference":
-        source_root = tier.get("source_root")
-        if not isinstance(source_root, str):
-            raise BackpackPlanError("packaged_qtip requires source_root")
-        source_path = Path(source_root).expanduser()
-        if source_path.is_symlink() or not source_path.is_dir():
-            raise BackpackPlanError(
-                f"packaged_qtip source_root must be a regular directory: {source_path}"
-            )
-        require_qtip_ring_manifest(source_path, tier["bpw"])
+        if "fixed_assignment" in tier:
+            fixed_rows, activation_artifact = _fixed_qtip_assignment_index(tier)
+        else:
+            source_root = tier.get("source_root")
+            if not isinstance(source_root, str):
+                raise BackpackPlanError(
+                    "packaged_qtip requires source_root or fixed_assignment"
+                )
+            source_path = Path(source_root).expanduser()
+            if source_path.is_symlink() or not source_path.is_dir():
+                raise BackpackPlanError(
+                    f"packaged_qtip source_root must be a regular directory: {source_path}"
+                )
+            require_qtip_ring_manifest(source_path, tier["bpw"])
         if weights is not None:
             raise BackpackPlanError(
                 "packaged_qtip consumes sealed unit artifacts and cannot accept replacement weights"
@@ -1530,6 +1833,7 @@ def generate_qtip_backpack_candidate(
     payload_sizes: list[tuple[int, int, int]] = []
     source_rows = _expert_weight_rows(cell, weights)
     source_units: list[dict[str, Any]] = []
+    payload_cache: dict[tuple[str, str], dict[str, Any]] = {}
     for identity, source_weights in zip(identities, source_rows, strict=True):
         geometry = geometry_by_identity[identity]
         if backend == "fixture_reference":
@@ -1542,13 +1846,29 @@ def generate_qtip_backpack_candidate(
             scale = np.asarray(quantized["scale"])
             decoded = np.asarray(quantized["decoded"], dtype=np.float32)
         else:
-            assert source_path is not None
-            packaged = _packaged_qtip_record(
-                source_path,
-                identity=identity,
-                geometry=geometry,
-                weight_count=source_weights.size,
-            )
+            if fixed_rows is not None:
+                try:
+                    fixed_row = fixed_rows[identity]
+                except KeyError as exc:
+                    raise BackpackPlanError(
+                        f"fixed-assignment manifest lacks identity {identity!r}"
+                    ) from exc
+                packaged = _fixed_qtip_record(
+                    tier,
+                    row=fixed_row,
+                    identity=identity,
+                    geometry=geometry,
+                    weight_count=source_weights.size,
+                    payload_cache=payload_cache,
+                )
+            else:
+                assert source_path is not None
+                packaged = _packaged_qtip_record(
+                    source_path,
+                    identity=identity,
+                    geometry=geometry,
+                    weight_count=source_weights.size,
+                )
             packed = bytes(packaged["codes"])
             codebook = np.frombuffer(packaged["codebooks"], dtype=np.uint8).copy()
             scale = np.frombuffer(packaged["scales"], dtype=np.uint8).copy()
@@ -1567,24 +1887,35 @@ def generate_qtip_backpack_candidate(
             )
         )
     decoded = np.concatenate(decoded_rows)
+    packed_payload = b"".join(packed_parts)
+    extra_arrays = {
+        "codebooks": np.concatenate(codebooks),
+        "scales": np.concatenate(scales),
+        "expert_ids": np.asarray(expert_ids, dtype=np.int16),
+        "tensor_offsets": _payload_offsets(payload_sizes),
+        "record_tiers": _byte_string_array([ring.tier] * len(expert_ids), width=32),
+        "record_geometry": np.asarray(geometries, dtype=np.int32),
+        "record_projections": _byte_string_array(
+            [projection] * len(expert_ids),
+            width=8,
+        ),
+    }
+    payload_bytes = len(packed_payload) + sum(
+        int(value.nbytes) for value in extra_arrays.values()
+    )
     return _write_candidate_artifact(
         Path(run_root),
         tier=tier,
         cell=cell,
         decoded=np.asarray(decoded, dtype=np.float32),
-        packed=b"".join(packed_parts),
-        extra_arrays={
-            "codebooks": np.concatenate(codebooks),
-            "scales": np.concatenate(scales),
-            "expert_ids": np.asarray(expert_ids, dtype=np.int16),
-            "tensor_offsets": _payload_offsets(payload_sizes),
-            "record_tiers": _byte_string_array([ring.tier] * len(expert_ids), width=32),
-            "record_geometry": np.asarray(geometries, dtype=np.int32),
-            "record_projections": _byte_string_array(
-                [projection] * len(expert_ids),
-                width=8,
+        packed=packed_payload,
+        extra_arrays=extra_arrays,
+        pricing=_candidate_pricing(
+            payload_bytes=payload_bytes,
+            activation_artifacts=(
+                [activation_artifact] if activation_artifact is not None else []
             ),
-        },
+        ),
         metadata={
             "algorithm": (
                 "qtip-fixture-reference"
@@ -1728,7 +2059,7 @@ def _materialize_qtip_family(
     cell: Mapping[str, Any],
     artifact_root: Path,
 ) -> None:
-    family = "qtip2" if float(tier["bpw"]) < 3.0 else "qtip3"
+    family = str(tier["runtime_family"])
     _materialize_record_family_payload(
         payloads,
         layer=int(cell["layer"]),
@@ -1756,64 +2087,89 @@ def _receipt_predict_binding(
     return _receipt_price_binding(receipt, tier=tier, cell=cell)
 
 
-def _unsupported_family_generate(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
-    raise BackpackPlanError("family binding requires a public proof/fixture-only source")
+def _verify_candidate_binding(
+    receipt: object,
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    geometry_by_identity: Mapping[tuple[int, int, str], tuple[int, int, int]] | None = None,
+) -> bool:
+    return _validate_candidate_receipt(
+        receipt,
+        tier=tier,
+        cell=cell,
+        geometry_by_identity=geometry_by_identity,
+    )
 
 
-def _unsupported_family_materialize(*_args: Any, **_kwargs: Any) -> None:
-    raise BackpackPlanError("family binding requires a public proof/fixture-only source")
+def _native_no_swap_generate(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+    return {
+        "schema": "banana-smasher-backpack-native-no-swap-v1",
+        "status": "PASS",
+        "mode": "native-no-swap",
+        "physical_bytes": 0,
+        "pricing": _candidate_pricing(payload_bytes=0),
+    }
+
+
+def _native_no_swap_materialize(*_args: Any, **_kwargs: Any) -> None:
+    return None
+
+
+def _fixed_d4_generate(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from .fixed_d4 import prepare_fixed_d4_solve_config
+
+    return prepare_fixed_d4_solve_config(*args, **kwargs)
+
+
+def _fixed_d4_materialize(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from .fixed_d4 import materialize_fixed_d4
+
+    return materialize_fixed_d4(*args, **kwargs)
+
+
+def _native_verify(receipt: object, **_kwargs: Any) -> bool:
+    return (
+        isinstance(receipt, Mapping)
+        and receipt.get("status") == "PASS"
+        and receipt.get("mode") == "native-no-swap"
+        and receipt.get("physical_bytes") == 0
+    )
 
 
 def _builtin_backpack_family_bindings() -> tuple[BackpackFamilyBinding, ...]:
+    qtip = {
+        "family": "qtip",
+        "generate": _generate_qtip_family_candidate,
+        "materialize": _materialize_qtip_family,
+        "price": _receipt_price_binding,
+        "predict": _receipt_predict_binding,
+        "verify": _verify_candidate_binding,
+    }
+    fixed_d4 = {
+        "family": "fixed_d4",
+        "generate": _fixed_d4_generate,
+        "materialize": _fixed_d4_materialize,
+        "price": _receipt_price_binding,
+        "predict": _receipt_predict_binding,
+        "verify": _verify_candidate_binding,
+    }
     return (
         BackpackFamilyBinding(
             provider="native_mxfp4",
             family="native_mxfp4",
-            generate=_unsupported_family_generate,
-            materialize=_unsupported_family_materialize,
+            generate=_native_no_swap_generate,
+            materialize=_native_no_swap_materialize,
             price=_receipt_price_binding,
             predict=_receipt_predict_binding,
+            verify=_native_verify,
         ),
-        BackpackFamilyBinding(
-            provider="qtip@2.00",
-            family="qtip",
-            generate=_generate_qtip_family_candidate,
-            materialize=_materialize_qtip_family,
-            price=_receipt_price_binding,
-            predict=_receipt_predict_binding,
-        ),
-        BackpackFamilyBinding(
-            provider="qtip@2.50",
-            family="qtip",
-            generate=_generate_qtip_family_candidate,
-            materialize=_materialize_qtip_family,
-            price=_receipt_price_binding,
-            predict=_receipt_predict_binding,
-        ),
-        BackpackFamilyBinding(
-            provider="qtip@3.00",
-            family="qtip",
-            generate=_generate_qtip_family_candidate,
-            materialize=_materialize_qtip_family,
-            price=_receipt_price_binding,
-            predict=_receipt_predict_binding,
-        ),
-        BackpackFamilyBinding(
-            provider="d4_k2048",
-            family="fixed_d4",
-            generate=_unsupported_family_generate,
-            materialize=_unsupported_family_materialize,
-            price=_receipt_price_binding,
-            predict=_receipt_predict_binding,
-        ),
-        BackpackFamilyBinding(
-            provider="d4_k4096",
-            family="fixed_d4",
-            generate=_unsupported_family_generate,
-            materialize=_unsupported_family_materialize,
-            price=_receipt_price_binding,
-            predict=_receipt_predict_binding,
-        ),
+        BackpackFamilyBinding(provider="packaged_qtip", **qtip),
+        BackpackFamilyBinding(provider="qtip@2.00", **qtip),
+        BackpackFamilyBinding(provider="qtip@2.50", **qtip),
+        BackpackFamilyBinding(provider="qtip@3.00", **qtip),
+        BackpackFamilyBinding(provider="d4_k2048", **fixed_d4),
+        BackpackFamilyBinding(provider="d4_k4096", **fixed_d4),
     )
 
 
@@ -1832,6 +2188,7 @@ def resolve_backpack_family(tier: Mapping[str, Any]) -> BackpackFamilyBinding:
             materialize=_materialize_vector_family,
             price=_receipt_price_binding,
             predict=_receipt_predict_binding,
+            verify=_verify_candidate_binding,
         )
     if family == "qtip":
         return BackpackFamilyBinding(
@@ -1841,6 +2198,7 @@ def resolve_backpack_family(tier: Mapping[str, Any]) -> BackpackFamilyBinding:
             materialize=_materialize_qtip_family,
             price=_receipt_price_binding,
             predict=_receipt_predict_binding,
+            verify=_verify_candidate_binding,
         )
     for binding in _builtin_backpack_family_bindings():
         if binding.provider == provider:
@@ -1994,7 +2352,7 @@ def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[
                     "payload_bytes": pricing["payload_bytes"],
                     "activation_bytes": pricing["materialized_payload_bytes"]
                     - pricing["payload_bytes"],
-                    "physical_bytes": pricing["materialized_payload_bytes"],
+                    "physical_bytes": pricing["payload_bytes"],
                     "prediction_by_class": {
                         name: metrics["by_class"][name]["kld"] for name in CLASSES
                     },
@@ -2018,17 +2376,19 @@ def price_backpack_selection(
     *,
     assignment: Sequence[Mapping[str, Any]],
     candidates: Mapping[str, Any],
+    require_complete: bool = True,
 ) -> dict[str, Any]:
     parsed = plan if isinstance(plan, BackpackPlan) else BackpackPlan.from_mapping(plan)
     _manifest, cells = _load_cells(parsed)
     cells_by_id = {str(cell["cell_id"]): cell for cell in cells}
     tiers_by_id = {str(tier["id"]): tier for tier in parsed.tiers}
-    if len(assignment) != len(cells_by_id):
+    if require_complete and len(assignment) != len(cells_by_id):
         raise BackpackPlanError("selection pricing requires one assignment per cell")
     provider_counts: dict[str, int] = {}
     payload_bytes = 0
     activation_bytes = 0
     seen_activation: set[str] = set()
+    selected_activations: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
     seen_cells: set[str] = set()
     for row in assignment:
@@ -2068,6 +2428,7 @@ def price_backpack_selection(
             bytes_value = int(artifact["bytes"])
             activation_bytes += bytes_value
             new_activation += bytes_value
+            selected_activations.append(dict(artifact))
         rows.append(
             {
                 "cell_id": cell_id,
@@ -2078,7 +2439,7 @@ def price_backpack_selection(
                 "materialized_payload_bytes": int(pricing["payload_bytes"]) + new_activation,
             }
         )
-    if seen_cells != set(cells_by_id):
+    if require_complete and seen_cells != set(cells_by_id):
         missing = sorted(set(cells_by_id) - seen_cells)
         raise BackpackPlanError(
             f"selection pricing assignment is missing cell {missing[0]!r}"
@@ -2089,6 +2450,7 @@ def price_backpack_selection(
         "provider_counts": provider_counts,
         "payload_bytes": payload_bytes,
         "activation_bytes": activation_bytes,
+        "activation_artifacts": selected_activations,
         "materialized_payload_bytes": payload_bytes + activation_bytes,
         "rows": rows,
     }
@@ -2157,7 +2519,7 @@ def materialize_backpack_source(
         if descriptor["family"] == "vector_vq":
             family = f"truevq_d{descriptor['dimension']}"
         else:
-            family = "qtip2" if float(descriptor["bpw"]) < 3.0 else "qtip3"
+            family = str(descriptor["runtime_family"])
         layer = int(cell["layer"])
         expert_ids = np.asarray(cell["expert_ids"], dtype=np.uint8)
         tier_maps[layer][expert_ids] = TIER_CODES[family]
@@ -2231,6 +2593,26 @@ def _backpack_accounting(
     _model_path, model_manifest = _model_manifest(plan)
     tensor_bytes = sum(int(row["data_bytes"]) for row in tensor_index.values())
     fixed_bytes = sum(int(record["bytes"]) for record in fixed)
+    expected_activations = _provider_activation_artifacts(plan)
+    file_rows = pack_manifest.get("files")
+    if not isinstance(file_rows, list):
+        raise BackpackPlanError("pack manifest files must be an array")
+    activation_rows = [
+        row
+        for row in file_rows
+        if isinstance(row, Mapping) and row.get("role") == "backpack_provider_activation"
+    ]
+    expected_activation_ids = {
+        (int(row["bytes"]), str(row["sha256"])) for row in expected_activations
+    }
+    actual_activation_ids = {
+        (int(row["bytes"]), str(row["sha256"])) for row in activation_rows
+    }
+    if actual_activation_ids != expected_activation_ids or len(activation_rows) != len(
+        expected_activations
+    ):
+        raise BackpackPlanError("pack provider activation artifacts do not match the plan")
+    provider_activation_bytes = sum(int(row["bytes"]) for row in activation_rows)
     repair_state_bytes = _repair_state_bytes(pack_manifest)
     declared_repair_bytes = (
         int(model_manifest.get("repair_bytes", 0))
@@ -2243,7 +2625,9 @@ def _backpack_accounting(
             "pack repair-state byte accounting mismatch: "
             f"{repair_state_bytes} != {expected_repair_bytes}"
         )
-    whole_model_bytes = tensor_bytes + fixed_bytes + repair_state_bytes
+    whole_model_bytes = (
+        tensor_bytes + fixed_bytes + provider_activation_bytes + repair_state_bytes
+    )
     target_bytes = _target_whole_model_bytes(plan, model_manifest)
     materialization_target_bytes = target_bytes - (
         declared_repair_bytes if not include_repair else 0
@@ -2256,11 +2640,13 @@ def _backpack_accounting(
     return {
         "tensor_bytes": tensor_bytes,
         "fixed_bytes": fixed_bytes,
+        "provider_activation_bytes": provider_activation_bytes,
         "repair_state_bytes": repair_state_bytes,
         "whole_model_bytes": whole_model_bytes,
         "target_whole_model_bytes": target_bytes,
         "materialization_target_bytes": materialization_target_bytes,
         "fixed_artifacts": list(fixed),
+        "provider_activations": expected_activations,
     }
 
 
@@ -2271,6 +2657,7 @@ def _attach_fixed_artifacts(
 
     _model_path, model_manifest = _model_manifest(plan)
     fixed = _fixed_artifacts(plan, model_manifest)
+    provider_activations = _provider_activation_artifacts(plan)
     pack_manifest_path = output / MANIFEST_NAME
     pack_manifest = json.loads(pack_manifest_path.read_text())
     file_rows = pack_manifest.get("files")
@@ -2287,6 +2674,23 @@ def _attach_fixed_artifacts(
             {
                 "path": relative.as_posix(),
                 "role": f"backpack_fixed_{record['role']}",
+                "bytes": int(record["bytes"]),
+                "sha256": str(record["sha256"]),
+            }
+        )
+    for index, record in enumerate(provider_activations):
+        source = Path(record["path"])
+        relative = (
+            Path("backpack-provider-activations")
+            / f"{index:04d}-{record['sha256']}-{source.name}"
+        )
+        destination = output / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        file_rows.append(
+            {
+                "path": relative.as_posix(),
+                "role": "backpack_provider_activation",
                 "bytes": int(record["bytes"]),
                 "sha256": str(record["sha256"]),
             }
@@ -2567,7 +2971,8 @@ def _stage_solve_materialize(
                 if candidate_group == group
             ],
             candidates=prior["candidates"],
-        )["materialized_payload_bytes"]
+            require_complete=False,
+        )["payload_bytes"]
         for group in groups
         for tier in tiers
     }
@@ -2615,6 +3020,17 @@ def _stage_solve_materialize(
     ]
     if sum(int(row["bytes"]) for row in assignment) != int(solved["assigned_bytes"]):
         raise RuntimeError("coupled assignment byte accounting drift")
+    selected_price = price_backpack_selection(
+        plan,
+        assignment=assignment,
+        candidates=prior["candidates"],
+    )
+    if int(selected_price["payload_bytes"]) != int(solved["assigned_bytes"]):
+        raise RuntimeError("selected provider payload accounting drift")
+    if int(selected_price["activation_bytes"]) != int(
+        inspect["fixed_bytes"].get("provider_activation_bytes", 0)
+    ):
+        raise RuntimeError("selected provider activation accounting drift")
     artifact_roots = {
         str(row["cell_id"]): candidate_artifact_root(
             prior["candidates"],
@@ -2656,6 +3072,7 @@ def _stage_solve_materialize(
             "family_counts": family_counts,
             "byte_accounting": {
                 "candidate_payload_bytes": solved["assigned_bytes"],
+                "provider_activation_bytes": selected_price["activation_bytes"],
                 "fixed_bytes": fixed,
                 "whole_model_bytes": whole,
                 "target_whole_model_bytes": inspect["target_whole_model_bytes"],
@@ -2668,11 +3085,13 @@ def _stage_solve_materialize(
         "assignment_receipt": str(assignment_path),
         "byte_accounting": {
             "candidate_payload_bytes": solved["assigned_bytes"],
+            "provider_activation_bytes": selected_price["activation_bytes"],
             "fixed_bytes": fixed,
             "whole_model_bytes": whole,
             "target_whole_model_bytes": inspect["target_whole_model_bytes"],
             "slack_bytes": inspect["target_whole_model_bytes"] - whole,
         },
+        "provider_activations": selected_price["activation_artifacts"],
         "family_counts": family_counts,
         "pre_repair_pack": str(pre_pack),
         "pre_repair_pack_manifest_sha256": _sha_file(
@@ -2856,7 +3275,7 @@ def _final_pack_weights(
                 family = (
                     f"truevq_d{descriptor['dimension']}"
                     if descriptor["family"] == "vector_vq"
-                    else "qtip2" if float(descriptor["bpw"]) < 3.0 else "qtip3"
+                    else str(descriptor["runtime_family"])
                 )
                 arrays = family_arrays.setdefault(
                     family,
@@ -3245,11 +3664,18 @@ def _validate_stage_artifacts(
             return False
         cells = result.get("cell_artifacts")
         fixed = result.get("fixed_artifacts")
-        if not isinstance(cells, list) or not isinstance(fixed, list):
+        activations = result.get("provider_activations")
+        if (
+            not isinstance(cells, list)
+            or not isinstance(fixed, list)
+            or not isinstance(activations, list)
+        ):
             return False
         if not all(_validate_bound_file(row) for row in cells) or not all(
             _validate_bound_file(row, path_field="source") for row in fixed
         ):
+            return False
+        if not all(_validate_bound_file(row) for row in activations):
             return False
         reuse = result.get("receipt_reuse")
         if reuse is None:
@@ -3313,7 +3739,7 @@ def _validate_stage_artifacts(
                     expected_cell is None
                     or cell_row.get("projection") != expected_cell["projection"]
                     or cell_row.get("provider") != _canonical_backpack_provider(expected_tier)
-                    or not _validate_candidate_receipt(
+                    or not resolve_backpack_family(expected_tier).verify(
                         cell_row.get("receipt"),
                         tier=expected_tier,
                         cell=expected_cell,
@@ -3422,6 +3848,54 @@ def _validate_packaged_qtip_units(
     identities: Sequence[tuple[int, int, str]],
     geometries: Sequence[tuple[int, int, int]],
 ) -> bool:
+    if "fixed_assignment" in tier:
+        try:
+            indexed, _activation = _fixed_qtip_assignment_index(tier)
+        except BackpackPlanError:
+            return False
+        source_rows = receipt.get("source_units")
+        fixed = tier.get("fixed_assignment")
+        if (
+            not isinstance(source_rows, list)
+            or len(source_rows) != len(identities)
+            or not isinstance(fixed, Mapping)
+        ):
+            return False
+        for source, identity, geometry in zip(
+            source_rows, identities, geometries, strict=True
+        ):
+            row = indexed.get(identity)
+            if not isinstance(source, Mapping) or row is None:
+                return False
+            try:
+                artifact = _fixed_qtip_artifact_path(row, fixed)
+            except (BackpackPlanError, KeyError, TypeError, ValueError):
+                return False
+            artifact_row = row.get("artifact")
+            row_geometry = row.get("geometry")
+            if (
+                not isinstance(artifact_row, Mapping)
+                or not isinstance(row_geometry, Mapping)
+                or tuple(row_geometry.get(key) for key in ("L", "K", "V"))
+                != geometry
+                or source.get("kind") != "fixed_assignment"
+                or source.get("identity")
+                != {
+                    "layer": identity[0],
+                    "expert": identity[1],
+                    "projection": identity[2],
+                }
+                or source.get("artifact") != str(artifact)
+                or source.get("artifact_bytes") != artifact_row.get("bytes")
+                or source.get("artifact_sha256") != artifact_row.get("sha256")
+                or artifact.is_symlink()
+                or not artifact.is_file()
+                or artifact.stat().st_size != artifact_row.get("bytes")
+                or _sha_file(artifact) != artifact_row.get("sha256")
+            ):
+                return False
+        return True
+
     from .qtip_materialize import require_qtip_ring_manifest
 
     source_root = Path(str(tier.get("source_root", ""))).expanduser()
@@ -3612,10 +4086,18 @@ def _validate_candidate_receipt(
         pricing = _pricing_from_receipt(receipt, label="candidate receipt")
     except BackpackPlanError:
         return False
+    expected_activations: list[dict[str, Any]] = []
+    if "fixed_assignment" in tier:
+        try:
+            _fixed_rows, activation = _fixed_qtip_assignment_index(tier)
+            expected_activations = [activation]
+        except BackpackPlanError:
+            return False
     if (
         pricing["payload_bytes"] != physical_bytes
-        or pricing["materialized_payload_bytes"] != physical_bytes
-        or pricing["activation_artifacts"]
+        or pricing["activation_artifacts"] != expected_activations
+        or pricing["materialized_payload_bytes"]
+        != physical_bytes + sum(int(row["bytes"]) for row in expected_activations)
     ):
         return False
     if tier["family"] == "vector_vq":
