@@ -1141,6 +1141,7 @@ def solve_class_balanced_options(
     envelope_bytes: int,
     class_caps: dict[str, float],
     class_weights: dict[str, float] | None = None,
+    exact_envelope: bool = False,
 ) -> dict[str, Any]:
     """Select one tier per cell under exact bytes and aggregate class ceilings.
 
@@ -1235,7 +1236,7 @@ def solve_class_balanced_options(
     maximum_scaled_use = sum(
         max(scaled_deltas.get((cell, tier), 0) for tier in tiers) for cell in cells
     )
-    enforce_bytes = scaled_capacity < maximum_scaled_use
+    enforce_bytes = exact_envelope or scaled_capacity < maximum_scaled_use
     if enforce_bytes and (
         scaled_capacity > 2**53 or any(delta > 2**53 for delta in scaled_deltas.values())
     ):
@@ -1288,7 +1289,7 @@ def solve_class_balanced_options(
     upper[: len(cells)] = 1.0
     cursor = len(cells)
     if enforce_bytes:
-        lower[cursor] = -np.inf
+        lower[cursor] = float(scaled_capacity) if exact_envelope else -np.inf
         upper[cursor] = float(scaled_capacity)
         cursor += 1
     for name in classes:
@@ -1332,6 +1333,11 @@ def solve_class_balanced_options(
             }
         )
     assigned_bytes = sum(row["bytes"] for row in assignments)
+    if exact_envelope and assigned_bytes != envelope_bytes:
+        raise RuntimeError(
+            "class-balanced solver violated exact envelope: "
+            f"{assigned_bytes} != {envelope_bytes}"
+        )
     if assigned_bytes > envelope_bytes:
         raise RuntimeError(f"class-balanced solver violated envelope: {assigned_bytes} > {envelope_bytes}")
     if any(predicted[name] < -1e-10 or predicted[name] > caps[name] + 1e-10 for name in classes):
