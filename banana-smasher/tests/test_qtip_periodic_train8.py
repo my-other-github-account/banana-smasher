@@ -35,7 +35,7 @@ def _file(path: Path, payload: bytes, *, declared_sha: str | None = None) -> dic
 def _cell(control: str, expert: int, root: Path) -> dict[str, object]:
     weights = 8_388_608
     code_bits = weights * 5 // 2
-    return {
+    cell = {
         "control": control,
         "identity": {"layer": 0, "expert": expert, "projection": "down"},
         "control_unit": _file(root / f"{control}.pt", control.encode()),
@@ -47,6 +47,22 @@ def _cell(control: str, expert: int, root: Path) -> dict[str, object]:
             "periodic_sse": 2.0 + expert,
         },
     }
+    terminal = {
+        "status": "PASS",
+        "task_id": "t_7002ac79",
+        "basis_sha256": FF0731_MODEL_INDEX_SHA256,
+        "control": cell["control"],
+        "identity": cell["identity"],
+        "accounting": cell["accounting"],
+        "direct_error": cell["direct_error"],
+        "control_unit_sha256": cell["control_unit"]["sha256"],
+        "periodic_codes_sha256": cell["periodic_codes"]["sha256"],
+        "source": {"weight_sha256": cell["source_weight_sha256"]},
+    }
+    cell["terminal"] = _file(
+        root / f"{control}.terminal.json", json.dumps(terminal).encode()
+    )
+    return cell
 
 
 def _manifest(tmp_path: Path) -> dict[str, object]:
@@ -272,6 +288,35 @@ def test_manifest_rejects_reversed_controls_and_empty_source_root(tmp_path: Path
     write_manifest(path, manifest)
     with pytest.raises(ValueError, match="nonempty absolute"):
         load_manifest(path, verify_files=False)
+
+
+def test_manifest_rejects_cell_measurement_not_bound_by_terminal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = _manifest(tmp_path)
+    manifest["cells"][0]["direct_error"]["control_sse"] = 0.0
+    path = tmp_path / "TAMPERED_CELL.json"
+    write_manifest(path, manifest)
+    real_sha = hashlib.sha256
+
+    def accepted_sha(path_value: str | Path) -> str:
+        path_object = Path(path_value)
+        if path_object.name == "model.safetensors.index.json":
+            return FF0731_MODEL_INDEX_SHA256
+        if path_object.name == "bank.json":
+            return TRAIN64_BANK_MANIFEST_SHA256
+        if path_object.name == "teacher.json":
+            return TEACHER_TOP8192_MANIFEST_SHA256
+        digest = real_sha()
+        digest.update(path_object.read_bytes())
+        return digest.hexdigest()
+
+    monkeypatch.setattr("banana_smasher.qtip_periodic_train8.sha256_file", accepted_sha)
+    monkeypatch.setattr(
+        "banana_smasher.qtip_periodic_train8._validate_cell_payload", lambda cell: None
+    )
+    with pytest.raises(ValueError, match="sealed terminal"):
+        load_manifest(path, verify_files=True)
 
 
 def test_release_waits_for_complete_exchange_cleanup(

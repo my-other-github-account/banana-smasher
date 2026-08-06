@@ -320,7 +320,27 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
         )
         _hashed_path(cell["control_unit"], f"cell[{cell.get('control')}].control_unit", verify=verify_files)
         _hashed_path(cell["periodic_codes"], f"cell[{cell.get('control')}].periodic_codes", verify=verify_files)
+        terminal_path = _hashed_path(
+            cell["terminal"], f"cell[{cell.get('control')}].terminal", verify=verify_files
+        )
         _require_sha("cell.source_weight_sha256", cell["source_weight_sha256"])
+        if verify_files:
+            terminal = json.loads(terminal_path.read_text())
+            expected_terminal = {
+                "status": "PASS",
+                "task_id": "t_7002ac79",
+                "basis_sha256": FF0731_MODEL_INDEX_SHA256,
+                "control": cell["control"],
+                "identity": cell["identity"],
+                "accounting": cell["accounting"],
+                "direct_error": cell["direct_error"],
+                "control_unit_sha256": cell["control_unit"]["sha256"],
+                "periodic_codes_sha256": cell["periodic_codes"]["sha256"],
+            }
+            if {key: terminal.get(key) for key in expected_terminal} != expected_terminal:
+                raise ValueError(f"cell {cell.get('control')} differs from its sealed terminal")
+            if terminal.get("source", {}).get("weight_sha256") != cell["source_weight_sha256"]:
+                raise ValueError(f"cell {cell.get('control')} source hash differs from its terminal")
     if identities != [(0, 0, "down"), (0, 1, "down")]:
         raise ValueError("train8 manifest cells must be L000 E000/E001 down in order")
     if [str(cell.get("control")) for cell in cells] != ["qtip_k2", "qtip_k3"]:
