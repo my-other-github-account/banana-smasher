@@ -10,3 +10,5 @@ The built-in provider menu contains native MXFP4, QTIP2/2.5/3, and production fi
 Existing callers of `generate_vector_vq_backpack_candidate`, `generate_qtip_backpack_candidate`, and `materialize_backpack_source` remain valid. New code should use the generic names so one provider declaration controls generation, exact receipt pricing, prediction, materialization, and verification.
 
 Wire prices no longer assume that every byte is additive per cell. Candidate receipts declare `cell_payload_bytes` plus shared `activation_artifacts`; the class-balanced exact solver includes one binary per activation identity and charges it once even when several selected cells use it.
+
+Physical repair remains behind the public update boundary: an ordinary wheel registers exactly one `banana_smasher.update_backends` entry point named `physical-repair`, invoked by `smash update --backend physical-repair`. Its data-only bundle runtime imports only canonical `banana_smasher` modules; no historical source tree or mission script is required.

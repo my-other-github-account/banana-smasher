@@ -8,16 +8,20 @@
       "candidate_tiers": ["d4-k4", "d8-k4", "qtip-2.0"],
       "prediction_rows": 12,
       "assignment_count": 4,
-      "pre_repair_pack": "PASS",
-      "final_workflow": "PASS",
+      "pack_status": "PASS",
+      "final_status": "PASS",
       "cli_status": "PASS"
     }
   },
   "installed_wheel": {
+    "clean_git_archive": true,
     "filename": "banana_smasher-1.0.0-py3-none-any.whl",
-    "sha256": "1caa8f769b2dfcfc28684ce66c66b541d8a90f036967cae5889af6e70f148c0c",
+    "sha256": "bbed56b2218464667017d030bace513c93df92e82c55e28fd6a5e4f3009f5b2e",
     "module_origin": "isolated-site-packages",
     "dependency_install": "ordinary wheel install",
+    "update_backends": [
+      "physical-repair=banana_smasher.update_backends.physical_repair:run_physical_repair"
+    ],
     "result": {
       "providers": [
         "d4-k2048",
@@ -32,8 +36,8 @@
       "candidate_tiers": ["d4-k4", "d8-k4", "qtip-2.0"],
       "prediction_rows": 12,
       "assignment_count": 4,
-      "pre_repair_pack": "PASS",
-      "final_workflow": "PASS",
+      "pack_status": "PASS",
+      "final_status": "PASS",
       "cli_status": "PASS"
     }
   }
