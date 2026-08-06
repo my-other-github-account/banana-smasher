@@ -24,6 +24,9 @@ solve = [
 [project.scripts]
 smash = "banana_smasher.cli:main"
 
+[project.entry-points."banana_smasher.update_backends"]
+physical-repair = "banana_smasher.update_backends.physical_repair:run_physical_repair"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/banana_smasher"]
 
