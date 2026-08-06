@@ -1,10 +1,10 @@
 {
   "schema": "banana-smasher-backpack-provider-smoke-v1",
   "status": "PASS",
-  "source_commit": "352e08bbd14fb63b9cb37ff01449c61833ef66b9",
+  "source_commit": "55a7e733a3dffd11fdf2ad78a7b9634fba877c0f",
   "focused_tests": {
-    "command": "PYTHONPATH=src python3.13 -m pytest -q tests/test_backpack_family_providers.py tests/test_fixed_d4_source_adapter.py tests/test_qtip_public_api.py tests/test_qtip1.py tests/test_backpack_framework.py tests/test_contract.py tests/test_repair.py",
-    "result": "99 passed, 1 platform skip"
+    "command": "PYTHONPATH=src python3.13 -m pytest -q tests/test_backpack_family_providers.py tests/test_fixed_d4_source_adapter.py tests/test_qtip_public_api.py tests/test_qtip1.py tests/test_qtip_batch.py tests/test_backpack_framework.py tests/test_contract.py tests/test_repair.py tests/test_physical_repair_backend.py tests/test_cli.py",
+    "result": "115 passed, 4 platform skips"
   },
   "ruff": "PASS",
   "source": {
@@ -38,7 +38,7 @@
   },
   "installed_wheel": {
     "filename": "banana_smasher-1.0.0-py3-none-any.whl",
-    "sha256": "36d830692cd9218c539e301b9773e3101f8f4cea68a830a84a58fd602e0d6b51",
+    "sha256": "8e1e111533e53d43c17a3799c1d15e6b1c6bf677a0761a446816e5e3c72427ef",
     "module_origin": "isolated-site-packages",
     "dependency_install": "ordinary wheel install",
     "update_backends": [
