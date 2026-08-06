@@ -261,11 +261,6 @@ class NativePlanePack:
                 "native-plane tensor layout mismatch: "
                 f"config={configured_layout!r} manifest={layout!r}"
             )
-        if layout != EXPECTED_LAYOUT_SHA256:
-            raise _fail(
-                "native-plane tensor layout prerequisite mismatch: "
-                f"expected={EXPECTED_LAYOUT_SHA256} actual={layout}"
-            )
         layers_value = manifest.get("layers")
         if not isinstance(layers_value, list) or not layers_value:
             raise _fail("pack manifest has no native-plane layers")

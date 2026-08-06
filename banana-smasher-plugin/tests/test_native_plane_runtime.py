@@ -166,6 +166,13 @@ def test_pack_binds_quant_config_root_and_every_declared_layer(tmp_path: Path) -
     assert pack.meta_path(0) == root.resolve() / "planes/layer_000.meta.json"
 
 
+def test_pack_accepts_manifest_bound_layout_from_public_export(tmp_path: Path) -> None:
+    public_layout = "8264c6393ff40c545de05ac06a39cd7668aab1e31b96aca82a914079721444f8"
+    root = _tiny_pack(tmp_path / "model", layout=public_layout)
+    pack = NativePlanePack.from_model_root(root)
+    assert pack.layout_sha256 == public_layout
+
+
 def test_plane_loader_moves_named_planes_and_dispatches_projection(tmp_path: Path) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
     calls: list[tuple[str, tuple[int, ...], tuple[int, ...]]] = []
