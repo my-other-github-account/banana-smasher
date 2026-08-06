@@ -6,6 +6,10 @@ import json
 import logging
 import math
 import os
+import signal
+import sys
+import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, cast
@@ -52,6 +56,21 @@ def _mem_available_kib() -> int:
         )
     except Exception:
         return -1
+
+
+def _process_startticks() -> int:
+    if not sys.platform.startswith("linux"):
+        return -1
+    try:
+        stat = Path("/proc/self/stat").read_text()
+        _comm, separator, fields_text = stat.rpartition(")")
+        fields = fields_text.split()
+        startticks = int(fields[19])
+    except (OSError, ValueError, IndexError) as exc:
+        raise _fail(f"cannot bind specialized proof to process startticks: {exc}") from exc
+    if not separator or startticks <= 0:
+        raise _fail("cannot bind specialized proof to positive process startticks")
+    return startticks
 
 
 def _local_capacity_bytes() -> int:
@@ -322,9 +341,9 @@ class ProjectionState:
     slots: torch.Tensor
     payloads: dict[str, dict[str, torch.Tensor]]
     pointer_tables: dict[str, torch.Tensor]
-    offsets2: torch.Tensor
-    offsets3: torch.Tensor
     lut: torch.Tensor
+    qtip_codebook: torch.Tensor | None = None
+    vq_state: dict[str, Any] | None = None
 
 
 Dispatch = Callable[..., torch.Tensor]
@@ -334,6 +353,80 @@ _NATIVE_PLANE_NEXT_KEY = 1
 _NATIVE_PLANE_CUSTOM_OP_REGISTERED = False
 _NATIVE_PLANE_CUSTOM_OP_AVAILABLE = False
 _NATIVE_PLANE_PROJECTIONS = ("fused13", "down")
+_SPECIALIZED_MATRIX_WARMED_ROOTS: set[Path] = set()
+
+
+def _payload_residency(family: str, role: str) -> str:
+    """Keep large immutable payload bytes file-backed on coherent host memory."""
+    if (family, role) in {
+        ("qtip2", "trellis"),
+        ("qtip3", "trellis"),
+        ("d4", "codes"),
+        ("d4", "scales"),
+        ("d4", "codebooks"),
+        ("native", "packed"),
+        ("native", "scales"),
+    }:
+        return "cpu_uva"
+    return "device"
+SPECIALIZED_MATRIX_REQUIRED_LAYER_COUNT = 43
+SPECIALIZED_MATRIX_PROOF_PATH = Path(
+    "/tmp/banana-smasher-specialized-physical-proof.json"
+)
+SPECIALIZED_LIVE_PROOF_PATH = Path(
+    "/tmp/banana-smasher-specialized-live-proof.json"
+)
+_LIVE_PROOF_SIGNAL_INSTALLED = False
+
+
+def _specialized_matrix_proof_path() -> Path:
+    """Return the service-configured durable proof path, or the local default."""
+    configured = os.environ.get("BANANA_SMASHER_SPECIALIZED_PROOF_PATH")
+    return Path(configured) if configured else SPECIALIZED_MATRIX_PROOF_PATH
+
+
+def _write_specialized_live_proof() -> dict[str, Any]:
+    """Atomically snapshot the current engine's live specialized counters."""
+    proof = {
+        **specialized_physical_proof(),
+        "shape_physical_proof": _specialized_shape_physical_proof(),
+        "process_pid": os.getpid(),
+        "process_startticks": _process_startticks(),
+        "captured_unix": time.time(),
+    }
+    data = (json.dumps(proof, indent=2, sort_keys=True) + "\n").encode()
+    path = SPECIALIZED_LIVE_PROOF_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return proof
+
+
+def _specialized_live_proof_signal_handler(_signum: int, _frame: Any) -> None:
+    """Refresh live counter evidence from the engine process on SIGUSR2."""
+    _write_specialized_live_proof()
+
+
+def _install_specialized_live_proof_signal_handler() -> None:
+    """Install the live-proof refresh control after full pack registration."""
+    global _LIVE_PROOF_SIGNAL_INSTALLED
+    if _LIVE_PROOF_SIGNAL_INSTALLED:
+        return
+    signal.signal(signal.SIGUSR2, _specialized_live_proof_signal_handler)
+    _LIVE_PROOF_SIGNAL_INSTALLED = True
 
 
 def _native_plane_forward_op(
@@ -374,17 +467,41 @@ def _native_plane_forward_fake(
     layer.state(projection)
 
 
+def _require_native_plane_breakable_cudagraph() -> bool:
+    """Fail closed unless vLLM will execute native planes outside capture."""
+    try:
+        envs = importlib.import_module("vllm.envs")
+        config_module = importlib.import_module("vllm.config")
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+    if not bool(envs.VLLM_USE_BREAKABLE_CUDAGRAPH):
+        raise _fail(
+            "native planes require VLLM_USE_BREAKABLE_CUDAGRAPH=1; "
+            "capturing the stateful native kernel sequence is unsafe"
+        )
+    config = config_module.get_current_vllm_config_or_none()
+    if config is None:
+        raise _fail("native-plane CUDA-graph contract requires an active vLLM config")
+    mode = config.compilation_config.cudagraph_mode
+    if mode != config_module.CUDAGraphMode.PIECEWISE:
+        raise _fail(
+            "native planes require cudagraph_mode=PIECEWISE; "
+            f"full capture is unsafe for stateful native kernels (actual={mode})"
+        )
+    return True
+
+
 def _ensure_native_plane_custom_op() -> bool:
     global _NATIVE_PLANE_CUSTOM_OP_AVAILABLE
     global _NATIVE_PLANE_CUSTOM_OP_REGISTERED
     if _NATIVE_PLANE_CUSTOM_OP_REGISTERED:
         return _NATIVE_PLANE_CUSTOM_OP_AVAILABLE
+    if not _require_native_plane_breakable_cudagraph():
+        return False
     try:
+        from vllm.compilation.breakable_cudagraph import eager_break_during_capture
         from vllm.utils.torch_utils import direct_register_custom_op
-        eager_break_during_capture = getattr(
-            importlib.import_module("vllm.compilation.breakable_cudagraph"),
-            "eager_break_during_capture",
-        )
     except (ImportError, ModuleNotFoundError):
         return False
     direct_register_custom_op(
@@ -401,12 +518,259 @@ def _ensure_native_plane_custom_op() -> bool:
 
 def _register_native_plane_layer(layer: "NativePlaneLayer") -> int | None:
     global _NATIVE_PLANE_NEXT_KEY
-    if not _ensure_native_plane_custom_op():
-        return None
+    # CPU construction never enters a CUDA graph. Keep package/source tests
+    # graph-neutral when an installed vLLM has its process-wide flag disabled,
+    # while CUDA remains fail-closed on the exact breakable boundary contract.
+    if layer.device.type != "cuda":
+        try:
+            if not _ensure_native_plane_custom_op():
+                return None
+        except NativePlanePrerequisiteError:
+            return None
+    elif not _ensure_native_plane_custom_op():
+        raise _fail(
+            "CUDA native planes require the registered breakable-cudagraph "
+            "custom op; direct Python dispatch is not an accepted fallback"
+        )
     key = _NATIVE_PLANE_NEXT_KEY
     _NATIVE_PLANE_NEXT_KEY += 1
     _NATIVE_PLANE_LAYER_REGISTRY[key] = layer
     return key
+
+
+def specialized_physical_proof() -> dict[str, Any]:
+    """Synchronize and aggregate exact matrix counters from this runtime process."""
+    from .specialized_variants import physical_proof
+
+    snapshots: list[torch.Tensor] = []
+    seen: set[tuple[str, int]] = set()
+    for layer in _NATIVE_PLANE_LAYER_REGISTRY.values():
+        for projection in _NATIVE_PLANE_PROJECTIONS:
+            state = layer.state(projection)
+            if state.vq_state is None:
+                continue
+            for counter in state.vq_state["physical_counter_tensors"].values():
+                identity = (str(getattr(counter, "device", "unknown")), counter.data_ptr())
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                snapshots.append(counter)
+    return physical_proof(snapshots)
+
+
+def _specialized_shape_physical_proof() -> dict[str, Any]:
+    """Prove every required warmup geometry from its own physical counters."""
+    from .dispatch_policy import shape_policy
+    from .specialized_variants import (
+        physical_proof,
+        required_warmup_tokens,
+        variant_for_tokens,
+    )
+
+    geometries: dict[str, dict[str, Any]] = {}
+    for tokens in required_warmup_tokens():
+        route_rows = tokens * 6
+        variant = variant_for_tokens(tokens)
+        policy = shape_policy(route_rows)
+        policy_mblock = int(policy["mblock"])
+        block_rows = (
+            policy_mblock if policy_mblock == 16 else int(policy["valid_m"])
+        )
+        snapshots: list[torch.Tensor] = []
+        seen: set[tuple[str, int]] = set()
+        for layer in _NATIVE_PLANE_LAYER_REGISTRY.values():
+            for projection in _NATIVE_PLANE_PROJECTIONS:
+                state = layer.state(projection)
+                if state.vq_state is None:
+                    continue
+                counter = state.vq_state["physical_counter_tensors"].get(
+                    (route_rows, block_rows)
+                )
+                if counter is None:
+                    continue
+                identity = (
+                    str(getattr(counter, "device", "unknown")),
+                    counter.data_ptr(),
+                )
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                snapshots.append(counter)
+
+        aggregate = physical_proof(snapshots)
+        rows = [row for row in aggregate["rows"] if row["variant"] == variant]
+        missing_rows = [row["counter_name"] for row in rows if row["count"] <= 0]
+        forbidden = aggregate["forbidden_counters"]
+        status = (
+            "PASS"
+            if snapshots
+            and not missing_rows
+            and all(value == 0 for value in forbidden.values())
+            else "FAIL"
+        )
+        geometries[str(tokens)] = {
+            "status": status,
+            "tokens": tokens,
+            "route_rows": route_rows,
+            "block_rows": block_rows,
+            "variant": variant,
+            "snapshot_count": len(snapshots),
+            "expected_named_counter_count": len(rows),
+            "nonzero_named_counter_count": len(rows) - len(missing_rows),
+            "rows": rows,
+            "missing_rows": missing_rows,
+            "forbidden_counters": forbidden,
+        }
+
+    return {
+        "schema": "banana-smasher-specialized-shape-physical-proof-v1",
+        "status": (
+            "PASS"
+            if geometries
+            and all(geometry["status"] == "PASS" for geometry in geometries.values())
+            else "FAIL"
+        ),
+        "geometries": geometries,
+    }
+
+
+def warmup_specialized_matrix() -> dict[str, Any]:
+    """Execute every admitted tier/projection/shape before reading its counters."""
+    from .specialized_variants import _rows, required_warmup_tokens
+
+    representatives: dict[
+        tuple[str, str], tuple[NativePlaneLayer, int, ProjectionState]
+    ] = {}
+    for layer in _NATIVE_PLANE_LAYER_REGISTRY.values():
+        for projection in _NATIVE_PLANE_PROJECTIONS:
+            state = layer.state(projection)
+            for expert, tier in enumerate(state.tiers):
+                representatives.setdefault(
+                    (tier, projection), (layer, expert, state)
+                )
+
+    required_pairs = sorted(
+        {(tier, projection) for tier, projection, _variant in _rows()}
+    )
+    missing_pairs = [pair for pair in required_pairs if pair not in representatives]
+    if missing_pairs:
+        raise _fail(
+            "specialized matrix warmup has no registered representative for "
+            + ", ".join(f"{tier}/{projection}" for tier, projection in missing_pairs)
+        )
+
+    groups: dict[
+        tuple[int, str], tuple[NativePlaneLayer, ProjectionState, list[int]]
+    ] = {}
+    for pair in required_pairs:
+        layer, expert, state = representatives[pair]
+        key = (id(layer), pair[1])
+        group = groups.setdefault(key, (layer, state, []))
+        group[2].append(expert)
+
+    warmup_tokens = required_warmup_tokens()
+    execution_count = 0
+    peak_estimate_bytes = 0
+    with torch.inference_mode():
+        for layer, state, experts in groups.values():
+            for tokens in warmup_tokens:
+                route_rows = tokens * 6
+                estimate_bytes = route_rows * (
+                    4 * state.input_width + 8 * state.output_width
+                )
+                peak_estimate_bytes = max(peak_estimate_bytes, estimate_bytes)
+                if layer.device.type == "cuda":
+                    free_bytes, _total_bytes = torch.cuda.mem_get_info(layer.device)
+                    if estimate_bytes > free_bytes - 4 * 1024**3:
+                        raise _fail(
+                            "specialized matrix warmup exceeds CUDA memory gate: "
+                            f"estimated={estimate_bytes} free={free_bytes}"
+                        )
+                x = torch.zeros(
+                    (route_rows, state.input_width),
+                    dtype=torch.bfloat16,
+                    device=layer.device,
+                )
+                expert_pattern = torch.tensor(
+                    experts, dtype=torch.int64, device=layer.device
+                )
+                expert_ids = expert_pattern.repeat(
+                    (route_rows + len(experts) - 1) // len(experts)
+                )[:route_rows]
+                result = layer.forward(x, expert_ids, state.name)
+                del result, expert_ids, x
+                execution_count += 1
+
+    proof = specialized_physical_proof()
+    shape_proof = _specialized_shape_physical_proof()
+    proof["shape_physical_proof"] = shape_proof
+    if shape_proof["status"] != "PASS":
+        proof["status"] = "FAIL"
+    proof["warmup_execution_count"] = execution_count
+    proof["warmup_group_count"] = len(groups)
+    proof["warmup_tokens"] = list(warmup_tokens)
+    proof["warmup_peak_estimate_bytes"] = peak_estimate_bytes
+    proof["process_pid"] = os.getpid()
+    proof["process_startticks"] = _process_startticks()
+    return proof
+
+
+def _maybe_warmup_specialized_matrix(
+    layer: "NativePlaneLayer",
+) -> dict[str, Any] | None:
+    """Warm and seal the exhaustive matrix once every pack layer is registered."""
+    root = layer.pack.root.resolve()
+    if root in _SPECIALIZED_MATRIX_WARMED_ROOTS:
+        return None
+    expected_layers = set(layer.pack.layers)
+    if len(expected_layers) != SPECIALIZED_MATRIX_REQUIRED_LAYER_COUNT:
+        return None
+    registered_layers = {
+        registered.layer_index
+        for registered in _NATIVE_PLANE_LAYER_REGISTRY.values()
+        if registered.pack.root.resolve() == root
+    }
+    if registered_layers != expected_layers:
+        return None
+
+    proof = warmup_specialized_matrix()
+    if proof.get("status") != "PASS":
+        raise _fail(f"specialized matrix warmup proof failed: {proof}")
+    proof = {
+        **proof,
+        "model_root": str(root),
+        "registered_layers": sorted(registered_layers),
+    }
+    data = (json.dumps(proof, indent=2, sort_keys=True) + "\n").encode()
+    proof_path = _specialized_matrix_proof_path()
+    proof_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(
+        prefix=f".{proof_path.name}.",
+        dir=proof_path.parent,
+    )
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, proof_path)
+        directory_fd = os.open(proof_path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    _install_specialized_live_proof_signal_handler()
+    _SPECIALIZED_MATRIX_WARMED_ROOTS.add(root)
+    _LOGGER.warning(
+        "BANANA_SMASHER_SPECIALIZED_MATRIX_PASS rows=%d executions=%d proof=%s",
+        len(proof.get("rows", [])),
+        proof.get("warmup_execution_count", 0),
+        proof_path,
+    )
+    return proof
 
 
 def _fwht(value: torch.Tensor) -> torch.Tensor:
@@ -452,33 +816,29 @@ def _expanded_qtip_lut(device: torch.device) -> torch.Tensor:
 
 def _load_accelerated_dispatch() -> Dispatch:
     try:
-        kernels = importlib.import_module("banana_smasher_plugin.p1016_kernels")
-        dispatch = cast(Dispatch, getattr(kernels, "mixed_exact_gemv"))
+        acceleration = importlib.import_module("banana_smasher_plugin.v4_acceleration")
+        dispatch = cast(Dispatch, getattr(acceleration, "mixed_exact_native_gemv"))
+        sentinel = getattr(acceleration, "runtime_sentinel")()
     except Exception as exc:
         raise _fail(f"accelerated dispatch unavailable: {exc}") from exc
     if not callable(dispatch):
-        raise _fail("accelerated dispatch symbol mixed_exact_gemv is not callable")
+        raise _fail("accelerated dispatch symbol mixed_exact_native_gemv is not callable")
+    if not sentinel.get("activated", False):
+        blocked = ",".join(sentinel.get("blocked", ()))
+        raise _fail(f"mixed-QTIP native activation is blocked: {blocked}")
 
     def run(*, projection: str, x: torch.Tensor, expert_ids: torch.Tensor, state: ProjectionState) -> torch.Tensor:
-        del projection
-        selected_family = state.families.index_select(0, expert_ids)
-        qtip_mask = selected_family.lt(2).reshape(-1, 1)
-        su = state.pointer_tables["su"].index_select(0, expert_ids)
-        transformed = _fwht(x.float() * su)
-        kernel_input = torch.where(qtip_mask, transformed, x.float())
-        raw = dispatch(
-            kernel_input,
+        if state.qtip_codebook is None or state.vq_state is None:
+            raise _fail("resident QTIP/VQ state is unavailable")
+        return dispatch(
+            x,
             expert_ids,
             state.families,
             state.pointer_tables,
-            state.offsets2,
-            state.offsets3,
-            state.lut,
+            state.qtip_codebook,
+            state.vq_state,
+            projection=projection,
         )
-        qtip_result = _fwht(
-            raw * state.pointer_tables["wscale"].index_select(0, expert_ids).reshape(-1, 1)
-        ) * state.pointer_tables["sv"].index_select(0, expert_ids)
-        return torch.where(qtip_mask, qtip_result, raw).to(torch.bfloat16)
 
     return run
 
@@ -506,8 +866,15 @@ class NativePlaneLayer:
             for projection in ("fused13", "down")
         }
         self._custom_op_key = _register_native_plane_layer(self)
+        _maybe_warmup_specialized_matrix(self)
+        _LOGGER.warning(
+            "BANANA_SMASHER_V4_NATIVE_SOURCE_READY layer=%d "
+            "packed_payload_residency=cpu_uva device_metadata_residency=true "
+            "runtime_activation=false graph_boundary=true",
+            self.layer_index,
+        )
 
-    def _tensor(self, spec: dict[str, Any]) -> torch.Tensor:
+    def _tensor(self, spec: dict[str, Any], *, residency: str = "device") -> torch.Tensor:
         relative = spec.get("file")
         if not isinstance(relative, str) or Path(relative).is_absolute() or ".." in Path(relative).parts:
             raise _fail(f"layer {self.layer_index} has unsafe plane path {relative!r}")
@@ -525,7 +892,9 @@ class NativePlaneLayer:
                 f"expected={spec.get('shape')}/{spec.get('dtype')}"
             )
         tensor = torch.from_numpy(array.copy() if self.device.type == "cpu" else array)
-        if tensor.device != self.device:
+        if residency not in {"device", "cpu_uva"}:
+            raise _fail(f"unsupported payload residency: {residency}")
+        if residency == "device" and tensor.device != self.device:
             tensor = tensor.to(self.device, non_blocking=False)
         tensor = tensor.contiguous()
         _release_mmap_pages(path, array)
@@ -608,7 +977,14 @@ class NativePlaneLayer:
             tensor_specs = payload_spec.get("tensors") if isinstance(payload_spec, dict) else None
             if not isinstance(tensor_specs, dict) or not tensor_specs:
                 raise _fail(f"layer {self.layer_index} {projection}/{tier} tensor map missing")
-            payloads[tier] = {name: self._tensor(spec) for name, spec in tensor_specs.items()}
+            payload_family = str(payload_spec.get("family"))
+            payloads[tier] = {
+                name: self._tensor(
+                    spec,
+                    residency=_payload_residency(payload_family, name),
+                )
+                for name, spec in tensor_specs.items()
+            }
         states: list[dict[str, torch.Tensor]] = []
         for expert, tier in enumerate(tiers):
             if tier not in payloads:
@@ -657,14 +1033,23 @@ class NativePlaneLayer:
         pointer_tables["wscale"] = torch.stack(
             [state.get("Wscale", input_ones.new_ones(())).float().reshape(()) for state in states]
         ).contiguous()
-        try:
-            kernels = importlib.import_module("banana_smasher_plugin.p1016_kernels")
-            offsets2 = kernels.qtip_offset_map(2).to(self.device)
-            offsets3 = kernels.qtip_offset_map(3).to(self.device)
-        except Exception:
-            offsets2 = torch.zeros(256, dtype=torch.int64, device=self.device)
-            offsets3 = torch.zeros(384, dtype=torch.int64, device=self.device)
         lut = _expanded_qtip_lut(self.device)
+        tlut_array = np.load(Path(__file__).with_name("qtip_tlut.npy"), allow_pickle=False)
+        qtip_codebook = (
+            torch.from_numpy(tlut_array.copy())
+            .to(device=self.device, dtype=torch.float16)
+            .reshape(-1)
+            .contiguous()
+        )
+        acceleration = importlib.import_module("banana_smasher_plugin.v4_acceleration")
+        vq_state = acceleration.build_device_resident_planes(
+            states,
+            families,
+            [d4_bits_by_tier.get(tier, 0) for tier in tiers],
+            input_width=input_width,
+            output_width=output_width,
+            device=self.device,
+        )
         return ProjectionState(
             projection,
             input_width,
@@ -674,9 +1059,9 @@ class NativePlaneLayer:
             slots,
             payloads,
             pointer_tables,
-            offsets2,
-            offsets3,
             lut,
+            qtip_codebook,
+            vq_state,
         )
 
     def state(self, projection: str) -> ProjectionState:
@@ -712,15 +1097,12 @@ class NativePlaneLayer:
         torch.ops.aten._assert_async.msg(
             torch.all(expert_ids < expert_count), range_error
         )
-        active_routes = (expert_ids >= 0) & (expert_ids < expert_count)
-        safe_expert_ids = expert_ids.clamp(min=0, max=expert_count - 1)
         result = self._dispatch(
             projection=projection,
             x=x,
-            expert_ids=safe_expert_ids,
+            expert_ids=expert_ids,
             state=state,
         )
-        result = torch.where(active_routes.reshape(-1, 1), result, 0)
         if tuple(result.shape) != (x.shape[0], state.output_width):
             raise _fail(
                 f"layer {self.layer_index} {projection} accelerated output shape drift: "

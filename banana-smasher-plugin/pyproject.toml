@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling==1.27.0"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=77", "torch==2.11.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "banana-smasher-plugin"
@@ -8,17 +8,33 @@ version = "0.2.0"
 description = "Stock-vLLM banana_smasher runtime plugin for native-plane packs"
 requires-python = ">=3.10"
 dependencies = [
-    "banana-smasher==1.0.0",
-    "numpy==2.3.5",
+    "deep-gemm==2.6.1; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "flashinfer-jit-cache==0.6.17+cu130; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "flashinfer-python==0.6.17; sys_platform == 'linux' and platform_machine == 'aarch64'",
     "quack-kernels>=0.4.1,<0.5.1",
     "safetensors==0.8.0",
+    "vllm==0.24.0",
 ]
 
 [project.entry-points."vllm.general_plugins"]
 banana_smasher_plugin = "banana_smasher_plugin:register"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/banana_smasher_plugin"]
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+banana_smasher_plugin = [
+    "*.json",
+    "*.npy",
+    "csrc/*.cu",
+    "csrc/qtip/*.cu",
+    "csrc/qtip/*.cpp",
+    "csrc/qtip/*.h",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

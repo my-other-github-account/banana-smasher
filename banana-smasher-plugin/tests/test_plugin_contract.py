@@ -63,10 +63,6 @@ def _pack(root: Path) -> Path:
             "norms": 1,
             "outputs": 1,
             "update": 12,
-            "dense_application": {
-                "method": "export-folded-v1",
-                "runtime_output_gain": False,
-            },
         },
     }
     (root / "BANANA_PACK_MANIFEST.json").write_text(json.dumps(manifest))
@@ -83,8 +79,6 @@ def _pack(root: Path) -> Path:
                     "repair_manifest": "repair/REPAIR_MANIFEST.json",
                     "repair_state": "repair/repair_state.safetensors",
                     "repair_update": 12,
-                    "repair_application": "export-folded-v1",
-                    "runtime_output_gain": False,
                 }
             }
         )
@@ -98,21 +92,6 @@ def test_runtime_contract_accepts_exact_native_repair_pack(tmp_path: Path) -> No
     assert contract.pack_root == pack.resolve()
     assert contract.layers == (0,)
     assert contract.repair_update == 12
-
-
-def test_runtime_contract_accepts_canonical_backpack_repair_pack(tmp_path: Path) -> None:
-    pack = _pack(tmp_path / "pack")
-    manifest_path = pack / "BANANA_PACK_MANIFEST.json"
-    manifest = json.loads(manifest_path.read_text())
-    manifest["source_format"] = "canonical-npy-v1"
-    manifest_path.write_text(json.dumps(manifest))
-
-    contract = load_runtime_contract(pack)
-
-    assert contract.pack_root == pack.resolve()
-    assert contract.layers == (0,)
-    assert contract.repair_application == "export-folded-v1"
-    assert contract.runtime_output_gain is False
 
 
 def test_runtime_contract_rejects_layout_lie(tmp_path: Path) -> None:
@@ -137,7 +116,7 @@ def test_dense_repair_and_output_gains_are_exact(tmp_path: Path) -> None:
     assert gains == {"model.layers.0.self_attn.o_b_proj": pytest.approx(0.125)}
 
 
-def test_export_folded_repairs_do_not_modify_the_runtime_graph(tmp_path: Path) -> None:
+def test_runtime_repairs_apply_rmsnorm_and_output_gain_once(tmp_path: Path) -> None:
     contract = load_runtime_contract(_pack(tmp_path / "pack"))
 
     class RMSNorm(torch.nn.Module):
@@ -158,23 +137,12 @@ def test_export_folded_repairs_do_not_modify_the_runtime_graph(tmp_path: Path) -
     first = apply_runtime_repairs(module, contract)
     second = apply_runtime_repairs(module, contract)
 
-    assert first == {"norms": (), "output_log_gains": ()}
+    assert first == {
+        "norms": ("model.norm.weight",),
+        "output_log_gains": ("model.layers.0.self_attn.o_b_proj",),
+    }
     assert second == first
-    assert torch.equal(module.model.norm.weight, torch.ones(4))
+    assert torch.equal(module.model.norm.weight, torch.arange(4, dtype=torch.float32))
     output = module.model.layers[0].self_attn.o_b_proj(torch.ones(4))
-    assert torch.equal(output, torch.ones(4))
-    assert not hasattr(
-        module.model.layers[0].self_attn.o_b_proj,
-        "_banana_smasher_output_log_gain",
-    )
-
-
-def test_runtime_contract_rejects_non_folded_output_gain(tmp_path: Path) -> None:
-    pack = _pack(tmp_path / "pack")
-    config_path = pack / "config.json"
-    config = json.loads(config_path.read_text())
-    del config["quantization_config"]["repair_application"]
-    config_path.write_text(json.dumps(config))
-
-    with pytest.raises(PackContractError, match="export-folded-v1"):
-        load_runtime_contract(pack)
+    expected = torch.ones(4) * torch.exp(torch.tensor(0.125))
+    assert torch.allclose(output, expected)

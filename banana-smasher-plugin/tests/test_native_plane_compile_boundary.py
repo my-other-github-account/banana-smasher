@@ -3,8 +3,10 @@ from __future__ import annotations
 import functools
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
+from typing import cast
 
+import pytest
 import torch
 
 import banana_smasher_plugin.native_planes as native_planes
@@ -22,6 +24,17 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
 
     torch_utils = ModuleType("vllm.utils.torch_utils")
     breakable = ModuleType("vllm.compilation.breakable_cudagraph")
+    envs = ModuleType("vllm.envs")
+    config = ModuleType("vllm.config")
+    setattr(envs, "VLLM_USE_BREAKABLE_CUDAGRAPH", True)
+    setattr(config, "CUDAGraphMode", SimpleNamespace(PIECEWISE="PIECEWISE"))
+    setattr(
+        config,
+        "get_current_vllm_config_or_none",
+        lambda: SimpleNamespace(
+            compilation_config=SimpleNamespace(cudagraph_mode="PIECEWISE")
+        ),
+    )
 
     def eager_break_during_capture(fn):
         eager_decorations.append(fn)
@@ -56,6 +69,8 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
     torch_utils.direct_register_custom_op = direct_register_custom_op
     setattr(breakable, "eager_break_during_capture", eager_break_during_capture)
     monkeypatch.setitem(sys.modules, "vllm", ModuleType("vllm"))
+    monkeypatch.setitem(sys.modules, "vllm.envs", envs)
+    monkeypatch.setitem(sys.modules, "vllm.config", config)
     monkeypatch.setitem(sys.modules, "vllm.utils", ModuleType("vllm.utils"))
     monkeypatch.setitem(sys.modules, "vllm.utils.torch_utils", torch_utils)
     monkeypatch.setitem(sys.modules, "vllm.compilation", ModuleType("vllm.compilation"))
@@ -92,10 +107,7 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
         "caller-owned stable output buffer"
     )
     assert torch.Tag.cudagraph_unsafe in registrations[0][4]
-    assert eager_decorations, (
-        "the custom-op kernel must be an eager break for vLLM's automatically "
-        "selected breakable cudagraph runtime"
-    )
+    assert eager_decorations == [native_planes._native_plane_forward_op]
     assert calls == [(layer._custom_op_key, 0)]
     assert result.shape == (2, 4)
     assert torch.all(result == 7)
@@ -106,3 +118,43 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
     assert len(eager_decorations) == 1
     assert calls[-1] == (second._custom_op_key, 1)
     assert second._custom_op_key != layer._custom_op_key
+
+
+@pytest.mark.parametrize(
+    ("breakable_enabled", "mode", "has_config", "message"),
+    [
+        (False, "PIECEWISE", True, "VLLM_USE_BREAKABLE_CUDAGRAPH=1"),
+        (True, "FULL_AND_PIECEWISE", True, "cudagraph_mode=PIECEWISE"),
+        (True, "PIECEWISE", False, "active vLLM config"),
+    ],
+)
+def test_native_plane_cudagraph_boundary_fails_closed(
+    monkeypatch, breakable_enabled, mode, has_config, message,
+) -> None:
+    envs = ModuleType("vllm.envs")
+    config = ModuleType("vllm.config")
+    setattr(envs, "VLLM_USE_BREAKABLE_CUDAGRAPH", breakable_enabled)
+    setattr(config, "CUDAGraphMode", SimpleNamespace(PIECEWISE="PIECEWISE"))
+    current = (
+        SimpleNamespace(compilation_config=SimpleNamespace(cudagraph_mode=mode))
+        if has_config
+        else None
+    )
+    setattr(config, "get_current_vllm_config_or_none", lambda: current)
+    monkeypatch.setitem(sys.modules, "vllm", ModuleType("vllm"))
+    monkeypatch.setitem(sys.modules, "vllm.envs", envs)
+    monkeypatch.setitem(sys.modules, "vllm.config", config)
+
+    with pytest.raises(RuntimeError, match=message):
+        native_planes._require_native_plane_breakable_cudagraph()
+
+
+def test_cuda_native_plane_rejects_missing_breakable_custom_op(monkeypatch) -> None:
+    monkeypatch.setattr(native_planes, "_ensure_native_plane_custom_op", lambda: False)
+    layer = cast(
+        native_planes.NativePlaneLayer,
+        SimpleNamespace(device=torch.device("cuda")),
+    )
+
+    with pytest.raises(RuntimeError, match="direct Python dispatch is not an accepted"):
+        native_planes._register_native_plane_layer(layer)
