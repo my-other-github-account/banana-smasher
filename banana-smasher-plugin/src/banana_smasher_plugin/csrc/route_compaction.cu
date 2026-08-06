@@ -89,26 +89,21 @@ __global__ void compact_routes_kernel(
   ++physical_counters[22];
 }
 
-template <typename scalar_t>
-__global__ void zero_output_kernel(scalar_t* out, int rows, int output_width) {
-  const int64_t total = static_cast<int64_t>(rows) * output_width;
+__global__ void finalize_output_kernel(
+    const float* __restrict__ out,
+    const int64_t* __restrict__ expert_ids,
+    __nv_bfloat16* __restrict__ result,
+    int64_t total,
+    int output_width,
+    int experts) {
   for (int64_t index = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
        index < total;
        index += static_cast<int64_t>(blockDim.x) * gridDim.x) {
     const int route = static_cast<int>(index / output_width);
-    const int column = static_cast<int>(index - static_cast<int64_t>(route) * output_width);
-    out[route * output_width + column] = scalar_t(0);
-  }
-}
-
-__global__ void finalize_output_kernel(
-    const float* __restrict__ out,
-    __nv_bfloat16* __restrict__ result,
-    int64_t total) {
-  for (int64_t index = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-       index < total;
-       index += static_cast<int64_t>(blockDim.x) * gridDim.x) {
-    result[index] = __float2bfloat16_rn(out[index]);
+    const int64_t expert_id = expert_ids[route];
+    const bool valid_route = expert_id >= 0 && expert_id < experts;
+    result[index] = valid_route ? __float2bfloat16_rn(out[index])
+                                : __float2bfloat16_rn(0.0f);
   }
 }
 
@@ -180,15 +175,6 @@ at::Tensor compact_routes_cuda(
   const c10::cuda::CUDAGuard guard(expert_ids.device());
   const auto stream = at::cuda::getCurrentCUDAStream(expert_ids.get_device()).stream();
   const int rows = static_cast<int>(expert_ids.numel());
-  const int output_width = static_cast<int>(out.size(1));
-  const int64_t total = static_cast<int64_t>(rows) * output_width;
-  const int blocks = static_cast<int>((total + 255) / 256);
-  AT_DISPATCH_FLOATING_TYPES_AND2(
-      at::ScalarType::Half, at::ScalarType::BFloat16, out.scalar_type(),
-      "banana_smasher_zero_compaction_output", [&] {
-        zero_output_kernel<scalar_t><<<blocks, 256, 0, stream>>>(
-            out.data_ptr<scalar_t>(), rows, output_width);
-      });
   compact_routes_kernel<<<1, 1, 0, stream>>>(
       expert_ids.data_ptr<int64_t>(), family_codes.data_ptr<int8_t>(),
       family_block_counts.data_ptr<int32_t>(), block_experts.data_ptr<int32_t>(),
@@ -201,23 +187,39 @@ at::Tensor compact_routes_cuda(
   return out;
 }
 
-at::Tensor finalize_output_cuda(const at::Tensor& out, at::Tensor result) {
-  TORCH_CHECK(out.is_cuda() && result.is_cuda(), "finalize tensors must be CUDA");
+at::Tensor finalize_output_cuda(
+    const at::Tensor& out,
+    const at::Tensor& expert_ids,
+    int64_t experts64,
+    at::Tensor result) {
+  TORCH_CHECK(out.is_cuda() && expert_ids.is_cuda() && result.is_cuda(),
+              "finalize tensors must be CUDA");
   TORCH_CHECK(out.scalar_type() == at::kFloat &&
                   result.scalar_type() == at::kBFloat16,
               "finalize requires FP32 input and BF16 result");
+  TORCH_CHECK(expert_ids.scalar_type() == at::kLong && expert_ids.dim() == 1 &&
+                  expert_ids.is_contiguous(),
+              "finalize expert_ids must be contiguous int64 [rows]");
   TORCH_CHECK(out.sizes() == result.sizes() && out.is_contiguous() &&
                   result.is_contiguous(),
               "finalize tensors must be shape-matched and contiguous");
-  TORCH_CHECK(out.get_device() == result.get_device(),
+  TORCH_CHECK(out.size(0) == expert_ids.numel(),
+              "finalize expert_ids must cover every output row");
+  TORCH_CHECK(out.get_device() == result.get_device() &&
+                  out.get_device() == expert_ids.get_device(),
               "finalize tensors must share one CUDA device");
+  TORCH_CHECK(experts64 >= 0 && experts64 <= std::numeric_limits<int>::max() &&
+                  out.size(1) <= std::numeric_limits<int>::max(),
+              "finalize shape exceeds int32 launch limits");
   const c10::cuda::CUDAGuard guard(out.device());
   const int64_t total = out.numel();
   const int blocks = static_cast<int>((total + 255) / 256);
   const auto stream = at::cuda::getCurrentCUDAStream(out.get_device()).stream();
   finalize_output_kernel<<<blocks, 256, 0, stream>>>(
       out.data_ptr<float>(),
-      reinterpret_cast<__nv_bfloat16*>(result.data_ptr<at::BFloat16>()), total);
+      expert_ids.data_ptr<int64_t>(),
+      reinterpret_cast<__nv_bfloat16*>(result.data_ptr<at::BFloat16>()), total,
+      static_cast<int>(out.size(1)), static_cast<int>(experts64));
   C10_CUDA_KERNEL_LAUNCH_CHECK();
   return result;
 }
@@ -230,7 +232,8 @@ TORCH_LIBRARY_FRAGMENT(banana_smasher_v4, m) {
         "Tensor(d!) block_valid_m, Tensor(e!) block_route_rows, "
         "Tensor(f!) expert_route_counts, Tensor(g!) expert_last_block, "
         "Tensor(h!) physical_counters, int block_rows) -> Tensor(a!)");
-  m.def("finalize_output(Tensor out, Tensor(a!) result) -> Tensor(a!)");
+  m.def("finalize_output(Tensor out, Tensor expert_ids, int experts, "
+        "Tensor(a!) result) -> Tensor(a!)");
 }
 
 TORCH_LIBRARY_IMPL(banana_smasher_v4, CUDA, m) {

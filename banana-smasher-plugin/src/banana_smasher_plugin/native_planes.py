@@ -344,6 +344,7 @@ class ProjectionState:
     lut: torch.Tensor
     qtip_codebook: torch.Tensor | None = None
     vq_state: dict[str, Any] | None = None
+    specialized_tiers: tuple[str, ...] = ()
 
 
 Dispatch = Callable[..., torch.Tensor]
@@ -369,6 +370,79 @@ def _payload_residency(family: str, role: str) -> str:
     }:
         return "cpu_uva"
     return "device"
+
+
+def _canonical_specialized_tier(
+    payload_tier: str, payload_spec: dict[str, Any]
+) -> str:
+    """Map public pack payload IDs onto immutable kernel-matrix tier IDs."""
+    family = payload_spec.get("family")
+    canonical_families = {
+        "qtip2_2.0117": "qtip2",
+        "qtip3_3.0117": "qtip3",
+        "d4_k1024": "d4",
+        "d4_k2048": "d4",
+        "d4_k4096": "d4",
+        "native_mxfp4": "native",
+    }
+    if payload_tier in canonical_families:
+        expected_family = canonical_families[payload_tier]
+        accepted_families = {expected_family}
+        if expected_family == "native":
+            accepted_families.add("native_mxfp4")
+        if family not in accepted_families:
+            raise _fail(
+                f"specialized payload {payload_tier} family drift: {family!r}"
+            )
+        return payload_tier
+
+    if family in {"qtip2", "qtip3"}:
+        expected = {
+            "qtip2": (2, "qtip2_2.0117"),
+            "qtip3": (3, "qtip3_3.0117"),
+        }
+        expected_k, specialized_tier = expected[str(family)]
+        geometry = payload_spec.get("geometry")
+        if not isinstance(geometry, dict) or (
+            geometry.get("K"),
+            geometry.get("L"),
+            geometry.get("V"),
+        ) != (expected_k, 16, 2):
+            raise _fail(
+                f"specialized payload {payload_tier} has invalid {family} geometry: "
+                f"{geometry!r}"
+            )
+        return specialized_tier
+
+    if family == "d4":
+        codebook_size = payload_spec.get("k")
+        specialized_tier = {
+            1024: "d4_k1024",
+            2048: "d4_k2048",
+            4096: "d4_k4096",
+        }.get(codebook_size if isinstance(codebook_size, int) else -1)
+        # Tiny/non-production packs can still exercise the generic loader. A
+        # complete 43-layer service remains fail-closed when the warmup gate
+        # rejects this non-matrix tier.
+        return specialized_tier or payload_tier
+    if family in {"native", "native_mxfp4"}:
+        return "native_mxfp4"
+    raise _fail(
+        f"specialized payload {payload_tier} has unsupported family: {family!r}"
+    )
+
+
+def _registered_specialized_tiers() -> set[str] | None:
+    """Return canonical tiers physically admitted by the registered model pack."""
+    tiers: set[str] = set()
+    for layer in _NATIVE_PLANE_LAYER_REGISTRY.values():
+        for projection in _NATIVE_PLANE_PROJECTIONS:
+            state = layer.state(projection)
+            values = getattr(state, "specialized_tiers", ()) or getattr(
+                state, "tiers", ()
+            )
+            tiers.update(str(value) for value in values)
+    return tiers or None
 SPECIALIZED_MATRIX_REQUIRED_LAYER_COUNT = 43
 SPECIALIZED_MATRIX_PROOF_PATH = Path(
     "/tmp/banana-smasher-specialized-physical-proof.json"
@@ -538,7 +612,9 @@ def _register_native_plane_layer(layer: "NativePlaneLayer") -> int | None:
     return key
 
 
-def specialized_physical_proof() -> dict[str, Any]:
+def specialized_physical_proof(
+    *, required_tiers: set[str] | None = None
+) -> dict[str, Any]:
     """Synchronize and aggregate exact matrix counters from this runtime process."""
     from .specialized_variants import physical_proof
 
@@ -555,10 +631,13 @@ def specialized_physical_proof() -> dict[str, Any]:
                     continue
                 seen.add(identity)
                 snapshots.append(counter)
-    return physical_proof(snapshots)
+    admitted = required_tiers or _registered_specialized_tiers()
+    return physical_proof(snapshots, required_tiers=admitted)
 
 
-def _specialized_shape_physical_proof() -> dict[str, Any]:
+def _specialized_shape_physical_proof(
+    *, required_tiers: set[str] | None = None
+) -> dict[str, Any]:
     """Prove every required warmup geometry from its own physical counters."""
     from .dispatch_policy import shape_policy
     from .specialized_variants import (
@@ -597,7 +676,8 @@ def _specialized_shape_physical_proof() -> dict[str, Any]:
                 seen.add(identity)
                 snapshots.append(counter)
 
-        aggregate = physical_proof(snapshots)
+        admitted = required_tiers or _registered_specialized_tiers()
+        aggregate = physical_proof(snapshots, required_tiers=admitted)
         rows = [row for row in aggregate["rows"] if row["variant"] == variant]
         missing_rows = [row["counter_name"] for row in rows if row["count"] <= 0]
         forbidden = aggregate["forbidden_counters"]
@@ -644,14 +724,25 @@ def warmup_specialized_matrix() -> dict[str, Any]:
     for layer in _NATIVE_PLANE_LAYER_REGISTRY.values():
         for projection in _NATIVE_PLANE_PROJECTIONS:
             state = layer.state(projection)
-            for expert, tier in enumerate(state.tiers):
+            specialized_tiers = getattr(state, "specialized_tiers", ()) or state.tiers
+            for expert, tier in enumerate(specialized_tiers):
                 representatives.setdefault(
                     (tier, projection), (layer, expert, state)
                 )
 
+    admitted_tiers = {tier for tier, _projection in representatives}
+    matrix_pairs = {(tier, projection) for tier, projection, _variant in _rows()}
     required_pairs = sorted(
-        {(tier, projection) for tier, projection, _variant in _rows()}
+        (tier, projection)
+        for tier in admitted_tiers
+        for projection in _NATIVE_PLANE_PROJECTIONS
     )
+    unsupported_pairs = [pair for pair in required_pairs if pair not in matrix_pairs]
+    if unsupported_pairs:
+        raise _fail(
+            "specialized matrix has no row for admitted payload "
+            + ", ".join(f"{tier}/{projection}" for tier, projection in unsupported_pairs)
+        )
     missing_pairs = [pair for pair in required_pairs if pair not in representatives]
     if missing_pairs:
         raise _fail(
@@ -701,8 +792,8 @@ def warmup_specialized_matrix() -> dict[str, Any]:
                 del result, expert_ids, x
                 execution_count += 1
 
-    proof = specialized_physical_proof()
-    shape_proof = _specialized_shape_physical_proof()
+    proof = specialized_physical_proof(required_tiers=admitted_tiers)
+    shape_proof = _specialized_shape_physical_proof(required_tiers=admitted_tiers)
     proof["shape_physical_proof"] = shape_proof
     if shape_proof["status"] != "PASS":
         proof["status"] = "FAIL"
@@ -935,6 +1026,11 @@ class NativePlaneLayer:
                 f"layer {self.layer_index} {projection} selected payload set drift: "
                 f"routes={sorted(routed_tiers)} payloads={sorted(specs)}"
             )
+        specialized_by_payload = {
+            tier: _canonical_specialized_tier(tier, payload_spec)
+            for tier, payload_spec in specs.items()
+        }
+        specialized_tiers = tuple(specialized_by_payload[tier] for tier in tiers)
         family_codes = self.meta["family_codes"]
         d4_bits_by_tier: dict[str, int] = {}
         for tier, payload_spec in specs.items():
@@ -1062,6 +1158,7 @@ class NativePlaneLayer:
             lut,
             qtip_codebook,
             vq_state,
+            specialized_tiers,
         )
 
     def state(self, projection: str) -> ProjectionState:

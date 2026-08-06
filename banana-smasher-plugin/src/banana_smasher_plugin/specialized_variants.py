@@ -98,7 +98,11 @@ def required_warmup_tokens() -> tuple[int, ...]:
     return tuple(tokens)
 
 
-def physical_proof(counter_snapshots: list[Any]) -> dict[str, Any]:
+def physical_proof(
+    counter_snapshots: list[Any],
+    *,
+    required_tiers: set[str] | None = None,
+) -> dict[str, Any]:
     """Aggregate explicit runtime counter snapshots against the exact matrix."""
     document = json.loads(MATRIX_PATH.read_text())
     counter_size = int(document["counter_layout"]["size"])
@@ -112,9 +116,21 @@ def physical_proof(counter_snapshots: list[Any]) -> dict[str, Any]:
         for index, value in enumerate(values[: len(totals)]):
             totals[index] += int(value)
 
+    matrix_rows = list(_rows().values())
+    known_tiers = {str(row["tier"]) for row in matrix_rows}
+    selected_tiers = known_tiers if required_tiers is None else set(required_tiers)
+    unknown_tiers = selected_tiers - known_tiers
+    if not selected_tiers or unknown_tiers:
+        raise ValueError(
+            "physical proof required_tiers must be a nonempty subset of the matrix: "
+            f"unknown={sorted(unknown_tiers)}"
+        )
+
     rows = []
     missing_rows = []
-    for row in _rows().values():
+    for row in matrix_rows:
+        if row["tier"] not in selected_tiers:
+            continue
         counter = row["counter"]
         count = totals[int(counter["index"])]
         receipt = {
@@ -134,6 +150,7 @@ def physical_proof(counter_snapshots: list[Any]) -> dict[str, Any]:
     }
     return {
         "schema": "banana-smasher-specialized-physical-proof-v1",
+        "required_tiers": sorted(selected_tiers),
         "status": (
             "PASS"
             if not missing_rows and all(value == 0 for value in forbidden.values())

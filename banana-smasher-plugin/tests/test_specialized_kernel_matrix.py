@@ -392,3 +392,26 @@ def test_physical_proof_aggregates_every_matrix_counter_across_runtime_states() 
     }
     assert len(proof["rows"]) == 108
     assert {row["count"] for row in proof["rows"]} == {1}
+
+
+def test_physical_proof_requires_only_tiers_admitted_by_fixed_qtip_pack() -> None:
+    variants = _load_variants()
+    matrix = json.loads(MATRIX.read_text())
+    snapshots = [[0] * 160]
+    admitted = {"qtip2_2.0117", "qtip3_3.0117"}
+    for row in matrix["rows"]:
+        if row["tier"] in admitted:
+            snapshots[0][row["counter"]["index"]] = 1
+
+    proof = variants.physical_proof(snapshots, required_tiers=admitted)
+
+    assert proof["status"] == "PASS"
+    assert proof["required_tiers"] == sorted(admitted)
+    assert len(proof["rows"]) == 36
+    assert {row["tier"] for row in proof["rows"]} == admitted
+    assert proof["missing_rows"] == []
+    assert proof["forbidden_counters"] == {
+        "mixed_exact_gemv": 0,
+        "p1016_generic": 0,
+        "triton_fallback": 0,
+    }

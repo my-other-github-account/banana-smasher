@@ -152,7 +152,18 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
 
         def state(self, projection: str) -> SimpleNamespace:
             return SimpleNamespace(
-                name=projection, tiers=tiers, input_width=4, output_width=4
+                name=projection,
+                tiers=(
+                    "qtip25k2",
+                    "qtip25k3",
+                    "fixed_d4_1024",
+                    "fixed_d4_2048",
+                    "fixed_d4_4096",
+                    "mxfp4_payload",
+                ),
+                specialized_tiers=tiers,
+                input_width=4,
+                output_width=4,
             )
 
         def forward(
@@ -172,13 +183,13 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
     monkeypatch.setattr(
         native_planes,
         "specialized_physical_proof",
-        lambda: {"status": "PASS", "rows": []},
+        lambda **_kwargs: {"status": "PASS", "rows": []},
     )
     shape_proof = {"status": "PASS", "geometries": {"8192": {"status": "PASS"}}}
     monkeypatch.setattr(
         native_planes,
         "_specialized_shape_physical_proof",
-        lambda: shape_proof,
+        lambda **_kwargs: shape_proof,
     )
     monkeypatch.setattr(native_planes.os, "getpid", lambda: 4242)
     monkeypatch.setattr(native_planes, "_process_startticks", lambda: 777)
@@ -196,6 +207,26 @@ def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
         for projection in ("fused13", "down")
         for tokens in warmup_tokens
     }
+
+
+def test_fixed_qtip_payload_aliases_bind_canonical_specialized_tiers() -> None:
+    assert native_planes._canonical_specialized_tier(
+        "qtip25k2",
+        {"family": "qtip2", "geometry": {"K": 2, "L": 16, "V": 2}},
+    ) == "qtip2_2.0117"
+    assert native_planes._canonical_specialized_tier(
+        "qtip25k3",
+        {"family": "qtip3", "geometry": {"K": 3, "L": 16, "V": 2}},
+    ) == "qtip3_3.0117"
+
+    with pytest.raises(
+        NativePlanePrerequisiteError,
+        match="qtip25k3.*geometry",
+    ):
+        native_planes._canonical_specialized_tier(
+            "qtip25k3",
+            {"family": "qtip3", "geometry": {"K": 2, "L": 16, "V": 2}},
+        )
 
 
 def test_process_startticks_reads_proc_stat_field_22_after_spaced_comm(

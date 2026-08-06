@@ -219,7 +219,12 @@ def mixed_exact_native_gemv(
         family=3,
         specialization=native_row,
     )
-    return torch.ops.banana_smasher_v4.finalize_output(out, compact["result"])
+    return torch.ops.banana_smasher_v4.finalize_output(
+        out,
+        expert_ids,
+        family_codes.numel(),
+        compact["result"],
+    )
 
 
 def physical_counter_tensor(vq_state: dict[str, Any], route_rows: int) -> torch.Tensor:

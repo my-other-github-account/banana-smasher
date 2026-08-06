@@ -193,7 +193,7 @@ def test_device_compactor_is_static_graph_safe_and_owns_inactive_rows() -> None:
     assert "compact_routes_cuda" in source
     assert "TORCH_LIBRARY_FRAGMENT(banana_smasher_v4" in source
     assert "expert_id == -1" in source
-    assert "out[route * output_width + column] =" in source
+    assert "const bool valid_route = expert_id >= 0 && expert_id < experts" in source
     assert "family_block_counts" in source
     assert "block_route_rows" in source
     assert "cudaMemcpy" not in source
@@ -209,6 +209,21 @@ def test_dispatch_uses_persistent_compaction_buffers_without_python_shape_contro
     assert "block_route_rows" in source
     for forbidden in ("torch.nonzero", ".item(", "tolist()", "unique_consecutive"):
         assert forbidden not in source
+
+
+def test_finalize_output_matches_prebuilt_extension_abi_and_masks_padding() -> None:
+    acceleration = _function_source(ACCELERATION, "mixed_exact_native_gemv")
+    compactor = (CSRC / "route_compaction.cu").read_text()
+
+    assert (
+        "finalize_output(out, expert_ids, family_codes.numel(), compact['result'])"
+        in acceleration
+    )
+    assert (
+        'm.def("finalize_output(Tensor out, Tensor expert_ids, int experts, "'
+        in compactor
+    )
+    assert "const bool valid_route = expert_id >= 0 && expert_id < experts" in compactor
 
 
 def test_d4_dispatch_materializes_contiguous_graph_input() -> None:
