@@ -6,7 +6,7 @@ This page compares quality and exact whole-model shipping size for seven quants 
 
 Every model below ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. The table is ordered by Top-1 agreement; the KLD order differs only for QTIP2.5 versus IQ3.
 
-| Quant | Top-1 ↑ | KLD ↓ | Exact decimal GB | Total-model BPW | FP basis |
+| Quant | Top-1 ↑ | KLD ↓ | Exact decimal GB | Comparison BPW | FP basis |
 |---|---:|---:|---:|---:|---|
 | **Unsloth IQ4** | **92.44%** (60,584/65,536) | **0.068349** | 136.662 | 3.845 | FP8 e4m3 dynamic own-base |
 | **QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** | 123.935 | 3.487 | FP8 e4m3 dynamic own-base |
@@ -14,11 +14,11 @@ Every model below ran the same 64 windows and 65,536 scored positions against th
 | **Unsloth IQ3** | **87.95%** (57,638/65,536) | **0.177708** | 104.208 | 2.932 | FP8 e4m3 dynamic own-base |
 | **QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** | 89.296 | 2.512 | FP8 e4m3 dynamic own-base |
 | **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | 90.861 | 2.556 | FP8 e4m3 dynamic own-base |
-| **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | 93.691 | 2.464 | FP8 e4m3 dynamic own-base |
+| **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | 93.691 | 2.636 | FP8 e4m3 dynamic own-base |
 
 Top-1 is how often the quant selects the same next token as FP8 on the common ordered support. KLD measures movement of the full supported token distribution. Higher Top-1 and lower KLD are better.
 
-Total-model BPW is exact total artifact bytes × 8 divided by every tensor parameter shipped in that artifact. The six base-only artifacts contain 284,334,567,511 parameters. DwarfStar ships the same base plus a 19,845,850,983-parameter drafter, for 304,180,418,494 total parameters. `UD-IQ3_XXS` is a dynamic mixed quant—not a uniform three-bit model—so its exact whole-model value is 2.932 BPW.
+Comparison BPW is exact total artifact weight bytes × 8 divided by the canonical 284,334,567,511 base-model logical parameters for every row. This fixed denominator is the apples-to-apples value used in the table and in public quant labels. DwarfStar additionally ships a 19,845,850,983-parameter drafter; its auxiliary-inclusive BPW is 2.464 and remains available as the separately labeled `total_model_bpw` field in the machine receipt, but it is not a comparable quant label. `UD-IQ3_XXS` is a dynamic mixed quant—not a uniform three-bit model—so its exact comparison value is 2.932 BPW.
 
 The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, candidate/teacher/scorer/population identities, component-byte ledgers, source hashes, replay limits, and the six-category breakdowns for all seven quants.
 
@@ -29,7 +29,7 @@ The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json)
 - Same FP8 e4m3 dynamic own-base teacher
 - Same teacher top-8,192 token support
 - Same KLD and Top-1 definitions
-- Same 284,334,567,511-parameter base model; total-model BPW also counts any shipped auxiliary-model parameters
+- Same 284,334,567,511-parameter base-model denominator for comparable/publication BPW; auxiliary-inclusive BPW is reported separately
 - Same corrected class mix: agentic/chat/code/multilingual/prose/reasoning = `19/7/9/10/10/9`
 
 No partial run, different window bank, fallback output, or HOLDOUT result is admitted to this ranking.

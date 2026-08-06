@@ -35,7 +35,8 @@ The executable authority is
 | Support | teacher top 8,192 token IDs per position |
 | FP | `FP8 e4m3 dynamic own-base teacher` |
 | Base-model parameter count | `284334567511` parameters |
-| Total-model BPW denominator | Every base and auxiliary-model tensor parameter shipped in that artifact |
+| Comparison/publication BPW denominator | Canonical base-model logical parameter count (`284334567511`) for every artifact |
+| Auxiliary-inclusive BPW denominator | Base plus separately shipped auxiliary-model logical parameters; secondary accounting only |
 | Classes | agentic 19, chat 7, code 9, multilingual 10, prose 10, reasoning 9 |
 
 The tracked lock contains all 64 `(ordinal, window_id, source_class)` triples.
@@ -107,8 +108,8 @@ UD-IQ4_XS > QTIP3-uniform-exact > QTIP2.5-all43-FF0731 > UD-IQ3_XXS > QTIP2-corr
 ```
 
 This validates tracked structure, suite-lock consistency, Top-1/GB arithmetic,
-base-normalized and total-model BPW arithmetic, denominator/FP consistency,
-SHA-256 syntax, replay-status honesty,
+comparison and separately labeled auxiliary-inclusive BPW arithmetic,
+denominator/FP consistency, SHA-256 syntax, replay-status honesty,
 and rankings. For the QTIP rows it also checks six-class position and Top-1 sums,
 integer-derived class rates, weighted class KLD, exact component-byte sums, and
 candidate/teacher/scorer/population bindings. It does not authenticate or

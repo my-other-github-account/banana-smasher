@@ -133,11 +133,21 @@
       "properties": {
         "bytes": {"type": "integer", "minimum": 1},
         "decimal_gb": {"$ref": "#/$defs/decimal"},
-        "parameter_denominator": {"type": "integer", "minimum": 1},
-        "normalized_bpw": {"$ref": "#/$defs/decimal"},
+        "parameter_denominator": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Canonical base-model logical parameter count used for apples-to-apples comparison and publication BPW."
+        },
+        "normalized_bpw": {
+          "$ref": "#/$defs/decimal",
+          "description": "Legacy field name for comparison BPW: whole artifact weight bytes times eight divided by parameter_denominator."
+        },
         "total_model_parameters": {"type": "integer", "minimum": 1},
         "total_model_parameter_components": {"$ref": "#/$defs/modelParameterComponents"},
-        "total_model_bpw": {"$ref": "#/$defs/decimal"}
+        "total_model_bpw": {
+          "$ref": "#/$defs/decimal",
+          "description": "Secondary auxiliary-inclusive BPW; not the comparable or publication quant label."
+        }
       }
     },
     "kld": {

@@ -158,3 +158,15 @@ def test_published_balanced64_rows_use_the_package_accounting_contract() -> None
             with localcontext() as context:
                 context.prec = len(published.as_tuple().digits)
                 assert +Decimal(accounting["bpw"][api_field]) == published
+
+
+def test_public_table_uses_comparison_bpw_not_auxiliary_inclusive_bpw() -> None:
+    readme = (Path(__file__).parents[2] / "Evals/README.md").read_text(
+        encoding="utf-8"
+    )
+    assert "| Comparison BPW |" in readme
+    dwarfstar_row = next(
+        line for line in readme.splitlines() if "**DwarfStar Q2**" in line
+    )
+    assert "| 2.636 |" in dwarfstar_row
+    assert "| 2.464 |" not in dwarfstar_row
