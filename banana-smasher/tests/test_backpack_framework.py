@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import hashlib
+import os
 import shutil
+import subprocess
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -12,10 +15,13 @@ import banana_smasher.backpack as backpack_module
 
 from banana_smasher.backpack import (
     BackpackPlan,
+    BackpackFamilyBinding,
     BackpackPlanError,
     anchor_backpack,
     anchor_backpack_candidates,
+    price_backpack_selection,
     build_backpack,
+    list_backpack_family_bindings,
     generate_backpack_candidates,
     export_backpack_lifecycle,
     generate_qtip_backpack_candidate,
@@ -26,6 +32,7 @@ from banana_smasher.backpack import (
     predict_backpack,
     quantize_vector_cell,
     repair_backpack,
+    resolve_backpack_family,
     reuse_backpack_receipts,
     score_backpack,
     solve_backpack,
@@ -1368,6 +1375,139 @@ def test_public_candidate_and_materializer_apis_are_importable_and_used(
     assert "materialize" in calls
 
 
+def test_public_family_registry_exposes_builtin_generate_materialize_price_predict_bindings(
+) -> None:
+    bindings = list_backpack_family_bindings()
+
+    assert bindings
+    assert all(isinstance(binding, BackpackFamilyBinding) for binding in bindings)
+    assert {
+        binding.provider
+        for binding in bindings
+    } >= {
+        "native_mxfp4",
+        "qtip@2.00",
+        "qtip@2.50",
+        "qtip@3.00",
+        "d4_k2048",
+        "d4_k4096",
+    }
+    assert all(callable(binding.generate) for binding in bindings)
+    assert all(callable(binding.materialize) for binding in bindings)
+    assert all(callable(binding.price) for binding in bindings)
+    assert all(callable(binding.predict) for binding in bindings)
+
+    qtip = resolve_backpack_family(
+        {
+            "id": "qtip-2.5",
+            "family": "qtip",
+            "provider": "qtip@2.50",
+            "bpw": 2.5,
+            "backend": "fixture_reference",
+        }
+    )
+    native = resolve_backpack_family(
+        {"id": "native-mxfp4", "family": "native_mxfp4"}
+    )
+
+    assert qtip.provider == "qtip@2.50"
+    assert native.provider == "native_mxfp4"
+
+
+def test_uniform_selection_receipt_backed_price_matches_materialized_payload_bytes(
+    tmp_path: Path,
+) -> None:
+    plan = _fixture_plan(tmp_path, exact_bytes=100000)
+    parsed = BackpackPlan.from_mapping(plan)
+    run_root = tmp_path / "run"
+    inspected = inspect_backpack(parsed, run_root=run_root)
+    generated = generate_backpack_candidates(parsed, run_root=run_root)
+    _manifest, cells = backpack_module._load_cells(parsed)
+    assignment = [
+        {"cell_id": str(cell["cell_id"]), "tier": "d4-k4"}
+        for cell in cells
+    ]
+    priced = price_backpack_selection(
+        parsed,
+        assignment=assignment,
+        candidates=generated,
+    )
+
+    artifact_roots = {
+        str(cell["cell_id"]): backpack_module.candidate_artifact_root(
+            generated,
+            tier="d4-k4",
+            cell_id=str(cell["cell_id"]),
+        )
+        for cell in cells
+    }
+    source = tmp_path / "uniform-source"
+    materialize_backpack_source(
+        source,
+        plan=parsed,
+        cells=cells,
+        assignment=assignment,
+        artifact_roots=artifact_roots,
+    )
+    pack = tmp_path / "uniform-pack"
+    export_pack(
+        source_root=source,
+        output=pack,
+        model_id="uniform-fixture",
+        instance_id="uniform-fixture-1",
+        link_mode="copy",
+    )
+    manifest = load_manifest(pack)
+    tensor_bytes = sum(
+        int(row["data_bytes"]) for row in manifest["tensor_index"].values()
+    )
+
+    assert priced["provider_counts"] == {"vector_vq:d4:b2": 4}
+    assert priced["materialized_payload_bytes"] == tensor_bytes - int(
+        inspected["fixed_bytes"]["routing_bytes"]
+    )
+
+
+def test_qtip_1_5_provider_declaration_builds_and_appears_in_family_counts(
+    tmp_path: Path,
+) -> None:
+    plan = _fixture_plan(tmp_path, exact_bytes=100000)
+    plan["tiers"] = [
+        {
+            "id": "qtip-1.5",
+            "family": "qtip",
+            "provider": "qtip@1.50",
+            "bpw": 1.5,
+            "backend": "fixture_reference",
+        }
+    ]
+    parsed = BackpackPlan.from_mapping(plan)
+    inspect_root = tmp_path / "inspect-run"
+    inspect_backpack(parsed, run_root=inspect_root)
+    generated = generate_backpack_candidates(parsed, run_root=inspect_root)
+    _manifest, cells = backpack_module._load_cells(parsed)
+    assignment = [
+        {"cell_id": str(cell["cell_id"]), "tier": "qtip-1.5"}
+        for cell in cells
+    ]
+    priced = price_backpack_selection(
+        parsed,
+        assignment=assignment,
+        candidates=generated,
+    )
+    plan["target"]["exact_bytes"] = (
+        int(json.loads((inspect_root / "stages" / "01-inspect.json").read_text())["result"]["fixed_total_bytes"])
+        + int(priced["materialized_payload_bytes"])
+    )
+
+    result = build_backpack(plan, run_root=tmp_path / "build-run")
+
+    assert result["status"] == "PASS"
+    assert result["family_counts"]["qtip@1.50"] == 4
+    assert result["candidate_tiers"][0]["provider"] == "qtip@1.50"
+    assert verify_pack(Path(result["final_pack"]))["status"] == "PASS"
+
+
 def test_stage_reuse_resumes_candidate_and_anchor_without_replay(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1917,3 +2057,28 @@ def test_backpack_cli_exports_lifecycle_from_run_root(
         kernel_cache_root=output / "kernel-cache",
         architecture="sm_120",
     ).serve_receipt["status"] == "PASS"
+
+
+def test_public_backpack_family_proof_script_runs_from_source(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    script = root / "tests" / "backpack_family_api_proof.py"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--workdir",
+            str(tmp_path / "proof"),
+        ],
+        cwd=root.parent,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(root / "src"),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    receipt = json.loads(completed.stdout)
+    assert receipt["status"] == "PASS"

@@ -7,7 +7,7 @@ import os
 import re
 import shutil
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -50,6 +50,16 @@ REUSABLE_STAGE_IMPORTS = frozenset({"candidates", "candidate_anchor"})
 
 class BackpackPlanError(ValueError):
     """A declarative Backpack plan is incomplete or internally inconsistent."""
+
+
+@dataclass(frozen=True)
+class BackpackFamilyBinding:
+    provider: str
+    family: str
+    generate: Callable[..., dict[str, Any]]
+    materialize: Callable[..., None]
+    price: Callable[..., dict[str, Any]]
+    predict: Callable[..., dict[str, Any]]
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -214,7 +224,7 @@ class BackpackPlan:
             if family == "vector_vq":
                 _reject_unknown(
                     tier,
-                    {"id", "family", "dimension", "bits", "codebook_size", "bpw"},
+                    {"id", "family", "provider", "dimension", "bits", "codebook_size", "bpw"},
                     f"tiers[{index}]",
                 )
                 dimension = tier.get("dimension")
@@ -255,7 +265,7 @@ class BackpackPlan:
             elif family == "qtip":
                 _reject_unknown(
                     tier,
-                    {"id", "family", "bpw", "backend", "source_root"},
+                    {"id", "family", "provider", "bpw", "backend", "source_root"},
                     f"tiers[{index}]",
                 )
                 bpw = Decimal(str(_positive_number(tier.get("bpw"), f"tiers[{index}].bpw")))
@@ -290,6 +300,10 @@ class BackpackPlan:
             else:
                 raise BackpackPlanError(
                     f"tiers[{index}].family must be vector_vq or qtip"
+                )
+            if "provider" in tier:
+                tier["provider"] = _nonempty(
+                    tier.get("provider"), f"tiers[{index}].provider"
                 )
             tiers.append(tier)
 
@@ -518,6 +532,101 @@ def _tier_geometry(tier: Mapping[str, Any]) -> tuple[int, int]:
     else:
         bits = int(round(float(tier["bpw"]) * dimension))
     return dimension, bits
+
+
+def _canonical_qtip_provider(bpw: object) -> str:
+    return f"qtip@{Decimal(str(bpw)).quantize(Decimal('0.00'))}"
+
+
+def _canonical_backpack_provider(tier: Mapping[str, Any]) -> str:
+    declared = tier.get("provider")
+    if isinstance(declared, str) and declared:
+        return declared
+    family = tier.get("family")
+    if family == "vector_vq":
+        dimension, bits = _tier_geometry(tier)
+        return f"vector_vq:d{dimension}:b{bits}"
+    if family == "qtip":
+        return _canonical_qtip_provider(tier["bpw"])
+    if family == "native_mxfp4":
+        return "native_mxfp4"
+    if family == "fixed_d4":
+        tier_name = tier.get("tier")
+        if tier_name in {"d4_k2048", "d4_k4096"}:
+            return str(tier_name)
+    raise BackpackPlanError(f"unsupported Backpack family descriptor: {dict(tier)!r}")
+
+
+def _candidate_pricing(
+    *,
+    payload_bytes: int,
+    activation_artifacts: Sequence[Mapping[str, Any]] = (),
+) -> dict[str, Any]:
+    if payload_bytes < 0:
+        raise BackpackPlanError("candidate payload_bytes must be non-negative")
+    return {
+        "payload_bytes": int(payload_bytes),
+        "activation_artifacts": [
+            {
+                "key": _nonempty(row.get("key"), "candidate activation key"),
+                "bytes": (
+                    int(row["bytes"])
+                    if (
+                        not isinstance(row.get("bytes"), bool)
+                        and isinstance(row.get("bytes"), int)
+                        and int(row["bytes"]) >= 0
+                    )
+                    else (_ for _ in ()).throw(
+                        BackpackPlanError(
+                            "candidate activation bytes must be a non-negative integer"
+                        )
+                    )
+                ),
+            }
+            for row in activation_artifacts
+        ],
+    }
+
+
+def _pricing_from_receipt(
+    receipt: Mapping[str, Any],
+    *,
+    label: str,
+) -> dict[str, Any]:
+    pricing = receipt.get("pricing")
+    if not isinstance(pricing, Mapping):
+        raise BackpackPlanError(f"{label} must include pricing")
+    payload = pricing.get("payload_bytes")
+    if isinstance(payload, bool) or not isinstance(payload, int) or payload < 0:
+        raise BackpackPlanError(f"{label} pricing.payload_bytes must be non-negative")
+    rows = pricing.get("activation_artifacts", [])
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        raise BackpackPlanError(f"{label} pricing.activation_artifacts must be an array")
+    artifacts: list[dict[str, Any]] = []
+    for index, raw in enumerate(rows):
+        if not isinstance(raw, Mapping):
+            raise BackpackPlanError(
+                f"{label} pricing.activation_artifacts[{index}] must be an object"
+            )
+        key = raw.get("key")
+        size = raw.get("bytes")
+        if (
+            not isinstance(key, str)
+            or not key
+            or isinstance(size, bool)
+            or not isinstance(size, int)
+            or size < 0
+        ):
+            raise BackpackPlanError(
+                f"{label} pricing.activation_artifacts[{index}] must include key/bytes"
+            )
+        artifacts.append({"key": key, "bytes": size})
+    return {
+        "payload_bytes": int(payload),
+        "activation_artifacts": artifacts,
+        "materialized_payload_bytes": int(payload)
+        + sum(int(row["bytes"]) for row in artifacts),
+    }
 
 
 def quantize_vector_cell(
@@ -975,6 +1084,8 @@ def _write_candidate_artifact(
     packed: bytes,
     extra_arrays: Mapping[str, np.ndarray],
     metadata: Mapping[str, Any],
+    provider: str | None = None,
+    pricing: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     destination = _candidate_root(root, str(tier["id"]), str(cell["cell_id"]))
     destination.mkdir(parents=True, exist_ok=True)
@@ -987,15 +1098,19 @@ def _write_candidate_artifact(
         array_rows.append(
             {"name": name, "path": str(path), "bytes": path.stat().st_size, "sha256": _sha_file(path)}
         )
+    physical_bytes = len(packed) + sum(int(value.nbytes) for value in extra_arrays.values())
+    resolved_provider = (
+        provider if provider is not None else _canonical_backpack_provider(tier)
+    )
     receipt = {
         "schema": "banana-smasher-backpack-candidate-cell-v1",
         "status": "PASS",
         "tier": tier["id"],
         "family": tier["family"],
+        "provider": resolved_provider,
         "cell_id": cell["cell_id"],
         "weight_count": int(decoded.size),
-        "physical_bytes": len(packed)
-        + sum(int(value.nbytes) for value in extra_arrays.values()),
+        "physical_bytes": physical_bytes,
         "wire": {
             "path": str(destination / "wire.bin"),
             "bytes": len(packed),
@@ -1006,6 +1121,11 @@ def _write_candidate_artifact(
             "sha256": _sha_file(destination / "decoded.npy"),
         },
         "arrays": array_rows,
+        "pricing": (
+            dict(pricing)
+            if pricing is not None
+            else _candidate_pricing(payload_bytes=physical_bytes)
+        ),
         **metadata,
     }
     _atomic_json(destination / "RECEIPT.json", receipt)
@@ -1488,10 +1608,251 @@ def generate_qtip_backpack_candidate(
     )
 
 
+def _generate_vector_family_candidate(
+    run_root: str | Path,
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    geometry_by_identity: Mapping[tuple[int, int, str], tuple[int, int, int]] | None = None,
+    weights: np.ndarray | None = None,
+) -> dict[str, Any]:
+    del geometry_by_identity
+    return generate_vector_vq_backpack_candidate(
+        run_root,
+        tier=tier,
+        cell=cell,
+        weights=weights,
+    )
+
+
+def _generate_qtip_family_candidate(
+    run_root: str | Path,
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    geometry_by_identity: Mapping[tuple[int, int, str], tuple[int, int, int]] | None = None,
+    weights: np.ndarray | None = None,
+) -> dict[str, Any]:
+    if geometry_by_identity is None:
+        raise BackpackPlanError("QTIP family generation requires exact ring geometries")
+    return generate_qtip_backpack_candidate(
+        run_root,
+        tier=tier,
+        cell=cell,
+        geometry_by_identity=geometry_by_identity,
+        weights=weights,
+    )
+
+
+def _materialize_record_family_payload(
+    payloads: dict[tuple[int, str], dict[str, list[np.ndarray]]],
+    *,
+    layer: int,
+    family: str,
+    artifact_root: Path,
+) -> None:
+    bucket = payloads.setdefault(
+        (layer, family),
+        {
+            name: []
+            for name in (
+                "codes",
+                "codebooks",
+                "scales",
+                "expert_ids",
+                "tensor_offsets",
+                "record_tiers",
+                "record_geometry",
+                "record_projections",
+                "record_boundaries",
+            )
+        },
+    )
+    prior_bytes = np.asarray(
+        [
+            sum(array.nbytes for array in bucket[name])
+            for name in ("codes", "scales", "codebooks")
+        ],
+        dtype=np.int64,
+    )
+    prior_records = sum(array.size for array in bucket["expert_ids"])
+    if bucket["expert_ids"]:
+        bucket["record_boundaries"].append(
+            np.full((1, 3), prior_records, dtype=np.int64)
+        )
+    codes = np.frombuffer((artifact_root / "wire.bin").read_bytes(), dtype=np.uint8)
+    bucket["codes"].append(codes)
+    for name in (
+        "codebooks",
+        "scales",
+        "expert_ids",
+        "record_tiers",
+        "record_geometry",
+        "record_projections",
+    ):
+        value = np.asarray(np.load(artifact_root / f"{name}.npy", allow_pickle=False))
+        bucket[name].append(
+            value.reshape(value.shape[0], -1)
+            if name in {"record_geometry", "record_tiers", "record_projections"}
+            else value if name == "codebooks" else value.reshape(-1)
+        )
+    offsets = np.asarray(
+        np.load(artifact_root / "tensor_offsets.npy", allow_pickle=False), dtype=np.int64
+    ).reshape(-1, 3)
+    adjusted = offsets + prior_bytes
+    bucket["tensor_offsets"].append(
+        adjusted if not bucket["tensor_offsets"] else adjusted[1:]
+    )
+
+
+def _materialize_vector_family(
+    payloads: dict[tuple[int, str], dict[str, list[np.ndarray]]],
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    artifact_root: Path,
+) -> None:
+    family = f"truevq_d{int(tier['dimension'])}"
+    _materialize_record_family_payload(
+        payloads,
+        layer=int(cell["layer"]),
+        family=family,
+        artifact_root=artifact_root,
+    )
+
+
+def _materialize_qtip_family(
+    payloads: dict[tuple[int, str], dict[str, list[np.ndarray]]],
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    artifact_root: Path,
+) -> None:
+    family = "qtip2" if float(tier["bpw"]) < 3.0 else "qtip3"
+    _materialize_record_family_payload(
+        payloads,
+        layer=int(cell["layer"]),
+        family=family,
+        artifact_root=artifact_root,
+    )
+
+
+def _receipt_price_binding(
+    receipt: Mapping[str, Any],
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+) -> dict[str, Any]:
+    del tier, cell
+    return _pricing_from_receipt(receipt, label="candidate receipt")
+
+
+def _receipt_predict_binding(
+    receipt: Mapping[str, Any],
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+) -> dict[str, Any]:
+    return _receipt_price_binding(receipt, tier=tier, cell=cell)
+
+
+def _unsupported_family_generate(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+    raise BackpackPlanError("family binding requires a public proof/fixture-only source")
+
+
+def _unsupported_family_materialize(*_args: Any, **_kwargs: Any) -> None:
+    raise BackpackPlanError("family binding requires a public proof/fixture-only source")
+
+
+def _builtin_backpack_family_bindings() -> tuple[BackpackFamilyBinding, ...]:
+    return (
+        BackpackFamilyBinding(
+            provider="native_mxfp4",
+            family="native_mxfp4",
+            generate=_unsupported_family_generate,
+            materialize=_unsupported_family_materialize,
+            price=_receipt_price_binding,
+            predict=_receipt_predict_binding,
+        ),
+        BackpackFamilyBinding(
+            provider="qtip@2.00",
+            family="qtip",
+            generate=_generate_qtip_family_candidate,
+            materialize=_materialize_qtip_family,
+            price=_receipt_price_binding,
+            predict=_receipt_predict_binding,
+        ),
+        BackpackFamilyBinding(
+            provider="qtip@2.50",
+            family="qtip",
+            generate=_generate_qtip_family_candidate,
+            materialize=_materialize_qtip_family,
+            price=_receipt_price_binding,
+            predict=_receipt_predict_binding,
+        ),
+        BackpackFamilyBinding(
+            provider="qtip@3.00",
+            family="qtip",
+            generate=_generate_qtip_family_candidate,
+            materialize=_materialize_qtip_family,
+            price=_receipt_price_binding,
+            predict=_receipt_predict_binding,
+        ),
+        BackpackFamilyBinding(
+            provider="d4_k2048",
+            family="fixed_d4",
+            generate=_unsupported_family_generate,
+            materialize=_unsupported_family_materialize,
+            price=_receipt_price_binding,
+            predict=_receipt_predict_binding,
+        ),
+        BackpackFamilyBinding(
+            provider="d4_k4096",
+            family="fixed_d4",
+            generate=_unsupported_family_generate,
+            materialize=_unsupported_family_materialize,
+            price=_receipt_price_binding,
+            predict=_receipt_predict_binding,
+        ),
+    )
+
+
+def list_backpack_family_bindings() -> tuple[BackpackFamilyBinding, ...]:
+    return _builtin_backpack_family_bindings()
+
+
+def resolve_backpack_family(tier: Mapping[str, Any]) -> BackpackFamilyBinding:
+    provider = _canonical_backpack_provider(tier)
+    family = tier.get("family")
+    if family == "vector_vq":
+        return BackpackFamilyBinding(
+            provider=provider,
+            family="vector_vq",
+            generate=_generate_vector_family_candidate,
+            materialize=_materialize_vector_family,
+            price=_receipt_price_binding,
+            predict=_receipt_predict_binding,
+        )
+    if family == "qtip":
+        return BackpackFamilyBinding(
+            provider=provider,
+            family="qtip",
+            generate=_generate_qtip_family_candidate,
+            materialize=_materialize_qtip_family,
+            price=_receipt_price_binding,
+            predict=_receipt_predict_binding,
+        )
+    for binding in _builtin_backpack_family_bindings():
+        if binding.provider == provider:
+            return binding
+    raise BackpackPlanError(f"unknown Backpack family provider {provider!r}")
+
+
 def _stage_candidates(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[str, Any]:
     _manifest, cells = _load_cells(plan)
     tiers: list[dict[str, Any]] = []
     for tier in plan.tiers:
+        binding = resolve_backpack_family(tier)
         qtip_geometries = (
             _exact_qtip_geometries(tier, cells)
             if tier["family"] == "qtip"
@@ -1499,24 +1860,17 @@ def _stage_candidates(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) ->
         )
         cell_rows = []
         for cell in cells:
-            if tier["family"] == "vector_vq":
-                receipt = generate_vector_vq_backpack_candidate(
-                    root,
-                    tier=tier,
-                    cell=cell,
-                )
-            else:
-                assert qtip_geometries is not None
-                receipt = generate_qtip_backpack_candidate(
-                    root,
-                    tier=tier,
-                    cell=cell,
-                    geometry_by_identity=qtip_geometries,
-                )
+            receipt = binding.generate(
+                root,
+                tier=tier,
+                cell=cell,
+                geometry_by_identity=qtip_geometries,
+            )
             cell_rows.append(
                 {
                     "cell_id": cell["cell_id"],
                     "physical_bytes": receipt["physical_bytes"],
+                    "provider": binding.provider,
                     "projection": cell["projection"],
                     "receipt": str(
                         _candidate_root(root, str(tier["id"]), str(cell["cell_id"]))
@@ -1528,6 +1882,7 @@ def _stage_candidates(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) ->
             {
                 "tier": tier["id"],
                 "family": tier["family"],
+                "provider": binding.provider,
                 **(
                     {"dimension": tier["dimension"]}
                     if tier["family"] == "vector_vq"
@@ -1617,6 +1972,7 @@ def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[
     candidates = _prior["candidates"]
     for cell_index, cell in enumerate(cells):
         for tier in plan.tiers:
+            binding = resolve_backpack_family(tier)
             pieces = [np.asarray(row["weights"], dtype=np.float32) for row in cells]
             artifact_root = candidate_artifact_root(
                 candidates,
@@ -1628,12 +1984,17 @@ def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[
                 features, classes, teacher, np.concatenate(pieces).astype(np.float32)
             )
             candidate_receipt = json.loads((artifact_root / "RECEIPT.json").read_text())
+            pricing = binding.predict(candidate_receipt, tier=tier, cell=cell)
             rows.append(
                 {
                     "cell_id": cell["cell_id"],
                     "tier": tier["id"],
                     "family": tier["family"],
-                    "physical_bytes": candidate_receipt["physical_bytes"],
+                    "provider": binding.provider,
+                    "payload_bytes": pricing["payload_bytes"],
+                    "activation_bytes": pricing["materialized_payload_bytes"]
+                    - pricing["payload_bytes"],
+                    "physical_bytes": pricing["materialized_payload_bytes"],
                     "prediction_by_class": {
                         name: metrics["by_class"][name]["kld"] for name in CLASSES
                     },
@@ -1649,6 +2010,87 @@ def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[
         "receipt": str(path),
         "receipt_bytes": path.stat().st_size,
         "receipt_sha256": _sha_file(path),
+    }
+
+
+def price_backpack_selection(
+    plan: BackpackPlan | Mapping[str, Any],
+    *,
+    assignment: Sequence[Mapping[str, Any]],
+    candidates: Mapping[str, Any],
+) -> dict[str, Any]:
+    parsed = plan if isinstance(plan, BackpackPlan) else BackpackPlan.from_mapping(plan)
+    _manifest, cells = _load_cells(parsed)
+    cells_by_id = {str(cell["cell_id"]): cell for cell in cells}
+    tiers_by_id = {str(tier["id"]): tier for tier in parsed.tiers}
+    if len(assignment) != len(cells_by_id):
+        raise BackpackPlanError("selection pricing requires one assignment per cell")
+    provider_counts: dict[str, int] = {}
+    payload_bytes = 0
+    activation_bytes = 0
+    seen_activation: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    seen_cells: set[str] = set()
+    for row in assignment:
+        if not isinstance(row, Mapping):
+            raise BackpackPlanError("selection pricing assignment rows must be objects")
+        cell_id = _nonempty(row.get("cell_id"), "assignment[].cell_id")
+        if cell_id in seen_cells:
+            raise BackpackPlanError(f"duplicate priced cell assignment {cell_id!r}")
+        seen_cells.add(cell_id)
+        tier_id = _nonempty(row.get("tier"), f"assignment[{cell_id}].tier")
+        cell = cells_by_id.get(cell_id)
+        tier = tiers_by_id.get(tier_id)
+        if cell is None or tier is None:
+            raise BackpackPlanError(
+                f"selection pricing references unknown cell/tier pair {(cell_id, tier_id)!r}"
+            )
+        receipt = json.loads(
+            (
+                candidate_artifact_root(
+                    candidates,
+                    tier=tier_id,
+                    cell_id=cell_id,
+                )
+                / "RECEIPT.json"
+            ).read_text()
+        )
+        binding = resolve_backpack_family(tier)
+        pricing = binding.price(receipt, tier=tier, cell=cell)
+        provider_counts[binding.provider] = provider_counts.get(binding.provider, 0) + 1
+        payload_bytes += int(pricing["payload_bytes"])
+        new_activation = 0
+        for artifact in pricing["activation_artifacts"]:
+            key = str(artifact["key"])
+            if key in seen_activation:
+                continue
+            seen_activation.add(key)
+            bytes_value = int(artifact["bytes"])
+            activation_bytes += bytes_value
+            new_activation += bytes_value
+        rows.append(
+            {
+                "cell_id": cell_id,
+                "tier": tier_id,
+                "provider": binding.provider,
+                "payload_bytes": int(pricing["payload_bytes"]),
+                "activation_bytes": new_activation,
+                "materialized_payload_bytes": int(pricing["payload_bytes"]) + new_activation,
+            }
+        )
+    if seen_cells != set(cells_by_id):
+        missing = sorted(set(cells_by_id) - seen_cells)
+        raise BackpackPlanError(
+            f"selection pricing assignment is missing cell {missing[0]!r}"
+        )
+    return {
+        "schema": "banana-smasher-backpack-selection-price-v1",
+        "status": "PASS",
+        "provider_counts": provider_counts,
+        "payload_bytes": payload_bytes,
+        "activation_bytes": activation_bytes,
+        "materialized_payload_bytes": payload_bytes + activation_bytes,
+        "rows": rows,
     }
 
 
@@ -1711,6 +2153,7 @@ def materialize_backpack_source(
         cell_id = str(cell["cell_id"])
         tier = str(selected[cell_id]["tier"])
         descriptor = tier_descriptors[tier]
+        binding = resolve_backpack_family(descriptor)
         if descriptor["family"] == "vector_vq":
             family = f"truevq_d{descriptor['dimension']}"
         else:
@@ -1719,57 +2162,11 @@ def materialize_backpack_source(
         expert_ids = np.asarray(cell["expert_ids"], dtype=np.uint8)
         tier_maps[layer][expert_ids] = TIER_CODES[family]
         artifact_root = artifact_roots[cell_id]
-        bucket = payloads.setdefault(
-            (layer, family),
-            {
-                name: []
-                for name in (
-                    "codes",
-                    "codebooks",
-                    "scales",
-                    "expert_ids",
-                    "tensor_offsets",
-                    "record_tiers",
-                    "record_geometry",
-                    "record_projections",
-                    "record_boundaries",
-                )
-            },
-        )
-        prior_bytes = np.asarray(
-            [
-                sum(array.nbytes for array in bucket[name])
-                for name in ("codes", "scales", "codebooks")
-            ],
-            dtype=np.int64,
-        )
-        prior_records = sum(array.size for array in bucket["expert_ids"])
-        if bucket["expert_ids"]:
-            bucket["record_boundaries"].append(
-                np.full((1, 3), prior_records, dtype=np.int64)
-            )
-        codes = np.frombuffer((artifact_root / "wire.bin").read_bytes(), dtype=np.uint8)
-        bucket["codes"].append(codes)
-        for name in (
-            "codebooks",
-            "scales",
-            "expert_ids",
-            "record_tiers",
-            "record_geometry",
-            "record_projections",
-        ):
-            value = np.asarray(np.load(artifact_root / f"{name}.npy", allow_pickle=False))
-            bucket[name].append(
-                value.reshape(value.shape[0], -1)
-                if name in {"record_geometry", "record_tiers", "record_projections"}
-                else value if name == "codebooks" else value.reshape(-1)
-            )
-        offsets = np.asarray(
-            np.load(artifact_root / "tensor_offsets.npy", allow_pickle=False), dtype=np.int64
-        ).reshape(-1, 3)
-        adjusted = offsets + prior_bytes
-        bucket["tensor_offsets"].append(
-            adjusted if not bucket["tensor_offsets"] else adjusted[1:]
+        binding.materialize(
+            payloads,
+            tier=descriptor,
+            cell=cell,
+            artifact_root=artifact_root,
         )
 
     for layer, tier_map in tier_maps.items():
@@ -2159,11 +2556,18 @@ def _stage_solve_materialize(
         (str(row["cell_id"]), str(row["tier"])): row for row in pred_rows
     }
     bytes_by_option = {
-        (group, tier): sum(
-            int(rows_by_option[(cell_id, tier)]["physical_bytes"])
-            for cell_id, candidate_group in cell_group.items()
-            if candidate_group == group
-        )
+        (
+            group,
+            tier,
+        ): price_backpack_selection(
+            plan,
+            assignment=[
+                {"cell_id": cell_id, "tier": tier}
+                for cell_id, candidate_group in cell_group.items()
+                if candidate_group == group
+            ],
+            candidates=prior["candidates"],
+        )["materialized_payload_bytes"]
         for group in groups
         for tier in tiers
     }
@@ -2233,6 +2637,15 @@ def _stage_solve_materialize(
     whole = fixed + int(solved["assigned_bytes"])
     if whole > int(inspect["target_whole_model_bytes"]):
         raise RuntimeError("exact solver violated whole-model envelope")
+    family_counts: dict[str, int] = {}
+    for row in assignment:
+        tier = next(
+            candidate
+            for candidate in plan.tiers
+            if str(candidate["id"]) == str(row["tier"])
+        )
+        provider = resolve_backpack_family(tier).provider
+        family_counts[provider] = family_counts.get(provider, 0) + 1
     assignment_path = root / "materialized" / "ASSIGNMENT.json"
     _atomic_json(
         assignment_path,
@@ -2240,6 +2653,7 @@ def _stage_solve_materialize(
             "schema": "banana-smasher-backpack-assignment-v1",
             "status": "PASS",
             "assignments": assignment,
+            "family_counts": family_counts,
             "byte_accounting": {
                 "candidate_payload_bytes": solved["assigned_bytes"],
                 "fixed_bytes": fixed,
@@ -2259,6 +2673,7 @@ def _stage_solve_materialize(
             "target_whole_model_bytes": inspect["target_whole_model_bytes"],
             "slack_bytes": inspect["target_whole_model_bytes"] - whole,
         },
+        "family_counts": family_counts,
         "pre_repair_pack": str(pre_pack),
         "pre_repair_pack_manifest_sha256": _sha_file(
             pre_pack / "BANANA_PACK_MANIFEST.json"
@@ -2708,6 +3123,7 @@ def _stage_final_score(plan: BackpackPlan, root: Path, prior: dict[str, Any]) ->
         "model_revision": plan.model["revision"],
         "candidate_tiers": prior["candidates"]["candidate_tiers"],
         "assignment": prior["solve_materialize"]["assignment"],
+        "family_counts": prior["solve_materialize"]["family_counts"],
         "byte_accounting": prior["solve_materialize"]["byte_accounting"],
         "pre_repair_anchor": prior["pre_repair_anchor"]["metrics"],
         "repair": prior["repair"],
@@ -2873,6 +3289,7 @@ def _validate_stage_artifacts(
             if (
                 expected_tier is None
                 or tier_row.get("family") != expected_tier["family"]
+                or tier_row.get("provider") != _canonical_backpack_provider(expected_tier)
             ):
                 return False
             qtip_geometries = (
@@ -2895,6 +3312,7 @@ def _validate_stage_artifacts(
                 if (
                     expected_cell is None
                     or cell_row.get("projection") != expected_cell["projection"]
+                    or cell_row.get("provider") != _canonical_backpack_provider(expected_tier)
                     or not _validate_candidate_receipt(
                         cell_row.get("receipt"),
                         tier=expected_tier,
@@ -3178,14 +3596,26 @@ def _validate_candidate_receipt(
             projections,
         )
     )
+    expected_provider = _canonical_backpack_provider(tier)
     if (
         receipt.get("physical_bytes") != physical_bytes
+        or receipt.get("provider") != expected_provider
         or receipt.get("weight_count") != int(decoded.size)
         or decoded.dtype != np.float32
         or decoded.size != np.asarray(cell["weights"]).size
         or receipt.get("projection") != projection
         or tier_labels is None
         or projection_labels != [projection] * record_count
+    ):
+        return False
+    try:
+        pricing = _pricing_from_receipt(receipt, label="candidate receipt")
+    except BackpackPlanError:
+        return False
+    if (
+        pricing["payload_bytes"] != physical_bytes
+        or pricing["materialized_payload_bytes"] != physical_bytes
+        or pricing["activation_artifacts"]
     ):
         return False
     if tier["family"] == "vector_vq":
@@ -3615,16 +4045,17 @@ def score_backpack(
     return _execute_public_stage(plan, run_root=run_root, stage="final_score")
 
 
-_PUBLIC_STAGE_APIS = (
-    "inspect_backpack",
-    "generate_backpack_candidates",
-    "anchor_backpack_candidates",
-    "predict_backpack",
-    "solve_backpack",
-    "anchor_backpack",
-    "repair_backpack",
-    "score_backpack",
-)
+def _public_stage_apis() -> tuple[Callable[..., dict[str, Any]], ...]:
+    return (
+        inspect_backpack,
+        generate_backpack_candidates,
+        anchor_backpack_candidates,
+        predict_backpack,
+        solve_backpack,
+        anchor_backpack,
+        repair_backpack,
+        score_backpack,
+    )
 
 
 def reuse_backpack_receipts(
@@ -3677,7 +4108,9 @@ def build_backpack(
     resumed: list[str] = []
     final_result: dict[str, Any] | None = None
     prior_stage_sha256: dict[str, str] = {}
-    for index, (stage, stage_api_name) in enumerate(zip(STAGES, _PUBLIC_STAGE_APIS), 1):
+    for index, (stage, stage_api) in enumerate(
+        zip(STAGES, _public_stage_apis(), strict=True), 1
+    ):
         path = _stage_path(root, index, stage)
         existing = _load_verified_stage(
             path,
@@ -3688,7 +4121,7 @@ def build_backpack(
         )
         if existing is not None:
             resumed.append(stage)
-        final_result = globals()[stage_api_name](parsed, run_root=root)
+        final_result = stage_api(parsed, run_root=root)
         prior_stage_sha256[stage] = _sha_file(path)
 
     assert final_result is not None
