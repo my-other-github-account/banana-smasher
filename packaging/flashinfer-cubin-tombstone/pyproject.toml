@@ -5,8 +5,8 @@ build-backend = "hatchling.build"
 [project]
 name = "flashinfer-cubin"
 version = "0.6.17"
-description = "Compatibility tombstone for stock vLLM images using FlashInfer 0.6.17 JIT assets"
+description = "Compatibility shim for stock vLLM images using FlashInfer 0.6.17 JIT assets"
 requires-python = ">=3.10"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/banana_smasher_flashinfer_cubin_removed"]
+packages = ["src/flashinfer_cubin"]
