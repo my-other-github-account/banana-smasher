@@ -141,6 +141,47 @@ def _hashed_path(value: Mapping[str, Any], name: str, *, verify: bool) -> Path:
     return path
 
 
+def _validate_cell_payload(cell: Mapping[str, Any]) -> None:
+    import torch
+
+    control = str(cell["control"])
+    expected_k = {"qtip_k2": 2, "qtip_k3": 3}[control]
+    unit = torch.load(
+        cell["control_unit"]["path"], map_location="cpu", mmap=True, weights_only=True
+    )
+    required = {"shape", "geometry", "trellis", "SU", "SV", "Wscale", "tlut"}
+    if not isinstance(unit, Mapping) or not required.issubset(unit):
+        raise ValueError(f"{control} unit is missing required payload fields")
+    if tuple(int(value) for value in unit["shape"]) != (4096, 2048):
+        raise ValueError(f"{control} unit has wrong down-projection shape")
+    geometry = unit["geometry"]
+    expected_geometry = {"L": 16, "K": expected_k, "V": 2, "tlut_bits": 9}
+    if {key: int(geometry.get(key, -1)) for key in expected_geometry} != expected_geometry:
+        raise ValueError(f"{control} unit has wrong QTIP geometry")
+    weights = int(cell["accounting"]["weights"])
+    if weights != 4096 * 2048:
+        raise ValueError(f"{control} accounting has wrong weight count")
+    trellis = unit["trellis"]
+    if trellis.numel() * trellis.element_size() * 8 != weights * expected_k:
+        raise ValueError(f"{control} trellis bytes do not close nominal code bits")
+    if tuple(unit["SU"].shape) != (2048,) or tuple(unit["SV"].shape) != (4096,):
+        raise ValueError(f"{control} transform vectors have wrong geometry")
+    if unit["Wscale"].numel() != 1 or tuple(unit["tlut"].shape) != (512, 2):
+        raise ValueError(f"{control} scale/TLUT geometry mismatch")
+    packed = np.load(cell["periodic_codes"]["path"], mmap_mode="r", allow_pickle=False)
+    if packed.dtype != np.uint8 or tuple(packed.shape) != (32768, 80):
+        raise ValueError(f"{control} periodic packed payload has wrong layout")
+    if packed.nbytes * 8 != int(cell["accounting"]["code_bits"]):
+        raise ValueError(f"{control} periodic packed bytes do not close accounting")
+
+
+def _validate_import_source(module: Any, descriptor: Mapping[str, Any], name: str) -> None:
+    loaded = Path(str(module.__file__)).resolve()
+    declared = Path(str(descriptor["path"])).resolve()
+    if loaded != declared or sha256_file(loaded) != descriptor["sha256"]:
+        raise RuntimeError(f"executed {name} source differs from manifest binding")
+
+
 def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True) -> dict[str, Any]:
     """Validate the current-FF0731 two-cell manifest before CUDA is imported."""
     if manifest.get("schema") != MANIFEST_SCHEMA:
@@ -201,15 +242,33 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
         }
         if layer_ids != set(range(43)):
             raise ValueError("current FF0731 index does not close all 43 layers")
+    source_root_text = str(model.get("source_root", ""))
+    source_root = Path(source_root_text)
+    if not source_root_text or not source_root.is_absolute():
+        raise ValueError("model.source_root must be a nonempty absolute path")
+    model_shards = model.get("shards")
+    if not isinstance(model_shards, Mapping):
+        raise ValueError("model.shards must bind every referenced FF0731 shard")
+    referenced_shards = set(weight_map.values()) if verify_files else set(model_shards)
+    if set(model_shards) != referenced_shards:
+        raise ValueError("model.shards does not exactly close the index weight map")
+    for shard, descriptor in model_shards.items():
+        if Path(str(shard)).name != shard or not str(shard).endswith(".safetensors"):
+            raise ValueError(f"invalid model shard identity: {shard!r}")
+        if not isinstance(descriptor, Mapping):
+            raise ValueError(f"missing model shard descriptor: {shard}")
+        _require_sha(f"model.shards[{shard}].sha256", descriptor.get("sha256"))
+        if not isinstance(descriptor.get("bytes"), int) or isinstance(descriptor.get("bytes"), bool) or int(descriptor["bytes"]) <= 0:
+            raise ValueError(f"model.shards[{shard}].bytes must be a positive integer")
 
     corpus = manifest.get("corpus")
     bank = manifest.get("bank")
     teacher = manifest.get("teacher")
     if not all(isinstance(value, Mapping) for value in (corpus, bank, teacher)):
         raise ValueError("train8 manifest must bind corpus, bank, and teacher")
-    _hashed_path(corpus, "corpus", verify=verify_files)
-    _hashed_path(bank, "bank", verify=verify_files)
-    _hashed_path(teacher["manifest"], "teacher.manifest", verify=verify_files)
+    corpus_path = _hashed_path(corpus, "corpus", verify=verify_files)
+    bank_path = _hashed_path(bank, "bank", verify=verify_files)
+    teacher_manifest_path = _hashed_path(teacher["manifest"], "teacher.manifest", verify=verify_files)
     if bank["sha256"] != TRAIN64_BANK_MANIFEST_SHA256:
         raise ValueError("train8 manifest bank is not the frozen train64 bank")
     if teacher["manifest"]["sha256"] != TEACHER_TOP8192_MANIFEST_SHA256:
@@ -221,6 +280,34 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
         raise ValueError("train8 manifest teacher rows do not match the frozen order")
     for row in teacher_rows:
         _hashed_path(row, f"teacher.rows[{row['row_id']}]", verify=verify_files)
+    corpus_rows = corpus.get("rows")
+    if not isinstance(corpus_rows, Sequence) or tuple(str(row.get("row_id")) for row in corpus_rows) != TRAIN8_ROW_IDS:
+        raise ValueError("corpus row bindings do not match the frozen train8 order")
+    for row in corpus_rows:
+        _require_sha(f"corpus.rows[{row.get('row_id')}].sha256", row.get("sha256"))
+    if verify_files:
+        corpus_value = json.loads(corpus_path.read_text())
+        bank_value = json.loads(bank_path.read_text())
+        teacher_manifest_value = json.loads(teacher_manifest_path.read_text())
+        bank_rows = tuple(str(row.get("id")) for row in bank_value.get("windows", ())[: len(TRAIN8_ROW_IDS)])
+        if bank_rows != TRAIN8_ROW_IDS:
+            raise ValueError("frozen bank does not begin with the train8 cohort")
+        teacher_members = {
+            str(row.get("window_id")): row for row in teacher_manifest_value.get("members", ())
+        }
+        for row_binding, teacher_row in zip(corpus_rows, teacher_rows, strict=True):
+            row_id = str(row_binding["row_id"])
+            corpus_row = corpus_value[int(row_id)]
+            row_payload = {
+                "token_ids": [int(value) for value in corpus_row["token_ids"]],
+                "real_len": int(corpus_row["real_len"]),
+            }
+            observed_row_sha = hashlib.sha256(_canonical_json(row_payload)).hexdigest()
+            if observed_row_sha != row_binding["sha256"]:
+                raise ValueError(f"corpus row {row_id} payload hash mismatch")
+            member = teacher_members.get(row_id)
+            if member is None or member.get("sha256") != teacher_row["sha256"] or int(member.get("bytes", -1)) != int(teacher_row["bytes"]):
+                raise ValueError(f"teacher row {row_id} is not bound by the teacher terminal")
 
     cells = manifest.get("cells")
     if not isinstance(cells, Sequence) or len(cells) != 2:
@@ -236,6 +323,11 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
         _require_sha("cell.source_weight_sha256", cell["source_weight_sha256"])
     if identities != [(0, 0, "down"), (0, 1, "down")]:
         raise ValueError("train8 manifest cells must be L000 E000/E001 down in order")
+    if [str(cell.get("control")) for cell in cells] != ["qtip_k2", "qtip_k3"]:
+        raise ValueError("train8 cells must bind E000 to K2 and E001 to K3")
+    if verify_files:
+        for cell in cells:
+            _validate_cell_payload(cell)
     errors, bits = matched_measurements(cells)
 
     runtime = manifest.get("runtime")
@@ -246,6 +338,15 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
         path = Path(str(runtime[key]))
         if verify_files and not path.exists():
             raise FileNotFoundError(f"runtime path does not exist: {key}={path}")
+    executed_sources = runtime.get("executed_sources")
+    if not isinstance(executed_sources, Mapping) or set(executed_sources) != {
+        "runner", "periodic_signal", "qtip_runner", "periodic_plugin"
+    }:
+        raise ValueError("runtime.executed_sources must bind the complete executed source set")
+    for name, descriptor in executed_sources.items():
+        _hashed_path(descriptor, f"runtime.executed_sources[{name}]", verify=verify_files)
+    if verify_files and executed_sources["runner"]["sha256"] != sha256_file(__file__):
+        raise ValueError("manifest runner source hash differs from executed runner")
     if int(runtime.get("microbatch", 0)) < 1:
         raise ValueError("microbatch must be positive")
     if int(runtime.get("readout_chunk_positions", 0)) < 1:
@@ -258,6 +359,7 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
         "shards_path": shards_path,
         "config_path": config_path,
         "index_path": index_path,
+        "model_shards": dict(model_shards),
         "direct_error": errors,
         "nominal_code_bits": bits,
     }
@@ -348,7 +450,9 @@ def run_stage_server(manifest_path: str | Path) -> int:
             except FileNotFoundError:
                 pass
         destination_sha = sha256_file(destination)
-        if destination_sha != source_digest.hexdigest():
+        expected_sha = str(manifest["model"]["shards"][shard]["sha256"])
+        expected_bytes = int(manifest["model"]["shards"][shard]["bytes"])
+        if destination_sha != source_digest.hexdigest() or destination_sha != expected_sha or destination.stat().st_size != expected_bytes:
             raise RuntimeError(f"staged shard copy mismatch: {shard}")
         ready = {
             "schema": "banana-smasher-qtip25-periodic-shard-ready-v1",
@@ -406,6 +510,8 @@ def _request_shard(manifest: Mapping[str, Any], shard: str) -> tuple[Path, str]:
         or ready.get("shard") != shard
         or ready.get("request_sha256") != request_sha
         or ready.get("basis_sha256") != FF0731_MODEL_INDEX_SHA256
+        or ready.get("sha256") != manifest["model"]["shards"][shard]["sha256"]
+        or int(ready.get("bytes", -1)) != int(manifest["model"]["shards"][shard]["bytes"])
     ):
         raise RuntimeError(f"invalid staged shard receipt: {ready}")
     destination = Path(str(ready["destination_path"]))
@@ -420,7 +526,7 @@ def _release_shard(manifest: Mapping[str, Any], ready_sha: str) -> None:
         stage / "RELEASE.json",
         {"schema": "banana-smasher-qtip25-periodic-shard-release-v1", "ready_sha256": ready_sha},
     )
-    while (stage / "READY.json").exists():
+    while any((stage / name).exists() for name in ("REQUEST.json", "READY.json", "RELEASE.json")):
         time.sleep(0.1)
 
 
@@ -595,8 +701,14 @@ def _dematerialize_layer(torch: Any, model: Any, layer: int) -> None:
 def _decode_two_cell_overlays(torch: Any, manifest: Mapping[str, Any], device: Any) -> dict[str, list[Any]]:
     sys.path.insert(0, str(manifest["runtime"]["banana_smasher_source"]))
     sys.path.insert(1, str(manifest["runtime"]["public_site"]))
-    from banana_smasher import qtip_runner
-    from banana_smasher_plugin.periodic_qtip import dequantize_periodic_blocks
+    from banana_smasher import qtip_periodic_signal, qtip_runner
+    from banana_smasher_plugin import periodic_qtip
+
+    sources = manifest["runtime"]["executed_sources"]
+    _validate_import_source(qtip_periodic_signal, sources["periodic_signal"], "periodic_signal")
+    _validate_import_source(qtip_runner, sources["qtip_runner"], "qtip_runner")
+    _validate_import_source(periodic_qtip, sources["periodic_plugin"], "periodic_plugin")
+    dequantize_periodic_blocks = periodic_qtip.dequantize_periodic_blocks
 
     qtip_runner.QTIP = Path(str(manifest["runtime"]["qtip_root"]))
     _, _, _, kernel_decode = qtip_runner.load_official_qtip()
@@ -655,6 +767,8 @@ def _atomic_torch_save(torch: Any, path: Path, value: object) -> str:
 
 def run_forward(manifest_path: str | Path) -> int:
     manifest, derived = load_manifest(manifest_path, verify_files=True)
+    if sha256_file(__file__) != manifest["runtime"]["executed_sources"]["runner"]["sha256"]:
+        raise RuntimeError("executed runner source drifted after preflight")
     _require_authority(manifest)
     import torch
     from safetensors import safe_open
