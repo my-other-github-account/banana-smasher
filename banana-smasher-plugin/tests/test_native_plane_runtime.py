@@ -189,6 +189,31 @@ def test_plane_loader_moves_named_planes_and_dispatches_projection(tmp_path: Pat
     assert layer.state("fused13").pointer_tables["d4_index_bits"].tolist() == [4, 4]
 
 
+def test_mixed_qtip_offset_tables_cover_qtip3_speculative_loads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kernels = ModuleType("banana_smasher_plugin.p1016_kernels")
+    setattr(
+        kernels,
+        "qtip_offset_map",
+        lambda rate: torch.arange(128 * rate, dtype=torch.int32),
+    )
+    monkeypatch.setitem(sys.modules, kernels.__name__, kernels)
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    layer = NativePlaneLayer(
+        pack,
+        0,
+        device="cpu",
+        dispatch=lambda **kwargs: kwargs["x"],
+    )
+
+    state = layer.state("fused13")
+    assert state.offsets2.numel() == 384
+    assert state.offsets3.numel() == 384
+    assert torch.equal(state.offsets2[:256], torch.arange(256, dtype=torch.int32))
+    assert torch.count_nonzero(state.offsets2[256:]) == 0
+
+
 def test_plane_forward_uses_capture_safe_async_expert_range_guards(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

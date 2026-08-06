@@ -669,6 +669,18 @@ class NativePlaneLayer:
         except Exception:
             offsets2 = torch.zeros(256, dtype=torch.int64, device=self.device)
             offsets3 = torch.zeros(384, dtype=torch.int64, device=self.device)
+        # Triton's tl.where evaluates both offset-table loads.  Keep both tables
+        # large enough for the wider QTIP3 index range so a QTIP3 row cannot make
+        # the unused QTIP2 load read beyond its allocation.
+        offset_count = max(offsets2.numel(), offsets3.numel())
+        if offsets2.numel() < offset_count:
+            offsets2 = torch.cat(
+                (offsets2, offsets2.new_zeros(offset_count - offsets2.numel()))
+            )
+        if offsets3.numel() < offset_count:
+            offsets3 = torch.cat(
+                (offsets3, offsets3.new_zeros(offset_count - offsets3.numel()))
+            )
         lut = _expanded_qtip_lut(self.device)
         return ProjectionState(
             projection,
