@@ -82,6 +82,7 @@ def test_smash_help_exposes_public_verbs() -> None:
         "validate",
         "knapsack",
         "backpack-dimensions",
+        "qtip25-codecs",
     ]
 
 

@@ -1,0 +1,61 @@
+{
+  "schema": "banana-smasher-qtip25-codec-taxonomy-v1",
+  "status": "PASS",
+  "codecs": [
+    {
+      "public_name": "QTIP2.5-AVG-MEMBER",
+      "machine_id": "qtip25_avg_member",
+      "codec_form": "avg_member_50_50",
+      "runtime_family": "qtip2",
+      "runtime_payload_families": [
+        "qtip2",
+        "qtip3"
+      ],
+      "nominal_code_bpw": "2.5",
+      "rate_num": 5,
+      "rate_den": 2
+    },
+    {
+      "public_name": "QTIP2.5-PERIODIC",
+      "machine_id": "qtip25_periodic_23",
+      "codec_form": "periodic_2_3",
+      "runtime_family": "qtip2",
+      "runtime_payload_families": [
+        "qtip2",
+        "qtip3"
+      ],
+      "nominal_code_bpw": "2.5",
+      "rate_num": 5,
+      "rate_den": 2
+    },
+    {
+      "public_name": "QTIP2.5-TWOSTEP",
+      "machine_id": "qtip25_twostep_5b",
+      "codec_form": "twostep_5b",
+      "runtime_family": "qtip2",
+      "runtime_payload_families": [
+        "qtip2",
+        "qtip3"
+      ],
+      "nominal_code_bpw": "2.5",
+      "rate_num": 5,
+      "rate_den": 2
+    }
+  ],
+  "compatibility_aliases": {
+    "qtip@2.50": {
+      "machine_id": "qtip25_avg_member",
+      "codec_form": "avg_member_50_50"
+    }
+  },
+  "baseline_receipt": {
+    "path": "notes/receipts/2026-08-06-qtip25-avg-member-ff0731-baseline.json",
+    "bytes": 4586,
+    "sha256": "379391cbd84868b1ae4d8713148351ebff7aac02df24c053a257dd7fc66f1917"
+  },
+  "immutability": {
+    "legacy_alias_only": true,
+    "sealed_ff0731_bytes_relabelled": false,
+    "sealed_receipts_mutated": false
+  }
+}

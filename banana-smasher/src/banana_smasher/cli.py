@@ -15,6 +15,10 @@ from .contract import (
     verify_serve_compatibility,
 )
 from .fixed_qtip_export import export_fixed_qtip_pack
+from .qtip25_codecs import (
+    builtin_qtip25_codec_providers,
+    resolve_qtip25_codec_provider,
+)
 from .repack import repack_to_safetensors
 from .repair import load_repair_bundle
 from .validation import ValidationError, validate_artifact
@@ -118,6 +122,16 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--basis-sha256", required=True)
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
+
+    qtip25_codecs = subparsers.add_parser(
+        "qtip25-codecs",
+        help="list or resolve collision-free QTIP2.5 codec identities",
+    )
+    qtip25_codecs.add_argument(
+        "codec",
+        nargs="?",
+        help="machine identity or the qtip@2.50 AVG-MEMBER compatibility alias",
+    )
 
     return parser
 
@@ -281,6 +295,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=args.output,
                 receipt=args.receipt,
             )
+        elif args.command == "qtip25-codecs":
+            if args.codec is None:
+                codecs = [
+                    provider.as_dict()
+                    for provider in builtin_qtip25_codec_providers().values()
+                ]
+                result = {
+                    "status": "PASS",
+                    "command": "qtip25-codecs",
+                    "codecs": codecs,
+                }
+            else:
+                provider = resolve_qtip25_codec_provider(args.codec)
+                result = {
+                    "status": "PASS",
+                    "command": "qtip25-codecs",
+                    "codec": provider.as_dict(requested_id=args.codec),
+                }
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2

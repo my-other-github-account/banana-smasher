@@ -182,4 +182,16 @@ def test_fixed_qtip_manifest_survives_cli_export_verify_and_runtime_load(
     manifest = json.loads((output / "BANANA_PACK_MANIFEST.json").read_text())
     assert manifest["fixed_assignment"]["repair_status"] == "absent"
     assert manifest["fixed_assignment"]["members_manifest_sha256"] == members_sha
+    assert manifest["fixed_assignment"]["codec"] == {
+        "public_name": "QTIP2.5-AVG-MEMBER",
+        "machine_id": "qtip25_avg_member",
+        "codec_form": "avg_member_50_50",
+        "requested_id": "qtip@2.50",
+        "compatibility_alias": True,
+        "runtime_family": "qtip2",
+        "runtime_payload_families": ["qtip2", "qtip3"],
+        "nominal_code_bpw": "2.5",
+        "rate_num": 5,
+        "rate_den": 2,
+    }
     assert "repair" not in manifest

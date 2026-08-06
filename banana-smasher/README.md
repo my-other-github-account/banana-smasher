@@ -25,3 +25,14 @@ The bound inputs are supplied with `--repair-checkpoint`, `--repair-checkpoint-s
 Repair checkpoint loading is weights-only and requires PyTorch in the export environment. Pack loading and validation retain the lightweight NumPy + safetensors runtime.
 
 The first sealed model instance has no special framework name. Reusable package, schema, CLI, and documentation names remain `banana-smasher`, `bs-pack`, and `smash`.
+
+## QTIP2.5 codec identities
+
+The public codec names are `QTIP2.5-AVG-MEMBER`, `QTIP2.5-PERIODIC`, and
+`QTIP2.5-TWOSTEP`; their machine identities are `qtip25_avg_member`,
+`qtip25_periodic_23`, and `qtip25_twostep_5b`. Each declaration carries integer
+`rate_num=5` and `rate_den=2`. Run `smash qtip25-codecs` to list them or pass
+one identity to resolve it. The historical `qtip@2.50`
+spelling is a compatibility alias only for `qtip25_avg_member` with
+`codec_form=avg_member_50_50`; it does not rename or rewrite the sealed
+FF0731 artifact bytes.

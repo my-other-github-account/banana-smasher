@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://banana-smasher.local/schema/qtip25-avg-member-baseline-v1.schema.json",
+  "title": "QTIP2.5 AVG-MEMBER immutable FF0731 baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "codec", "runtime", "size", "train64", "ff0731_ancestry", "sibling_comparison_fields", "sibling_comparisons", "immutability", "safety"],
+  "properties": {
+    "schema": {"const": "banana-smasher-qtip25-avg-member-baseline-v1"},
+    "status": {"const": "PASS"},
+    "codec": {
+      "const": {
+        "public_name": "QTIP2.5-AVG-MEMBER",
+        "machine_id": "qtip25_avg_member",
+        "codec_form": "avg_member_50_50",
+        "compatibility_alias": "qtip@2.50",
+        "rate_num": 5,
+        "rate_den": 2
+      }
+    },
+    "runtime": {
+      "const": {
+        "family": "qtip2",
+        "payload_families": ["qtip2", "qtip3"],
+        "payload_tiers": ["qtip25k2", "qtip25k3"]
+      }
+    },
+    "size": {
+      "const": {
+        "nominal_code_bpw": "2.5",
+        "rate_num": 5,
+        "rate_den": 2,
+        "code_bytes": 86570434560,
+        "auxiliary_bytes": 315713536,
+        "auxiliary_components": {"SU": 135266304, "SV": 180355072, "Wscale": 88064, "shared_tlut": 4096},
+        "routing_bytes": 108834816,
+        "qtip_expert_payload_bytes": 86886148096,
+        "retained_non_routed_bytes": 19708797688,
+        "required_weight_pack_index_bytes": 28306324,
+        "whole_model_shipping_bytes": 106623252108,
+        "whole_model_parameter_denominator": 284334567511,
+        "whole_model_shipping_normalized_bpw": "2.9999377997928467990522421626080526990841921473725627341420659657374837984723320"
+      }
+    },
+    "train64": {
+      "const": {
+        "bank": "train_balanced64",
+        "candidate_id": "qtip25_genuine_all43_ff0731",
+        "mean_kld": "0.14997021151401604",
+        "top1_matches": 58390,
+        "top1_positions": 65536,
+        "top1_rate": "0.890960693359375",
+        "scorer_sha256": "53db95bcc809909d649a9f6765e5cbcac3d1da1b2ad4fe7d0efa9421a57c12c5",
+        "teacher_sha256": "a3144885f78ead45dd121ae733652a3e2df61b62d159621502ccd43d497335d1",
+        "bank_manifest_sha256": "78a07d83774f31ffc519724f1cd626b9ece1eda3ff3eab4971d71a1a1c0a3a07",
+        "aggregate_sha256": "ff38f0658acd21cf648ad32fb12123e743101697ee4380034d04bd1baf6be8fd"
+      }
+    },
+    "ff0731_ancestry": {
+      "const": {
+        "base_model": "DeepSeek-V4-Flash-0731",
+        "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "legacy_identity": "qtip@2.50 deterministic per-layer/per-projection 50/50 K2+K3 L16/V2 ring",
+        "immutable_handoff_sha256": "bf0086c03c9040daffd0cc647fa1e9aebeeb18cde77bb912868eb8ed0b3d3132",
+        "member_manifest_sha256": "4bb99e3192b02aeac9fd54e11a2f7685a9df02e0ab20586b49fcfeffb612f41f",
+        "pack_admission_sha256": "a3241fb207a2f2f9c7bc4a496e27aee1e2752ef1930846a58ec425b3fa1d7f70",
+        "train64_candidate_sha256": "1e2a72af04a4eac589a3987c25a4cf8d8faca68f3d928c13ffa24e7d1b2151e4",
+        "competitive_candidate_artifact_sha256": "9eb76ed85235fd15f8fb6e28eaa62395bafd927034b6258343dff9d0f74bdca0",
+        "shipping_artifact_tree_sha256": "ce4c7a8d77fc3bab29756b731e37f2b41742724b9daa113c5a65d28d41673230",
+        "whole_model_weight_audit_sha256": "43ffaf0b43d995544e5ded2165bc97d98948844c2b5f491e44ef69cf1b2ae18b",
+        "shared_tlut_sha256": "000c7985f6ac0cbece4a9850d3913102f9a6cf6f4c051d05444fad1cfb29d"
+      }
+    },
+    "sibling_comparison_fields": {
+      "const": ["machine_id", "codec_form", "runtime_family", "nominal_code_bpw", "rate_num", "rate_den", "code_bytes", "auxiliary_bytes", "routing_bytes", "whole_model_shipping_bytes", "train64_mean_kld", "train64_top1_matches", "model_index_sha256", "receipt_sha256"]
+    },
+    "sibling_comparisons": {
+      "const": [
+        {"public_name": "QTIP2.5-PERIODIC", "machine_id": "qtip25_periodic_23", "codec_form": "periodic_2_3", "runtime_family": "qtip2", "nominal_code_bpw": "2.5", "rate_num": 5, "rate_den": 2, "code_bytes": null, "auxiliary_bytes": null, "routing_bytes": null, "whole_model_shipping_bytes": null, "train64_mean_kld": null, "train64_top1_matches": null, "model_index_sha256": null, "status": "AWAITING_SIBLING_RECEIPT", "receipt_sha256": null},
+        {"public_name": "QTIP2.5-TWOSTEP", "machine_id": "qtip25_twostep_5b", "codec_form": "twostep_5b", "runtime_family": "qtip2", "nominal_code_bpw": "2.5", "rate_num": 5, "rate_den": 2, "code_bytes": null, "auxiliary_bytes": null, "routing_bytes": null, "whole_model_shipping_bytes": null, "train64_mean_kld": null, "train64_top1_matches": null, "model_index_sha256": null, "status": "AWAITING_SIBLING_RECEIPT", "receipt_sha256": null}
+      ]
+    },
+    "immutability": {
+      "const": {"legacy_alias_only": true, "legacy_alias": "qtip@2.50", "bytes_relabelled": false, "sealed_receipts_mutated": false, "historical_tensor_adoption": false}
+    },
+    "safety": {
+      "const": {"holdout_used": false, "repair_used": false, "update12_used": false}
+    }
+  }
+}

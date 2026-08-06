@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import shutil
 import tempfile
 from collections import Counter, defaultdict
@@ -21,6 +20,7 @@ from .contract import (
     export_pack,
     verify_pack,
 )
+from .qtip25_codecs import resolve_qtip25_codec_provider
 
 _FIXED_SCHEMA = "banana-smasher-fixed-qtip-members-v1"
 _PROJECTIONS = {"fused13": "13", "down": "2"}
@@ -431,6 +431,9 @@ def export_fixed_qtip_pack(
             **source_receipt,
             "members_manifest": members_relative.as_posix(),
             "pack_admission": admission_relative.as_posix(),
+            "codec": resolve_qtip25_codec_provider("qtip@2.50").as_dict(
+                requested_id="qtip@2.50"
+            ),
         }
         manifest["provenance"]["fixed_member_root"] = (
             str(Path(member_root).expanduser().resolve()) if member_root is not None else None
