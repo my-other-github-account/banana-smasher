@@ -602,11 +602,6 @@ def test_plane_forward_uses_capture_safe_async_expert_range_guards(
         (
             True,
             "layer 0 fused13 expert id out of range: "
-            "nonzero-weight below--1 padding route",
-        ),
-        (
-            True,
-            "layer 0 fused13 expert id out of range: "
             "nonzero-weight upper padding route",
         ),
     ]
@@ -649,6 +644,31 @@ def test_plane_forward_normalizes_num_experts_padding_at_native_boundary(
         torch.tensor([0, 999]),
         "fused13",
         route_weights=torch.tensor([1.0, 0.0]),
+    )
+
+    assert observed_ids
+    assert torch.equal(observed_ids[0], torch.tensor([0, -1]))
+
+
+def test_plane_forward_normalizes_below_minus_one_dummy_capture_sentinel(
+    tmp_path: Path,
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        observed_ids.append(kwargs["expert_ids"].clone())
+        return torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width),
+            dtype=kwargs["x"].dtype,
+        )
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    layer.forward(
+        torch.ones((2, 4)),
+        torch.tensor([0, -17]),
+        "fused13",
+        route_weights=torch.tensor([1.0, 1.0]),
     )
 
     assert observed_ids
