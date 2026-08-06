@@ -776,7 +776,15 @@ def verify_result_receipt(
         wire = _mapping(row.get("wire"), f"{model_id}.wire")
         _require_exact_keys(
             wire,
-            {"bytes", "decimal_gb", "normalized_bpw", "parameter_denominator"},
+            {
+                "bytes",
+                "decimal_gb",
+                "normalized_bpw",
+                "parameter_denominator",
+                "total_model_bpw",
+                "total_model_parameter_components",
+                "total_model_parameters",
+            },
             f"{model_id}.wire",
         )
         if wire.get("parameter_denominator") != denominator:
@@ -794,6 +802,47 @@ def verify_result_receipt(
         )
         if stored_bpw != expected_bpw:
             raise ReceiptError(f"{model_id}: normalized BPW does not match bytes/denominator")
+
+        total_parameters = _integer(
+            wire.get("total_model_parameters"),
+            f"{model_id}.wire.total_model_parameters",
+            minimum=1,
+        )
+        parameter_components = _mapping(
+            wire.get("total_model_parameter_components"),
+            f"{model_id}.wire.total_model_parameter_components",
+        )
+        _require_exact_keys(
+            parameter_components,
+            {"auxiliary_models", "base_model"},
+            f"{model_id}.wire.total_model_parameter_components",
+        )
+        base_parameters = _integer(
+            parameter_components.get("base_model"),
+            f"{model_id}.wire.total_model_parameter_components.base_model",
+            minimum=1,
+        )
+        auxiliary_parameters = _integer(
+            parameter_components.get("auxiliary_models"),
+            f"{model_id}.wire.total_model_parameter_components.auxiliary_models",
+        )
+        if base_parameters != denominator:
+            raise ReceiptError(f"{model_id}: total-model base parameter count differs from suite lock")
+        if total_parameters != base_parameters + auxiliary_parameters:
+            raise ReceiptError(f"{model_id}: total-model parameter components do not sum")
+        has_drafter = "drafter_repository" in artifact
+        if has_drafter != (auxiliary_parameters > 0):
+            raise ReceiptError(f"{model_id}: auxiliary parameter count disagrees with artifact identity")
+        stored_total_bpw, expected_total_bpw = _ratio_at_stored_precision(
+            wire_bytes * 8,
+            total_parameters,
+            wire.get("total_model_bpw"),
+            f"{model_id}.wire.total_model_bpw",
+        )
+        if stored_total_bpw != expected_total_bpw:
+            raise ReceiptError(
+                f"{model_id}: total-model BPW does not match bytes/total parameters"
+            )
 
         if is_qtip:
             _verify_qtip_details(
