@@ -4,7 +4,15 @@
   "nickname": "BQ23",
   "family_name": "BANANA-SMASHER-BQ23",
   "definition": {
-    "description": "Dynamic Backpack assignment with physical QTIP2 and QTIP3 options; the retired fixed-average QTIP2.5 portfolio is not an option tier.",
+    "description": "Dynamic Backpack assignment with native MXFP4, physical QTIP2, physical QTIP3, D4-K2048, and D4-K4096 options; the retired fixed-average QTIP2.5 portfolio is not an option tier.",
+    "option_menu": [
+      "native_mxfp4",
+      "qtip2",
+      "qtip3",
+      "d4_k2048",
+      "d4_k4096"
+    ],
+    "option_rows_per_tier": 22016,
     "pre_repair_name": "BQ23-PRE",
     "post_repair_name": "BQ23-U12",
     "deploy_name": "BANANA-SMASHER-BQ23-U12",
@@ -35,7 +43,9 @@
       "assignment_counts": {
         "native_mxfp4": 1951,
         "qtip2": 4236,
-        "qtip3": 15829
+        "qtip3": 15829,
+        "d4_k2048": 0,
+        "d4_k4096": 0
       },
       "terminal_receipt_sha256": "25e6f9d5d2e372a67e80f7dd17f3147b24f30dd08a3d08ee35f92193a03b7052",
       "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
@@ -108,6 +118,8 @@
     "retire_fixed_qtip2_5_average": true,
     "retain_bq23": true,
     "retain_dynamic_qtip2_qtip3_options": true,
+    "retain_d4_k2048_option": true,
+    "retain_d4_k4096_option": true,
     "prioritize_modern_qtip2_5_styles": true,
     "post_repair_claim_status": "NOT_YET_MEASURED"
   },
