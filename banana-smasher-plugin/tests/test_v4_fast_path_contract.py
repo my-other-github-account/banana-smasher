@@ -51,6 +51,7 @@ def test_public_image_pins_dense_sm121_deepgemm_source() -> None:
     assert "f8e8fb5830fa5cda6e4ea73d360bb3f21f87a3ca" in dockerfile
     assert "deep_gemm-2.6.1" in dockerfile
     assert "https://github.com/jasl/DeepGEMM.git" not in dockerfile
+    assert "a6b593d2826719dcf4892609af7b84ee23aaf32a" not in dockerfile
     assert "7a7a41a1bac7dacabe74057e7600e59f98f85bce" not in dockerfile
 
 

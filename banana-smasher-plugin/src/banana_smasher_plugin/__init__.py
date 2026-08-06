@@ -1,15 +1,70 @@
 from __future__ import annotations
 
+import ctypes
 import functools
 import importlib
+import importlib.metadata
 import inspect
 import logging
+import os
 import sys
-
-import torch
+from pathlib import Path
 
 _LOG = logging.getLogger("banana_smasher_plugin")
 _REGISTERED = False
+_REAL_CUDART_PATH = Path("/usr/local/cuda/lib64/libcudart.so.13")
+_REAL_CUDA_RUNTIME = None
+_FLASHINFER_CUBIN_DIR_OVERRIDE: Path | None = None
+
+
+def configure_flashinfer_cuda_runtime() -> bool:
+    """Bind FlashInfer IPC to the real CUDA runtime before stubs can load."""
+    global _FLASHINFER_CUBIN_DIR_OVERRIDE, _REAL_CUDA_RUNTIME
+    if _REAL_CUDA_RUNTIME is not None:
+        return True
+    if not _REAL_CUDART_PATH.is_file():
+        return False
+
+    runtime = ctypes.CDLL(str(_REAL_CUDART_PATH), mode=ctypes.RTLD_GLOBAL)
+    cubin_dir_variable = "FLASHINFER_CUBIN_DIR"
+    previous_cubin_dir = os.environ.get(cubin_dir_variable)
+    try:
+        if previous_cubin_dir is None:
+            try:
+                flashinfer_version = importlib.metadata.version("flashinfer-python")
+                cubin_version = importlib.metadata.version("flashinfer-cubin")
+            except importlib.metadata.PackageNotFoundError:
+                pass
+            else:
+                if cubin_version != flashinfer_version:
+                    _FLASHINFER_CUBIN_DIR_OVERRIDE = (
+                        Path.home() / ".cache" / "flashinfer" / "cubins"
+                    )
+                    os.environ[cubin_dir_variable] = str(
+                        _FLASHINFER_CUBIN_DIR_OVERRIDE
+                    )
+        importlib.import_module("flashinfer.comm.cuda_ipc")
+    finally:
+        if previous_cubin_dir is None:
+            os.environ.pop(cubin_dir_variable, None)
+        else:
+            os.environ[cubin_dir_variable] = previous_cubin_dir
+    _REAL_CUDA_RUNTIME = runtime
+    _LOG.warning(
+        "BANANA_SMASHER_FLASHINFER_CUDART path=%s mode=RTLD_GLOBAL",
+        _REAL_CUDART_PATH,
+    )
+    if _FLASHINFER_CUBIN_DIR_OVERRIDE is not None:
+        _LOG.warning(
+            "BANANA_SMASHER_FLASHINFER_CUBIN_DIR_OVERRIDE path=%s",
+            _FLASHINFER_CUBIN_DIR_OVERRIDE,
+        )
+    return True
+
+
+configure_flashinfer_cuda_runtime()
+
+import torch  # noqa: E402
 
 
 def configure_flashinfer_sparse_mla_signature_compat() -> bool:
@@ -461,10 +516,21 @@ def configure_stock_mhc_backend() -> bool:
 
 
 def register() -> None:
-    """Register the canonical product quantization config in every vLLM process."""
+    """Register the canonical product config and native vLLM serve defaults."""
     global _REGISTERED
     if _REGISTERED:
         return
+    from .vllm_defaults import (
+        configure_runtime_environment,
+        install_vllm_arg_defaults,
+    )
+
+    configure_runtime_environment()
+    install_vllm_arg_defaults()
+
+    from .native_extensions import preflight_native_extensions
+
+    preflight_native_extensions()
     configure_flashinfer_sparse_mla_signature_compat()
     configure_stock_deepseek_v4_attention_backend()
     configure_sparse_indexer_deep_gemm_backend()
@@ -492,6 +558,7 @@ __all__ = [
     "configure_flashinfer_sparse_mla_signature_compat",
     "configure_sparse_indexer_deep_gemm_backend",
     "configure_sparse_indexer_topk_backend",
+
     "configure_stock_deepseek_v4_attention_backend",
     "configure_stock_deepseek_v4_o_proj",
     "configure_stock_mhc_backend",

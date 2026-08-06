@@ -51,13 +51,22 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
         registrations.append((name, impl, fake_impl, mutates_args, tags))
 
         if mutates_args:
-            def invoke(x, expert_ids, output, layer_key, projection_key):
+            def invoke_mutating(
+                x, expert_ids, route_weights, output, layer_key, projection_key
+            ):
                 calls.append((layer_key, projection_key))
-                return impl(x, expert_ids, output, layer_key, projection_key)
+                return impl(
+                    x, expert_ids, route_weights, output, layer_key, projection_key
+                )
+
+            invoke = invoke_mutating
         else:
-            def invoke(x, expert_ids, layer_key, projection_key):
+
+            def invoke_functional(
+                x, expert_ids, route_weights, layer_key, projection_key
+            ):
                 calls.append((layer_key, projection_key))
-                return impl(x, expert_ids, layer_key, projection_key)
+                return impl(x, expert_ids, route_weights, layer_key, projection_key)
 
         monkeypatch.setattr(torch.ops.vllm, name, invoke, raising=False)
 
@@ -102,10 +111,7 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
         "caller-owned stable output buffer"
     )
     assert torch.Tag.cudagraph_unsafe in registrations[0][4]
-    assert eager_decorations, (
-        "the custom-op kernel must be an eager break for vLLM's automatically "
-        "selected breakable cudagraph runtime"
-    )
+    assert eager_decorations == [native_planes._native_plane_forward_op]
     assert calls == [(layer._custom_op_key, 0)]
     assert result.shape == (2, 4)
     assert torch.all(result == 7)
@@ -122,11 +128,11 @@ def test_native_plane_forward_registers_breakable_cudagraph_eager_boundary(
     ("breakable_enabled", "mode", "has_config", "message"),
     [
         (False, "PIECEWISE", True, "VLLM_USE_BREAKABLE_CUDAGRAPH=1"),
-        (True, "FULL", True, "cudagraph_mode=PIECEWISE"),
+        (True, "FULL_AND_PIECEWISE", True, "cudagraph_mode=PIECEWISE"),
         (True, "PIECEWISE", False, "active vLLM config"),
     ],
 )
-def test_native_plane_cudagraph_contract_fails_closed(
+def test_native_plane_cudagraph_boundary_fails_closed(
     monkeypatch, breakable_enabled, mode, has_config, message,
 ) -> None:
     envs = ModuleType("vllm.envs")
@@ -147,7 +153,7 @@ def test_native_plane_cudagraph_contract_fails_closed(
         native_planes._require_native_plane_breakable_cudagraph()
 
 
-def test_cuda_native_plane_rejects_missing_custom_op(monkeypatch) -> None:
+def test_cuda_native_plane_rejects_missing_breakable_custom_op(monkeypatch) -> None:
     monkeypatch.setattr(native_planes, "_ensure_native_plane_custom_op", lambda: False)
     layer = cast(
         native_planes.NativePlaneLayer,
