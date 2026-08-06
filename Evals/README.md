@@ -88,6 +88,18 @@ Expected KLD order:
 IQ4 > QTIP3 > IQ3 > QTIP2.5 > QTIP2 > IQ2 > DwarfStar
 ```
 
+## Standard HumanEval tooling
+
+`HUMANEVAL_0731_V1` provides one frozen HumanEval/HumanEval+ path for any DeepSeek-V4-Flash-0731 artifact exposed through an OpenAI-compatible endpoint. It fixes the historical false-cap bug by binding a real 4,096-token completion budget that excludes the prompt, preserves semantic null responses as failures, and enforces four disjoint resumable shards with exactly one sample per task.
+
+Inspect the frozen config:
+
+```bash
+python3 -m Evals.tools.humaneval show-config
+```
+
+The CLI supports `generate`, `merge`, `audit`, and `score`. Generated code must be scored in the provided network-isolated Docker environment. See the [HumanEval 0731 protocol](protocols/humaneval-0731-v1.md) for the complete commands.
+
 ## Aggregate a new 64-window result
 
 Put the 64 completed row receipts in one directory, then run:
@@ -107,5 +119,9 @@ The aggregator rejects missing or duplicate windows, changed classes, wrong posi
 - [Full measurement protocol](protocols/balanced64-v1.md)
 - [One-window receipt template](templates/balanced64-window-v1.json)
 - [Verifier and aggregator](tools/receipts.py)
+- [Standard HumanEval CLI](tools/humaneval.py)
+- [Frozen HumanEval 0731 lock](configs/humaneval-0731-v1.json)
+- [HumanEval 0731 protocol](protocols/humaneval-0731-v1.md)
+- [Pinned HumanEval container](docker/humaneval/Dockerfile)
 - [JSON schemas](schemas/)
 - [Separate internal Backpack anchor calculations](../Backpack/README.md)
