@@ -331,7 +331,8 @@
       "properties": {
         "pack": {"$ref": "#/$defs/path"},
         "model_id": {"type": "string", "minLength": 1},
-        "instance_id": {"type": "string", "minLength": 1}
+        "instance_id": {"type": "string", "minLength": 1},
+        "serving_model_root": {"$ref": "#/$defs/path"}
       }
     }
   }

@@ -1304,6 +1304,10 @@ def export_pack(
     output = Path(output).resolve()
     if output.exists():
         raise FileExistsError(f"output already exists: {output}")
+    if repair is not None and repair.dense_tensors and serving_model_root is None:
+        raise PackValidationError(
+            "repair export requires serving_model_root so dense repair state can be applied"
+        )
 
     config_source = source_root / "config.json"
     serving_root: Path | None = None
@@ -1323,6 +1327,31 @@ def export_pack(
                 "serving model already has export-folded repair; refusing to apply "
                 "output gains a second time"
             )
+    kernel_architecture = "sm_120"
+    if kernel_cache_root is not None:
+        kernel_manifest_path = (
+            Path(kernel_cache_root).expanduser().resolve() / KERNEL_MANIFEST_NAME
+        )
+        try:
+            kernel_manifest = json.loads(kernel_manifest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise PackValidationError(
+                f"cannot read {KERNEL_MANIFEST_NAME}: {exc}"
+            ) from exc
+        kernel_architectures = (
+            kernel_manifest.get("architectures")
+            if isinstance(kernel_manifest, dict)
+            else None
+        )
+        if (
+            not isinstance(kernel_architectures, list)
+            or not kernel_architectures
+            or not all(isinstance(value, str) and value for value in kernel_architectures)
+        ):
+            raise PackValidationError("kernel manifest architectures must be non-empty")
+        kernel_architecture = (
+            "sm_120" if "sm_120" in kernel_architectures else kernel_architectures[0]
+        )
     banana_smasher_receipt = source_root / "LAYER_RECEIPT.json"
     source_receipt_sha256: str | dict[str, str] | None = None
     banana_smasher_layers: dict[int, tuple[list[Path], str]] = {}
@@ -1617,7 +1646,7 @@ def export_pack(
             "pack_manifest": MANIFEST_NAME,
             "pack_root": ".",
             "kernel_cache_root": "kernel-cache",
-            "architecture": "sm_120",
+            "architecture": kernel_architecture,
             "tensor_container": None,
             "kernel_cache_manifest": "BS_KERNEL_CACHE_MANIFEST.json",
         }
@@ -1653,6 +1682,16 @@ def export_pack(
             if kernel_cache_root is not None:
                 linked.extend(_materialize_kernel_cache(kernel_cache_root, output))
             if repair is not None:
+                covered = {row["checkpoint_key"] for row in repair_rows}
+                expected = {
+                    codebook.checkpoint_key for codebook in repair.codebooks.values()
+                }
+                missing = sorted(expected - covered)
+                if missing:
+                    raise ValueError(
+                        "checkpoint codebooks were not materialized into the plane source: "
+                        f"missing={missing[:8]} count={len(missing)}"
+                    )
                 dense_application = materialize_dense_repair_shards(output, repair)
                 rewritten = set(dense_application["rewritten_files"])
                 for row in linked:
@@ -1737,7 +1776,7 @@ def export_pack(
             "provenance": {
                 "source_root": str(source_root),
                 "source_layer_receipt_sha256": source_receipt_sha256,
-                "port_base": "glm52-ds4-bq3-ptq-opd/docker/scripts/export_pack.py",
+                "port_base": "canonical-p1016-export",
             },
         }
         if source_format == "p1016-true-c-native-planes-v1":
@@ -1780,7 +1819,7 @@ def export_pack(
             verify_serve_compatibility(
                 output,
                 output / "kernel-cache",
-                architecture="sm_120",
+                architecture=kernel_architecture,
             )
         return manifest
     except Exception:
@@ -1897,13 +1936,16 @@ def _verify_config(root: Path) -> None:
         "pack_manifest": MANIFEST_NAME,
         "pack_root": ".",
         "kernel_cache_root": "kernel-cache",
-        "architecture": "sm_120",
     }
     for key, value in expected.items():
         if quant.get(key) != value:
             raise PackValidationError(
                 f"config quantization_config.{key} mismatch: expected {value!r}, got {quant.get(key)!r}"
             )
+    if quant.get("architecture") not in {"sm_120", "sm_121", "sm_121a"}:
+        raise PackValidationError(
+            "config quantization_config.architecture must be sm_120, sm_121, or sm_121a"
+        )
 
 
 def _verify_layer_meta(root: Path, manifest: dict[str, Any]) -> None:

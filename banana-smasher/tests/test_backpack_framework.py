@@ -1519,6 +1519,7 @@ def test_repair_bundle_reaches_export_pack_contract(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     plan = _fixture_plan(tmp_path)
+    plan["output"]["serving_model_root"] = str(_serving_model(tmp_path))  # type: ignore[index]
     plan["repair"] = {
         "method": "repair_bundle",
         "checkpoint": str(tmp_path / "UPDATE.pt"),
@@ -1542,7 +1543,7 @@ def test_repair_bundle_reaches_export_pack_contract(
         update=12,
         codebooks={},
         dense_tensors={
-            "norms/model.norm": np.arange(4, dtype=np.float32),
+            "norms/model.norm.weight": np.arange(4, dtype=np.float32),
             "outputs/model.layers.0.self_attn.o_b_proj.output_log_gain": np.asarray(
                 0.125, dtype=np.float32
             ),

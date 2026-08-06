@@ -121,39 +121,7 @@ def main() -> int:
     native_price = price_backpack_candidate(native_receipt)
     providers = builtin_backpack_family_providers()
     qtip15 = qtip1_5_provider_declaration()
-    d4_provider = providers["d4-k2048"]
-    d4_tier = {
-        "id": "d4-k2048",
-        "family": "fixed_d4",
-        "codebook_size": 2048,
-    }
-    d4_cell = {
-        "cell_id": "direct-cell",
-        "layer": 0,
-        "projection": "down",
-        "expert_ids": [0],
-        "weights": np.arange(16, dtype=np.float32),
-    }
-    d4_candidate = d4_provider.generate(
-        root / "direct-provider", tier=d4_tier, cell=d4_cell
-    )
-    d4_price = d4_provider.price(d4_candidate)
-    d4_features = np.resize(np.eye(16, dtype=np.float32), (64, 16))
-    d4_prediction = d4_provider.predict(
-        d4_features,
-        np.asarray([CLASSES[index % len(CLASSES)] for index in range(64)]),
-        d4_cell["weights"],
-        d4_cell["weights"].copy(),
-    )
-    if not d4_provider.verify(d4_candidate, tier=d4_tier, cell=d4_cell):
-        raise RuntimeError("fixed-D4 provider candidate verification failed")
-    d4_payloads: dict[tuple[int, str], dict[str, list[np.ndarray]]] = {}
-    d4_provider.materialize(
-        d4_payloads,
-        tier=d4_tier,
-        cell=d4_cell,
-        artifact_root=Path(d4_candidate["receipt"]).parent,
-    )
+
     cli = subprocess.run(
         [
             sys.executable,
@@ -176,10 +144,6 @@ def main() -> int:
         "providers": sorted(providers),
         "qtip15_provider": qtip15.tier,
         "native_incremental_bytes": native_price.full_wire_bytes,
-        "d4_provider": d4_provider.provider_id,
-        "d4_provider_bytes": d4_price.full_wire_bytes,
-        "d4_provider_prediction": d4_prediction["status"],
-        "d4_provider_materialized": (0, "truevq_d4") in d4_payloads,
         "candidate_tiers": [row["tier"] for row in generated["candidate_tiers"]],
         "prediction_rows": len(predicted["rows"]),
         "assignment_count": len(solved["assignment"]),

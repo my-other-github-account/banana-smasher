@@ -484,13 +484,23 @@ class BackpackPlan:
             )
 
         output = _object(value.get("output"), "output")
-        _reject_unknown(output, {"pack", "model_id", "instance_id"}, "output")
+        _reject_unknown(
+            output,
+            {"pack", "model_id", "instance_id", "serving_model_root"},
+            "output",
+        )
         output = {
             **output,
             "pack": _path(output.get("pack"), "output.pack", base_dir=base),
             "model_id": _nonempty(output.get("model_id"), "output.model_id"),
             "instance_id": _nonempty(output.get("instance_id"), "output.instance_id"),
         }
+        if "serving_model_root" in output:
+            output["serving_model_root"] = _path(
+                output["serving_model_root"],
+                "output.serving_model_root",
+                base_dir=base,
+            )
         raw_reuse = value.get("reuse_receipts", [])
         if not isinstance(raw_reuse, Sequence) or isinstance(raw_reuse, (str, bytes)):
             raise BackpackPlanError("reuse_receipts must be an array")
@@ -814,6 +824,18 @@ def _fixed_artifacts(
 def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     _manifest_path, manifest = _model_manifest(plan)
     root = Path(plan.model["root"])
+    fixed_d4_requested = any(
+        tier.get("provider") in {"d4_k2048", "d4-k2048", "d4_k4096", "d4-k4096"}
+        for tier in plan.tiers
+    )
+    fixed_d4_basis: str | None = None
+    if fixed_d4_requested:
+        basis_index = root / "model.safetensors.index.json"
+        if basis_index.is_symlink() or not basis_index.is_file():
+            raise BackpackPlanError(
+                "fixed D4 tiers require model.root/model.safetensors.index.json"
+            )
+        fixed_d4_basis = _sha_file(basis_index)
     rows = manifest.get("cells")
     if not isinstance(rows, list) or not rows:
         raise BackpackPlanError("model geometry manifest cells must be non-empty")
@@ -924,6 +946,14 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
                 "projection": projection,
                 "expert_ids": expert_ids,
                 "weights": np.ascontiguousarray(array.reshape(-1)),
+                **(
+                    {
+                        "fixed_d4_model_root": str(root.resolve()),
+                        "fixed_d4_basis_sha256": fixed_d4_basis,
+                    }
+                    if fixed_d4_basis is not None
+                    else {}
+                ),
                 **(
                     {"native_mxfp4": native_payload}
                     if native_payload is not None
@@ -1363,22 +1393,163 @@ def generate_fixed_d4_backpack_candidate(
     *,
     tier: Mapping[str, Any],
     cell: Mapping[str, Any],
+    weights: np.ndarray | None = None,
     **_: Any,
 ) -> dict[str, Any]:
-    """Generate a fixed K2048/K4096 D4 tier through the shared candidate path."""
+    """Generate one exact native-MXFP4 fixed-D4 cell for the public plan seam."""
 
+    if weights is not None:
+        raise BackpackPlanError("fixed D4 candidates cannot replace their bound source weights")
     provider = str(tier.get("provider", ""))
     codebook_size = 2048 if "2048" in provider else 4096
-    normalized = {
+    fixed_tier = f"d4_k{codebook_size}"
+    bits = 11 if codebook_size == 2048 else 12
+    layer = int(cell["layer"])
+    projection = str(cell["projection"])
+    model_root_value = cell.get("fixed_d4_model_root")
+    basis_sha256 = cell.get("fixed_d4_basis_sha256")
+    if not isinstance(model_root_value, str) or not isinstance(basis_sha256, str):
+        raise BackpackPlanError(
+            "fixed D4 plan candidates require a model-index-bound source cell"
+        )
+    model_root = Path(model_root_value)
+    basis_index = model_root / "model.safetensors.index.json"
+    if _sha_file(basis_index) != basis_sha256:
+        raise BackpackPlanError("fixed D4 source model basis changed during generation")
+
+    from .fixed_d4 import prepare_fixed_d4_solve_config, solve_fixed_d4_exact
+
+    solve_root = Path(run_root) / "fixed-d4" / str(tier["id"]) / f"layer-{layer}"
+    prepared_root = solve_root / "prepared"
+    solved_root = solve_root / "solved"
+    config_path = prepared_root / "solve.json"
+    manifest_path = solved_root / "materialize.json"
+    if prepared_root.exists():
+        try:
+            prepared = json.loads(config_path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise BackpackPlanError(f"invalid reusable fixed D4 prepare config: {exc}") from exc
+        copied_basis = prepared_root / str(prepared.get("basis_index", ""))
+        if (
+            prepared.get("schema") != "banana-smasher-fixed-d4-exact-solve-v1"
+            or prepared.get("tier") != fixed_tier
+            or prepared.get("layer") != layer
+            or prepared.get("basis_sha256") != basis_sha256
+            or not copied_basis.is_file()
+            or _sha_file(copied_basis) != basis_sha256
+        ):
+            raise BackpackPlanError("reusable fixed D4 prepare config identity mismatch")
+    else:
+        prepare_fixed_d4_solve_config(
+            model_root,
+            None,
+            prepared_root,
+            tier=fixed_tier,
+            layer=layer,
+            basis_sha256=basis_sha256,
+            chunk_vectors=256,
+            reserve_bytes=0,
+        )
+    if solved_root.exists():
+        try:
+            solved_manifest = json.loads(manifest_path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise BackpackPlanError(f"invalid reusable fixed D4 solve manifest: {exc}") from exc
+        copied_basis_row = solved_manifest.get("basis_index")
+        copied_basis = (
+            solved_root / str(copied_basis_row.get("path", ""))
+            if isinstance(copied_basis_row, Mapping)
+            else solved_root / "missing"
+        )
+        if (
+            solved_manifest.get("schema")
+            != "banana-smasher-fixed-d4-materialization-v1"
+            or solved_manifest.get("tier") != fixed_tier
+            or solved_manifest.get("layer") != layer
+            or solved_manifest.get("basis_sha256") != basis_sha256
+            or not copied_basis.is_file()
+            or _sha_file(copied_basis) != basis_sha256
+        ):
+            raise BackpackPlanError("reusable fixed D4 solve manifest identity mismatch")
+    else:
+        solve_fixed_d4_exact(config_path, solved_root, basis_sha256=basis_sha256)
+        solved_manifest = json.loads(manifest_path.read_text())
+
+    projection_row = solved_manifest["projections"][projection]
+    assignments = np.load(solved_root / projection_row["assignments"]["path"])
+    scale_rows = np.load(solved_root / projection_row["scales"]["path"])
+    codebook = np.asarray(
+        np.load(solved_root / projection_row["codebook"]["path"]), dtype=np.float16
+    )
+    expert_ids = [int(expert_id) for expert_id in cell["expert_ids"]]
+    packed_parts: list[bytes] = []
+    scales: list[np.ndarray] = []
+    decoded_rows: list[np.ndarray] = []
+    payload_sizes: list[tuple[int, int, int]] = []
+    for expert_id in expert_ids:
+        expert_assignments = np.asarray(assignments[expert_id]).reshape(-1)
+        expert_scales = np.asarray(scale_rows[expert_id], dtype=np.uint8).reshape(-1)
+        packed = pack_indices(expert_assignments, bits=bits)
+        normalized = np.asarray(codebook[expert_assignments].reshape(-1), dtype=np.float32)
+        if normalized.size != expert_scales.size * 32:
+            raise BackpackPlanError(
+                "fixed D4 assignments and E8M0 source scales have incompatible geometry"
+            )
+        decoded = normalized.reshape(-1, 32) * np.exp2(
+            expert_scales.astype(np.int16) - 127
+        )[:, None]
+        packed_parts.append(packed)
+        scales.append(expert_scales)
+        decoded_rows.append(decoded.reshape(-1))
+        payload_sizes.append((len(packed), expert_scales.nbytes, codebook.nbytes))
+    geometry = (4, bits, codebook_size)
+    normalized_tier = {
         **tier,
         "family": "vector_vq",
         "dimension": 4,
         "codebook_size": codebook_size,
     }
-    normalized.pop("bits", None)
-    normalized.pop("bpw", None)
-    return generate_vector_vq_backpack_candidate(
-        run_root, tier=normalized, cell=cell
+    normalized_tier.pop("bits", None)
+    normalized_tier.pop("bpw", None)
+    return _write_candidate_artifact(
+        Path(run_root),
+        tier=normalized_tier,
+        cell=cell,
+        decoded=np.concatenate(decoded_rows),
+        packed=b"".join(packed_parts),
+        extra_arrays={
+            "codebooks": np.stack([codebook] * len(expert_ids)),
+            "scales": np.concatenate(scales),
+            "expert_ids": np.asarray(expert_ids, dtype=np.int16),
+            "tensor_offsets": _payload_offsets(payload_sizes),
+            "record_tiers": _byte_string_array(
+                [str(tier["id"])] * len(expert_ids), width=32
+            ),
+            "record_geometry": np.asarray([geometry] * len(expert_ids), dtype=np.int32),
+            "record_projections": _byte_string_array(
+                [projection] * len(expert_ids), width=8
+            ),
+        },
+        metadata={
+            "algorithm": "exact-native-mxfp4-d4",
+            "source_dtype": "packed-mxfp4-e2m1-with-e8m0-scales",
+            "basis_sha256": basis_sha256,
+            "fixed_d4_tier": fixed_tier,
+            "fixed_d4_manifest": str(manifest_path),
+            "fixed_d4_manifest_sha256": _sha_file(manifest_path),
+            "projection": projection,
+            "dimension": 4,
+            "bits": bits,
+            "codebook_size": codebook_size,
+            "record_geometry_fields": ["dimension", "bits", "codebook_size"],
+            "records": _record_rows(
+                expert_ids=expert_ids,
+                projection=projection,
+                tier=str(tier["id"]),
+                geometries=[geometry] * len(expert_ids),
+                geometry_fields=("dimension", "bits", "codebook_size"),
+            ),
+        },
     )
 
 
@@ -2447,6 +2618,9 @@ def _export_verified_pack(
         instance_id=f"{plan.output['instance_id']}-{suffix}",
         link_mode="copy",
         repair=repair,
+        serving_model_root=(
+            plan.output.get("serving_model_root") if repair is not None else None
+        ),
         runtime_floor_bytes=0,
     )
     _attach_backpack_artifacts(
@@ -2888,12 +3062,29 @@ def _final_pack_weights(
                             raise BackpackPlanError(
                                 f"final pack code index exceeds its codebook for cell {cell_id}"
                             )
-                        record_weights.append(
-                            np.asarray(
-                                codebook.reshape(size, dimension)[indices].reshape(-1),
-                                dtype=np.float32,
-                            )
+                        decoded = np.asarray(
+                            codebook.reshape(size, dimension)[indices].reshape(-1),
+                            dtype=np.float32,
                         )
+                        if descriptor.get("provider") in {
+                            "d4_k2048",
+                            "d4-k2048",
+                            "d4_k4096",
+                            "d4-k4096",
+                        }:
+                            scale_payload = _record_payload_bytes(
+                                arrays["scales"], offsets, record=record, column=1
+                            )
+                            e8m0 = np.frombuffer(scale_payload, dtype=np.uint8)
+                            if decoded.size != e8m0.size * 32:
+                                raise BackpackPlanError(
+                                    f"final pack fixed D4 scale geometry mismatch for cell {cell_id}"
+                                )
+                            decoded = (
+                                decoded.reshape(-1, 32)
+                                * np.exp2(e8m0.astype(np.int16) - 127)[:, None]
+                            ).reshape(-1)
+                        record_weights.append(decoded)
                     else:
                         _length, bits, _vector = (
                             int(value) for value in geometry[record]
@@ -3606,8 +3797,24 @@ def _validate_candidate_receipt(
             geometries=expected_geometry,
             geometry_fields=("dimension", "bits", "codebook_size"),
         )
+        fixed_d4 = tier.get("provider") in {
+            "d4_k2048",
+            "d4-k2048",
+            "d4_k4096",
+            "d4-k4096",
+        }
         if (
-            receipt.get("algorithm") != "nearest-vector-codeword"
+            receipt.get("algorithm")
+            != ("exact-native-mxfp4-d4" if fixed_d4 else "nearest-vector-codeword")
+            or (
+                fixed_d4
+                and (
+                    receipt.get("source_dtype")
+                    != "packed-mxfp4-e2m1-with-e8m0-scales"
+                    or receipt.get("basis_sha256")
+                    != cell.get("fixed_d4_basis_sha256")
+                )
+            )
             or receipt.get("dimension") != dimension
             or receipt.get("bits") != bits
             or receipt.get("codebook_size") != 1 << bits
