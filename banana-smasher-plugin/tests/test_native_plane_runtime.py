@@ -675,6 +675,31 @@ def test_plane_forward_normalizes_below_minus_one_dummy_capture_sentinel(
     assert torch.equal(observed_ids[0], torch.tensor([0, -1]))
 
 
+def test_plane_forward_normalizes_num_experts_dummy_capture_sentinel(
+    tmp_path: Path,
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        observed_ids.append(kwargs["expert_ids"].clone())
+        return torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width),
+            dtype=kwargs["x"].dtype,
+        )
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    layer.forward(
+        torch.ones((2, 4)),
+        torch.tensor([0, 2]),
+        "fused13",
+        route_weights=torch.tensor([1.0, 1.0]),
+    )
+
+    assert observed_ids
+    assert torch.equal(observed_ids[0], torch.tensor([0, -1]))
+
+
 def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
     observed_ids: list[torch.Tensor] = []
@@ -1035,7 +1060,7 @@ def test_native_moe_apply_normalizes_zero_weight_num_experts_padding(
     ]
 
 
-def test_native_moe_apply_rejects_nonzero_weight_padding_sentinel(
+def test_native_moe_apply_rejects_nonzero_weight_id_above_capture_sentinel(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
@@ -1052,7 +1077,7 @@ def test_native_moe_apply_rejects_nonzero_weight_padding_sentinel(
     from banana_smasher_plugin.quantization import BananaSmasherMoEMethod
 
     x = torch.ones((1, 4), dtype=torch.float32)
-    ids = torch.tensor([[0, 1, 2, 0, 1, 0]], dtype=torch.long)
+    ids = torch.tensor([[0, 1, 3, 0, 1, 0]], dtype=torch.long)
     weights = torch.tensor([[0.4, 0.2, 0.1, 0.1, 0.1, 0.1]])
 
     with pytest.raises(RuntimeError, match="nonzero-weight upper padding route"):
