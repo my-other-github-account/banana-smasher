@@ -1193,26 +1193,17 @@ class NativePlaneLayer:
         # Validate and normalize graph-padding at the eager custom-op boundary,
         # where both router outputs are materialized. Stock vLLM may leave an
         # arbitrary expert id in an inactive route during dummy CUDA-graph
-        # capture. In particular, stock capture can pair below--1 and exactly
-        # num_experts sentinels with nonzero scratch route weights. Neither can
-        # name a real expert, so canonicalize both to the native dispatch's
-        # zero-output -1 row. Canonical -1 and ids strictly above num_experts
-        # remain weight-qualified so other invalid routes fail closed.
+        # capture. Physical PIECEWISE capture has produced below--1, exactly
+        # num_experts, and above-num_experts sentinels with nonzero scratch
+        # route weights, so weight is not an active-row discriminator here.
+        # Expert identity is the contract: every out-of-range id is inactive
+        # padding and is canonicalized to the native dispatch's zero-output -1
+        # row before any pointer lookup.
         expert_count = len(state.tiers)
         canonical_padding = expert_ids == -1
         negative_padding = expert_ids < -1
         canonical_upper_padding = expert_ids == expert_count
         upper_padding = expert_ids > expert_count
-        torch.ops.aten._assert_async.msg(
-            torch.all((~canonical_padding) | (route_weights == 0)),
-            f"layer {self.layer_index} {projection} expert id out of range: "
-            "nonzero-weight canonical -1 padding route",
-        )
-        torch.ops.aten._assert_async.msg(
-            torch.all((~upper_padding) | (route_weights == 0)),
-            f"layer {self.layer_index} {projection} expert id out of range: "
-            "nonzero-weight upper padding route",
-        )
         expert_ids = torch.where(
             canonical_padding
             | negative_padding

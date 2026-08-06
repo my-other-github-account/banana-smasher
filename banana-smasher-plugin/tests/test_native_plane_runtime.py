@@ -593,36 +593,29 @@ def test_plane_forward_uses_capture_safe_async_expert_range_guards(
     result = layer.forward(torch.ones((2, 4)), torch.tensor([0, 1]), "fused13")
 
     assert result.shape == (2, 4)
-    assert calls == [
-        (
-            True,
-            "layer 0 fused13 expert id out of range: "
-            "nonzero-weight canonical -1 padding route",
-        ),
-        (
-            True,
-            "layer 0 fused13 expert id out of range: "
-            "nonzero-weight upper padding route",
-        ),
-    ]
+    assert calls == []
 
 
-def test_plane_forward_async_guard_rejects_out_of_range_expert(tmp_path: Path) -> None:
+def test_plane_forward_normalizes_arbitrary_upper_dummy_capture_sentinel(
+    tmp_path: Path,
+) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
-    layer = NativePlaneLayer(
-        pack,
-        0,
-        device="cpu",
-        dispatch=lambda **kwargs: kwargs["x"],
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        observed_ids.append(kwargs["expert_ids"].clone())
+        return kwargs["x"]
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    layer.forward(
+        torch.ones((2, 4)),
+        torch.tensor([0, 999]),
+        "fused13",
+        route_weights=torch.tensor([1.0, 1.0]),
     )
 
-    with pytest.raises(RuntimeError, match="expert id out of range"):
-        layer.forward(
-            torch.ones((2, 4)),
-            torch.tensor([0, 3]),
-            "fused13",
-            route_weights=torch.tensor([1.0, 1.0]),
-        )
+    assert observed_ids
+    assert torch.equal(observed_ids[0], torch.tensor([0, -1]))
 
 
 def test_plane_forward_normalizes_num_experts_padding_at_native_boundary(
@@ -1060,7 +1053,7 @@ def test_native_moe_apply_normalizes_zero_weight_num_experts_padding(
     ]
 
 
-def test_native_moe_apply_rejects_nonzero_weight_id_above_capture_sentinel(
+def test_native_moe_apply_normalizes_nonzero_weight_id_above_capture_sentinel(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
@@ -1080,8 +1073,8 @@ def test_native_moe_apply_rejects_nonzero_weight_id_above_capture_sentinel(
     ids = torch.tensor([[0, 1, 3, 0, 1, 0]], dtype=torch.long)
     weights = torch.tensor([[0.4, 0.2, 0.1, 0.1, 0.1, 0.1]])
 
-    with pytest.raises(RuntimeError, match="nonzero-weight upper padding route"):
-        BananaSmasherMoEMethod.apply(method, object(), x, weights, ids, None, None)
+    result = BananaSmasherMoEMethod.apply(method, object(), x, weights, ids, None, None)
+    assert result.shape == x.shape
 
 
 def test_qtip_transform_and_lut_are_owned_by_the_native_dispatch_boundary(
