@@ -14,6 +14,9 @@ from banana_smasher.qtip_periodic_signal import (
 )
 from banana_smasher.qtip_periodic_train8 import (
     MANIFEST_SCHEMA,
+    MATCHED_TWO_MEMBER_DECISION_SHA256,
+    TRAIN64_CORPUS_IDENTITY_SHA256,
+    TRAIN8_CORPUS_STAGE_RECEIPT_SHA256,
     arm_cell_sources,
     load_manifest,
     matched_measurements,
@@ -107,7 +110,14 @@ def _manifest(tmp_path: Path) -> dict[str, object]:
         "bytes": model_index_path.stat().st_size,
         "sha256": FF0731_MODEL_INDEX_SHA256,
     }
-    bank_payload = json.dumps({"windows": [{"id": int(row_id)} for row_id in TRAIN8_ROW_IDS]}).encode()
+    bank_payload = json.dumps(
+        {
+            "identities": {
+                "corpus": {"sha256": TRAIN64_CORPUS_IDENTITY_SHA256, "status": "resolved"}
+            },
+            "windows": [{"id": int(row_id)} for row_id in TRAIN8_ROW_IDS],
+        }
+    ).encode()
     bank = _file(tmp_path / "train8/bank.json", bank_payload, declared_sha=TRAIN64_BANK_MANIFEST_SHA256)
     teacher_members = [
         {
@@ -137,6 +147,23 @@ def _manifest(tmp_path: Path) -> dict[str, object]:
         **_file(tmp_path / "train8/corpus.json", json.dumps(corpus_value).encode()),
         "rows": corpus_rows,
     }
+    corpus_stage_payload = json.dumps(
+        {
+            "status": "PASS",
+            "task_id": "t_7002ac79",
+            "basis_sha256": FF0731_MODEL_INDEX_SHA256,
+            "path": corpus["path"],
+            "bytes": corpus["bytes"],
+            "sha256": corpus["sha256"],
+            "row_ids": list(TRAIN8_ROW_IDS),
+        }
+    ).encode()
+    corpus["source_identity_sha256"] = TRAIN64_CORPUS_IDENTITY_SHA256
+    corpus["stage_receipt"] = _file(
+        tmp_path / "train8/corpus_stage.json",
+        corpus_stage_payload,
+        declared_sha=TRAIN8_CORPUS_STAGE_RECEIPT_SHA256,
+    )
     stage = tmp_path / "stage"
     stage.mkdir()
     package = tmp_path / "package"
@@ -154,6 +181,30 @@ def _manifest(tmp_path: Path) -> dict[str, object]:
         "periodic_plugin": b"periodic-plugin",
     }.items():
         source_files[name] = _file(tmp_path / f"runtime/{name}.py", payload)
+    cells = [_cell("qtip_k2", 0, tmp_path), _cell("qtip_k3", 1, tmp_path)]
+    cell_authority_payload = json.dumps(
+        {
+            "status": "PASS_VIABLE_FOR_COMPLETE_LAYER",
+            "task_id": "t_7002ac79",
+            "basis_sha256": FF0731_MODEL_INDEX_SHA256,
+            "cells": [
+                {
+                    "control": cell["control"],
+                    "identity": cell["identity"],
+                    "accounting": cell["accounting"],
+                    "direct_error": cell["direct_error"],
+                    "codes_sha256": cell["periodic_codes"]["sha256"],
+                    "terminal_sha256": cell["terminal"]["sha256"],
+                }
+                for cell in cells
+            ],
+        }
+    ).encode()
+    cell_authority = _file(
+        tmp_path / "cell_authority.json",
+        cell_authority_payload,
+        declared_sha=MATCHED_TWO_MEMBER_DECISION_SHA256,
+    )
     return {
         "schema": MANIFEST_SCHEMA,
         "task_id": "t_7002ac79",
@@ -173,7 +224,8 @@ def _manifest(tmp_path: Path) -> dict[str, object]:
         "corpus": corpus,
         "bank": bank,
         "teacher": {"manifest": teacher_manifest, "rows": teacher_rows},
-        "cells": [_cell("qtip_k2", 0, tmp_path), _cell("qtip_k3", 1, tmp_path)],
+        "cell_authority": cell_authority,
+        "cells": cells,
         "runtime": {
             "banana_smasher_source": str(package),
             "public_site": str(public),
@@ -185,6 +237,30 @@ def _manifest(tmp_path: Path) -> dict[str, object]:
         },
         "output": {"root": str(tmp_path / "output")},
     }
+
+
+def _accept_fixture_authority_hashes(monkeypatch: pytest.MonkeyPatch) -> None:
+    real_sha = hashlib.sha256
+
+    def accepted_sha(path_value: str | Path) -> str:
+        path_object = Path(path_value)
+        fixed = {
+            "model.safetensors.index.json": FF0731_MODEL_INDEX_SHA256,
+            "bank.json": TRAIN64_BANK_MANIFEST_SHA256,
+            "teacher.json": TEACHER_TOP8192_MANIFEST_SHA256,
+            "corpus_stage.json": TRAIN8_CORPUS_STAGE_RECEIPT_SHA256,
+            "cell_authority.json": MATCHED_TWO_MEMBER_DECISION_SHA256,
+        }
+        if path_object.name in fixed:
+            return fixed[path_object.name]
+        digest = real_sha()
+        digest.update(path_object.read_bytes())
+        return digest.hexdigest()
+
+    monkeypatch.setattr("banana_smasher.qtip_periodic_train8.sha256_file", accepted_sha)
+    monkeypatch.setattr(
+        "banana_smasher.qtip_periodic_train8._validate_cell_payload", lambda cell: None
+    )
 
 
 def test_two_cell_arm_plan_and_measurements_are_matched() -> None:
@@ -240,6 +316,10 @@ def test_manifest_preflight_binds_current_ff0731_and_exact_two_cells(
             return TRAIN64_BANK_MANIFEST_SHA256
         if path_object.name == "teacher.json":
             return TEACHER_TOP8192_MANIFEST_SHA256
+        if path_object.name == "corpus_stage.json":
+            return TRAIN8_CORPUS_STAGE_RECEIPT_SHA256
+        if path_object.name == "cell_authority.json":
+            return MATCHED_TWO_MEMBER_DECISION_SHA256
         digest = real_sha()
         digest.update(path_object.read_bytes())
         return digest.hexdigest()
@@ -307,6 +387,10 @@ def test_manifest_rejects_cell_measurement_not_bound_by_terminal(
             return TRAIN64_BANK_MANIFEST_SHA256
         if path_object.name == "teacher.json":
             return TEACHER_TOP8192_MANIFEST_SHA256
+        if path_object.name == "corpus_stage.json":
+            return TRAIN8_CORPUS_STAGE_RECEIPT_SHA256
+        if path_object.name == "cell_authority.json":
+            return MATCHED_TWO_MEMBER_DECISION_SHA256
         digest = real_sha()
         digest.update(path_object.read_bytes())
         return digest.hexdigest()
@@ -317,6 +401,67 @@ def test_manifest_rejects_cell_measurement_not_bound_by_terminal(
     )
     with pytest.raises(ValueError, match="sealed terminal"):
         load_manifest(path, verify_files=True)
+
+
+def test_manifest_rejects_corpus_replacement_rebound_by_caller(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = _manifest(tmp_path)
+    corpus_path = Path(manifest["corpus"]["path"])
+    corpus = json.loads(corpus_path.read_text())
+    corpus[10] = {"token_ids": [129279, 129278, 129277], "real_len": 3}
+    corpus_path.write_text(json.dumps(corpus))
+    manifest["corpus"]["bytes"] = corpus_path.stat().st_size
+    manifest["corpus"]["sha256"] = hashlib.sha256(corpus_path.read_bytes()).hexdigest()
+    payload = (json.dumps(corpus[10], sort_keys=True, separators=(",", ":")) + "\n").encode()
+    manifest["corpus"]["rows"][0]["sha256"] = hashlib.sha256(payload).hexdigest()
+    path = tmp_path / "REBOUND_CORPUS.json"
+    write_manifest(path, manifest)
+    _accept_fixture_authority_hashes(monkeypatch)
+
+    with pytest.raises(ValueError, match="corpus stage receipt"):
+        load_manifest(path, verify_files=True)
+
+
+def test_manifest_rejects_cell_terminal_rebound_by_caller(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = _manifest(tmp_path)
+    cell = manifest["cells"][0]
+    terminal_path = Path(cell["terminal"]["path"])
+    terminal = json.loads(terminal_path.read_text())
+    terminal["direct_error"]["control_sse"] = 999999.0
+    terminal_path.write_text(json.dumps(terminal))
+    cell["terminal"]["bytes"] = terminal_path.stat().st_size
+    cell["terminal"]["sha256"] = hashlib.sha256(terminal_path.read_bytes()).hexdigest()
+    cell["direct_error"] = terminal["direct_error"]
+    path = tmp_path / "REBOUND_CELL.json"
+    write_manifest(path, manifest)
+    _accept_fixture_authority_hashes(monkeypatch)
+
+    with pytest.raises(ValueError, match="cell authority"):
+        load_manifest(path, verify_files=True)
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "value"),
+    [
+        ("identity", "layer", False),
+        ("identity", "expert", 0.0),
+        ("accounting", "weights", 8_388_608.75),
+        ("accounting", "code_bits", 20_971_520.75),
+    ],
+)
+def test_manifest_rejects_noncanonical_cell_integers(
+    tmp_path: Path, section: str, field: str, value: object
+) -> None:
+    manifest = _manifest(tmp_path)
+    manifest["cells"][0][section][field] = value
+    path = tmp_path / f"NONCANONICAL_{section}_{field}.json"
+    write_manifest(path, manifest)
+
+    with pytest.raises(ValueError, match="exact integer"):
+        load_manifest(path, verify_files=False)
 
 
 def test_release_waits_for_complete_exchange_cleanup(

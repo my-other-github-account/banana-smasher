@@ -27,6 +27,9 @@ from banana_smasher.qtip_periodic_signal import (
 
 MANIFEST_SCHEMA = "banana-smasher-qtip25-periodic-two-cell-train8-run-v1"
 PROGRESS_SCHEMA = "banana-smasher-qtip25-periodic-two-cell-train8-progress-v1"
+TRAIN64_CORPUS_IDENTITY_SHA256 = "441435688681e445085c57dac96fb62f7afeae95daaf7ca0f2e4b6b1d961466b"
+TRAIN8_CORPUS_STAGE_RECEIPT_SHA256 = "ff8df3a985ae517c069da990a358c850970270d70913c70c75fb8e3d67489541"
+MATCHED_TWO_MEMBER_DECISION_SHA256 = "89c73e8e724f7c9a94fc3ec1162e81346c13eeaf47ff3a7233c63efd54bebd3d"
 ARM_CELL_SOURCES = {
     "qtip_k2": ("qtip_k2", "source"),
     "qtip_k3": ("source", "qtip_k3"),
@@ -89,6 +92,12 @@ def _require_sha(name: str, value: object) -> str:
     return value
 
 
+def _require_int(name: str, value: object) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{name} must be an exact integer")
+    return value
+
+
 def arm_cell_sources() -> dict[str, tuple[str, str]]:
     """Return the exact two-cell overlay semantics used by the train8 runner."""
     return dict(ARM_CELL_SOURCES)
@@ -112,14 +121,17 @@ def matched_measurements(cells: Sequence[Mapping[str, Any]]) -> tuple[dict[str, 
         "qtip25_avg_member": k2_error + k3_error,
         "qtip25_periodic_23": periodic_error,
     }
-    k2_bits = int(k2["accounting"]["weights"]) * 2
-    k3_bits = int(k3["accounting"]["weights"]) * 3
+    k2_bits = _require_int("qtip_k2.accounting.weights", k2["accounting"]["weights"]) * 2
+    k3_bits = _require_int("qtip_k3.accounting.weights", k3["accounting"]["weights"]) * 3
     bits = {
         "qtip_k2": k2_bits,
         "qtip_k3": k3_bits,
         "qtip25_avg_member": k2_bits + k3_bits,
         "qtip25_periodic_23": sum(
-            int(cell["accounting"]["code_bits"]) for cell in cells
+            _require_int(
+                f"{cell['control']}.accounting.code_bits", cell["accounting"]["code_bits"]
+            )
+            for cell in cells
         ),
     }
     if bits["qtip25_avg_member"] != bits["qtip25_periodic_23"]:
@@ -158,7 +170,7 @@ def _validate_cell_payload(cell: Mapping[str, Any]) -> None:
     expected_geometry = {"L": 16, "K": expected_k, "V": 2, "tlut_bits": 9}
     if {key: int(geometry.get(key, -1)) for key in expected_geometry} != expected_geometry:
         raise ValueError(f"{control} unit has wrong QTIP geometry")
-    weights = int(cell["accounting"]["weights"])
+    weights = _require_int(f"{control}.accounting.weights", cell["accounting"]["weights"])
     if weights != 4096 * 2048:
         raise ValueError(f"{control} accounting has wrong weight count")
     trellis = unit["trellis"]
@@ -171,7 +183,9 @@ def _validate_cell_payload(cell: Mapping[str, Any]) -> None:
     packed = np.load(cell["periodic_codes"]["path"], mmap_mode="r", allow_pickle=False)
     if packed.dtype != np.uint8 or tuple(packed.shape) != (32768, 80):
         raise ValueError(f"{control} periodic packed payload has wrong layout")
-    if packed.nbytes * 8 != int(cell["accounting"]["code_bits"]):
+    if packed.nbytes * 8 != _require_int(
+        f"{control}.accounting.code_bits", cell["accounting"]["code_bits"]
+    ):
         raise ValueError(f"{control} periodic packed bytes do not close accounting")
 
 
@@ -194,9 +208,9 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
         raise ValueError("train8 manifest has the wrong frozen row IDs")
     if manifest.get("attention_implementation") != "eager":
         raise ValueError("two-cell decision runner requires eager attention")
-    if int(manifest.get("position_cutoff", -1)) != TRAIN8_POSITION_CUTOFF:
+    if _require_int("position_cutoff", manifest.get("position_cutoff")) != TRAIN8_POSITION_CUTOFF:
         raise ValueError("train8 manifest has the wrong position cutoff")
-    if int(manifest.get("support_width", -1)) != TRAIN8_SUPPORT_WIDTH:
+    if _require_int("support_width", manifest.get("support_width")) != TRAIN8_SUPPORT_WIDTH:
         raise ValueError("train8 manifest has the wrong support width")
 
     claim = manifest.get("claim")
@@ -269,6 +283,16 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
     corpus_path = _hashed_path(corpus, "corpus", verify=verify_files)
     bank_path = _hashed_path(bank, "bank", verify=verify_files)
     teacher_manifest_path = _hashed_path(teacher["manifest"], "teacher.manifest", verify=verify_files)
+    corpus_stage = corpus.get("stage_receipt")
+    if not isinstance(corpus_stage, Mapping):
+        raise ValueError("corpus must bind its authoritative stage receipt")
+    corpus_stage_path = _hashed_path(
+        corpus_stage, "corpus.stage_receipt", verify=verify_files
+    )
+    if corpus_stage["sha256"] != TRAIN8_CORPUS_STAGE_RECEIPT_SHA256:
+        raise ValueError("corpus stage receipt identity mismatch")
+    if corpus.get("source_identity_sha256") != TRAIN64_CORPUS_IDENTITY_SHA256:
+        raise ValueError("corpus source identity mismatch")
     if bank["sha256"] != TRAIN64_BANK_MANIFEST_SHA256:
         raise ValueError("train8 manifest bank is not the frozen train64 bank")
     if teacher["manifest"]["sha256"] != TEACHER_TOP8192_MANIFEST_SHA256:
@@ -289,6 +313,26 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
         corpus_value = json.loads(corpus_path.read_text())
         bank_value = json.loads(bank_path.read_text())
         teacher_manifest_value = json.loads(teacher_manifest_path.read_text())
+        corpus_stage_value = json.loads(corpus_stage_path.read_text())
+        expected_corpus_stage = {
+            "status": "PASS",
+            "task_id": "t_7002ac79",
+            "basis_sha256": FF0731_MODEL_INDEX_SHA256,
+            "path": str(corpus_path),
+            "bytes": corpus["bytes"],
+            "sha256": corpus["sha256"],
+            "row_ids": list(TRAIN8_ROW_IDS),
+        }
+        if {
+            key: corpus_stage_value.get(key) for key in expected_corpus_stage
+        } != expected_corpus_stage:
+            raise ValueError("corpus stage receipt differs from the staged corpus")
+        bank_corpus = bank_value.get("identities", {}).get("corpus", {})
+        if (
+            bank_corpus.get("status") != "resolved"
+            or bank_corpus.get("sha256") != TRAIN64_CORPUS_IDENTITY_SHA256
+        ):
+            raise ValueError("frozen bank corpus authority mismatch")
         bank_rows = tuple(str(row.get("id")) for row in bank_value.get("windows", ())[: len(TRAIN8_ROW_IDS)])
         if bank_rows != TRAIN8_ROW_IDS:
             raise ValueError("frozen bank does not begin with the train8 cohort")
@@ -299,8 +343,13 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
             row_id = str(row_binding["row_id"])
             corpus_row = corpus_value[int(row_id)]
             row_payload = {
-                "token_ids": [int(value) for value in corpus_row["token_ids"]],
-                "real_len": int(corpus_row["real_len"]),
+                "token_ids": [
+                    _require_int(f"corpus row {row_id} token", value)
+                    for value in corpus_row["token_ids"]
+                ],
+                "real_len": _require_int(
+                    f"corpus row {row_id} real_len", corpus_row["real_len"]
+                ),
             }
             observed_row_sha = hashlib.sha256(_canonical_json(row_payload)).hexdigest()
             if observed_row_sha != row_binding["sha256"]:
@@ -312,12 +361,53 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
     cells = manifest.get("cells")
     if not isinstance(cells, Sequence) or len(cells) != 2:
         raise ValueError("train8 manifest must contain exactly two cells")
+    cell_authority = manifest.get("cell_authority")
+    if not isinstance(cell_authority, Mapping):
+        raise ValueError("train8 manifest must bind the matched-cell authority")
+    cell_authority_path = _hashed_path(
+        cell_authority, "cell_authority", verify=verify_files
+    )
+    if cell_authority["sha256"] != MATCHED_TWO_MEMBER_DECISION_SHA256:
+        raise ValueError("matched-cell authority identity mismatch")
+    authority_cells: dict[tuple[str, int, int, str], Mapping[str, Any]] = {}
+    if verify_files:
+        authority = json.loads(cell_authority_path.read_text())
+        if (
+            authority.get("status") != "PASS_VIABLE_FOR_COMPLETE_LAYER"
+            or authority.get("task_id") != "t_7002ac79"
+            or authority.get("basis_sha256") != FF0731_MODEL_INDEX_SHA256
+        ):
+            raise ValueError("matched-cell authority terminal mismatch")
+        for row in authority.get("cells", ()):
+            row_identity = row.get("identity", {})
+            key = (
+                row.get("control"),
+                _require_int("cell_authority.identity.layer", row_identity.get("layer")),
+                _require_int("cell_authority.identity.expert", row_identity.get("expert")),
+                row_identity.get("projection"),
+            )
+            authority_cells[key] = row
+        if len(authority_cells) != 2:
+            raise ValueError("matched-cell authority must contain exactly two cells")
     identities = []
     for cell in cells:
         identity = cell.get("identity", {})
-        identities.append(
-            (int(identity.get("layer", -1)), int(identity.get("expert", -1)), str(identity.get("projection", "")))
-        )
+        if not isinstance(identity, Mapping):
+            raise ValueError("cell.identity must be a mapping")
+        layer = _require_int("cell.identity.layer", identity.get("layer"))
+        expert = _require_int("cell.identity.expert", identity.get("expert"))
+        projection = identity.get("projection")
+        if not isinstance(projection, str):
+            raise ValueError("cell.identity.projection must be a string")
+        control = cell.get("control")
+        if not isinstance(control, str):
+            raise ValueError("cell.control must be a string")
+        accounting = cell.get("accounting")
+        if not isinstance(accounting, Mapping):
+            raise ValueError("cell.accounting must be a mapping")
+        _require_int(f"{control}.accounting.weights", accounting.get("weights"))
+        _require_int(f"{control}.accounting.code_bits", accounting.get("code_bits"))
+        identities.append((layer, expert, projection))
         _hashed_path(cell["control_unit"], f"cell[{cell.get('control')}].control_unit", verify=verify_files)
         _hashed_path(cell["periodic_codes"], f"cell[{cell.get('control')}].periodic_codes", verify=verify_files)
         terminal_path = _hashed_path(
@@ -341,6 +431,19 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
                 raise ValueError(f"cell {cell.get('control')} differs from its sealed terminal")
             if terminal.get("source", {}).get("weight_sha256") != cell["source_weight_sha256"]:
                 raise ValueError(f"cell {cell.get('control')} source hash differs from its terminal")
+            authority_row = authority_cells.get((control, layer, expert, projection))
+            expected_authority = {
+                "control": control,
+                "identity": cell["identity"],
+                "accounting": cell["accounting"],
+                "direct_error": cell["direct_error"],
+                "codes_sha256": cell["periodic_codes"]["sha256"],
+                "terminal_sha256": cell["terminal"]["sha256"],
+            }
+            if authority_row is None or {
+                key: authority_row.get(key) for key in expected_authority
+            } != expected_authority:
+                raise ValueError(f"cell {control} differs from the matched-cell authority")
     if identities != [(0, 0, "down"), (0, 1, "down")]:
         raise ValueError("train8 manifest cells must be L000 E000/E001 down in order")
     if [str(cell.get("control")) for cell in cells] != ["qtip_k2", "qtip_k3"]:
@@ -367,9 +470,11 @@ def validate_manifest(manifest: Mapping[str, Any], *, verify_files: bool = True)
         _hashed_path(descriptor, f"runtime.executed_sources[{name}]", verify=verify_files)
     if verify_files and executed_sources["runner"]["sha256"] != sha256_file(__file__):
         raise ValueError("manifest runner source hash differs from executed runner")
-    if int(runtime.get("microbatch", 0)) < 1:
+    if _require_int("runtime.microbatch", runtime.get("microbatch")) < 1:
         raise ValueError("microbatch must be positive")
-    if int(runtime.get("readout_chunk_positions", 0)) < 1:
+    if _require_int(
+        "runtime.readout_chunk_positions", runtime.get("readout_chunk_positions")
+    ) < 1:
         raise ValueError("readout_chunk_positions must be positive")
     if not str(output.get("root", "")):
         raise ValueError("output root is required")
