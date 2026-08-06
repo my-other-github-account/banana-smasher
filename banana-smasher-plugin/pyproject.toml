@@ -4,14 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "banana-smasher-plugin"
-version = "0.2.0"
+version = "0.2.1"
 description = "Stock-vLLM banana_smasher runtime plugin for native-plane packs"
 requires-python = ">=3.10"
 dependencies = [
-    "banana-smasher==1.0.0",
-    "deep-gemm==2.6.1; sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "flashinfer-jit-cache==0.6.17+cu130; sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "flashinfer-python==0.6.17; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "banana-smasher @ https://github.com/my-other-github-account/banana-smasher/releases/download/v0.2.1-sm121-runtime/banana_smasher-1.0.0-py3-none-any.whl#sha256=6ec9809e92eef4e45c327f1be0502ba4ef6fe04ba6edd95811c78b6ec68ae801",
+    "deep-gemm @ https://github.com/my-other-github-account/banana-smasher/releases/download/v0.2.0-sm121-runtime/deep_gemm-2.6.1-cp312-cp312-linux_aarch64.whl#sha256=da52fe2ed4e3d0dfac528df0836e3450ea9412a5e000b250ca47b1fcb7cf466b ; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "flashinfer-cubin @ https://github.com/my-other-github-account/banana-smasher/releases/download/v0.2.1-sm121-runtime/flashinfer_cubin-0.6.17-py3-none-any.whl#sha256=fb8b47f1b231fd991ce5211e602d6ebd1cbacce2ad0b3ca47992c7224d8db3c0 ; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "flashinfer-jit-cache @ https://github.com/my-other-github-account/banana-smasher/releases/download/v0.2.0-sm121-runtime/flashinfer_jit_cache-0.6.17%2Bcu130-cp39-abi3-manylinux_2_28_aarch64.whl#sha256=2a87e17231d0fc3a8fb1692f6dfca866c562641c31e26967da91bdea51cd2c4a ; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "flashinfer-python @ https://github.com/my-other-github-account/banana-smasher/releases/download/v0.2.0-sm121-runtime/flashinfer_python-0.6.17-py3-none-any.whl#sha256=f507bee85810d4b79a7cdc7f16ca96c03761b75b7101a6f5a3feb97c658a129e ; sys_platform == 'linux' and platform_machine == 'aarch64'",
     "numpy==2.3.5",
     "quack-kernels>=0.4.1,<0.5.1",
     "safetensors==0.8.0",
