@@ -1,0 +1,13 @@
+{
+  "schema": "banana-smasher-recovered-exact64-measurement-v1",
+  "status": "PASS",
+  "recovery_status": "RECOVERED_FROM_LIVE_TERMINAL_RECEIPT_READ_IN_CURRENT_SESSION; ORIGINAL_TASK_PACKET_CLEANED",
+  "arm": "without_qtip2_5",
+  "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "bank_sha256": "56a8afbd8eef83a845d699d3cf2f2d44faf44c49d98ca7a66d3afa9e88a8383f",
+  "windows": 64,
+  "positions": 65536,
+  "support_width": 8192,
+  "mean_kld": 0.10588817638713062,
+  "top1_matches": 45192
+}

@@ -227,6 +227,31 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
 
+    backpack = subparsers.add_parser(
+        "backpack", help="explicit local Backpack staging and measured selection"
+    )
+    backpack_subparsers = backpack.add_subparsers(
+        dest="backpack_command", required=True
+    )
+    backpack_stage = backpack_subparsers.add_parser(
+        "stage-qsfp",
+        help="explicitly stage payloads from direct QSFP addresses to local storage",
+    )
+    backpack_stage.add_argument("--manifest", type=Path, required=True)
+    backpack_stage.add_argument("--output", type=Path, required=True)
+    backpack_stage.add_argument("--parallelism", type=int, default=8)
+
+    backpack_select = backpack_subparsers.add_parser(
+        "select-measured",
+        help="retain the baseline unless an expanded tier menu is physically non-worse",
+    )
+    backpack_select.add_argument("--solve-receipt", type=Path, required=True)
+    backpack_select.add_argument("--baseline-arm", required=True)
+    backpack_select.add_argument("--expanded-arm", required=True)
+    backpack_select.add_argument("--baseline-score", type=Path, required=True)
+    backpack_select.add_argument("--expanded-score", type=Path, required=True)
+    backpack_select.add_argument("--output", type=Path, required=True)
+
     return parser
 
 
@@ -589,6 +614,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=args.output,
                 receipt=args.receipt,
             )
+        elif args.command == "backpack":
+            if args.backpack_command == "stage-qsfp":
+                from .staging import stage_qsfp_manifest
+
+                result = stage_qsfp_manifest(
+                    args.manifest,
+                    args.output,
+                    parallelism=args.parallelism,
+                )
+            elif args.backpack_command == "select-measured":
+                from .backpack_selection import select_measured_nonworse
+
+                result = select_measured_nonworse(
+                    solve_receipt_path=args.solve_receipt,
+                    baseline_arm=args.baseline_arm,
+                    expanded_arm=args.expanded_arm,
+                    baseline_score_path=args.baseline_score,
+                    expanded_score_path=args.expanded_score,
+                    output_path=args.output,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported backpack command: {args.backpack_command}"
+                )
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2
