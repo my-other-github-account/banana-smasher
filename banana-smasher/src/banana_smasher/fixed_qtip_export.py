@@ -94,7 +94,10 @@ def _canonical_trellis_from_kernel(
     import torch
 
     if (
-        trellis.dtype != torch.uint16
+        (
+            trellis.dtype != torch.uint16
+            and not (k == 3 and trellis.dtype == torch.int16)
+        )
         or not isinstance(shape, (list, tuple))
         or len(shape) != 2
     ):
@@ -120,8 +123,9 @@ def _canonical_trellis_from_kernel(
             f"shape={(m, n)} K={k} elements={trellis.numel()}/{required_elements} "
             f"bytes={actual_bytes}/{required_bytes}/{expected_bytes!r}"
         )
+    kernel_words = trellis.contiguous().view(torch.uint16)
     return (
-        trellis.contiguous()
+        kernel_words
         .view(torch.uint8)
         .flatten()
         .reshape(m // 32, n // 32, 32, 2, 2, k)

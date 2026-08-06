@@ -86,6 +86,10 @@ def _write_unit(path: Path, *, k: int, projection: str) -> dict[str, object]:
         n=input_width,
         k=k,
     )
+    if k == 3:
+        # The sealed producer stores K3 kernel words in a signed int16 container;
+        # canonical recovery reinterprets the exact 16-bit payload losslessly.
+        trellis = trellis.view(torch.int16)
     payload = {
         "schema": "ds4-qtip-hyb-bounded36-unit-v1",
         "geometry": {
