@@ -39,7 +39,10 @@ ENGINE_DEFAULTS: dict[str, Any] = {
     "block_size": 256,
     "max_model_len": 8192,
     "gpu_memory_utilization": 0.80,
-    "kv_cache_memory_bytes": 3221225472,
+    # The accepted 110 GB pack leaves only a narrow UMA margin on SM121.
+    # Keep the public no-flag bootstrap on the same 256 MiB C1 setting that
+    # reached tensor load in the stock-image acceptance run.
+    "kv_cache_memory_bytes": 268435456,
     "max_num_batched_tokens": 512,
     "max_num_seqs": 16,
     "cudagraph_capture_sizes": [1, 2, 4, 8, 16],
@@ -109,9 +112,26 @@ def _read_json(path: Path) -> dict[str, Any] | None:
 
 
 def load_runtime_profile(model: str | os.PathLike[str]) -> dict[str, Any] | None:
-    """Return the artifact-scoped vLLM profile for a local Banana export."""
+    """Return the artifact-scoped profile for a local pack or native HF ID."""
     root = Path(model).expanduser()
     if not root.is_dir():
+        model_id = str(model)
+        # vLLM resolves Hugging Face IDs after EngineArgs are constructed, so
+        # the plugin must install its pre-resolution defaults at this seam.
+        # Local paths remain content-gated below; URL-like and relative path
+        # spellings are not treated as repository IDs.
+        if (
+            model_id.count("/") == 1
+            and not model_id.startswith(("/", ".", "http://", "https://"))
+        ):
+            return {
+                "root": model_id,
+                "schema": RUNTIME_SCHEMA,
+                "profile": RUNTIME_PROFILE,
+                "served_model_name": model_id,
+                "engine_args": dict(ENGINE_DEFAULTS),
+                "frontend_args": dict(FRONTEND_DEFAULTS),
+            }
         return None
     config = _read_json(root / "config.json")
     manifest = _read_json(root / "BANANA_PACK_MANIFEST.json")

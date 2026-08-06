@@ -126,6 +126,20 @@ def test_positional_vllm_model_takes_precedence(tmp_path: Path) -> None:
     assert args.max_model_len == 8192
 
 
+def test_literal_hf_repo_id_receives_frozen_bootstrap_profile() -> None:
+    model_id = "Banana-Bae/DeepSeek-V4-Flash-0731-DQ-BQ-3.10bpw"
+    args = _stock_args(Path(model_id))
+
+    result = apply_runtime_profile(args)
+
+    assert result is not None
+    assert result["root"] == model_id
+    assert args.model == model_id
+    assert args.served_model_name == [model_id]
+    assert args.kv_cache_memory_bytes == 268435456
+    assert args.max_model_len == 8192
+
+
 def test_legacy_export_without_profile_uses_plugin_defaults(tmp_path: Path) -> None:
     model = _pack(tmp_path / "model", profiled=False)
     profile = load_runtime_profile(model)
