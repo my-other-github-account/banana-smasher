@@ -263,6 +263,9 @@ class PhysicalRepairBackend:
         bundle = worker_state["bundle"]
         staged = worker_state["staged"]
         context = self.context
+        _callable(
+            bundle.get("reset_backend_sentinels"), "reset_backend_sentinels"
+        )()
         result = run_full_depth_update(
             layers=bundle["layers"],
             frozen_modules=bundle["frozen_modules"],
@@ -281,6 +284,7 @@ class PhysicalRepairBackend:
             peak_memory_bytes=bundle["peak_memory_bytes"],
             optimizer_factory=bundle["optimizer_factory"],
             backend_sentinels=bundle["backend_sentinels"],
+            allow_reference=bool(bundle.get("allow_reference", False)),
             receipt=context.get("receipt"),
             resume=bool(context.get("resume", True)),
             restart=bool(context.get("restart", False)),
