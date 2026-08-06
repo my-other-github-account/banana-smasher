@@ -1,0 +1,48 @@
+{
+  "schema": "banana-smasher-qtip25-periodic-mechanics-smoke-v1",
+  "status": "PASS",
+  "quality_evidence": false,
+  "fixture": "deterministic-synthetic-transitions",
+  "provider_id": "qtip25-periodic",
+  "runtime_family": "qtip25_periodic",
+  "codec_form": "qtip25_periodic_23",
+  "rate_num": 5,
+  "rate_den": 2,
+  "transition_k": [2, 3],
+  "values_per_transition": 2,
+  "transition_bits": [4, 6],
+  "transition_count": 128,
+  "position_count": 256,
+  "code_bits": 640,
+  "code_payload_bytes": 80,
+  "code_padding_bits": 0,
+  "code_bpw": 2.5,
+  "selected_indices_bytes": 0,
+  "assignment_map_bytes": 0,
+  "routing_bytes": 0,
+  "deduplicated_shared_tlut_bytes": 4096,
+  "pack_unpack_decode_parity": true,
+  "indicator": {
+    "device": "cpu",
+    "implementation": "numpy-reference-direct-packed-decode",
+    "iterations": 200,
+    "elapsed_ns": 77596166,
+    "mean_decode_ns": 387980.83,
+    "coded_positions_per_second": 659826.4146195059
+  },
+  "source": {
+    "commit": "02c4a0053329996544750199ac9f1d8319b7d491",
+    "codec_sha256": "096611223112b35508ac1700b24c588b284b875f8e17ef976a092abe3b5f2d2d",
+    "provider_sha256": "3bc8d229850f84949572c601ab1ae79b3ec99c1bbbe3cf8833d2ae2346eedab3"
+  },
+  "ephemeral_readback": {
+    "candidate_receipt": "/tmp/qtip25-periodic-mechanics-t_7002ac79/QTIP25_PERIODIC_RECEIPT.json",
+    "candidate_receipt_sha256": "cdb2df2a1dc0ffaaf1fe73c6fb532281ee6f630028d9309b7895c100f39557a6",
+    "codes_npy_sha256": "c130f02ff2ff1b4da4a949f8cadd698c9cc728f4e96c0db86c7a20fd9c020814"
+  },
+  "limitations": [
+    "Synthetic mechanics only; this is not FF0731 quality evidence.",
+    "CPU reference timing is not installed-CUDA decode/TPS evidence.",
+    "No train64 KLD or integer Top-1 was measured by this smoke."
+  ]
+}
