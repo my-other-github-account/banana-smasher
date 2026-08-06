@@ -247,6 +247,7 @@ class BackpackPlan:
                     {
                         "id",
                         "family",
+                        "provider",
                         "dimension",
                         "bits",
                         "codebook_size",
@@ -290,12 +291,37 @@ class BackpackPlan:
                         raise BackpackPlanError(
                             "vector_vq requested bpw must imply an index width in 1..16"
                         )
+                provider = tier.get("provider")
+                if provider is not None:
+                    provider = _nonempty(provider, f"tiers[{index}].provider")
+                    fixed_sizes = {
+                        "d4_k2048": 2048,
+                        "d4-k2048": 2048,
+                        "d4_k4096": 4096,
+                        "d4-k4096": 4096,
+                    }
+                    if provider not in fixed_sizes:
+                        raise BackpackPlanError(
+                            f"tiers[{index}].provider is not a built-in vector provider"
+                        )
+                    if "codebook_size" in tier:
+                        declared_size = int(tier["codebook_size"])
+                    elif "bits" in tier:
+                        declared_size = 1 << int(tier["bits"])
+                    else:
+                        declared_size = 1 << int(float(tier["bpw"]) * int(dimension))
+                    if dimension != 4 or declared_size != fixed_sizes[provider]:
+                        raise BackpackPlanError(
+                            f"tiers[{index}].provider geometry does not match its fixed D4 menu entry"
+                        )
+                    tier["provider"] = provider
             elif family == "qtip":
                 _reject_unknown(
                     tier,
                     {
                         "id",
                         "family",
+                        "provider",
                         "bpw",
                         "backend",
                         "source_root",
@@ -332,9 +358,37 @@ class BackpackPlan:
                     raise BackpackPlanError(
                         f"tiers[{index}].source_root is only valid for packaged_qtip"
                     )
+                provider = tier.get("provider")
+                if provider is not None:
+                    provider = _nonempty(provider, f"tiers[{index}].provider")
+                    expected = {
+                        "qtip2": Decimal("2.00"),
+                        "qtip@2.00": Decimal("2.00"),
+                        "qtip2.5": Decimal("2.50"),
+                        "qtip@2.50": Decimal("2.50"),
+                        "qtip3": Decimal("3.00"),
+                        "qtip@3.00": Decimal("3.00"),
+                    }
+                    if provider not in expected or bpw != expected[provider]:
+                        raise BackpackPlanError(
+                            f"tiers[{index}].provider does not match its QTIP bpw"
+                        )
+                    tier["provider"] = provider
+            elif family == "native_mxfp4":
+                _reject_unknown(
+                    tier,
+                    {"id", "family", "provider", "activation_artifacts"},
+                    f"tiers[{index}]",
+                )
+                provider = tier.get("provider", "native_mxfp4")
+                if provider not in {"native_mxfp4", "native-mxfp4"}:
+                    raise BackpackPlanError(
+                        f"tiers[{index}].provider must be native_mxfp4"
+                    )
+                tier["provider"] = provider
             else:
                 raise BackpackPlanError(
-                    f"tiers[{index}].family must be vector_vq or qtip"
+                    f"tiers[{index}].family must be vector_vq, qtip, or native_mxfp4"
                 )
             if "activation_artifacts" in tier:
                 tier["activation_artifacts"] = _activation_artifacts(
@@ -825,6 +879,41 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
             raise BackpackPlanError(
                 f"model cell {cell_id} expert_ids must be unique integers in 0..255"
             )
+        native_payload: dict[str, Any] | None = None
+        if any(tier["family"] == "native_mxfp4" for tier in plan.tiers):
+            native = raw.get("native_mxfp4")
+            if not isinstance(native, Mapping) or set(native) != {"packed", "scales"}:
+                raise BackpackPlanError(
+                    f"model cell {cell_id} requires native_mxfp4 packed/scales paths"
+                )
+            native_payload = {}
+            for field in ("packed", "scales"):
+                native_relative = Path(
+                    _nonempty(
+                        native.get(field),
+                        f"model cells[{index}].native_mxfp4.{field}",
+                    )
+                )
+                if native_relative.is_absolute() or ".." in native_relative.parts:
+                    raise BackpackPlanError(
+                        f"model cell {cell_id} native payload must remain inside model root"
+                    )
+                native_path = root / native_relative
+                if native_path.is_symlink() or not native_path.is_file():
+                    raise BackpackPlanError(
+                        f"model cell {cell_id} native {field} must be a regular NPY file"
+                    )
+                native_array = np.load(native_path, allow_pickle=False)
+                if (
+                    native_array.dtype != np.uint8
+                    or native_array.ndim < 1
+                    or native_array.shape[0] != len(expert_ids)
+                ):
+                    raise BackpackPlanError(
+                        f"model cell {cell_id} native {field} must be uint8 with one row per expert"
+                    )
+                native_payload[field] = np.ascontiguousarray(native_array)
+                native_payload[f"{field}_path"] = str(native_path.resolve())
         cells.append(
             {
                 "cell_id": cell_id,
@@ -835,6 +924,11 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
                 "projection": projection,
                 "expert_ids": expert_ids,
                 "weights": np.ascontiguousarray(array.reshape(-1)),
+                **(
+                    {"native_mxfp4": native_payload}
+                    if native_payload is not None
+                    else {}
+                ),
             }
         )
     for layer in sorted({int(cell["layer"]) for cell in cells}):
@@ -1264,6 +1358,76 @@ def generate_vector_vq_backpack_candidate(
     )
 
 
+def generate_fixed_d4_backpack_candidate(
+    run_root: str | Path,
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    **_: Any,
+) -> dict[str, Any]:
+    """Generate a fixed K2048/K4096 D4 tier through the shared candidate path."""
+
+    provider = str(tier.get("provider", ""))
+    codebook_size = 2048 if "2048" in provider else 4096
+    normalized = {
+        **tier,
+        "family": "vector_vq",
+        "dimension": 4,
+        "codebook_size": codebook_size,
+    }
+    normalized.pop("bits", None)
+    normalized.pop("bpw", None)
+    return generate_vector_vq_backpack_candidate(
+        run_root, tier=normalized, cell=cell
+    )
+
+
+def generate_native_mxfp4_backpack_candidate(
+    run_root: str | Path,
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    **_: Any,
+) -> dict[str, Any]:
+    """Bind genuine source MXFP4 packed/scales planes as a no-swap candidate."""
+
+    native = cell.get("native_mxfp4")
+    if not isinstance(native, Mapping):
+        raise BackpackPlanError(
+            f"cell {cell['cell_id']} has no bound native_mxfp4 payload"
+        )
+    packed = np.asarray(native["packed"], dtype=np.uint8)
+    scales = np.asarray(native["scales"], dtype=np.uint8)
+    expert_ids = np.asarray(cell["expert_ids"], dtype=np.int16)
+    packed_rows = packed.reshape(packed.shape[0], -1)
+    scale_rows = scales.reshape(scales.shape[0], -1)
+    offsets = np.zeros((expert_ids.size + 1, 2), dtype=np.int64)
+    offsets[1:, 0] = np.cumsum(
+        np.full(expert_ids.size, packed_rows.shape[1], dtype=np.int64)
+    )
+    offsets[1:, 1] = np.cumsum(
+        np.full(expert_ids.size, scale_rows.shape[1], dtype=np.int64)
+    )
+    return _write_candidate_artifact(
+        Path(run_root),
+        tier=tier,
+        cell=cell,
+        decoded=np.asarray(cell["weights"], dtype=np.float32),
+        packed=packed_rows.tobytes(order="C"),
+        extra_arrays={
+            "scales": scales.reshape(-1),
+            "expert_ids": expert_ids,
+            "tensor_offsets": offsets,
+        },
+        metadata={
+            "algorithm": "native-mxfp4-no-swap",
+            "projection": str(cell["projection"]),
+            "source_packed": str(native["packed_path"]),
+            "source_scales": str(native["scales_path"]),
+        },
+    )
+
+
 def _packaged_qtip_record(
     source_root: Path,
     *,
@@ -1592,7 +1756,11 @@ def _stage_candidates(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) ->
                 **(
                     {"dimension": tier["dimension"]}
                     if tier["family"] == "vector_vq"
-                    else {"bpw": float(tier["bpw"])}
+                    else (
+                        {"bpw": float(tier["bpw"])}
+                        if tier["family"] == "qtip"
+                        else {"provider": tier["provider"]}
+                    )
                 ),
                 "cells": cell_rows,
             }
@@ -1671,7 +1839,7 @@ def _stage_candidate_anchor(
 
 
 def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[str, Any]:
-    from .backpack_providers import predict_backpack_candidate, price_backpack_candidate
+    from .backpack_providers import backpack_provider_from_declaration
 
     manifest, cells = _load_cells(plan)
     features, classes = _load_anchor(plan, weight_count=int(manifest["weight_count"]))
@@ -1680,6 +1848,7 @@ def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[
     candidates = _prior["candidates"]
     for cell_index, cell in enumerate(cells):
         for tier in plan.tiers:
+            provider = backpack_provider_from_declaration(tier)
             pieces = [np.asarray(row["weights"], dtype=np.float32) for row in cells]
             artifact_root = candidate_artifact_root(
                 candidates,
@@ -1687,11 +1856,11 @@ def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[
                 cell_id=str(cell["cell_id"]),
             )
             pieces[cell_index] = np.load(artifact_root / "decoded.npy")
-            metrics = predict_backpack_candidate(
+            metrics = provider.predict(
                 features, classes, teacher, np.concatenate(pieces).astype(np.float32)
             )
             candidate_receipt = json.loads((artifact_root / "RECEIPT.json").read_text())
-            price = price_backpack_candidate(candidate_receipt)
+            price = provider.price(candidate_receipt)
             rows.append(
                 {
                     "cell_id": cell["cell_id"],
@@ -1777,65 +1946,19 @@ def materialize_backpack_source(
         cell_id = str(cell["cell_id"])
         tier = str(selected[cell_id]["tier"])
         descriptor = tier_descriptors[tier]
-        if descriptor["family"] == "vector_vq":
-            family = f"truevq_d{descriptor['dimension']}"
-        else:
-            family = "qtip2" if float(descriptor["bpw"]) < 3.0 else "qtip3"
+        from .backpack_providers import backpack_provider_from_declaration
+
+        provider = backpack_provider_from_declaration(descriptor)
+        family = provider.runtime_family
         layer = int(cell["layer"])
         expert_ids = np.asarray(cell["expert_ids"], dtype=np.uint8)
         tier_maps[layer][expert_ids] = TIER_CODES[family]
         artifact_root = artifact_roots[cell_id]
-        bucket = payloads.setdefault(
-            (layer, family),
-            {
-                name: []
-                for name in (
-                    "codes",
-                    "codebooks",
-                    "scales",
-                    "expert_ids",
-                    "tensor_offsets",
-                    "record_tiers",
-                    "record_geometry",
-                    "record_projections",
-                    "record_boundaries",
-                )
-            },
-        )
-        prior_bytes = np.asarray(
-            [
-                sum(array.nbytes for array in bucket[name])
-                for name in ("codes", "scales", "codebooks")
-            ],
-            dtype=np.int64,
-        )
-        prior_records = sum(array.size for array in bucket["expert_ids"])
-        if bucket["expert_ids"]:
-            bucket["record_boundaries"].append(
-                np.full((1, 3), prior_records, dtype=np.int64)
-            )
-        codes = np.frombuffer((artifact_root / "wire.bin").read_bytes(), dtype=np.uint8)
-        bucket["codes"].append(codes)
-        for name in (
-            "codebooks",
-            "scales",
-            "expert_ids",
-            "record_tiers",
-            "record_geometry",
-            "record_projections",
-        ):
-            value = np.asarray(np.load(artifact_root / f"{name}.npy", allow_pickle=False))
-            bucket[name].append(
-                value.reshape(value.shape[0], -1)
-                if name in {"record_geometry", "record_tiers", "record_projections"}
-                else value if name == "codebooks" else value.reshape(-1)
-            )
-        offsets = np.asarray(
-            np.load(artifact_root / "tensor_offsets.npy", allow_pickle=False), dtype=np.int64
-        ).reshape(-1, 3)
-        adjusted = offsets + prior_bytes
-        bucket["tensor_offsets"].append(
-            adjusted if not bucket["tensor_offsets"] else adjusted[1:]
+        provider.materialize(
+            payloads,
+            tier=descriptor,
+            cell=cell,
+            artifact_root=artifact_root,
         )
 
     for layer, tier_map in tier_maps.items():
@@ -3367,6 +3490,49 @@ def _validate_candidate_receipt(
         and isinstance(record.get("name"), str)
         and isinstance(record.get("path"), str)
     }
+    if tier["family"] == "native_mxfp4":
+        if len(named) != len(arrays) or set(named) != {
+            "scales",
+            "expert_ids",
+            "tensor_offsets",
+        }:
+            return False
+        try:
+            scales = np.asarray(np.load(named["scales"], allow_pickle=False))
+            expert_ids = np.asarray(np.load(named["expert_ids"], allow_pickle=False))
+            offsets = np.asarray(np.load(named["tensor_offsets"], allow_pickle=False))
+            decoded = np.asarray(
+                np.load(Path(str(receipt["decoded"]["path"])), allow_pickle=False)
+            )
+        except Exception:
+            return False
+        expected_experts = [int(expert) for expert in cell["expert_ids"]]
+        wire = receipt.get("wire")
+        if not isinstance(wire, Mapping) or not isinstance(wire.get("bytes"), int):
+            return False
+        wire_bytes = int(wire["bytes"])
+        physical_bytes = (
+            wire_bytes + int(scales.nbytes) + int(expert_ids.nbytes) + int(offsets.nbytes)
+        )
+        return (
+            receipt.get("algorithm") == "native-mxfp4-no-swap"
+            and receipt.get("projection") == cell["projection"]
+            and receipt.get("physical_bytes") == physical_bytes
+            and receipt.get("cell_payload_bytes") == physical_bytes
+            and receipt.get("activation_artifacts", [])
+            == list(tier.get("activation_artifacts", ()))
+            and decoded.dtype == np.float32
+            and decoded.size == np.asarray(cell["weights"]).size
+            and expert_ids.dtype == np.int16
+            and expert_ids.tolist() == expected_experts
+            and scales.dtype == np.uint8
+            and offsets.dtype == np.int64
+            and offsets.shape == (expert_ids.size + 1, 2)
+            and np.array_equal(offsets[0], np.zeros(2, dtype=np.int64))
+            and bool(np.all(np.diff(offsets, axis=0) >= 0))
+            and offsets[-1].tolist()
+            == [wire_bytes, int(scales.nbytes)]
+        )
     required = {
         "codebooks",
         "scales",

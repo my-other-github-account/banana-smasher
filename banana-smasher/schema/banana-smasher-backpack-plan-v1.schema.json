@@ -40,6 +40,7 @@
       "properties": {
         "id": {"$ref": "#/$defs/safe_id"},
         "family": {"const": "vector_vq"},
+        "provider": {"type": "string", "minLength": 1},
         "dimension": {"enum": [4, 8]},
         "bits": {"type": "integer", "minimum": 1, "maximum": 16},
         "activation_artifacts": {"$ref": "#/$defs/activation_artifacts"}
@@ -52,6 +53,7 @@
       "properties": {
         "id": {"$ref": "#/$defs/safe_id"},
         "family": {"const": "vector_vq"},
+        "provider": {"type": "string", "minLength": 1},
         "dimension": {"enum": [4, 8]},
         "codebook_size": {
           "enum": [
@@ -69,6 +71,7 @@
       "properties": {
         "id": {"$ref": "#/$defs/safe_id"},
         "family": {"const": "vector_vq"},
+        "provider": {"type": "string", "minLength": 1},
         "dimension": {"enum": [4, 8]},
         "bpw": {"type": "number"},
         "activation_artifacts": {"$ref": "#/$defs/activation_artifacts"}
@@ -106,6 +109,17 @@
         }
       ]
     },
+    "native_mxfp4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "family"],
+      "properties": {
+        "id": {"$ref": "#/$defs/safe_id"},
+        "family": {"const": "native_mxfp4"},
+        "provider": {"enum": ["native_mxfp4", "native-mxfp4"]},
+        "activation_artifacts": {"$ref": "#/$defs/activation_artifacts"}
+      }
+    },
     "qtip_packaged_default": {
       "type": "object",
       "additionalProperties": false,
@@ -113,6 +127,7 @@
       "properties": {
         "id": {"$ref": "#/$defs/safe_id"},
         "family": {"const": "qtip"},
+        "provider": {"type": "string", "minLength": 1},
         "bpw": {"type": "number", "minimum": 1, "maximum": 4, "multipleOf": 0.25},
         "source_root": {"$ref": "#/$defs/path"},
         "activation_artifacts": {"$ref": "#/$defs/activation_artifacts"}
@@ -125,6 +140,7 @@
       "properties": {
         "id": {"$ref": "#/$defs/safe_id"},
         "family": {"const": "qtip"},
+        "provider": {"type": "string", "minLength": 1},
         "bpw": {"type": "number", "minimum": 1, "maximum": 4, "multipleOf": 0.25},
         "backend": {"const": "packaged_qtip"},
         "source_root": {"$ref": "#/$defs/path"},
@@ -138,6 +154,7 @@
       "properties": {
         "id": {"$ref": "#/$defs/safe_id"},
         "family": {"const": "qtip"},
+        "provider": {"type": "string", "minLength": 1},
         "bpw": {"type": "number", "minimum": 1, "maximum": 4, "multipleOf": 0.25},
         "backend": {"const": "fixture_reference"},
         "activation_artifacts": {"$ref": "#/$defs/activation_artifacts"}
@@ -183,6 +200,7 @@
           {"$ref": "#/$defs/vector_vq_bits"},
           {"$ref": "#/$defs/vector_vq_codebook_size"},
           {"$ref": "#/$defs/vector_vq_bpw"},
+          {"$ref": "#/$defs/native_mxfp4"},
           {"$ref": "#/$defs/qtip_packaged_default"},
           {"$ref": "#/$defs/qtip_packaged_explicit"},
           {"$ref": "#/$defs/qtip_fixture_reference"}
