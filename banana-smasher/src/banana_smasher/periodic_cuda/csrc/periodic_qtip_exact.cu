@@ -17,6 +17,7 @@ constexpr int BATCH = 256;
 constexpr int MAX_PREFIXES = 4096;
 constexpr int FINAL_PREFIXES = 1024;
 constexpr int THREADS = 256;
+constexpr int B_TILE = 8;
 
 __device__ __forceinline__ float emission(
     float x0, float x1, float l0, float l1) {
@@ -44,31 +45,47 @@ __global__ void periodic_step(
     int step) {
   constexpr int PREFIXES = 1 << (16 - WIDTH);
   constexpr int BRANCHES = 1 << WIDTH;
-  const int linear = blockIdx.x * blockDim.x + threadIdx.x;
-  const int total = BATCH * PREFIXES;
-  if (linear >= total) return;
-  const int seq = linear / PREFIXES;
-  const int prefix = linear - seq * PREFIXES;
-  const float x0 = x[(step * 2) * BATCH + seq];
-  const float x1 = x[(step * 2 + 1) * BATCH + seq];
-  float best = INFINITY;
-  uint8_t best_q = 0;
+  const int prefix = blockIdx.x * blockDim.x + threadIdx.x;
+  const int seq_base = blockIdx.y * B_TILE;
+  float x0[B_TILE];
+  float x1[B_TILE];
+  float best[B_TILE];
+  uint8_t best_q[B_TILE];
+#pragma unroll
+  for (int row = 0; row < B_TILE; ++row) {
+    const int seq = seq_base + row;
+    x0[row] = x[(step * 2) * BATCH + seq];
+    x1[row] = x[(step * 2 + 1) * BATCH + seq];
+    best[row] = INFINITY;
+    best_q[row] = 0;
+  }
 #pragma unroll
   for (int q = 0; q < BRANCHES; ++q) {
     const int state = q * PREFIXES + prefix;
-    if constexpr (FIRST && HAS_OVERLAP) {
-      if ((state >> 6) != overlap[seq]) continue;
-    }
     const float l0 = lut_aos[state * 2];
     const float l1 = lut_aos[state * 2 + 1];
-    float value = emission(x0, x1, l0, l1);
-    if constexpr (!FIRST) {
-      value = __fadd_rn(previous[seq * MAX_PREFIXES + (state >> PREVIOUS_WIDTH)], value);
+#pragma unroll
+    for (int row = 0; row < B_TILE; ++row) {
+      const int seq = seq_base + row;
+      if constexpr (FIRST && HAS_OVERLAP) {
+        if ((state >> 6) != overlap[seq]) continue;
+      }
+      float value = emission(x0[row], x1[row], l0, l1);
+      if constexpr (!FIRST) {
+        value = __fadd_rn(
+            previous[seq * MAX_PREFIXES + (state >> PREVIOUS_WIDTH)], value);
+      }
+      update_best(value, static_cast<uint8_t>(q), best[row], best_q[row]);
     }
-    update_best(value, static_cast<uint8_t>(q), best, best_q);
   }
-  current[seq * MAX_PREFIXES + prefix] = best;
-  backpointer[(static_cast<int64_t>(step) * BATCH + seq) * MAX_PREFIXES + prefix] = best_q;
+#pragma unroll
+  for (int row = 0; row < B_TILE; ++row) {
+    const int seq = seq_base + row;
+    current[seq * MAX_PREFIXES + prefix] = best[row];
+    backpointer[
+        (static_cast<int64_t>(step) * BATCH + seq) * MAX_PREFIXES + prefix] =
+        best_q[row];
+  }
 }
 
 template <bool HAS_OVERLAP>
@@ -158,14 +175,13 @@ std::vector<torch::Tensor> periodic_qtip_exact_cuda(
   const int32_t* overlap_ptr = has_overlap ? overlap_tensor.data_ptr<int32_t>() : nullptr;
 
   {
-    const int total = BATCH * MAX_PREFIXES;
-    const int blocks = (total + THREADS - 1) / THREADS;
+    const dim3 grid(MAX_PREFIXES / THREADS, BATCH / B_TILE);
     if (has_overlap) {
-      periodic_step<4, 6, true, true><<<blocks, THREADS, 0, stream>>>(
+      periodic_step<4, 6, true, true><<<grid, THREADS, 0, stream>>>(
           x.data_ptr<float>(), lut_aos.data_ptr<float>(), previous, current,
           overlap_ptr, backpointer_ptr, 0);
     } else {
-      periodic_step<4, 6, true, false><<<blocks, THREADS, 0, stream>>>(
+      periodic_step<4, 6, true, false><<<grid, THREADS, 0, stream>>>(
           x.data_ptr<float>(), lut_aos.data_ptr<float>(), previous, current,
           nullptr, backpointer_ptr, 0);
     }
@@ -178,15 +194,13 @@ std::vector<torch::Tensor> periodic_qtip_exact_cuda(
   for (int step = 1; step < STEPS; ++step) {
     if (step & 1) {
       constexpr int prefixes = 1024;
-      const int total = BATCH * prefixes;
-      const int blocks = (total + THREADS - 1) / THREADS;
-      periodic_step<6, 4, false, false><<<blocks, THREADS, 0, stream>>>(
+      const dim3 grid(prefixes / THREADS, BATCH / B_TILE);
+      periodic_step<6, 4, false, false><<<grid, THREADS, 0, stream>>>(
           x.data_ptr<float>(), lut_aos.data_ptr<float>(), previous, current,
           nullptr, backpointer_ptr, step);
     } else {
-      const int total = BATCH * MAX_PREFIXES;
-      const int blocks = (total + THREADS - 1) / THREADS;
-      periodic_step<4, 6, false, false><<<blocks, THREADS, 0, stream>>>(
+      const dim3 grid(MAX_PREFIXES / THREADS, BATCH / B_TILE);
+      periodic_step<4, 6, false, false><<<grid, THREADS, 0, stream>>>(
           x.data_ptr<float>(), lut_aos.data_ptr<float>(), previous, current,
           nullptr, backpointer_ptr, step);
     }
