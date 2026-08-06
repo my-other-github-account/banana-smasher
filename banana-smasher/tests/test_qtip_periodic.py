@@ -14,17 +14,21 @@ from banana_smasher.qtip_periodic import (
 
 
 def test_periodic_qtip25_symbol_wire_roundtrips_and_decodes_exactly() -> None:
-    symbols = np.array([0, 7, 3, 4, 1, 6, 2, 5], dtype=np.uint8)
+    # QTIP V=2 emits two coded values per transition.  K2/K3 therefore consume
+    # four/six branch bits per transition, or 20 bits for eight coded values.
+    symbols = np.array([0, 63, 15, 32], dtype=np.uint8)
     packed = pack_symbols(symbols)
 
     assert PERIODIC_QTIP25_FORMAT == {
         "codec_form": "qtip25_periodic_23",
         "rate_num": 5,
         "rate_den": 2,
-        "transition_bits": [2, 3],
+        "transition_k": [2, 3],
+        "values_per_transition": 2,
+        "transition_bits": [4, 6],
         "bit_order": "msb-first",
     }
-    assert packed.tolist() == [0x3F, 0x1D, 0x50]
+    assert packed.tolist() == [0x0F, 0xFE, 0x00]
     assert np.array_equal(unpack_symbols(packed, len(symbols)), symbols)
 
     lut = np.arange(1 << 17, dtype=np.float32).reshape(1 << 16, 2)
@@ -34,7 +38,7 @@ def test_periodic_qtip25_symbol_wire_roundtrips_and_decodes_exactly() -> None:
     )
 
     accounting = periodic_wire_accounting(
-        position_count=len(symbols),
+        position_count=len(symbols) * 2,
         transform_bytes=20,
         scale_bytes=4,
         shared_tlut_bytes=4096,
@@ -62,9 +66,9 @@ def test_periodic_qtip25_symbol_wire_roundtrips_and_decodes_exactly() -> None:
 
 
 def test_periodic_qtip25_rejects_unpaired_or_out_of_range_symbols() -> None:
-    with pytest.raises(ValueError, match="even position count"):
+    with pytest.raises(ValueError, match="even transition count"):
         pack_symbols(np.array([0], dtype=np.uint8))
-    with pytest.raises(ValueError, match="2-bit transition"):
-        pack_symbols(np.array([4, 0], dtype=np.uint8))
-    with pytest.raises(ValueError, match="3-bit transition"):
-        pack_symbols(np.array([0, 8], dtype=np.uint8))
+    with pytest.raises(ValueError, match="4-bit transition"):
+        pack_symbols(np.array([16, 0], dtype=np.uint8))
+    with pytest.raises(ValueError, match="6-bit transition"):
+        pack_symbols(np.array([0, 64], dtype=np.uint8))
