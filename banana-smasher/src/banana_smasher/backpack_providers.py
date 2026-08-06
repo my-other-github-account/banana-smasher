@@ -253,7 +253,7 @@ def _materialize_record_payload(
     )
 
 
-def materialize_backpack_assignment(
+def _materialize_provider_assignment(
     payloads: dict[tuple[int, str], dict[str, list[np.ndarray]]],
     *,
     tier: Mapping[str, Any],
@@ -273,6 +273,27 @@ def materialize_backpack_assignment(
         family = provider.runtime_family
     _materialize_record_payload(
         payloads, family=family, cell=cell, artifact_root=artifact_root
+    )
+
+
+def materialize_backpack_assignment(
+    source: str | Path,
+    *,
+    plan: Any,
+    cells: Sequence[Mapping[str, Any]],
+    assignment: Sequence[Mapping[str, Any]],
+    artifact_roots: Mapping[str, Path],
+) -> None:
+    """Materialize a solved assignment through the canonical public writer."""
+
+    from .backpack import materialize_backpack_source
+
+    materialize_backpack_source(
+        Path(source),
+        plan=plan,
+        cells=cells,
+        assignment=assignment,
+        artifact_roots=artifact_roots,
     )
 
 
@@ -343,7 +364,7 @@ def native_mxfp4_backpack_provider() -> BackpackFamilyProvider:
         kind="native_mxfp4",
         runtime_family="native_mxfp4",
         generate=generate_native_mxfp4_backpack_candidate,
-        materialize=materialize_backpack_assignment,
+        materialize=_materialize_provider_assignment,
         price=price_backpack_candidate,
         predict=predict_backpack_candidate,
         verify=verify_backpack_candidate,
@@ -361,7 +382,7 @@ def qtip_ring_backpack_provider(bpw: object) -> BackpackFamilyProvider:
         kind="qtip_ring",
         runtime_family=runtime_family,
         generate=generate_qtip_backpack_candidate,
-        materialize=materialize_backpack_assignment,
+        materialize=_materialize_provider_assignment,
         price=price_backpack_candidate,
         predict=predict_backpack_candidate,
         verify=verify_backpack_candidate,
@@ -390,7 +411,7 @@ def vector_vq_backpack_provider(
         kind="vector_vq",
         runtime_family=f"truevq_d{dimension}",
         generate=generate_vector_vq_backpack_candidate,
-        materialize=materialize_backpack_assignment,
+        materialize=_materialize_provider_assignment,
         price=price_backpack_candidate,
         predict=predict_backpack_candidate,
         verify=verify_backpack_candidate,
@@ -407,7 +428,7 @@ def fixed_d4_backpack_provider(codebook_size: int) -> BackpackFamilyProvider:
         kind="fixed_d4",
         runtime_family="truevq_d4",
         generate=generate_fixed_d4_backpack_candidate,
-        materialize=materialize_backpack_assignment,
+        materialize=_materialize_provider_assignment,
         price=price_backpack_candidate,
         predict=predict_backpack_candidate,
         verify=verify_backpack_candidate,
