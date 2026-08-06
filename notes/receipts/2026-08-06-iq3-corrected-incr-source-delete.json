@@ -1,0 +1,17 @@
+{
+  "archive_nas_root": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR",
+  "archive_receipt_sha256": "4ae6788a50eb8a870c4d08546924306cd2f728e88db039332b2403ec41744411",
+  "archive_tar_bytes": 180569784320,
+  "deleted_at_unix": 1786032710.3342924,
+  "filesystem_free_after": 182050689024,
+  "filesystem_free_before": 1476526080,
+  "filesystem_reclaimed_bytes": 180574162944,
+  "live_references": [],
+  "schema": "banana-smasher-archived-source-delete-receipt-v1",
+  "source_device": 66306,
+  "source_files": 1428,
+  "source_inode": 3805234,
+  "source_logical_bytes": 180568603432,
+  "source_root": "/home/dnola/missions/IQ3_CORRECTED_INCR",
+  "status": "PASS"
+}

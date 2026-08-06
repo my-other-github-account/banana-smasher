@@ -1,0 +1,145 @@
+{
+  "bytes": 180569784320,
+  "elapsed_seconds": 2313.3897847159824,
+  "items": [
+    {
+      "bytes": 15362355200,
+      "elapsed_seconds": 833.4208981659904,
+      "name": "base_d4_k1024",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/base_d4_k1024.tar",
+      "paths": [
+        "base_selected/d4_k1024"
+      ],
+      "sha256": "1a8f14c11c67d5900fb09c081c40f304a336e6fefcde0dad2d843577d55d6ef8",
+      "status": "PASS"
+    },
+    {
+      "bytes": 50212505600,
+      "elapsed_seconds": 1614.8244887229812,
+      "name": "base_d4_k2048",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/base_d4_k2048.tar",
+      "paths": [
+        "base_selected/d4_k2048"
+      ],
+      "sha256": "ceec0eaa1a9f5baa058bdb8235f185a8508ba2c4f9f71bb76759188a2756a95e",
+      "status": "PASS"
+    },
+    {
+      "bytes": 49656852480,
+      "elapsed_seconds": 2193.5492991119972,
+      "name": "base_d4_k4096",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/base_d4_k4096.tar",
+      "paths": [
+        "base_selected/d4_k4096"
+      ],
+      "sha256": "27beb5dac33750250f6efcb384d7ddfde38f3f597de935b83779636247fd268f",
+      "status": "PASS"
+    },
+    {
+      "bytes": 530155520,
+      "elapsed_seconds": 24.014983275003033,
+      "name": "base_d8_k1024",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/base_d8_k1024.tar",
+      "paths": [
+        "base_selected/d8_k1024"
+      ],
+      "sha256": "2712cee3831b94c9242184675d05bf9a24bf6d7784d2774c8306177682128dab",
+      "status": "PASS"
+    },
+    {
+      "bytes": 625940480,
+      "elapsed_seconds": 27.705588896002155,
+      "name": "base_d8_k2048",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/base_d8_k2048.tar",
+      "paths": [
+        "base_selected/d8_k2048"
+      ],
+      "sha256": "b54720092b6db607b6f2607bd37fcc9bfe6e6906f537cd26f961d2b8c2e1910a",
+      "status": "PASS"
+    },
+    {
+      "bytes": 811960320,
+      "elapsed_seconds": 35.23932681098813,
+      "name": "base_d8_k256",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/base_d8_k256.tar",
+      "paths": [
+        "base_selected/d8_k256"
+      ],
+      "sha256": "95097014e9295d6b1fab7dadf8d8960e2bc378f7992abe89bf55d9d26d0aeec6",
+      "status": "PASS"
+    },
+    {
+      "bytes": 8749455360,
+      "elapsed_seconds": 361.5948387559911,
+      "name": "base_d8_k4096",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/base_d8_k4096.tar",
+      "paths": [
+        "base_selected/d8_k4096"
+      ],
+      "sha256": "8443cadc161aa431ed0006e3c6c5cb538df2bc0622f87eec09b6c2c1101d01db",
+      "status": "PASS"
+    },
+    {
+      "bytes": 411484160,
+      "elapsed_seconds": 26.55139380399487,
+      "name": "base_d8_k512",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/base_d8_k512.tar",
+      "paths": [
+        "base_selected/d8_k512"
+      ],
+      "sha256": "3b197eda54113bf0023b4e8ca24548f15477093cbf92e168eb6fc59014483511",
+      "status": "PASS"
+    },
+    {
+      "bytes": 9321543680,
+      "elapsed_seconds": 464.5539333529887,
+      "name": "base_static",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/base_static.tar",
+      "paths": [
+        "base_selected/static"
+      ],
+      "sha256": "0e04b6fcf6852acc7a079c212679c2a8ca6883684daf70c023f3b490c12a1b98",
+      "status": "PASS"
+    },
+    {
+      "bytes": 552960,
+      "elapsed_seconds": 1.1610632130177692,
+      "name": "metadata",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/metadata.tar",
+      "paths": [
+        "DELTA_PACK.COMPLETE",
+        "DELTA_PACK_MANIFEST.json",
+        "DELTA_PACK_MANIFEST.json.md5",
+        "PEER_WORKER.pid",
+        "PEER_WORKER_RESUME.pid",
+        "SELECTED_PACKS.COMPLETE",
+        "code",
+        "done_chunks",
+        "kld_chunks",
+        "logs",
+        "peer_s7.log",
+        "score_chunks"
+      ],
+      "sha256": "e633a6ef74eb9faa0c676f7b30db494154dad25be50e6326edcd28c3b10c23c7",
+      "status": "PASS"
+    },
+    {
+      "bytes": 44886978560,
+      "elapsed_seconds": 1479.9633155439806,
+      "name": "selected",
+      "nas_path": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR/selected.tar",
+      "paths": [
+        "selected"
+      ],
+      "sha256": "9bd43b2461e0ce0e9b311c95699d247f5cc8019b130eaecbc7c74da0d152d3fe",
+      "status": "PASS"
+    }
+  ],
+  "nas_root": "/volume1/dnola/archives/banana-smasher/locality-reclaim-20260806/IQ3_CORRECTED_INCR",
+  "schema": "banana-smasher-nas-archive-receipt-v1",
+  "source_delete_authorized": false,
+  "source_host": "spark-7",
+  "source_root": "/home/dnola/missions/IQ3_CORRECTED_INCR",
+  "status": "PASS",
+  "transport": "four-parallel-spark7-qsfp-via-spark6-to-nas"
+}

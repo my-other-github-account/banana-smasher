@@ -81,6 +81,46 @@ def test_qsfp_stage_is_explicit_and_rejects_aliases(tmp_path: Path) -> None:
     assert receipt["bytes"] == 1
 
 
+def test_batched_stage_groups_relative_files(tmp_path: Path) -> None:
+    manifest = tmp_path / "batch.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-qsfp-stage-v2",
+                "status": "READY",
+                "items": [
+                    {
+                        "source_host": "dnola@192.168.200.1",
+                        "source_root": "/source",
+                        "destination": "qtip2",
+                        "relative_paths": [
+                            "L000/E000_down/QTIP_UNIT.pt",
+                            "L000/E000_down/QTIP_SOLVE_RECEIPT.json",
+                        ],
+                        "bytes": 2,
+                    }
+                ],
+            }
+        )
+    )
+
+    def fake_transfer(item: dict[str, object], root: Path) -> dict[str, object]:
+        relative_paths = item["relative_paths"]
+        assert isinstance(relative_paths, list)
+        for relative in relative_paths:
+            target = root / str(item["destination"]) / str(relative)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b"x")
+        return {**item, "actual_bytes": 2, "status": "PASS"}
+
+    receipt = stage_qsfp_manifest(
+        manifest, tmp_path / "batch-output", transfer=fake_transfer
+    )
+    assert receipt["status"] == "PASS"
+    assert receipt["manifest_schema"] == "banana-smasher-qsfp-stage-v2"
+    assert receipt["bytes"] == 2
+
+
 def test_measured_selection_retains_baseline_on_proxy_reversal(tmp_path: Path) -> None:
     basis = "a" * 64
     solve = {
