@@ -5,6 +5,7 @@ import json
 import math
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -1141,12 +1142,17 @@ def solve_class_balanced_options(
     envelope_bytes: int,
     class_caps: dict[str, float],
     class_weights: dict[str, float] | None = None,
+    time_limit_seconds: float | None = 60.0,
+    mip_rel_gap: float = 0.0,
+    require_optimal: bool = False,
 ) -> dict[str, Any]:
     """Select one tier per cell under exact bytes and aggregate class ceilings.
 
-    This is the class-aware primitive used by the dynamic Backpack policy.  Its
-    outputs are predictions, never measured KLD.  Integer byte accounting is
-    rechecked in Python after the MILP solve.
+    This is the class-aware primitive used by the dynamic Backpack policy. Its
+    outputs are predictions, never measured KLD. Integer byte accounting and all
+    hard class ceilings are rechecked in Python after the MILP solve. By default,
+    a verified integral incumbent is returned after a bounded solve; callers that
+    need a proof of global optimality may pass ``require_optimal=True``.
     """
 
     if not cells or len(cells) != len(set(cells)):
@@ -1155,6 +1161,22 @@ def solve_class_balanced_options(
         raise KnapsackValidationError("tiers must be a non-empty unique list")
     if isinstance(envelope_bytes, bool) or not isinstance(envelope_bytes, int) or envelope_bytes < 0:
         raise KnapsackValidationError("envelope_bytes must be a non-negative integer")
+    if time_limit_seconds is not None and (
+        isinstance(time_limit_seconds, bool)
+        or not isinstance(time_limit_seconds, (int, float))
+        or not math.isfinite(float(time_limit_seconds))
+        or time_limit_seconds <= 0.0
+    ):
+        raise KnapsackValidationError("time_limit_seconds must be positive finite or None")
+    if (
+        isinstance(mip_rel_gap, bool)
+        or not isinstance(mip_rel_gap, (int, float))
+        or not math.isfinite(float(mip_rel_gap))
+        or not 0.0 <= mip_rel_gap <= 1.0
+    ):
+        raise KnapsackValidationError("mip_rel_gap must be finite in [0, 1]")
+    if not isinstance(require_optimal, bool):
+        raise KnapsackValidationError("require_optimal must be boolean")
     if not class_caps:
         raise KnapsackValidationError("class_caps must be a non-empty object")
     classes = sorted(class_caps)
@@ -1286,19 +1308,33 @@ def solve_class_balanced_options(
         lower[cursor] = 0.0
         upper[cursor] = caps[name]
         cursor += 1
+    solver_options: dict[str, bool | float] = {
+        "presolve": True,
+        "mip_rel_gap": float(mip_rel_gap),
+    }
+    if time_limit_seconds is not None:
+        solver_options["time_limit"] = float(time_limit_seconds)
+    solve_started = time.monotonic()
     solution = milp(
         c=objective,
         integrality=np.ones(variable_count, dtype=np.int8),
         bounds=Bounds(np.zeros(variable_count), variable_upper),
         constraints=LinearConstraint(matrix, lower, upper),
-        options={"presolve": True, "mip_rel_gap": 0.0},
+        options=solver_options,
     )
-    if not solution.success or solution.x is None or int(solution.status) != 0:
+    solve_wall_seconds = time.monotonic() - solve_started
+    solver_status = int(solution.status)
+    mip_gap = float(getattr(solution, "mip_gap", math.inf))
+    if solution.x is None or solver_status not in {0, 1}:
         raise RuntimeError(
-            f"class-balanced exact solve failed: status={solution.status}, message={solution.message}"
+            f"class-balanced solve failed: status={solution.status}, message={solution.message}"
         )
-    if float(getattr(solution, "mip_gap", math.inf)) != 0.0:
-        raise RuntimeError("class-balanced exact solve returned a nonzero MIP gap")
+    optimality_proven = solver_status == 0 and mip_gap == 0.0
+    if require_optimal and not optimality_proven:
+        raise RuntimeError(
+            "class-balanced solve returned a feasible incumbent without proving optimality: "
+            f"status={solver_status}, mip_gap={mip_gap}"
+        )
     rounded = np.rint(solution.x).astype(np.int8)
     if not np.allclose(solution.x, rounded, rtol=0.0, atol=1e-6):
         raise RuntimeError("class-balanced exact solver returned a non-integral assignment")
@@ -1329,7 +1365,11 @@ def solve_class_balanced_options(
         raise RuntimeError("class-balanced solver violated aggregate class bounds")
     objective_value = math.fsum(weights[name] * predicted[name] for name in classes)
     return {
-        "status": "PASS_PREDICTION_ONLY",
+        "status": (
+            "PASS_OPTIMAL_PREDICTION_ONLY"
+            if optimality_proven
+            else "PASS_FEASIBLE_PREDICTION_ONLY"
+        ),
         "assignments": assignments,
         "assigned_bytes": assigned_bytes,
         "envelope_bytes": envelope_bytes,
@@ -1343,8 +1383,16 @@ def solve_class_balanced_options(
         },
         "solver": {
             "backend": "scipy.optimize.milp/HiGHS",
-            "status": int(solution.status),
-            "mip_gap": float(getattr(solution, "mip_gap", 0.0)),
+            "status": solver_status,
+            "message": str(solution.message),
+            "mip_gap": mip_gap,
+            "optimality_proven": optimality_proven,
+            "optimality_required": require_optimal,
+            "requested_mip_rel_gap": float(mip_rel_gap),
+            "time_limit_seconds": (
+                None if time_limit_seconds is None else float(time_limit_seconds)
+            ),
+            "wall_seconds": solve_wall_seconds,
             "byte_gcd_divisor": byte_divisor,
         },
     }
