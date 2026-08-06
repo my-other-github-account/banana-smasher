@@ -1,7 +1,7 @@
 {
   "schema": "banana-smasher-backpack-provider-smoke-v1",
   "status": "PASS",
-  "source_commit": "d7db85dcc3ebe94264b8c6ec6738590a0023ab7e",
+  "source_commit": "edef54f3a3419eec50fd872d5b1fadc5011d1d6e",
   "focused_tests": {
     "command": "PYTHONPATH=src python3.13 -m pytest -q tests/test_backpack_family_providers.py tests/test_qtip1.py",
     "result": "11 passed"
@@ -15,13 +15,17 @@
       "assignment_count": 4,
       "pack_status": "PASS",
       "final_status": "PASS",
-      "cli_status": "PASS"
+      "cli_status": "PASS",
+      "d4_provider": "d4-k2048",
+      "d4_provider_bytes": 16494,
+      "d4_provider_prediction": "PASS",
+      "d4_provider_materialized": true
     }
   },
   "installed_wheel": {
     "clean_git_archive": true,
     "filename": "banana_smasher-1.0.0-py3-none-any.whl",
-    "sha256": "65d99cc850f228425754680c2d9e93e35c6763e822d4df5b4eca17ab45d60312",
+    "sha256": "1e1f010297198cb58fd012a63e2b481489cdf45826587d8e3173a000bfe1853c",
     "module_origin": "isolated-site-packages",
     "dependency_install": "ordinary wheel install",
     "update_backends": [
@@ -43,7 +47,11 @@
       "assignment_count": 4,
       "pack_status": "PASS",
       "final_status": "PASS",
-      "cli_status": "PASS"
+      "cli_status": "PASS",
+      "d4_provider": "d4-k2048",
+      "d4_provider_bytes": 16494,
+      "d4_provider_prediction": "PASS",
+      "d4_provider_materialized": true
     }
   }
 }
