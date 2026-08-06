@@ -1,0 +1,50 @@
+{
+  "schema": "banana-smasher-qtip2-draft-resolution-v1",
+  "status": "PASS_DRAFT_REVERTED",
+  "task_id": "t_e5980797",
+  "created_utc": "2026-08-06T06:48:26Z",
+  "branch": "task/qtip2-uniform-api-repair",
+  "source_commit": "5b5223cef58cd89fc1ce640d49b02796a2bb869c",
+  "decision": {
+    "resolution": "revert-uncommitted-qtip2-draft",
+    "reason": "independent review found that the draft decoded QTIP2 into a dense torch.matmul and incremented acceleration sentinel names without executing the corresponding K-major/grouped-VJP/layer-graph kernels",
+    "canonical_trellis_dtype": "uint16",
+    "source_files_clean_against_commit": true
+  },
+  "independent_review": {
+    "passed": false,
+    "security_concerns": 0,
+    "blocking_logic_errors": [
+      "ordinary dense matmul was mislabeled as K-major/layer-graph acceleration",
+      "QTIP2 sentinel counters were not cycle-scoped",
+      "noncanonical trellis dtypes were converted instead of rejected while claiming packed-wire preservation"
+    ]
+  },
+  "verification_after_revert": {
+    "focused_tests": {
+      "command": "pytest -q tests/test_physical_repair_backend.py tests/test_production_update_acceleration.py",
+      "passed": 19,
+      "failed": 0
+    },
+    "ruff": "PASS",
+    "git_diff_check": "PASS",
+    "wheel": {
+      "filename": "banana_smasher-1.0.0-py3-none-any.whl",
+      "bytes": 307633,
+      "sha256": "3503e09192fbed307caaf6686481cd71de69a3b7aa438a79d986064b1fd2596e"
+    },
+    "clean_installed_wheel_cli": {
+      "command": "smash update --help",
+      "status": "PASS"
+    }
+  },
+  "host_allocation": {
+    "acquired": false,
+    "reason": "source-control resolution completed without accelerator compute"
+  },
+  "successor": {
+    "task_id": "t_c653d56e",
+    "status_at_receipt": "running",
+    "scope": "implement a real non-spoofed QTIP2 acceleration path in an isolated worktree"
+  }
+}
