@@ -102,6 +102,16 @@ def _measurement_values_sha256(
     ).hexdigest()
 
 
+def _matched_code_bits(*, k2: int = 4, k3: int = 6) -> dict[str, int]:
+    matched = k2 + k3
+    return {
+        "qtip_k2": k2,
+        "qtip_k3": k3,
+        "qtip25_avg_member": matched,
+        "qtip25_periodic_23": matched,
+    }
+
+
 def _expected_payload_hashes(row_ids: list[str]) -> dict[str, str]:
     digests = {
         "teacher_support": hashlib.sha256(),
@@ -144,9 +154,7 @@ def _provenance(
     errors = direct_error or {
         candidate: 1.0 for candidate in PERIODIC_SIGNAL_CANDIDATES
     }
-    code_bits = nominal_code_bits or {
-        candidate: 10 for candidate in PERIODIC_SIGNAL_CANDIDATES
-    }
+    code_bits = nominal_code_bits or _matched_code_bits()
     return {
         "avg_member_receipt_sha256": AVG_MEMBER_BASELINE_RECEIPT_SHA256,
         "bank_manifest_sha256": TRAIN64_BANK_MANIFEST_SHA256,
@@ -214,7 +222,12 @@ def test_periodic_train8_scores_authentic_shape_paired_signal(tmp_path) -> None:
         "qtip25_avg_member": 1.5,
         "qtip25_periodic_23": 1.25,
     }
-    code_bits = {candidate: 10_000 for candidate in PERIODIC_SIGNAL_CANDIDATES}
+    code_bits = {
+        "qtip_k2": 4_000,
+        "qtip_k3": 6_000,
+        "qtip25_avg_member": 10_000,
+        "qtip25_periodic_23": 10_000,
+    }
 
     receipt = score_periodic_train8_signal(
         rows=_authentic_shape_rows(row_ids),
@@ -237,7 +250,9 @@ def test_periodic_train8_scores_authentic_shape_paired_signal(tmp_path) -> None:
     assert receipt["position_cutoff"] == 1024
     assert receipt["support_width"] == 8192
     assert receipt["paired_same_ids"] is True
-    assert receipt["identical_total_nominal_code_bits"] is True
+    assert receipt["matched_total_nominal_code_bits"] == 10_000
+    assert receipt["avg_member_periodic_code_bits_equal"] is True
+    assert receipt["control_code_bits_sum_to_matched_total"] is True
     assert (
         receipt["provenance"]["avg_member_receipt_sha256"]
         == AVG_MEMBER_BASELINE_RECEIPT_SHA256
@@ -283,12 +298,17 @@ def test_periodic_train8_refuses_non_ff0731_basis_before_rows() -> None:
 def test_periodic_train8_refuses_unpaired_ids_and_unequal_code_spend() -> None:
     row_ids = list(TRAIN8_ROW_IDS)
     errors = {candidate: 1.0 for candidate in PERIODIC_SIGNAL_CANDIDATES}
+    k2_bits = 1 << 53
+    k3_bits = (1 << 53) + 1
+    matched_bits = k2_bits + k3_bits
     unequal_bits = {
-        candidate: (1 << 53) + 1 for candidate in PERIODIC_SIGNAL_CANDIDATES
+        "qtip_k2": k2_bits,
+        "qtip_k3": k3_bits,
+        "qtip25_avg_member": matched_bits,
+        "qtip25_periodic_23": matched_bits + 1,
     }
-    unequal_bits["qtip25_periodic_23"] = (1 << 53) + 2
 
-    with pytest.raises(ValueError, match="identical code bits"):
+    with pytest.raises(ValueError, match="identical matched code bits"):
         score_periodic_train8_signal(
             rows=[],
             expected_row_ids=row_ids,
@@ -296,6 +316,23 @@ def test_periodic_train8_refuses_unpaired_ids_and_unequal_code_spend() -> None:
             observed_basis_sha256=FF0731_MODEL_INDEX_SHA256,
             direct_error=errors,
             nominal_code_bits=unequal_bits,
+            provenance=_provenance(),
+        )
+
+    bad_control_sum = {
+        "qtip_k2": k2_bits,
+        "qtip_k3": k3_bits,
+        "qtip25_avg_member": matched_bits + 1,
+        "qtip25_periodic_23": matched_bits + 1,
+    }
+    with pytest.raises(ValueError, match="sum to the matched total"):
+        score_periodic_train8_signal(
+            rows=[],
+            expected_row_ids=row_ids,
+            intended_basis_sha256=FF0731_MODEL_INDEX_SHA256,
+            observed_basis_sha256=FF0731_MODEL_INDEX_SHA256,
+            direct_error=errors,
+            nominal_code_bits=bad_control_sum,
             provenance=_provenance(),
         )
 
@@ -313,7 +350,7 @@ def test_periodic_train8_refuses_unpaired_ids_and_unequal_code_spend() -> None:
             intended_basis_sha256=FF0731_MODEL_INDEX_SHA256,
             observed_basis_sha256=FF0731_MODEL_INDEX_SHA256,
             direct_error=errors,
-            nominal_code_bits={candidate: 10_000 for candidate in PERIODIC_SIGNAL_CANDIDATES},
+            nominal_code_bits=_matched_code_bits(k2=4_000, k3=6_000),
             provenance=_provenance(),
         )
 
@@ -321,6 +358,7 @@ def test_periodic_train8_refuses_unpaired_ids_and_unequal_code_spend() -> None:
 def test_periodic_train8_refuses_duplicate_support_and_float64_logits() -> None:
     row_ids = list(TRAIN8_ROW_IDS)
     values = {candidate: 1 for candidate in PERIODIC_SIGNAL_CANDIDATES}
+    code_bits = _matched_code_bits()
     duplicate_row = next(_authentic_shape_rows(row_ids))
     support_row = np.arange(TRAIN8_SUPPORT_WIDTH, dtype=np.int32)
     support_row[-1] = support_row[-2]
@@ -335,7 +373,7 @@ def test_periodic_train8_refuses_duplicate_support_and_float64_logits() -> None:
             intended_basis_sha256=FF0731_MODEL_INDEX_SHA256,
             observed_basis_sha256=FF0731_MODEL_INDEX_SHA256,
             direct_error=values,
-            nominal_code_bits=values,
+            nominal_code_bits=code_bits,
             provenance=_provenance(),
         )
 
@@ -353,7 +391,7 @@ def test_periodic_train8_refuses_duplicate_support_and_float64_logits() -> None:
             intended_basis_sha256=FF0731_MODEL_INDEX_SHA256,
             observed_basis_sha256=FF0731_MODEL_INDEX_SHA256,
             direct_error=values,
-            nominal_code_bits=values,
+            nominal_code_bits=code_bits,
             provenance=_provenance(),
         )
 
@@ -370,7 +408,7 @@ def test_periodic_train8_refuses_duplicate_support_and_float64_logits() -> None:
             intended_basis_sha256=FF0731_MODEL_INDEX_SHA256,
             observed_basis_sha256=FF0731_MODEL_INDEX_SHA256,
             direct_error=values,
-            nominal_code_bits=values,
+            nominal_code_bits=code_bits,
             provenance=_provenance(),
         )
 
@@ -378,7 +416,7 @@ def test_periodic_train8_refuses_duplicate_support_and_float64_logits() -> None:
 def test_periodic_signal_receipt_refuses_symlink_overwrite_and_nan(tmp_path) -> None:
     row_ids = list(TRAIN8_ROW_IDS)
     direct_error = {candidate: 1.0 for candidate in PERIODIC_SIGNAL_CANDIDATES}
-    code_bits = {candidate: 1 for candidate in PERIODIC_SIGNAL_CANDIDATES}
+    code_bits = _matched_code_bits()
     receipt = score_periodic_train8_signal(
         rows=_authentic_shape_rows(row_ids),
         expected_row_ids=row_ids,

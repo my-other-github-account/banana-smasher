@@ -73,8 +73,11 @@ def _candidate_code_bits(values: Mapping[str, int]) -> dict[str, int]:
         if isinstance(value, bool) or not isinstance(value, Integral) or int(value) <= 0:
             raise ValueError("nominal_code_bits values must be positive exact integers")
         normalized[candidate] = int(value)
-    if len(set(normalized.values())) != 1:
-        raise ValueError("all periodic quality-signal candidates must spend identical code bits")
+    matched_total = normalized["qtip25_avg_member"]
+    if normalized["qtip25_periodic_23"] != matched_total:
+        raise ValueError("AVG-MEMBER and PERIODIC must spend identical matched code bits")
+    if normalized["qtip_k2"] + normalized["qtip_k3"] != matched_total:
+        raise ValueError("K2 and K3 control code bits must sum to the matched total")
     return normalized
 
 
@@ -451,7 +454,9 @@ def score_periodic_train8_signal(
         "top1_semantics": "full-vocabulary candidate argmax equals teacher support index zero",
         "kld_semantics": "teacher-to-candidate support-renormalized natural-log KLD",
         "paired_same_ids": True,
-        "identical_total_nominal_code_bits": True,
+        "matched_total_nominal_code_bits": code_bits["qtip25_avg_member"],
+        "avg_member_periodic_code_bits_equal": True,
+        "control_code_bits_sum_to_matched_total": True,
         "candidates": result_rows,
         "safety": {
             "holdout_used": False,
@@ -480,7 +485,8 @@ def _validate_receipt_for_write(receipt: Mapping[str, Any]) -> None:
         receipt.get("position_cutoff") != TRAIN8_POSITION_CUTOFF
         or receipt.get("support_width") != TRAIN8_SUPPORT_WIDTH
         or receipt.get("paired_same_ids") is not True
-        or receipt.get("identical_total_nominal_code_bits") is not True
+        or receipt.get("avg_member_periodic_code_bits_equal") is not True
+        or receipt.get("control_code_bits_sum_to_matched_total") is not True
     ):
         raise ValueError("periodic quality-signal receipt has incompatible scoring semantics")
     provenance = receipt.get("provenance")
@@ -538,7 +544,11 @@ def _validate_receipt_for_write(receipt: Mapping[str, Any]) -> None:
         ):
             raise ValueError(f"periodic quality-signal result {candidate} is inconsistent")
         code_bits[candidate] = bits
-    _candidate_code_bits(code_bits)
+    normalized_code_bits = _candidate_code_bits(code_bits)
+    if receipt.get("matched_total_nominal_code_bits") != normalized_code_bits[
+        "qtip25_avg_member"
+    ]:
+        raise ValueError("periodic quality-signal matched code total is inconsistent")
     if _measurement_values_sha256(
         candidate_artifacts=provenance["candidate_artifact_sha256"],
         direct_error={
