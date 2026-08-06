@@ -13,6 +13,7 @@ from banana_smasher.qtip1 import (
     QtipGeometry,
     QtipProviderDeclaration,
     QtipWireConsumer,
+    _state_lut,
     assign_qtip_provider_components,
     decode_qtip,
     encode_qtip,
@@ -22,6 +23,7 @@ from banana_smasher.qtip1 import (
     qtip1_provider_declaration,
     qtip_provider_counts,
     unpack_qtip_states,
+    verify_qtip_wire,
     write_qtip_wire,
 )
 
@@ -142,6 +144,32 @@ def test_reduced_geometry_uses_l_relative_hash_and_requires_cyclic_paths() -> No
         raise AssertionError("non-cyclic QTIP path was accepted")
 
 
+def test_qtip1_minimal_cycle_roundtrips_and_noncycle_is_refused() -> None:
+    geometry = QtipGeometry(L=2, K=1, V=1, tlut_bits=2, decode_mode="lut")
+    cyclic = np.asarray([[0, 0]], dtype=np.int32)
+    packed = pack_qtip_states(cyclic, geometry)
+    assert np.array_equal(
+        unpack_qtip_states(packed, steps=2, geometry=geometry), cyclic
+    )
+
+    try:
+        pack_qtip_states(np.asarray([[0, 1]], dtype=np.int32), geometry)
+    except ValueError as exc:
+        assert "does not close" in str(exc)
+    else:
+        raise AssertionError("non-cyclic two-step K1 path was accepted")
+
+
+def test_reduced_geometry_quantlut_uses_canonical_16bit_hash_shift() -> None:
+    geometry = QtipGeometry(L=4, K=1, V=1, tlut_bits=2, decode_mode="quantlut")
+    tlut = np.asarray([[-3.0], [-1.0], [1.0], [3.0]], dtype=np.float32)
+    state_lut = _state_lut(geometry, tlut)
+
+    # Cornell QTIP quantlut always hashes through the 16-bit lane, even when L is
+    # reduced for a source-parity fixture. States 0..15 therefore all select row 0.
+    assert np.array_equal(state_lut, np.full((1, 16), -3.0, dtype=np.float32))
+
+
 def test_qtip1_and_qtip15_declarations_parse_and_report_exact_counts() -> None:
     qtip1 = QtipProviderDeclaration.from_mapping(qtip1_provider_declaration().as_mapping())
     qtip15 = QtipProviderDeclaration.from_mapping(
@@ -243,3 +271,71 @@ def test_qtip15_wire_has_exact_indices_scales_one_shared_tlut_and_reads_both_for
         assert "row/scale shape drift" in str(exc)
     else:
         raise AssertionError("malformed QTIP wire member was accepted")
+
+
+def test_qtip_wire_write_is_transactional_for_invalid_empty_member(tmp_path: Path) -> None:
+    root = tmp_path / "wire"
+    try:
+        write_qtip_wire(
+            root,
+            declaration=qtip1_provider_declaration(),
+            matrices={(0, 0, "down"): np.empty((0, 32), dtype=np.float32)},
+            tlut=gaussian_tlut(bits=9, columns=2),
+        )
+    except ValueError as exc:
+        assert "non-empty" in str(exc)
+    else:
+        raise AssertionError("empty QTIP wire member was accepted")
+    assert not root.exists()
+
+
+def test_qtip_wire_verify_rejects_fail_status_and_tampered_scales(tmp_path: Path) -> None:
+    declaration = qtip1_provider_declaration()
+    matrix = np.linspace(-1.0, 1.0, 32, dtype=np.float32).reshape(1, 32)
+    tlut = gaussian_tlut(bits=9, columns=2)
+
+    failed_root = tmp_path / "failed-wire"
+    write_qtip_wire(
+        failed_root,
+        declaration=declaration,
+        matrices={(0, 0, "down"): matrix},
+        tlut=tlut,
+    )
+    failed_receipt_path = failed_root / "QTIP_WIRE.json"
+    failed_receipt = json.loads(failed_receipt_path.read_text())
+    failed_receipt["status"] = "FAIL"
+    failed_receipt_path.write_text(json.dumps(failed_receipt))
+    try:
+        QtipWireConsumer(failed_root)
+    except ValueError as exc:
+        assert "status" in str(exc)
+    else:
+        raise AssertionError("FAIL QTIP wire receipt was accepted")
+
+    tampered_root = tmp_path / "tampered-wire"
+    write_qtip_wire(
+        tampered_root,
+        declaration=declaration,
+        matrices={(0, 0, "down"): matrix},
+        tlut=tlut,
+    )
+    receipt_path = tampered_root / "QTIP_WIRE.json"
+    receipt = json.loads(receipt_path.read_text())
+    scale_row = receipt["members"][0]["scales"]
+    scale_path = tampered_root / scale_row["path"]
+    scales = np.load(scale_path, allow_pickle=False)
+    scales[0] = np.nan
+    np.save(scale_path, scales, allow_pickle=False)
+    scale_row["bytes"] = scale_path.stat().st_size
+    scale_row["data_bytes"] = scales.nbytes
+    scale_row["sha256"] = hashlib.sha256(scale_path.read_bytes()).hexdigest()
+    receipt_path.write_text(json.dumps(receipt))
+    try:
+        QtipWireConsumer(tampered_root).decode((0, 0, "down"))
+    except ValueError as exc:
+        assert "finite and positive" in str(exc)
+    else:
+        raise AssertionError("tampered non-finite QTIP scales were accepted")
+
+    verified = verify_qtip_wire(tampered_root)
+    assert verified["status"] == "FAIL"

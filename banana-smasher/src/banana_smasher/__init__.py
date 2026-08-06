@@ -115,6 +115,7 @@ from .qtip1 import (
     qtip1_5_provider_declaration,
     qtip1_provider_declaration,
     qtip_provider_counts,
+    verify_qtip_wire,
     write_qtip_wire,
 )
 from .update_service import serve_persistent_updates
@@ -265,5 +266,6 @@ __all__ = [
     "verify_virtual_backpack",
     "verify_fixed_d4_model",
     "verify_pack",
+    "verify_qtip_wire",
     "write_qtip_wire",
 ]
