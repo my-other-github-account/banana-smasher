@@ -15,6 +15,10 @@ from ..kmajor_graph import (
 )
 
 _BUNDLE_SCHEMA = "banana-smasher-physical-repair-bundle-v1"
+_QTIP2_SCHEMAS = {
+    "banana-smasher-qtip2-public-unit-v1",
+    "banana-smasher-qtip-unit-v1",
+}
 
 
 def _sha256_file(path: Path) -> str:
@@ -123,6 +127,114 @@ class PhysicalRepairLayer(torch.nn.Module):
         return checkpoint(self._forward, hidden, use_reentrant=False)
 
 
+def _qtip2_decode_states(trellis: torch.Tensor, *, m: int, k: int) -> torch.Tensor:
+    """Decode QTIP2 wire once into compact immutable 16-bit trellis states."""
+    if m % 32 or k % 32:
+        raise ValueError("QTIP2 repair capsule requires M and K divisible by 32")
+    if trellis.dtype != torch.uint16:
+        raise ValueError("QTIP2 trellis requires canonical torch.uint16 wire")
+    compressed = trellis.contiguous()
+    expected = 2 * m * k // 16
+    if tuple(compressed.shape) != (expected,):
+        compressed = compressed.reshape(-1)
+    if int(compressed.numel()) != expected:
+        raise ValueError(
+            f"QTIP2 trellis size drift {compressed.numel()} != {expected}"
+        )
+    block_size = 16 * 16
+    bits_per_block = 2 * block_size
+    compressed = (
+        compressed.view(torch.uint8)
+        .reshape(m // 32, k // 32, block_size // 8, 2, 2, 2)
+        .permute(0, -2, 1, -3, 2, -1)
+        .flip((-1,))
+        .reshape(m // 16, k // 16, bits_per_block // 16, 2)
+        .flip((-1,))
+        .contiguous()
+        .view(torch.uint16)
+        .reshape(m // 16, k // 16, bits_per_block // 16)
+    )
+    blocked = compressed.reshape(2 * m * k // bits_per_block, bits_per_block // 16, 1)
+    blocked_roll = torch.roll(blocked.to(torch.int32), -1, -2).to(blocked.dtype)
+    blocked32 = (
+        torch.cat((blocked_roll, blocked), dim=-1)
+        .reshape(blocked.shape[0], -1)
+        .contiguous()
+        .view(torch.uint32)
+    )
+    expanded32 = blocked32.reshape(*blocked32.shape, 1).expand(
+        *blocked32.shape, 16
+    ).view(torch.int32)
+    shifts = torch.arange(
+        16, dtype=torch.int32, device=blocked.device
+    ).reshape(1, 1, -1).expand(expanded32.shape)
+    shifted = expanded32 >> (16 - shifts)
+    state = torch.bitwise_and(
+        shifted.reshape(shifted.shape[0], -1)[:, 0::4], (1 << 16) - 1
+    )
+    return state.to(torch.uint16).contiguous()
+
+
+class _FrozenQtip2Payload(torch.nn.Module):
+    def __init__(self, mapping: dict[str, torch.Tensor]) -> None:
+        super().__init__()
+        for name, value in mapping.items():
+            self.register_buffer(name, value)
+
+
+class Qtip2PhysicalLayer(torch.nn.Module):
+    """Exact QTIP2 quantlut/FWHT capsule with only TLUT trainable."""
+
+    def __init__(
+        self,
+        *,
+        tlut: torch.Tensor,
+        frozen: _FrozenQtip2Payload,
+    ) -> None:
+        super().__init__()
+        self.tlut = torch.nn.Parameter(tlut.float().contiguous())
+        self.frozen = frozen
+        self.checkpoint_depth = False
+
+    @property
+    def codebooks(self) -> list[torch.nn.Parameter]:
+        return [self.tlut]
+
+    def _weight(self) -> torch.Tensor:
+        state = self.frozen.states.to(torch.int32)
+        quadratic = (state + 1) * state
+        lut_index = (quadratic >> 6) & ((1 << 9) - 1)
+        raw = self.tlut[lut_index]
+        sign = (1 - ((quadratic >> 15) & 1) * 2).to(raw.dtype)
+        raw = torch.stack((raw[..., 0] * sign, raw[..., 1]), dim=-1)
+        m = int(self.frozen.sv.numel())
+        k = int(self.frozen.su.numel())
+        raw = (
+            raw.reshape(m // 16, k // 16, 16, 16)
+            .reshape(m // 16, k // 16, 8, 4, 2, 2, 2)
+            .permute(0, -2, 2, 1, -3, 3, -1)
+            .reshape(m, k)
+        )
+        q = raw * self.frozen.wscale
+        q = bounded_fwht(q.transpose(0, 1), normalize=True).transpose(0, 1)
+        q = q * self.frozen.sv[:, None]
+        q = bounded_fwht(q, normalize=True) * self.frozen.su
+        return q
+
+    def _forward(self, hidden: torch.Tensor) -> torch.Tensor:
+        if hidden.ndim != 3 or int(hidden.shape[0]) != 1:
+            raise ValueError("QTIP2 repair layer expects [1, tokens, K]")
+        weight = self._weight()
+        return torch.matmul(hidden.float(), weight.transpose(0, 1))
+
+    def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+        if not self.checkpoint_depth:
+            return self._forward(hidden)
+        from torch.utils.checkpoint import checkpoint
+
+        return checkpoint(self._forward, hidden, use_reentrant=False)
+
+
 class PhysicalBundleRuntime:
     """Data-only physical runtime; no external module or mission-code imports."""
 
@@ -153,7 +265,7 @@ class PhysicalBundleRuntime:
         if not isinstance(self.document, dict) or self.document.get("schema") != _BUNDLE_SCHEMA:
             raise ValueError(f"physical repair bundle schema must be {_BUNDLE_SCHEMA!r}")
         self.packed_indices: list[torch.Tensor] = []
-        self.layers: list[PhysicalRepairLayer] = []
+        self.layers: list[torch.nn.Module] = []
         self._staged: dict[str, Any] | None = None
         self._source_retired = False
 
@@ -176,6 +288,48 @@ class PhysicalBundleRuntime:
             raise ValueError("physical repair bundle requires non-empty layers")
         decoded_bytes = 0
         for layer_index, layer in enumerate(layers):
+            if isinstance(layer, dict) and layer.get("schema") in _QTIP2_SCHEMAS:
+                shape = layer.get("shape")
+                geometry = layer.get("geometry")
+                if (
+                    not isinstance(shape, (list, tuple))
+                    or len(shape) != 2
+                    or not isinstance(geometry, dict)
+                ):
+                    raise ValueError(
+                        f"physical QTIP2 layer {layer_index} requires shape and geometry"
+                    )
+                expected_geometry = {
+                    "L": 16,
+                    "K": 2,
+                    "V": 2,
+                    "tlut_bits": 9,
+                    "decode_mode": "quantlut_sym",
+                    "td_x": 16,
+                    "td_y": 16,
+                }
+                if any(geometry.get(name) != value for name, value in expected_geometry.items()):
+                    raise ValueError(
+                        f"physical QTIP2 layer {layer_index} geometry is not P821 K2/L16/V2"
+                    )
+                m, k = (int(shape[0]), int(shape[1]))
+                source_trellis = _require_tensor(layer, "trellis")
+                if source_trellis.dtype != torch.uint16:
+                    raise ValueError(
+                        "physical QTIP2 trellis requires canonical torch.uint16 wire"
+                    )
+                trellis = source_trellis.to(device=self.device).contiguous()
+                states = _qtip2_decode_states(trellis, m=m, k=k)
+                trellis.requires_grad_(False)
+                states.requires_grad_(False)
+                layer["decoded_trellis"] = trellis
+                layer["decoded_states"] = states
+                self.packed_indices.extend((trellis, states))
+                decoded_bytes += sum(
+                    value.numel() * value.element_size()
+                    for value in (trellis, states)
+                )
+                continue
             projections = layer.get("projections") if isinstance(layer, dict) else None
             if not isinstance(projections, dict) or set(projections) != {"13", "2"}:
                 raise ValueError(
@@ -206,7 +360,47 @@ class PhysicalBundleRuntime:
             raise RuntimeError("physical repair persistent layout state drift")
         reset_layer_graph_vjp(allow_reference=self.device.type != "cuda")
         fwht_stats(reset=True)
-        for layer_document in self.document["layers"]:
+        for layer_index, layer_document in enumerate(self.document["layers"]):
+            if layer_document.get("schema") in _QTIP2_SCHEMAS:
+                m, k = (int(value) for value in layer_document["shape"])
+                su = _require_tensor(layer_document, "SU")
+                sv = _require_tensor(layer_document, "SV")
+                tlut = _require_tensor(layer_document, "tlut")
+                wscale = _require_tensor(layer_document, "Wscale")
+                if tuple(su.shape) != (k,) or tuple(sv.shape) != (m,):
+                    raise ValueError(
+                        f"physical QTIP2 layer {layer_index} sign-plane shape mismatch"
+                    )
+                if tuple(tlut.shape) != (512, 2) or wscale.numel() != 1:
+                    raise ValueError(
+                        f"physical QTIP2 layer {layer_index} TLUT/scale shape mismatch"
+                    )
+                frozen = _FrozenQtip2Payload(
+                    {
+                        "trellis": layer_document["decoded_trellis"],
+                        "states": layer_document["decoded_states"],
+                        "su": su.to(self.device, dtype=torch.float32),
+                        "sv": sv.to(self.device, dtype=torch.float32),
+                        "wscale": wscale.to(self.device, dtype=torch.float32),
+                    }
+                )
+                qtip2_layer = Qtip2PhysicalLayer(
+                    tlut=tlut.to(self.device),
+                    frozen=frozen,
+                )
+                reconstructed = layer_document.get("reconstructed_weight")
+                if isinstance(reconstructed, torch.Tensor):
+                    with torch.no_grad():
+                        decoded = qtip2_layer._weight().half().cpu()
+                    if not torch.equal(
+                        decoded.view(torch.int16),
+                        reconstructed.half().cpu().view(torch.int16),
+                    ):
+                        raise ValueError(
+                            f"physical QTIP2 layer {layer_index} packed decode mismatch"
+                        )
+                self.layers.append(qtip2_layer)
+                continue
             projections: dict[str, dict[str, torch.Tensor]] = {}
             codebooks: dict[str, torch.Tensor] = {}
             for name in ("13", "2"):
@@ -303,7 +497,11 @@ class PhysicalBundleRuntime:
             "optimizer_factory": lambda parameters: torch.optim.SGD(
                 parameters, lr=optimizer["learning_rate"]
             ),
+            "reset_backend_sentinels": self.reset_backend_sentinels,
             "backend_sentinels": self.backend_sentinels,
+            "allow_reference": all(
+                isinstance(layer, Qtip2PhysicalLayer) for layer in self.layers
+            ),
             "peak_memory_bytes": self.peak_memory_bytes,
             "synchronize": self.synchronize,
         }
@@ -347,6 +545,10 @@ class PhysicalBundleRuntime:
             "layer_graph": int(graph["forward_calls"]),
             "fwht": int(fwht["calls"]),
         }
+
+    def reset_backend_sentinels(self) -> None:
+        reset_layer_graph_vjp(allow_reference=self.device.type != "cuda")
+        fwht_stats(reset=True)
 
     def peak_memory_bytes(self) -> int:
         if self.device.type != "cuda":
