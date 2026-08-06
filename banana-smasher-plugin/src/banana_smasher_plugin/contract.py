@@ -19,6 +19,8 @@ class RuntimeContract:
     repair_state: Path
     repair_manifest: Path
     tensor_layout_sha256: str
+    repair_application: str
+    runtime_output_gain: bool
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -49,13 +51,29 @@ def load_runtime_contract(root: str | Path) -> RuntimeContract:
         raise PackContractError("unsupported pack format")
     manifest_path = root / q.get("pack_manifest", "")
     manifest = _load(manifest_path)
-    if manifest.get("source_format") != "p1016-true-c-native-planes-v1":
-        raise PackContractError("source_format must be p1016-true-c-native-planes-v1")
+    source_format = manifest.get("source_format")
+    if source_format not in {
+        "p1016-true-c-native-planes-v1",
+        "canonical-npy-v1",
+    }:
+        raise PackContractError(
+            "source_format must be p1016-true-c-native-planes-v1 or canonical-npy-v1"
+        )
     if manifest.get("quant_method") != "banana_smasher":
         raise PackContractError("manifest quant_method mismatch")
     repair = manifest.get("repair") or {}
     if q.get("repair_format") != "bs-basic-repair-v1" or repair.get("format") != "bs-basic-repair-v1":
         raise PackContractError("repair format mismatch")
+    if q.get("repair_application") != "export-folded-v1":
+        raise PackContractError("repair_application must be export-folded-v1")
+    if q.get("runtime_output_gain") is not False:
+        raise PackContractError("runtime_output_gain must be false for export-folded repair")
+    dense_application = repair.get("dense_application") or {}
+    if (
+        dense_application.get("method") != "export-folded-v1"
+        or dense_application.get("runtime_output_gain") is not False
+    ):
+        raise PackContractError("manifest dense repair must be export-folded-v1")
     rmanifest = root / repair.get("manifest", "")
     rstate = root / repair.get("state", "")
     if _sha(rmanifest) != repair.get("manifest_sha256"):
@@ -69,5 +87,13 @@ def load_runtime_contract(root: str | Path) -> RuntimeContract:
     layers = tuple(int(x) for x in manifest.get("layers", ()))
     if layers != tuple(range(43)) and layers != (0,):
         raise PackContractError("pack must cover exact runtime layers")
-    return RuntimeContract(root, layers, int(repair.get("update")), rstate, rmanifest,
-                           str(manifest.get("tensor_layout_sha256")))
+    return RuntimeContract(
+        root,
+        layers,
+        int(repair.get("update")),
+        rstate,
+        rmanifest,
+        str(manifest.get("tensor_layout_sha256")),
+        "export-folded-v1",
+        False,
+    )

@@ -463,6 +463,111 @@ def test_native_moe_apply_uses_two_accelerated_projections_and_original_route_or
     ]
 
 
+def test_stock_quantization_uses_embedded_backpack_runtime_adapter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "model"
+    root.mkdir()
+    (root / "kernel-cache").mkdir()
+    (root / "BANANA_PACK_MANIFEST.json").write_text(
+        json.dumps(
+            {
+                "schema": "bs-pack",
+                "schema_version": 1,
+                "source_format": "canonical-npy-v1",
+                "layers": [0],
+            }
+        )
+    )
+    raw = {
+        "quant_method": "banana_smasher",
+        "format": "bs-pack",
+        "format_version": 1,
+        "pack_root": ".",
+        "pack_manifest": "BANANA_PACK_MANIFEST.json",
+        "kernel_cache_root": "kernel-cache",
+        "architecture": "sm_120",
+        "activation_scheme": "dynamic",
+        "fmt": "e4m3",
+        "scale_fmt": "ue8m0",
+        "weight_block_size": [128, 128],
+    }
+    (root / "config.json").write_text(json.dumps({"quantization_config": raw}))
+
+    calls: list[tuple[str, object]] = []
+
+    class RuntimeAdapter:
+        API_VERSION = 1
+
+        def build_layer(self, **kwargs):
+            calls.append(("build", kwargs["layer_index"]))
+            return {"layer_index": kwargs["layer_index"]}
+
+        def forward(self, state, *, projection, x, expert_ids):
+            calls.append((projection, tuple(expert_ids.tolist())))
+            family = expert_ids.to(torch.float32).reshape(-1, 1) + 1
+            if projection == "fused13":
+                half = x.shape[-1] // 2
+                seed = x[:, :half]
+                return torch.cat(
+                    (seed * family, seed * (family + 0.5)), dim=1
+                )
+            return x.repeat(1, 2) * (family + 1)
+
+    class PackLoader:
+        def __init__(self, model_root, **kwargs):
+            calls.append(("loader", (Path(model_root), kwargs)))
+            self.layers = [0]
+
+        @staticmethod
+        def runtime_adapter_class():
+            return RuntimeAdapter
+
+    loader_module = ModuleType("banana_smasher.loader")
+    loader_module.PackLoader = PackLoader
+    monkeypatch.setitem(sys.modules, "banana_smasher", ModuleType("banana_smasher"))
+    monkeypatch.setitem(sys.modules, "banana_smasher.loader", loader_module)
+    _install_fake_vllm(monkeypatch)
+    from vllm.model_executor.layers.fused_moe import RoutedExperts
+    import banana_smasher_plugin.quantization as quantization
+
+    config = quantization.BananaSmasherQuantizationConfig.from_config(raw)
+    config.maybe_update_config(str(root))
+    layer = RoutedExperts()
+    layer.moe_config = SimpleNamespace()
+    method = config.get_quant_method(layer, "model.layers.0.ffn.experts")
+    assert isinstance(method, quantization.BananaSmasherMoEMethod)
+    layer.buffers = lambda: iter([SimpleNamespace(device=torch.device("cuda"))])
+    method.create_weights(
+        layer,
+        num_experts=256,
+        hidden_size=4096,
+        intermediate_size_per_partition=2048,
+        params_dtype=torch.bfloat16,
+    )
+    assert layer.bs_native_plane_layer is None
+    method.native_device = torch.device("cpu")
+    config.dense_preflight_passed = True
+    quantization.BananaSmasherMoEMethod.process_weights_after_loading(method, layer)
+
+    x = torch.linspace(-1.0, 1.0, 4096, dtype=torch.float32).reshape(1, 4096)
+    ids = torch.tensor([[1, 0, 1, 0, 1, 0]], dtype=torch.long)
+    weights = torch.tensor(
+        [[0.10, 0.20, 0.15, 0.25, 0.05, 0.25]], dtype=torch.float32
+    )
+    output = quantization.BananaSmasherMoEMethod.apply(
+        method, layer, x, weights, ids, None, None
+    )
+
+    assert output.shape == x.shape
+    assert calls[0][0] == "loader"
+    assert calls[1:] == [
+        ("build", 0),
+        ("fused13", (1, 0, 1, 0, 1, 0)),
+        ("down", (1, 0, 1, 0, 1, 0)),
+    ]
+
+
 def test_qtip_transform_and_lut_are_exact_and_family_masked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -91,3 +91,13 @@ def test_loader_imports_only_the_verified_runtime_adapter(tmp_path: Path) -> Non
     adapter_class = loader.runtime_adapter_class()
     assert adapter_class.__name__ == "RuntimeAdapter"
     assert adapter_class.API_VERSION == 1
+    assert not (cache / "__pycache__").exists()
+
+    repeated = PackLoader(
+        pack,
+        verify=True,
+        kernel_cache_root=cache,
+        architecture="sm_120",
+    )
+    assert repeated.serve_receipt is not None
+    assert repeated.serve_receipt["status"] == "PASS"

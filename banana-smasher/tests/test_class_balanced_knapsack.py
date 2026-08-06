@@ -55,3 +55,22 @@ def test_equal_options_use_explicit_manifest_order_tie_breaker():
     assert repeated[0]["solver"]["equal_option_tie_breaker"] == (
         "first_manifest_tier"
     )
+
+
+def test_exact_envelope_selects_exact_option_instead_of_cheaper_underfill():
+    result = solve_class_balanced_options(
+        cells=["cell"],
+        tiers=["small", "exact"],
+        bytes_by_option={("cell", "small"): 1, ("cell", "exact"): 2},
+        class_costs_by_option={
+            ("cell", "small"): {"chat": 0.0},
+            ("cell", "exact"): {"chat": 1.0},
+        },
+        envelope_bytes=2,
+        class_caps={"chat": 2.0},
+        exact_envelope=True,
+    )
+
+    assert result["assigned_bytes"] == 2
+    assert result["slack_bytes"] == 0
+    assert result["assignments"][0]["tier"] == "exact"

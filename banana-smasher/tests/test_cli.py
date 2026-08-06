@@ -91,6 +91,7 @@ def test_smash_help_exposes_public_verbs() -> None:
         "kernels",
         "knapsack",
         "backpack-dimensions",
+        "backpack",
         "fixed-d4",
         "anchor",
         "backpack-solved-sidecars",
