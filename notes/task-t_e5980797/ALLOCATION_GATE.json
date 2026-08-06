@@ -1,37 +1,41 @@
 {
-  "schema": "banana-smasher-qtip2-draft-resolution-v1",
-  "status": "PASS_DRAFT_REVERTED",
+  "schema": "banana-smasher-qtip2-source-resolution-v2",
+  "status": "PASS_REMEDIATION_INTEGRATED",
   "task_id": "t_e5980797",
-  "created_utc": "2026-08-06T06:48:26Z",
+  "created_utc": "2026-08-06T07:02:08Z",
   "branch": "task/qtip2-uniform-api-repair",
-  "source_commit": "5b5223cef58cd89fc1ce640d49b02796a2bb869c",
-  "decision": {
-    "resolution": "revert-uncommitted-qtip2-draft",
-    "reason": "independent review found that the draft decoded QTIP2 into a dense torch.matmul and incremented acceleration sentinel names without executing the corresponding K-major/grouped-VJP/layer-graph kernels",
-    "canonical_trellis_dtype": "uint16",
-    "source_files_clean_against_commit": true
-  },
-  "independent_review": {
-    "passed": false,
-    "security_concerns": 0,
-    "blocking_logic_errors": [
-      "ordinary dense matmul was mislabeled as K-major/layer-graph acceleration",
-      "QTIP2 sentinel counters were not cycle-scoped",
-      "noncanonical trellis dtypes were converted instead of rejected while claiming packed-wire preservation"
-    ]
-  },
-  "verification_after_revert": {
-    "focused_tests": {
-      "command": "pytest -q tests/test_physical_repair_backend.py tests/test_production_update_acceleration.py",
-      "passed": 19,
-      "failed": 0
+  "integration_commit": "2496d32",
+  "upstream_remediation_commit": "aaf46277fac1df09ed42fce7204318c508fa6efb",
+  "base_commit": "5b5223cef58cd89fc1ce640d49b02796a2bb869c",
+  "behavior": {
+    "qtip2_schemas": [
+      "banana-smasher-qtip2-public-unit-v1",
+      "banana-smasher-qtip-unit-v1"
+    ],
+    "canonical_trellis_dtype": "torch.uint16",
+    "packed_wire_byte_preserved": true,
+    "decoded_states_separate_and_immutable": true,
+    "cycle_scoped_sentinels": true,
+    "unsupported_dense_reference_acceleration_sentinels": {
+      "kmajor_batch": 0,
+      "kmajor_fused": 0,
+      "grouped_vjp": 0,
+      "layer_graph": 0
     },
-    "ruff": "PASS",
+    "fwht_activity_reported": true
+  },
+  "verification": {
+    "focused_tests": {
+      "physical_repair_backend": "9 passed",
+      "production_update_acceleration": "15 passed",
+      "total": 24
+    },
+    "ruff_targeted": "PASS",
     "git_diff_check": "PASS",
     "wheel": {
       "filename": "banana_smasher-1.0.0-py3-none-any.whl",
-      "bytes": 307633,
-      "sha256": "3503e09192fbed307caaf6686481cd71de69a3b7aa438a79d986064b1fd2596e"
+      "bytes": 309402,
+      "sha256": "f3bad87640f936bcfeb81fe6e6ddd2c184edcfc9e9b3dd74367adc63e6ed5221"
     },
     "clean_installed_wheel_cli": {
       "command": "smash update --help",
@@ -40,11 +44,10 @@
   },
   "host_allocation": {
     "acquired": false,
-    "reason": "source-control resolution completed without accelerator compute"
+    "reason": "source remediation and verification required no accelerator compute"
   },
-  "successor": {
-    "task_id": "t_c653d56e",
-    "status_at_receipt": "running",
-    "scope": "implement a real non-spoofed QTIP2 acceleration path in an isolated worktree"
+  "remaining_positive_goal": {
+    "complete": false,
+    "reason": "this remediation truthfully exposes the dense QTIP2 reference path as non-accelerated; the card's genuine all-acceleration physical training and PRE/FINAL evidence still require a real accelerated QTIP2 path plus host allocation"
   }
 }
