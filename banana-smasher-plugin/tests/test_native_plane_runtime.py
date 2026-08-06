@@ -945,6 +945,57 @@ def test_native_moe_apply_uses_two_accelerated_projections_and_original_route_or
     ]
 
 
+def test_native_moe_apply_normalizes_zero_weight_num_experts_padding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    calls: list[tuple[str, tuple[int, ...]]] = []
+
+    def dispatch(*, projection, x, expert_ids, state):
+        calls.append((projection, tuple(expert_ids.tolist())))
+        return torch.zeros((x.shape[0], state.output_width), dtype=x.dtype)
+
+    plane_layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    method = SimpleNamespace(native_layer=plane_layer, prefix="model.layers.0.ffn.experts")
+    _install_fake_vllm(monkeypatch)
+    from banana_smasher_plugin.quantization import BananaSmasherMoEMethod
+
+    x = torch.ones((1, 4), dtype=torch.float32)
+    ids = torch.tensor([[0, 1, 2, 0, 1, 2]], dtype=torch.long)
+    weights = torch.tensor([[0.5, 0.25, 0.0, 0.125, 0.125, 0.0]])
+
+    BananaSmasherMoEMethod.apply(method, object(), x, weights, ids, None, None)
+
+    assert calls == [
+        ("fused13", (0, 1, -1, 0, 1, -1)),
+        ("down", (0, 1, -1, 0, 1, -1)),
+    ]
+
+
+def test_native_moe_apply_rejects_nonzero_weight_padding_sentinel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    plane_layer = NativePlaneLayer(
+        pack,
+        0,
+        device="cpu",
+        dispatch=lambda **kwargs: torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width)
+        ),
+    )
+    method = SimpleNamespace(native_layer=plane_layer, prefix="model.layers.0.ffn.experts")
+    _install_fake_vllm(monkeypatch)
+    from banana_smasher_plugin.quantization import BananaSmasherMoEMethod
+
+    x = torch.ones((1, 4), dtype=torch.float32)
+    ids = torch.tensor([[0, 1, 2, 0, 1, 0]], dtype=torch.long)
+    weights = torch.tensor([[0.4, 0.2, 0.1, 0.1, 0.1, 0.1]])
+
+    with pytest.raises(RuntimeError, match="nonzero-weight padding route"):
+        BananaSmasherMoEMethod.apply(method, object(), x, weights, ids, None, None)
+
+
 def test_qtip_transform_and_lut_are_owned_by_the_native_dispatch_boundary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
