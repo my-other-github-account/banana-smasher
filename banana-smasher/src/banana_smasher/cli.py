@@ -227,6 +227,42 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
 
+    backpack = subparsers.add_parser(
+        "backpack", help="build or inspect one declarative end-to-end Backpack plan"
+    )
+    backpack_commands = backpack.add_subparsers(
+        dest="backpack_command", required=True
+    )
+    backpack_build = backpack_commands.add_parser(
+        "build", help="execute or resume the complete Backpack construction DAG"
+    )
+    backpack_build.add_argument("--plan", type=Path, required=True)
+    backpack_build.add_argument("--run-root", type=Path, required=True)
+    backpack_status = backpack_commands.add_parser(
+        "status", help="show completed stages and the first incomplete boundary"
+    )
+    backpack_status.add_argument("--run-root", type=Path, required=True)
+    backpack_export = backpack_commands.add_parser(
+        "export", help="export one lifecycle model from a completed Backpack run"
+    )
+    backpack_export.add_argument("--run-root", type=Path, required=True)
+    backpack_export.add_argument(
+        "--lifecycle",
+        choices=("uniform-anchor", "pre-repair", "post-repair"),
+        required=True,
+    )
+    backpack_export.add_argument("--tier")
+    backpack_export.add_argument("--output", type=Path, required=True)
+    backpack_export.add_argument("--serving-model-root", type=Path, required=True)
+    backpack_export.add_argument(
+        "--kernel-cache-root",
+        type=Path,
+        help=(
+            "verified kernel cache to embed in the movable model; defaults to "
+            "SERVING_MODEL_ROOT/kernel-cache"
+        ),
+    )
+
     fixed_d4 = subparsers.add_parser(
         "fixed-d4", help="persist exact fixed-D4 assignments as executable wire"
     )
@@ -939,6 +975,34 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=args.output,
                 receipt=args.receipt,
             )
+        elif args.command == "backpack":
+            from .backpack import (
+                BackpackPlan,
+                build_backpack,
+                export_backpack_lifecycle,
+                status_backpack,
+            )
+
+            if args.backpack_command == "build":
+                plan = BackpackPlan.from_mapping(
+                    _load_json_object(args.plan), base_dir=args.plan.parent
+                )
+                result = build_backpack(plan, run_root=args.run_root)
+            elif args.backpack_command == "status":
+                result = status_backpack(args.run_root)
+            elif args.backpack_command == "export":
+                result = export_backpack_lifecycle(
+                    args.run_root,
+                    lifecycle=args.lifecycle,
+                    tier=args.tier,
+                    output=args.output,
+                    serving_model_root=args.serving_model_root,
+                    kernel_cache_root=args.kernel_cache_root,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported backpack command {args.backpack_command!r}"
+                )
         elif args.command == "fixed-d4":
             from .fixed_d4 import (
                 materialize_fixed_d4,

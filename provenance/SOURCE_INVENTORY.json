@@ -4,9 +4,9 @@
   ],
   "files": [
     {
-      "byte_preserved": true,
+      "byte_preserved": false,
       "bytes": 593,
-      "output_sha256": "2a522a7dc16d41a828f45f8443de6b5d8340ff0d0bfefc2eecbe50b92ef64c23",
+      "output_sha256": "df06c5c778f0e23743f6f6260bb7d5c5f3978eb89ee6ac199f1fcccbe34ef72d",
       "path": "banana-smasher-plugin/pyproject.toml",
       "source_path": "banana-smasher-plugin/pyproject.toml",
       "source_sha256": "2a522a7dc16d41a828f45f8443de6b5d8340ff0d0bfefc2eecbe50b92ef64c23"
@@ -20,17 +20,17 @@
       "source_sha256": "eef0c730a4ab25ef9e62862ce38a3f0380f997081a4f720e75b4e1b7466555e9"
     },
     {
-      "byte_preserved": true,
+      "byte_preserved": false,
       "bytes": 2832,
-      "output_sha256": "3a59ef5d5d21036a4904f6b60089f4f014fc7832007b0f42cb1773a667dd7f53",
+      "output_sha256": "667d626bc7456e31f8822d2f35acd129a845ca5e348b298fe5ef5ade38094e71",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/contract.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/contract.py",
       "source_sha256": "3a59ef5d5d21036a4904f6b60089f4f014fc7832007b0f42cb1773a667dd7f53"
     },
     {
-      "byte_preserved": true,
+      "byte_preserved": false,
       "bytes": 28965,
-      "output_sha256": "50afaaf875282b483701141474cf11df02888c9f4ae8540bc2e81d1f5aaef0cb",
+      "output_sha256": "cc53ed8cd96fe51aa3fa95ea88e8538d928dc0c61f75b6d1c63c1321d4a9dc80",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/native_planes.py",
       "source_sha256": "50afaaf875282b483701141474cf11df02888c9f4ae8540bc2e81d1f5aaef0cb"
@@ -54,7 +54,7 @@
     {
       "byte_preserved": false,
       "bytes": 18059,
-      "output_sha256": "6a820e1da436dacb41c8dcf7c8c192e7c6c83e86dfcaf46f45ed7f0d432c796c",
+      "output_sha256": "946ffa2de3859dbcdb4213de6683e57221bee5b4503ec7366c0edc783ad3494b",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/quantization.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/quantization.py",
       "source_sha256": "faf06e9ae377ae55ce0ea6bf2a40388c1d8c1e5462944e624bb0610d8e183908"
@@ -62,7 +62,7 @@
     {
       "byte_preserved": false,
       "bytes": 2814,
-      "output_sha256": "b35f78f3b0847aa199c84579db807ba1561c47045a78421b20e4d2a07e29acc4",
+      "output_sha256": "0868485e1ca299f3288b154c8a7c076f7bb511e754bb30a55c67297818c2045a",
       "path": "banana-smasher-plugin/src/banana_smasher_plugin/repair.py",
       "source_path": "banana-smasher-plugin/src/banana_smasher_plugin/repair.py",
       "source_sha256": "0de9656619f991ef8e12ef787a6232ce9993c34ae8d372388a191a5f91e27b90"
@@ -110,7 +110,7 @@
     {
       "byte_preserved": false,
       "bytes": 37017,
-      "output_sha256": "31e60f0b4f3cd5b902fe79eaa2a4d15f8b3455bf4a5f025f9213276b2784da3d",
+      "output_sha256": "61a051f75890b3341cf3477a9cdb9b1e56235925ec2b6743a61453a4f2be628d",
       "path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
       "source_path": "banana-smasher-plugin/tests/test_native_plane_runtime.py",
       "source_sha256": "1f0e7ea212516b40f4c44c38b811c912e04b730ea94e267e7383731bac876183"
@@ -118,7 +118,7 @@
     {
       "byte_preserved": false,
       "bytes": 5359,
-      "output_sha256": "01be3c13673a98e70a9f6e2dedbf616685a3cc1dd0604e989689554f19050fdf",
+      "output_sha256": "734995da04c1356031fb41c5594dedeadb9ec94b23150dde6febef8daf5a4725",
       "path": "banana-smasher-plugin/tests/test_plugin_contract.py",
       "source_path": "banana-smasher-plugin/tests/test_plugin_contract.py",
       "source_sha256": "d39c191f1438057595fd085e43e22d1b18350f98f5c41dbdec89c8c6b3fa6f83"
@@ -142,7 +142,7 @@
     {
       "byte_preserved": false,
       "bytes": 2761,
-      "output_sha256": "11de00bb904f0e00bca4202d9233a7585973948870cf20817ea17c7bdbe35a3d",
+      "output_sha256": "6f9d5cca8643a16dcb79da8e01313eb8e2eb20199eecac17d55d63bfb8d01152",
       "path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
       "source_path": "banana-smasher-plugin/tests/test_v4_fast_path_contract.py",
       "source_sha256": "49434ec6ef468592c07438de912f5f7799eeb88daa12702e8d272034e8b82656"
@@ -166,7 +166,7 @@
     {
       "byte_preserved": false,
       "bytes": 4363,
-      "output_sha256": "ed842d58587b0a640feed480556f358fea225ed9a29b6aeaa9b371b0833ef37c",
+      "output_sha256": "e6e8c7cfdd51bfa96d5f9c0990157004844461eedd52a732259d997fbff3e6cc",
       "path": "banana-smasher/README.md",
       "source_path": "banana-smasher/README.md",
       "source_sha256": "937a2cd07bf27ecbf0a8e6cafe9d4b02dbc6b5972ac205783c9e2a45801488f8"
@@ -430,7 +430,7 @@
     {
       "byte_preserved": false,
       "bytes": 936,
-      "output_sha256": "21b96f123f11ab5ff3fc9313dd1c73a474a2fe348691cc88f1e4198d3b880e1d",
+      "output_sha256": "bc2d621a013b7287a6aede8084f6ed0cc9de5ef6dbcee4b887c23c1cdfd4b468",
       "path": "banana-smasher/pyproject.toml",
       "source_path": "banana-smasher/pyproject.toml",
       "source_sha256": "ce9e611f8e8cc1e9a4e839b7de8d184865eec445cb1f212081b610f71032a978"
@@ -462,7 +462,7 @@
     {
       "byte_preserved": false,
       "bytes": 634,
-      "output_sha256": "63b3ab3af742500879c94fb3f666242c8823463bb9c2cb20a44b489058d6a4e3",
+      "output_sha256": "1b297d504ffc7c844a9d8a8515114e92a3643a3ac9274076e5b4d538562db48a",
       "path": "banana-smasher/src/banana_smasher/__init__.py",
       "source_path": "banana-smasher/src/banana_smasher/__init__.py",
       "source_sha256": "5fdbde4d09c5f292f8546e12a5bc6850ea1078e0d991d27010119ff14df25ff6"
@@ -470,15 +470,15 @@
     {
       "byte_preserved": false,
       "bytes": 25195,
-      "output_sha256": "f8954bf1ea6368e324845d76b3b52b7ef5f9c9933c6fe6238ec3b7870c33ad4e",
+      "output_sha256": "e2dfa8270f38348a13e7c3a29ca06582219f41a0b359d75f09a2cda6eb27fd00",
       "path": "banana-smasher/src/banana_smasher/cli.py",
       "source_path": "banana-smasher/src/banana_smasher/cli.py",
       "source_sha256": "b11c01e1d229b23fbf3df2632fc9391d604a9f93df98537bc4797840a7a05669"
     },
     {
-      "byte_preserved": true,
+      "byte_preserved": false,
       "bytes": 86285,
-      "output_sha256": "b1e27ddd2a09bcbce7f3f07f9973358ec1438e50be4d5277572326032f340b6b",
+      "output_sha256": "913c6511fdd605a8498ebb613b5d3471ed192c97e4b6d3a989a3e9da669495b7",
       "path": "banana-smasher/src/banana_smasher/contract.py",
       "source_path": "banana-smasher/src/banana_smasher/contract.py",
       "source_sha256": "b1e27ddd2a09bcbce7f3f07f9973358ec1438e50be4d5277572326032f340b6b"
@@ -502,9 +502,9 @@
       "source_sha256": "6e50a7677600e90c913fd6c225619a93b667e6a2403e4c40155f645dea4ffe5c"
     },
     {
-      "byte_preserved": true,
+      "byte_preserved": false,
       "bytes": 7474,
-      "output_sha256": "1b6243a6bce410ba5439d5b212efeefcba7a1b6b4e3b9d7e0b2264eea945f2ee",
+      "output_sha256": "186ac8e1fb5e20233f22cdee5ed02652bd47e999c03514d54f38b0236e757b96",
       "path": "banana-smasher/src/banana_smasher/loader.py",
       "source_path": "banana-smasher/src/banana_smasher/loader.py",
       "source_sha256": "1b6243a6bce410ba5439d5b212efeefcba7a1b6b4e3b9d7e0b2264eea945f2ee"
@@ -518,9 +518,9 @@
       "source_sha256": "0794b00a2a37d13bbcaf53e8b4849184f5333a30dd74d8f5e5f04638d75d857b"
     },
     {
-      "byte_preserved": true,
+      "byte_preserved": false,
       "bytes": 20155,
-      "output_sha256": "cf63c4cdea5caa465c416f8d83db7337299bd1b4ff4937c0a288d31d6ac79c61",
+      "output_sha256": "ca803242c980917f262484026d6f76a66c92d347d926753b4778d14c622c0c4c",
       "path": "banana-smasher/src/banana_smasher/repair.py",
       "source_path": "banana-smasher/src/banana_smasher/repair.py",
       "source_sha256": "cf63c4cdea5caa465c416f8d83db7337299bd1b4ff4937c0a288d31d6ac79c61"
@@ -545,7 +545,7 @@
     {
       "byte_preserved": false,
       "bytes": 18570,
-      "output_sha256": "86d0329c144967b7e9e01e83e7af9a9c9a15560a7e3f0bc789c1946a79a843bf",
+      "output_sha256": "4fe92a18118fbdc69acb8d71a51ceff3989d1b9a228e7e197e1e2b772cce0b72",
       "path": "banana-smasher/tests/test_cli.py",
       "source_path": "banana-smasher/tests/test_cli.py",
       "source_sha256": "cd14b69423fb6589506c5b4fc31bd7ff9300878903dbfe3c0352eb3135cc9cf9"
@@ -559,9 +559,9 @@
       "source_sha256": "6cc9b99f51a36986352db3821c34c8401e34d76336893bc34637e3777d07f249"
     },
     {
-      "byte_preserved": true,
+      "byte_preserved": false,
       "bytes": 2941,
-      "output_sha256": "8bb17943a59b1d8e608dd23feb7132f438d0455c8467e887a79cd8d1c22f6521",
+      "output_sha256": "d68f76bda4553baabdf374112a6439d8abc736153a8939734bf239216c0bb2b9",
       "path": "banana-smasher/tests/test_loader.py",
       "source_path": "banana-smasher/tests/test_loader.py",
       "source_sha256": "8bb17943a59b1d8e608dd23feb7132f438d0455c8467e887a79cd8d1c22f6521"
@@ -591,9 +591,9 @@
       "source_sha256": "6e18374c05ce6af6f5510a4d7d85e79f4f89fd2bf9752efb6d610e2d56d4f87e"
     },
     {
-      "byte_preserved": true,
+      "byte_preserved": false,
       "bytes": 7078,
-      "output_sha256": "9323daf648ad32f34dc70130085913c5c0fc77a2394dd618d3c5b2916dde0cc9",
+      "output_sha256": "4968eb1dab76a84373c9285ac826b53c5313105256b148d66d46ff045ba38dbb",
       "path": "banana-smasher/tests/test_repair.py",
       "source_path": "banana-smasher/tests/test_repair.py",
       "source_sha256": "9323daf648ad32f34dc70130085913c5c0fc77a2394dd618d3c5b2916dde0cc9"
@@ -634,7 +634,7 @@
     {
       "byte_preserved": false,
       "bytes": 13143,
-      "output_sha256": "2a16c84300950a27e9d255f49ca80323f9b353e334ad8684353c7929b9e59705",
+      "output_sha256": "cc9ed80b0673437ed1deb91dfc612219b5c55cdbcd0a04d8af0e4a1d085c2d7d",
       "path": "docker/Dockerfile",
       "source_path": "docker/Dockerfile",
       "source_sha256": "a094b4f3347c09066b519a7cc58d7e5ca02fff1d2a3acdb06dcd8ee4a6be9d1d"
@@ -658,7 +658,7 @@
     {
       "byte_preserved": false,
       "bytes": 9915,
-      "output_sha256": "5839bb466fdc3dc20e24f46c6aa00859c0258fad36037edcfaf1582b0aa420bf",
+      "output_sha256": "1c63d529c78cff15e325f81e4503b437f49193ca999f819b242d4d702afdd8ed",
       "path": "docker/scripts/verify_public_image.py",
       "source_path": "docker/scripts/verify_public_image.py",
       "source_sha256": "3d8de2a618c95a9e813762129043b4a53a539401bed021c1b45999678c8f4ca2"
@@ -674,13 +674,98 @@
     {
       "byte_preserved": false,
       "bytes": 8114,
-      "output_sha256": "cb6a2e9b891c6d0caa61f7c32021d25e83dcd513907ddc6bad3d4b9ee34fd8bc",
+      "output_sha256": "d131beb85a3969add2b819dcda1f533e6a2868de02a0197ab4077b3eb6c565d9",
       "path": "docker/tests/test_public_source_dockerfile.py",
       "source_path": "docker/tests/test_public_source_dockerfile.py",
       "source_sha256": "3c2c569c699c264b2438a6d1ffc71f081f3100b5abcdd84758fb734b456b1a07"
     }
   ],
   "generated_files": [
+    {
+      "output_sha256": "6763fe92b696ab09a9f5882973cb49d3851e27f204f124c8d98b703ab84a6287",
+      "path": "banana-smasher-plugin/tests/test_native_plane_compile_boundary.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "396d93eb04898c43077c2b6a07c3c531635558e14de767ad81f376cad89a8472",
+      "path": "banana-smasher/ANCHOR_EVALUATION.md",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "d71ee58a2a851616304731e27f8002f98480fc67ae1a1f328e061762a1157f0f",
+      "path": "banana-smasher/anchor_banks/FOUR_BANK_PROVENANCE.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "d0a93aedc9514bc340c9e12e88b4f09e01082e24c51688a1ac00e1880f20e4c7",
+      "path": "banana-smasher/anchor_banks/TRAIN_BALANCED64_TO_TRAIN512_CALIBRATION.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "75c6673bbde8d4e335096cf237a2fbf2ca129490d076b9cb87f13b49dab3acb9",
+      "path": "banana-smasher/anchor_banks/UNRESOLVED_PROVENANCE.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "89b9d5682c7ad1ae844346f8a792e54a0576812b2688e5e499a7d1615dc8d671",
+      "path": "banana-smasher/anchor_banks/holdout512.bank.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "3b68b0812dd6cfa04c6047a692af8e4f1fb4cbb03d83b276ffd21a32b60b5f92",
+      "path": "banana-smasher/anchor_banks/holdout_balanced64.bank.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "4ae72eebed061d9142927e0f507ce392708496f2e3e284c1cdd20bd3c25efa25",
+      "path": "banana-smasher/anchor_banks/train512.bank.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "78a07d83774f31ffc519724f1cd626b9ece1eda3ff3eab4971d71a1a1c0a3a07",
+      "path": "banana-smasher/anchor_banks/train_balanced64.bank.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "5ab6a0e1ffe27a00a6072c8c83939d8a27067f3943d761af246f690f076003aa",
+      "path": "banana-smasher/producer_configs/fixed_d4_offline_layerwise.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "a2e26bb40445de4fea62986f836f07bd1b435ffd7232c6001963947c61ce9f65",
+      "path": "banana-smasher/producer_configs/fixed_d4_vllm.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "4eeee7feea88dda308f09fd12921f2815424cad8e118fa973077eee2bbcb78ad",
+      "path": "banana-smasher/schema/anchor-aggregate-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "51baad28ff1a214d2ff363ae42166b28c89e9393f6ef98b6185cfae7313984f0",
+      "path": "banana-smasher/schema/anchor-bank-manifest-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "bb7ce315092be6783ccdcd93f85cde5a5c1324639829760dc6daa7cd706eccc3",
+      "path": "banana-smasher/schema/anchor-candidate-sidecars-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "a7fd4af31cd64a62ccd715f947ce36434b619694f1bc7c1c377c560affb59cec",
+      "path": "banana-smasher/schema/anchor-teacher-sidecars-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "df9887d3270321fd6fd9f68e4ee7c7260449010a3c2a344c2fbe223a2db1384b",
+      "path": "banana-smasher/schema/anchor-window-score-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "51bf2f30f503d809e6166d1499b142845d21a75f244b8098cf3d54b0603b8ae1",
+      "path": "banana-smasher/schema/banana-smasher-backpack-plan-v1.schema.json",
+      "provenance": "corrective-review-generated"
+    },
     {
       "bytes": 9484,
       "output_sha256": "ea4f34432384385d346f1f4b2975b53f28af45e206130d4ab729e4ff98bab5d7",
@@ -732,9 +817,29 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "output_sha256": "7b70bd715dd7f6465498e2dea11cd958711fad958e0e7c877aba4605ac1f91e3",
+      "path": "banana-smasher/src/banana_smasher/anchor.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "134a63f2027d61f17dccb26938e4223eb434758ca59638035764550cd6104972",
+      "path": "banana-smasher/src/banana_smasher/anchor_sidecars.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "e7303e8b3a3c6f26d7445cf5660913b5b9ee622d4758b7a46381e136477a81ff",
+      "path": "banana-smasher/src/banana_smasher/backpack.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 14885,
-      "output_sha256": "5f66fcb4b9fb1ffef42f0b1f5155de02a97c6ce8391a696e81dfa40dd5d42729",
+      "output_sha256": "0a7c5a04ee6a1dc98f80be44d6e52d3c58353899dca9bc4dff54cf65473ca437",
       "path": "banana-smasher/src/banana_smasher/backpack_dimensions.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "f43a95d78edc1f62806882a11476e39b17a73c4a40c99aff5664c2535e7a5256",
+      "path": "banana-smasher/src/banana_smasher/backpack_preview.py",
       "provenance": "corrective-review-generated"
     },
     {
@@ -763,10 +868,20 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "output_sha256": "c14bfe49dc8a4aef3b9b6a3aef7b09687174a2c917e433d4e49ddb5ed7791c8f",
+      "path": "banana-smasher/src/banana_smasher/fixed_d4.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "adapted_from_commit": "d1333376d3aabae14cab2c87a0bca90d3c5eeade",
       "bytes": 3836,
       "output_sha256": "16eea326db3a40fffa579e7b75c5ac1a7719d4dfed912ba04c98932249115f50",
       "path": "banana-smasher/src/banana_smasher/fwht.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "872442f7d5cb7f4281eb2576d3cb435bc4949d7c85021a4087991b2f75ef020b",
+      "path": "banana-smasher/src/banana_smasher/hf_deepseek_v4_d4_adapter.py",
       "provenance": "corrective-review-generated"
     },
     {
@@ -792,7 +907,7 @@
     },
     {
       "bytes": 69616,
-      "output_sha256": "49718befc89ea3ed29df5f3063c92636601565779f60d9cdb48eab0412294f6e",
+      "output_sha256": "f5c059a55ba8bf43e054096c3cb71df2faddb2870699dc1b85a5d80f3cb16f79",
       "path": "banana-smasher/src/banana_smasher/knapsack.py",
       "provenance": "corrective-review-generated"
     },
@@ -800,6 +915,11 @@
       "bytes": 9207,
       "output_sha256": "769c6ed1cdd5ef8438d56b6d7b5a04ac65c2f56a12003d0a23060ce76f3584c5",
       "path": "banana-smasher/src/banana_smasher/metrics.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "42e2b540239de5ad30e33d995bc9c0e1fdf134e83aedd94f8aa77f1c84ce4710",
+      "path": "banana-smasher/src/banana_smasher/offline_layerwise.py",
       "provenance": "corrective-review-generated"
     },
     {
@@ -943,6 +1063,16 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "output_sha256": "d089dc414d7f1c0ecabdad5fa7dd77d7dff50b41c2aab7d706aade894c12dc8e",
+      "path": "banana-smasher/tests/fixtures/f521_preview_u12.json",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "0cb584ab45ba765b1dcea20e5cdf7b2155f0d467b38b9901c1ed67d00c157ded",
+      "path": "banana-smasher/tests/hardware_smoke_deepseek_v4_d4.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 8375,
       "output_sha256": "3608b8108109198b1078be73d194e8abc9ebe53406a519dc007ca21535a11dca",
       "path": "banana-smasher/tests/real_axis_fixtures.py",
@@ -958,6 +1088,26 @@
       ],
       "output_sha256": "08dc34fc361b157f1f14a8d77c6d5df06fedfe016a4e770ca1b6d83d6df4d2c8",
       "path": "banana-smasher/tests/test_activation_cache.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "05bca4090c381ed30b9b4803f49549463040e6423127be654d6dc6c163e267a1",
+      "path": "banana-smasher/tests/test_anchor_evaluation.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "885ea4eb08a8343afa06e777a8cdb7721b9f4b40749049bb81d299bcf09076ad",
+      "path": "banana-smasher/tests/test_anchor_sidecars.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "c5ee57f04905d4acb5286dd5ccc2a88b41fa8801956a9843c0d437ccd26d775f",
+      "path": "banana-smasher/tests/test_backpack_framework.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "eec01d0780184533fb048d84dc36714e43a1a887cae7de0543af0974d5f77344",
+      "path": "banana-smasher/tests/test_backpack_preview_u12.py",
       "provenance": "corrective-review-generated"
     },
     {
@@ -979,14 +1129,24 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "output_sha256": "ce3f0160ce4e4424f5be42a94b3a4d61715c0e01e6608eae78c704a1e3199d5b",
+      "path": "banana-smasher/tests/test_bs_pack_plane_fallback.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "682bd1664365ecd9ed2cd85640d56dc96e69645c0eec2f45c176edd8aadb9e76",
+      "path": "banana-smasher/tests/test_candidate_materializer_resume.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 2108,
-      "output_sha256": "ba9fc49ac67904bc596ffabca34230d762f834ce6dd11443deafa3465c5aa8fc",
+      "output_sha256": "77070adf936fdce6830941b558f5bda508c4219467874440060205d6a486a77e",
       "path": "banana-smasher/tests/test_class_balanced_knapsack.py",
       "provenance": "corrective-review-generated"
     },
     {
       "bytes": 10118,
-      "output_sha256": "5ab507f685360992a1a9fa8a083b5b979a91c11ccab66809d64fb15c770a4143",
+      "output_sha256": "7a4ec1a570d9286c3f66eee04b9020564119827ebff9d0c5b74936bbddd57608",
       "path": "banana-smasher/tests/test_dynamic_backpack_dimensions.py",
       "provenance": "corrective-review-generated"
     },
@@ -1004,9 +1164,34 @@
       "provenance": "corrective-review-generated"
     },
     {
+      "output_sha256": "0f3733b3533eae3838e6c4bff9dba945671e01d9c2fdbbf4660443ec869add9d",
+      "path": "banana-smasher/tests/test_fixed_d4_candidate.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "f2e799fcb4bed89285f6a8d7dc81281af9ec5c6189e8b178f585105c610def66",
+      "path": "banana-smasher/tests/test_fixed_d4_public_closure.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "a1a5f3d0db0f9ef39cad015f922c799e395bf3fa9b5f569596716704c7945da5",
+      "path": "banana-smasher/tests/test_fixed_d4_source_adapter.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
       "bytes": 5902,
       "output_sha256": "f8ccc6d4f53e0be219449250f566611f5a2805a092f37cd1001c0c70a96b6eb1",
       "path": "banana-smasher/tests/test_knapsack.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "679c9f8d8454c8aebf0c7792a273286baf249518f4a6f08bcb7730c1ef38bd75",
+      "path": "banana-smasher/tests/test_offline_layerwise_backend.py",
+      "provenance": "corrective-review-generated"
+    },
+    {
+      "output_sha256": "0676c0947700ff52a2b674747480b35df76d9aece762e40e8f8ca9ca16af2b1c",
+      "path": "banana-smasher/tests/test_offline_layerwise_dispatch.py",
       "provenance": "corrective-review-generated"
     },
     {

@@ -2,6 +2,92 @@
 
 `banana-smasher` is the reusable, fail-closed `bs-pack v1` build and validation toolchain. `PACK_FORMAT.md` is the versioned pack contract: plane layout, per-layer metadata, `config.json` auto-detection keys, complete byte-count/SHA-256 manifest, and rejection rules.
 
+## End-to-end Backpack plans
+
+`BackpackPlan` is the versioned public input for the complete resumable path:
+model inspection, D4/D8/QTIP candidates, same-instrument Anchor64, six-class
+prediction rows, exact-byte assignment/materialization, pre-repair anchor,
+repair, and final score/pack. The JSON schema is shipped in the source tree at
+`schema/banana-smasher-backpack-plan-v1.schema.json`.
+
+```json
+{
+  "schema": "banana-smasher-backpack-plan-v1",
+  "model": {"root": "/models/M", "revision": "MODEL_REVISION"},
+  "target": {"whole_model_bpw": 2.7},
+  "tiers": [
+    {"id": "d4-k2048", "family": "vector_vq", "dimension": 4, "codebook_size": 2048},
+    {"id": "d8-2bpw", "family": "vector_vq", "dimension": 8, "bpw": 2.0},
+    {"id": "qtip-2.0", "family": "qtip", "bpw": 2.0, "source_root": "/qtip/configs"}
+  ],
+  "anchor": {"bank": "/banks/anchor64.npz", "teacher": "model"},
+  "prediction": {"class_caps": {"agentic": 1, "chat": 1, "code": 1, "multilingual": 1, "prose": 1, "reasoning": 1}},
+  "repair": {"method": "residual", "strength": 0.5},
+  "output": {"pack": "/packs/M-backpack", "model_id": "M", "instance_id": "M-backpack-v1"}
+}
+```
+
+The v1 direct adapter infers cells and fixed dense/metadata/repair bytes from
+`BACKPACK_MODEL.json` under the model root. Its Anchor64 bank is an NPZ with
+`features: float32[64, weight_count]` and six-class `classes: str[64]`.
+Impossible grouping, geometry, QTIP increments, class caps, or byte envelopes
+fail explicitly; no family is substituted. D4 and D8 use true 4- and 8-weight
+vector grouping with packed code indices. Production QTIP tiers require a
+canonical ring-bound `source_root` and fail closed rather than falling back to
+the CPU fixture backend. Synthetic tests must opt in explicitly with
+`"backend": "fixture_reference"`.
+
+Run every stage or inspect the first incomplete boundary:
+
+```console
+smash backpack build --plan plan.json --run-root ./backpack-run
+smash backpack status --run-root ./backpack-run
+smash backpack export --run-root ./backpack-run --lifecycle uniform-anchor --tier d4-k2048 --serving-model-root /models/M --output ./uniform-model
+smash backpack export --run-root ./backpack-run --lifecycle pre-repair --serving-model-root /models/M --output ./pre-repair-model
+smash backpack export --run-root ./backpack-run --lifecycle post-repair --serving-model-root /models/M --output ./post-repair-model
+```
+
+All three lifecycle exports use the same `bs-pack` exporter, model directory,
+`quant_method="banana_smasher"`, and `PackLoader` ABI. The export receipt binds
+the selected assignment, expert wire layout, whole-model tensor shapes, and
+reports expert planes, base weights, repair state, and metadata bytes separately.
+Uniform export assigns the named tier to every cell. Pre- and post-repair export
+the selected assignment from the same run root; post-repair reuses the verified
+repair inputs from the plan.
+
+The orchestrator is only a composition of the same independently callable
+public stage functions:
+
+```python
+from banana_smasher import (
+    BackpackPlan, inspect_backpack, generate_backpack_candidates,
+    anchor_backpack_candidates, predict_backpack, solve_backpack,
+    anchor_backpack, repair_backpack, score_backpack,
+)
+
+plan = BackpackPlan.from_mapping(plan_mapping, base_dir=".")
+for stage in (
+    inspect_backpack, generate_backpack_candidates, anchor_backpack_candidates,
+    predict_backpack, solve_backpack, anchor_backpack, repair_backpack,
+    score_backpack,
+):
+    stage(plan, run_root="./backpack-run")
+```
+
+The lower-level public adapters
+`generate_vector_vq_backpack_candidate(...)`,
+`generate_qtip_backpack_candidate(...)`, and
+`materialize_backpack_source(...)` are also importable from `banana_smasher`
+for producer/materializer integration without calling the private orchestrator.
+
+Each successful stage writes a plan-bound receipt and is skipped on resume.
+Plan entries that bind admitted `candidates` and `candidate_anchor` stage
+receipts import those stages without candidate-generation or anchor replay;
+`reuse_backpack_receipts(...)` also hash-binds other completed campaign
+receipts as evidence. Use
+`admission="evidence_only"` for quarantined diagnostics or historical rails;
+they are retained as evidence but cannot be promoted as current solve inputs.
+
 ## Three-command release path
 
 ```bash
@@ -18,7 +104,7 @@ This preserves the existing pack `quantization_config`, rewrites only the four s
 
 ## Bound repair-checkpoint export
 
-`smash export` can materialize a sealed `banana-smasher-basic-repair-v1` checkpoint directly into a canonical plane source. Every repair input requires its expected SHA-256; the active overlay must bind the exact assignment. The exporter replaces codebook planes by their source-wire hashes (including indexed multi-codebook planes), writes the 235 RMSNorm tensors and 43 attention output gains to `repair/repair_state.safetensors`, binds both repair files in the pack manifest, and fails if any of the 196 checkpoint codebooks is not consumed.
+`smash export` can materialize a sealed `banana-smasher-basic-repair-v1` checkpoint directly into a canonical plane source. Every repair input requires its expected SHA-256; the active overlay must bind the exact assignment. The exporter replaces codebook planes by their source-wire hashes (including indexed multi-codebook planes), writes the 235 RMSNorm tensors and 43 attention output gains to `repair/repair_state.safetensors`, binds both repair files in the pack manifest, and fails if any of the 196 checkpoint codebooks is not consumed. When a serving-model root is supplied, the copied RMSNorm tensors replace their deployment tensors and each `output_log_gain` is folded once into the matching deployment weight or scale. The exported config records `repair_application="export-folded-v1"` and `runtime_output_gain=false`; no per-token gain wrapper is required at serving time.
 
 The bound inputs are supplied with `--repair-checkpoint`, `--repair-checkpoint-sha256`, `--active-overlay`, `--active-overlay-sha256`, `--assignment`, `--assignment-sha256`, and `--repair-update` alongside the ordinary export arguments. Run the unchanged `smash validate-pack PACK_ROOT` public verifier after export. The export receipt records the resolved command and all three bound SHA-256 identities.
 
@@ -44,7 +130,7 @@ ascending for ties); `--codebook PATH.npy` instead binds a supplied finite
 `[K,4]` floating codebook. The command reserves 4 GiB by default and refuses
 before allocation when its streamed one-layer payload does not fit.
 
-```bash
+```console
 smash fixed-d4 prepare-solve --model /path/to/source-model --tier d4_k2048 --layer 0 --output /path/to/prepared-layer-000 --basis-sha256 "$BASIS_SHA256" --chunk-vectors 256
 smash fixed-d4 solve --config /path/to/prepared-layer-000/solve.json --output /path/to/solve-layer-000 --basis-sha256 "$BASIS_SHA256"
 smash fixed-d4 materialize --manifest /path/to/solve-layer-000/materialize.json --output /path/to/wire --basis-sha256 "$BASIS_SHA256"
@@ -64,7 +150,7 @@ runs each bank token window, requests all-vocabulary next-token log
 probabilities (`logprobs=-1`), and imports the resulting real 64 rows without a
 caller-supplied producer command:
 
-```bash
+```console
 smash anchor materialize-candidate --run-root "$RUN_ROOT" --bank "$BANK_ID" --candidate-id "$CANDIDATE_ID" --model /path/to/model --config /path/to/fixed_d4_vllm.json --basis-sha256 "$BASIS_SHA256"
 ```
 
