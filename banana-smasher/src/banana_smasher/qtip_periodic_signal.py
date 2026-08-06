@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import tempfile
 from collections.abc import Iterable, Mapping, Sequence
@@ -33,6 +34,7 @@ TRAIN8_WINDOW_COUNT = 8
 TRAIN8_ROW_IDS = ("10", "12", "19", "24", "37", "45", "57", "60")
 TRAIN8_POSITION_CUTOFF = 1024
 TRAIN8_SUPPORT_WIDTH = 8192
+FF0731_VOCAB_SIZE = 129280
 
 
 def _require_basis(intended: str, observed: str) -> None:
@@ -92,6 +94,8 @@ def _provenance(value: Mapping[str, Any]) -> dict[str, Any]:
         "bank_manifest_sha256",
         "teacher_manifest_sha256",
         "candidate_artifact_sha256",
+        "expected_scored_payload_sha256",
+        "measurement_values_sha256",
     }
     if set(value) != required:
         raise ValueError(f"provenance must contain exactly {sorted(required)}")
@@ -118,6 +122,12 @@ def _provenance(value: Mapping[str, Any]) -> dict[str, Any]:
             "candidate_artifact_sha256 must contain exactly "
             f"{list(PERIODIC_SIGNAL_CANDIDATES)}"
         )
+    expected_payloads = value["expected_scored_payload_sha256"]
+    payload_names = {"teacher_support", *PERIODIC_SIGNAL_CANDIDATES}
+    if not isinstance(expected_payloads, Mapping) or set(expected_payloads) != payload_names:
+        raise ValueError(
+            "expected_scored_payload_sha256 must contain teacher_support and exact candidates"
+        )
     return {
         "avg_member_receipt_sha256": avg_member,
         "bank_manifest_sha256": bank_manifest,
@@ -129,7 +139,32 @@ def _provenance(value: Mapping[str, Any]) -> dict[str, Any]:
             )
             for candidate in PERIODIC_SIGNAL_CANDIDATES
         },
+        "expected_scored_payload_sha256": {
+            name: _sha256_identity(
+                f"expected_scored_payload_sha256[{name}]", expected_payloads[name]
+            )
+            for name in sorted(payload_names)
+        },
+        "measurement_values_sha256": _sha256_identity(
+            "measurement_values_sha256", value["measurement_values_sha256"]
+        ),
     }
+
+
+def _measurement_values_sha256(
+    *,
+    candidate_artifacts: Mapping[str, str],
+    direct_error: Mapping[str, float | int],
+    nominal_code_bits: Mapping[str, int],
+) -> str:
+    payload = {
+        "candidate_artifact_sha256": dict(candidate_artifacts),
+        "direct_error": dict(direct_error),
+        "nominal_code_bits": dict(nominal_code_bits),
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def _row_array(value: Any, *, name: str, integer: bool = False) -> np.ndarray:
@@ -169,9 +204,23 @@ def _score_chunk(
     candidate_logits: np.ndarray,
     support_ids: np.ndarray,
     candidate_argmax: np.ndarray,
-) -> tuple[float, int, int]:
+) -> tuple[float, int, int, tuple[float, ...]]:
+    if bool(np.any(candidate_argmax < 0)) or bool(
+        np.any(candidate_argmax >= FF0731_VOCAB_SIZE)
+    ):
+        raise ValueError("candidate argmax token ids must stay inside FF0731 vocabulary")
     teacher = np.asarray(teacher_logits, dtype=np.float64)
     candidate = np.asarray(candidate_logits, dtype=np.float64)
+    support_rows, support_columns = np.nonzero(
+        support_ids == candidate_argmax[:, None]
+    )
+    if support_rows.size and bool(
+        np.any(
+            candidate[support_rows, support_columns]
+            != np.max(candidate[support_rows], axis=1)
+        )
+    ):
+        raise ValueError("candidate full-vocabulary argmax contradicts support logits")
     if bool(np.any(np.argmax(teacher, axis=1) != 0)):
         raise ValueError("teacher support index zero must be the full-vocabulary Top-1 token")
 
@@ -187,19 +236,28 @@ def _score_chunk(
     candidate_log_prob -= np.log(
         np.sum(np.exp(candidate_log_prob), axis=1, keepdims=True, dtype=np.float64)
     )
-    kld_sum = float(
-        np.sum(teacher_prob * (teacher_log_prob - candidate_log_prob), dtype=np.float64)
+    row_kld = np.sum(
+        teacher_prob * (teacher_log_prob - candidate_log_prob),
+        axis=1,
+        dtype=np.float64,
     )
-    if not np.isfinite(kld_sum):
+    if not bool(np.isfinite(row_kld).all()):
         raise ValueError("periodic quality-signal KLD is non-finite")
+    np.maximum(row_kld, 0.0, out=row_kld)
+    kld_rows = tuple(float(value) for value in row_kld)
+    kld_sum = math.fsum(kld_rows)
 
     positions = teacher.shape[0]
     teacher_tokens = support_ids[:, 0]
     matches = int(np.count_nonzero(teacher_tokens == candidate_argmax))
-    return kld_sum, matches, positions
+    return kld_sum, matches, positions, kld_rows
 
 
 def _validate_support_chunk(support_ids: np.ndarray) -> None:
+    if bool(np.any(support_ids < 0)) or bool(
+        np.any(support_ids >= FF0731_VOCAB_SIZE)
+    ):
+        raise ValueError("teacher support token ids must stay inside FF0731 vocabulary")
     ordered = np.sort(support_ids, axis=1)
     if bool(np.any(ordered[:, 1:] == ordered[:, :-1])):
         raise ValueError("each teacher support row must contain 8192 unique token ids")
@@ -254,7 +312,7 @@ def score_periodic_train8_signal(
         )
 
     totals = {
-        candidate: {"kld_sum": 0.0, "top1_matches": 0, "positions": 0}
+        candidate: {"kld_rows": [], "top1_matches": 0, "positions": 0}
         for candidate in PERIODIC_SIGNAL_CANDIDATES
     }
     payload_hashes = {
@@ -327,13 +385,13 @@ def score_periodic_train8_signal(
             _validate_support_chunk(support_chunk)
             teacher_chunk = teacher[start:stop]
             for candidate, values in candidate_arrays.items():
-                kld_sum, matches, positions = _score_chunk(
+                _, matches, positions, kld_rows = _score_chunk(
                     teacher_chunk,
                     values[start:stop],
                     support_chunk,
                     candidate_argmax_arrays[candidate][start:stop],
                 )
-                totals[candidate]["kld_sum"] += kld_sum
+                totals[candidate]["kld_rows"].extend(kld_rows)
                 totals[candidate]["top1_matches"] += matches
                 totals[candidate]["positions"] += positions
     if observed_row_ids != row_ids:
@@ -341,6 +399,19 @@ def score_periodic_train8_signal(
             f"periodic quality signal requires {TRAIN8_WINDOW_COUNT} rows; "
             f"observed {len(observed_row_ids)}"
         )
+
+    scored_payloads = {
+        name: digest.hexdigest() for name, digest in payload_hashes.items()
+    }
+    if scored_payloads != identities["expected_scored_payload_sha256"]:
+        raise ValueError("scored payload hashes differ from the frozen provenance")
+    measured_values_sha256 = _measurement_values_sha256(
+        candidate_artifacts=identities["candidate_artifact_sha256"],
+        direct_error=errors,
+        nominal_code_bits=code_bits,
+    )
+    if measured_values_sha256 != identities["measurement_values_sha256"]:
+        raise ValueError("measurement values differ from the frozen provenance")
 
     result_rows: dict[str, dict[str, Any]] = {}
     for candidate in PERIODIC_SIGNAL_CANDIDATES:
@@ -350,7 +421,9 @@ def score_periodic_train8_signal(
         result_rows[candidate] = {
             "direct_error": errors[candidate],
             "nominal_code_bits": int(code_bits[candidate]),
-            "mean_support_renormalized_kld": float(total["kld_sum"] / positions),
+            "mean_support_renormalized_kld": float(
+                math.fsum(total["kld_rows"]) / positions
+            ),
             "top1_matches": matches,
             "top1_positions": positions,
             "top1_rate": float(matches / positions),
@@ -369,9 +442,7 @@ def score_periodic_train8_signal(
             "row_ids_sha256": hashlib.sha256(
                 json.dumps(row_ids, separators=(",", ":")).encode()
             ).hexdigest(),
-            "scored_payload_sha256": {
-                name: digest.hexdigest() for name, digest in payload_hashes.items()
-            },
+            "scored_payload_sha256": scored_payloads,
         },
         "bank": "train_balanced64",
         "row_ids": row_ids,
@@ -423,6 +494,8 @@ def _validate_receipt_for_write(receipt: Mapping[str, Any]) -> None:
                 "bank_manifest_sha256",
                 "teacher_manifest_sha256",
                 "candidate_artifact_sha256",
+                "expected_scored_payload_sha256",
+                "measurement_values_sha256",
             )
         }
     )
@@ -432,6 +505,8 @@ def _validate_receipt_for_write(receipt: Mapping[str, Any]) -> None:
         raise ValueError("periodic quality-signal receipt is missing scored payload hashes")
     for name in sorted(payload_names):
         _sha256_identity(f"scored_payload_sha256[{name}]", payload_hashes[name])
+    if payload_hashes != provenance["expected_scored_payload_sha256"]:
+        raise ValueError("periodic quality-signal scored payload identity mismatch")
 
     candidates = receipt.get("candidates")
     if not isinstance(candidates, Mapping) or set(candidates) != set(
@@ -464,6 +539,15 @@ def _validate_receipt_for_write(receipt: Mapping[str, Any]) -> None:
             raise ValueError(f"periodic quality-signal result {candidate} is inconsistent")
         code_bits[candidate] = bits
     _candidate_code_bits(code_bits)
+    if _measurement_values_sha256(
+        candidate_artifacts=provenance["candidate_artifact_sha256"],
+        direct_error={
+            candidate: candidates[candidate]["direct_error"]
+            for candidate in PERIODIC_SIGNAL_CANDIDATES
+        },
+        nominal_code_bits=code_bits,
+    ) != provenance["measurement_values_sha256"]:
+        raise ValueError("periodic quality-signal measurement identity mismatch")
 
 
 def write_periodic_train8_signal_receipt(
