@@ -141,8 +141,9 @@ def _ldlq_cuda_matrix(
     geometry: NativeQtip25Geometry,
     solve_batch: int,
     scale_factors: Sequence[float],
+    scale_semantics: str = "absolute_unit",
 ) -> tuple[np.ndarray, float, dict[str, Any]]:
-    """Run qtip_batch block-LDL and reverse-16 native-V4 feedback on CUDA."""
+    """Run block-LDL/reverse-16 CUDA feedback at unit or explicit relative scale."""
     import math
 
     import torch
@@ -162,6 +163,11 @@ def _ldlq_cuda_matrix(
     factors = tuple(float(value) for value in scale_factors)
     if not factors or any(not math.isfinite(value) or value <= 0 for value in factors):
         raise ValueError("native V4 CUDA LDLQ scale factors must be finite and positive")
+    if scale_semantics not in {"relative_search", "absolute_unit"}:
+        raise ValueError(
+            "native V4 CUDA LDLQ scale semantics must be relative_search or absolute_unit"
+        )
+    effective_factors = (1.0,) if scale_semantics == "absolute_unit" else factors
     device = state_lut.device
     row_blocks = rows // 16
     column_blocks = columns // 16
@@ -189,8 +195,8 @@ def _ldlq_cuda_matrix(
     lut_rms = state_lut.double().square().mean().sqrt()
     base_scale = float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
     best: tuple[float, float, float, Any] | None = None
-    for factor in factors:
-        scale = base_scale * factor
+    for factor in effective_factors:
+        scale = 1.0 if scale_semantics == "absolute_unit" else base_scale * factor
         decoded = torch.zeros_like(source)
         states_grid = torch.empty(
             (row_blocks, column_blocks, 64), device=device, dtype=torch.int32
@@ -233,10 +239,11 @@ def _ldlq_cuda_matrix(
         "method": "qtip_batch_block_ldl_reverse_16",
         "matrix_shape": [rows, columns],
         "base_scale": base_scale,
+        "scale_semantics": scale_semantics,
         "selected_factor": selected_factor,
         "selected_scale": selected_scale,
         "scale_factor": selected_scale,
-        "scale_factors": list(factors),
+        "scale_factors": list(effective_factors),
         "hessian_regularization_sigma": regularization_sigma,
         "feedback_nonzero_count": feedback_nonzero_count,
         "distortion": distortion,
@@ -269,6 +276,7 @@ def run_cuda_cell(
         1.15,
         1.20,
     ),
+    ldlq_scale_semantics: str = "absolute_unit",
 ) -> dict[str, Any]:
     target, tlut, identity = validate_input(
         input_path,
@@ -309,6 +317,7 @@ def run_cuda_cell(
         "base_scale": 1.0,
         "selected_factor": 1.0,
         "selected_scale": 1.0,
+        "scale_factor": 1.0,
         "scale_factors": [1.0],
         "hessian_regularization_sigma": 0.0,
         "feedback_nonzero_count": 0,
@@ -324,6 +333,7 @@ def run_cuda_cell(
             geometry=geometry,
             solve_batch=solve_batch,
             scale_factors=scale_factors,
+            scale_semantics=ldlq_scale_semantics,
         )
     else:
         packed_parts: list[np.ndarray] = []

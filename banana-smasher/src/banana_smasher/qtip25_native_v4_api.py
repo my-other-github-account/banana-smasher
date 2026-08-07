@@ -233,6 +233,7 @@ def _build_qtip_native_v4_cell(
         1.15,
         1.20,
     ),
+    ldlq_scale_semantics: Literal["relative_search", "absolute_unit"] = "absolute_unit",
 ) -> dict[str, Any]:
     """Build one physical homogeneous native-V4 candidate cell.
 
@@ -249,6 +250,10 @@ def _build_qtip_native_v4_cell(
         raise ValueError(f"native V4 basis mismatch: {observed} != {intended}")
     if backend not in {"cuda", "reference"}:
         raise ValueError("native V4 backend must be cuda or reference")
+    if ldlq_scale_semantics not in {"relative_search", "absolute_unit"}:
+        raise ValueError(
+            "native V4 LDLQ scale semantics must be relative_search or absolute_unit"
+        )
     source_path = Path(source).expanduser().resolve()
     tlut_path = Path(tlut).expanduser().resolve()
     if source_path.is_symlink() or not source_path.is_file():
@@ -278,6 +283,9 @@ def _build_qtip_native_v4_cell(
     cuda_receipt: dict[str, Any] | None = None
     optimization: dict[str, Any] = {
         "method": "rms_only_no_feedback",
+        "scale_semantics": "absolute_unit",
+        "selected_factor": 1.0,
+        "selected_scale": 1.0,
         "scale_factor": 1.0,
         "scale_factors": [1.0],
         "feedback_nonzero_count": 0,
@@ -305,6 +313,7 @@ def _build_qtip_native_v4_cell(
                 hessian_path=hessian,
                 matrix_shape=compact["shape"],
                 scale_factors=scale_factors,
+                ldlq_scale_semantics=ldlq_scale_semantics,
             )
         finally:
             normalized_path.unlink(missing_ok=True)
@@ -336,10 +345,12 @@ def _build_qtip_native_v4_cell(
                 tlut=table,
                 geometry=geometry,
                 scale_factors=scale_factors,
+                scale_semantics=ldlq_scale_semantics,
             )
             packed = matrix.packed
             optimization = {
                 "method": "qtip_batch_block_ldl_reverse_16",
+                "scale_semantics": ldlq_scale_semantics,
                 "selected_factor": matrix.scale_factor,
                 "selected_scale": float(matrix.scales[0]),
                 "scale_factor": float(matrix.scales[0]),
@@ -488,6 +499,7 @@ def build_qtip_native_v4_cell(
         1.15,
         1.20,
     ),
+    ldlq_scale_semantics: Literal["relative_search", "absolute_unit"] = "absolute_unit",
 ) -> dict[str, Any]:
     """Build one homogeneous native-V4 cell at an exact quarter-BPW rate."""
 
@@ -506,6 +518,7 @@ def build_qtip_native_v4_cell(
         decode_repeats=decode_repeats,
         hessian=hessian,
         scale_factors=scale_factors,
+        ldlq_scale_semantics=ldlq_scale_semantics,
     )
 
 
@@ -533,6 +546,7 @@ def build_qtip25_native_v4_cell(
         1.15,
         1.20,
     ),
+    ldlq_scale_semantics: Literal["relative_search", "absolute_unit"] = "absolute_unit",
 ) -> dict[str, Any]:
     """Backward-compatible fixed-2.50 wrapper around the generic native-V4 API."""
 
@@ -551,6 +565,7 @@ def build_qtip25_native_v4_cell(
         decode_repeats=decode_repeats,
         hessian=hessian,
         scale_factors=scale_factors,
+        ldlq_scale_semantics=ldlq_scale_semantics,
     )
 
 

@@ -416,8 +416,9 @@ def ldlq_native_v4_matrix(
     tlut: np.ndarray,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
     scale_factors: Sequence[float] = _DEFAULT_SCALE_FACTORS,
+    scale_semantics: str = "absolute_unit",
 ) -> NativeV4MatrixResult:
-    """Run bounded global-scale search with reverse 16-column LDLQ feedback."""
+    """Run reverse-16 LDLQ at unit scale or with an explicit relative search."""
     source = np.asarray(transformed, dtype=np.float32)
     feedback = np.asarray(lower, dtype=np.float32)
     if (
@@ -435,6 +436,9 @@ def ldlq_native_v4_matrix(
     factors = tuple(float(value) for value in scale_factors)
     if not factors or any(not math.isfinite(value) or value <= 0 for value in factors):
         raise ValueError("native V4 LDLQ scale factors must be finite and positive")
+    if scale_semantics not in {"relative_search", "absolute_unit"}:
+        raise ValueError("native V4 LDLQ scale semantics must be relative_search or absolute_unit")
+    effective_factors = (1.0,) if scale_semantics == "absolute_unit" else factors
     lut = expand_native_v4_tlut(tlut, geometry=geometry)
     source_rms = float(np.sqrt(np.mean(source.astype(np.float64) ** 2)))
     lut_rms = float(np.sqrt(np.mean(lut.astype(np.float64) ** 2)))
@@ -443,8 +447,8 @@ def ldlq_native_v4_matrix(
     column_blocks = source.shape[1] // 16
     packed_bytes = 8 * geometry.B
     best: tuple[float, float, np.ndarray, np.ndarray, np.ndarray] | None = None
-    for factor in factors:
-        scale = np.float32(base_scale * factor)
+    for factor in effective_factors:
+        scale = np.float32(1.0 if scale_semantics == "absolute_unit" else base_scale * factor)
         decoded = np.zeros_like(source)
         state_grid = np.empty((row_blocks, column_blocks, 64), dtype=np.int32)
         packed_grid = np.empty(
@@ -497,11 +501,13 @@ def ldlq_native_v4_matrix(
         states=np.ascontiguousarray(state_grid.reshape(tile_count, 64)),
         packed=np.ascontiguousarray(packed_grid.reshape(tile_count, packed_bytes)),
         scales=np.full(
-            tile_count, base_scale * selected_factor, dtype=np.float32
+            tile_count,
+            1.0 if scale_semantics == "absolute_unit" else base_scale * selected_factor,
+            dtype=np.float32,
         ),
         distortion=distortion,
-        scale_factor=base_scale * selected_factor,
-        scale_factors=factors,
+        scale_factor=1.0 if scale_semantics == "absolute_unit" else base_scale * selected_factor,
+        scale_factors=effective_factors,
         feedback_nonzero_count=int(np.count_nonzero(feedback)),
     )
 
