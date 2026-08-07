@@ -379,7 +379,9 @@ def solve_native_v4(
     )
 
 
-def native_v4_lower_from_hessian(hessian: np.ndarray) -> np.ndarray:
+def native_v4_lower_from_hessian(
+    hessian: np.ndarray, *, regularization_sigma: float = 1e-2
+) -> np.ndarray:
     """Derive the normalized 16-column feedback matrix with qtip_batch block-LDL."""
     import torch
 
@@ -393,7 +395,15 @@ def native_v4_lower_from_hessian(hessian: np.ndarray) -> np.ndarray:
         or not bool(np.isfinite(value).all())
     ):
         raise ValueError("native V4 Hessian must be finite square with width divisible by 16")
-    tensor = torch.from_numpy(np.ascontiguousarray(value)).unsqueeze(0)
+    sigma = float(regularization_sigma)
+    if not math.isfinite(sigma) or sigma < 0:
+        raise ValueError("native V4 Hessian regularization must be finite and nonnegative")
+    tensor = torch.from_numpy(np.ascontiguousarray(value.copy())).unsqueeze(0)
+    diagonal = tensor.diagonal(dim1=-2, dim2=-1)
+    diagonal_mean = diagonal.mean(dim=-1)
+    if bool(torch.any(diagonal_mean <= 0)):
+        raise ValueError("native V4 Hessian diagonal mean must be positive")
+    diagonal.add_(diagonal_mean[:, None] * sigma)
     lower = block_ldl_batch(tensor, 16)[0]
     lower.diagonal().zero_()
     return np.ascontiguousarray(lower.numpy(), dtype=np.float32)

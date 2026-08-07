@@ -59,6 +59,9 @@ def test_native_v4_scale_search_uses_nonzero_reverse_16_ldlq() -> None:
     calibration = rng.normal(size=(32, 48)).astype(np.float32)
     hessian = calibration @ calibration.T + np.eye(32, dtype=np.float32)
     lower = native_v4_lower_from_hessian(hessian)
+    unregularized_lower = native_v4_lower_from_hessian(
+        hessian, regularization_sigma=0.0
+    )
     tlut = gaussian_tlut(bits=9, columns=2)
 
     fixed = ldlq_native_v4_matrix(
@@ -83,6 +86,7 @@ def test_native_v4_scale_search_uses_nonzero_reverse_16_ldlq() -> None:
 
     assert searched.feedback_nonzero_count == np.count_nonzero(lower)
     assert searched.feedback_nonzero_count > 0
+    assert not np.array_equal(lower, unregularized_lower)
     assert searched.scale_factors == (0.9, 1.0, 1.1)
     assert searched.packed.shape == (4, 80)
     assert searched.distortion <= fixed.distortion

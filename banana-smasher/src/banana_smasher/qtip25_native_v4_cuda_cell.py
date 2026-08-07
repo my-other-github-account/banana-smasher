@@ -173,7 +173,13 @@ def _ldlq_cuda_matrix(
         .reshape(rows, columns)
         .contiguous()
     )
+    regularization_sigma = 1e-2
     hessian_tensor = torch.from_numpy(np.asarray(hessian).copy()).to(device)
+    diagonal = hessian_tensor.diagonal()
+    diagonal_mean = diagonal.mean()
+    if not bool(diagonal_mean > 0):
+        raise RuntimeError("native V4 CUDA LDLQ Hessian diagonal mean must be positive")
+    diagonal.add_(diagonal_mean * regularization_sigma)
     lower = block_ldl_batch(hessian_tensor.unsqueeze(0), 16)[0]
     lower.diagonal().zero_()
     feedback_nonzero_count = int(torch.count_nonzero(lower).item())
@@ -182,7 +188,7 @@ def _ldlq_cuda_matrix(
     source_rms = source.double().square().mean().sqrt()
     lut_rms = state_lut.double().square().mean().sqrt()
     base_scale = float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
-    best: tuple[float, float, Any] | None = None
+    best: tuple[float, float, float, Any] | None = None
     for factor in factors:
         scale = base_scale * factor
         decoded = torch.zeros_like(source)
@@ -211,9 +217,9 @@ def _ldlq_cuda_matrix(
             states_grid[:, column_block] = states
         distortion = float((decoded.double() - source.double()).square().sum().item())
         if best is None or distortion < best[0]:
-            best = (distortion, scale, states_grid.clone())
+            best = (distortion, factor, scale, states_grid.clone())
     assert best is not None
-    distortion, selected_scale, states_grid = best
+    distortion, selected_factor, selected_scale, states_grid = best
     flat_states = states_grid.reshape(-1, 64)
     packed_parts = []
     for batch_start in range(0, len(flat_states), solve_batch):
@@ -226,8 +232,11 @@ def _ldlq_cuda_matrix(
     return packed, selected_scale, {
         "method": "qtip_batch_block_ldl_reverse_16",
         "matrix_shape": [rows, columns],
-        "scale_factor": selected_scale,
+        "base_scale": base_scale,
+        "selected_factor": selected_factor,
+        "selected_scale": selected_scale,
         "scale_factors": list(factors),
+        "hessian_regularization_sigma": regularization_sigma,
         "feedback_nonzero_count": feedback_nonzero_count,
         "distortion": distortion,
     }
@@ -296,8 +305,11 @@ def run_cuda_cell(
     encode_started = time.perf_counter()
     optimization: dict[str, Any] = {
         "method": "rms_only_no_feedback",
-        "scale_factor": 1.0,
+        "base_scale": 1.0,
+        "selected_factor": 1.0,
+        "selected_scale": 1.0,
         "scale_factors": [1.0],
+        "hessian_regularization_sigma": 0.0,
         "feedback_nonzero_count": 0,
     }
     if hessian is not None:
