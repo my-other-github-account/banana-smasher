@@ -649,7 +649,9 @@ if triton is not None:
             current = (step & 1) * batch * prefixes + base
             best = tl.full((prefixes,), float("inf"), tl.float32)
             chosen = tl.zeros((prefixes,), tl.int32)
-            for previous_prefix in tl.range(0, prefixes):
+            for previous_prefix in tl.range(
+                0, prefixes, loop_unroll_factor=2
+            ):
                 previous_cost = tl.load(
                     scratch_ptr + previous + previous_prefix
                 )
