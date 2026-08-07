@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 from collections import Counter
+from decimal import Decimal, localcontext
 from pathlib import Path
 from typing import Any
 
@@ -653,6 +654,286 @@ def _materialize_canonical_backpack_run(
     }
     _atomic_write(destination / VIRTUAL_MANIFEST, _canonical(manifest))
     return verify_virtual_backpack(destination)
+
+
+def materialize_provenance_virtual_backpack(
+    assignment: str | Path,
+    solve_receipt: str | Path,
+    option_ledger: str | Path,
+    source_bindings: str | Path,
+    output: str | Path,
+    *,
+    expected_assignment_sha256: str,
+    expected_solve_receipt_sha256: str,
+    logical_base_parameters: int,
+) -> dict[str, Any]:
+    """Project a terminal provenance-weighted solve into exact64 virtual wire."""
+
+    if (
+        isinstance(logical_base_parameters, bool)
+        or not isinstance(logical_base_parameters, int)
+        or logical_base_parameters <= 0
+    ):
+        raise ValueError("logical_base_parameters must be a positive integer")
+    assignment_path = Path(assignment).expanduser().resolve()
+    receipt_path = Path(solve_receipt).expanduser().resolve()
+    ledger_path = Path(option_ledger).expanduser().resolve()
+    assignment_value, assignment_raw = _load_object(assignment_path)
+    receipt_value, receipt_raw = _load_object(receipt_path)
+    ledger_raw = ledger_path.read_bytes()
+    assignment_sha = _sha256(assignment_raw)
+    receipt_sha = _sha256(receipt_raw)
+    ledger_sha = _sha256(ledger_raw)
+    if assignment_sha != expected_assignment_sha256:
+        raise ValueError("provenance assignment SHA-256 mismatch")
+    if receipt_sha != expected_solve_receipt_sha256:
+        raise ValueError("provenance solve receipt SHA-256 mismatch")
+    if (
+        assignment_value.get("schema")
+        != "banana-smasher-provenance-weighted-assignment-v1"
+        or assignment_value.get("status") != "PASS_PREDICTION_ONLY"
+    ):
+        raise ValueError("provenance assignment schema/status mismatch")
+    if (
+        receipt_value.get("schema")
+        != "banana-smasher-provenance-weighted-solve-receipt-v1"
+        or receipt_value.get("status") != "PASS"
+    ):
+        raise ValueError("provenance solve receipt schema/status mismatch")
+    for label, descriptor, path, raw in (
+        ("assignment", receipt_value.get("assignment"), assignment_path, assignment_raw),
+        ("option ledger", receipt_value.get("option_ledger"), ledger_path, ledger_raw),
+    ):
+        if (
+            not isinstance(descriptor, dict)
+            or Path(str(descriptor.get("path"))).expanduser().resolve() != path
+            or descriptor.get("sha256") != _sha256(raw)
+            or descriptor.get("bytes") != len(raw)
+        ):
+            raise ValueError(f"provenance solve receipt {label} binding mismatch")
+
+    identities = (
+        "model_id",
+        "model_revision",
+        "basis_sha256",
+        "bank_sha256",
+        "teacher_sha256",
+        "scorer_sha256",
+    )
+    rows = assignment_value.get("assignments")
+    if not isinstance(rows, list) or not rows or not all(isinstance(row, dict) for row in rows):
+        raise ValueError("provenance assignment rows are missing or malformed")
+    selected = {(str(row["cell_id"]), str(row["tier"])): row for row in rows}
+    selected_cells = {cell_id for cell_id, _tier in selected}
+    if len(selected) != len(rows) or len(selected_cells) != len(rows):
+        raise ValueError("provenance assignment contains duplicate cells")
+
+    ledger_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for line_number, line in enumerate(ledger_raw.splitlines(), 1):
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if not isinstance(row, dict):
+            raise ValueError(f"provenance option row {line_number} is not an object")
+        key = (str(row.get("cell_id")), str(row.get("tier")))
+        if key in ledger_by_key:
+            raise ValueError(f"duplicate provenance option row: {key}")
+        ledger_by_key[key] = row
+
+    tier_counts: Counter[str] = Counter()
+    tier_payload_bytes: Counter[str] = Counter()
+    source_counts: Counter[str] = Counter()
+    activation_ids: set[str] = set()
+    index_rows: list[dict[str, Any]] = []
+    for key, selected_row in selected.items():
+        ledger_row = ledger_by_key.get(key)
+        if ledger_row is None:
+            raise ValueError(f"selected provenance option is absent from ledger: {key}")
+        for identity in identities:
+            if ledger_row.get(identity) != assignment_value.get(identity):
+                raise ValueError(f"selected provenance option {identity} mismatch: {key}")
+        byte_count = int(ledger_row["physical_bytes"])
+        if int(selected_row["bytes"]) != byte_count:
+            raise ValueError(f"selected provenance option byte mismatch: {key}")
+        producer = ledger_row.get("physical_producer")
+        if not isinstance(producer, dict):
+            raise ValueError(f"selected provenance option lacks physical producer: {key}")
+        producer_path = Path(str(producer.get("path"))).expanduser().resolve()
+        expected_producer_sha = str(producer.get("sha256"))
+        if len(expected_producer_sha) != 64 or any(
+            value not in "0123456789abcdef" for value in expected_producer_sha
+        ):
+            raise ValueError(f"selected provenance physical producer identity is invalid: {key}")
+        # The solve receipt already binds the complete ledger bytes. Producer
+        # receipts were verified when that ledger was built and need not remain
+        # mounted on the machine that projects the terminal assignment.
+        actual_producer_sha = expected_producer_sha
+        source_key = key[1]
+        layer, expert, projection = _parse_cell(key[0])
+        ids = sorted(str(value) for value in ledger_row.get("activation_ids", []))
+        tier_counts[key[1]] += 1
+        tier_payload_bytes[key[1]] += byte_count
+        source_counts[source_key] += 1
+        activation_ids.update(ids)
+        index_rows.append(
+            {
+                "cell_id": key[0],
+                "selection_group": key[0],
+                "layer": layer,
+                "expert": expert,
+                "projection": projection,
+                "tier": key[1],
+                "source_key": source_key,
+                "physical_bytes": byte_count,
+                "physical_receipt_path": str(producer_path),
+                "physical_receipt_sha256": actual_producer_sha,
+                "physical_artifact_sha256": producer.get("artifact_sha256"),
+                "activation_artifact_ids": ids,
+            }
+        )
+
+    raw_activated = assignment_value.get("activation_artifacts", [])
+    if not isinstance(raw_activated, list) or not all(
+        isinstance(row, dict) for row in raw_activated
+    ):
+        raise ValueError("provenance activation artifacts are malformed")
+    activated_artifacts: list[dict[str, Any]] = []
+    activated_ids: set[str] = set()
+    activation_bytes = 0
+    for row in raw_activated:
+        artifact_id = str(row.get("id", row.get("artifact_id", "")))
+        byte_count = row.get("bytes")
+        if (
+            not artifact_id
+            or artifact_id in activated_ids
+            or isinstance(byte_count, bool)
+            or not isinstance(byte_count, int)
+            or byte_count < 0
+        ):
+            raise ValueError("provenance activation artifact identity/bytes are invalid")
+        activated_ids.add(artifact_id)
+        activation_bytes += byte_count
+        activated_artifacts.append(
+            {**row, "artifact_id": artifact_id, "bytes": byte_count}
+        )
+    if activation_ids != activated_ids:
+        raise ValueError("selected provenance activation-artifact set mismatch")
+
+    source_accounting = assignment_value.get("whole_model_accounting")
+    if (
+        not isinstance(source_accounting, dict)
+        or receipt_value.get("whole_model_accounting") != source_accounting
+    ):
+        raise ValueError("provenance whole-model accounting binding mismatch")
+    payload_bytes = sum(tier_payload_bytes.values())
+    fixed_bytes = int(source_accounting["fixed_nonexpert_bytes"])
+    whole_bytes = int(source_accounting["whole_shipping_bytes"])
+    if (
+        int(source_accounting["selected_expert_bytes"])
+        != payload_bytes + activation_bytes
+        or whole_bytes != payload_bytes + activation_bytes + fixed_bytes
+        or fixed_bytes
+        != int(source_accounting["dense_nonrouted_bytes"])
+        + int(source_accounting["repair_bytes"])
+        + int(source_accounting["metadata_bytes"])
+        or int(source_accounting["shipping_slack_bytes"])
+        != int(source_accounting["shipping_bytes_cap"]) - whole_bytes
+    ):
+        raise ValueError("provenance whole-model accounting equation mismatch")
+    numerator = whole_bytes * 8
+    with localcontext() as context:
+        context.prec = 80
+        decimal_bpw = format(
+            Decimal(numerator) / Decimal(logical_base_parameters), "f"
+        )
+    whole_model_accounting = {
+        "expert_physical_wire_bytes": payload_bytes + activation_bytes,
+        "dense_nonrouted_bytes": int(source_accounting["dense_nonrouted_bytes"]),
+        "repair_bytes": int(source_accounting["repair_bytes"]),
+        "metadata_bytes": int(source_accounting["metadata_bytes"]),
+        "fixed_nonexpert_bytes": fixed_bytes,
+        "whole_shipping_bytes": whole_bytes,
+        "shipping_bytes_cap": int(source_accounting["shipping_bytes_cap"]),
+        "shipping_slack_bytes": int(source_accounting["shipping_slack_bytes"]),
+        "logical_base_parameters": logical_base_parameters,
+        "whole_model_bpw_numerator_bits": numerator,
+        "whole_model_bpw_exact_ratio": f"{numerator}/{logical_base_parameters}",
+        "whole_model_bpw_decimal": decimal_bpw,
+    }
+    derived = {
+        "payload_bytes": payload_bytes,
+        "activation_bytes": activation_bytes,
+        "assigned_expert_bytes": payload_bytes + activation_bytes,
+        "fixed_nonexpert_bytes": fixed_bytes,
+        "assigned_package_bytes": whole_bytes,
+        "tier_payload_bytes": dict(sorted(tier_payload_bytes.items())),
+    }
+    required_sources = set(source_counts)
+    bound_sources, source_declaration = _bind_sources(
+        Path(source_bindings).expanduser().resolve(),
+        str(assignment_value["basis_sha256"]),
+        required_sources,
+    )
+    assignment_map = _assignment_from_rows(rows)
+    assignment_map_raw = _canonical(assignment_map)
+    index_rows.sort(key=lambda row: _parse_cell(row["cell_id"]))
+    index_raw = b"".join(_canonical(row) for row in index_rows)
+    output_path = Path(output).expanduser().resolve()
+    if output_path.exists() and any(output_path.iterdir()):
+        if (output_path / VIRTUAL_MANIFEST).is_file():
+            existing_manifest, _ = _load_object(output_path / VIRTUAL_MANIFEST)
+            if existing_manifest.get("source_assignment", {}).get("sha256") == assignment_sha:
+                return verify_virtual_backpack(output_path)
+        raise FileExistsError(f"refusing non-empty virtual output: {output_path}")
+    output_path.mkdir(parents=True, exist_ok=True)
+    _atomic_write(output_path / ASSIGNMENT_FILE, assignment_map_raw)
+    _atomic_write(output_path / INDEX_FILE, index_raw)
+    manifest = {
+        "schema": SCHEMA,
+        "status": "PASS_LOGICAL_FULL_WIRE",
+        "storage": {
+            "kind": "external-family-roots-v1",
+            "tensor_payload_copy_bytes": 0,
+            "source_roots_bound_once": True,
+        },
+        "model_id": assignment_value["model_id"],
+        "model_revision": assignment_value["model_revision"],
+        "basis_sha256": assignment_value["basis_sha256"],
+        "bank_sha256": assignment_value["bank_sha256"],
+        "teacher_sha256": assignment_value["teacher_sha256"],
+        "scorer_sha256": assignment_value["scorer_sha256"],
+        "arm_name": "provenance-weighted-clean102",
+        "assignment_map_sha256": _sha256(assignment_map_raw),
+        "source_assignment": _evidence(assignment_path, assignment_raw),
+        "source_receipt": _evidence(receipt_path, receipt_raw),
+        "option_ledger": _evidence(ledger_path, ledger_raw),
+        "source_declaration": source_declaration,
+        "source_bindings": bound_sources,
+        "assignment": {
+            "file": ASSIGNMENT_FILE,
+            "sha256": _sha256(assignment_map_raw),
+            "bytes": len(assignment_map_raw),
+            "rows": len(rows),
+        },
+        "materialization_index": {
+            "file": INDEX_FILE,
+            "sha256": _sha256(index_raw),
+            "bytes": len(index_raw),
+            "rows": len(index_rows),
+        },
+        "tier_counts": dict(sorted(tier_counts.items())),
+        "source_component_counts": dict(sorted(source_counts.items())),
+        "byte_accounting": derived,
+        "whole_model_accounting": whole_model_accounting,
+        "activated_artifacts": sorted(
+            activated_artifacts, key=lambda row: row["artifact_id"]
+        ),
+        "expert_parameter_denominator": logical_base_parameters,
+        "expert_wire_bpw": payload_bytes * 8 / logical_base_parameters,
+        "geometry": {"cells": len(rows)},
+    }
+    _atomic_write(output_path / VIRTUAL_MANIFEST, _canonical(manifest))
+    return verify_virtual_backpack(output_path)
 
 
 def materialize_virtual_backpack(

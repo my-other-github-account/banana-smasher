@@ -86,9 +86,23 @@ from .backpack_contextual_candidate import materialize_contextual_change
 from .backpack_contextual_measure import record_contextual_swap_measurement
 from .backpack_contextual_prepare import prepare_contextual_iteration
 from .backpack_exact64 import EXACT64_TERMINAL_SCHEMA, bind_backpack_exact64
-from .backpack_runtime_exact64 import run_backpack_exact64
+from .backpack_runtime_exact64 import run_backpack_exact64, run_backpack_train8
 from .backpack_selection import select_measured_nonworse
-from .backpack_virtual import materialize_virtual_backpack, verify_virtual_backpack
+from .measured_backpack_spsa import (
+    build_hierarchical_groups,
+    command_evaluator,
+    load_full_wire_menu,
+    load_routing_usage,
+    measured_objective,
+    project_group_logits,
+    refine_influential_groups,
+    run_measured_spsa,
+)
+from .backpack_virtual import (
+    materialize_provenance_virtual_backpack,
+    materialize_virtual_backpack,
+    verify_virtual_backpack,
+)
 from .locality import require_local_backpack_inputs, require_local_path
 from .staging import stage_qsfp_manifest
 from .evaluate import evaluate_paired, verify_evaluation
@@ -102,6 +116,10 @@ from .fixed_d4 import (
     verify_fixed_d4_model,
 )
 from .persistent import UpdateQueue
+from .provenance_wire import (
+    build_full_wire_provenance_ledger,
+    run_full_wire_provenance_solve,
+)
 from .qtip1 import (
     EncodedQtip,
     QTIP1_GEOMETRY,
@@ -202,9 +220,12 @@ __all__ = [
     "build_bpw_accounting",
     "build_backpack",
     "build_contextual_delta_ledger",
+    "build_full_wire_provenance_ledger",
+    "build_hierarchical_groups",
     "builtin_backpack_family_providers",
     "candidate_artifact_root",
     "compare_training_rails",
+    "command_evaluator",
     "create_balanced_subset",
     "decode_qtip",
     "emit_solver_row",
@@ -221,10 +242,14 @@ __all__ = [
     "import_producer",
     "inspect_backpack",
     "load_manifest",
+    "load_full_wire_menu",
+    "load_routing_usage",
     "materialize_backpack_assignment",
     "materialize_backpack_source",
     "materialize_contextual_change",
+    "materialize_provenance_virtual_backpack",
     "materialize_virtual_backpack",
+    "measured_objective",
     "materialize_bank",
     "materialize_candidate_producer",
     "materialize_fixed_d4",
@@ -236,6 +261,7 @@ __all__ = [
     "predict_backpack",
     "predict_backpack_candidate",
     "prepare_contextual_iteration",
+    "project_group_logits",
     "produce_fixed_d4_layerwise_logits",
     "produce_fixed_d4_logits",
     "qtip1_5_provider_declaration",
@@ -243,6 +269,7 @@ __all__ = [
     "qtip_provider_counts",
     "qtip_ring_backpack_provider",
     "register_bank",
+    "refine_influential_groups",
     "require_comparable_bpw",
     "repair_backpack",
     "record_contextual_swap_measurement",
@@ -253,7 +280,10 @@ __all__ = [
     "require_local_path",
     "run_contextual_trust_solve",
     "run_contextual_value_update",
+    "run_full_wire_provenance_solve",
+    "run_measured_spsa",
     "run_backpack_exact64",
+    "run_backpack_train8",
     "score_bank",
     "score_backpack",
     "serve_persistent_updates",

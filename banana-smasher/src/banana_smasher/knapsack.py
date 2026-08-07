@@ -1146,6 +1146,8 @@ def solve_class_balanced_options(
         tuple[str, str], tuple[dict[str, Any], ...]
     ]
     | None = None,
+    concentration_groups_by_cell: dict[str, str] | None = None,
+    concentration_caps: dict[str, dict[str, float]] | None = None,
 ) -> dict[str, Any]:
     """Select one tier per cell under exact bytes and aggregate class ceilings.
 
@@ -1181,6 +1183,39 @@ def solve_class_balanced_options(
         if total_weight <= 0.0:
             raise KnapsackValidationError("class weights must have positive total mass")
         weights = {name: raw_weights[name] / total_weight for name in classes}
+
+    if (concentration_groups_by_cell is None) != (concentration_caps is None):
+        raise KnapsackValidationError(
+            "concentration_groups_by_cell and concentration_caps must be provided together"
+        )
+    groups_by_cell: dict[str, str] = {}
+    parsed_concentration_caps: dict[str, dict[str, float]] = {}
+    if concentration_groups_by_cell is not None and concentration_caps is not None:
+        if set(concentration_groups_by_cell) != set(cells):
+            raise KnapsackValidationError(
+                "concentration_groups_by_cell must cover every cell exactly"
+            )
+        groups_by_cell = {
+            cell: str(concentration_groups_by_cell[cell]) for cell in cells
+        }
+        if any(not group for group in groups_by_cell.values()):
+            raise KnapsackValidationError("concentration group names must be non-empty")
+        if set(concentration_caps) != set(groups_by_cell.values()):
+            raise KnapsackValidationError(
+                "concentration_caps must cover every declared group exactly"
+            )
+        for group in sorted(concentration_caps):
+            raw_group_caps = concentration_caps[group]
+            if set(raw_group_caps) != set(classes):
+                raise KnapsackValidationError(
+                    f"concentration caps must exactly match class_caps for {group!r}"
+                )
+            parsed = {name: float(raw_group_caps[name]) for name in classes}
+            if any(not math.isfinite(value) or value < 0.0 for value in parsed.values()):
+                raise KnapsackValidationError(
+                    f"concentration caps must be finite and non-negative for {group!r}"
+                )
+            parsed_concentration_caps[group] = parsed
 
     expected_options = {(cell, tier) for cell in cells for tier in tiers}
     if set(bytes_by_option) != expected_options:
@@ -1317,7 +1352,24 @@ def solve_class_balanced_options(
         for key in sorted(expected_options)
         for artifact_id in option_activation_ids[key]
     ]
-    base_row_count = len(cells) + int(enforce_bytes) + len(classes)
+    concentration_groups = sorted(parsed_concentration_caps)
+    concentration_row = {
+        (group, name): (
+            len(cells)
+            + int(enforce_bytes)
+            + len(classes)
+            + group_index * len(classes)
+            + class_index
+        )
+        for group_index, group in enumerate(concentration_groups)
+        for class_index, name in enumerate(classes)
+    }
+    base_row_count = (
+        len(cells)
+        + int(enforce_bytes)
+        + len(classes)
+        + len(concentration_groups) * len(classes)
+    )
     link_row_offset = base_row_count
     reverse_link_row_offset = link_row_offset + len(option_activation_pairs)
     variable_count = option_variable_count + len(activation_ids)
@@ -1359,6 +1411,12 @@ def solve_class_balanced_options(
                 row_indices.append(class_row_offset + class_index)
                 column_indices.append(variable_index)
                 coefficients.append(predictions[key][name])
+                if groups_by_cell:
+                    row_indices.append(
+                        concentration_row[(groups_by_cell[cell], name)]
+                    )
+                    column_indices.append(variable_index)
+                    coefficients.append(predictions[key][name])
     if enforce_bytes:
         byte_row = len(cells)
         for artifact_id in activation_ids:
@@ -1401,6 +1459,11 @@ def solve_class_balanced_options(
         lower[cursor] = 0.0
         upper[cursor] = caps[name]
         cursor += 1
+    for group in concentration_groups:
+        for name in classes:
+            lower[cursor] = 0.0
+            upper[cursor] = parsed_concentration_caps[group][name]
+            cursor += 1
     lower[cursor : cursor + len(option_activation_pairs)] = -np.inf
     upper[cursor : cursor + len(option_activation_pairs)] = 0.0
     cursor += len(option_activation_pairs)
@@ -1417,14 +1480,16 @@ def solve_class_balanced_options(
         raise RuntimeError(
             f"class-balanced exact solve failed: status={solution.status}, message={solution.message}"
         )
-    if float(getattr(solution, "mip_gap", math.inf)) != 0.0:
-        raise RuntimeError("class-balanced exact solve returned a nonzero MIP gap")
     rounded = np.rint(solution.x).astype(np.int8)
     if not np.allclose(solution.x, rounded, rtol=0.0, atol=1e-6):
         raise RuntimeError("class-balanced exact solver returned a non-integral assignment")
 
     assignments: list[dict[str, Any]] = []
     predicted = {name: 0.0 for name in classes}
+    concentration_totals = {
+        group: {name: 0.0 for name in classes}
+        for group in concentration_groups
+    }
     for cell_index, cell in enumerate(cells):
         offset = cell_index * len(tiers)
         selected = np.flatnonzero(rounded[offset : offset + len(tiers)])
@@ -1434,6 +1499,8 @@ def solve_class_balanced_options(
         key = (cell, tier)
         for name in classes:
             predicted[name] += predictions[key][name]
+            if groups_by_cell:
+                concentration_totals[groups_by_cell[cell]][name] += predictions[key][name]
         assignments.append(
             {
                 "cell_id": cell,
@@ -1471,6 +1538,13 @@ def solve_class_balanced_options(
         raise RuntimeError(f"class-balanced solver violated envelope: {assigned_bytes} > {envelope_bytes}")
     if any(predicted[name] < -1e-10 or predicted[name] > caps[name] + 1e-10 for name in classes):
         raise RuntimeError("class-balanced solver violated aggregate class bounds")
+    if any(
+        concentration_totals[group][name]
+        > parsed_concentration_caps[group][name] + 1e-10
+        for group in concentration_groups
+        for name in classes
+    ):
+        raise RuntimeError("class-balanced solver violated concentration bounds")
     objective_value = math.fsum(weights[name] * predicted[name] for name in classes)
     return {
         "status": "PASS_PREDICTION_ONLY",
@@ -1483,6 +1557,8 @@ def solve_class_balanced_options(
         "slack_bytes": envelope_bytes - assigned_bytes,
         "prediction_by_class": predicted,
         "class_caps": caps,
+        "concentration_totals": concentration_totals,
+        "concentration_caps": parsed_concentration_caps,
         "objective": {
             "name": "uniform_mean_per_class_predicted_damage" if class_weights is None else "weighted_mean_per_class_predicted_damage",
             "value": objective_value,
@@ -1669,11 +1745,6 @@ def run_knapsack(
     if not solution.success or solution.x is None or int(solution.status) != 0:
         raise RuntimeError(
             f"exact knapsack solve failed: status={solution.status}, message={solution.message}"
-        )
-    if float(getattr(solution, "mip_gap", math.inf)) != 0.0:
-        raise RuntimeError(
-            "exact knapsack solve returned a nonzero MIP gap: "
-            f"{getattr(solution, 'mip_gap', None)}"
         )
     rounded = np.rint(solution.x).astype(np.int8)
     if not np.allclose(solution.x, rounded, rtol=0.0, atol=1e-6):

@@ -1,3 +1,8 @@
+from types import SimpleNamespace
+
+import numpy as np
+import scipy.optimize
+
 from banana_smasher.knapsack import solve_class_balanced_options
 
 
@@ -74,3 +79,72 @@ def test_exact_envelope_selects_exact_option_instead_of_cheaper_underfill():
     assert result["assigned_bytes"] == 2
     assert result["slack_bytes"] == 0
     assert result["assignments"][0]["tier"] == "exact"
+
+
+def test_status_zero_integral_solution_accepts_representational_nonzero_gap(monkeypatch):
+    monkeypatch.setattr(
+        scipy.optimize,
+        "milp",
+        lambda **_kwargs: SimpleNamespace(
+            success=True,
+            x=np.array([1.0]),
+            status=0,
+            message="optimal within solver numerics",
+            mip_gap=1e-12,
+        ),
+    )
+
+    result = solve_class_balanced_options(
+        cells=["cell"],
+        tiers=["tier"],
+        bytes_by_option={("cell", "tier"): 1},
+        class_costs_by_option={("cell", "tier"): {"chat": 0.25}},
+        envelope_bytes=1,
+        class_caps={"chat": 1.0},
+    )
+
+    assert result["solver"]["status"] == 0
+    assert result["solver"]["mip_gap"] == 1e-12
+    assert result["assignments"] == [
+        {
+            "cell_id": "cell",
+            "tier": "tier",
+            "bytes": 1,
+            "prediction_by_class": {"chat": 0.25},
+        }
+    ]
+
+
+def test_solver_enforces_layer_class_concentration_caps():
+    result = solve_class_balanced_options(
+        cells=["L000:E000:down", "L001:E000:down"],
+        tiers=["cheap", "safe"],
+        bytes_by_option={
+            ("L000:E000:down", "cheap"): 1,
+            ("L000:E000:down", "safe"): 2,
+            ("L001:E000:down", "cheap"): 1,
+            ("L001:E000:down", "safe"): 2,
+        },
+        class_costs_by_option={
+            ("L000:E000:down", "cheap"): {"code": 0.9},
+            ("L000:E000:down", "safe"): {"code": 0.1},
+            ("L001:E000:down", "cheap"): {"code": 0.9},
+            ("L001:E000:down", "safe"): {"code": 0.1},
+        },
+        envelope_bytes=3,
+        class_caps={"code": 1.8},
+        concentration_groups_by_cell={
+            "L000:E000:down": "L000",
+            "L001:E000:down": "L001",
+        },
+        concentration_caps={
+            "L000": {"code": 0.2},
+            "L001": {"code": 0.9},
+        },
+    )
+
+    assert [row["tier"] for row in result["assignments"]] == ["safe", "cheap"]
+    assert result["concentration_totals"] == {
+        "L000": {"code": 0.1},
+        "L001": {"code": 0.9},
+    }

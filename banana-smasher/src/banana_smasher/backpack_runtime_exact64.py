@@ -193,8 +193,15 @@ def run_backpack_exact64(
     qtip3_root_map_path: str | Path,
     output_root: str | Path,
     basis_sha256: str,
+    expected_windows: int = 64,
+    slice_id: str | None = None,
+    class_by_window: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Run a virtual mixed Backpack assignment on the exact 64-window rail."""
+    """Run a virtual mixed Backpack assignment on one exact bound window rail.
+
+    The public default remains exact64. The measured SPSA caller explicitly
+    selects eight revision-bound TRAIN windows and supplies their class map.
+    """
 
     model_root = Path(model_root).resolve()
     bank_path = Path(bank_path).resolve()
@@ -213,8 +220,11 @@ def run_backpack_exact64(
         raise ValueError("exact64 model basis mismatch")
     bank_sha256 = _sha256_file(bank_path)
     bank_rows = _read_jsonl(bank_path)
-    if len(bank_rows) != 64:
-        raise ValueError(f"exact64 requires 64 bank rows, got {len(bank_rows)}")
+    if expected_windows not in {8, 64} or len(bank_rows) != expected_windows:
+        raise ValueError(
+            f"Backpack rail requires exactly {expected_windows} bank rows, "
+            f"got {len(bank_rows)}"
+        )
     model_id = "deepseek-ai/DeepSeek-V4-Flash-0731"
     teacher_manifest_path, teacher = _revision_bind_teacher_manifest(
         teacher_manifest_path,
@@ -228,6 +238,22 @@ def run_backpack_exact64(
     window_ids = [row.get("window_id") for row in bank_rows]
     if window_ids != teacher["window_ids"]:
         raise ValueError("exact64 bank/teacher window order mismatch")
+    if expected_windows == 8:
+        if not isinstance(slice_id, str) or not slice_id:
+            raise ValueError("measured TRAIN8 requires a slice_id")
+        if (
+            not isinstance(class_by_window, Mapping)
+            or set(class_by_window) != {str(value) for value in window_ids}
+            or set(class_by_window.values()) != {
+                "agentic",
+                "chat",
+                "code",
+                "multilingual",
+                "prose",
+                "reasoning",
+            }
+        ):
+            raise ValueError("measured TRAIN8 requires complete six-class window metadata")
     for row in bank_rows:
         tokens = row.get("token_ids")
         if (
@@ -358,7 +384,10 @@ def run_backpack_exact64(
         target_dir = run_root / target_stage
         target_receipts = checkpoints.setdefault(target_stage, {})
         source_receipts = checkpoints.get(source_stage)
-        if not isinstance(source_receipts, Mapping) or len(source_receipts) != 64:
+        if (
+            not isinstance(source_receipts, Mapping)
+            or len(source_receipts) != expected_windows
+        ):
             raise ValueError("exact64 source checkpoint coverage mismatch")
         with runtime.layer_stage(layer) as forward:
             for slot, row in enumerate(bank_rows):
@@ -380,7 +409,7 @@ def run_backpack_exact64(
                 _atomic_json(state_path, state)
                 progress("layer", layer=layer, slot=slot)
                 del source, activation, output
-        if len(target_receipts) != 64:
+        if len(target_receipts) != expected_windows:
             raise ValueError(f"exact64 layer {layer} checkpoint coverage mismatch")
         state["completed_layers"].append(layer)
         previous = run_root / source_stage
@@ -403,7 +432,10 @@ def run_backpack_exact64(
         pack_sha256=pack_sha256,
     )
     final_receipts = checkpoints.get(source_stage)
-    if not isinstance(final_receipts, Mapping) or len(final_receipts) != 64:
+    if (
+        not isinstance(final_receipts, Mapping)
+        or len(final_receipts) != expected_windows
+    ):
         raise ValueError("exact64 terminal checkpoint coverage mismatch")
     with runtime.terminal_stage() as score:
         for slot, row in enumerate(bank_rows):
@@ -433,6 +465,35 @@ def run_backpack_exact64(
             del source, activation, support, scored
 
     score_result = score_anchor_sidecars(teacher_manifest_path, candidate_manifest)
+    class_kld: dict[str, float] | None = None
+    class_top1: dict[str, dict[str, float | int]] | None = None
+    if class_by_window is not None:
+        class_kld_sum: dict[str, float] = {}
+        class_positions: dict[str, int] = {}
+        class_matches: dict[str, int] = {}
+        for row in score_result["per_window"]:
+            name = class_by_window[str(row["window_id"])]
+            class_kld_sum[name] = class_kld_sum.get(name, 0.0) + float(
+                row["kld_sum"]
+            )
+            class_positions[name] = class_positions.get(name, 0) + int(
+                row["positions"]
+            )
+            class_matches[name] = class_matches.get(name, 0) + int(
+                row["top1_matches"]
+            )
+        class_kld = {
+            name: class_kld_sum[name] / class_positions[name]
+            for name in sorted(class_positions)
+        }
+        class_top1 = {
+            name: {
+                "matches": class_matches[name],
+                "positions": class_positions[name],
+                "agreement": class_matches[name] / class_positions[name],
+            }
+            for name in sorted(class_positions)
+        }
     top1_receipt = {
         "schema": "banana-smasher-backpack-exact64-top1-v1",
         "status": "PASS",
@@ -447,12 +508,19 @@ def run_backpack_exact64(
     _atomic_json(receipts / "TOP1.json", top1_receipt)
     _atomic_json(receipts / "SCORE.json", score_result)
     result = {
-        "schema": "banana-smasher-backpack-exact64-terminal-v1",
+        "schema": (
+            "banana-smasher-backpack-exact64-terminal-v1"
+            if expected_windows == 64
+            else "banana-smasher-backpack-train8-terminal-v1"
+        ),
         "status": "PASS",
         "binding_sha256": binding,
         "basis_sha256": basis_sha256,
         "bank_sha256": bank_sha256,
         "pack_sha256": pack_sha256,
+        "assignment_sha256": virtual_manifest["assignment_map_sha256"],
+        "slice_id": slice_id,
+        "window_ids": window_ids,
         "windows": score_result["windows"],
         "positions": score_result["positions"],
         "support_width": score_result["support_width"],
@@ -460,10 +528,15 @@ def run_backpack_exact64(
         "top1_agreement": score_result["top1_agreement"],
         "mean_kld": score_result["mean_kld"],
         "kld_sum": score_result["kld_sum"],
+        **(
+            {"class_kld": class_kld, "class_top1": class_top1}
+            if class_kld is not None
+            else {}
+        ),
         "holdout_used": False,
         "repair_applied": False,
-        "full_window_forwards": 64,
-        "transformer_layer_forwards": 64 * 43,
+        "full_window_forwards": expected_windows,
+        "transformer_layer_forwards": expected_windows * 43,
         "candidate_manifest": str(candidate_manifest),
         "candidate_manifest_sha256": _sha256_file(candidate_manifest),
         "top1_receipt_sha256": _sha256_file(receipts / "TOP1.json"),
@@ -479,6 +552,12 @@ def run_backpack_exact64(
     _atomic_json(receipts / "TERMINAL.json", result)
     progress("complete")
     return result
+
+
+def run_backpack_train8(**kwargs: Any) -> dict[str, Any]:
+    """Run one balanced eight-window TRAIN SPSA measurement."""
+
+    return run_backpack_exact64(expected_windows=8, **kwargs)
 
 
 def main(argv: list[str] | None = None) -> int:
