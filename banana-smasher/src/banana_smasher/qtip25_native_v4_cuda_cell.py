@@ -25,11 +25,36 @@ from .qtip25_native_v4 import (
     decode_native_v4,
     expand_native_v4_tlut,
     native_v4_wire_accounting,
-    pack_native_v4_states,
     solve_native_v4_cuda,
 )
 
 SCHEMA = "banana-smasher-qtip25-native-v4-cuda-cell-v1"
+
+
+def _pack_cuda_states_v4(states: Any) -> Any:
+    """Pack one exact circular B10 stream per row without a CPU traceback loop."""
+    import torch
+
+    geometry = NATIVE_QTIP25_GEOMETRY
+    if not states.is_cuda or states.ndim != 2 or states.shape[1] * geometry.B < geometry.L:
+        raise ValueError("native V4 CUDA states must be on-device [rows,steps]")
+    values = states.to(torch.int32)
+    suffix_mask = geometry.prefixes - 1
+    if bool(((values[:, :-1] & suffix_mask) != (values[:, 1:] >> geometry.B)).any()):
+        raise ValueError("native V4 CUDA state path violates B10 transitions")
+    if bool(((values[:, -1] & suffix_mask) != (values[:, 0] >> geometry.B)).any()):
+        raise ValueError("native V4 CUDA state path does not close")
+    first_shifts = torch.arange(geometry.L - 1, -1, -1, device=values.device)
+    branch_shifts = torch.arange(geometry.B - 1, -1, -1, device=values.device)
+    first = ((values[:, :1, None] >> first_shifts) & 1).reshape(values.shape[0], -1)
+    rest = ((values[:, 1:, None] >> branch_shifts) & 1).reshape(values.shape[0], -1)
+    bit_count = values.shape[1] * geometry.B
+    bits = torch.cat((first, rest), dim=1)[:, :bit_count]
+    padding = (-bit_count) % 8
+    if padding:
+        bits = torch.nn.functional.pad(bits, (0, padding))
+    byte_shifts = torch.arange(7, -1, -1, device=values.device)
+    return torch.sum(bits.reshape(values.shape[0], -1, 8) << byte_shifts, dim=2).to(torch.uint8)
 
 
 def _sha_file(path: Path) -> str:
@@ -145,16 +170,16 @@ def run_cuda_cell(
     device = torch.device("cuda")
     table = torch.from_numpy(np.asarray(tlut)).to(device)
     state_lut = torch.from_numpy(expand_native_v4_tlut(tlut)).to(device)
-    states_parts: list[np.ndarray] = []
+    packed_parts: list[np.ndarray] = []
     torch.cuda.synchronize()
     encode_started = time.perf_counter()
     for start in range(0, len(target), solve_batch):
         source = torch.from_numpy(np.asarray(target[start : start + solve_batch])).to(device)
-        states_parts.append(solve_native_v4_cuda(source, state_lut=state_lut).cpu().numpy())
+        states = solve_native_v4_cuda(source, state_lut=state_lut)
+        packed_parts.append(_pack_cuda_states_v4(states).cpu().numpy())
     torch.cuda.synchronize()
     encode_seconds = time.perf_counter() - encode_started
-    states = np.concatenate(states_parts).astype(np.int32, copy=False)
-    packed = pack_native_v4_states(states)
+    packed = np.concatenate(packed_parts)
 
     output_root = Path(output).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
