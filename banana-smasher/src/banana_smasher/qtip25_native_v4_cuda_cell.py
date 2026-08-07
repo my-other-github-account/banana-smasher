@@ -195,9 +195,14 @@ def _ldlq_cuda_matrices(
     feedback_nonzero_counts = torch.count_nonzero(lower, dim=(1, 2))
     if bool(torch.any(feedback_nonzero_counts == 0)):
         raise RuntimeError("native V4 CUDA LDLQ requires nonzero Hessian feedback")
-    source_rms = source.double().square().mean(dim=(1, 2)).sqrt()
     lut_rms = state_lut.double().square().mean().sqrt()
-    base_scales = torch.where(source_rms == 0, 1.0, source_rms / lut_rms).to(source.dtype)
+    base_scale_values = []
+    for cell in range(cell_count):
+        source_rms = source[cell].double().square().mean().sqrt()
+        base_scale_values.append(
+            float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
+        )
+    base_scales = torch.tensor(base_scale_values, dtype=source.dtype, device=device)
     factor_values = torch.tensor(factors, dtype=source.dtype, device=device)
     scale_values = base_scales[:, None] * factor_values[None, :]
     factor_count = len(factors)
