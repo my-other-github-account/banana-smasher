@@ -132,7 +132,7 @@ def validate_input(
     }
 
 
-def _ldlq_cuda_matrices(
+def ldlq_native_v4_cuda_batch(
     targets: Sequence[np.ndarray],
     hessians: Sequence[np.ndarray],
     *,
@@ -313,7 +313,7 @@ def _ldlq_cuda_matrix(
     solve_batch: int,
     scale_factors: Sequence[float],
 ) -> tuple[np.ndarray, float, dict[str, Any]]:
-    packed, selected_scales, optimization = _ldlq_cuda_matrices(
+    packed, selected_scales, optimization = ldlq_native_v4_cuda_batch(
         [target],
         [hessian],
         matrix_shape=matrix_shape,

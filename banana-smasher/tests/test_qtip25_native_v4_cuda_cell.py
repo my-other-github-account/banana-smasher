@@ -60,7 +60,7 @@ def test_ldlq_batches_scale_candidates_on_solver_axis(monkeypatch) -> None:
     hessian = np.ascontiguousarray(basis @ basis.T)
     state_lut = torch.ones((1 << 16, 4), dtype=torch.float32)
 
-    packed, selected_scales, optimizations = cuda_cell._ldlq_cuda_matrices(
+    packed, selected_scales, optimizations = cuda_cell.ldlq_native_v4_cuda_batch(
         [target, target],
         [hessian, hessian],
         matrix_shape=(16, 32),
