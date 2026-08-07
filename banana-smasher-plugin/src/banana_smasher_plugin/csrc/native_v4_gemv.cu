@@ -17,6 +17,13 @@ constexpr int kThreads = 256;
 constexpr int kCounterBase = 140;
 constexpr int kDequantCounter = 152;
 
+__device__ __forceinline__ void atomic_add_counter(
+    int64_t* address, int64_t value) {
+  atomicAdd(
+      reinterpret_cast<unsigned long long*>(address),
+      static_cast<unsigned long long>(value));
+}
+
 __device__ __forceinline__ uint16_t native_v4_state(
     const uint8_t* code, int step, int transition_bits) {
   const int stream_bits = 64 * transition_bits;
@@ -130,13 +137,12 @@ __global__ void native_v4_receipt_kernel(
     }
     const int transition_bits = native_family == 0 ? 7 : (native_family == 1 ? 9 : 10);
     const int base = kCounterBase + native_family * 4;
-    atomicAdd(counters + base, int64_t{1});
-    atomicAdd(counters + base + 1, rows);
-    atomicAdd(counters + base + 2, rows * static_cast<int64_t>(n) * k * transition_bits / 32);
+    atomic_add_counter(counters + base, int64_t{1});
+    atomic_add_counter(counters + base + 1, rows);
+    atomic_add_counter(
+        counters + base + 2,
+        rows * static_cast<int64_t>(n) * k * transition_bits / 32);
   }
-  // This operator consumes packed planes directly.  The dedicated dequant counter
-  // remains zero and is exported beside the three physical-rate receipts.
-  atomicAdd(counters + kDequantCounter, int64_t{0});
 }
 
 void native_v4_gemv_cuda(
