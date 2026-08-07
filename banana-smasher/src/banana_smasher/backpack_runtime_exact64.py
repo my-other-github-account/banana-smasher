@@ -7,6 +7,7 @@ import os
 import shutil
 import tempfile
 import time
+from decimal import Decimal, localcontext
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -101,6 +102,63 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _validate_whole_model_accounting(document: Mapping[str, Any]) -> Mapping[str, Any]:
+    accounting = document.get("whole_model_accounting")
+    if not isinstance(accounting, Mapping):
+        raise ValueError("exact64 requires standardized whole-model accounting")
+
+    integer_fields = (
+        "expert_physical_wire_bytes",
+        "dense_nonrouted_bytes",
+        "repair_bytes",
+        "metadata_bytes",
+        "fixed_nonexpert_bytes",
+        "whole_shipping_bytes",
+        "shipping_bytes_cap",
+        "shipping_slack_bytes",
+        "logical_base_parameters",
+        "whole_model_bpw_numerator_bits",
+    )
+    values: dict[str, int] = {}
+    for field in integer_fields:
+        value = accounting.get(field)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"exact64 whole-model accounting field is invalid: {field}")
+        values[field] = value
+    if values["shipping_bytes_cap"] == 0 or values["logical_base_parameters"] == 0:
+        raise ValueError("exact64 whole-model target and logical denominator must be positive")
+
+    fixed = (
+        values["dense_nonrouted_bytes"]
+        + values["repair_bytes"]
+        + values["metadata_bytes"]
+    )
+    if values["fixed_nonexpert_bytes"] != fixed:
+        raise ValueError("exact64 fixed_nonexpert_bytes equation mismatch")
+    whole = values["expert_physical_wire_bytes"] + fixed
+    if values["whole_shipping_bytes"] != whole:
+        raise ValueError("exact64 whole_shipping_bytes equation mismatch")
+    if whole > values["shipping_bytes_cap"]:
+        raise ValueError("exact64 whole-model shipping target exceeded")
+    if values["shipping_slack_bytes"] != values["shipping_bytes_cap"] - whole:
+        raise ValueError("exact64 shipping_slack_bytes equation mismatch")
+    numerator = whole * 8
+    if values["whole_model_bpw_numerator_bits"] != numerator:
+        raise ValueError("exact64 whole-model BPW numerator mismatch")
+    ratio = f"{numerator}/{values['logical_base_parameters']}"
+    if accounting.get("whole_model_bpw_exact_ratio") != ratio:
+        raise ValueError("exact64 whole-model BPW exact ratio mismatch")
+    with localcontext() as context:
+        context.prec = 80
+        decimal_value = format(
+            Decimal(numerator) / Decimal(values["logical_base_parameters"]),
+            "f",
+        )
+    if accounting.get("whole_model_bpw_decimal") != decimal_value:
+        raise ValueError("exact64 whole-model BPW decimal mismatch")
+    return accounting
+
+
 def _revision_bind_teacher_manifest(
     source_path: Path,
     output_root: Path,
@@ -109,64 +167,19 @@ def _revision_bind_teacher_manifest(
     basis_sha256: str,
     model_id: str,
 ) -> tuple[Path, dict[str, Any]]:
-    """Promote a validated historical manifest without changing teacher tensors."""
+    """Load a teacher manifest that already proves the active model revision."""
 
     source_document = json.loads(source_path.read_text())
-    if source_document.get("schema") == "banana-smasher-anchor-teacher-sidecars-v2":
-        source = load_teacher_support_manifest(
-            source_path,
-            expected_bank_sha256=bank_sha256,
-            expected_basis_sha256=basis_sha256,
-            expected_model_id=model_id,
-            require_revision_binding=True,
-        )
-        return source_path, source
-    source = load_teacher_support_manifest(source_path)
-    target = output_root / "teacher_support" / "teacher_top8192.v2.json"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    entries: list[dict[str, Any]] = []
-    sidecars = target.parent / "teacher_top8192.v2.sidecars"
-    sidecars.mkdir(parents=True, exist_ok=True)
-    for slot, entry in enumerate(source["windows"]):
-        source_sidecar = (source_path.parent / entry["path"]).resolve()
-        relative = Path("teacher_top8192.v2.sidecars") / f"t8192_{slot:03d}.pt"
-        target_sidecar = target.parent / relative
-        if not target_sidecar.exists():
-            try:
-                os.link(source_sidecar, target_sidecar)
-            except OSError:
-                shutil.copyfile(source_sidecar, target_sidecar)
-        if (
-            target_sidecar.stat().st_size != entry["bytes"]
-            or _sha256_file(target_sidecar) != entry["sha256"]
-        ):
-            raise ValueError("revision-bound teacher sidecar identity mismatch")
-        entries.append({**entry, "path": relative.as_posix()})
-    promoted = {
-        "schema": "banana-smasher-anchor-teacher-sidecars-v2",
-        "support_width": source["support_width"],
-        "window_ids": source["window_ids"],
-        "identities": {
-            "bank_sha256": source["identities"]["bank_sha256"],
-            "teacher_sha256": source["identities"]["teacher_sha256"],
-            "basis_sha256": basis_sha256,
-            "model_id": model_id,
-        },
-        "windows": entries,
-    }
-    if target.exists():
-        existing = json.loads(target.read_text())
-        if existing != promoted:
-            raise ValueError("revision-bound teacher manifest resume mismatch")
-    else:
-        _atomic_json(target, promoted)
-    promoted = load_teacher_support_manifest(
-        target,
+    if source_document.get("schema") != "banana-smasher-anchor-teacher-sidecars-v2":
+        raise ValueError("exact64 requires a revision-bound teacher manifest")
+    source = load_teacher_support_manifest(
+        source_path,
+        expected_bank_sha256=bank_sha256,
         expected_basis_sha256=basis_sha256,
         expected_model_id=model_id,
         require_revision_binding=True,
     )
-    return target, promoted
+    return source_path, source
 
 
 def run_backpack_exact64(
@@ -231,6 +244,7 @@ def run_backpack_exact64(
         or virtual_manifest.get("storage", {}).get("tensor_payload_copy_bytes") != 0
     ):
         raise ValueError("exact64 virtual manifest identity mismatch")
+    _validate_whole_model_accounting(virtual_manifest)
     virtual_files = []
     for path in (
         virtual_manifest_path.parent / "ASSIGNMENT.json",
