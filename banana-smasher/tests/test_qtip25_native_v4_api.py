@@ -98,7 +98,9 @@ def test_build_and_anchor_native_v4_cell_through_public_api(tmp_path: Path) -> N
     assert Path(anchor["receipt"]).is_file()
 
 
-def test_ldlq_absolute_unit_scale_persists_control_wscale(tmp_path: Path) -> None:
+def test_hessian_requires_explicit_feedback_and_preserves_a_c_d_controls(
+    tmp_path: Path,
+) -> None:
     source, control, tlut = _fixture(tmp_path)
     with np.load(control, allow_pickle=False) as payload:
         np.savez(
@@ -112,12 +114,12 @@ def test_ldlq_absolute_unit_scale_persists_control_wscale(tmp_path: Path) -> Non
     hessian_path = tmp_path / "hessian.npy"
     np.save(hessian_path, hessian, allow_pickle=False)
 
-    candidate = tmp_path / "absolute-unit"
-    receipt = build_qtip25_native_v4_cell(
+    conservative = tmp_path / "conservative-a"
+    a_receipt = build_qtip25_native_v4_cell(
         source,
         tmp_path / "absolute-control.npz",
         tlut,
-        candidate,
+        conservative,
         intended_basis_sha256="9" * 64,
         observed_basis_sha256="9" * 64,
         backend="reference",
@@ -125,10 +127,55 @@ def test_ldlq_absolute_unit_scale_persists_control_wscale(tmp_path: Path) -> Non
         scale_factors=(0.5, 2.0),
     )
 
-    assert receipt["optimization"]["scale_semantics"] == "absolute_unit"
-    assert receipt["optimization"]["selected_scale"] == 1.0
-    assert receipt["optimization"]["scale_factors"] == [1.0]
-    assert np.load(candidate / "Wscale.npy", allow_pickle=False) == np.float32(0.75)
+    assert a_receipt["optimization"]["method"] == "rms_only_no_feedback"
+    assert a_receipt["optimization"]["scale_semantics"] == "absolute_unit"
+    assert a_receipt["optimization"]["selected_scale"] == 1.0
+    assert a_receipt["optimization"]["scale_factors"] == [1.0]
+    assert a_receipt["optimization"]["feedback_nonzero_count"] == 0
+    assert np.load(conservative / "Wscale.npy", allow_pickle=False) == np.float32(0.75)
+
+    absolute_feedback = tmp_path / "explicit-c"
+    c_receipt = build_qtip25_native_v4_cell(
+        source,
+        tmp_path / "absolute-control.npz",
+        tlut,
+        absolute_feedback,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        backend="reference",
+        hessian=hessian_path,
+        feedback_mode="reverse_16",
+        scale_factors=(0.5, 2.0),
+    )
+
+    assert c_receipt["optimization"]["method"] == "qtip_batch_block_ldl_reverse_16"
+    assert c_receipt["optimization"]["scale_semantics"] == "absolute_unit"
+    assert c_receipt["optimization"]["selected_scale"] == 1.0
+    assert c_receipt["optimization"]["scale_factors"] == [1.0]
+    assert c_receipt["optimization"]["feedback_mode"] == "reverse_16"
+    assert np.load(absolute_feedback / "Wscale.npy", allow_pickle=False) == np.float32(
+        0.75
+    )
+
+    relative_feedback = tmp_path / "explicit-d"
+    d_receipt = build_qtip25_native_v4_cell(
+        source,
+        tmp_path / "absolute-control.npz",
+        tlut,
+        relative_feedback,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        backend="reference",
+        hessian=hessian_path,
+        feedback_mode="reverse_16",
+        ldlq_scale_semantics="relative_search",
+        scale_factors=(0.5, 2.0),
+    )
+
+    assert d_receipt["optimization"]["method"] == "qtip_batch_block_ldl_reverse_16"
+    assert d_receipt["optimization"]["scale_semantics"] == "relative_search"
+    assert d_receipt["optimization"]["scale_factors"] == [0.5, 2.0]
+    assert d_receipt["optimization"]["feedback_mode"] == "reverse_16"
 
 
 def test_native_v4_cli_builds_and_anchors_a_cell(tmp_path: Path, capsys) -> None:

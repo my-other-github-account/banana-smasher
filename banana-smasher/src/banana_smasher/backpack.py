@@ -451,6 +451,8 @@ class BackpackPlan:
                         "solve_batch",
                         "decode_batch",
                         "decode_repeats",
+                        "feedback_mode",
+                        "hessian",
                     },
                     f"tiers[{index}]",
                 )
@@ -478,6 +480,20 @@ class BackpackPlan:
                         f"tiers[{index}].backend must be cuda or reference"
                     )
                 tier["backend"] = backend
+                feedback_mode = tier.get("feedback_mode", "off")
+                if feedback_mode not in {"off", "reverse_16"}:
+                    raise BackpackPlanError(
+                        f"tiers[{index}].feedback_mode must be off or reverse_16"
+                    )
+                tier["feedback_mode"] = feedback_mode
+                if tier.get("hessian") is not None:
+                    tier["hessian"] = _path(
+                        tier["hessian"], f"tiers[{index}].hessian", base_dir=base
+                    )
+                if feedback_mode == "reverse_16" and tier.get("hessian") is None:
+                    raise BackpackPlanError(
+                        f"tiers[{index}].reverse_16 feedback requires hessian"
+                    )
                 tier["control_root"] = _path(
                     tier.get("control_root"),
                     f"tiers[{index}].control_root",
@@ -1809,6 +1825,7 @@ def generate_native_v4_backpack_candidate(
         decode_batch=int(tier["decode_batch"]),
         decode_repeats=int(tier["decode_repeats"]),
         hessian=(str(tier["hessian"]) if tier.get("hessian") is not None else None),
+        feedback_mode=str(tier.get("feedback_mode", "off")),
         **(
             {"scale_factors": tuple(float(value) for value in tier["scale_factors"])}
             if tier.get("scale_factors") is not None
@@ -1848,6 +1865,7 @@ def generate_native_v4_backpack_candidate(
             "backend": str(tier["backend"]),
             "bpw": geometry.rate_num / geometry.rate_den,
             "geometry": geometry.as_mapping(),
+            "feedback_mode": str(tier.get("feedback_mode", "off")),
             "basis_sha256": str(tier["basis_sha256"]),
             "projection": str(cell["projection"]),
             "record_geometry_fields": ["L", "B", "V"],

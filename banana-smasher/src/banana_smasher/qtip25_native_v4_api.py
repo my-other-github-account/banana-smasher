@@ -234,6 +234,7 @@ def _build_qtip_native_v4_cell(
         1.20,
     ),
     ldlq_scale_semantics: Literal["relative_search", "absolute_unit"] = "absolute_unit",
+    feedback_mode: Literal["off", "reverse_16"] = "off",
 ) -> dict[str, Any]:
     """Build one physical homogeneous native-V4 candidate cell.
 
@@ -254,6 +255,12 @@ def _build_qtip_native_v4_cell(
         raise ValueError(
             "native V4 LDLQ scale semantics must be relative_search or absolute_unit"
         )
+    if feedback_mode not in {"off", "reverse_16"}:
+        raise ValueError("native V4 feedback mode must be off or reverse_16")
+    if feedback_mode == "reverse_16" and hessian is None:
+        raise ValueError("native V4 reverse_16 feedback requires an explicit Hessian artifact")
+    if feedback_mode == "off" and ldlq_scale_semantics != "absolute_unit":
+        raise ValueError("native V4 relative scale search requires reverse_16 feedback")
     source_path = Path(source).expanduser().resolve()
     tlut_path = Path(tlut).expanduser().resolve()
     if source_path.is_symlink() or not source_path.is_file():
@@ -283,6 +290,7 @@ def _build_qtip_native_v4_cell(
     cuda_receipt: dict[str, Any] | None = None
     optimization: dict[str, Any] = {
         "method": "rms_only_no_feedback",
+        "feedback_mode": "off",
         "scale_semantics": "absolute_unit",
         "selected_factor": 1.0,
         "selected_scale": 1.0,
@@ -310,10 +318,11 @@ def _build_qtip_native_v4_cell(
                 transform_bytes=int(
                     compact["SU_storage"].nbytes + compact["SV_storage"].nbytes
                 ),
-                hessian_path=hessian,
+                hessian_path=(hessian if feedback_mode == "reverse_16" else None),
                 matrix_shape=compact["shape"],
                 scale_factors=scale_factors,
                 ldlq_scale_semantics=ldlq_scale_semantics,
+                feedback_mode=feedback_mode,
             )
         finally:
             normalized_path.unlink(missing_ok=True)
@@ -321,7 +330,7 @@ def _build_qtip_native_v4_cell(
         encode_seconds = float(cuda_receipt["encode"]["wall_seconds"])
         optimization = dict(cuda_receipt["optimization"])
     else:
-        if hessian is None:
+        if feedback_mode == "off":
             encoded = solve_native_v4(
                 blocks,
                 tlut=table,
@@ -350,6 +359,7 @@ def _build_qtip_native_v4_cell(
             packed = matrix.packed
             optimization = {
                 "method": "qtip_batch_block_ldl_reverse_16",
+                "feedback_mode": "reverse_16",
                 "scale_semantics": ldlq_scale_semantics,
                 "selected_factor": matrix.scale_factor,
                 "selected_scale": float(matrix.scales[0]),
@@ -500,6 +510,7 @@ def build_qtip_native_v4_cell(
         1.20,
     ),
     ldlq_scale_semantics: Literal["relative_search", "absolute_unit"] = "absolute_unit",
+    feedback_mode: Literal["off", "reverse_16"] = "off",
 ) -> dict[str, Any]:
     """Build one homogeneous native-V4 cell at an exact quarter-BPW rate."""
 
@@ -519,6 +530,7 @@ def build_qtip_native_v4_cell(
         hessian=hessian,
         scale_factors=scale_factors,
         ldlq_scale_semantics=ldlq_scale_semantics,
+        feedback_mode=feedback_mode,
     )
 
 
@@ -547,6 +559,7 @@ def build_qtip25_native_v4_cell(
         1.20,
     ),
     ldlq_scale_semantics: Literal["relative_search", "absolute_unit"] = "absolute_unit",
+    feedback_mode: Literal["off", "reverse_16"] = "off",
 ) -> dict[str, Any]:
     """Backward-compatible fixed-2.50 wrapper around the generic native-V4 API."""
 
@@ -566,6 +579,7 @@ def build_qtip25_native_v4_cell(
         hessian=hessian,
         scale_factors=scale_factors,
         ldlq_scale_semantics=ldlq_scale_semantics,
+        feedback_mode=feedback_mode,
     )
 
 

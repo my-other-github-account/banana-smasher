@@ -277,6 +277,7 @@ def run_cuda_cell(
         1.20,
     ),
     ldlq_scale_semantics: str = "absolute_unit",
+    feedback_mode: str = "off",
 ) -> dict[str, Any]:
     target, tlut, identity = validate_input(
         input_path,
@@ -299,8 +300,12 @@ def run_cuda_cell(
     peak_estimate = (256 << 20) + solve_batch * (
         64 * geometry.prefixes * 4 + 64 * geometry.V * 4 + geometry.prefixes * 8
     )
+    if feedback_mode not in {"off", "reverse_16"}:
+        raise ValueError("native V4 feedback mode must be off or reverse_16")
+    if feedback_mode == "reverse_16" and hessian_path is None:
+        raise ValueError("native V4 reverse_16 feedback requires a Hessian")
     hessian = None
-    if hessian_path is not None:
+    if feedback_mode == "reverse_16":
         hessian = np.load(Path(hessian_path).resolve(), allow_pickle=False)
         peak_estimate += int(hessian.nbytes * 2 + target.nbytes * 3)
     if peak_estimate + (4 << 30) > free:
@@ -314,6 +319,7 @@ def run_cuda_cell(
     encode_started = time.perf_counter()
     optimization: dict[str, Any] = {
         "method": "rms_only_no_feedback",
+        "feedback_mode": "off",
         "base_scale": 1.0,
         "selected_factor": 1.0,
         "selected_scale": 1.0,
@@ -335,6 +341,7 @@ def run_cuda_cell(
             scale_factors=scale_factors,
             scale_semantics=ldlq_scale_semantics,
         )
+        optimization["feedback_mode"] = "reverse_16"
     else:
         packed_parts: list[np.ndarray] = []
         for start in range(0, len(target), solve_batch):

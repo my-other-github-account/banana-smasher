@@ -328,6 +328,7 @@ def test_backpack_plan_accepts_an_arbitrary_native_v4_anchor_menu(tmp_path) -> N
         "qtip-native-v4@2.25",
         "qtip-native-v4@2.75",
     ]
+    assert [tier["feedback_mode"] for tier in plan.tiers] == ["off", "off", "off"]
     assert len({tier["activation_artifacts"][0]["id"] for tier in plan.tiers}) == 1
 
 

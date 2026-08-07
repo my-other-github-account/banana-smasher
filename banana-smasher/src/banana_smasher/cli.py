@@ -251,6 +251,9 @@ def _parser() -> argparse.ArgumentParser:
     native_v4_build.add_argument("--decode-repeats", type=int, default=1)
     native_v4_build.add_argument("--hessian", type=Path)
     native_v4_build.add_argument(
+        "--feedback-mode", choices=("off", "reverse_16"), default="off"
+    )
+    native_v4_build.add_argument(
         "--scale-factor",
         action="append",
         dest="scale_factors",
@@ -1204,6 +1207,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "decode_batch": args.decode_batch,
                     "decode_repeats": args.decode_repeats,
                     "hessian": args.hessian,
+                    "feedback_mode": args.feedback_mode,
                     **(
                         {"scale_factors": tuple(args.scale_factors)}
                         if args.scale_factors is not None
