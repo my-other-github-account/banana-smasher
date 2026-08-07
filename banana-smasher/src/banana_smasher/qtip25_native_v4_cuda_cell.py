@@ -219,8 +219,8 @@ def ldlq_native_v4_cuda_batch(
     if preserve_cell_math:
         lower_values = []
         for hessian_tensor in hessian_values:
-            diagonal_mean = float(hessian_tensor.diagonal().mean().item())
-            if diagonal_mean <= 0:
+            diagonal_mean = hessian_tensor.diagonal().mean()
+            if not bool(diagonal_mean > 0):
                 raise RuntimeError(
                     "native V4 CUDA LDLQ Hessian diagonal mean must be positive"
                 )
@@ -293,9 +293,10 @@ def ldlq_native_v4_cuda_batch(
             if preserve_cell_math:
                 for group in range(group_count):
                     corrected[group].add_(
-                        torch.matmul(
-                            error_right[group], lower_group[group, end:, start:end]
-                        )
+                        (
+                            lower_group[group, end:, start:end].T
+                            @ error_right[group].T
+                        ).T
                     )
             else:
                 corrected.add_(
