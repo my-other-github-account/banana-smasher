@@ -60,9 +60,9 @@ def test_ldlq_batches_scale_candidates_on_solver_axis(monkeypatch) -> None:
     hessian = np.ascontiguousarray(basis @ basis.T)
     state_lut = torch.ones((1 << 16, 4), dtype=torch.float32)
 
-    packed, selected_scale, optimization = cuda_cell._ldlq_cuda_matrix(
-        target,
-        hessian,
+    packed, selected_scales, optimizations = cuda_cell._ldlq_cuda_matrices(
+        [target, target],
+        [hessian, hessian],
         matrix_shape=(16, 32),
         state_lut=state_lut,
         geometry=NATIVE_QTIP25_GEOMETRY,
@@ -70,7 +70,9 @@ def test_ldlq_batches_scale_candidates_on_solver_axis(monkeypatch) -> None:
         scale_factors=(0.9, 1.0, 1.1),
     )
 
-    assert calls == [(3, 64, 4), (3, 64, 4)]
-    assert packed.shape == (2, 80)
-    assert selected_scale > 0
-    assert optimization["scale_batch_size"] == 3
+    assert calls == [(6, 64, 4), (6, 64, 4)]
+    assert len(packed) == 2
+    assert all(value.shape == (2, 80) for value in packed)
+    assert all(value > 0 for value in selected_scales)
+    assert all(value["scale_batch_size"] == 3 for value in optimizations)
+    assert all(value["cell_batch_size"] == 2 for value in optimizations)
