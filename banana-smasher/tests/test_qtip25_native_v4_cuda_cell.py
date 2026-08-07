@@ -67,12 +67,14 @@ def test_ldlq_batches_scale_candidates_on_solver_axis(monkeypatch) -> None:
         state_lut=state_lut,
         geometry=NATIVE_QTIP25_GEOMETRY,
         solve_batch=2048,
-        scale_factors=(0.9, 1.0, 1.1),
+        scale_factors=(1.0,),
+        cell_scale_factors=(0.9, 1.1),
     )
 
-    assert calls == [(6, 64, 4), (6, 64, 4)]
+    assert calls == [(2, 64, 4), (2, 64, 4)]
     assert len(packed) == 2
     assert all(value.shape == (2, 80) for value in packed)
     assert all(value > 0 for value in selected_scales)
-    assert all(value["scale_batch_size"] == 3 for value in optimizations)
+    assert [value["selected_factor"] for value in optimizations] == [0.9, 1.1]
+    assert all(value["scale_batch_size"] == 1 for value in optimizations)
     assert all(value["cell_batch_size"] == 2 for value in optimizations)

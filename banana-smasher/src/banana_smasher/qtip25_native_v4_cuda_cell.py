@@ -141,6 +141,7 @@ def ldlq_native_v4_cuda_batch(
     geometry: NativeQtip25Geometry,
     solve_batch: int,
     scale_factors: Sequence[float],
+    cell_scale_factors: Sequence[float] | None = None,
 ) -> tuple[list[np.ndarray], list[float], list[dict[str, Any]]]:
     """Run reverse-16 native-V4 LDLQ with cells and scale candidates batched."""
     import math
@@ -169,6 +170,19 @@ def ldlq_native_v4_cuda_batch(
     factors = tuple(float(value) for value in scale_factors)
     if not factors or any(not math.isfinite(value) or value <= 0 for value in factors):
         raise ValueError("native V4 CUDA LDLQ scale factors must be finite and positive")
+    fixed_factors = (
+        tuple(float(value) for value in cell_scale_factors)
+        if cell_scale_factors is not None
+        else None
+    )
+    if fixed_factors is not None and (
+        len(fixed_factors) != cell_count
+        or factors != (1.0,)
+        or any(not math.isfinite(value) or value <= 0 for value in fixed_factors)
+    ):
+        raise ValueError(
+            "native V4 fixed cell scale factors require one positive factor per cell and scale_factors=(1.0,)"
+        )
     device = state_lut.device
     row_blocks = rows // 16
     column_blocks = columns // 16
@@ -203,9 +217,14 @@ def ldlq_native_v4_cuda_batch(
             float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
         )
     base_scales = torch.tensor(base_scale_values, dtype=source.dtype, device=device)
+    factor_rows = (
+        [[fixed_factors[cell]] for cell in range(cell_count)]
+        if fixed_factors is not None
+        else [list(factors) for _ in range(cell_count)]
+    )
     scale_values = torch.tensor(
         [
-            [base_scale_values[cell] * factor for factor in factors]
+            [base_scale_values[cell] * factor for factor in factor_rows[cell]]
             for cell in range(cell_count)
         ],
         dtype=source.dtype,
@@ -284,10 +303,10 @@ def ldlq_native_v4_cuda_batch(
                 "method": "qtip_batch_block_ldl_reverse_16_cell_scale_batched",
                 "matrix_shape": [rows, columns],
                 "base_scale": float(base_scales[cell].item()),
-                "selected_factor": factors[winner],
+                "selected_factor": factor_rows[cell][winner],
                 "selected_scale": selected_scale,
                 "scale_factor": selected_scale,
-                "scale_factors": list(factors),
+                "scale_factors": list(factor_rows[cell]),
                 "cell_batch_size": cell_count,
                 "scale_batch_size": factor_count,
                 "max_solver_sequence_batch": max_solver_batch,
