@@ -123,6 +123,10 @@ from .qtip1 import (
     write_encoded_qtip_wire,
     write_qtip_wire,
 )
+from .qtip25_native_v4_api import (
+    anchor_qtip25_native_v4_cell,
+    build_qtip25_native_v4_cell,
+)
 from .update_service import serve_persistent_updates
 
 
@@ -192,6 +196,7 @@ __all__ = [
     "aggregate_scores",
     "anchor_backpack",
     "anchor_backpack_candidates",
+    "anchor_qtip25_native_v4_cell",
     "assign_qtip_provider_components",
     "backpack_provider_from_declaration",
     "bq23_backpack_family_providers",
@@ -201,6 +206,7 @@ __all__ = [
     "build_bank_manifest",
     "build_bpw_accounting",
     "build_backpack",
+    "build_qtip25_native_v4_cell",
     "build_contextual_delta_ledger",
     "builtin_backpack_family_providers",
     "candidate_artifact_root",

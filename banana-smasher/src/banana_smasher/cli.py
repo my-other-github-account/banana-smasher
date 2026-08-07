@@ -226,6 +226,36 @@ def _parser() -> argparse.ArgumentParser:
     qtip_configs.add_argument("--layers", required=True)
     qtip_configs.add_argument("--output", type=Path, required=True)
 
+    native_v4 = subparsers.add_parser(
+        "qtip-native-v4",
+        help="build and anchor homogeneous QTIP2.5 L16/B10/V4 candidate cells",
+    )
+    native_v4_commands = native_v4.add_subparsers(
+        dest="native_v4_command", required=True
+    )
+    native_v4_build = native_v4_commands.add_parser(
+        "build-cell", help="build one physical native-V4 cell from a compact QTIP transform"
+    )
+    native_v4_build.add_argument("--source", type=Path, required=True)
+    native_v4_build.add_argument("--control", type=Path, required=True)
+    native_v4_build.add_argument("--tlut", type=Path, required=True)
+    native_v4_build.add_argument("--output", type=Path, required=True)
+    native_v4_build.add_argument("--intended-basis-sha256", required=True)
+    native_v4_build.add_argument("--observed-basis-sha256", required=True)
+    native_v4_build.add_argument(
+        "--backend", choices=("cuda", "reference"), default="cuda"
+    )
+    native_v4_build.add_argument("--solve-batch", type=int, default=2048)
+    native_v4_build.add_argument("--decode-batch", type=int, default=2048)
+    native_v4_build.add_argument("--decode-repeats", type=int, default=1)
+    native_v4_anchor = native_v4_commands.add_parser(
+        "anchor-cell", help="measure one built native-V4 cell with the standard 64-window anchor"
+    )
+    native_v4_anchor.add_argument("--candidate", type=Path, required=True)
+    native_v4_anchor.add_argument("--anchor-bank", type=Path, required=True)
+    native_v4_anchor.add_argument("--teacher", type=Path, required=True)
+    native_v4_anchor.add_argument("--output", type=Path, required=True)
+
     kernels = subparsers.add_parser(
         "kernels", help="manage SHA-pinned compiled kernel caches"
     )
@@ -1135,6 +1165,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                 layers=_parse_layers(args.layers),
                 output_root=args.output,
             )
+        elif args.command == "qtip-native-v4":
+            from .qtip25_native_v4_api import (
+                anchor_qtip25_native_v4_cell,
+                build_qtip25_native_v4_cell,
+            )
+
+            if args.native_v4_command == "build-cell":
+                result = build_qtip25_native_v4_cell(
+                    args.source,
+                    args.control,
+                    args.tlut,
+                    args.output,
+                    intended_basis_sha256=args.intended_basis_sha256,
+                    observed_basis_sha256=args.observed_basis_sha256,
+                    backend=args.backend,
+                    solve_batch=args.solve_batch,
+                    decode_batch=args.decode_batch,
+                    decode_repeats=args.decode_repeats,
+                )
+            elif args.native_v4_command == "anchor-cell":
+                result = anchor_qtip25_native_v4_cell(
+                    args.candidate,
+                    anchor_bank=args.anchor_bank,
+                    teacher=args.teacher,
+                    output=args.output,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported qtip-native-v4 command {args.native_v4_command!r}"
+                )
         elif args.command == "kernels":
             if args.kernel_command != "build":
                 raise ValueError(f"unsupported kernels command: {args.kernel_command}")

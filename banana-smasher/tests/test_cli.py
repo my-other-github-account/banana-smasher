@@ -89,6 +89,7 @@ def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
         "bank",
         "evaluate",
         "qtip-configs",
+        "qtip-native-v4",
         "kernels",
         "knapsack",
         "backpack-dimensions",
