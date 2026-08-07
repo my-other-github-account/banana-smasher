@@ -1142,6 +1142,7 @@ def solve_class_balanced_options(
     envelope_bytes: int,
     class_caps: dict[str, float],
     class_weights: dict[str, float] | None = None,
+    exact_envelope: bool = False,
     time_limit_seconds: float | None = 60.0,
     mip_rel_gap: float = 0.0,
     require_optimal: bool = False,
@@ -1177,6 +1178,8 @@ def solve_class_balanced_options(
         raise KnapsackValidationError("mip_rel_gap must be finite in [0, 1]")
     if not isinstance(require_optimal, bool):
         raise KnapsackValidationError("require_optimal must be boolean")
+    if not isinstance(exact_envelope, bool):
+        raise KnapsackValidationError("exact_envelope must be boolean")
     if not class_caps:
         raise KnapsackValidationError("class_caps must be a non-empty object")
     classes = sorted(class_caps)
@@ -1250,6 +1253,10 @@ def solve_class_balanced_options(
     }
     positive = [delta for delta in byte_deltas.values() if 0 < delta <= remaining_envelope]
     byte_divisor = math.gcd(*positive) if positive else 1
+    if exact_envelope and remaining_envelope % byte_divisor:
+        raise KnapsackValidationError(
+            "exact envelope is not representable by payload byte increments"
+        )
     scaled_capacity = remaining_envelope // byte_divisor
     scaled_deltas = {
         key: delta // byte_divisor for key, delta in byte_deltas.items() if delta <= remaining_envelope
@@ -1257,7 +1264,7 @@ def solve_class_balanced_options(
     maximum_scaled_use = sum(
         max(scaled_deltas.get((cell, tier), 0) for tier in tiers) for cell in cells
     )
-    enforce_bytes = scaled_capacity < maximum_scaled_use
+    enforce_bytes = exact_envelope or scaled_capacity < maximum_scaled_use
     if enforce_bytes and (
         scaled_capacity > 2**53 or any(delta > 2**53 for delta in scaled_deltas.values())
     ):
@@ -1301,7 +1308,7 @@ def solve_class_balanced_options(
     upper[: len(cells)] = 1.0
     cursor = len(cells)
     if enforce_bytes:
-        lower[cursor] = -np.inf
+        lower[cursor] = float(scaled_capacity) if exact_envelope else -np.inf
         upper[cursor] = float(scaled_capacity)
         cursor += 1
     for name in classes:
@@ -1324,7 +1331,8 @@ def solve_class_balanced_options(
     )
     solve_wall_seconds = time.monotonic() - solve_started
     solver_status = int(solution.status)
-    mip_gap = float(getattr(solution, "mip_gap", math.inf))
+    raw_mip_gap = getattr(solution, "mip_gap", None)
+    mip_gap = math.inf if raw_mip_gap is None else float(raw_mip_gap)
     if solution.x is None or solver_status not in {0, 1}:
         raise RuntimeError(
             f"class-balanced solve failed: status={solution.status}, message={solution.message}"
@@ -1359,6 +1367,11 @@ def solve_class_balanced_options(
             }
         )
     assigned_bytes = sum(row["bytes"] for row in assignments)
+    if exact_envelope and assigned_bytes != envelope_bytes:
+        raise RuntimeError(
+            "class-balanced solver violated exact envelope: "
+            f"{assigned_bytes} != {envelope_bytes}"
+        )
     if assigned_bytes > envelope_bytes:
         raise RuntimeError(f"class-balanced solver violated envelope: {assigned_bytes} > {envelope_bytes}")
     if any(predicted[name] < -1e-10 or predicted[name] > caps[name] + 1e-10 for name in classes):
