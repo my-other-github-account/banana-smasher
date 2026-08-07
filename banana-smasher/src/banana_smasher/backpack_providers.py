@@ -84,6 +84,9 @@ class BackpackFamilyProvider:
     price: Callable[[Mapping[str, Any] | str | Path], BackpackWirePrice]
     predict: ProviderCallable
     verify: ProviderCallable
+    rate_num: int | None = None
+    rate_den: int | None = None
+    transition_bits: int | None = None
 
 
 def _sha256_file(path: Path) -> str:
@@ -389,6 +392,36 @@ def qtip_ring_backpack_provider(bpw: object) -> BackpackFamilyProvider:
     )
 
 
+def _native_v4_anchor_only_materialize(*_: Any, **__: Any) -> None:
+    raise ValueError(
+        "qtip_native_v4 currently materializes candidate/Anchor sets only; "
+        "a serving-pack consumer has not been declared"
+    )
+
+
+def qtip_native_v4_backpack_provider(bpw: object) -> BackpackFamilyProvider:
+    """Return one homogeneous native-V4 provider for an exact quarter rate."""
+
+    from .backpack import generate_native_v4_backpack_candidate
+    from .qtip25_native_v4 import native_v4_geometry
+
+    geometry = native_v4_geometry(bpw)
+    canonical_bpw = geometry.rate_num / geometry.rate_den
+    return BackpackFamilyProvider(
+        provider_id=f"qtip-native-v4@{canonical_bpw:.2f}",
+        kind="qtip_native_v4",
+        runtime_family="qtip_native_v4",
+        generate=generate_native_v4_backpack_candidate,
+        materialize=_native_v4_anchor_only_materialize,
+        price=price_backpack_candidate,
+        predict=predict_backpack_candidate,
+        verify=verify_backpack_candidate,
+        rate_num=geometry.rate_num,
+        rate_den=geometry.rate_den,
+        transition_bits=geometry.B,
+    )
+
+
 def vector_vq_backpack_provider(
     *, dimension: int, codebook_size: int
 ) -> BackpackFamilyProvider:
@@ -542,6 +575,8 @@ def backpack_provider_from_declaration(
     """Resolve a declarative tier to the public provider it actually executes."""
 
     if isinstance(declaration, str):
+        if declaration.startswith("qtip-native-v4@"):
+            return qtip_native_v4_backpack_provider(declaration.rsplit("@", 1)[1])
         aliases = {
             "native_mxfp4": "native-mxfp4",
             "d4_k2048": "d4-k2048",
@@ -558,6 +593,14 @@ def backpack_provider_from_declaration(
     if not isinstance(declaration, Mapping):
         raise TypeError("provider declaration must be a provider id or mapping")
     explicit = declaration.get("provider")
+    if explicit in {"qtip_native_v4", "qtip-native-v4"}:
+        return qtip_native_v4_backpack_provider(declaration.get("bpw"))
+    if isinstance(explicit, str) and explicit.startswith("qtip-native-v4@"):
+        provider = qtip_native_v4_backpack_provider(explicit.rsplit("@", 1)[1])
+        requested = qtip_native_v4_backpack_provider(declaration.get("bpw"))
+        if provider.provider_id != requested.provider_id:
+            raise ValueError("native V4 provider id does not match declared bpw")
+        return provider
     if explicit in {"native_mxfp4", "native-mxfp4"}:
         return native_mxfp4_backpack_provider()
     if explicit in {"d4_k2048", "d4-k2048"}:
@@ -573,6 +616,8 @@ def backpack_provider_from_declaration(
     kind = declaration.get("kind", declaration.get("family"))
     if kind in {"qtip", "qtip_ring"}:
         return qtip_ring_backpack_provider(declaration.get("bpw"))
+    if kind == "qtip_native_v4":
+        return qtip_native_v4_backpack_provider(declaration.get("bpw"))
     if kind == "native_mxfp4":
         return native_mxfp4_backpack_provider()
     if kind == "fixed_d4":

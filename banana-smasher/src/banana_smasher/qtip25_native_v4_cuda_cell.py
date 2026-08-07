@@ -22,8 +22,10 @@ import numpy as np
 
 from .qtip25_native_v4 import (
     NATIVE_QTIP25_GEOMETRY,
+    NativeQtip25Geometry,
     decode_native_v4,
     expand_native_v4_tlut,
+    native_v4_geometry,
     native_v4_wire_accounting,
     solve_native_v4_cuda,
 )
@@ -31,11 +33,12 @@ from .qtip25_native_v4 import (
 SCHEMA = "banana-smasher-qtip25-native-v4-cuda-cell-v1"
 
 
-def _pack_cuda_states_v4(states: Any) -> Any:
-    """Pack one exact circular B10 stream per row without a CPU traceback loop."""
+def _pack_cuda_states_v4(
+    states: Any, *, geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY
+) -> Any:
+    """Pack one exact circular transition stream per row without a CPU loop."""
     import torch
 
-    geometry = NATIVE_QTIP25_GEOMETRY
     if not states.is_cuda or states.ndim != 2 or states.shape[1] * geometry.B < geometry.L:
         raise ValueError("native V4 CUDA states must be on-device [rows,steps]")
     values = states.to(torch.int32)
@@ -141,6 +144,7 @@ def run_cuda_cell(
     decode_repeats: int = 5,
     scale_bytes: int = 0,
     transform_bytes: int = 0,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
 ) -> dict[str, Any]:
     target, tlut, identity = validate_input(
         input_path,
@@ -161,7 +165,7 @@ def run_cuda_cell(
         raise ValueError("native V4 CUDA batch/repeat values must be positive")
     free, total = torch.cuda.mem_get_info()
     peak_estimate = (256 << 20) + solve_batch * (
-        64 * 64 * 4 + 64 * 4 * 4 + 64 * 4
+        64 * geometry.prefixes * 4 + 64 * geometry.V * 4 + geometry.prefixes * 8
     )
     if peak_estimate + (4 << 30) > free:
         raise RuntimeError(
@@ -169,7 +173,7 @@ def run_cuda_cell(
         )
     device = torch.device("cuda")
     table = torch.from_numpy(np.asarray(tlut)).to(device)
-    state_lut = torch.from_numpy(expand_native_v4_tlut(tlut)).to(device)
+    state_lut = torch.from_numpy(expand_native_v4_tlut(tlut, geometry=geometry)).to(device)
     packed_parts: list[np.ndarray] = []
     torch.cuda.synchronize()
     encode_started = time.perf_counter()
@@ -177,8 +181,8 @@ def run_cuda_cell(
         source = torch.from_numpy(
             np.asarray(target[start : start + solve_batch]).copy()
         ).to(device)
-        states = solve_native_v4_cuda(source, state_lut=state_lut)
-        packed_parts.append(_pack_cuda_states_v4(states).cpu().numpy())
+        states = solve_native_v4_cuda(source, state_lut=state_lut, geometry=geometry)
+        packed_parts.append(_pack_cuda_states_v4(states, geometry=geometry).cpu().numpy())
     torch.cuda.synchronize()
     encode_seconds = time.perf_counter() - encode_started
     packed = np.concatenate(packed_parts)
@@ -193,13 +197,18 @@ def run_cuda_cell(
         np.ones(reference_blocks, dtype=np.float32),
         positions=256,
         tlut=tlut,
+        geometry=geometry,
     ).reshape(reference_blocks, 16, 16)
     observed_parts = []
     reset_native_v4_decode_counters()
     with torch.no_grad():
         for start in range(0, len(packed), decode_batch):
             code = torch.from_numpy(packed[start : start + decode_batch]).to(device)
-            observed_parts.append(dequantize_native_v4_blocks(code, table).cpu())
+            observed_parts.append(
+                dequantize_native_v4_blocks(
+                    code, table, bpw=geometry.rate_num / geometry.rate_den
+                ).cpu()
+            )
         parity_observed = torch.cat(observed_parts[:1])[:reference_blocks].numpy()
         if not np.array_equal(reference, parity_observed):
             difference = float(np.max(np.abs(reference - parity_observed)))
@@ -209,7 +218,9 @@ def run_cuda_cell(
         for _ in range(decode_repeats):
             for start in range(0, len(packed), decode_batch):
                 code = torch.from_numpy(packed[start : start + decode_batch]).to(device)
-                dequantize_native_v4_blocks(code, table)
+                dequantize_native_v4_blocks(
+                    code, table, bpw=geometry.rate_num / geometry.rate_den
+                )
         torch.cuda.synchronize()
         decode_seconds = time.perf_counter() - decode_started
     decoded = torch.cat(observed_parts).reshape(len(target), 64, 4).numpy()
@@ -225,6 +236,7 @@ def run_cuda_cell(
         scale_bytes=scale_bytes,
         transform_bytes=transform_bytes,
         shared_tlut_bytes=int(tlut.nbytes),
+        geometry=geometry,
     )
     if accounting["code_payload_bytes"] != int(packed.nbytes):
         raise RuntimeError("native V4 packed bytes do not close exact accounting")
@@ -232,9 +244,9 @@ def run_cuda_cell(
         "schema": SCHEMA,
         "status": "PASS",
         **identity,
-        "geometry": NATIVE_QTIP25_GEOMETRY.as_mapping(),
+        "geometry": geometry.as_mapping(),
         "phase_count": 1,
-        "unique_transition_bits": [10],
+        "unique_transition_bits": [geometry.B],
         "alternation": False,
         "accounting": accounting,
         "direct_error": {"sse": sse, "mse": sse / positions},
@@ -282,6 +294,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--solve-batch", type=int, default=256)
     parser.add_argument("--decode-batch", type=int, default=512)
     parser.add_argument("--decode-repeats", type=int, default=5)
+    parser.add_argument("--bpw", default="2.5")
     args = parser.parse_args(argv)
     if args.mode == "preflight":
         _target, _tlut, identity = validate_input(
@@ -290,7 +303,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             intended_basis_sha256=args.intended_basis,
             observed_basis_sha256=args.observed_basis,
         )
-        print(json.dumps({"status": "PASS", **identity}, sort_keys=True))
+        geometry = native_v4_geometry(args.bpw)
+        print(
+            json.dumps(
+                {"status": "PASS", "geometry": geometry.as_mapping(), **identity},
+                sort_keys=True,
+            )
+        )
         return 0
     if not args.output:
         parser.error("--output is required in run mode")
@@ -303,6 +322,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         solve_batch=args.solve_batch,
         decode_batch=args.decode_batch,
         decode_repeats=args.decode_repeats,
+        geometry=native_v4_geometry(args.bpw),
     )
     print(json.dumps({"status": "PASS", "receipt_sha256": receipt["receipt_sha256"]}))
     return 0

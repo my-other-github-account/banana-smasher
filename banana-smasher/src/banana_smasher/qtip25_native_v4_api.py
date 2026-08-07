@@ -14,7 +14,7 @@ import math
 import os
 import tempfile
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
@@ -24,11 +24,15 @@ from .backpack import CLASSES, _anchor_metrics
 from .qtip25_native_v4 import (
     NATIVE_QTIP25_GEOMETRY,
     decode_native_v4,
+    native_v4_geometry,
     solve_native_v4,
 )
 
 CELL_SCHEMA = "banana-smasher-qtip25-native-v4-cell-v1"
 ANCHOR_SCHEMA = "banana-smasher-qtip25-native-v4-anchor-v1"
+GENERIC_CELL_SCHEMA = "banana-smasher-qtip-native-v4-cell-v1"
+GENERIC_ANCHOR_SCHEMA = "banana-smasher-qtip-native-v4-anchor-v1"
+ANCHOR_SET_SCHEMA = "banana-smasher-qtip-native-v4-anchor-set-v1"
 
 
 def _sha_file(path: Path) -> str:
@@ -201,7 +205,7 @@ def _from_normalized_blocks(blocks: np.ndarray, control: Mapping[str, Any]) -> n
     return np.ascontiguousarray(_fwht(physical) * np.asarray(control["SU"], dtype=np.float32))
 
 
-def build_qtip25_native_v4_cell(
+def _build_qtip_native_v4_cell(
     source: str | Path,
     control: str | Path,
     tlut: str | Path,
@@ -209,12 +213,14 @@ def build_qtip25_native_v4_cell(
     *,
     intended_basis_sha256: str,
     observed_basis_sha256: str,
+    bpw: object,
+    receipt_schema: str,
     backend: Literal["cuda", "reference"] = "cuda",
     solve_batch: int = 2048,
     decode_batch: int = 2048,
     decode_repeats: int = 1,
 ) -> dict[str, Any]:
-    """Build one physical QTIP2.5 native-V4 candidate cell.
+    """Build one physical homogeneous native-V4 candidate cell.
 
     ``source`` is finite float32 physical cell weights. ``control`` is the
     compact QTIP transform for the same cell (``SU``, ``SV``, ``Wscale``,
@@ -222,6 +228,7 @@ def build_qtip25_native_v4_cell(
     tiny-fixture smoke backend and is not suitable for model-scale production.
     """
 
+    geometry = native_v4_geometry(bpw)
     intended = _basis(intended_basis_sha256, "intended_basis_sha256")
     observed = _basis(observed_basis_sha256, "observed_basis_sha256")
     if intended != observed:
@@ -270,6 +277,7 @@ def build_qtip25_native_v4_cell(
                 solve_batch=solve_batch,
                 decode_batch=decode_batch,
                 decode_repeats=decode_repeats,
+                geometry=geometry,
                 scale_bytes=4,
                 transform_bytes=int(
                     compact["SU_storage"].nbytes + compact["SV_storage"].nbytes
@@ -284,6 +292,7 @@ def build_qtip25_native_v4_cell(
             blocks,
             tlut=table,
             scales=np.ones(len(blocks), dtype=np.float32),
+            geometry=geometry,
         )
         packed = encoded.packed
         codes_path = output_root / "codes.npy"
@@ -295,6 +304,7 @@ def build_qtip25_native_v4_cell(
         np.ones(len(packed), dtype=np.float32),
         positions=256,
         tlut=table,
+        geometry=geometry,
     ).reshape(-1, 64, 4)
     decoded = _from_normalized_blocks(decoded_blocks, compact).astype(np.float32)
     decoded_path = output_root / "decoded.npy"
@@ -308,9 +318,12 @@ def build_qtip25_native_v4_cell(
     codes_path = output_root / "codes.npy"
 
     weights = int(source_weights.size)
-    code_bits = weights * 5 // 2
-    if weights * 5 % 2 or packed.nbytes * 8 != code_bits:
-        raise RuntimeError("native V4 codes do not close exact 5/2-bit accounting")
+    code_bits_numerator = weights * geometry.B
+    if code_bits_numerator % geometry.V:
+        raise RuntimeError("native V4 weights do not close exact B/V accounting")
+    code_bits = code_bits_numerator // geometry.V
+    if packed.nbytes * 8 != code_bits:
+        raise RuntimeError("native V4 codes do not close exact B/V accounting")
     delta = decoded.astype(np.float64) - source_weights.astype(np.float64)
     sse = float(np.sum(delta * delta, dtype=np.float64))
     transform_bytes = int(
@@ -319,11 +332,11 @@ def build_qtip25_native_v4_cell(
     wscale_bytes = int(np.asarray(compact["Wscale"], dtype=np.float32).nbytes)
     full_wire_bytes = int(packed.nbytes + transform_bytes + wscale_bytes + table.nbytes)
     receipt: dict[str, Any] = {
-        "schema": CELL_SCHEMA,
+        "schema": receipt_schema,
         "status": "PASS",
         "backend": backend,
         "basis_sha256": intended,
-        "geometry": NATIVE_QTIP25_GEOMETRY.as_mapping(),
+        "geometry": geometry.as_mapping(),
         "source": {
             **_artifact(source_path, data_bytes=int(source_weights.nbytes)),
             "shape": list(source_weights.shape),
@@ -343,7 +356,7 @@ def build_qtip25_native_v4_cell(
         "accounting": {
             "weights": weights,
             "exact_code_bits": code_bits,
-            "exact_code_bpw": 2.5,
+            "exact_code_bpw": geometry.rate_num / geometry.rate_den,
             "code_data_bytes": int(packed.nbytes),
             "transform_bytes": transform_bytes,
             "Wscale_bytes": wscale_bytes,
@@ -389,12 +402,77 @@ def build_qtip25_native_v4_cell(
     return receipt
 
 
-def anchor_qtip25_native_v4_cell(
+def build_qtip_native_v4_cell(
+    source: str | Path,
+    control: str | Path,
+    tlut: str | Path,
+    output: str | Path,
+    *,
+    bpw: object,
+    intended_basis_sha256: str,
+    observed_basis_sha256: str,
+    backend: Literal["cuda", "reference"] = "cuda",
+    solve_batch: int = 2048,
+    decode_batch: int = 2048,
+    decode_repeats: int = 1,
+) -> dict[str, Any]:
+    """Build one homogeneous native-V4 cell at an exact quarter-BPW rate."""
+
+    return _build_qtip_native_v4_cell(
+        source,
+        control,
+        tlut,
+        output,
+        bpw=bpw,
+        receipt_schema=GENERIC_CELL_SCHEMA,
+        intended_basis_sha256=intended_basis_sha256,
+        observed_basis_sha256=observed_basis_sha256,
+        backend=backend,
+        solve_batch=solve_batch,
+        decode_batch=decode_batch,
+        decode_repeats=decode_repeats,
+    )
+
+
+def build_qtip25_native_v4_cell(
+    source: str | Path,
+    control: str | Path,
+    tlut: str | Path,
+    output: str | Path,
+    *,
+    intended_basis_sha256: str,
+    observed_basis_sha256: str,
+    backend: Literal["cuda", "reference"] = "cuda",
+    solve_batch: int = 2048,
+    decode_batch: int = 2048,
+    decode_repeats: int = 1,
+) -> dict[str, Any]:
+    """Backward-compatible fixed-2.50 wrapper around the generic native-V4 API."""
+
+    return _build_qtip_native_v4_cell(
+        source,
+        control,
+        tlut,
+        output,
+        bpw=NATIVE_QTIP25_GEOMETRY.rate_num / NATIVE_QTIP25_GEOMETRY.rate_den,
+        receipt_schema=CELL_SCHEMA,
+        intended_basis_sha256=intended_basis_sha256,
+        observed_basis_sha256=observed_basis_sha256,
+        backend=backend,
+        solve_batch=solve_batch,
+        decode_batch=decode_batch,
+        decode_repeats=decode_repeats,
+    )
+
+
+def _anchor_qtip_native_v4_cell(
     candidate: str | Path,
     *,
     anchor_bank: str | Path,
     teacher: str | Path,
     output: str | Path,
+    candidate_schemas: frozenset[str],
+    receipt_schema: str,
 ) -> dict[str, Any]:
     """Measure one built V4 cell with Banana's standard 64-window anchor."""
 
@@ -403,7 +481,7 @@ def anchor_qtip25_native_v4_cell(
     if receipt_path.is_symlink() or not receipt_path.is_file():
         raise ValueError(f"native V4 candidate receipt is missing: {receipt_path}")
     receipt = json.loads(receipt_path.read_text())
-    if receipt.get("schema") != CELL_SCHEMA or receipt.get("status") != "PASS":
+    if receipt.get("schema") not in candidate_schemas or receipt.get("status") != "PASS":
         raise ValueError("native V4 candidate receipt is incompatible or incomplete")
     decoded_path = Path(receipt["artifacts"]["decoded"]["path"])
     if _sha_file(decoded_path) != receipt["artifacts"]["decoded"]["sha256"]:
@@ -438,7 +516,7 @@ def anchor_qtip25_native_v4_cell(
     )
     output_path = Path(output).expanduser().resolve()
     payload: dict[str, Any] = {
-        "schema": ANCHOR_SCHEMA,
+        "schema": receipt_schema,
         "status": "PASS",
         "same_instrument": True,
         "windows": 64,
@@ -448,8 +526,120 @@ def anchor_qtip25_native_v4_cell(
         "anchor_bank_sha256": _sha_file(bank_path),
         "teacher": str(teacher_path),
         "teacher_sha256": _sha_file(teacher_path),
+        "geometry": receipt["geometry"],
+        "bpw": receipt["accounting"]["exact_code_bpw"],
         "metrics": metrics,
     }
     payload["receipt"] = str(output_path)
     payload["receipt_sha256"] = _atomic_json(output_path, payload)
     return payload
+
+
+def anchor_qtip_native_v4_cell(
+    candidate: str | Path,
+    *,
+    anchor_bank: str | Path,
+    teacher: str | Path,
+    output: str | Path,
+) -> dict[str, Any]:
+    """Anchor one generic homogeneous native-V4 cell."""
+
+    return _anchor_qtip_native_v4_cell(
+        candidate,
+        anchor_bank=anchor_bank,
+        teacher=teacher,
+        output=output,
+        candidate_schemas=frozenset((GENERIC_CELL_SCHEMA, CELL_SCHEMA)),
+        receipt_schema=GENERIC_ANCHOR_SCHEMA,
+    )
+
+
+def anchor_qtip25_native_v4_cell(
+    candidate: str | Path,
+    *,
+    anchor_bank: str | Path,
+    teacher: str | Path,
+    output: str | Path,
+) -> dict[str, Any]:
+    """Backward-compatible Anchor64 wrapper for fixed native QTIP2.5 cells."""
+
+    return _anchor_qtip_native_v4_cell(
+        candidate,
+        anchor_bank=anchor_bank,
+        teacher=teacher,
+        output=output,
+        candidate_schemas=frozenset((CELL_SCHEMA,)),
+        receipt_schema=ANCHOR_SCHEMA,
+    )
+
+
+def build_qtip_native_v4_anchor_set(
+    source: str | Path,
+    control: str | Path,
+    tlut: str | Path,
+    output: str | Path,
+    *,
+    bpws: Sequence[object],
+    anchor_bank: str | Path,
+    teacher: str | Path,
+    intended_basis_sha256: str,
+    observed_basis_sha256: str,
+    backend: Literal["cuda", "reference"] = "cuda",
+    solve_batch: int = 2048,
+    decode_batch: int = 2048,
+    decode_repeats: int = 1,
+) -> dict[str, Any]:
+    """Build and Anchor64 any declared set of homogeneous quarter-rate V4 tiers."""
+
+    geometries = [native_v4_geometry(value) for value in bpws]
+    if not geometries:
+        raise ValueError("native V4 anchor set requires at least one bpw")
+    transition_bits = [geometry.B for geometry in geometries]
+    if len(set(transition_bits)) != len(transition_bits):
+        raise ValueError("native V4 anchor set contains duplicate quarter-rate tiers")
+
+    output_root = Path(output).expanduser().resolve()
+    output_root.mkdir(parents=True, exist_ok=True)
+    rows: list[dict[str, Any]] = []
+    for geometry in geometries:
+        tier_root = output_root / f"b{geometry.B:02d}"
+        candidate = build_qtip_native_v4_cell(
+            source,
+            control,
+            tlut,
+            tier_root / "candidate",
+            bpw=geometry.rate_num / geometry.rate_den,
+            intended_basis_sha256=intended_basis_sha256,
+            observed_basis_sha256=observed_basis_sha256,
+            backend=backend,
+            solve_batch=solve_batch,
+            decode_batch=decode_batch,
+            decode_repeats=decode_repeats,
+        )
+        anchor = anchor_qtip_native_v4_cell(
+            tier_root / "candidate",
+            anchor_bank=anchor_bank,
+            teacher=teacher,
+            output=tier_root / "ANCHOR.json",
+        )
+        rows.append(
+            {
+                "tier": f"qtip-native-v4-b{geometry.B}",
+                "bpw": geometry.rate_num / geometry.rate_den,
+                "geometry": geometry.as_mapping(),
+                "candidate": candidate,
+                "anchor": anchor,
+            }
+        )
+
+    receipt_path = output_root / "ANCHOR_SET.json"
+    result: dict[str, Any] = {
+        "schema": ANCHOR_SET_SCHEMA,
+        "status": "PASS",
+        "same_instrument": True,
+        "basis_sha256": intended_basis_sha256,
+        "tiers": rows,
+        "receipt": str(receipt_path),
+    }
+    result["receipt_sha256"] = _atomic_json(receipt_path, result)
+    return result

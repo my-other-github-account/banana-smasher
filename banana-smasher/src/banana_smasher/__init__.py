@@ -43,6 +43,7 @@ from .backpack import (
     candidate_artifact_root,
     export_backpack_lifecycle,
     generate_backpack_candidates,
+    generate_native_v4_backpack_candidate,
     generate_qtip_backpack_candidate,
     generate_vector_vq_backpack_candidate,
     inspect_backpack,
@@ -70,6 +71,7 @@ from .backpack_providers import (
     native_mxfp4_backpack_provider,
     price_backpack_candidate,
     predict_backpack_candidate,
+    qtip_native_v4_backpack_provider,
     qtip_ring_backpack_provider,
     resolve_backpack_family_provider,
     vector_vq_backpack_provider,
@@ -125,7 +127,10 @@ from .qtip1 import (
 )
 from .qtip25_native_v4_api import (
     anchor_qtip25_native_v4_cell,
+    anchor_qtip_native_v4_cell,
     build_qtip25_native_v4_cell,
+    build_qtip_native_v4_anchor_set,
+    build_qtip_native_v4_cell,
 )
 from .update_service import serve_persistent_updates
 
@@ -197,6 +202,7 @@ __all__ = [
     "anchor_backpack",
     "anchor_backpack_candidates",
     "anchor_qtip25_native_v4_cell",
+    "anchor_qtip_native_v4_cell",
     "assign_qtip_provider_components",
     "backpack_provider_from_declaration",
     "bq23_backpack_family_providers",
@@ -207,6 +213,8 @@ __all__ = [
     "build_bpw_accounting",
     "build_backpack",
     "build_qtip25_native_v4_cell",
+    "build_qtip_native_v4_anchor_set",
+    "build_qtip_native_v4_cell",
     "build_contextual_delta_ledger",
     "builtin_backpack_family_providers",
     "candidate_artifact_root",
@@ -221,6 +229,7 @@ __all__ = [
     "fixed_d4_backpack_provider",
     "generate_backpack_candidate",
     "generate_backpack_candidates",
+    "generate_native_v4_backpack_candidate",
     "generate_qtip_backpack_candidate",
     "generate_vector_vq_backpack_candidate",
     "gaussian_tlut",
@@ -247,6 +256,7 @@ __all__ = [
     "qtip1_5_provider_declaration",
     "qtip1_provider_declaration",
     "qtip_provider_counts",
+    "qtip_native_v4_backpack_provider",
     "qtip_ring_backpack_provider",
     "register_bank",
     "require_comparable_bpw",

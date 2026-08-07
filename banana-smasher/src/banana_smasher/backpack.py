@@ -435,6 +435,96 @@ class BackpackPlan:
                             f"tiers[{index}].provider does not match its QTIP bpw"
                         )
                     tier["provider"] = provider
+            elif family == "qtip_native_v4":
+                _reject_unknown(
+                    tier,
+                    {
+                        "id",
+                        "family",
+                        "provider",
+                        "bpw",
+                        "backend",
+                        "control_root",
+                        "tlut",
+                        "tlut_sha256",
+                        "basis_sha256",
+                        "solve_batch",
+                        "decode_batch",
+                        "decode_repeats",
+                    },
+                    f"tiers[{index}]",
+                )
+                from .qtip25_native_v4 import native_v4_geometry
+
+                try:
+                    geometry = native_v4_geometry(tier.get("bpw"))
+                except ValueError as exc:
+                    raise BackpackPlanError(str(exc)) from exc
+                tier["bpw"] = geometry.rate_num / geometry.rate_den
+                expected_provider = f"qtip-native-v4@{tier['bpw']:.2f}"
+                provider = tier.get("provider", expected_provider)
+                if provider not in {
+                    "qtip_native_v4",
+                    "qtip-native-v4",
+                    expected_provider,
+                }:
+                    raise BackpackPlanError(
+                        f"tiers[{index}].provider does not match its native V4 bpw"
+                    )
+                tier["provider"] = expected_provider
+                backend = tier.get("backend", "cuda")
+                if backend not in {"cuda", "reference"}:
+                    raise BackpackPlanError(
+                        f"tiers[{index}].backend must be cuda or reference"
+                    )
+                tier["backend"] = backend
+                tier["control_root"] = _path(
+                    tier.get("control_root"),
+                    f"tiers[{index}].control_root",
+                    base_dir=base,
+                )
+                tier["tlut"] = _path(
+                    tier.get("tlut"), f"tiers[{index}].tlut", base_dir=base
+                )
+                tlut_path = Path(tier["tlut"])
+                if tlut_path.is_symlink() or not tlut_path.is_file():
+                    raise BackpackPlanError(
+                        f"tiers[{index}].tlut must be a regular local file"
+                    )
+                tlut_sha256 = _nonempty(
+                    tier.get("tlut_sha256"), f"tiers[{index}].tlut_sha256"
+                )
+                if re.fullmatch(r"[0-9a-f]{64}", tlut_sha256) is None:
+                    raise BackpackPlanError(
+                        f"tiers[{index}].tlut_sha256 must be lowercase SHA-256"
+                    )
+                if _sha_file(tlut_path) != tlut_sha256:
+                    raise BackpackPlanError(f"tiers[{index}].tlut SHA-256 mismatch")
+                tier["tlut_sha256"] = tlut_sha256
+                basis_sha256 = _nonempty(
+                    tier.get("basis_sha256"), f"tiers[{index}].basis_sha256"
+                )
+                if re.fullmatch(r"[0-9a-f]{64}", basis_sha256) is None:
+                    raise BackpackPlanError(
+                        f"tiers[{index}].basis_sha256 must be lowercase SHA-256"
+                    )
+                tier["basis_sha256"] = basis_sha256
+                for field, default in (
+                    ("solve_batch", 2048),
+                    ("decode_batch", 2048),
+                    ("decode_repeats", 1),
+                ):
+                    tier[field] = _positive_int(
+                        tier.get(field, default), f"tiers[{index}].{field}"
+                    )
+                tier["activation_artifacts"] = [
+                    {
+                        "id": f"qtip-native-v4-tlut-{tlut_sha256[:16]}",
+                        "bytes": tlut_path.stat().st_size,
+                        "sha256": tlut_sha256,
+                        "path": str(tlut_path),
+                    }
+                ]
             elif family == "native_mxfp4":
                 _reject_unknown(
                     tier,
@@ -449,7 +539,7 @@ class BackpackPlan:
                 tier["provider"] = provider
             else:
                 raise BackpackPlanError(
-                    f"tiers[{index}].family must be vector_vq, qtip, or native_mxfp4"
+                    f"tiers[{index}].family must be vector_vq, qtip, qtip_native_v4, or native_mxfp4"
                 )
             if "activation_artifacts" in tier:
                 tier["activation_artifacts"] = _activation_artifacts(
@@ -1662,6 +1752,108 @@ def generate_native_mxfp4_backpack_candidate(
             "projection": str(cell["projection"]),
             "source_packed": str(native["packed_path"]),
             "source_scales": str(native["scales_path"]),
+        },
+    )
+
+
+def generate_native_v4_backpack_candidate(
+    run_root: str | Path,
+    *,
+    tier: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    weights: np.ndarray | None = None,
+    **_: Any,
+) -> dict[str, Any]:
+    """Build one declaration-driven homogeneous native-V4 Backpack candidate."""
+
+    from .qtip25_native_v4 import native_v4_geometry
+    from .qtip25_native_v4_api import _load_control, build_qtip_native_v4_cell
+
+    geometry = native_v4_geometry(tier["bpw"])
+    cell_id = str(cell["cell_id"])
+    control_root = Path(str(tier["control_root"]))
+    controls = [
+        candidate
+        for suffix in (".npz", ".pt", ".pth")
+        if (candidate := control_root / f"{cell_id}{suffix}").is_file()
+        and not candidate.is_symlink()
+    ]
+    if len(controls) != 1:
+        raise BackpackPlanError(
+            f"native V4 cell {cell_id!r} requires exactly one NPZ/PT control in {control_root}"
+        )
+    compact, _control_path = _load_control(controls[0])
+    source_weights = np.asarray(
+        cell["weights"] if weights is None else weights, dtype=np.float32
+    )
+    if source_weights.size != math.prod(compact["shape"]):
+        raise BackpackPlanError(
+            f"native V4 cell {cell_id!r} weights do not match its compact control shape"
+        )
+    source_weights = np.ascontiguousarray(source_weights.reshape(compact["shape"]))
+    root = Path(run_root)
+    source_path = root / "native-v4-inputs" / str(tier["id"]) / f"{cell_id}.npy"
+    source_path.parent.mkdir(parents=True, exist_ok=True)
+    np.save(source_path, source_weights, allow_pickle=False)
+    destination = _candidate_root(root, str(tier["id"]), cell_id)
+    cell_receipt = build_qtip_native_v4_cell(
+        source_path,
+        controls[0],
+        str(tier["tlut"]),
+        destination,
+        bpw=tier["bpw"],
+        intended_basis_sha256=str(tier["basis_sha256"]),
+        observed_basis_sha256=str(tier["basis_sha256"]),
+        backend=str(tier["backend"]),
+        solve_batch=int(tier["solve_batch"]),
+        decode_batch=int(tier["decode_batch"]),
+        decode_repeats=int(tier["decode_repeats"]),
+    )
+    packed = np.asarray(np.load(destination / "codes.npy", allow_pickle=False))
+    decoded = np.asarray(np.load(destination / "decoded.npy", allow_pickle=False))
+    su = np.asarray(np.load(destination / "SU.npy", allow_pickle=False))
+    sv = np.asarray(np.load(destination / "SV.npy", allow_pickle=False))
+    wscale = np.asarray(np.load(destination / "Wscale.npy", allow_pickle=False))
+    expert_ids = [int(expert_id) for expert_id in cell["expert_ids"]]
+    record_geometry = (geometry.L, geometry.B, geometry.V)
+    return _write_candidate_artifact(
+        root,
+        tier=tier,
+        cell=cell,
+        decoded=decoded.reshape(-1),
+        packed=packed.tobytes(order="C"),
+        extra_arrays={
+            "SU": su,
+            "SV": sv,
+            "Wscale": wscale,
+            "expert_ids": np.asarray(expert_ids, dtype=np.int16),
+            "record_tiers": _byte_string_array(
+                [str(tier["id"])] * len(expert_ids), width=32
+            ),
+            "record_geometry": np.asarray(
+                [record_geometry] * len(expert_ids), dtype=np.int32
+            ),
+            "record_projections": _byte_string_array(
+                [str(cell["projection"])] * len(expert_ids), width=8
+            ),
+        },
+        metadata={
+            "algorithm": "qtip-native-v4",
+            "backend": str(tier["backend"]),
+            "bpw": geometry.rate_num / geometry.rate_den,
+            "geometry": geometry.as_mapping(),
+            "basis_sha256": str(tier["basis_sha256"]),
+            "projection": str(cell["projection"]),
+            "record_geometry_fields": ["L", "B", "V"],
+            "records": _record_rows(
+                expert_ids=expert_ids,
+                projection=str(cell["projection"]),
+                tier=str(tier["id"]),
+                geometries=[record_geometry] * len(expert_ids),
+                geometry_fields=("L", "B", "V"),
+            ),
+            "native_v4_cell_receipt": str(destination / "CELL_RECEIPT.json"),
+            "native_v4_cell_receipt_sha256": cell_receipt["receipt_sha256"],
         },
     )
 
@@ -3790,6 +3982,85 @@ def _validate_candidate_receipt(
             and bool(np.all(np.diff(offsets, axis=0) >= 0))
             and offsets[-1].tolist()
             == [wire_bytes, int(scales.nbytes)]
+        )
+    if tier["family"] == "qtip_native_v4":
+        required_native_v4 = {
+            "SU",
+            "SV",
+            "Wscale",
+            "expert_ids",
+            "record_tiers",
+            "record_geometry",
+            "record_projections",
+        }
+        if len(named) != len(arrays) or set(named) != required_native_v4:
+            return False
+        try:
+            su = np.asarray(np.load(named["SU"], allow_pickle=False))
+            sv = np.asarray(np.load(named["SV"], allow_pickle=False))
+            wscale = np.asarray(np.load(named["Wscale"], allow_pickle=False))
+            expert_ids = np.asarray(np.load(named["expert_ids"], allow_pickle=False))
+            tiers = np.asarray(np.load(named["record_tiers"], allow_pickle=False))
+            geometries = np.asarray(np.load(named["record_geometry"], allow_pickle=False))
+            projections = np.asarray(
+                np.load(named["record_projections"], allow_pickle=False)
+            )
+            decoded = np.asarray(
+                np.load(Path(str(receipt["decoded"]["path"])), allow_pickle=False)
+            )
+        except Exception:
+            return False
+        from .qtip25_native_v4 import native_v4_geometry
+
+        native_geometry = native_v4_geometry(tier["bpw"])
+        expected_experts = [int(expert) for expert in cell["expert_ids"]]
+        projection = str(cell["projection"])
+        expected_geometry = (native_geometry.L, native_geometry.B, native_geometry.V)
+        expected_records = _record_rows(
+            expert_ids=expected_experts,
+            projection=projection,
+            tier=str(tier["id"]),
+            geometries=[expected_geometry] * len(expected_experts),
+            geometry_fields=("L", "B", "V"),
+        )
+        wire = receipt.get("wire")
+        if not isinstance(wire, Mapping) or not isinstance(wire.get("bytes"), int):
+            return False
+        physical_bytes = int(wire["bytes"]) + sum(
+            int(value.nbytes)
+            for value in (su, sv, wscale, expert_ids, tiers, geometries, projections)
+        )
+        expected_code_bits = int(decoded.size) * native_geometry.B // native_geometry.V
+        return (
+            receipt.get("algorithm") == "qtip-native-v4"
+            and receipt.get("backend") == tier["backend"]
+            and receipt.get("bpw") == native_geometry.rate_num / native_geometry.rate_den
+            and receipt.get("geometry") == native_geometry.as_mapping()
+            and receipt.get("basis_sha256") == tier["basis_sha256"]
+            and receipt.get("projection") == projection
+            and receipt.get("record_geometry_fields") == ["L", "B", "V"]
+            and receipt.get("records") == expected_records
+            and receipt.get("physical_bytes") == physical_bytes
+            and receipt.get("cell_payload_bytes") == physical_bytes
+            and receipt.get("activation_artifacts", [])
+            == list(tier.get("activation_artifacts", ()))
+            and decoded.dtype == np.float32
+            and decoded.size == np.asarray(cell["weights"]).size
+            and expected_code_bits % 8 == 0
+            and int(wire["bytes"]) == expected_code_bits // 8
+            and su.dtype.kind == "f"
+            and sv.dtype.kind == "f"
+            and wscale.dtype == np.float32
+            and wscale.size == 1
+            and expert_ids.dtype == np.int16
+            and expert_ids.tolist() == expected_experts
+            and _candidate_label_rows(tiers, width=32)
+            == [str(tier["id"])] * len(expected_experts)
+            and geometries.dtype == np.int32
+            and geometries.shape == (len(expected_experts), 3)
+            and all(tuple(int(value) for value in row) == expected_geometry for row in geometries)
+            and _candidate_label_rows(projections, width=8)
+            == [projection] * len(expected_experts)
         )
     required = {
         "codebooks",

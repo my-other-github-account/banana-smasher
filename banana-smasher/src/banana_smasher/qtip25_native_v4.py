@@ -8,6 +8,7 @@ second half applies the same public quantlut_sym mapping to a byte-rotated state
 from __future__ import annotations
 
 from dataclasses import dataclass
+from fractions import Fraction
 import math
 from typing import Any, Sequence
 
@@ -29,8 +30,10 @@ class NativeQtip25Geometry:
     tlut_bits: int = 9
 
     def __post_init__(self) -> None:
-        if (self.L, self.B, self.V, self.tlut_bits) != (16, 10, 4, 9):
-            raise ValueError("native QTIP2.5 PoC requires exactly L16/B10/V4/Q9")
+        if self.L != 16 or self.V != 4 or self.tlut_bits != 9 or not 4 <= self.B <= 16:
+            raise ValueError(
+                "native QTIP V4 requires L16/V4/Q9 and transition bits B in 4..16"
+            )
 
     @property
     def states(self) -> int:
@@ -46,11 +49,11 @@ class NativeQtip25Geometry:
 
     @property
     def rate_num(self) -> int:
-        return 5
+        return Fraction(self.B, self.V).numerator
 
     @property
     def rate_den(self) -> int:
-        return 2
+        return Fraction(self.B, self.V).denominator
 
     def as_mapping(self) -> dict[str, int | str | bool]:
         return {
@@ -69,6 +72,19 @@ class NativeQtip25Geometry:
 
 
 NATIVE_QTIP25_GEOMETRY = NativeQtip25Geometry()
+
+
+def native_v4_geometry(bpw: object) -> NativeQtip25Geometry:
+    """Resolve an exact homogeneous quarter-BPW rate to L16/B/V4 geometry."""
+
+    try:
+        rate = Fraction(str(bpw))
+    except (TypeError, ValueError, ZeroDivisionError) as exc:
+        raise ValueError("native QTIP V4 bpw must be an exact quarter rate") from exc
+    transition_bits = rate * 4
+    if transition_bits.denominator != 1 or not 4 <= transition_bits.numerator <= 16:
+        raise ValueError("native QTIP V4 bpw must use 0.25 increments from 1.00 through 4.00")
+    return NativeQtip25Geometry(B=transition_bits.numerator)
 
 
 @dataclass(frozen=True)
@@ -97,45 +113,59 @@ class EncodedNativeQtip25:
         return self.code_bits / self.weights
 
 
-def _require_tlut(tlut: np.ndarray) -> np.ndarray:
+def _require_tlut(
+    tlut: np.ndarray, *, geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY
+) -> np.ndarray:
     table = np.asarray(tlut, dtype=np.float32)
-    if table.shape != (1 << NATIVE_QTIP25_GEOMETRY.tlut_bits, 2):
-        raise ValueError("native QTIP2.5 requires the shared float32 Q9xV2 TLUT")
+    if table.shape != (1 << geometry.tlut_bits, 2):
+        raise ValueError("native QTIP V4 requires the shared float32 Q9xV2 TLUT")
     if not bool(np.isfinite(table).all()):
         raise ValueError("native QTIP2.5 TLUT must be finite")
     return np.ascontiguousarray(table)
 
 
-def _quantlut_sym_pair(table: np.ndarray, states: np.ndarray) -> np.ndarray:
+def _quantlut_sym_pair(
+    table: np.ndarray,
+    states: np.ndarray,
+    *,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> np.ndarray:
     hashed = (states + np.uint64(1)) * states
     sign = np.float32(1.0) - np.float32(2.0) * (
         (hashed >> np.uint64(15)) & np.uint64(1)
     ).astype(np.float32)
     indexes = (
-        hashed >> np.uint64(16 - NATIVE_QTIP25_GEOMETRY.tlut_bits - 1)
-    ) & np.uint64((1 << NATIVE_QTIP25_GEOMETRY.tlut_bits) - 1)
+        hashed >> np.uint64(geometry.L - geometry.tlut_bits - 1)
+    ) & np.uint64((1 << geometry.tlut_bits) - 1)
     result = table[indexes.astype(np.int64)].copy()
     result[:, 0] *= sign
     return result
 
 
-def expand_native_v4_tlut(tlut: np.ndarray) -> np.ndarray:
+def expand_native_v4_tlut(
+    tlut: np.ndarray, *, geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY
+) -> np.ndarray:
     """Expand the shared Q9xV2 TLUT into the deterministic L16xV4 state LUT."""
-    table = _require_tlut(tlut)
-    states = np.arange(NATIVE_QTIP25_GEOMETRY.states, dtype=np.uint64)
-    rotated = ((states << np.uint64(8)) | (states >> np.uint64(8))) & np.uint64(
-        0xFFFF
+    table = _require_tlut(tlut, geometry=geometry)
+    states = np.arange(geometry.states, dtype=np.uint64)
+    half = geometry.L // 2
+    rotated = ((states << np.uint64(half)) | (states >> np.uint64(half))) & np.uint64(
+        geometry.states - 1
     )
     return np.ascontiguousarray(
         np.concatenate(
-            (_quantlut_sym_pair(table, states), _quantlut_sym_pair(table, rotated)),
+            (
+                _quantlut_sym_pair(table, states, geometry=geometry),
+                _quantlut_sym_pair(table, rotated, geometry=geometry),
+            ),
             axis=1,
         )
     )
 
 
-def _validate_states(states: np.ndarray) -> np.ndarray:
-    geometry = NATIVE_QTIP25_GEOMETRY
+def _validate_states(
+    states: np.ndarray, *, geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY
+) -> np.ndarray:
     values = np.asarray(states)
     if values.ndim != 2 or values.shape[1] * geometry.B < geometry.L:
         raise ValueError("native QTIP2.5 states must be [rows, sufficient transitions]")
@@ -152,10 +182,11 @@ def _validate_states(states: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(values)
 
 
-def pack_native_v4_states(states: np.ndarray) -> np.ndarray:
-    """Pack the exact circular B10 stream MSB-first with byte tail padding only."""
-    geometry = NATIVE_QTIP25_GEOMETRY
-    values = _validate_states(states)
+def pack_native_v4_states(
+    states: np.ndarray, *, geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY
+) -> np.ndarray:
+    """Pack the exact circular transition stream MSB-first with byte tail padding only."""
+    values = _validate_states(states, geometry=geometry)
     bit_count = values.shape[1] * geometry.B
     bits = np.empty((values.shape[0], bit_count), dtype=np.uint8)
     for row in range(values.shape[0]):
@@ -172,9 +203,13 @@ def pack_native_v4_states(states: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(np.packbits(bits, axis=1, bitorder="big"))
 
 
-def states_from_native_v4_packed(packed: np.ndarray, *, steps: int) -> np.ndarray:
-    """Unpack a circular B10 stream into its exact L16 state sequence."""
-    geometry = NATIVE_QTIP25_GEOMETRY
+def states_from_native_v4_packed(
+    packed: np.ndarray,
+    *,
+    steps: int,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> np.ndarray:
+    """Unpack a circular transition stream into its exact L16 state sequence."""
     words = np.asarray(packed)
     bit_count = int(steps) * geometry.B
     expected_bytes = math.ceil(bit_count / 8)
@@ -211,8 +246,8 @@ def _viterbi_numpy(
     state_lut: np.ndarray,
     *,
     overlap: np.ndarray | None,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
 ) -> np.ndarray:
-    geometry = NATIVE_QTIP25_GEOMETRY
     batch, steps, lanes = target.shape
     if lanes != geometry.V or steps * geometry.B < geometry.L:
         raise ValueError("native QTIP2.5 target has insufficient V4 transitions")
@@ -275,9 +310,9 @@ def solve_native_v4(
     tlut: np.ndarray | None = None,
     state_lut: np.ndarray | None = None,
     scales: np.ndarray | Sequence[float] | None = None,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
 ) -> EncodedNativeQtip25:
-    """Reference cyclic Viterbi encoder for homogeneous L16/B10/V4 payloads."""
-    geometry = NATIVE_QTIP25_GEOMETRY
+    """Reference cyclic Viterbi encoder for homogeneous L16/B/V4 payloads."""
     values = np.asarray(target, dtype=np.float32)
     if values.ndim == 2 and values.shape[1] % geometry.V == 0:
         values = values.reshape(values.shape[0], -1, geometry.V)
@@ -288,7 +323,7 @@ def solve_native_v4(
     if (tlut is None) == (state_lut is None):
         raise ValueError("native QTIP2.5 solve requires exactly one TLUT or expanded LUT")
     lut = (
-        expand_native_v4_tlut(np.asarray(tlut))
+        expand_native_v4_tlut(np.asarray(tlut), geometry=geometry)
         if tlut is not None
         else np.asarray(state_lut, dtype=np.float32)
     )
@@ -313,10 +348,12 @@ def solve_native_v4(
 
     normalized = values / row_scales[:, None, None]
     midpoint = values.shape[1] // 2
-    first = _viterbi_numpy(np.roll(normalized, midpoint, axis=1), lut, overlap=None)
+    first = _viterbi_numpy(
+        np.roll(normalized, midpoint, axis=1), lut, overlap=None, geometry=geometry
+    )
     overlap = first[:, midpoint] >> geometry.B
-    states = _viterbi_numpy(normalized, lut, overlap=overlap)
-    packed = pack_native_v4_states(states)
+    states = _viterbi_numpy(normalized, lut, overlap=overlap, geometry=geometry)
+    packed = pack_native_v4_states(states, geometry=geometry)
     decoded = lut[states].reshape(flattened.shape) * row_scales[:, None]
     distortion = float(np.sum((decoded - flattened) ** 2, dtype=np.float64))
     return EncodedNativeQtip25(
@@ -335,16 +372,20 @@ def decode_native_v4(
     *,
     positions: int,
     tlut: np.ndarray,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
 ) -> np.ndarray:
-    geometry = NATIVE_QTIP25_GEOMETRY
     if positions < geometry.V or positions % geometry.V:
         raise ValueError("native QTIP2.5 positions must be positive and divisible by V4")
     words = np.asarray(packed)
     row_scales = np.asarray(scales, dtype=np.float32)
     if row_scales.shape != (words.shape[0],):
         raise ValueError("native QTIP2.5 requires one scale per packed row")
-    states = states_from_native_v4_packed(words, steps=positions // geometry.V)
-    decoded = expand_native_v4_tlut(tlut)[states].reshape(words.shape[0], positions)
+    states = states_from_native_v4_packed(
+        words, steps=positions // geometry.V, geometry=geometry
+    )
+    decoded = expand_native_v4_tlut(tlut, geometry=geometry)[states].reshape(
+        words.shape[0], positions
+    )
     return decoded * row_scales[:, None]
 
 
@@ -354,11 +395,11 @@ def decode_native_v4_torch(
     *,
     positions: int,
     tlut: Any,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
 ) -> Any:
     """Decode on the packed tensor's Torch device; CUDA never falls back to CPU."""
     import torch
 
-    geometry = NATIVE_QTIP25_GEOMETRY
     if packed.dtype != torch.uint8 or packed.ndim != 2:
         raise ValueError("Torch native QTIP2.5 packed payload must be uint8 [rows,bytes]")
     if positions < geometry.V or positions % geometry.V:
@@ -405,7 +446,8 @@ def decode_native_v4_torch(
         result[:, 0] *= sign
         return result
 
-    rotated = ((base << 8) | (base >> 8)) & 0xFFFF
+    half = geometry.L // 2
+    rotated = ((base << half) | (base >> half)) & (geometry.states - 1)
     expanded = torch.cat((pair(base), pair(rotated)), dim=1)
     decoded = expanded.index_select(0, state_tensor.reshape(-1)).reshape(
         packed.shape[0], positions
@@ -426,52 +468,63 @@ if triton is not None:
         batch,
         steps: tl.constexpr,
         has_overlap: tl.constexpr,
+        prefixes: tl.constexpr,
+        branches: tl.constexpr,
+        transition_bits: tl.constexpr,
+        lanes: tl.constexpr,
+        state_count: tl.constexpr,
     ):
-        """One exact L16/B10/V4 sequence per CTA with 64 retained costs."""
+        """One exact homogeneous L16/B/V4 sequence per CTA."""
         sequence = tl.program_id(0)
-        prefix = tl.arange(0, 64)
-        best = tl.full((64,), float("inf"), tl.float32)
-        chosen = tl.zeros((64,), tl.int32)
+        prefix = tl.arange(0, prefixes)
+        best = tl.full((prefixes,), float("inf"), tl.float32)
+        chosen = tl.zeros((prefixes,), tl.int32)
         expected_overlap = tl.load(overlap_ptr + sequence).to(tl.int32)
 
-        for branch in tl.range(0, 1024):
-            state = branch * 64 + prefix
-            candidate = tl.zeros((64,), tl.float32)
-            for lane in tl.static_range(0, 4):
+        for branch in tl.range(0, branches):
+            state = branch * prefixes + prefix
+            candidate = tl.zeros((prefixes,), tl.float32)
+            for lane in tl.static_range(0, lanes):
                 value = tl.load(x_ptr + lane * batch + sequence).to(tl.float32)
-                code = tl.load(lut_ptr + lane * 65536 + state).to(tl.float32)
+                code = tl.load(lut_ptr + lane * state_count + state).to(tl.float32)
                 candidate += (code - value) * (code - value)
             if has_overlap:
-                candidate = tl.where((state >> 10) == expected_overlap, candidate, float("inf"))
+                candidate = tl.where(
+                    (state >> transition_bits) == expected_overlap,
+                    candidate,
+                    float("inf"),
+                )
             take = candidate < best
             best = tl.where(take, candidate, best)
             chosen = tl.where(take, state, chosen)
-        base = sequence * 64
+        base = sequence * prefixes
         tl.store(scratch_ptr + base + prefix, best)
         tl.store(best_state_ptr + base + prefix, chosen)
         tl.debug_barrier()
 
         step = 1
         while step < steps:
-            previous = ((step - 1) & 1) * batch * 64 + base
-            current = (step & 1) * batch * 64 + base
-            best = tl.full((64,), float("inf"), tl.float32)
-            chosen = tl.zeros((64,), tl.int32)
-            for branch in tl.range(0, 1024):
-                state = branch * 64 + prefix
-                candidate = tl.load(scratch_ptr + previous + (state >> 10))
-                for lane in tl.static_range(0, 4):
+            previous = ((step - 1) & 1) * batch * prefixes + base
+            current = (step & 1) * batch * prefixes + base
+            best = tl.full((prefixes,), float("inf"), tl.float32)
+            chosen = tl.zeros((prefixes,), tl.int32)
+            for branch in tl.range(0, branches):
+                state = branch * prefixes + prefix
+                candidate = tl.load(
+                    scratch_ptr + previous + (state >> transition_bits)
+                )
+                for lane in tl.static_range(0, lanes):
                     value = tl.load(
-                        x_ptr + (step * 4 + lane) * batch + sequence
+                        x_ptr + (step * lanes + lane) * batch + sequence
                     ).to(tl.float32)
-                    code = tl.load(lut_ptr + lane * 65536 + state).to(tl.float32)
+                    code = tl.load(lut_ptr + lane * state_count + state).to(tl.float32)
                     candidate += (code - value) * (code - value)
                 take = candidate < best
                 best = tl.where(take, candidate, best)
                 chosen = tl.where(take, state, chosen)
             tl.store(scratch_ptr + current + prefix, best)
             tl.store(
-                best_state_ptr + step * batch * 64 + base + prefix,
+                best_state_ptr + step * batch * prefixes + base + prefix,
                 chosen,
             )
             tl.debug_barrier()
@@ -482,36 +535,47 @@ if triton is not None:
         )
         for back_step in tl.static_range(steps - 1, -1, -1):
             state = tl.load(
-                best_state_ptr + back_step * batch * 64 + base + traceback_prefix
+                best_state_ptr + back_step * batch * prefixes + base + traceback_prefix
             ).to(tl.int32)
             tl.store(states_ptr + back_step * batch + sequence, state)
-            traceback_prefix = state >> 10
+            traceback_prefix = state >> transition_bits
 
 
-def _native_v4_cuda_pass(x: Any, state_lut: Any, overlap: Any | None) -> Any:
+def _native_v4_cuda_pass(
+    x: Any,
+    state_lut: Any,
+    overlap: Any | None,
+    *,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> Any:
     import torch
 
     if triton is None:
         raise RuntimeError("native QTIP2.5 CUDA solve requires the solve extra")
-    if not x.is_cuda or x.dtype != torch.float32 or x.ndim != 2 or x.shape[0] % 4:
-        raise ValueError("native QTIP2.5 CUDA input must be float32 [steps*4,batch]")
+    if (
+        not x.is_cuda
+        or x.dtype != torch.float32
+        or x.ndim != 2
+        or x.shape[0] % geometry.V
+    ):
+        raise ValueError("native QTIP V4 CUDA input must be float32 [steps*4,batch]")
     if (
         not state_lut.is_cuda
         or state_lut.device != x.device
         or state_lut.dtype != torch.float32
-        or tuple(state_lut.shape) != (65536, 4)
+        or tuple(state_lut.shape) != (geometry.states, geometry.V)
     ):
         raise ValueError("native QTIP2.5 CUDA state LUT must be float32 [65536,4]")
-    steps = int(x.shape[0]) // 4
+    steps = int(x.shape[0]) // geometry.V
     batch = int(x.shape[1])
-    if steps < 2 or batch < 1:
+    if steps * geometry.B < geometry.L or batch < 1:
         raise ValueError("native QTIP2.5 CUDA solve requires at least two transitions")
     if overlap is not None and (
         not overlap.is_cuda
         or overlap.device != x.device
         or overlap.dtype not in {torch.int32, torch.int64}
         or tuple(overlap.shape) != (batch,)
-        or bool(((overlap < 0) | (overlap >= 64)).any())
+        or bool(((overlap < 0) | (overlap >= geometry.prefixes)).any())
     ):
         raise ValueError("native QTIP2.5 CUDA overlap must be one prefix in [0,64) per row")
     source = x.contiguous()
@@ -521,8 +585,12 @@ def _native_v4_cuda_pass(x: Any, state_lut: Any, overlap: Any | None) -> Any:
         if overlap is not None
         else torch.zeros(batch, device=x.device, dtype=torch.int32)
     )
-    scratch = torch.empty((2, batch, 64), device=x.device, dtype=torch.float32)
-    best_state = torch.empty((steps, batch, 64), device=x.device, dtype=torch.int32)
+    scratch = torch.empty(
+        (2, batch, geometry.prefixes), device=x.device, dtype=torch.float32
+    )
+    best_state = torch.empty(
+        (steps, batch, geometry.prefixes), device=x.device, dtype=torch.int32
+    )
     states = torch.empty((steps, batch), device=x.device, dtype=torch.int32)
     _native_v4_prefix_viterbi[(batch,)](
         source,
@@ -534,13 +602,23 @@ def _native_v4_cuda_pass(x: Any, state_lut: Any, overlap: Any | None) -> Any:
         batch,
         steps=steps,
         has_overlap=overlap is not None,
-        num_warps=4,
+        prefixes=geometry.prefixes,
+        branches=geometry.branches,
+        transition_bits=geometry.B,
+        lanes=geometry.V,
+        state_count=geometry.states,
+        num_warps=8 if geometry.prefixes >= 256 else 4,
         num_stages=1,
     )
     return states
 
 
-def solve_native_v4_cuda(target: Any, *, state_lut: Any) -> Any:
+def solve_native_v4_cuda(
+    target: Any,
+    *,
+    state_lut: Any,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> Any:
     """Exact full-branch CUDA solve for ``[rows,steps,4]`` transformed targets."""
     import torch
 
@@ -548,19 +626,23 @@ def solve_native_v4_cuda(target: Any, *, state_lut: Any) -> Any:
         not target.is_cuda
         or target.dtype != torch.float32
         or target.ndim != 3
-        or target.shape[2] != 4
+        or target.shape[2] != geometry.V
     ):
         raise ValueError("native QTIP2.5 CUDA target must be float32 [rows,steps,4]")
     midpoint = int(target.shape[1]) // 2
     rolled = torch.roll(target, midpoint, dims=1)
     first = _native_v4_cuda_pass(
-        rolled.permute(1, 2, 0).reshape(-1, target.shape[0]), state_lut, None
+        rolled.permute(1, 2, 0).reshape(-1, target.shape[0]),
+        state_lut,
+        None,
+        geometry=geometry,
     )
-    overlap = first[midpoint] >> 10
+    overlap = first[midpoint] >> geometry.B
     return _native_v4_cuda_pass(
         target.permute(1, 2, 0).reshape(-1, target.shape[0]),
         state_lut,
         overlap,
+        geometry=geometry,
     ).transpose(0, 1).contiguous()
 
 
@@ -573,13 +655,14 @@ def native_v4_wire_accounting(
     shared_tlut_bytes: int = 0,
     routing_bytes: int = 0,
     alignment_bytes: int = 0,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
 ) -> dict[str, int | float | str | bool]:
     """Account exact integer code bits separately from every physical overhead."""
     count = int(position_count)
-    if count < 0 or count % NATIVE_QTIP25_GEOMETRY.V:
+    if count < 0 or count % geometry.V:
         raise ValueError("native QTIP2.5 position count must be divisible by V4")
     sequences = int(sequence_count)
-    transitions = count // NATIVE_QTIP25_GEOMETRY.V
+    transitions = count // geometry.V
     if sequences < 1 or transitions % sequences:
         raise ValueError("native QTIP2.5 transitions must divide evenly across sequences")
     transform = int(transform_bytes)
@@ -589,8 +672,13 @@ def native_v4_wire_accounting(
     alignment = int(alignment_bytes)
     if min(transform, scale, shared, routing, alignment) < 0:
         raise ValueError("native QTIP2.5 byte counts must be nonnegative")
-    code_bits = count * 5 // 2
-    code_bytes = sequences * math.ceil((code_bits // sequences) / 8)
+    code_bits_numerator = count * geometry.B
+    if code_bits_numerator % geometry.V:
+        raise ValueError("native QTIP V4 code bits must be integral")
+    code_bits = code_bits_numerator // geometry.V
+    code_bytes = sequences * math.ceil(
+        ((transitions // sequences) * geometry.B) / 8
+    )
     auxiliary = transform + scale
     logical = code_bytes + auxiliary + routing + alignment
 
@@ -598,12 +686,12 @@ def native_v4_wire_accounting(
         return 0.0 if count == 0 else byte_count * 8.0 / count
 
     return {
-        "codec_form": "native_l16_b10_v4",
-        "rate_num": 5,
-        "rate_den": 2,
-        "L": 16,
-        "B": 10,
-        "V": 4,
+        "codec_form": f"native_l{geometry.L}_b{geometry.B}_v{geometry.V}",
+        "rate_num": geometry.rate_num,
+        "rate_den": geometry.rate_den,
+        "L": geometry.L,
+        "B": geometry.B,
+        "V": geometry.V,
         "phase_count": 1,
         "unique_transition_bits_per_payload": 1,
         "alternation": False,
@@ -624,7 +712,7 @@ def native_v4_wire_accounting(
         "logical_expert_plane_wire_bytes": logical,
         "deduplicated_shared_tlut_bytes": shared,
         "full_wire_bytes": logical + shared,
-        "code_bpw": 2.5 if count else 0.0,
+        "code_bpw": geometry.rate_num / geometry.rate_den if count else 0.0,
         "auxiliary_bpw": bpw(auxiliary + routing + alignment),
         "logical_expert_plane_bpw": bpw(logical),
     }
@@ -638,6 +726,7 @@ __all__ = [
     "decode_native_v4_torch",
     "expand_native_v4_tlut",
     "native_v4_wire_accounting",
+    "native_v4_geometry",
     "pack_native_v4_states",
     "solve_native_v4",
     "solve_native_v4_cuda",
