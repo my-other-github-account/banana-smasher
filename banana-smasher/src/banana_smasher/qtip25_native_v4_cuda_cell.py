@@ -174,7 +174,9 @@ def run_cuda_cell(
     torch.cuda.synchronize()
     encode_started = time.perf_counter()
     for start in range(0, len(target), solve_batch):
-        source = torch.from_numpy(np.asarray(target[start : start + solve_batch])).to(device)
+        source = torch.from_numpy(
+            np.asarray(target[start : start + solve_batch]).copy()
+        ).to(device)
         states = solve_native_v4_cuda(source, state_lut=state_lut)
         packed_parts.append(_pack_cuda_states_v4(states).cpu().numpy())
     torch.cuda.synchronize()
@@ -229,7 +231,6 @@ def run_cuda_cell(
     receipt = {
         "schema": SCHEMA,
         "status": "PASS",
-        "task_id": "t_57101415",
         **identity,
         "geometry": NATIVE_QTIP25_GEOMETRY.as_mapping(),
         "phase_count": 1,
