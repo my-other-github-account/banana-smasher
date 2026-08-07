@@ -142,6 +142,7 @@ def ldlq_native_v4_cuda_batch(
     solve_batch: int,
     scale_factors: Sequence[float],
     cell_scale_factors: Sequence[float] | None = None,
+    preserve_cell_math: bool = True,
 ) -> tuple[list[np.ndarray], list[float], list[dict[str, Any]]]:
     """Run reverse-16 native-V4 LDLQ with cells and scale candidates batched."""
     import math
@@ -192,19 +193,37 @@ def ldlq_native_v4_cuda_batch(
             .reshape(row_blocks, column_blocks, 16, 16)
             .permute(0, 2, 1, 3)
             .reshape(rows, columns)
+            .to(device)
             for target in targets
         ]
-    ).to(device)
+    )
     regularization_sigma = 1e-2
-    hessian_tensor = torch.from_numpy(
-        np.stack([np.asarray(hessian).copy() for hessian in hessians])
-    ).to(device)
-    diagonal = hessian_tensor.diagonal(dim1=-2, dim2=-1)
-    diagonal_mean = diagonal.mean(dim=-1)
-    if not bool(torch.all(diagonal_mean > 0)):
-        raise RuntimeError("native V4 CUDA LDLQ Hessian diagonal mean must be positive")
-    diagonal.add_(diagonal_mean[:, None] * regularization_sigma)
-    lower = block_ldl_batch(hessian_tensor, 16)
+    hessian_values = [
+        torch.from_numpy(np.asarray(hessian).copy()).to(device) for hessian in hessians
+    ]
+    if preserve_cell_math:
+        lower_values = []
+        for hessian_tensor in hessian_values:
+            diagonal_mean = float(hessian_tensor.diagonal().mean().item())
+            if diagonal_mean <= 0:
+                raise RuntimeError(
+                    "native V4 CUDA LDLQ Hessian diagonal mean must be positive"
+                )
+            hessian_tensor.diagonal().add_(
+                diagonal_mean * regularization_sigma
+            )
+            lower_values.append(block_ldl_batch(hessian_tensor[None], 16)[0])
+        lower = torch.stack(lower_values)
+    else:
+        hessian_tensor = torch.stack(hessian_values)
+        diagonal = hessian_tensor.diagonal(dim1=-2, dim2=-1)
+        diagonal_mean = diagonal.mean(dim=-1)
+        if not bool(torch.all(diagonal_mean > 0)):
+            raise RuntimeError(
+                "native V4 CUDA LDLQ Hessian diagonal mean must be positive"
+            )
+        diagonal.add_(diagonal_mean[:, None] * regularization_sigma)
+        lower = block_ldl_batch(hessian_tensor, 16)
     lower.diagonal(dim1=-2, dim2=-1).zero_()
     feedback_nonzero_counts = torch.count_nonzero(lower, dim=(1, 2))
     if bool(torch.any(feedback_nonzero_counts == 0)):
@@ -252,7 +271,17 @@ def ldlq_native_v4_cuda_batch(
         corrected = source_group[:, :, start:end].clone()
         if end < columns:
             error_right = source_group[:, :, end:] - decoded[:, :, end:]
-            corrected.add_(torch.bmm(error_right, lower_group[:, end:, start:end]))
+            if preserve_cell_math:
+                for group in range(group_count):
+                    corrected[group].add_(
+                        torch.matmul(
+                            error_right[group], lower_group[group, end:, start:end]
+                        )
+                    )
+            else:
+                corrected.add_(
+                    torch.bmm(error_right, lower_group[:, end:, start:end])
+                )
         tiles = corrected.reshape(
             group_count, row_blocks, 64, geometry.V
         ) / flat_scales[:, None, None, None]
@@ -274,9 +303,12 @@ def ldlq_native_v4_cuda_batch(
             * flat_scales[:, None, None]
         )
         states_grid[:, :, column_block] = states
+    difference = decoded.double() - source_group.double()
     distortions = (
-        decoded.double() - source_group.double()
-    ).square().sum(dim=(1, 2)).reshape(cell_count, factor_count)
+        torch.stack([difference[group].square().sum() for group in range(group_count)])
+        if preserve_cell_math
+        else difference.square().sum(dim=(1, 2))
+    ).reshape(cell_count, factor_count)
     winners = torch.argmin(distortions, dim=1)
     cell_ids = torch.arange(cell_count, device=device)
     selected_states = states_grid.reshape(
@@ -309,6 +341,7 @@ def ldlq_native_v4_cuda_batch(
                 "scale_factors": list(factor_rows[cell]),
                 "cell_batch_size": cell_count,
                 "scale_batch_size": factor_count,
+                "preserve_cell_math": preserve_cell_math,
                 "max_solver_sequence_batch": max_solver_batch,
                 "hessian_regularization_sigma": regularization_sigma,
                 "feedback_nonzero_count": int(feedback_nonzero_counts[cell].item()),
