@@ -188,39 +188,58 @@ def _ldlq_cuda_matrix(
     source_rms = source.double().square().mean().sqrt()
     lut_rms = state_lut.double().square().mean().sqrt()
     base_scale = float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
-    best: tuple[float, float, float, Any] | None = None
-    for factor in factors:
-        scale = base_scale * factor
-        decoded = torch.zeros_like(source)
-        states_grid = torch.empty(
-            (row_blocks, column_blocks, 64), device=device, dtype=torch.int32
-        )
-        for column_block in range(column_blocks - 1, -1, -1):
-            start = column_block * 16
-            end = start + 16
-            corrected = source[:, start:end].clone()
-            if end < columns:
-                error_right = source[:, end:] - decoded[:, end:]
-                corrected.add_((lower[end:, start:end].T @ error_right.T).T)
-            tiles = corrected.reshape(row_blocks, 64, geometry.V) / scale
-            parts = []
-            for batch_start in range(0, row_blocks, solve_batch):
-                parts.append(
-                    solve_native_v4_cuda(
-                        tiles[batch_start : batch_start + solve_batch],
-                        state_lut=state_lut,
-                        geometry=geometry,
-                    )
+    scale_values = torch.tensor(
+        [base_scale * factor for factor in factors],
+        dtype=source.dtype,
+        device=device,
+    )
+    factor_count = len(factors)
+    source_batch = source.unsqueeze(0).expand(factor_count, -1, -1)
+    decoded = torch.zeros(
+        (factor_count, rows, columns), dtype=source.dtype, device=device
+    )
+    states_grid = torch.empty(
+        (factor_count, row_blocks, column_blocks, 64),
+        device=device,
+        dtype=torch.int32,
+    )
+    max_solver_batch = 0
+    for column_block in range(column_blocks - 1, -1, -1):
+        start = column_block * 16
+        end = start + 16
+        corrected = source_batch[:, :, start:end].clone()
+        if end < columns:
+            error_right = source_batch[:, :, end:] - decoded[:, :, end:]
+            corrected.add_(torch.matmul(error_right, lower[end:, start:end]))
+        tiles = corrected.reshape(
+            factor_count, row_blocks, 64, geometry.V
+        ) / scale_values[:, None, None, None]
+        flattened_tiles = tiles.reshape(factor_count * row_blocks, 64, geometry.V)
+        parts = []
+        for batch_start in range(0, len(flattened_tiles), solve_batch):
+            part = flattened_tiles[batch_start : batch_start + solve_batch]
+            max_solver_batch = max(max_solver_batch, len(part))
+            parts.append(
+                solve_native_v4_cuda(
+                    part,
+                    state_lut=state_lut,
+                    geometry=geometry,
                 )
-            states = torch.cat(parts)
-            decoded[:, start:end] = state_lut[states].reshape(rows, 16) * scale
-            states_grid[:, column_block] = states
-        distortion = float((decoded.double() - source.double()).square().sum().item())
-        if best is None or distortion < best[0]:
-            best = (distortion, factor, scale, states_grid.clone())
-    assert best is not None
-    distortion, selected_factor, selected_scale, states_grid = best
-    flat_states = states_grid.reshape(-1, 64)
+            )
+        states = torch.cat(parts).reshape(factor_count, row_blocks, 64)
+        decoded[:, :, start:end] = (
+            state_lut[states].reshape(factor_count, rows, 16)
+            * scale_values[:, None, None]
+        )
+        states_grid[:, :, column_block] = states
+    distortions = (
+        decoded.double() - source_batch.double()
+    ).square().sum(dim=(1, 2))
+    winner = int(torch.argmin(distortions).item())
+    distortion = float(distortions[winner].item())
+    selected_factor = factors[winner]
+    selected_scale = float(scale_values[winner].item())
+    flat_states = states_grid[winner].reshape(-1, 64)
     packed_parts = []
     for batch_start in range(0, len(flat_states), solve_batch):
         packed_parts.append(
@@ -230,13 +249,15 @@ def _ldlq_cuda_matrix(
         )
     packed = torch.cat(packed_parts).numpy()
     return packed, selected_scale, {
-        "method": "qtip_batch_block_ldl_reverse_16",
+        "method": "qtip_batch_block_ldl_reverse_16_scale_batched",
         "matrix_shape": [rows, columns],
         "base_scale": base_scale,
         "selected_factor": selected_factor,
         "selected_scale": selected_scale,
         "scale_factor": selected_scale,
         "scale_factors": list(factors),
+        "scale_batch_size": factor_count,
+        "max_solver_sequence_batch": max_solver_batch,
         "hessian_regularization_sigma": regularization_sigma,
         "feedback_nonzero_count": feedback_nonzero_count,
         "distortion": distortion,
