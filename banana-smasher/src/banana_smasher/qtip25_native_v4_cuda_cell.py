@@ -142,6 +142,7 @@ def ldlq_native_v4_cuda_batch(
     solve_batch: int,
     scale_factors: Sequence[float],
     cell_scale_factors: Sequence[float] | None = None,
+    cell_scales: Sequence[float] | None = None,
     preserve_cell_math: bool = True,
 ) -> tuple[list[np.ndarray], list[float], list[dict[str, Any]]]:
     """Run reverse-16 native-V4 LDLQ with cells and scale candidates batched."""
@@ -176,6 +177,13 @@ def ldlq_native_v4_cuda_batch(
         if cell_scale_factors is not None
         else None
     )
+    fixed_scales = (
+        tuple(float(value) for value in cell_scales)
+        if cell_scales is not None
+        else None
+    )
+    if fixed_factors is not None and fixed_scales is not None:
+        raise ValueError("native V4 cell scale factors and absolute scales are mutually exclusive")
     if fixed_factors is not None and (
         len(fixed_factors) != cell_count
         or factors != (1.0,)
@@ -183,6 +191,14 @@ def ldlq_native_v4_cuda_batch(
     ):
         raise ValueError(
             "native V4 fixed cell scale factors require one positive factor per cell and scale_factors=(1.0,)"
+        )
+    if fixed_scales is not None and (
+        len(fixed_scales) != cell_count
+        or factors != (1.0,)
+        or any(not math.isfinite(value) or value <= 0 for value in fixed_scales)
+    ):
+        raise ValueError(
+            "native V4 fixed cell scales require one positive absolute scale per cell and scale_factors=(1.0,)"
         )
     device = state_lut.device
     row_blocks = rows // 16
@@ -238,10 +254,14 @@ def ldlq_native_v4_cuda_batch(
     factor_rows = (
         [[fixed_factors[cell]] for cell in range(cell_count)]
         if fixed_factors is not None
+        else [[1.0] for _ in range(cell_count)]
+        if fixed_scales is not None
         else [list(factors) for _ in range(cell_count)]
     )
     scale_values = torch.tensor(
-        [
+        [[fixed_scales[cell]] for cell in range(cell_count)]
+        if fixed_scales is not None
+        else [
             [base_scale_values[cell] * factor for factor in factor_rows[cell]]
             for cell in range(cell_count)
         ],
@@ -341,6 +361,7 @@ def ldlq_native_v4_cuda_batch(
                 "cell_batch_size": cell_count,
                 "scale_batch_size": factor_count,
                 "preserve_cell_math": preserve_cell_math,
+                "fixed_absolute_scale": fixed_scales is not None,
                 "max_solver_sequence_batch": max_solver_batch,
                 "hessian_regularization_sigma": regularization_sigma,
                 "feedback_nonzero_count": int(feedback_nonzero_counts[cell].item()),
