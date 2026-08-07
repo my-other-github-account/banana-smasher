@@ -203,8 +203,14 @@ def _ldlq_cuda_matrices(
             float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
         )
     base_scales = torch.tensor(base_scale_values, dtype=source.dtype, device=device)
-    factor_values = torch.tensor(factors, dtype=source.dtype, device=device)
-    scale_values = base_scales[:, None] * factor_values[None, :]
+    scale_values = torch.tensor(
+        [
+            [base_scale_values[cell] * factor for factor in factors]
+            for cell in range(cell_count)
+        ],
+        dtype=source.dtype,
+        device=device,
+    )
     factor_count = len(factors)
     group_count = cell_count * factor_count
     source_group = source[:, None].expand(-1, factor_count, -1, -1).reshape(
