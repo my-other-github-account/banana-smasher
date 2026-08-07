@@ -90,6 +90,8 @@ def test_native_v4_scale_search_uses_nonzero_reverse_16_ldlq() -> None:
     assert searched.scale_factors == (0.9, 1.0, 1.1)
     assert searched.packed.shape == (4, 80)
     assert searched.distortion <= fixed.distortion
+    assert np.unique(searched.scales).tolist() == [searched.scales[0]]
+    assert searched.scales[0] > 0
     np.testing.assert_allclose(decoded, searched.decoded, rtol=0.0, atol=0.0)
 
 

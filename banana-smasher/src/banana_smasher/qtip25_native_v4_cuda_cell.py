@@ -235,6 +235,7 @@ def _ldlq_cuda_matrix(
         "base_scale": base_scale,
         "selected_factor": selected_factor,
         "selected_scale": selected_scale,
+        "scale_factor": selected_scale,
         "scale_factors": list(factors),
         "hessian_regularization_sigma": regularization_sigma,
         "feedback_nonzero_count": feedback_nonzero_count,

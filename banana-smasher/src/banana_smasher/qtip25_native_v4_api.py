@@ -340,7 +340,9 @@ def _build_qtip_native_v4_cell(
             packed = matrix.packed
             optimization = {
                 "method": "qtip_batch_block_ldl_reverse_16",
-                "scale_factor": matrix.scale_factor,
+                "selected_factor": matrix.scale_factor,
+                "selected_scale": float(matrix.scales[0]),
+                "scale_factor": float(matrix.scales[0]),
                 "scale_factors": list(matrix.scale_factors),
                 "feedback_nonzero_count": matrix.feedback_nonzero_count,
                 "distortion": matrix.distortion,
