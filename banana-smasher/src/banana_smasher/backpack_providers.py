@@ -204,6 +204,27 @@ def _materialize_record_payload(
             "expert_ids": "expert_ids.npy",
             "tensor_offsets": "tensor_offsets.npy",
         }
+    elif family == "qtip_native_v4":
+        field_names = (
+            "codes",
+            "SU",
+            "SV",
+            "Wscale",
+            "expert_ids",
+            "record_tiers",
+            "record_geometry",
+            "record_projections",
+            "record_boundaries",
+        )
+        byte_fields = ("codes", "SU", "SV", "Wscale")
+        source_names = {
+            "codes": "wire.bin",
+            **{
+                name: f"{name}.npy"
+                for name in field_names
+                if name not in {"codes", "record_boundaries"}
+            },
+        }
     else:
         field_names = (
             "codes",
@@ -247,13 +268,14 @@ def _materialize_record_payload(
         elif name != "codebooks":
             value = value.reshape(-1)
         bucket[name].append(value)
-    offsets = np.asarray(
-        np.load(root / "tensor_offsets.npy", allow_pickle=False), dtype=np.int64
-    ).reshape(-1, len(byte_fields))
-    adjusted = offsets + prior_bytes
-    bucket["tensor_offsets"].append(
-        adjusted if not bucket["tensor_offsets"] else adjusted[1:]
-    )
+    if family != "qtip_native_v4":
+        offsets = np.asarray(
+            np.load(root / "tensor_offsets.npy", allow_pickle=False), dtype=np.int64
+        ).reshape(-1, len(byte_fields))
+        adjusted = offsets + prior_bytes
+        bucket["tensor_offsets"].append(
+            adjusted if not bucket["tensor_offsets"] else adjusted[1:]
+        )
 
 
 def _materialize_provider_assignment(
@@ -392,13 +414,6 @@ def qtip_ring_backpack_provider(bpw: object) -> BackpackFamilyProvider:
     )
 
 
-def _native_v4_anchor_only_materialize(*_: Any, **__: Any) -> None:
-    raise ValueError(
-        "qtip_native_v4 currently materializes candidate/Anchor sets only; "
-        "a serving-pack consumer has not been declared"
-    )
-
-
 def qtip_native_v4_backpack_provider(bpw: object) -> BackpackFamilyProvider:
     """Return one homogeneous native-V4 provider for an exact quarter rate."""
 
@@ -412,7 +427,7 @@ def qtip_native_v4_backpack_provider(bpw: object) -> BackpackFamilyProvider:
         kind="qtip_native_v4",
         runtime_family="qtip_native_v4",
         generate=generate_native_v4_backpack_candidate,
-        materialize=_native_v4_anchor_only_materialize,
+        materialize=_materialize_provider_assignment,
         price=price_backpack_candidate,
         predict=predict_backpack_candidate,
         verify=verify_backpack_candidate,

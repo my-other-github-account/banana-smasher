@@ -13,6 +13,7 @@ _DECODE_CUDA_CALLS = 0
 _FALLBACK_CALLS = 0
 
 
+
 def native_v4_decode_counters() -> dict[str, int]:
     return {
         "decode_calls": _DECODE_CALLS,

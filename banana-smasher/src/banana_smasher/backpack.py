@@ -2317,6 +2317,143 @@ def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[
     }
 
 
+def _native_v4_plane_spec(path: Path, value: np.ndarray) -> dict[str, Any]:
+    np.save(path, np.ascontiguousarray(value), allow_pickle=False)
+    return {
+        "file": path.name,
+        "dtype": np.dtype(value.dtype).str,
+        "shape": list(value.shape),
+    }
+
+
+def _materialize_native_v4_plane_source(
+    source: Path,
+    *,
+    cells: Sequence[Mapping[str, Any]],
+    selected: Mapping[str, Mapping[str, Any]],
+    tier_descriptors: Mapping[str, Mapping[str, Any]],
+    artifact_roots: Mapping[str, Path],
+) -> None:
+    """Write selected native-V4 records in the consolidated native-plane shape."""
+
+    from .qtip25_native_v4 import native_v4_geometry
+
+    family_codes = {
+        "qtip2": 0,
+        "qtip3": 1,
+        "d4": 2,
+        "native": 3,
+        "qtip_native_v4_b7": 4,
+        "qtip_native_v4_b9": 5,
+        "qtip_native_v4_b10": 6,
+    }
+    for layer in sorted({int(cell["layer"]) for cell in cells}):
+        layer_cells = [cell for cell in cells if int(cell["layer"]) == layer]
+        meta: dict[str, Any] = {
+            "format": "p1016-true-c-native-planes-v1",
+            "layer": layer,
+            "E": 256,
+            "family_codes": family_codes,
+            "payloads": {},
+        }
+        for projection, suffix in (("fused13", "13"), ("down", "2")):
+            projection_cells = [
+                cell for cell in layer_cells if str(cell["projection"]) == projection
+            ]
+            tiers = [""] * 256
+            slots = [-1] * 256
+            families = [-1] * 256
+            payloads: dict[str, Any] = {}
+            dimensions: set[tuple[int, int]] = set()
+            grouped: dict[str, list[Mapping[str, Any]]] = {}
+            for cell in projection_cells:
+                tier = str(selected[str(cell["cell_id"])]["tier"])
+                grouped.setdefault(tier, []).append(cell)
+            for tier, tier_cells in grouped.items():
+                descriptor = tier_descriptors[tier]
+                geometry = native_v4_geometry(descriptor["bpw"])
+                codes_parts: list[np.ndarray] = []
+                su_parts: list[np.ndarray] = []
+                sv_parts: list[np.ndarray] = []
+                wscale_parts: list[np.ndarray] = []
+                expert_parts: list[np.ndarray] = []
+                for cell in tier_cells:
+                    root = artifact_roots[str(cell["cell_id"])]
+                    cell_receipt = json.loads((root / "CELL_RECEIPT.json").read_text())
+                    rows, columns = [int(value) for value in cell_receipt["source"]["shape"]]
+                    expert_ids = np.asarray(cell["expert_ids"], dtype=np.int16)
+                    if rows % expert_ids.size or columns % geometry.V:
+                        raise BackpackPlanError(
+                            f"native V4 cell {cell['cell_id']} cannot split its declared matrix by expert"
+                        )
+                    output_width = rows // expert_ids.size
+                    dimensions.add((columns, output_width))
+                    codes = np.frombuffer((root / "wire.bin").read_bytes(), dtype=np.uint8)
+                    bytes_per_block = 8 * geometry.B
+                    blocks_per_expert = output_width * columns // 256
+                    codes_parts.append(
+                        codes.reshape(expert_ids.size, blocks_per_expert, bytes_per_block)
+                    )
+                    su = np.asarray(np.load(root / "SU.npy", allow_pickle=False))
+                    sv = np.asarray(np.load(root / "SV.npy", allow_pickle=False))
+                    wscale = np.asarray(np.load(root / "Wscale.npy", allow_pickle=False), dtype=np.float32)
+                    su_parts.append(np.broadcast_to(su, (expert_ids.size, columns)).copy())
+                    sv_parts.append(sv.reshape(expert_ids.size, output_width))
+                    wscale_parts.append(np.full(expert_ids.size, float(wscale.reshape(-1)[0]), dtype=np.float32))
+                    expert_parts.append(expert_ids)
+                if len(dimensions) != 1:
+                    raise BackpackPlanError(
+                        f"native V4 layer {layer} {projection}/{tier} matrix geometry drift"
+                    )
+                input_width, output_width = next(iter(dimensions))
+                ordered_ids = np.concatenate(expert_parts)
+                order = np.argsort(ordered_ids)
+                arrays = {
+                    "codes": np.concatenate(codes_parts)[order],
+                    "SU": np.concatenate(su_parts)[order],
+                    "SV": np.concatenate(sv_parts)[order],
+                    "Wscale": np.concatenate(wscale_parts)[order],
+                    "expert_ids": ordered_ids[order],
+                }
+                tensors: dict[str, Any] = {}
+                file_tier = re.sub(r"[^A-Za-z0-9_]+", "_", tier)
+                for role, value in arrays.items():
+                    path = source / f"layer_{layer:03d}.{file_tier}.{suffix}.{role}.npy"
+                    tensors[role] = _native_v4_plane_spec(path, value)
+                runtime_family = f"qtip_native_v4_b{geometry.B}"
+                if runtime_family not in family_codes:
+                    raise BackpackPlanError(
+                        f"native V4 serving geometry B{geometry.B} is undeclared"
+                    )
+                payloads[tier] = {
+                    "family": runtime_family,
+                    "geometry": geometry.as_mapping(),
+                    "input_width": input_width,
+                    "output_width": output_width,
+                    "tensors": tensors,
+                }
+                for slot, expert in enumerate(arrays["expert_ids"].tolist()):
+                    tiers[int(expert)] = tier
+                    slots[int(expert)] = slot
+                    families[int(expert)] = family_codes[runtime_family]
+            if set(families) - {4, 5, 6} or -1 in families:
+                raise BackpackPlanError(
+                    f"native V4 layer {layer} {projection} does not cover experts 0..255"
+                )
+            if len(dimensions) != 1:
+                raise BackpackPlanError(
+                    f"native V4 layer {layer} {projection} has inconsistent tier dimensions"
+                )
+            input_width, output_width = next(iter(dimensions))
+            meta[f"K{suffix}"] = input_width
+            meta[f"N{suffix}"] = output_width
+            meta[f"tier{suffix}"] = tiers
+            meta[f"slot{suffix}"] = slots
+            meta[f"family{suffix}"] = families
+            meta["payloads"][projection] = payloads
+        _atomic_json(source / f"layer_{layer:03d}.meta.json", meta)
+
+
 def materialize_backpack_source(
     source: Path,
     *,
@@ -2357,6 +2494,19 @@ def materialize_backpack_source(
                 f"materializer assignment disagrees across projections for {selection_group}"
             )
     tier_descriptors = {str(row["id"]): row for row in plan.tiers}
+    selected_descriptors = [tier_descriptors[str(row["tier"])] for row in assignment]
+    if selected_descriptors and all(
+        str(descriptor["family"]) == "qtip_native_v4"
+        for descriptor in selected_descriptors
+    ):
+        _materialize_native_v4_plane_source(
+            source,
+            cells=cells,
+            selected=selected,
+            tier_descriptors=tier_descriptors,
+            artifact_roots=artifact_roots,
+        )
+        return
     from .contract import TIER_CODES
 
     tier_maps = {

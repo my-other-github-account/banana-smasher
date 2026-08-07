@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from pathlib import Path
 import numpy as np
 
 from banana_smasher import (
@@ -9,8 +11,10 @@ from banana_smasher import (
     build_qtip_native_v4_anchor_set,
     build_qtip_native_v4_cell,
     generate_backpack_candidate,
+    export_pack,
     verify_backpack_candidate,
 )
+from banana_smasher.backpack import _materialize_native_v4_plane_source
 from banana_smasher.qtip1 import gaussian_tlut
 from banana_smasher.qtip25_native_v4 import (
     decode_native_v4,
@@ -279,3 +283,145 @@ def test_backpack_plan_accepts_an_arbitrary_native_v4_anchor_menu(tmp_path) -> N
         "qtip-native-v4@2.75",
     ]
     assert len({tier["activation_artifacts"][0]["id"] for tier in plan.tiers}) == 1
+
+
+def test_native_v4_provider_materializes_declared_geometry(tmp_path) -> None:
+    rng = np.random.default_rng(47)
+    control_root = tmp_path / "controls"
+    control_root.mkdir()
+    tlut = tmp_path / "tlut.npy"
+    np.save(tlut, gaussian_tlut(bits=9, columns=2), allow_pickle=False)
+    tlut_sha256 = hashlib.sha256(tlut.read_bytes()).hexdigest()
+    cell = {
+        "cell_id": "layer-0-expert-0-down",
+        "layer": 0,
+        "projection": "down",
+        "expert_ids": [0],
+        "weights": rng.normal(size=256).astype(np.float32),
+    }
+    np.savez(
+        control_root / f"{cell['cell_id']}.npz",
+        SU=np.ones(16, dtype=np.float16),
+        SV=np.ones(16, dtype=np.float16),
+        Wscale=np.asarray(1.0, dtype=np.float32),
+        shape=np.asarray([16, 16], dtype=np.int64),
+    )
+
+    for bpw, transition_bits in ((1.75, 7), (2.25, 9), (2.5, 10)):
+        tier = {
+            "id": f"native-v4-b{transition_bits}",
+            "family": "qtip_native_v4",
+            "bpw": bpw,
+            "backend": "reference",
+            "control_root": str(control_root),
+            "tlut": str(tlut),
+            "tlut_sha256": tlut_sha256,
+            "basis_sha256": "e" * 64,
+            "solve_batch": 1,
+            "decode_batch": 1,
+            "decode_repeats": 1,
+            "activation_artifacts": [],
+        }
+        root = tmp_path / f"run-b{transition_bits}"
+        receipt = generate_backpack_candidate(root, tier=tier, cell=cell)
+        provider = backpack_provider_from_declaration(tier)
+        payloads = {}
+        provider.materialize(
+            payloads,
+            tier=tier,
+            cell=cell,
+            artifact_root=Path(receipt["receipt"]).parent,
+        )
+
+        fields = payloads[(0, "qtip_native_v4")]
+        assert set(fields) == {
+            "codes",
+            "SU",
+            "SV",
+            "Wscale",
+            "expert_ids",
+            "record_tiers",
+            "record_geometry",
+            "record_projections",
+            "record_boundaries",
+        }
+        assert fields["record_geometry"][0].tolist() == [[16, transition_bits, 4]]
+        assert sum(array.nbytes for array in fields["codes"]) == receipt["wire"]["bytes"]
+
+
+def test_selected_b7_b9_b10_materialize_as_native_planes(tmp_path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "deepseek_v4",
+                "n_routed_experts": 256,
+                "hidden_size": 16,
+                "moe_intermediate_size": 8,
+            }
+        )
+    )
+    descriptors = {
+        f"native-b{transition_bits}": {
+            "id": f"native-b{transition_bits}",
+            "family": "qtip_native_v4",
+            "bpw": transition_bits / 4,
+        }
+        for transition_bits in (7, 9, 10)
+    }
+    partitions = ((0, 86, 7), (86, 171, 9), (171, 256, 10))
+    cells = []
+    selected = {}
+    roots = {}
+    for projection in ("fused13", "down"):
+        for start, stop, transition_bits in partitions:
+            expert_ids = list(range(start, stop))
+            cell_id = f"{projection}-b{transition_bits}"
+            root = tmp_path / "candidates" / cell_id
+            root.mkdir(parents=True)
+            rows = len(expert_ids) * 16
+            blocks = rows * 16 // 256
+            (root / "wire.bin").write_bytes(bytes(blocks * 8 * transition_bits))
+            np.save(root / "SU.npy", np.ones(16, dtype=np.float16), allow_pickle=False)
+            np.save(root / "SV.npy", np.ones(rows, dtype=np.float16), allow_pickle=False)
+            np.save(root / "Wscale.npy", np.asarray(1.0, dtype=np.float32), allow_pickle=False)
+            (root / "CELL_RECEIPT.json").write_text(
+                json.dumps({"source": {"shape": [rows, 16]}})
+            )
+            cells.append(
+                {
+                    "cell_id": cell_id,
+                    "layer": 0,
+                    "projection": projection,
+                    "expert_ids": expert_ids,
+                }
+            )
+            selected[cell_id] = {"tier": f"native-b{transition_bits}"}
+            roots[cell_id] = root
+
+    _materialize_native_v4_plane_source(
+        source,
+        cells=cells,
+        selected=selected,
+        tier_descriptors=descriptors,
+        artifact_roots=roots,
+    )
+    output = tmp_path / "pack"
+    manifest = export_pack(
+        source_root=source,
+        output=output,
+        model_id="fixture/native-v4",
+        instance_id="b7-b9-b10",
+        runtime_floor_bytes=0,
+    )
+
+    assert manifest["source_format"] == "p1016-true-c-native-planes-v1"
+    meta = json.loads((output / "planes" / "layer_000.meta.json").read_text())
+    assert set(meta["family13"]) == {4, 5, 6}
+    assert set(meta["family2"]) == {4, 5, 6}
+    assert {
+        payload["geometry"]["B"]
+        for payloads in meta["payloads"].values()
+        for payload in payloads.values()
+    } == {7, 9, 10}

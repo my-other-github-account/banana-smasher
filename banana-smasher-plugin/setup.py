@@ -38,6 +38,7 @@ EXT_MODULES = [] if _METADATA_ONLY else [
         [
             str(CSRC / "route_compaction.cu"),
             str(CSRC / "qtip_transforms.cu"),
+            str(CSRC / "native_v4_gemv.cu"),
             str(CSRC / "vq_warp_gemv.cu"),
             str(CSRC / "qtip" / "wrapper.cpp"),
             str(CSRC / "qtip" / "qtip_dynamic_torch.cu"),
