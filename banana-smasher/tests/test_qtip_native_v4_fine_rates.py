@@ -18,6 +18,8 @@ from banana_smasher.backpack import _materialize_native_v4_plane_source
 from banana_smasher.qtip1 import gaussian_tlut
 from banana_smasher.qtip25_native_v4 import (
     decode_native_v4,
+    ldlq_native_v4_matrix,
+    native_v4_lower_from_hessian,
     native_v4_geometry,
     solve_native_v4,
 )
@@ -49,6 +51,42 @@ def test_native_v4_geometry_supports_homogeneous_quarter_rates() -> None:
         assert encoded.packed.shape == (1, packed_bytes)
         assert decoded.shape == (1, 32)
         assert np.isfinite(decoded).all()
+
+
+def test_native_v4_scale_search_uses_nonzero_reverse_16_ldlq() -> None:
+    rng = np.random.default_rng(47)
+    source = rng.normal(size=(32, 32)).astype(np.float32)
+    calibration = rng.normal(size=(32, 48)).astype(np.float32)
+    hessian = calibration @ calibration.T + np.eye(32, dtype=np.float32)
+    lower = native_v4_lower_from_hessian(hessian)
+    tlut = gaussian_tlut(bits=9, columns=2)
+
+    fixed = ldlq_native_v4_matrix(
+        source,
+        lower,
+        tlut=tlut,
+        scale_factors=(1.0,),
+    )
+    searched = ldlq_native_v4_matrix(
+        source,
+        lower,
+        tlut=tlut,
+        scale_factors=(0.9, 1.0, 1.1),
+    )
+    decoded_tiles = decode_native_v4(
+        searched.packed,
+        searched.scales,
+        positions=256,
+        tlut=tlut,
+    ).reshape(2, 2, 16, 16)
+    decoded = decoded_tiles.transpose(0, 2, 1, 3).reshape(32, 32)
+
+    assert searched.feedback_nonzero_count == np.count_nonzero(lower)
+    assert searched.feedback_nonzero_count > 0
+    assert searched.scale_factors == (0.9, 1.0, 1.1)
+    assert searched.packed.shape == (4, 80)
+    assert searched.distortion <= fixed.distortion
+    np.testing.assert_allclose(decoded, searched.decoded, rtol=0.0, atol=0.0)
 
 
 def test_public_cell_builder_accepts_arbitrary_quarter_rates(tmp_path) -> None:

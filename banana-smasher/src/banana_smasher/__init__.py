@@ -132,6 +132,11 @@ from .qtip25_native_v4_api import (
     build_qtip_native_v4_anchor_set,
     build_qtip_native_v4_cell,
 )
+from .qtip25_native_v4 import (
+    NativeV4MatrixResult,
+    ldlq_native_v4_matrix,
+    native_v4_lower_from_hessian,
+)
 from .banana_v1 import (
     BANANA_V1_GEOMETRY,
     banana_v1_gaussian_codebook,
@@ -219,6 +224,7 @@ __all__ = [
     "QtipProviderComponent",
     "QtipProviderDeclaration",
     "QtipWireConsumer",
+    "NativeV4MatrixResult",
     "UpdateQueue",
     "aggregate_scores",
     "anchor_backpack",
@@ -269,6 +275,7 @@ __all__ = [
     "inspect_backpack",
     "load_manifest",
     "ldlq_banana_v1_matrix",
+    "ldlq_native_v4_matrix",
     "materialize_backpack_assignment",
     "materialize_banana_v1_candidate",
     "materialize_backpack_source",
@@ -278,6 +285,7 @@ __all__ = [
     "materialize_candidate_producer",
     "materialize_fixed_d4",
     "native_mxfp4_backpack_provider",
+    "native_v4_lower_from_hessian",
     "pack_qtip_states",
     "pack_banana_v1_states",
     "persist_fixed_d4_solve",

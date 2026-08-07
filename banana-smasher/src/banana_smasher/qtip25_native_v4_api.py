@@ -24,6 +24,8 @@ from .backpack import CLASSES, _anchor_metrics
 from .qtip25_native_v4 import (
     NATIVE_QTIP25_GEOMETRY,
     decode_native_v4,
+    ldlq_native_v4_matrix,
+    native_v4_lower_from_hessian,
     native_v4_geometry,
     solve_native_v4,
 )
@@ -219,6 +221,18 @@ def _build_qtip_native_v4_cell(
     solve_batch: int = 2048,
     decode_batch: int = 2048,
     decode_repeats: int = 1,
+    hessian: str | Path | None = None,
+    scale_factors: Sequence[float] = (
+        0.80,
+        0.85,
+        0.90,
+        0.95,
+        1.00,
+        1.05,
+        1.10,
+        1.15,
+        1.20,
+    ),
 ) -> dict[str, Any]:
     """Build one physical homogeneous native-V4 candidate cell.
 
@@ -262,6 +276,12 @@ def _build_qtip_native_v4_cell(
     normalized_sha256 = _sha_array(blocks)
     started = time.perf_counter()
     cuda_receipt: dict[str, Any] | None = None
+    optimization: dict[str, Any] = {
+        "method": "rms_only_no_feedback",
+        "scale_factor": 1.0,
+        "scale_factors": [1.0],
+        "feedback_nonzero_count": 0,
+    }
     if backend == "cuda":
         from .qtip25_native_v4_cuda_cell import run_cuda_cell
 
@@ -282,26 +302,60 @@ def _build_qtip_native_v4_cell(
                 transform_bytes=int(
                     compact["SU_storage"].nbytes + compact["SV_storage"].nbytes
                 ),
+                hessian_path=hessian,
+                matrix_shape=compact["shape"],
+                scale_factors=scale_factors,
             )
         finally:
             normalized_path.unlink(missing_ok=True)
         packed = np.load(output_root / "codes.npy", allow_pickle=False)
         encode_seconds = float(cuda_receipt["encode"]["wall_seconds"])
+        optimization = dict(cuda_receipt["optimization"])
     else:
-        encoded = solve_native_v4(
-            blocks,
-            tlut=table,
-            scales=np.ones(len(blocks), dtype=np.float32),
-            geometry=geometry,
-        )
-        packed = encoded.packed
+        if hessian is None:
+            encoded = solve_native_v4(
+                blocks,
+                tlut=table,
+                scales=np.ones(len(blocks), dtype=np.float32),
+                geometry=geometry,
+            )
+            packed = encoded.packed
+        else:
+            hessian_path = Path(hessian).expanduser().resolve()
+            hessian_value = np.load(hessian_path, allow_pickle=False)
+            lower = native_v4_lower_from_hessian(hessian_value)
+            rows, columns = compact["shape"]
+            transformed = (
+                blocks.reshape(rows // 16, columns // 16, 16, 16)
+                .transpose(0, 2, 1, 3)
+                .reshape(rows, columns)
+            )
+            matrix = ldlq_native_v4_matrix(
+                transformed,
+                lower,
+                tlut=table,
+                geometry=geometry,
+                scale_factors=scale_factors,
+            )
+            packed = matrix.packed
+            optimization = {
+                "method": "qtip_batch_block_ldl_reverse_16",
+                "scale_factor": matrix.scale_factor,
+                "scale_factors": list(matrix.scale_factors),
+                "feedback_nonzero_count": matrix.feedback_nonzero_count,
+                "distortion": matrix.distortion,
+                "hessian": _artifact(
+                    hessian_path, data_bytes=int(hessian_value.nbytes)
+                ),
+            }
         codes_path = output_root / "codes.npy"
         np.save(codes_path, packed, allow_pickle=False)
         encode_seconds = time.perf_counter() - started
 
+    selected_scale = np.float32(optimization["scale_factor"])
     decoded_blocks = decode_native_v4(
         packed,
-        np.ones(len(packed), dtype=np.float32),
+        np.full(len(packed), selected_scale, dtype=np.float32),
         positions=256,
         tlut=table,
         geometry=geometry,
@@ -314,7 +368,11 @@ def _build_qtip_native_v4_cell(
     np.save(decoded_path, decoded, allow_pickle=False)
     np.save(su_path, compact["SU_storage"], allow_pickle=False)
     np.save(sv_path, compact["SV_storage"], allow_pickle=False)
-    np.save(wscale_path, np.asarray(compact["Wscale"], dtype=np.float32), allow_pickle=False)
+    np.save(
+        wscale_path,
+        np.asarray(compact["Wscale"] * selected_scale, dtype=np.float32),
+        allow_pickle=False,
+    )
     codes_path = output_root / "codes.npy"
 
     weights = int(source_weights.size)
@@ -353,6 +411,7 @@ def _build_qtip_native_v4_cell(
             "shape": list(table.shape),
         },
         "normalized_tensor_sha256": normalized_sha256,
+        "optimization": optimization,
         "accounting": {
             "weights": weights,
             "exact_code_bits": code_bits,
@@ -415,6 +474,18 @@ def build_qtip_native_v4_cell(
     solve_batch: int = 2048,
     decode_batch: int = 2048,
     decode_repeats: int = 1,
+    hessian: str | Path | None = None,
+    scale_factors: Sequence[float] = (
+        0.80,
+        0.85,
+        0.90,
+        0.95,
+        1.00,
+        1.05,
+        1.10,
+        1.15,
+        1.20,
+    ),
 ) -> dict[str, Any]:
     """Build one homogeneous native-V4 cell at an exact quarter-BPW rate."""
 
@@ -431,6 +502,8 @@ def build_qtip_native_v4_cell(
         solve_batch=solve_batch,
         decode_batch=decode_batch,
         decode_repeats=decode_repeats,
+        hessian=hessian,
+        scale_factors=scale_factors,
     )
 
 
@@ -446,6 +519,18 @@ def build_qtip25_native_v4_cell(
     solve_batch: int = 2048,
     decode_batch: int = 2048,
     decode_repeats: int = 1,
+    hessian: str | Path | None = None,
+    scale_factors: Sequence[float] = (
+        0.80,
+        0.85,
+        0.90,
+        0.95,
+        1.00,
+        1.05,
+        1.10,
+        1.15,
+        1.20,
+    ),
 ) -> dict[str, Any]:
     """Backward-compatible fixed-2.50 wrapper around the generic native-V4 API."""
 
@@ -462,6 +547,8 @@ def build_qtip25_native_v4_cell(
         solve_batch=solve_batch,
         decode_batch=decode_batch,
         decode_repeats=decode_repeats,
+        hessian=hessian,
+        scale_factors=scale_factors,
     )
 
 

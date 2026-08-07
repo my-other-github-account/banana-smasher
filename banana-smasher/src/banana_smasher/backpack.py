@@ -1808,6 +1808,12 @@ def generate_native_v4_backpack_candidate(
         solve_batch=int(tier["solve_batch"]),
         decode_batch=int(tier["decode_batch"]),
         decode_repeats=int(tier["decode_repeats"]),
+        hessian=(str(tier["hessian"]) if tier.get("hessian") is not None else None),
+        **(
+            {"scale_factors": tuple(float(value) for value in tier["scale_factors"])}
+            if tier.get("scale_factors") is not None
+            else {}
+        ),
     )
     packed = np.asarray(np.load(destination / "codes.npy", allow_pickle=False))
     decoded = np.asarray(np.load(destination / "decoded.npy", allow_pickle=False))

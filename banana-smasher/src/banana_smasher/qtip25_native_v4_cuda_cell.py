@@ -132,6 +132,107 @@ def validate_input(
     }
 
 
+def _ldlq_cuda_matrix(
+    target: np.ndarray,
+    hessian: np.ndarray,
+    *,
+    matrix_shape: tuple[int, int],
+    state_lut: Any,
+    geometry: NativeQtip25Geometry,
+    solve_batch: int,
+    scale_factors: Sequence[float],
+) -> tuple[np.ndarray, float, dict[str, Any]]:
+    """Run qtip_batch block-LDL and reverse-16 native-V4 feedback on CUDA."""
+    import math
+
+    import torch
+
+    from .qtip_batch import block_ldl_batch
+
+    rows, columns = matrix_shape
+    if (
+        rows % 16
+        or columns % 16
+        or len(target) != (rows // 16) * (columns // 16)
+        or hessian.shape != (columns, columns)
+        or hessian.dtype != np.float32
+        or not np.isfinite(hessian).all()
+    ):
+        raise ValueError("native V4 CUDA LDLQ matrix/Hessian geometry mismatch")
+    factors = tuple(float(value) for value in scale_factors)
+    if not factors or any(not math.isfinite(value) or value <= 0 for value in factors):
+        raise ValueError("native V4 CUDA LDLQ scale factors must be finite and positive")
+    device = state_lut.device
+    row_blocks = rows // 16
+    column_blocks = columns // 16
+    source = (
+        torch.from_numpy(np.asarray(target).copy())
+        .to(device)
+        .reshape(row_blocks, column_blocks, 16, 16)
+        .permute(0, 2, 1, 3)
+        .reshape(rows, columns)
+        .contiguous()
+    )
+    hessian_tensor = torch.from_numpy(np.asarray(hessian).copy()).to(device)
+    lower = block_ldl_batch(hessian_tensor.unsqueeze(0), 16)[0]
+    lower.diagonal().zero_()
+    feedback_nonzero_count = int(torch.count_nonzero(lower).item())
+    if feedback_nonzero_count == 0:
+        raise RuntimeError("native V4 CUDA LDLQ requires nonzero Hessian feedback")
+    source_rms = source.double().square().mean().sqrt()
+    lut_rms = state_lut.double().square().mean().sqrt()
+    base_scale = float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
+    best: tuple[float, float, Any] | None = None
+    for factor in factors:
+        scale = base_scale * factor
+        decoded = torch.zeros_like(source)
+        states_grid = torch.empty(
+            (row_blocks, column_blocks, 64), device=device, dtype=torch.int32
+        )
+        for column_block in range(column_blocks - 1, -1, -1):
+            start = column_block * 16
+            end = start + 16
+            corrected = source[:, start:end].clone()
+            if end < columns:
+                error_right = source[:, end:] - decoded[:, end:]
+                corrected.add_((lower[end:, start:end].T @ error_right.T).T)
+            tiles = corrected.reshape(row_blocks, 64, geometry.V) / scale
+            parts = []
+            for batch_start in range(0, row_blocks, solve_batch):
+                parts.append(
+                    solve_native_v4_cuda(
+                        tiles[batch_start : batch_start + solve_batch],
+                        state_lut=state_lut,
+                        geometry=geometry,
+                    )
+                )
+            states = torch.cat(parts)
+            decoded[:, start:end] = state_lut[states].reshape(rows, 16) * scale
+            states_grid[:, column_block] = states
+        distortion = float((decoded.double() - source.double()).square().sum().item())
+        if best is None or distortion < best[0]:
+            best = (distortion, scale, states_grid.clone())
+    assert best is not None
+    distortion, selected_scale, states_grid = best
+    flat_states = states_grid.reshape(-1, 64)
+    packed_parts = []
+    for batch_start in range(0, len(flat_states), solve_batch):
+        packed_parts.append(
+            _pack_cuda_states_v4(
+                flat_states[batch_start : batch_start + solve_batch], geometry=geometry
+            ).cpu()
+        )
+    packed = torch.cat(packed_parts).numpy()
+    return packed, selected_scale, {
+        "method": "qtip_batch_block_ldl_reverse_16",
+        "matrix_shape": [rows, columns],
+        "scale_factor": selected_scale,
+        "scale_factors": list(factors),
+        "feedback_nonzero_count": feedback_nonzero_count,
+        "distortion": distortion,
+    }
+
+
 def run_cuda_cell(
     input_path: str | Path,
     tlut_path: str | Path,
@@ -145,6 +246,19 @@ def run_cuda_cell(
     scale_bytes: int = 0,
     transform_bytes: int = 0,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+    hessian_path: str | Path | None = None,
+    matrix_shape: tuple[int, int] | None = None,
+    scale_factors: Sequence[float] = (
+        0.80,
+        0.85,
+        0.90,
+        0.95,
+        1.00,
+        1.05,
+        1.10,
+        1.15,
+        1.20,
+    ),
 ) -> dict[str, Any]:
     target, tlut, identity = validate_input(
         input_path,
@@ -167,6 +281,10 @@ def run_cuda_cell(
     peak_estimate = (256 << 20) + solve_batch * (
         64 * geometry.prefixes * 4 + 64 * geometry.V * 4 + geometry.prefixes * 8
     )
+    hessian = None
+    if hessian_path is not None:
+        hessian = np.load(Path(hessian_path).resolve(), allow_pickle=False)
+        peak_estimate += int(hessian.nbytes * 2 + target.nbytes * 3)
     if peak_estimate + (4 << 30) > free:
         raise RuntimeError(
             f"native V4 CUDA preflight failed: free={free} peak_estimate={peak_estimate} reserve={4 << 30}"
@@ -174,18 +292,40 @@ def run_cuda_cell(
     device = torch.device("cuda")
     table = torch.from_numpy(np.asarray(tlut)).to(device)
     state_lut = torch.from_numpy(expand_native_v4_tlut(tlut, geometry=geometry)).to(device)
-    packed_parts: list[np.ndarray] = []
     torch.cuda.synchronize()
     encode_started = time.perf_counter()
-    for start in range(0, len(target), solve_batch):
-        source = torch.from_numpy(
-            np.asarray(target[start : start + solve_batch]).copy()
-        ).to(device)
-        states = solve_native_v4_cuda(source, state_lut=state_lut, geometry=geometry)
-        packed_parts.append(_pack_cuda_states_v4(states, geometry=geometry).cpu().numpy())
+    optimization: dict[str, Any] = {
+        "method": "rms_only_no_feedback",
+        "scale_factor": 1.0,
+        "scale_factors": [1.0],
+        "feedback_nonzero_count": 0,
+    }
+    if hessian is not None:
+        if matrix_shape is None:
+            raise ValueError("native V4 CUDA Hessian path requires matrix_shape")
+        packed, selected_scale, optimization = _ldlq_cuda_matrix(
+            target,
+            hessian,
+            matrix_shape=matrix_shape,
+            state_lut=state_lut,
+            geometry=geometry,
+            solve_batch=solve_batch,
+            scale_factors=scale_factors,
+        )
+    else:
+        packed_parts: list[np.ndarray] = []
+        for start in range(0, len(target), solve_batch):
+            source = torch.from_numpy(
+                np.asarray(target[start : start + solve_batch]).copy()
+            ).to(device)
+            states = solve_native_v4_cuda(source, state_lut=state_lut, geometry=geometry)
+            packed_parts.append(
+                _pack_cuda_states_v4(states, geometry=geometry).cpu().numpy()
+            )
+        packed = np.concatenate(packed_parts)
+        selected_scale = 1.0
     torch.cuda.synchronize()
     encode_seconds = time.perf_counter() - encode_started
-    packed = np.concatenate(packed_parts)
 
     output_root = Path(output).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -223,7 +363,10 @@ def run_cuda_cell(
                 )
         torch.cuda.synchronize()
         decode_seconds = time.perf_counter() - decode_started
-    decoded = torch.cat(observed_parts).reshape(len(target), 64, 4).numpy()
+    decoded = (
+        torch.cat(observed_parts).reshape(len(target), 64, 4).numpy()
+        * np.float32(selected_scale)
+    )
     delta = decoded.astype(np.float64) - np.asarray(target, dtype=np.float64)
     sse = float(np.sum(delta * delta, dtype=np.float64))
     counters = native_v4_decode_counters()
@@ -248,6 +391,7 @@ def run_cuda_cell(
         "phase_count": 1,
         "unique_transition_bits": [geometry.B],
         "alternation": False,
+        "optimization": optimization,
         "accounting": accounting,
         "direct_error": {"sse": sse, "mse": sse / positions},
         "encode": {

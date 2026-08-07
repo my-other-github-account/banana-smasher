@@ -72,6 +72,7 @@ class NativeQtip25Geometry:
 
 
 NATIVE_QTIP25_GEOMETRY = NativeQtip25Geometry()
+_DEFAULT_SCALE_FACTORS = (0.80, 0.85, 0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20)
 
 
 def native_v4_geometry(bpw: object) -> NativeQtip25Geometry:
@@ -111,6 +112,18 @@ class EncodedNativeQtip25:
     @property
     def code_bpw(self) -> float:
         return self.code_bits / self.weights
+
+
+@dataclass(frozen=True)
+class NativeV4MatrixResult:
+    decoded: np.ndarray
+    states: np.ndarray
+    packed: np.ndarray
+    scales: np.ndarray
+    distortion: float
+    scale_factor: float
+    scale_factors: tuple[float, ...]
+    feedback_nonzero_count: int
 
 
 def _require_tlut(
@@ -363,6 +376,123 @@ def solve_native_v4(
         packed=packed,
         scales=row_scales,
         distortion=distortion,
+    )
+
+
+def native_v4_lower_from_hessian(hessian: np.ndarray) -> np.ndarray:
+    """Derive the normalized 16-column feedback matrix with qtip_batch block-LDL."""
+    import torch
+
+    from .qtip_batch import block_ldl_batch
+
+    value = np.asarray(hessian, dtype=np.float32)
+    if (
+        value.ndim != 2
+        or value.shape[0] != value.shape[1]
+        or value.shape[0] % 16
+        or not bool(np.isfinite(value).all())
+    ):
+        raise ValueError("native V4 Hessian must be finite square with width divisible by 16")
+    tensor = torch.from_numpy(np.ascontiguousarray(value)).unsqueeze(0)
+    lower = block_ldl_batch(tensor, 16)[0]
+    lower.diagonal().zero_()
+    return np.ascontiguousarray(lower.numpy(), dtype=np.float32)
+
+
+def ldlq_native_v4_matrix(
+    transformed: np.ndarray,
+    lower: np.ndarray,
+    *,
+    tlut: np.ndarray,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+    scale_factors: Sequence[float] = _DEFAULT_SCALE_FACTORS,
+) -> NativeV4MatrixResult:
+    """Run bounded global-scale search with reverse 16-column LDLQ feedback."""
+    source = np.asarray(transformed, dtype=np.float32)
+    feedback = np.asarray(lower, dtype=np.float32)
+    if (
+        source.ndim != 2
+        or source.shape[0] % 16
+        or source.shape[1] % 16
+        or feedback.shape != (source.shape[1], source.shape[1])
+        or not bool(np.isfinite(source).all() and np.isfinite(feedback).all())
+    ):
+        raise ValueError(
+            "native V4 LDLQ requires a finite 16-tiled matrix and matching square lower"
+        )
+    if bool(np.any(np.triu(feedback, 1) != 0)):
+        raise ValueError("native V4 LDLQ feedback must be lower triangular")
+    factors = tuple(float(value) for value in scale_factors)
+    if not factors or any(not math.isfinite(value) or value <= 0 for value in factors):
+        raise ValueError("native V4 LDLQ scale factors must be finite and positive")
+    lut = expand_native_v4_tlut(tlut, geometry=geometry)
+    source_rms = float(np.sqrt(np.mean(source.astype(np.float64) ** 2)))
+    lut_rms = float(np.sqrt(np.mean(lut.astype(np.float64) ** 2)))
+    base_scale = 1.0 if source_rms == 0 else source_rms / lut_rms
+    row_blocks = source.shape[0] // 16
+    column_blocks = source.shape[1] // 16
+    packed_bytes = 8 * geometry.B
+    best: tuple[float, float, np.ndarray, np.ndarray, np.ndarray] | None = None
+    for factor in factors:
+        scale = np.float32(base_scale * factor)
+        decoded = np.zeros_like(source)
+        state_grid = np.empty((row_blocks, column_blocks, 64), dtype=np.int32)
+        packed_grid = np.empty(
+            (row_blocks, column_blocks, packed_bytes), dtype=np.uint8
+        )
+        for column_block in range(column_blocks - 1, -1, -1):
+            start = column_block * 16
+            end = start + 16
+            corrected = source[:, start:end].copy()
+            if end < source.shape[1]:
+                error_right = source[:, end:] - decoded[:, end:]
+                corrected += (feedback[end:, start:end].T @ error_right.T).T.astype(
+                    np.float32
+                )
+            tiles = corrected.reshape(row_blocks, 16, 16).reshape(
+                row_blocks, 64, geometry.V
+            )
+            encoded = solve_native_v4(
+                tiles,
+                state_lut=lut,
+                scales=np.full(row_blocks, scale, dtype=np.float32),
+                geometry=geometry,
+            )
+            quantized = decode_native_v4(
+                encoded.packed,
+                encoded.scales,
+                positions=256,
+                tlut=tlut,
+                geometry=geometry,
+            ).reshape(source.shape[0], 16)
+            decoded[:, start:end] = quantized
+            state_grid[:, column_block] = encoded.states
+            packed_grid[:, column_block] = encoded.packed
+        distortion = float(
+            np.sum((decoded.astype(np.float64) - source.astype(np.float64)) ** 2)
+        )
+        if best is None or distortion < best[0]:
+            best = (
+                distortion,
+                factor,
+                decoded.copy(),
+                state_grid.copy(),
+                packed_grid.copy(),
+            )
+    assert best is not None
+    distortion, selected_factor, decoded, state_grid, packed_grid = best
+    tile_count = row_blocks * column_blocks
+    return NativeV4MatrixResult(
+        decoded=np.ascontiguousarray(decoded),
+        states=np.ascontiguousarray(state_grid.reshape(tile_count, 64)),
+        packed=np.ascontiguousarray(packed_grid.reshape(tile_count, packed_bytes)),
+        scales=np.full(
+            tile_count, base_scale * selected_factor, dtype=np.float32
+        ),
+        distortion=distortion,
+        scale_factor=base_scale * selected_factor,
+        scale_factors=factors,
+        feedback_nonzero_count=int(np.count_nonzero(feedback)),
     )
 
 
@@ -721,10 +851,13 @@ def native_v4_wire_accounting(
 __all__ = [
     "EncodedNativeQtip25",
     "NATIVE_QTIP25_GEOMETRY",
+    "NativeV4MatrixResult",
     "NativeQtip25Geometry",
     "decode_native_v4",
     "decode_native_v4_torch",
     "expand_native_v4_tlut",
+    "ldlq_native_v4_matrix",
+    "native_v4_lower_from_hessian",
     "native_v4_wire_accounting",
     "native_v4_geometry",
     "pack_native_v4_states",

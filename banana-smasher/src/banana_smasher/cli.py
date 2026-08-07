@@ -249,6 +249,14 @@ def _parser() -> argparse.ArgumentParser:
     native_v4_build.add_argument("--solve-batch", type=int, default=2048)
     native_v4_build.add_argument("--decode-batch", type=int, default=2048)
     native_v4_build.add_argument("--decode-repeats", type=int, default=1)
+    native_v4_build.add_argument("--hessian", type=Path)
+    native_v4_build.add_argument(
+        "--scale-factor",
+        action="append",
+        dest="scale_factors",
+        type=float,
+        help="bounded global scale candidate; repeat to search multiple values",
+    )
     native_v4_anchor = native_v4_commands.add_parser(
         "anchor-cell", help="measure one built native-V4 cell with the standard 64-window anchor"
     )
@@ -1195,6 +1203,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "solve_batch": args.solve_batch,
                     "decode_batch": args.decode_batch,
                     "decode_repeats": args.decode_repeats,
+                    "hessian": args.hessian,
+                    **(
+                        {"scale_factors": tuple(args.scale_factors)}
+                        if args.scale_factors is not None
+                        else {}
+                    ),
                 }
                 result = builder(
                     args.source,
