@@ -132,6 +132,177 @@ def validate_input(
     }
 
 
+def ldlq_native_v4_cuda_batch(
+    targets: Sequence[np.ndarray],
+    hessians: Sequence[np.ndarray],
+    *,
+    matrix_shape: tuple[int, int],
+    state_lut: Any,
+    geometry: NativeQtip25Geometry,
+    solve_batch: int,
+    scale_factors: Sequence[float],
+) -> tuple[list[np.ndarray], list[float], list[dict[str, Any]]]:
+    """Run reverse-16 native-V4 LDLQ with cells and scale candidates batched."""
+    import math
+
+    import torch
+
+    from .qtip_batch import block_ldl_batch
+
+    rows, columns = matrix_shape
+    cell_count = len(targets)
+    tile_count = (rows // 16) * (columns // 16)
+    if (
+        not cell_count
+        or len(hessians) != cell_count
+        or rows % 16
+        or columns % 16
+        or any(len(target) != tile_count for target in targets)
+        or any(
+            hessian.shape != (columns, columns)
+            or hessian.dtype != np.float32
+            or not np.isfinite(hessian).all()
+            for hessian in hessians
+        )
+    ):
+        raise ValueError("native V4 CUDA LDLQ matrix/Hessian geometry mismatch")
+    factors = tuple(float(value) for value in scale_factors)
+    if not factors or any(not math.isfinite(value) or value <= 0 for value in factors):
+        raise ValueError("native V4 CUDA LDLQ scale factors must be finite and positive")
+    device = state_lut.device
+    row_blocks = rows // 16
+    column_blocks = columns // 16
+    source = torch.stack(
+        [
+            torch.from_numpy(np.asarray(target).copy())
+            .reshape(row_blocks, column_blocks, 16, 16)
+            .permute(0, 2, 1, 3)
+            .reshape(rows, columns)
+            for target in targets
+        ]
+    ).to(device)
+    regularization_sigma = 1e-2
+    hessian_tensor = torch.from_numpy(
+        np.stack([np.asarray(hessian).copy() for hessian in hessians])
+    ).to(device)
+    diagonal = hessian_tensor.diagonal(dim1=-2, dim2=-1)
+    diagonal_mean = diagonal.mean(dim=-1)
+    if not bool(torch.all(diagonal_mean > 0)):
+        raise RuntimeError("native V4 CUDA LDLQ Hessian diagonal mean must be positive")
+    diagonal.add_(diagonal_mean[:, None] * regularization_sigma)
+    lower = block_ldl_batch(hessian_tensor, 16)
+    lower.diagonal(dim1=-2, dim2=-1).zero_()
+    feedback_nonzero_counts = torch.count_nonzero(lower, dim=(1, 2))
+    if bool(torch.any(feedback_nonzero_counts == 0)):
+        raise RuntimeError("native V4 CUDA LDLQ requires nonzero Hessian feedback")
+    lut_rms = state_lut.double().square().mean().sqrt()
+    base_scale_values = []
+    for cell in range(cell_count):
+        source_rms = source[cell].double().square().mean().sqrt()
+        base_scale_values.append(
+            float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
+        )
+    base_scales = torch.tensor(base_scale_values, dtype=source.dtype, device=device)
+    scale_values = torch.tensor(
+        [
+            [base_scale_values[cell] * factor for factor in factors]
+            for cell in range(cell_count)
+        ],
+        dtype=source.dtype,
+        device=device,
+    )
+    factor_count = len(factors)
+    group_count = cell_count * factor_count
+    source_group = source[:, None].expand(-1, factor_count, -1, -1).reshape(
+        group_count, rows, columns
+    )
+    lower_group = lower[:, None].expand(-1, factor_count, -1, -1).reshape(
+        group_count, columns, columns
+    )
+    flat_scales = scale_values.reshape(group_count)
+    decoded = torch.zeros_like(source_group)
+    states_grid = torch.empty(
+        (group_count, row_blocks, column_blocks, 64),
+        device=device,
+        dtype=torch.int32,
+    )
+    max_solver_batch = 0
+    for column_block in range(column_blocks - 1, -1, -1):
+        start = column_block * 16
+        end = start + 16
+        corrected = source_group[:, :, start:end].clone()
+        if end < columns:
+            error_right = source_group[:, :, end:] - decoded[:, :, end:]
+            corrected.add_(torch.bmm(error_right, lower_group[:, end:, start:end]))
+        tiles = corrected.reshape(
+            group_count, row_blocks, 64, geometry.V
+        ) / flat_scales[:, None, None, None]
+        flattened_tiles = tiles.reshape(group_count * row_blocks, 64, geometry.V)
+        parts = []
+        for batch_start in range(0, len(flattened_tiles), solve_batch):
+            part = flattened_tiles[batch_start : batch_start + solve_batch]
+            max_solver_batch = max(max_solver_batch, len(part))
+            parts.append(
+                solve_native_v4_cuda(
+                    part,
+                    state_lut=state_lut,
+                    geometry=geometry,
+                )
+            )
+        states = torch.cat(parts).reshape(group_count, row_blocks, 64)
+        decoded[:, :, start:end] = (
+            state_lut[states].reshape(group_count, rows, 16)
+            * flat_scales[:, None, None]
+        )
+        states_grid[:, :, column_block] = states
+    distortions = (
+        decoded.double() - source_group.double()
+    ).square().sum(dim=(1, 2)).reshape(cell_count, factor_count)
+    winners = torch.argmin(distortions, dim=1)
+    cell_ids = torch.arange(cell_count, device=device)
+    selected_states = states_grid.reshape(
+        cell_count, factor_count, row_blocks, column_blocks, 64
+    )[cell_ids, winners]
+    flat_states = selected_states.reshape(cell_count * tile_count, 64)
+    packed_parts = []
+    for batch_start in range(0, len(flat_states), solve_batch):
+        packed_parts.append(
+            _pack_cuda_states_v4(
+                flat_states[batch_start : batch_start + solve_batch], geometry=geometry
+            ).cpu()
+        )
+    packed_values = torch.cat(packed_parts).reshape(
+        cell_count, tile_count, 8 * geometry.B
+    ).numpy()
+    selected_scales = scale_values[cell_ids, winners]
+    results = []
+    for cell in range(cell_count):
+        winner = int(winners[cell].item())
+        selected_scale = float(selected_scales[cell].item())
+        results.append(
+            {
+                "method": "qtip_batch_block_ldl_reverse_16_cell_scale_batched",
+                "matrix_shape": [rows, columns],
+                "base_scale": float(base_scales[cell].item()),
+                "selected_factor": factors[winner],
+                "selected_scale": selected_scale,
+                "scale_factor": selected_scale,
+                "scale_factors": list(factors),
+                "cell_batch_size": cell_count,
+                "scale_batch_size": factor_count,
+                "max_solver_sequence_batch": max_solver_batch,
+                "hessian_regularization_sigma": regularization_sigma,
+                "feedback_nonzero_count": int(feedback_nonzero_counts[cell].item()),
+                "distortion": float(distortions[cell, winner].item()),
+            }
+        )
+    return (
+        [np.ascontiguousarray(value) for value in packed_values],
+        [float(value) for value in selected_scales.tolist()],
+        results,
+    )
+
+
 def _ldlq_cuda_matrix(
     target: np.ndarray,
     hessian: np.ndarray,
@@ -142,105 +313,16 @@ def _ldlq_cuda_matrix(
     solve_batch: int,
     scale_factors: Sequence[float],
 ) -> tuple[np.ndarray, float, dict[str, Any]]:
-    """Run qtip_batch block-LDL and reverse-16 native-V4 feedback on CUDA."""
-    import math
-
-    import torch
-
-    from .qtip_batch import block_ldl_batch
-
-    rows, columns = matrix_shape
-    if (
-        rows % 16
-        or columns % 16
-        or len(target) != (rows // 16) * (columns // 16)
-        or hessian.shape != (columns, columns)
-        or hessian.dtype != np.float32
-        or not np.isfinite(hessian).all()
-    ):
-        raise ValueError("native V4 CUDA LDLQ matrix/Hessian geometry mismatch")
-    factors = tuple(float(value) for value in scale_factors)
-    if not factors or any(not math.isfinite(value) or value <= 0 for value in factors):
-        raise ValueError("native V4 CUDA LDLQ scale factors must be finite and positive")
-    device = state_lut.device
-    row_blocks = rows // 16
-    column_blocks = columns // 16
-    source = (
-        torch.from_numpy(np.asarray(target).copy())
-        .to(device)
-        .reshape(row_blocks, column_blocks, 16, 16)
-        .permute(0, 2, 1, 3)
-        .reshape(rows, columns)
-        .contiguous()
+    packed, selected_scales, optimization = ldlq_native_v4_cuda_batch(
+        [target],
+        [hessian],
+        matrix_shape=matrix_shape,
+        state_lut=state_lut,
+        geometry=geometry,
+        solve_batch=solve_batch,
+        scale_factors=scale_factors,
     )
-    regularization_sigma = 1e-2
-    hessian_tensor = torch.from_numpy(np.asarray(hessian).copy()).to(device)
-    diagonal = hessian_tensor.diagonal()
-    diagonal_mean = diagonal.mean()
-    if not bool(diagonal_mean > 0):
-        raise RuntimeError("native V4 CUDA LDLQ Hessian diagonal mean must be positive")
-    diagonal.add_(diagonal_mean * regularization_sigma)
-    lower = block_ldl_batch(hessian_tensor.unsqueeze(0), 16)[0]
-    lower.diagonal().zero_()
-    feedback_nonzero_count = int(torch.count_nonzero(lower).item())
-    if feedback_nonzero_count == 0:
-        raise RuntimeError("native V4 CUDA LDLQ requires nonzero Hessian feedback")
-    source_rms = source.double().square().mean().sqrt()
-    lut_rms = state_lut.double().square().mean().sqrt()
-    base_scale = float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
-    best: tuple[float, float, float, Any] | None = None
-    for factor in factors:
-        scale = base_scale * factor
-        decoded = torch.zeros_like(source)
-        states_grid = torch.empty(
-            (row_blocks, column_blocks, 64), device=device, dtype=torch.int32
-        )
-        for column_block in range(column_blocks - 1, -1, -1):
-            start = column_block * 16
-            end = start + 16
-            corrected = source[:, start:end].clone()
-            if end < columns:
-                error_right = source[:, end:] - decoded[:, end:]
-                corrected.add_((lower[end:, start:end].T @ error_right.T).T)
-            tiles = corrected.reshape(row_blocks, 64, geometry.V) / scale
-            parts = []
-            for batch_start in range(0, row_blocks, solve_batch):
-                parts.append(
-                    solve_native_v4_cuda(
-                        tiles[batch_start : batch_start + solve_batch],
-                        state_lut=state_lut,
-                        geometry=geometry,
-                    )
-                )
-            states = torch.cat(parts)
-            decoded[:, start:end] = state_lut[states].reshape(rows, 16) * scale
-            states_grid[:, column_block] = states
-        distortion = float((decoded.double() - source.double()).square().sum().item())
-        if best is None or distortion < best[0]:
-            best = (distortion, factor, scale, states_grid.clone())
-    assert best is not None
-    distortion, selected_factor, selected_scale, states_grid = best
-    flat_states = states_grid.reshape(-1, 64)
-    packed_parts = []
-    for batch_start in range(0, len(flat_states), solve_batch):
-        packed_parts.append(
-            _pack_cuda_states_v4(
-                flat_states[batch_start : batch_start + solve_batch], geometry=geometry
-            ).cpu()
-        )
-    packed = torch.cat(packed_parts).numpy()
-    return packed, selected_scale, {
-        "method": "qtip_batch_block_ldl_reverse_16",
-        "matrix_shape": [rows, columns],
-        "base_scale": base_scale,
-        "selected_factor": selected_factor,
-        "selected_scale": selected_scale,
-        "scale_factor": selected_scale,
-        "scale_factors": list(factors),
-        "hessian_regularization_sigma": regularization_sigma,
-        "feedback_nonzero_count": feedback_nonzero_count,
-        "distortion": distortion,
-    }
+    return packed[0], selected_scales[0], optimization[0]
 
 
 def run_cuda_cell(
