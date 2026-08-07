@@ -187,16 +187,15 @@ def ldlq_native_v4_cuda_batch(
     device = state_lut.device
     row_blocks = rows // 16
     column_blocks = columns // 16
-    source = torch.stack(
-        [
-            torch.from_numpy(np.asarray(target).copy())
+    source_values = [
+        torch.from_numpy(np.asarray(target).copy())
             .reshape(row_blocks, column_blocks, 16, 16)
             .permute(0, 2, 1, 3)
             .reshape(rows, columns)
             .to(device)
-            for target in targets
-        ]
-    )
+        for target in targets
+    ]
+    source = torch.stack(source_values)
     regularization_sigma = 1e-2
     hessian_values = [
         torch.from_numpy(np.asarray(hessian).copy()).to(device) for hessian in hessians
@@ -231,7 +230,7 @@ def ldlq_native_v4_cuda_batch(
     lut_rms = state_lut.double().square().mean().sqrt()
     base_scale_values = []
     for cell in range(cell_count):
-        source_rms = source[cell].double().square().mean().sqrt()
+        source_rms = source_values[cell].double().square().mean().sqrt()
         base_scale_values.append(
             float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
         )
