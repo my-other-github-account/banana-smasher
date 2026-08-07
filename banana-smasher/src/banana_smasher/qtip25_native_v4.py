@@ -621,22 +621,23 @@ if triton is not None:
         chosen = tl.zeros((prefixes,), tl.int32)
         expected_overlap = tl.load(overlap_ptr + sequence).to(tl.int32)
 
-        for branch in tl.range(0, branches):
-            state = branch * prefixes + prefix
-            candidate = tl.zeros((prefixes,), tl.float32)
-            for lane in tl.static_range(0, lanes):
-                value = tl.load(x_ptr + lane * batch + sequence).to(tl.float32)
-                code = tl.load(lut_ptr + lane * state_count + state).to(tl.float32)
-                candidate += (code - value) * (code - value)
-            if has_overlap:
-                candidate = tl.where(
-                    (state >> transition_bits) == expected_overlap,
-                    candidate,
-                    float("inf"),
-                )
-            take = candidate < best
-            best = tl.where(take, candidate, best)
-            chosen = tl.where(take, state, chosen)
+        first_prefix = expected_overlap if has_overlap else 0
+        first_prefix_count = 1 if has_overlap else prefixes
+        for prefix_offset in tl.range(0, first_prefix_count):
+            previous_prefix = first_prefix + prefix_offset
+            for extension in tl.static_range(0, branches // prefixes):
+                branch = previous_prefix * (branches // prefixes) + extension
+                state = branch * prefixes + prefix
+                candidate = tl.zeros((prefixes,), tl.float32)
+                for lane in tl.static_range(0, lanes):
+                    value = tl.load(x_ptr + lane * batch + sequence).to(tl.float32)
+                    code = tl.load(
+                        lut_ptr + lane * state_count + state
+                    ).to(tl.float32)
+                    candidate += (code - value) * (code - value)
+                take = candidate < best
+                best = tl.where(take, candidate, best)
+                chosen = tl.where(take, state, chosen)
         base = sequence * prefixes
         tl.store(scratch_ptr + base + prefix, best)
         tl.store(best_state_ptr + base + prefix, chosen)
