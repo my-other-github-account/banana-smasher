@@ -747,7 +747,11 @@ def _native_v4_cuda_pass(
         transition_bits=geometry.B,
         lanes=geometry.V,
         state_count=geometry.states,
-        num_warps=8 if geometry.prefixes >= 256 else 4,
+        num_warps=(
+            2
+            if geometry.prefixes <= 64
+            else 8 if geometry.prefixes >= 256 else 4
+        ),
         num_stages=1,
     )
     return states
