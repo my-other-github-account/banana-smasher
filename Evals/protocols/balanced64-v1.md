@@ -5,7 +5,8 @@
 BALANCED64 compares quantized DeepSeek-V4-Flash-0731 candidates with their own
 FP8 teacher on a frozen set of 64 windows. The compact competitive receipt covers
 `UD-IQ2_XXS`, `UD-IQ3_XXS`, `UD-IQ4_XS`, `DwarfStar-Q2-0731`, corrected all-43
-QTIP2, deterministic mixed QTIP2.5, and exact uniform QTIP3.
+QTIP2, deterministic mixed QTIP2.5, exact uniform QTIP3, and the pre-repair
+mixed Backpack assignment `BQ23-PRE`.
 
 The paired global metrics are:
 
@@ -98,19 +99,19 @@ python3 -m Evals.tools.receipts verify \
 Expected KLD ranking, from lower to higher:
 
 ```text
-UD-IQ4_XS > QTIP3-uniform-exact > UD-IQ3_XXS > QTIP2.5-all43-FF0731 > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
+UD-IQ4_XS > QTIP3-uniform-exact > BQ23-PRE-FF0731 > UD-IQ3_XXS > QTIP2.5-all43-FF0731 > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
 ```
 
 Expected Top-1 ranking, from higher to lower:
 
 ```text
-UD-IQ4_XS > QTIP3-uniform-exact > QTIP2.5-all43-FF0731 > UD-IQ3_XXS > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
+UD-IQ4_XS > QTIP3-uniform-exact > BQ23-PRE-FF0731 > QTIP2.5-all43-FF0731 > UD-IQ3_XXS > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
 ```
 
 This validates tracked structure, suite-lock consistency, Top-1/GB arithmetic,
 comparison and separately labeled auxiliary-inclusive BPW arithmetic,
 denominator/FP consistency, SHA-256 syntax, replay-status honesty,
-and rankings. For the QTIP rows it also checks six-class position and Top-1 sums,
+and rankings. For the QTIP and BQ23 rows it also checks six-class position and Top-1 sums,
 integer-derived class rates, weighted class KLD, exact component-byte sums, and
 candidate/teacher/scorer/population bindings. It does not authenticate or
 retrieve protected source receipts, and it does not recompute KLD from protected
@@ -152,7 +153,7 @@ numerators. It reports corrected-class and global aggregates.
 
 ## C. Full GPU measurement replay boundary
 
-The seven published measurements are **not** currently end-to-end
+The eight published measurements are **not** currently end-to-end
 replayable from a clean public clone:
 
 - protected teacher-bank payloads and corpus text are not distributed;

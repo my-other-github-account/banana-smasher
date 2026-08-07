@@ -41,6 +41,117 @@ EXPECTED_VERIFICATION_SCOPE = {
     ),
     "full_gpu_replay": "blocked; see each result replay.blockers",
 }
+BQ23_MODEL_ID = "BQ23-PRE-FF0731"
+BQ23_KLD_MEAN = Decimal("0.17548247979523035")
+BQ23_TOP1_MATCHES = 59465
+BQ23_ARTIFACT_BINDINGS = {
+    "assignment_map_sha256": "020a8bd13281b8aac1988f62e5570772549effc39391d6650f2a3c47b54c394a",
+    "candidate_artifact_sha256": "2a726b71cc9f119d478602e87cdbe8a9a8eeb6886718f3a72377424ad406021b",
+    "candidate_layout_sha256": "45dc96541b6c4961b9e3b39f1d7169a1d2bcdf227f02400503edd433956e4fb7",
+    "physical_pack_sha256": "1f844a19bddc77e0cf978510ac975ae7133c6cf79289e84b1c5de69f84a99628",
+}
+BQ23_TIER_COUNTS = {
+    "d4_k1024": 0,
+    "d4_k2048": 0,
+    "d4_k4096": 0,
+    "native_mxfp4": 1951,
+    "qtip2": 4236,
+    "qtip3": 15829,
+}
+BQ23_EXPERT_COMPONENTS = {
+    "d4_k1024": 0,
+    "d4_k2048": 0,
+    "d4_k4096": 0,
+    "native_mxfp4": 13003915264,
+    "qtip2": 13386048048,
+    "qtip3": 74944354132,
+    "shared_activation": 4096,
+}
+BQ23_RETAINED_COMPONENTS = {
+    "attention": 5468544164,
+    "embedding_and_lm_head": 1059061760,
+    "mtp": 10862838300,
+    "normalization": 360448,
+    "other_retained": 1126961720,
+    "routing": 108834816,
+    "shared_expert": 1082196480,
+}
+BQ23_EXPERT_BYTES = 101334321540
+BQ23_EXPERT_PARAMETER_DENOMINATOR = 277025390592
+BQ23_RETAINED_BYTES = 19708797688
+BQ23_INDEX_METADATA_BYTES = 8121467
+BQ23_WHOLE_MODEL_BYTES = 121051240695
+BQ23_MEASUREMENT_BINDINGS = {
+    "scorer_source_sha256": "f08e1d2c073b2338d3d375ad16f57fce8bc2c76813cd7f492d1d0a430495837d",
+    "suite_file_sha256": "c8564f82d151f0f61b255432c20cd1eec24d0b8529f3bed248b8a039f52b9d42",
+}
+BQ23_MEASUREMENT_ARTIFACTS = {
+    "accounting_independent_verification_sha256": "8fa993aa55bddf5e7300cf604529c2db42d0f57db77ab3954dbbcc0ea00523f2",
+    "bindings_sha256": "5273f8ff589103823ad04cb04e11839ea08ab39a1c6011692559a802183b3b86",
+    "candidate_layout_sha256": BQ23_ARTIFACT_BINDINGS["candidate_layout_sha256"],
+    "canonical_aggregate_sha256": "8c78c2891627c149016bb65fe5521496459184dbc3ff26d77473e05e7ecfe7e2",
+    "execution_receipt_sha256": "85c9546a8eb620b11388b6af0e5669216ee3018b4af5727b7b6f3903a036e641",
+    "host_release_sha256": "1655f7215c53bfddde8a2c209d4dc638911a8f4cb4fb61d21575cac1a7812b80",
+    "independent_verification_sha256": "210c80df2185aa28de6d45cf671247c827a6a5d840f75c9bb659162f5522aec1",
+    "input_preflight_sha256": "4bf5ba13c7c66bf4c2179f285d0a9187432065c53df601265fb920b689f2b56b",
+    "process_death_sha256": "1d89d4336ab176a49de874b26671408e81e63c184db2eabe1c085917ece28c0f",
+    "raw_frozen_scorer_bindings_sha256": "ad2711d88ad2d3e002a7738524ec0e9935ea39af0f99d2c5a7ef6c41a269111a",
+    "rows_tree_sha256": "5e15d05264493578aff37a10ce5742f78bae3f11b330835f3b6b11216c655443",
+}
+BQ23_SOURCE_RECEIPT_SHA256 = frozenset(
+    {
+        "bb6650a1464a4705113296f1371f83178a3e2e48a55c264ddd205c71671acd74",
+        *(
+            digest
+            for name, digest in BQ23_MEASUREMENT_ARTIFACTS.items()
+            if name != "candidate_layout_sha256"
+        ),
+    }
+)
+BQ23_CLASSES = {
+    "agentic": {
+        "windows": 19,
+        "positions": 19456,
+        "kld_mean": "0.2312337415683266",
+        "top1_matches": 17643,
+        "top1_rate": "0.9068153782894736842105263157894736842105263157894736842105263157894736842105263157894736842105263158",
+    },
+    "chat": {
+        "windows": 7,
+        "positions": 7168,
+        "kld_mean": "0.07368460112798066",
+        "top1_matches": 6784,
+        "top1_rate": "0.9464285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714",
+    },
+    "code": {
+        "windows": 9,
+        "positions": 9216,
+        "kld_mean": "0.14277965738092727",
+        "top1_matches": 8440,
+        "top1_rate": "0.9157986111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+    },
+    "multilingual": {
+        "windows": 10,
+        "positions": 10240,
+        "kld_mean": "0.1933031053062802",
+        "top1_matches": 9193,
+        "top1_rate": "0.89775390625",
+    },
+    "prose": {
+        "windows": 10,
+        "positions": 10240,
+        "kld_mean": "0.23390783780755037",
+        "top1_matches": 8719,
+        "top1_rate": "0.85146484375",
+    },
+    "reasoning": {
+        "windows": 9,
+        "positions": 9216,
+        "kld_mean": "0.08494656240378005",
+        "top1_matches": 8686,
+        "top1_rate": "0.9424913194444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444",
+    },
+}
 
 
 class ReceiptError(ValueError):
@@ -348,6 +459,43 @@ def _verify_artifact(artifact: Mapping[str, Any], label: str) -> None:
             raise ReceiptError(f"{label}: recorded-complete identity status drift")
         for field in ("repository", "revision", "variant"):
             _nonempty_string(artifact.get(field), f"{label}.{field}")
+    elif artifact.get("family") == "BQ23":
+        _require_exact_keys(
+            artifact,
+            {
+                "assignment_map_sha256",
+                "base_model",
+                "candidate_artifact_sha256",
+                "candidate_layout_sha256",
+                "description",
+                "family",
+                "geometry",
+                "identity_status",
+                "layers",
+                "missing_identity_fields",
+                "physical_pack_sha256",
+                "units",
+                "variant",
+            },
+            label,
+        )
+        if identity_status != "complete-as-recorded" or missing_fields:
+            raise ReceiptError(f"{label}: BQ23 identity must be complete as recorded")
+        if artifact.get("base_model") != "DeepSeek-V4-Flash-0731":
+            raise ReceiptError(f"{label}.base_model must remain DeepSeek-V4-Flash-0731")
+        for field in ("variant", "geometry", "description"):
+            _nonempty_string(artifact.get(field), f"{label}.{field}")
+        if _integer(artifact.get("layers"), f"{label}.layers", minimum=1) != 43:
+            raise ReceiptError(f"{label}.layers must cover all 43 layers")
+        if _integer(artifact.get("units"), f"{label}.units", minimum=1) != 22016:
+            raise ReceiptError(f"{label}.units must cover all 22,016 expert tensor cells")
+        for field in (
+            "assignment_map_sha256",
+            "candidate_artifact_sha256",
+            "candidate_layout_sha256",
+            "physical_pack_sha256",
+        ):
+            _sha256(artifact.get(field), f"{label}.{field}")
     elif "family" in artifact:
         _require_exact_keys(
             artifact,
@@ -657,6 +805,274 @@ def _verify_qtip_details(
         )
 
 
+def _verify_backpack_details(
+    row: Mapping[str, Any],
+    artifact: Mapping[str, Any],
+    suite_lock: Mapping[str, Any],
+    *,
+    model_id: str,
+    kld_mean: Decimal,
+    matches: int,
+    positions: int,
+    wire_bytes: int,
+) -> None:
+    if model_id != BQ23_MODEL_ID:
+        raise ReceiptError(f"unsupported Backpack model_id: {model_id}")
+    if matches != BQ23_TOP1_MATCHES or kld_mean != BQ23_KLD_MEAN:
+        raise ReceiptError(f"{model_id}: published global metric drift")
+    _verify_classes(
+        row,
+        suite_lock,
+        model_id=model_id,
+        kld_mean=kld_mean,
+        matches=matches,
+        positions=positions,
+    )
+    if row.get("classes") != BQ23_CLASSES:
+        raise ReceiptError(f"{model_id}: published six-class aggregates differ")
+
+    for field, expected in BQ23_ARTIFACT_BINDINGS.items():
+        if artifact.get(field) != expected:
+            raise ReceiptError(f"{model_id}: published identity {field} differs")
+
+    assignment = _mapping(row.get("assignment"), f"{model_id}.assignment")
+    _require_exact_keys(
+        assignment,
+        {"assignment_map_sha256", "tier_counts"},
+        f"{model_id}.assignment",
+    )
+    assignment_map_sha256 = _sha256(
+        assignment.get("assignment_map_sha256"),
+        f"{model_id}.assignment.assignment_map_sha256",
+    )
+    if assignment_map_sha256 != artifact.get("assignment_map_sha256"):
+        raise ReceiptError(f"{model_id}: assignment identity drift")
+    tier_counts = _mapping(assignment.get("tier_counts"), f"{model_id}.assignment.tier_counts")
+    expected_tiers = {
+        "d4_k1024",
+        "d4_k2048",
+        "d4_k4096",
+        "native_mxfp4",
+        "qtip2",
+        "qtip3",
+    }
+    _require_exact_keys(tier_counts, expected_tiers, f"{model_id}.assignment.tier_counts")
+    if tier_counts != BQ23_TIER_COUNTS:
+        raise ReceiptError(f"{model_id}: tier counts differ from the published assignment")
+    if sum(
+        _integer(count, f"{model_id}.assignment.tier_counts.{tier}")
+        for tier, count in tier_counts.items()
+    ) != artifact.get("units"):
+        raise ReceiptError(f"{model_id}: tier counts do not sum to expert tensor cells")
+
+    components = _mapping(row.get("weight_components"), f"{model_id}.weight_components")
+    _require_exact_keys(
+        components,
+        {
+            "expert_plane_payload",
+            "repair_payload",
+            "retained_non_routed_payload",
+            "runtime_and_headroom_bytes",
+            "torch_container_inflation_bytes",
+            "weight_pack_index_metadata",
+        },
+        f"{model_id}.weight_components",
+    )
+    payload_total = 0
+    for group_name in ("expert_plane_payload", "retained_non_routed_payload"):
+        group = _mapping(components.get(group_name), f"{model_id}.{group_name}")
+        _require_exact_keys(group, {"bytes", "components"}, f"{model_id}.{group_name}")
+        group_bytes = _integer(group.get("bytes"), f"{model_id}.{group_name}.bytes")
+        ledger = _mapping(group.get("components"), f"{model_id}.{group_name}.components")
+        if not ledger:
+            raise ReceiptError(f"{model_id}: {group_name} component ledger is empty")
+        expected_ledger = (
+            BQ23_EXPERT_COMPONENTS
+            if group_name == "expert_plane_payload"
+            else BQ23_RETAINED_COMPONENTS
+        )
+        if ledger != expected_ledger:
+            raise ReceiptError(f"{model_id}: {group_name} differs from the published ledger")
+        if sum(
+            _integer(value, f"{model_id}.{group_name}.components.{name}")
+            for name, value in ledger.items()
+        ) != group_bytes:
+            raise ReceiptError(f"{model_id}: {group_name} components do not sum to bytes")
+        expected_group_bytes = (
+            BQ23_EXPERT_BYTES
+            if group_name == "expert_plane_payload"
+            else BQ23_RETAINED_BYTES
+        )
+        if group_bytes != expected_group_bytes:
+            raise ReceiptError(f"{model_id}: {group_name} published byte count drift")
+        payload_total += group_bytes
+
+    index = _mapping(
+        components.get("weight_pack_index_metadata"),
+        f"{model_id}.weight_pack_index_metadata",
+    )
+    _require_exact_keys(
+        index,
+        {"bytes", "candidate_layout_sha256"},
+        f"{model_id}.weight_pack_index_metadata",
+    )
+    index_bytes = _integer(
+        index.get("bytes"), f"{model_id}.weight_pack_index_metadata.bytes", minimum=1
+    )
+    if index_bytes != BQ23_INDEX_METADATA_BYTES:
+        raise ReceiptError(f"{model_id}: weight-pack/index metadata byte count drift")
+    if index.get("candidate_layout_sha256") != artifact.get("candidate_layout_sha256"):
+        raise ReceiptError(f"{model_id}: candidate layout identity drift")
+    repair = _mapping(components.get("repair_payload"), f"{model_id}.repair_payload")
+    _require_exact_keys(repair, {"bytes"}, f"{model_id}.repair_payload")
+    repair_bytes = _integer(repair.get("bytes"), f"{model_id}.repair_payload.bytes")
+    if repair_bytes != 0:
+        raise ReceiptError(f"{model_id}: pre-repair row must not include repair bytes")
+    for excluded in ("torch_container_inflation_bytes", "runtime_and_headroom_bytes"):
+        if _integer(components.get(excluded), f"{model_id}.{excluded}") != 0:
+            raise ReceiptError(f"{model_id}: {excluded} must remain explicitly excluded")
+    if payload_total + index_bytes + repair_bytes != wire_bytes:
+        raise ReceiptError(f"{model_id}: weight components do not sum to whole-model bytes")
+    if wire_bytes != BQ23_WHOLE_MODEL_BYTES:
+        raise ReceiptError(f"{model_id}: published whole-model byte count drift")
+
+    expert = _mapping(
+        row.get("expert_plane_accounting"), f"{model_id}.expert_plane_accounting"
+    )
+    _require_exact_keys(
+        expert,
+        {"bpw", "bytes", "parameter_denominator"},
+        f"{model_id}.expert_plane_accounting",
+    )
+    expert_bytes = _integer(expert.get("bytes"), f"{model_id}.expert_plane_accounting.bytes")
+    if expert_bytes != components["expert_plane_payload"]["bytes"]:
+        raise ReceiptError(f"{model_id}: expert-plane byte accounting drift")
+    expert_denominator = _integer(
+        expert.get("parameter_denominator"),
+        f"{model_id}.expert_plane_accounting.parameter_denominator",
+        minimum=1,
+    )
+    if expert_denominator != BQ23_EXPERT_PARAMETER_DENOMINATOR:
+        raise ReceiptError(f"{model_id}: expert-plane parameter denominator drift")
+    stored_expert_bpw, expected_expert_bpw = _ratio_at_stored_precision(
+        expert_bytes * 8,
+        expert_denominator,
+        expert.get("bpw"),
+        f"{model_id}.expert_plane_accounting.bpw",
+    )
+    if stored_expert_bpw != expected_expert_bpw:
+        raise ReceiptError(f"{model_id}: expert-plane BPW does not match bytes/denominator")
+
+    measurement = _mapping(row.get("measurement"), f"{model_id}.measurement")
+    _require_exact_keys(
+        measurement,
+        {
+            "artifacts",
+            "assignment_map_sha256",
+            "candidate_artifact_sha256",
+            "candidate_layout_sha256",
+            "censoring_used",
+            "class_map_sha256",
+            "fallback_used",
+            "holdout_used",
+            "internal_train_balanced64_reused",
+            "limitations",
+            "numeric_semantics",
+            "physical_pack_sha256",
+            "positions",
+            "repair_applied",
+            "scorer_source_sha256",
+            "status",
+            "suite_file_sha256",
+            "support",
+            "teacher_bank",
+            "teacher_source_model_index_sha256",
+            "transformer_layer_forwards",
+            "window_population_sha256",
+            "windows",
+        },
+        f"{model_id}.measurement",
+    )
+    if measurement.get("status") != "PASS":
+        raise ReceiptError(f"{model_id}: measurement status must be PASS")
+    artifact_bindings = {
+        "assignment_map_sha256": artifact["assignment_map_sha256"],
+        "candidate_artifact_sha256": artifact["candidate_artifact_sha256"],
+        "candidate_layout_sha256": artifact["candidate_layout_sha256"],
+        "physical_pack_sha256": artifact["physical_pack_sha256"],
+    }
+    for field, expected in artifact_bindings.items():
+        if measurement.get(field) != expected:
+            raise ReceiptError(f"{model_id}: measurement {field} differs from artifact")
+    for field, expected in BQ23_MEASUREMENT_BINDINGS.items():
+        if measurement.get(field) != expected:
+            raise ReceiptError(f"{model_id}: published measurement {field} differs")
+    expected_measurement = {
+        "teacher_bank": suite_lock["teacher_bank"],
+        "teacher_source_model_index_sha256": suite_lock[
+            "teacher_source_model_index_sha256"
+        ],
+        "window_population_sha256": suite_lock["window_population_sha256"],
+        "class_map_sha256": suite_lock["class_map_sha256"],
+        "windows": suite_lock["window_count"],
+        "positions": suite_lock["positions"],
+        "support": suite_lock["support"],
+    }
+    for field, expected in expected_measurement.items():
+        if measurement.get(field) != expected:
+            raise ReceiptError(f"{model_id}: measurement {field} differs from suite lock")
+    if _integer(
+        measurement.get("transformer_layer_forwards"),
+        f"{model_id}.measurement.transformer_layer_forwards",
+        minimum=1,
+    ) != 2752:
+        raise ReceiptError(f"{model_id}: transformer-layer forward count drift")
+    for digest_field in ("scorer_source_sha256", "suite_file_sha256"):
+        _sha256(measurement.get(digest_field), f"{model_id}.measurement.{digest_field}")
+    for flag in (
+        "censoring_used",
+        "fallback_used",
+        "holdout_used",
+        "internal_train_balanced64_reused",
+        "repair_applied",
+    ):
+        if measurement.get(flag) is not False:
+            raise ReceiptError(f"{model_id}: measurement {flag} must be false")
+    _nonempty_string(
+        measurement.get("numeric_semantics"), f"{model_id}.measurement.numeric_semantics"
+    )
+    artifacts = _mapping(measurement.get("artifacts"), f"{model_id}.measurement.artifacts")
+    required_artifacts = {
+        "accounting_independent_verification_sha256",
+        "bindings_sha256",
+        "candidate_layout_sha256",
+        "canonical_aggregate_sha256",
+        "execution_receipt_sha256",
+        "host_release_sha256",
+        "independent_verification_sha256",
+        "input_preflight_sha256",
+        "process_death_sha256",
+        "raw_frozen_scorer_bindings_sha256",
+        "rows_tree_sha256",
+    }
+    _require_exact_keys(artifacts, required_artifacts, f"{model_id}.measurement.artifacts")
+    for name, digest in artifacts.items():
+        _sha256(digest, f"{model_id}.measurement.artifacts.{name}")
+    if artifacts != BQ23_MEASUREMENT_ARTIFACTS:
+        raise ReceiptError(f"{model_id}: physical receipt identities differ")
+    if artifacts["candidate_layout_sha256"] != artifact["candidate_layout_sha256"]:
+        raise ReceiptError(f"{model_id}: measurement candidate layout artifact drift")
+    limitations = _sequence(
+        measurement.get("limitations"), f"{model_id}.measurement.limitations"
+    )
+    if not limitations:
+        raise ReceiptError(f"{model_id}: measurement limitations must not be empty")
+    for limitation_index, limitation in enumerate(limitations):
+        _nonempty_string(
+            limitation, f"{model_id}.measurement.limitations[{limitation_index}]"
+        )
+
+
 def verify_result_receipt(
     receipt: Mapping[str, Any], suite_lock: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -710,7 +1126,8 @@ def verify_result_receipt(
     for index, raw_row in enumerate(rows):
         row = _mapping(raw_row, f"results[{index}]")
         artifact = _mapping(row.get("artifact"), f"results[{index}].artifact")
-        is_qtip = "family" in artifact
+        is_backpack = artifact.get("family") == "BQ23"
+        is_qtip = "family" in artifact and not is_backpack
         expected_row_keys = {
             "artifact",
             "display_name",
@@ -726,6 +1143,15 @@ def verify_result_receipt(
         expected_row_keys.add("classes")
         if is_qtip:
             expected_row_keys.update({"measurement", "weight_components"})
+        if is_backpack:
+            expected_row_keys.update(
+                {
+                    "assignment",
+                    "expert_plane_accounting",
+                    "measurement",
+                    "weight_components",
+                }
+            )
         _require_exact_keys(
             row,
             expected_row_keys,
@@ -844,7 +1270,18 @@ def verify_result_receipt(
                 f"{model_id}: total-model BPW does not match bytes/total parameters"
             )
 
-        if is_qtip:
+        if is_backpack:
+            _verify_backpack_details(
+                row,
+                artifact,
+                suite_lock,
+                model_id=model_id,
+                kld_mean=kld_mean,
+                matches=matches,
+                positions=top1_positions,
+                wire_bytes=wire_bytes,
+            )
+        elif is_qtip:
             _verify_qtip_details(
                 row,
                 artifact,
@@ -897,6 +1334,9 @@ def verify_result_receipt(
             if digest in seen_source_digests:
                 raise ReceiptError(f"{model_id}: duplicate source digest: {digest}")
             seen_source_digests.add(digest)
+
+        if is_backpack and seen_source_digests != BQ23_SOURCE_RECEIPT_SHA256:
+            raise ReceiptError(f"{model_id}: source receipt identities differ")
 
         kld_rows.append((kld_mean, model_id))
         top1_rows.append((expected_rate, model_id))

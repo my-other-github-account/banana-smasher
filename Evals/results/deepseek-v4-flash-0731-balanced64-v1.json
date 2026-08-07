@@ -365,6 +365,259 @@
       }
     },
     {
+      "model_id": "BQ23-PRE-FF0731",
+      "display_name": "BQ23-PRE",
+      "vendor": "Banana Smasher",
+      "fp": "FP8 e4m3 dynamic own-base teacher",
+      "artifact": {
+        "base_model": "DeepSeek-V4-Flash-0731",
+        "variant": "bq23-pre-ff0731",
+        "family": "BQ23",
+        "geometry": "dynamic native MXFP4, QTIP2, QTIP3, D4-K2048, and D4-K4096 assignment",
+        "description": "sealed physical pre-repair BQ23 Backpack assignment across L000-L042",
+        "layers": 43,
+        "units": 22016,
+        "candidate_artifact_sha256": "2a726b71cc9f119d478602e87cdbe8a9a8eeb6886718f3a72377424ad406021b",
+        "candidate_layout_sha256": "45dc96541b6c4961b9e3b39f1d7169a1d2bcdf227f02400503edd433956e4fb7",
+        "assignment_map_sha256": "020a8bd13281b8aac1988f62e5570772549effc39391d6650f2a3c47b54c394a",
+        "physical_pack_sha256": "1f844a19bddc77e0cf978510ac975ae7133c6cf79289e84b1c5de69f84a99628",
+        "identity_status": "complete-as-recorded",
+        "missing_identity_fields": []
+      },
+      "wire": {
+        "bytes": 121051240695,
+        "decimal_gb": "121.051240695",
+        "parameter_denominator": 284334567511,
+        "normalized_bpw": "3.4058817893203762511833031389578886340348442685415543540833912222265507571657039",
+        "total_model_parameters": 284334567511,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 0
+        },
+        "total_model_bpw": "3.4058817893203762511833031389578886340348442685415543540833912222265507571657039"
+      },
+      "expert_plane_accounting": {
+        "bytes": 101334321540,
+        "parameter_denominator": 277025390592,
+        "bpw": "2.9263547669316447058389353197674418604651162790697674418604651162790697674418605"
+      },
+      "kld": {
+        "direction": "KL(teacher||candidate)",
+        "mean": "0.17548247979523035"
+      },
+      "top1": {
+        "matches": 59465,
+        "positions": 65536,
+        "rate": "0.9073638916015625"
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.2312337415683266",
+          "top1_matches": 17643,
+          "top1_rate": "0.9068153782894736842105263157894736842105263157894736842105263157894736842105263157894736842105263158"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.07368460112798066",
+          "top1_matches": 6784,
+          "top1_rate": "0.9464285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.14277965738092727",
+          "top1_matches": 8440,
+          "top1_rate": "0.9157986111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.1933031053062802",
+          "top1_matches": 9193,
+          "top1_rate": "0.89775390625"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.23390783780755037",
+          "top1_matches": 8719,
+          "top1_rate": "0.85146484375"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.08494656240378005",
+          "top1_matches": 8686,
+          "top1_rate": "0.9424913194444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444"
+        }
+      },
+      "assignment": {
+        "assignment_map_sha256": "020a8bd13281b8aac1988f62e5570772549effc39391d6650f2a3c47b54c394a",
+        "tier_counts": {
+          "d4_k1024": 0,
+          "d4_k2048": 0,
+          "d4_k4096": 0,
+          "native_mxfp4": 1951,
+          "qtip2": 4236,
+          "qtip3": 15829
+        }
+      },
+      "weight_components": {
+        "expert_plane_payload": {
+          "bytes": 101334321540,
+          "components": {
+            "d4_k1024": 0,
+            "d4_k2048": 0,
+            "d4_k4096": 0,
+            "native_mxfp4": 13003915264,
+            "qtip2": 13386048048,
+            "qtip3": 74944354132,
+            "shared_activation": 4096
+          }
+        },
+        "retained_non_routed_payload": {
+          "bytes": 19708797688,
+          "components": {
+            "attention": 5468544164,
+            "embedding_and_lm_head": 1059061760,
+            "mtp": 10862838300,
+            "normalization": 360448,
+            "other_retained": 1126961720,
+            "routing": 108834816,
+            "shared_expert": 1082196480
+          }
+        },
+        "weight_pack_index_metadata": {
+          "bytes": 8121467,
+          "candidate_layout_sha256": "45dc96541b6c4961b9e3b39f1d7169a1d2bcdf227f02400503edd433956e4fb7"
+        },
+        "repair_payload": {
+          "bytes": 0
+        },
+        "torch_container_inflation_bytes": 0,
+        "runtime_and_headroom_bytes": 0
+      },
+      "measurement": {
+        "status": "PASS",
+        "candidate_artifact_sha256": "2a726b71cc9f119d478602e87cdbe8a9a8eeb6886718f3a72377424ad406021b",
+        "candidate_layout_sha256": "45dc96541b6c4961b9e3b39f1d7169a1d2bcdf227f02400503edd433956e4fb7",
+        "assignment_map_sha256": "020a8bd13281b8aac1988f62e5570772549effc39391d6650f2a3c47b54c394a",
+        "physical_pack_sha256": "1f844a19bddc77e0cf978510ac975ae7133c6cf79289e84b1c5de69f84a99628",
+        "teacher_bank": "TEACHER_0731_BALANCED64_V2",
+        "teacher_source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "scorer_source_sha256": "f08e1d2c073b2338d3d375ad16f57fce8bc2c76813cd7f492d1d0a430495837d",
+        "suite_file_sha256": "c8564f82d151f0f61b255432c20cd1eec24d0b8529f3bed248b8a039f52b9d42",
+        "window_population_sha256": "24089eea1b3e5650265b971930571dbf249aba0b2f62e954a9628dcbfd182f09",
+        "class_map_sha256": "c9ccf14df02d8f5d41508bb2e6e9c9525f1ea1d16533f2d65398d708a6ac9aaa",
+        "windows": 64,
+        "positions": 65536,
+        "support": 8192,
+        "transformer_layer_forwards": 2752,
+        "repair_applied": false,
+        "holdout_used": false,
+        "fallback_used": false,
+        "censoring_used": false,
+        "internal_train_balanced64_reused": false,
+        "numeric_semantics": "binary64 KLD on common ordered teacher top-8192 support; no clamp; ascending ordinal/position math.fsum reduction; first-index Top-1 ties",
+        "artifacts": {
+          "accounting_independent_verification_sha256": "8fa993aa55bddf5e7300cf604529c2db42d0f57db77ab3954dbbcc0ea00523f2",
+          "bindings_sha256": "5273f8ff589103823ad04cb04e11839ea08ab39a1c6011692559a802183b3b86",
+          "candidate_layout_sha256": "45dc96541b6c4961b9e3b39f1d7169a1d2bcdf227f02400503edd433956e4fb7",
+          "canonical_aggregate_sha256": "8c78c2891627c149016bb65fe5521496459184dbc3ff26d77473e05e7ecfe7e2",
+          "execution_receipt_sha256": "85c9546a8eb620b11388b6af0e5669216ee3018b4af5727b7b6f3903a036e641",
+          "host_release_sha256": "1655f7215c53bfddde8a2c209d4dc638911a8f4cb4fb61d21575cac1a7812b80",
+          "independent_verification_sha256": "210c80df2185aa28de6d45cf671247c827a6a5d840f75c9bb659162f5522aec1",
+          "input_preflight_sha256": "4bf5ba13c7c66bf4c2179f285d0a9187432065c53df601265fb920b689f2b56b",
+          "process_death_sha256": "1d89d4336ab176a49de874b26671408e81e63c184db2eabe1c085917ece28c0f",
+          "raw_frozen_scorer_bindings_sha256": "ad2711d88ad2d3e002a7738524ec0e9935ea39af0f99d2c5a7ef6c41a269111a",
+          "rows_tree_sha256": "5e15d05264493578aff37a10ce5742f78bae3f11b330835f3b6b11216c655443"
+        },
+        "limitations": [
+          "Protected teacher, candidate, source-model, and QTIP payload bytes are not distributed.",
+          "This receipt proves the physical BALANCED64_V1 measurement and exact public reaggregation, not clean-clone GPU replay."
+        ]
+      },
+      "source_receipts": [
+        {
+          "sha256": "bb6650a1464a4705113296f1371f83178a3e2e48a55c264ddd205c71671acd74",
+          "label": "BQ23-PRE public result fragment",
+          "role": "terminal physical measurement, identities, and accounting handoff",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "8c78c2891627c149016bb65fe5521496459184dbc3ff26d77473e05e7ecfe7e2",
+          "label": "BQ23-PRE canonical aggregate",
+          "role": "global and six-category KLD and Top-1 evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "210c80df2185aa28de6d45cf671247c827a6a5d840f75c9bb659162f5522aec1",
+          "label": "BQ23-PRE independent reaggregation",
+          "role": "independent global and class arithmetic evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "5e15d05264493578aff37a10ce5742f78bae3f11b330835f3b6b11216c655443",
+          "label": "BQ23-PRE row tree",
+          "role": "64-row collection identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "8fa993aa55bddf5e7300cf604529c2db42d0f57db77ab3954dbbcc0ea00523f2",
+          "label": "BQ23-PRE accounting verification",
+          "role": "independent exact byte and BPW evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "5273f8ff589103823ad04cb04e11839ea08ab39a1c6011692559a802183b3b86",
+          "label": "BQ23-PRE measurement bindings",
+          "role": "candidate, scorer, teacher, and suite identity evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "85c9546a8eb620b11388b6af0e5669216ee3018b4af5727b7b6f3903a036e641",
+          "label": "BQ23-PRE execution receipt",
+          "role": "physical execution evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "ad2711d88ad2d3e002a7738524ec0e9935ea39af0f99d2c5a7ef6c41a269111a",
+          "label": "BQ23-PRE frozen scorer bindings",
+          "role": "raw scorer and basis identity evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "4bf5ba13c7c66bf4c2179f285d0a9187432065c53df601265fb920b689f2b56b",
+          "label": "BQ23-PRE input preflight",
+          "role": "input identity and admission evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "1d89d4336ab176a49de874b26671408e81e63c184db2eabe1c085917ece28c0f",
+          "label": "BQ23-PRE process death receipt",
+          "role": "measurement process termination evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "1655f7215c53bfddde8a2c209d4dc638911a8f4cb4fb61d21575cac1a7812b80",
+          "label": "BQ23-PRE host release receipt",
+          "role": "measurement host release evidence",
+          "availability": "protected-not-distributed"
+        }
+      ],
+      "replay": {
+        "status": "blocked",
+        "blockers": [
+          "teacher-bank payloads and frozen corpus text are not distributed by this repository",
+          "candidate model, assignment payloads, and QTIP tensors are not distributed by this repository",
+          "the protected physical measurement environment is not reproducible from a clean public clone"
+        ]
+      }
+    },
+    {
       "model_id": "QTIP2.5-all43-FF0731",
       "display_name": "QTIP2.5 deterministic mixed ring",
       "vendor": "Banana Smasher",
