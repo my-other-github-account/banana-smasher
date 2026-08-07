@@ -38,6 +38,12 @@ or D8 vector-VQ fixtures. Prices are read from candidate receipts as per-cell
 payload bytes plus shared activation artifacts; the exact solver charges each
 activation identity once.
 
+Homogeneous native-V4 Anchor64 menus use the separate `qtip_native_v4`
+family. Any exact quarter-rate set can be declared without adding provider
+code; see [`QTIP_NATIVE_V4_FINE_RATES_API.md`](../notes/QTIP_NATIVE_V4_FINE_RATES_API.md)
+for the Python/CLI contracts, scalable build geometry, and measured B7/B9 CUDA
+results.
+
 The equivalent CLI path is:
 
 ```console

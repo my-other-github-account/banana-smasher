@@ -13,7 +13,7 @@
 
 namespace {
 
-constexpr int kFamilies = 4;
+constexpr int kFamilies = 7;
 constexpr int kDecodeBlockRows = 4;
 
 // One deterministic device thread builds stable family/expert descriptors.  The
@@ -83,7 +83,11 @@ __global__ void compact_routes_kernel(
     for (int block = 0; block < family_block_counts[family]; ++block) {
       family_rows += block_valid_m[family * max_blocks + block];
     }
-    physical_counters[kFamilies + family] = family_rows;
+    if (family < 4) {
+      physical_counters[4 + family] = family_rows;
+    } else {
+      physical_counters[28 + family - 4] = family_rows;
+    }
   }
   physical_counters[8] = block_rows;
   ++physical_counters[22];
@@ -136,22 +140,22 @@ at::Tensor compact_routes_cuda(
                   block_rows64 == kDecodeBlockRows || block_rows64 == 16,
               "block_rows must be one of 1, 2, 4, or 16");
   TORCH_CHECK(family_block_counts.sizes() == at::IntArrayRef({kFamilies}),
-              "family_block_counts must be int32 [4]");
+              "family_block_counts must be int32 [7]");
   TORCH_CHECK(block_experts.dim() == 2 && block_experts.size(0) == kFamilies,
-              "block_experts must be int32 [4, max_blocks]");
+              "block_experts must be int32 [7, max_blocks]");
   TORCH_CHECK(block_valid_m.sizes() == block_experts.sizes(),
               "block_valid_m must match block_experts");
   TORCH_CHECK(block_route_rows.dim() == 3 &&
                   block_route_rows.size(0) == kFamilies &&
                   block_route_rows.size(1) == block_experts.size(1) &&
                   block_route_rows.size(2) == block_rows64,
-              "block_route_rows must be int32 [4, max_blocks, block_rows]");
+              "block_route_rows must be int32 [7, max_blocks, block_rows]");
   TORCH_CHECK(expert_route_counts.numel() == family_codes.numel() &&
                   expert_last_block.numel() == family_codes.numel(),
               "expert descriptor tables must cover all experts");
   TORCH_CHECK(physical_counters.scalar_type() == at::kLong &&
-                  physical_counters.numel() >= 24,
-              "physical_counters must be int64 with at least 24 entries");
+                  physical_counters.numel() >= 153,
+              "physical_counters must be int64 with at least 153 entries");
   for (const at::Tensor* tensor : std::array<const at::Tensor*, 10>{
            &expert_ids, &family_codes, &out, &family_block_counts,
            &block_experts, &block_valid_m, &block_route_rows,

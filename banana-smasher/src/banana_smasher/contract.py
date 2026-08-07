@@ -58,6 +58,7 @@ TIER_FAMILIES = (
     "truevq_d4",
     "truevq_d8",
     "native_mxfp4",
+    "qtip_native_v4",
 )
 TIER_CODES = {name: code for code, name in enumerate(TIER_FAMILIES)}
 REQUIRED_FAMILY_FIELDS = {
@@ -78,6 +79,17 @@ REQUIRED_FAMILY_FIELDS = {
         "tensor_offsets",
     },
     "native_mxfp4": {"packed", "scales", "expert_ids", "tensor_offsets"},
+    "qtip_native_v4": {
+        "codes",
+        "SU",
+        "SV",
+        "Wscale",
+        "expert_ids",
+        "record_tiers",
+        "record_geometry",
+        "record_projections",
+        "record_boundaries",
+    },
 }
 LAYER_RE = re.compile(r"^layers/layer_(\d{3})/(.+)\.npy$")
 P1016_META_RE = re.compile(r"^layer_(\d{3})\.meta\.json$")
@@ -86,7 +98,7 @@ P1016_PLANE_RE = re.compile(
 )
 TENSOR_RE = re.compile(
     r"^layers\.(\d+)\.(experts\.(?:tier_map|subtier_map)|"
-    r"(?:qtip2|qtip3|truevq_d4|truevq_d8|native_mxfp4)\."
+    r"(?:qtip2|qtip3|truevq_d4|truevq_d8|native_mxfp4|qtip_native_v4)\."
     r"((?:[a-z0-9_]+\.)*[a-z0-9_]+))$"
 )
 BANANA_SMASHER_LAYER_RE = re.compile(r"^layer_(\d{3})$")
@@ -304,6 +316,10 @@ def _p1016_tensor_name(relative: Path, *, payload_family: str) -> tuple[int, str
         "d8": "truevq_d8",
         "native": "native_mxfp4",
         "native_mxfp4": "native_mxfp4",
+        "qtip_native_v4": "qtip_native_v4",
+        "qtip_native_v4_b7": "qtip_native_v4",
+        "qtip_native_v4_b9": "qtip_native_v4",
+        "qtip_native_v4_b10": "qtip_native_v4",
     }.get(payload_family)
     if family is None:
         raise PackValidationError(

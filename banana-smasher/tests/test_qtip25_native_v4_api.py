@@ -65,8 +65,12 @@ def test_build_and_anchor_native_v4_cell_through_public_api(tmp_path: Path) -> N
     assert receipt["accounting"]["exact_code_bpw"] == 2.5
     assert receipt["accounting"]["code_data_bytes"] == 80
     assert receipt["accounting"]["transform_bytes"] == 64
+    assert receipt["optimization"]["method"] == "rms_only_no_feedback"
+    assert receipt["optimization"]["selected_scale"] == 1.0
+    assert receipt["optimization"]["feedback_nonzero_count"] == 0
     assert receipt["artifacts"]["codes"]["sha256"]
     assert np.load(candidate_root / "SU.npy", allow_pickle=False).dtype == np.float16
+    assert np.load(candidate_root / "Wscale.npy", allow_pickle=False) == np.float32(1.0)
     decoded = np.load(candidate_root / "decoded.npy", allow_pickle=False)
     assert decoded.dtype == np.float32
     assert decoded.shape == (16, 16)
@@ -92,6 +96,86 @@ def test_build_and_anchor_native_v4_cell_through_public_api(tmp_path: Path) -> N
     assert anchor["candidate_receipt_sha256"] == receipt["receipt_sha256"]
     assert set(anchor["metrics"]["by_class"]) == set(CLASSES)
     assert Path(anchor["receipt"]).is_file()
+
+
+def test_hessian_requires_explicit_feedback_and_preserves_a_c_d_controls(
+    tmp_path: Path,
+) -> None:
+    source, control, tlut = _fixture(tmp_path)
+    with np.load(control, allow_pickle=False) as payload:
+        np.savez(
+            tmp_path / "absolute-control.npz",
+            **{name: payload[name] for name in payload.files if name != "Wscale"},
+            Wscale=np.asarray(0.75, dtype=np.float32),
+        )
+    hessian = np.eye(16, dtype=np.float32)
+    hessian[1:, :-1] += np.eye(15, dtype=np.float32) * np.float32(0.1)
+    hessian[:-1, 1:] += np.eye(15, dtype=np.float32) * np.float32(0.1)
+    hessian_path = tmp_path / "hessian.npy"
+    np.save(hessian_path, hessian, allow_pickle=False)
+
+    conservative = tmp_path / "conservative-a"
+    a_receipt = build_qtip25_native_v4_cell(
+        source,
+        tmp_path / "absolute-control.npz",
+        tlut,
+        conservative,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        backend="reference",
+        hessian=hessian_path,
+        scale_factors=(0.5, 2.0),
+    )
+
+    assert a_receipt["optimization"]["method"] == "rms_only_no_feedback"
+    assert a_receipt["optimization"]["scale_semantics"] == "absolute_unit"
+    assert a_receipt["optimization"]["selected_scale"] == 1.0
+    assert a_receipt["optimization"]["scale_factors"] == [1.0]
+    assert a_receipt["optimization"]["feedback_nonzero_count"] == 0
+    assert np.load(conservative / "Wscale.npy", allow_pickle=False) == np.float32(0.75)
+
+    absolute_feedback = tmp_path / "explicit-c"
+    c_receipt = build_qtip25_native_v4_cell(
+        source,
+        tmp_path / "absolute-control.npz",
+        tlut,
+        absolute_feedback,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        backend="reference",
+        hessian=hessian_path,
+        feedback_mode="reverse_16",
+        scale_factors=(0.5, 2.0),
+    )
+
+    assert c_receipt["optimization"]["method"] == "qtip_batch_block_ldl_reverse_16"
+    assert c_receipt["optimization"]["scale_semantics"] == "absolute_unit"
+    assert c_receipt["optimization"]["selected_scale"] == 1.0
+    assert c_receipt["optimization"]["scale_factors"] == [1.0]
+    assert c_receipt["optimization"]["feedback_mode"] == "reverse_16"
+    assert np.load(absolute_feedback / "Wscale.npy", allow_pickle=False) == np.float32(
+        0.75
+    )
+
+    relative_feedback = tmp_path / "explicit-d"
+    d_receipt = build_qtip25_native_v4_cell(
+        source,
+        tmp_path / "absolute-control.npz",
+        tlut,
+        relative_feedback,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        backend="reference",
+        hessian=hessian_path,
+        feedback_mode="reverse_16",
+        ldlq_scale_semantics="relative_search",
+        scale_factors=(0.5, 2.0),
+    )
+
+    assert d_receipt["optimization"]["method"] == "qtip_batch_block_ldl_reverse_16"
+    assert d_receipt["optimization"]["scale_semantics"] == "relative_search"
+    assert d_receipt["optimization"]["scale_factors"] == [0.5, 2.0]
+    assert d_receipt["optimization"]["feedback_mode"] == "reverse_16"
 
 
 def test_native_v4_cli_builds_and_anchors_a_cell(tmp_path: Path, capsys) -> None:

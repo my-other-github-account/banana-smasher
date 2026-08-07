@@ -45,17 +45,17 @@ def allocate_compaction_state(
         "qtip_input": torch.empty(
             (rows, input_width), dtype=torch.float16, device=device
         ),
-        "family_block_counts": torch.empty(4, dtype=torch.int32, device=device),
-        "block_experts": torch.empty((4, max_blocks), dtype=torch.int32, device=device),
-        "block_valid_m": torch.empty((4, max_blocks), dtype=torch.int32, device=device),
+        "family_block_counts": torch.empty(7, dtype=torch.int32, device=device),
+        "block_experts": torch.empty((7, max_blocks), dtype=torch.int32, device=device),
+        "block_valid_m": torch.empty((7, max_blocks), dtype=torch.int32, device=device),
         "block_route_rows": torch.empty(
-            (4, max_blocks, block_rows), dtype=torch.int32, device=device
+            (7, max_blocks, block_rows), dtype=torch.int32, device=device
         ),
         "expert_route_counts": torch.empty(experts, dtype=torch.int32, device=device),
         "expert_last_block": torch.empty(experts, dtype=torch.int32, device=device),
         # [0:24] aggregate compaction/family receipts, [24:27] forbidden routes,
         # [32:140] exhaustive tier x projection x shape physical counters.
-        "physical_counters": torch.zeros(160, dtype=torch.int64, device=device),
+        "physical_counters": torch.zeros(256, dtype=torch.int64, device=device),
     }
 
 
@@ -135,6 +135,7 @@ def mixed_exact_native_gemv(
     from .native_extensions import (
         specialized_d4_gemm,
         specialized_mxfp4_gemm,
+        specialized_native_v4_gemv,
         specialized_qtip_gemv,
     )
     from .specialized_variants import specialization_for
@@ -219,6 +220,14 @@ def mixed_exact_native_gemv(
         family=3,
         specialization=native_row,
     )
+    specialized_native_v4_gemv(
+        x,
+        pointer_tables,
+        qtip_codebook,
+        out,
+        compact,
+        compact["physical_counters"],
+    )
     return torch.ops.banana_smasher_v4.finalize_output(
         out,
         expert_ids,
@@ -240,6 +249,27 @@ def physical_counter_tensor(vq_state: dict[str, Any], route_rows: int) -> torch.
         raise ValueError(f"route shape {route_rows} has not executed") from exc
 
 
+def native_v4_physical_receipt(
+    vq_state: dict[str, Any], route_rows: int
+) -> dict[str, Any]:
+    """Read the packed B7/B9/B10 physical counters for one warmed shape."""
+
+    values = physical_counter_tensor(vq_state, route_rows).detach().cpu().tolist()
+    rates = {}
+    for offset, bits in enumerate((7, 9, 10)):
+        base = 140 + offset * 4
+        rates[f"B{bits}"] = {
+            "calls": int(values[base]),
+            "rows": int(values[base + 1]),
+            "code_bytes": int(values[base + 2]),
+        }
+    return {
+        "rates": rates,
+        "per_forward_dequantizations": int(values[152]),
+        "forbidden_fallbacks": int(sum(values[24:27])),
+    }
+
+
 def runtime_sentinel() -> dict[str, Any]:
     """Report the graph-stable physical family boundary."""
     return {
@@ -247,7 +277,15 @@ def runtime_sentinel() -> dict[str, Any]:
         "activated": True,
         "zero_dequant": True,
         "graph_reuse": True,
-        "family_counters": ("qtip2", "qtip3", "d4", "native_mxfp4"),
+        "family_counters": (
+            "qtip2",
+            "qtip3",
+            "d4",
+            "native_mxfp4",
+            "qtip_native_v4_b7",
+            "qtip_native_v4_b9",
+            "qtip_native_v4_b10",
+        ),
         "physical_launches": (10, 14),
         "physical_blocks": (14, 18),
         "physical_rows": (18, 22),

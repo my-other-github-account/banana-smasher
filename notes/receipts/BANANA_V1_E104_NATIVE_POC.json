@@ -1,0 +1,65 @@
+{
+  "schema": "banana-v1-e104-native-poc-v1",
+  "status": "PASS",
+  "date": "2026-08-07",
+  "scope": "exact FF0731 L040/E104 first 16x16 physical source-weight slice",
+  "source_sha256": "48d9f7568c5d2f4c182bb0a17421f24ff7aea051ac8b3473d3ee6f491fbf0d9a",
+  "base_revision": "269aceb963109330c4f2f65031656fc77d0b8ed1",
+  "implementation_source_sha256": "3e5f913d9ba628e599452f205f4179d409c6296146c01c85202ac973b3960cb7",
+  "focused_test_sha256": "d4b91e1b783a55e9086f3038ccfc68875d74f510d3637a5f535d9e84f2a684bc",
+  "focused_tests": {
+    "command": "PYTHONPATH=src python3.13 -m pytest tests/test_banana_v1.py tests/test_backpack_family_providers.py -q",
+    "passed": 12,
+    "failed": 0
+  },
+  "geometry": {
+    "L": 16,
+    "B": 2,
+    "V": 1,
+    "rate_num": 2,
+    "rate_den": 1,
+    "codebook_levels": 1024,
+    "decode_mode": "banana_affine_gaussian"
+  },
+  "cells": {
+    "fused13": {
+      "source_shape": [16, 16],
+      "selected_scale_factor": 1.0,
+      "searched_sse": 0.010770486483340565,
+      "rms_only_sse": 0.010770486483340565,
+      "scale_search_improvement_percent": 0.0,
+      "mse": 0.00004207221282554908,
+      "relative_mse": 0.06633348389927707,
+      "build_seconds": 1.0449640420265496,
+      "code_bpw": 2.0,
+      "cell_payload_bytes": 132,
+      "shared_codebook_bytes": 2048,
+      "full_wire_bytes": 2180,
+      "verify": true,
+      "provider_verify": true,
+      "predict_matches_build": true
+    },
+    "down": {
+      "source_shape": [16, 16],
+      "selected_scale_factor": 1.05,
+      "searched_sse": 0.011367980788063742,
+      "rms_only_sse": 0.01139773190944587,
+      "scale_search_improvement_percent": 0.2610266816108542,
+      "mse": 0.000044406174953373994,
+      "relative_mse": 0.0667693125046196,
+      "build_seconds": 1.0245414159726351,
+      "code_bpw": 2.0,
+      "cell_payload_bytes": 132,
+      "shared_codebook_bytes": 2048,
+      "full_wire_bytes": 2180,
+      "verify": true,
+      "provider_verify": true,
+      "predict_matches_build": true
+    }
+  },
+  "limitations": {
+    "ldlq_lower": "zero matrix for this local source-only smoke",
+    "metric": "physical source-slice SSE/MSE, not routed Hessian KLD",
+    "runtime": "portable NumPy builder plus Torch device decoder, not a fused production kernel"
+  }
+}

@@ -228,7 +228,7 @@ def _parser() -> argparse.ArgumentParser:
 
     native_v4 = subparsers.add_parser(
         "qtip-native-v4",
-        help="build and anchor homogeneous QTIP2.5 L16/B10/V4 candidate cells",
+        help="build and anchor homogeneous quarter-rate L16/B/V4 candidate cells",
     )
     native_v4_commands = native_v4.add_subparsers(
         dest="native_v4_command", required=True
@@ -242,12 +242,24 @@ def _parser() -> argparse.ArgumentParser:
     native_v4_build.add_argument("--output", type=Path, required=True)
     native_v4_build.add_argument("--intended-basis-sha256", required=True)
     native_v4_build.add_argument("--observed-basis-sha256", required=True)
+    native_v4_build.add_argument("--bpw", default="2.5")
     native_v4_build.add_argument(
         "--backend", choices=("cuda", "reference"), default="cuda"
     )
     native_v4_build.add_argument("--solve-batch", type=int, default=2048)
     native_v4_build.add_argument("--decode-batch", type=int, default=2048)
     native_v4_build.add_argument("--decode-repeats", type=int, default=1)
+    native_v4_build.add_argument("--hessian", type=Path)
+    native_v4_build.add_argument(
+        "--feedback-mode", choices=("off", "reverse_16"), default="off"
+    )
+    native_v4_build.add_argument(
+        "--scale-factor",
+        action="append",
+        dest="scale_factors",
+        type=float,
+        help="bounded global scale candidate; repeat to search multiple values",
+    )
     native_v4_anchor = native_v4_commands.add_parser(
         "anchor-cell", help="measure one built native-V4 cell with the standard 64-window anchor"
     )
@@ -1167,25 +1179,61 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         elif args.command == "qtip-native-v4":
             from .qtip25_native_v4_api import (
+                CELL_SCHEMA,
                 anchor_qtip25_native_v4_cell,
+                anchor_qtip_native_v4_cell,
                 build_qtip25_native_v4_cell,
+                build_qtip_native_v4_cell,
             )
+            from .qtip25_native_v4 import NATIVE_QTIP25_GEOMETRY, native_v4_geometry
 
             if args.native_v4_command == "build-cell":
-                result = build_qtip25_native_v4_cell(
+                geometry = native_v4_geometry(args.bpw)
+                builder = (
+                    build_qtip25_native_v4_cell
+                    if geometry == NATIVE_QTIP25_GEOMETRY
+                    else build_qtip_native_v4_cell
+                )
+                build_kwargs = {
+                    **(
+                        {}
+                        if geometry == NATIVE_QTIP25_GEOMETRY
+                        else {"bpw": geometry.rate_num / geometry.rate_den}
+                    ),
+                    "intended_basis_sha256": args.intended_basis_sha256,
+                    "observed_basis_sha256": args.observed_basis_sha256,
+                    "backend": args.backend,
+                    "solve_batch": args.solve_batch,
+                    "decode_batch": args.decode_batch,
+                    "decode_repeats": args.decode_repeats,
+                    "hessian": args.hessian,
+                    "feedback_mode": args.feedback_mode,
+                    **(
+                        {"scale_factors": tuple(args.scale_factors)}
+                        if args.scale_factors is not None
+                        else {}
+                    ),
+                }
+                result = builder(
                     args.source,
                     args.control,
                     args.tlut,
                     args.output,
-                    intended_basis_sha256=args.intended_basis_sha256,
-                    observed_basis_sha256=args.observed_basis_sha256,
-                    backend=args.backend,
-                    solve_batch=args.solve_batch,
-                    decode_batch=args.decode_batch,
-                    decode_repeats=args.decode_repeats,
+                    **build_kwargs,
                 )
             elif args.native_v4_command == "anchor-cell":
-                result = anchor_qtip25_native_v4_cell(
+                candidate_receipt = (
+                    args.candidate / "CELL_RECEIPT.json"
+                    if args.candidate.is_dir()
+                    else args.candidate
+                )
+                candidate_schema = json.loads(candidate_receipt.read_text()).get("schema")
+                anchor_builder = (
+                    anchor_qtip25_native_v4_cell
+                    if candidate_schema == CELL_SCHEMA
+                    else anchor_qtip_native_v4_cell
+                )
+                result = anchor_builder(
                     args.candidate,
                     anchor_bank=args.anchor_bank,
                     teacher=args.teacher,

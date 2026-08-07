@@ -28,6 +28,7 @@ _REQUIRED_TORCH_OPERATORS = (
     "compact_routes",
     "qtip_pre_transform",
     "qtip_post_transform",
+    "native_v4_gemv",
     "finalize_output",
     "d4_specialized",
     "mxfp4_specialized",
@@ -121,6 +122,54 @@ def specialized_qtip_gemv(
         compact["block_valid_m"][family],
         compact["block_route_rows"][family],
     )
+    return out
+
+
+def specialized_native_v4_gemv(
+    transformed_x: Any,
+    pointer_tables: dict[str, Any],
+    codebook: Any,
+    out: Any,
+    compact: dict[str, Any],
+    physical_counters: Any,
+) -> Any:
+    """Execute one fused selective B7/B9/B10 packed-state GEMV launch."""
+
+    import torch
+
+    _module()
+    x_half = compact["qtip_input"]
+    for family in (4, 5, 6):
+        torch.ops.banana_smasher_v4.qtip_pre_transform(
+            transformed_x.to(torch.bfloat16).contiguous(),
+            pointer_tables["su"],
+            x_half,
+            compact["family_block_counts"][family : family + 1],
+            compact["block_experts"][family],
+            compact["block_valid_m"][family],
+            compact["block_route_rows"][family],
+        )
+    torch.ops.banana_smasher_v4.native_v4_gemv(
+        out,
+        pointer_tables["native_v4_codes"],
+        x_half,
+        codebook,
+        compact["family_block_counts"],
+        compact["block_experts"],
+        compact["block_valid_m"],
+        compact["block_route_rows"],
+        physical_counters,
+    )
+    for family in (4, 5, 6):
+        torch.ops.banana_smasher_v4.qtip_post_transform(
+            out,
+            pointer_tables["wscale"],
+            pointer_tables["sv"],
+            compact["family_block_counts"][family : family + 1],
+            compact["block_experts"][family],
+            compact["block_valid_m"][family],
+            compact["block_route_rows"][family],
+        )
     return out
 
 

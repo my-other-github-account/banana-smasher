@@ -23,7 +23,13 @@ FAST_PATH_ERROR = "BANANA_SMASHER_FAST_PATH_PREREQUISITE_MISSING"
 EXPECTED_LAYOUT_SHA256 = "0dae88283affb718f7b9cd7d6b2f9bd11016fb9b792ecf98ea96dce426ee4cc8"
 MATERIALIZED_WIRE_SOURCE_FORMAT = "banana_smasher-materialized-wire-v1"
 MATERIALIZED_WIRE_LAYOUT_SHA256 = "8264c6393ff40c545de05ac06a39cd7668aab1e31b96aca82a914079721444f8"
-EXPECTED_FAMILY_CODES = {"qtip2": 0, "qtip3": 1, "d4": 2, "native": 3}
+LEGACY_FAMILY_CODES = {"qtip2": 0, "qtip3": 1, "d4": 2, "native": 3}
+EXPECTED_FAMILY_CODES = {
+    **LEGACY_FAMILY_CODES,
+    "qtip_native_v4_b7": 4,
+    "qtip_native_v4_b9": 5,
+    "qtip_native_v4_b10": 6,
+}
 _LOGGER = logging.getLogger(__name__)
 _posix_fadvise = getattr(os, "posix_fadvise", None)
 _POSIX_FADV_DONTNEED = getattr(os, "POSIX_FADV_DONTNEED", 4)
@@ -445,7 +451,7 @@ class NativePlanePack:
             elif (
                 meta.get("format") != "p1016-true-c-native-planes-v1"
                 or meta.get("layer") != layer
-                or meta.get("family_codes") != EXPECTED_FAMILY_CODES
+                or meta.get("family_codes") not in (LEGACY_FAMILY_CODES, EXPECTED_FAMILY_CODES)
             ):
                 raise _fail(f"native-plane metadata binding drift for layer {layer}")
         return pack
@@ -519,6 +525,9 @@ def _payload_residency(family: str, role: str) -> str:
         ("d4", "codebooks"),
         ("native", "packed"),
         ("native", "scales"),
+        ("qtip_native_v4_b7", "codes"),
+        ("qtip_native_v4_b9", "codes"),
+        ("qtip_native_v4_b10", "codes"),
     }:
         return "cpu_uva"
     return "device"
@@ -579,6 +588,50 @@ def _canonical_specialized_tier(
         return specialized_tier or payload_tier
     if family in {"native", "native_mxfp4"}:
         return "native_mxfp4"
+    if isinstance(family, str) and family.startswith("qtip_native_v4_b"):
+        geometry = payload_spec.get("geometry")
+        if not isinstance(geometry, dict) or (
+            geometry.get("L"), geometry.get("V"), geometry.get("tlut_bits")
+        ) != (16, 4, 9):
+            raise _fail(
+                f"specialized payload {payload_tier} has invalid native-V4 geometry: {geometry!r}"
+            )
+        transition_bits = geometry.get("B")
+        if not isinstance(transition_bits, int) or not 4 <= transition_bits <= 16:
+            raise _fail(
+                f"specialized payload {payload_tier} has invalid native-V4 B: {transition_bits!r}"
+            )
+        specialized_family = f"qtip_native_v4_b{transition_bits}"
+        if family != specialized_family:
+            raise _fail(
+                f"specialized payload {payload_tier} native-V4 family/geometry mismatch: "
+                f"family={family} B={transition_bits}"
+            )
+        input_width = payload_spec.get("input_width")
+        output_width = payload_spec.get("output_width")
+        tensors = payload_spec.get("tensors")
+        codes = tensors.get("codes") if isinstance(tensors, dict) else None
+        expert_ids = tensors.get("expert_ids") if isinstance(tensors, dict) else None
+        code_shape = codes.get("shape") if isinstance(codes, dict) else None
+        expert_shape = expert_ids.get("shape") if isinstance(expert_ids, dict) else None
+        if (
+            not isinstance(input_width, int)
+            or not isinstance(output_width, int)
+            or input_width <= 0
+            or output_width <= 0
+            or input_width * output_width % 256
+            or not isinstance(code_shape, list)
+            or len(code_shape) != 3
+            or code_shape[1:] != [input_width * output_width // 256, 8 * transition_bits]
+            or np.dtype(codes.get("dtype")) != np.dtype("uint8")
+            or expert_shape != [code_shape[0]]
+        ):
+            raise _fail(
+                f"specialized payload {payload_tier} native-V4 code geometry mismatch: "
+                f"shape={code_shape!r} B={transition_bits} "
+                f"matrix={[output_width, input_width]!r}"
+            )
+        return specialized_family
     raise _fail(
         f"specialized payload {payload_tier} has unsupported family: {family!r}"
     )
@@ -1198,7 +1251,7 @@ class NativePlaneLayer:
             )
         if not all(isinstance(value, int) for value in family_values) or set(
             family_values
-        ) - {0, 1, 2, 3}:
+        ) - {0, 1, 2, 3, 4, 5, 6}:
             raise _fail(f"layer {self.layer_index} {projection} has unsupported family code")
         specs = selected.get("payloads")
         if not isinstance(specs, dict) or not specs:
@@ -1297,6 +1350,17 @@ class NativePlaneLayer:
             "d4_codebooks": pointers("codebook"),
             "native_packed": pointers("packed"),
             "native_scales": pointers("scales"),
+            "native_v4_codes": pointers("codes"),
+            "native_v4_transition_bits": torch.tensor(
+                [
+                    int((specs[tier].get("geometry") or {}).get("B", 0))
+                    if str(specs[tier].get("family", "")).startswith("qtip_native_v4_b")
+                    else 0
+                    for tier in tiers
+                ],
+                dtype=torch.int32,
+                device=self.device,
+            ),
             "d4_index_bits": torch.tensor(
                 [d4_bits_by_tier.get(tier, 0) for tier in tiers],
                 dtype=torch.int32,
