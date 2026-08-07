@@ -97,6 +97,7 @@ def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
         "fixed-d4",
         "anchor",
         "backpack-exact64",
+        "train-gates",
     ]
     assert {"solve", "update", "export", "verify"}.issubset(choices)
     assert {"bank", "evaluate"} <= set(choices)

@@ -1,0 +1,154 @@
+{
+  "schema": "banana-smasher-ff0731-gate-only-handoff-v1",
+  "status": "SOURCE_READY_FOR_REAL_RUN",
+  "model": {
+    "model_root": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+    "basis_identity": "sha256(model.safetensors.index.json)",
+    "cells": 22016,
+    "cell_geometry": {
+      "layers": 43,
+      "experts_per_layer": 256,
+      "projections": [
+        "down",
+        "gate_up"
+      ]
+    },
+    "tiers": [
+      "native_mxfp4",
+      "qtip2",
+      "qtip3"
+    ]
+  },
+  "byte_contract": {
+    "whole_model_target_bytes": 102000000000,
+    "fixed_dense_metadata_bytes": 9032112614,
+    "expert_envelope_bytes": 92967887386,
+    "repair_budget_bytes": 0,
+    "projection": "exact multiple-choice knapsack over physical wire bytes",
+    "equation": "9032112614 + 92967887386 + 0 = 102000000000"
+  },
+  "source": {
+    "trainer": "banana-smasher/src/banana_smasher/gate_only_trainer.py",
+    "cli": "banana-smasher/src/banana_smasher/cli.py",
+    "focused_tests": "banana-smasher/tests/test_gate_only_trainer.py"
+  },
+  "training_contract": {
+    "objective": "frozen-own-base-final-logit-teacher-kld",
+    "trainable_parameter": {
+      "name": "tier_logits",
+      "shape": [
+        22016,
+        3
+      ]
+    },
+    "optimizer_allowlist": [
+      "tier_logits"
+    ],
+    "categorical_estimator": "hard one-hot forward plus softmax minus detached softmax backward",
+    "byte_constraint": "scalar expected-byte dual during soft training; exact hard projection at every DEV checkpoint",
+    "forbidden": [
+      "HOLDOUT paths",
+      "SPSA sign prices",
+      "gradient sign normalization",
+      "repair bytes"
+    ],
+    "frozen_state_proof": "runtime.frozen_state() tensor digest is recorded before and after training and must match"
+  },
+  "data_manifest_api": {
+    "schema": "banana-smasher-gate-data-v1",
+    "required_top_level": [
+      "schema",
+      "split",
+      "class_counts",
+      "rows"
+    ],
+    "split_values": [
+      "TRAIN",
+      "DEV"
+    ],
+    "classes": [
+      "agentic",
+      "chat",
+      "code",
+      "multilingual",
+      "prose",
+      "reasoning"
+    ],
+    "row_required": [
+      "window_id",
+      "class"
+    ],
+    "runtime_owned_row_fields": "The runtime adapter may require token IDs, teacher-logit sidecars, or other predeclared immutable row fields.",
+    "invariants": [
+      "declared class counts equal observed rows",
+      "all six classes have positive counts",
+      "TRAIN and DEV window IDs are disjoint",
+      "manifest hashes remain unchanged through training",
+      "any path containing HOLDOUT is rejected"
+    ]
+  },
+  "runtime_adapter_api_v1": {
+    "class": {
+      "constant": "API_VERSION = 1",
+      "constructor": "(model_root: Path, basis_sha256: str, parameters: dict)"
+    },
+    "attributes": {
+      "cell_ids": "ordered sequence of 22016 unique strings",
+      "cell_layers": "ordered sequence mapping each cell to one of 43 layer IDs",
+      "layers": "strictly ascending sequence of the 43 layer IDs",
+      "tier_bytes": "integer tensor [22016,3] containing physical wire bytes",
+      "gate_device": "optional torch device for tier_logits"
+    },
+    "methods": {
+      "batches(manifest)": "return ordered windows without reordering or introducing undeclared data",
+      "initial(batch)": "materialize the frozen initial activation",
+      "layer_stage(layer)": "context manager that loads native/QTIP2/QTIP3 candidates only for this layer and yields a differentiable forward callable",
+      "layer_forward_signature": "forward(activation, gates, hard_tiers, window_id)",
+      "layer_forward_rule": "gates have exact hard one-hot numerical values in forward and straight-through soft gradients; the selected physical tier branch must produce the forward activation",
+      "final_logits(activation, window_id)": "return candidate final vocabulary logits as a torch tensor",
+      "teacher_logits(batch)": "return frozen own-base final vocabulary logits for the same window",
+      "frozen_state()": "return an exhaustive non-empty name-to-tensor mapping covering router, teacher, all tier planes/codebooks/scales, and all non-gate model state",
+      "initial_tier_logits()": "optional deterministic tensor [22016,3]"
+    },
+    "lifecycle": "One process owns ordered windows. The trainer enters layer_stage exactly once per layer per pass, advances every window through that layer, then releases the stage before the next layer."
+  },
+  "cli_invocation_template": [
+    "smash",
+    "train-gates",
+    "--model-root",
+    "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+    "--basis-sha256",
+    "<MODEL_INDEX_SHA256>",
+    "--train-manifest",
+    "<IMMUTABLE_TRAIN_MANIFEST_JSON>",
+    "--dev-manifest",
+    "<IMMUTABLE_DEV_MANIFEST_JSON>",
+    "--runtime-adapter",
+    "<IMPORTABLE_MODULE>:<API_V1_CLASS>",
+    "--runtime-adapter-sha256",
+    "<ADAPTER_SOURCE_SHA256>",
+    "--runtime-config",
+    "<IMMUTABLE_RUNTIME_CONFIG_JSON>",
+    "--output",
+    "<OUTPUT_DIRECTORY>",
+    "--steps",
+    "20",
+    "--learning-rate",
+    "0.1",
+    "--temperature",
+    "1.0",
+    "--dev-every",
+    "1"
+  ],
+  "outputs": {
+    "RECEIPT.json": "manifest identities, frozen-state digests, soft/hard KLD checkpoints, movement, entropy, raw gradient norms, expected/hard bytes, and relaxation gap",
+    "ASSIGNMENT.json": "exact projected per-cell tier assignment and full-wire byte accounting",
+    "TIER_LOGITS.pt": "final tier_logits tensor only"
+  },
+  "verification": {
+    "command": "PYTHONPATH=src python -m ruff check src/banana_smasher/gate_only_trainer.py src/banana_smasher/cli.py tests/test_gate_only_trainer.py tests/test_cli.py && PYTHONPATH=src python -m pytest tests/test_gate_only_trainer.py tests/test_cli.py::test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api -q",
+    "result": "All checks passed; 6 passed in 1.99s",
+    "tiny_end_to_end": "deterministic two-layer runtime: soft TRAIN KLD decreased, exact-budget hard assignment moved cells, and hard bytes remained exact",
+    "hardware_kld_status": "NOT_RUN_IN_SOURCE_TASK"
+  }
+}

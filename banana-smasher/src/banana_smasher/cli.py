@@ -562,6 +562,27 @@ def _parser() -> argparse.ArgumentParser:
     exact64.add_argument("--output-root", type=Path, required=True)
     exact64.add_argument("--basis-sha256", required=True)
 
+    train_gates = subparsers.add_parser(
+        "train-gates",
+        help="train FF0731 native/QTIP2/QTIP3 cell gates against final-logit teacher KLD",
+    )
+    train_gates.add_argument(
+        "--model-root",
+        type=Path,
+        default=Path("/home/dnola/models/hf/DeepSeek-V4-Flash-0731"),
+    )
+    train_gates.add_argument("--basis-sha256", required=True)
+    train_gates.add_argument("--train-manifest", type=Path, required=True)
+    train_gates.add_argument("--dev-manifest", type=Path, required=True)
+    train_gates.add_argument("--runtime-adapter", required=True, metavar="MODULE:CLASS")
+    train_gates.add_argument("--runtime-adapter-sha256", required=True)
+    train_gates.add_argument("--runtime-config", type=Path, required=True)
+    train_gates.add_argument("--output", type=Path, required=True)
+    train_gates.add_argument("--steps", type=int, default=20)
+    train_gates.add_argument("--learning-rate", type=float, default=0.1)
+    train_gates.add_argument("--temperature", type=float, default=1.0)
+    train_gates.add_argument("--dev-every", type=int, default=1)
+
     return parser
 
 
@@ -1435,6 +1456,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                 qtip3_root_map_path=args.qtip3_root_map,
                 output_root=args.output_root,
                 basis_sha256=args.basis_sha256,
+            )
+        elif args.command == "train-gates":
+            from .gate_only_trainer import run_gate_training_cli
+
+            result = run_gate_training_cli(
+                model_root=args.model_root,
+                basis_sha256=args.basis_sha256,
+                train_manifest=args.train_manifest,
+                dev_manifest=args.dev_manifest,
+                runtime_adapter=args.runtime_adapter,
+                runtime_adapter_sha256=args.runtime_adapter_sha256,
+                runtime_config=args.runtime_config,
+                output=args.output,
+                steps=args.steps,
+                learning_rate=args.learning_rate,
+                temperature=args.temperature,
+                dev_every=args.dev_every,
             )
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
