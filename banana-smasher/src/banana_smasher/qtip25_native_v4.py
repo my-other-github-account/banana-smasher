@@ -648,20 +648,25 @@ if triton is not None:
             current = (step & 1) * batch * prefixes + base
             best = tl.full((prefixes,), float("inf"), tl.float32)
             chosen = tl.zeros((prefixes,), tl.int32)
-            for branch in tl.range(0, branches):
-                state = branch * prefixes + prefix
-                candidate = tl.load(
-                    scratch_ptr + previous + (state >> transition_bits)
+            for previous_prefix in tl.range(0, prefixes):
+                previous_cost = tl.load(
+                    scratch_ptr + previous + previous_prefix
                 )
-                for lane in tl.static_range(0, lanes):
-                    value = tl.load(
-                        x_ptr + (step * lanes + lane) * batch + sequence
-                    ).to(tl.float32)
-                    code = tl.load(lut_ptr + lane * state_count + state).to(tl.float32)
-                    candidate += (code - value) * (code - value)
-                take = candidate < best
-                best = tl.where(take, candidate, best)
-                chosen = tl.where(take, state, chosen)
+                for extension in tl.static_range(0, branches // prefixes):
+                    branch = previous_prefix * (branches // prefixes) + extension
+                    state = branch * prefixes + prefix
+                    candidate = previous_cost
+                    for lane in tl.static_range(0, lanes):
+                        value = tl.load(
+                            x_ptr + (step * lanes + lane) * batch + sequence
+                        ).to(tl.float32)
+                        code = tl.load(
+                            lut_ptr + lane * state_count + state
+                        ).to(tl.float32)
+                        candidate += (code - value) * (code - value)
+                    take = candidate < best
+                    best = tl.where(take, candidate, best)
+                    chosen = tl.where(take, state, chosen)
             tl.store(scratch_ptr + current + prefix, best)
             tl.store(
                 best_state_ptr + step * batch * prefixes + base + prefix,
