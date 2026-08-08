@@ -250,7 +250,6 @@ def ldlq_native_v4_cuda_batch(
         base_scale_values.append(
             float((source_rms / lut_rms).item()) if source_rms.item() else 1.0
         )
-    base_scales = torch.tensor(base_scale_values, dtype=source.dtype, device=device)
     factor_rows = (
         [[fixed_factors[cell]] for cell in range(cell_count)]
         if fixed_factors is not None
@@ -258,15 +257,13 @@ def ldlq_native_v4_cuda_batch(
         if fixed_scales is not None
         else [list(factors) for _ in range(cell_count)]
     )
-    scale_values = torch.tensor(
+    scale_rows = (
         [[fixed_scales[cell]] for cell in range(cell_count)]
         if fixed_scales is not None
         else [
             [base_scale_values[cell] * factor for factor in factor_rows[cell]]
             for cell in range(cell_count)
-        ],
-        dtype=source.dtype,
-        device=device,
+        ]
     )
     factor_count = len(factors)
     group_count = cell_count * factor_count
@@ -276,7 +273,7 @@ def ldlq_native_v4_cuda_batch(
     lower_group = lower[:, None].expand(-1, factor_count, -1, -1).reshape(
         group_count, columns, columns
     )
-    flat_scales = scale_values.reshape(group_count)
+    flat_scales = [value for row in scale_rows for value in row]
     decoded = torch.zeros_like(source_group)
     states_grid = torch.empty(
         (group_count, row_blocks, column_blocks, 64),
@@ -302,10 +299,13 @@ def ldlq_native_v4_cuda_batch(
                 corrected.add_(
                     torch.bmm(error_right, lower_group[:, end:, start:end])
                 )
-        tiles = corrected.reshape(
-            group_count, row_blocks, 64, geometry.V
-        ) / flat_scales[:, None, None, None]
-        flattened_tiles = tiles.reshape(group_count * row_blocks, 64, geometry.V)
+        flattened_tiles = torch.stack(
+            [
+                corrected[group].reshape(row_blocks, 64, geometry.V)
+                / flat_scales[group]
+                for group in range(group_count)
+            ]
+        ).reshape(group_count * row_blocks, 64, geometry.V)
         parts = []
         for batch_start in range(0, len(flattened_tiles), solve_batch):
             part = flattened_tiles[batch_start : batch_start + solve_batch]
@@ -318,10 +318,10 @@ def ldlq_native_v4_cuda_batch(
                 )
             )
         states = torch.cat(parts).reshape(group_count, row_blocks, 64)
-        decoded[:, :, start:end] = (
-            state_lut[states].reshape(group_count, rows, 16)
-            * flat_scales[:, None, None]
-        )
+        for group in range(group_count):
+            decoded[group, :, start:end] = (
+                state_lut[states[group]].reshape(rows, 16) * flat_scales[group]
+            )
         states_grid[:, :, column_block] = states
     difference = decoded.double() - source_group.double()
     distortions = (
@@ -345,16 +345,18 @@ def ldlq_native_v4_cuda_batch(
     packed_values = torch.cat(packed_parts).reshape(
         cell_count, tile_count, 8 * geometry.B
     ).numpy()
-    selected_scales = scale_values[cell_ids, winners]
+    selected_scales = [
+        scale_rows[cell][int(winners[cell].item())] for cell in range(cell_count)
+    ]
     results = []
     for cell in range(cell_count):
         winner = int(winners[cell].item())
-        selected_scale = float(selected_scales[cell].item())
+        selected_scale = selected_scales[cell]
         results.append(
             {
                 "method": "qtip_batch_block_ldl_reverse_16_cell_scale_batched",
                 "matrix_shape": [rows, columns],
-                "base_scale": float(base_scales[cell].item()),
+                "base_scale": base_scale_values[cell],
                 "selected_factor": factor_rows[cell][winner],
                 "selected_scale": selected_scale,
                 "scale_factor": selected_scale,
@@ -371,7 +373,7 @@ def ldlq_native_v4_cuda_batch(
         )
     return (
         [np.ascontiguousarray(value) for value in packed_values],
-        [float(value) for value in selected_scales.tolist()],
+        selected_scales,
         results,
     )
 
