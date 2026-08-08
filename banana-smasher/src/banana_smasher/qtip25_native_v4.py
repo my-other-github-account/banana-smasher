@@ -73,6 +73,8 @@ class NativeQtip25Geometry:
 
 NATIVE_QTIP25_GEOMETRY = NativeQtip25Geometry()
 _DEFAULT_SCALE_FACTORS = (0.80, 0.85, 0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20)
+TOTAL_SSE_OBJECTIVE = "sse"
+LEXICOGRAPHIC_L4_OBJECTIVE = "lexicographic_l4"
 
 
 def native_v4_geometry(bpw: object) -> NativeQtip25Geometry:
@@ -359,18 +361,176 @@ def _viterbi_numpy(
     return states
 
 
+def _viterbi_native_v5_numpy_lexicographic(
+    target: np.ndarray,
+    scalar_lut: np.ndarray,
+    *,
+    overlap: np.ndarray | None,
+    geometry: NativeQtip25Geometry,
+) -> np.ndarray:
+    """Minimize maximum V4-vector SSE, then total SSE, for each sequence."""
+
+    batch, steps, lanes = target.shape
+    widths = native_v5_phase_widths(geometry=geometry)
+    values = target.reshape(batch, steps * lanes)
+    cost: np.ndarray | None = None
+    maximum: np.ndarray | None = None
+    partial: np.ndarray | None = None
+    backpointers: list[np.ndarray | None] = []
+    row_ids = np.arange(batch)
+
+    def lexicographic_argmin(*keys: np.ndarray) -> np.ndarray:
+        eligible = np.ones(keys[0].shape, dtype=bool)
+        for key in keys:
+            minimum = np.min(np.where(eligible, key, np.inf), axis=-1, keepdims=True)
+            eligible &= key == minimum
+        return np.argmax(eligible, axis=-1)
+
+    for phase in range(values.shape[1]):
+        width = widths[phase % geometry.V]
+        prefixes = 1 << (geometry.L - width)
+        branches = 1 << width
+        delta = scalar_lut[None, :] - values[:, phase, None]
+        errors = delta * delta
+        if phase == 0:
+            cost = errors
+            maximum = np.zeros_like(errors)
+            partial = errors.copy()
+            if overlap is not None:
+                expected = np.asarray(overlap, dtype=np.int32)
+                if expected.shape != (batch,) or bool(
+                    np.any(expected < 0) or np.any(expected >= prefixes)
+                ):
+                    raise ValueError("invalid native V5 cyclic overlap prefixes")
+                allowed = (expected[:, None] << width) + np.arange(
+                    branches, dtype=np.int32
+                )
+                masked = np.full_like(cost, np.inf)
+                masked_maximum = np.full_like(maximum, np.inf)
+                masked_partial = np.full_like(partial, np.inf)
+                masked[row_ids[:, None], allowed] = cost[row_ids[:, None], allowed]
+                masked_maximum[row_ids[:, None], allowed] = maximum[
+                    row_ids[:, None], allowed
+                ]
+                masked_partial[row_ids[:, None], allowed] = partial[
+                    row_ids[:, None], allowed
+                ]
+                cost = masked
+                maximum = masked_maximum
+                partial = masked_partial
+            backpointers.append(None)
+            continue
+
+        assert cost is not None and maximum is not None and partial is not None
+        prefix_ids = np.arange(prefixes, dtype=np.int32)
+        predecessors = prefix_ids[:, None] + (
+            np.arange(branches, dtype=np.int32)[None, :] * prefixes
+        )
+        options = cost[:, predecessors]
+        maximum_options = maximum[:, predecessors]
+        partial_options = partial[:, predecessors]
+        lane = phase % geometry.V
+        if lane == geometry.V - 1:
+            next_cost = np.empty_like(cost)
+            next_maximum = np.empty_like(maximum)
+            state_choice = np.empty((batch, geometry.states), dtype=np.uint8)
+            state_prefixes = np.arange(prefixes, dtype=np.int32)
+            for branch in range(branches):
+                state_ids = state_prefixes * branches + branch
+                edge_error = errors[:, state_ids, None]
+                candidate_maximum = np.maximum(
+                    maximum_options, partial_options + edge_error
+                )
+                candidate_total = options + edge_error
+                branch_choice = lexicographic_argmin(
+                    candidate_maximum, candidate_total
+                )
+                state_choice[:, state_ids] = branch_choice.astype(np.uint8)
+                next_maximum[:, state_ids] = np.take_along_axis(
+                    candidate_maximum, branch_choice[:, :, None], axis=2
+                )[:, :, 0]
+                next_cost[:, state_ids] = np.take_along_axis(
+                    candidate_total, branch_choice[:, :, None], axis=2
+                )[:, :, 0]
+            cost = next_cost
+            maximum = next_maximum
+            partial = np.zeros_like(cost)
+            backpointers.append(state_choice)
+            continue
+
+        choice = (
+            lexicographic_argmin(maximum_options, options)
+            if lane == 0
+            else lexicographic_argmin(maximum_options, partial_options, options)
+        )
+        best_total = np.take_along_axis(options, choice[:, :, None], axis=2)[:, :, 0]
+        best_maximum = np.take_along_axis(
+            maximum_options, choice[:, :, None], axis=2
+        )[:, :, 0]
+        best_partial = np.take_along_axis(
+            partial_options, choice[:, :, None], axis=2
+        )[:, :, 0]
+        cost = errors + np.repeat(best_total, branches, axis=1)
+        maximum = np.repeat(best_maximum, branches, axis=1)
+        partial = (
+            errors
+            if lane == 0
+            else errors + np.repeat(best_partial, branches, axis=1)
+        )
+        backpointers.append(choice.astype(np.uint8))
+
+    assert cost is not None and maximum is not None
+    if overlap is None:
+        final = lexicographic_argmin(maximum, cost).astype(np.int32)
+    else:
+        first_width = widths[0]
+        first_prefixes = 1 << (geometry.L - first_width)
+        final_allowed = np.asarray(overlap, dtype=np.int32)[:, None] + (
+            np.arange(1 << first_width, dtype=np.int32)[None, :] * first_prefixes
+        )
+        final_choice = lexicographic_argmin(
+            maximum[row_ids[:, None], final_allowed],
+            cost[row_ids[:, None], final_allowed],
+        )
+        final = final_allowed[row_ids, final_choice]
+
+    phase_states = np.empty((batch, values.shape[1]), dtype=np.int32)
+    phase_states[:, -1] = final
+    for phase in range(values.shape[1] - 1, 0, -1):
+        width = widths[phase % geometry.V]
+        prefixes = 1 << (geometry.L - width)
+        prefix = phase_states[:, phase] >> width
+        choice = backpointers[phase]
+        assert choice is not None
+        choice_index = (
+            phase_states[:, phase]
+            if phase % geometry.V == geometry.V - 1
+            else prefix
+        )
+        predecessor_branch = choice[row_ids, choice_index].astype(np.int32)
+        phase_states[:, phase - 1] = predecessor_branch * prefixes + prefix
+    return phase_states.reshape(batch, steps, lanes)
+
+
 def _viterbi_native_v5_numpy(
     target: np.ndarray,
     scalar_lut: np.ndarray,
     *,
     overlap: np.ndarray | None,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+    objective: str = TOTAL_SSE_OBJECTIVE,
 ) -> np.ndarray:
     """Exact variable-width scalar recurrence for PR31 V5 vector edges."""
 
     batch, steps, lanes = target.shape
     if lanes != geometry.V or steps * geometry.B < geometry.L:
         raise ValueError("native V5 target has insufficient L16/V4 transitions")
+    if objective == LEXICOGRAPHIC_L4_OBJECTIVE:
+        return _viterbi_native_v5_numpy_lexicographic(
+            target, scalar_lut, overlap=overlap, geometry=geometry
+        )
+    if objective != TOTAL_SSE_OBJECTIVE:
+        raise ValueError("unsupported native QTIP trellis objective")
     widths = native_v5_phase_widths(geometry=geometry)
     values = target.reshape(batch, steps * lanes)
     cost: np.ndarray | None = None
@@ -445,6 +605,8 @@ def solve_native_v4(
     state_lut: np.ndarray | None = None,
     scales: np.ndarray | Sequence[float] | None = None,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+    cyclic_warmup_cycles: int = 1,
+    trellis_objective: str = TOTAL_SSE_OBJECTIVE,
 ) -> EncodedNativeQtip25:
     """Reference cyclic Viterbi encoder for homogeneous L16/B/V4 payloads."""
     values = np.asarray(target, dtype=np.float32)
@@ -454,6 +616,10 @@ def solve_native_v4(
         raise ValueError("native QTIP2.5 target must be [rows, steps, 4]")
     if not bool(np.isfinite(values).all()):
         raise ValueError("native QTIP2.5 target must be finite")
+    if cyclic_warmup_cycles not in {1, 2}:
+        raise ValueError("native QTIP cyclic warmup must use one or two cycles")
+    if trellis_objective not in {TOTAL_SSE_OBJECTIVE, LEXICOGRAPHIC_L4_OBJECTIVE}:
+        raise ValueError("unsupported native QTIP trellis objective")
     if sum(value is not None for value in (tlut, state_lut)) != 1:
         raise ValueError("native QTIP solve requires exactly one TLUT or vector LUT")
     edge_lut: np.ndarray | None = None
@@ -493,28 +659,33 @@ def solve_native_v4(
 
     normalized = values / row_scales[:, None, None]
     midpoint = values.shape[1] // 2
+    rolled = np.roll(normalized, midpoint, axis=1)
+    warmup = np.concatenate([rolled] * cyclic_warmup_cycles, axis=1)
+    overlap_step = (cyclic_warmup_cycles - 1) * values.shape[1] + midpoint
     if edge_lut is not None:
         first_phases = _viterbi_native_v5_numpy(
-            np.roll(normalized, midpoint, axis=1),
+            warmup,
             edge_lut,
             overlap=None,
             geometry=geometry,
+            objective=trellis_objective,
         )
         first_width = native_v5_phase_widths(geometry=geometry)[0]
-        overlap = first_phases[:, midpoint, 0] >> first_width
+        overlap = first_phases[:, overlap_step, 0] >> first_width
         phase_states = _viterbi_native_v5_numpy(
             normalized,
             edge_lut,
             overlap=overlap,
             geometry=geometry,
+            objective=trellis_objective,
         )
         states = phase_states[:, :, -1]
         decoded = phase_states
     else:
         first = _viterbi_numpy(
-            np.roll(normalized, midpoint, axis=1), lut, overlap=None, geometry=geometry
+            warmup, lut, overlap=None, geometry=geometry
         )
-        overlap = first[:, midpoint] >> geometry.B
+        overlap = first[:, overlap_step] >> geometry.B
         states = _viterbi_numpy(normalized, lut, overlap=overlap, geometry=geometry)
         decoded = states
     packed = pack_native_v4_states(states, geometry=geometry)

@@ -22,7 +22,7 @@ constexpr int BATCH = 256;
 constexpr int RESIDUES = 1024;
 constexpr int RESIDUE_TILE = 128;
 constexpr int RESIDUE_TILES = RESIDUES / RESIDUE_TILE;
-constexpr int B_TILE = 8;
+constexpr int B_TILE = 2;
 constexpr int THREADS = 256;
 constexpr int EVEN_VALUES = B_TILE * BRANCHES * RESIDUE_TILE;
 constexpr int ODD_VALUES = B_TILE * RESIDUE_TILE * BRANCHES;
@@ -32,6 +32,7 @@ constexpr int PREVIOUS_VALUES =
 constexpr size_t SHARED_BYTES =
     (EVEN_VALUES + PREVIOUS_VALUES) * sizeof(float)
     + EVEN_VALUES * sizeof(uint8_t);
+static_assert(SHARED_BYTES <= 24 * 1024);
 
 __device__ __forceinline__ float emission(float target, float level) {
   const float delta = __fsub_rn(level, target);
@@ -52,6 +53,24 @@ __device__ __forceinline__ void update_best_strict(
       "}"
       : "+f"(best), "+r"(best_q)
       : "f"(value), "r"(q));
+}
+
+__device__ __forceinline__ void update_best_pair_strict(
+    float value,
+    uint32_t q,
+    uint32_t candidate_even_q,
+    float& best,
+    uint32_t& best_q,
+    uint32_t& best_even_q) {
+  asm volatile(
+      "{ .reg .pred better;\n\t"
+      "setp.lt.f32 better, %3, %0;\n\t"
+      "selp.f32 %0, %3, %0, better;\n\t"
+      "selp.u32 %1, %4, %1, better;\n\t"
+      "selp.u32 %2, %5, %2, better;\n\t"
+      "}"
+      : "+f"(best), "+r"(best_q), "+r"(best_even_q)
+      : "f"(value), "r"(q), "r"(candidate_even_q));
 }
 
 template <bool FIRST_PAIR, bool HAS_OVERLAP>
@@ -142,11 +161,13 @@ __global__ void paired_step_kernel(
       const int state = static_cast<int>(q) * PREFIXES + prefix;
       const float candidate = add_cost(
           even_cost[even_index], emission(target, scalar_lut[state]));
-      const float previous_best = best;
-      update_best_strict(candidate, q, best, odd_q);
-      if (best != previous_best) {
-        even_q = even_q_plane[even_index];
-      }
+      update_best_pair_strict(
+          candidate,
+          q,
+          static_cast<uint32_t>(even_q_plane[even_index]),
+          best,
+          odd_q,
+          even_q);
     }
     const int64_t sink = static_cast<int64_t>(seq) * PREFIXES + prefix;
     cost_out[sink] = best;
@@ -373,11 +394,6 @@ std::vector<torch::Tensor> periodic_qtip3_exact_cuda(
         overlap_tensor.scalar_type() == torch::kInt32
             && overlap_tensor.numel() == BATCH,
         "Periodic QTIP3 overlap must be contiguous CUDA int32 [256]");
-    const auto overlap_min = overlap_tensor.min().item<int32_t>();
-    const auto overlap_max = overlap_tensor.max().item<int32_t>();
-    TORCH_CHECK(
-        overlap_min >= 0 && overlap_max < PREFIXES,
-        "Periodic QTIP3 overlap prefixes must be in [0,8192)");
   }
   const c10::cuda::CUDAGuard guard(x.device());
   const auto stream = at::cuda::getCurrentCUDAStream(x.get_device()).stream();

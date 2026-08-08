@@ -101,8 +101,14 @@ def solve_periodic_qtip3_exact(
             or tuple(overlap.shape) != (BATCH,)
         ):
             raise ValueError("Periodic QTIP3 overlap must be integral CUDA [256]")
-        if bool(((overlap < 0) | (overlap >= PREFIXES)).any()):
-            raise ValueError("Periodic QTIP3 overlap prefixes must be in [0,8192)")
+        getattr(torch, "_assert_async")(
+            torch.all(overlap >= 0),
+            "Periodic QTIP3 overlap prefixes must be in [0,8192)",
+        )
+        getattr(torch, "_assert_async")(
+            torch.all(overlap < PREFIXES),
+            "Periodic QTIP3 overlap prefixes must be in [0,8192)",
+        )
         overlap_arg = overlap.to(dtype=torch.int32).contiguous()
     states = _extension().viterbi(x, scalar_lut, overlap_arg)[0]
     if states.dtype != torch.int32 or tuple(states.shape) != (STEPS, BATCH):
@@ -144,19 +150,27 @@ def solve_periodic_qtip3_cells_exact(
 
     before = counters()
     packed_cells: list[np.ndarray] = []
+    pending_packed_cells: list[list[torch.Tensor]] = []
     chunk_calls = 0
     for target in checked:
-        packed_parts = []
-        for start in range(0, len(target), BATCH):
-            host = torch.from_numpy(target[start : start + BATCH])
-            if scalar_lut.is_cuda:
-                host = host.pin_memory()
-            values = host.to(
-                scalar_lut.device, non_blocking=scalar_lut.is_cuda
-            ).contiguous()
-            phases = values.reshape(BATCH, STEPS).transpose(0, 1).contiguous()
+        packed_parts: list[torch.Tensor] = []
+        host = torch.from_numpy(target)
+        if scalar_lut.is_cuda:
+            host = host.pin_memory()
+        values = host.to(
+            scalar_lut.device, non_blocking=scalar_lut.is_cuda
+        ).contiguous()
+        chunk_count = len(target) // BATCH
+        phase_batches = (
+            values.reshape(chunk_count, BATCH, STEPS)
+            .transpose(1, 2)
+            .contiguous()
+        )
+        open_phase_batches = phase_batches.roll(STEPS // 2, dims=1)
+        for chunk_index in range(chunk_count):
+            phases = phase_batches[chunk_index]
             open_states = solve_periodic_qtip3_exact(
-                phases.roll(STEPS // 2, dims=0), scalar_lut
+                open_phase_batches[chunk_index], scalar_lut
             )
             open_values = open_states.transpose(0, 1).reshape(BATCH, 64, 4)
             overlap = (open_values[:, 32, 0] >> 3).to(torch.int32).contiguous()
@@ -171,11 +185,13 @@ def solve_periodic_qtip3_cells_exact(
             packed_parts.append(
                 _pack_cuda_states_v4(
                     final_states, geometry=native_v4_geometry(3.0)
-                ).cpu()
+                )
             )
             chunk_calls += 1
+        pending_packed_cells.append(packed_parts)
+    for packed_parts in pending_packed_cells:
         packed_cells.append(
-            np.ascontiguousarray(torch.cat(packed_parts).numpy())
+            np.ascontiguousarray(torch.cat(packed_parts).cpu().numpy())
         )
     after = counters()
     return packed_cells, {

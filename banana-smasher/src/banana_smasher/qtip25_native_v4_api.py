@@ -21,12 +21,19 @@ from typing import Any, Literal
 import numpy as np
 
 from .backpack import CLASSES, _anchor_metrics
+from .banana_v1 import (
+    BANANA_V1_MULTIPLIER,
+    BANANA_V1_OFFSET,
+    expand_banana_v1_codebook,
+)
 from .qtip25_native_v4 import (
     NATIVE_QTIP25_GEOMETRY,
     decode_native_v4,
+    expand_native_v4_tlut,
     ldlq_native_v4_matrix,
     native_v4_lower_from_hessian,
     native_v4_geometry,
+    native_v5_phase_widths,
     solve_native_v4,
 )
 
@@ -243,10 +250,12 @@ def _build_qtip_native_v4_cell(
     observed_basis_sha256: str,
     bpw: object,
     receipt_schema: str,
+    codec_version: Literal["v4", "v5", "v6"] = "v4",
     backend: Literal["cuda", "reference"] = "cuda",
     solve_batch: int = 2048,
     decode_batch: int = 2048,
     decode_repeats: int = 1,
+    materialize_decoded: bool = True,
     hessian: str | Path | None = None,
     scale_factors: Sequence[float] = (
         0.80,
@@ -259,6 +268,11 @@ def _build_qtip_native_v4_cell(
         1.15,
         1.20,
     ),
+    ldlq_scale_semantics: Literal[
+        "relative_search", "absolute_unit", "rms_ratio"
+    ] = "absolute_unit",
+    feedback_mode: Literal["off", "reverse_16"] = "off",
+    trellis_objective: Literal["sse", "lexicographic_l4"] = "sse",
 ) -> dict[str, Any]:
     """Build one physical homogeneous native-V4 candidate cell.
 
@@ -275,6 +289,24 @@ def _build_qtip_native_v4_cell(
         raise ValueError(f"native V4 basis mismatch: {observed} != {intended}")
     if backend not in {"cuda", "reference"}:
         raise ValueError("native V4 backend must be cuda or reference")
+    if codec_version not in {"v4", "v5", "v6"}:
+        raise ValueError("native QTIP codec_version must be v4, v5, or v6")
+    if ldlq_scale_semantics not in {
+        "relative_search",
+        "absolute_unit",
+        "rms_ratio",
+    }:
+        raise ValueError(
+            "native V4 LDLQ scale semantics must be relative_search, absolute_unit, or rms_ratio"
+        )
+    if feedback_mode not in {"off", "reverse_16"}:
+        raise ValueError("native V4 feedback mode must be off or reverse_16")
+    if trellis_objective not in {"sse", "lexicographic_l4"}:
+        raise ValueError("native QTIP trellis objective must be sse or lexicographic_l4")
+    if feedback_mode == "reverse_16" and hessian is None:
+        raise ValueError("native V4 reverse_16 feedback requires an explicit Hessian artifact")
+    if feedback_mode == "off" and ldlq_scale_semantics == "relative_search":
+        raise ValueError("native V4 relative scale search requires reverse_16 feedback")
     source_path = Path(source).expanduser().resolve()
     tlut_path = Path(tlut).expanduser().resolve()
     if source_path.is_symlink() or not source_path.is_file():
@@ -293,20 +325,56 @@ def _build_qtip_native_v4_cell(
             f"native V4 source must be finite float32{compact['shape']}, got "
             f"{source_weights.dtype}{source_weights.shape}"
         )
-    if table.dtype != np.float32 or table.shape != (512, 2) or not np.isfinite(table).all():
-        raise ValueError("native V4 TLUT must be finite float32 [512,2]")
+    old_v4 = table.dtype == np.float32 and table.shape == (512, 2)
+    compact_pr31 = table.dtype == np.float16 and table.shape == (1024,)
+    if not (old_v4 or compact_pr31) or not np.isfinite(table).all():
+        raise ValueError(
+            "native LUT must be finite V4 float32 [512,2] or compact PR31 float16 [1024]"
+        )
+    if codec_version == "v4" and not old_v4:
+        raise ValueError("native QTIP codec_version=v4 requires lut_identity=q9-v2-v4")
+    if codec_version in {"v5", "v6"} and not compact_pr31:
+        raise ValueError(
+            f"native QTIP codec_version={codec_version} requires the compact PR31 LUT"
+        )
+    if codec_version == "v5" and geometry.B != 8:
+        raise ValueError("native QTIP codec_version=v5 is fixed to B8")
+    if trellis_objective == "lexicographic_l4" and (
+        not compact_pr31 or feedback_mode != "off"
+    ):
+        raise ValueError(
+            "lexicographic L4 requires the compact PR31 LUT with feedback disabled"
+        )
 
     output_root = Path(output).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     blocks = _to_normalized_blocks(source_weights, compact)
     normalized_sha256 = _sha_array(blocks)
+    selected_scale = 1.0
+    if ldlq_scale_semantics == "rms_ratio":
+        expanded_lut = (
+            expand_banana_v1_codebook(table)
+            if compact_pr31
+            else expand_native_v4_tlut(table, geometry=geometry)
+        )
+        source_rms = float(np.sqrt(np.mean(blocks.astype(np.float64) ** 2)))
+        lut_rms = float(np.sqrt(np.mean(expanded_lut.astype(np.float64) ** 2)))
+        selected_scale = 1.0 if source_rms == 0 else source_rms / lut_rms
+    cyclic_warmup_cycles = 2 if codec_version == "v6" else 1
     started = time.perf_counter()
     cuda_receipt: dict[str, Any] | None = None
     optimization: dict[str, Any] = {
         "method": "rms_only_no_feedback",
-        "scale_factor": 1.0,
+        "feedback_mode": "off",
+        "scale_semantics": ldlq_scale_semantics,
+        "base_scale": selected_scale,
+        "selected_factor": 1.0,
+        "selected_scale": selected_scale,
+        "scale_factor": selected_scale,
         "scale_factors": [1.0],
         "feedback_nonzero_count": 0,
+        "cyclic_warmup_cycles": cyclic_warmup_cycles,
+        "trellis_objective": trellis_objective,
     }
     if backend == "cuda":
         from .qtip25_native_v4_cuda_cell import run_cuda_cell
@@ -338,15 +406,18 @@ def _build_qtip_native_v4_cell(
         encode_seconds = float(cuda_receipt["encode"]["wall_seconds"])
         optimization = dict(cuda_receipt["optimization"])
     else:
-        if hessian is None:
+        if feedback_mode == "off":
             encoded = solve_native_v4(
                 blocks,
                 tlut=table,
-                scales=np.ones(len(blocks), dtype=np.float32),
+                scales=np.full(len(blocks), selected_scale, dtype=np.float32),
                 geometry=geometry,
+                cyclic_warmup_cycles=cyclic_warmup_cycles,
+                trellis_objective=trellis_objective,
             )
             packed = encoded.packed
         else:
+            assert hessian is not None
             hessian_path = Path(hessian).expanduser().resolve()
             hessian_value = np.load(hessian_path, allow_pickle=False)
             lower = native_v4_lower_from_hessian(hessian_value)
@@ -393,7 +464,10 @@ def _build_qtip_native_v4_cell(
     su_path = output_root / "SU.npy"
     sv_path = output_root / "SV.npy"
     wscale_path = output_root / "Wscale.npy"
-    np.save(decoded_path, decoded, allow_pickle=False)
+    if materialize_decoded:
+        np.save(decoded_path, decoded, allow_pickle=False)
+    else:
+        decoded_path.unlink(missing_ok=True)
     np.save(su_path, compact["SU_storage"], allow_pickle=False)
     np.save(sv_path, compact["SV_storage"], allow_pickle=False)
     np.save(
@@ -421,6 +495,8 @@ def _build_qtip_native_v4_cell(
         "schema": receipt_schema,
         "status": "PASS",
         "backend": backend,
+        "codec_version": codec_version,
+        "provider": f"qtip-native-{codec_version}@{geometry.rate_num / geometry.rate_den:.2f}",
         "basis_sha256": intended,
         "geometry": geometry.as_mapping(),
         "source": {
@@ -437,8 +513,23 @@ def _build_qtip_native_v4_cell(
             **_artifact(tlut_path, data_bytes=int(table.nbytes)),
             "tensor_sha256": _sha_array(table),
             "shape": list(table.shape),
+            "dtype": str(table.dtype),
+            "identity": "pr31-affine-gaussian-edge-v1" if compact_pr31 else "q9-v2-v4",
+            **(
+                {
+                    "phase_widths": list(native_v5_phase_widths(geometry=geometry)),
+                    "multiplier": BANANA_V1_MULTIPLIER,
+                    "offset": BANANA_V1_OFFSET,
+                }
+                if compact_pr31
+                else {}
+            ),
         },
         "normalized_tensor_sha256": normalized_sha256,
+        "decode_validation": {
+            "tensor_sha256": _sha_array(decoded),
+            "materialized": materialize_decoded,
+        },
         "optimization": optimization,
         "accounting": {
             "weights": weights,
@@ -460,7 +551,11 @@ def _build_qtip_native_v4_cell(
         },
         "artifacts": {
             "codes": _artifact(codes_path, data_bytes=int(packed.nbytes)),
-            "decoded": _artifact(decoded_path, data_bytes=int(decoded.nbytes)),
+            **(
+                {"decoded": _artifact(decoded_path, data_bytes=int(decoded.nbytes))}
+                if materialize_decoded
+                else {}
+            ),
             "SU": _artifact(su_path, data_bytes=int(compact["SU_storage"].nbytes)),
             "SV": _artifact(sv_path, data_bytes=int(compact["SV_storage"].nbytes)),
             "Wscale": _artifact(wscale_path, data_bytes=wscale_bytes),
@@ -502,6 +597,8 @@ def build_qtip_native_v4_cell(
     solve_batch: int = 2048,
     decode_batch: int = 2048,
     decode_repeats: int = 1,
+    codec_version: Literal["v4", "v5", "v6"] = "v4",
+    materialize_decoded: bool = True,
     hessian: str | Path | None = None,
     scale_factors: Sequence[float] = (
         0.80,
@@ -514,6 +611,11 @@ def build_qtip_native_v4_cell(
         1.15,
         1.20,
     ),
+    ldlq_scale_semantics: Literal[
+        "relative_search", "absolute_unit", "rms_ratio"
+    ] = "absolute_unit",
+    feedback_mode: Literal["off", "reverse_16"] = "off",
+    trellis_objective: Literal["sse", "lexicographic_l4"] = "sse",
 ) -> dict[str, Any]:
     """Build one homogeneous native-V4 cell at an exact quarter-BPW rate."""
 
@@ -524,14 +626,19 @@ def build_qtip_native_v4_cell(
         output,
         bpw=bpw,
         receipt_schema=GENERIC_CELL_SCHEMA,
+        codec_version=codec_version,
         intended_basis_sha256=intended_basis_sha256,
         observed_basis_sha256=observed_basis_sha256,
         backend=backend,
         solve_batch=solve_batch,
         decode_batch=decode_batch,
         decode_repeats=decode_repeats,
+        materialize_decoded=materialize_decoded,
         hessian=hessian,
         scale_factors=scale_factors,
+        ldlq_scale_semantics=ldlq_scale_semantics,
+        feedback_mode=feedback_mode,
+        trellis_objective=trellis_objective,
     )
 
 
@@ -547,6 +654,7 @@ def build_qtip25_native_v4_cell(
     solve_batch: int = 2048,
     decode_batch: int = 2048,
     decode_repeats: int = 1,
+    materialize_decoded: bool = True,
     hessian: str | Path | None = None,
     scale_factors: Sequence[float] = (
         0.80,
@@ -575,6 +683,7 @@ def build_qtip25_native_v4_cell(
         solve_batch=solve_batch,
         decode_batch=decode_batch,
         decode_repeats=decode_repeats,
+        materialize_decoded=materialize_decoded,
         hessian=hessian,
         scale_factors=scale_factors,
     )

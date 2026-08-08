@@ -32,6 +32,8 @@ def test_builtin_provider_menu_and_declaration_only_qtip_extension():
         "qtip@2.00",
         "qtip@2.50",
         "qtip@3.00",
+        "periodic-qtip3@3.00",
+        "qtip-native-v6@3.00",
         "d4-k2048",
         "d4-k4096",
     }
@@ -39,6 +41,8 @@ def test_builtin_provider_menu_and_declaration_only_qtip_extension():
     assert providers["qtip@2.00"].runtime_family == "qtip2"
     assert providers["qtip@2.50"].runtime_family == "qtip2"
     assert providers["qtip@3.00"].runtime_family == "qtip3"
+    assert providers["periodic-qtip3@3.00"].runtime_family == "periodic_qtip3"
+    assert providers["qtip-native-v6@3.00"].runtime_family == "periodic_qtip3"
     assert providers["d4-k2048"].runtime_family == "truevq_d4"
     assert providers["d4-k4096"].runtime_family == "truevq_d4"
     assert all(isinstance(provider, BackpackFamilyProvider) for provider in providers.values())

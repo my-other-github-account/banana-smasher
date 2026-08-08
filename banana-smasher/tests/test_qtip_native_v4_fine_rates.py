@@ -75,6 +75,7 @@ def test_native_v4_scale_search_uses_nonzero_reverse_16_ldlq() -> None:
         lower,
         tlut=tlut,
         scale_factors=(0.9, 1.0, 1.1),
+        scale_semantics="relative_search",
     )
     decoded_tiles = decode_native_v4(
         searched.packed,

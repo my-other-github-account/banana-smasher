@@ -189,7 +189,7 @@ storage metadata and are not a substitute for the canonical logical parameter
 inventory. Comparisons should call `require_comparable_bpw(...)`, which rejects
 a different inventory SHA or parameter count.
 
-```bash
+```console
 smash bpw \
   --weight-bytes 106623252108 \
   --base-model-parameters 284334567511 \

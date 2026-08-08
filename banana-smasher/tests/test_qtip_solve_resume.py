@@ -724,7 +724,7 @@ def test_sha_declared_public_runner_physically_packs_qtip2_at_runtime(
     assert "validate_manifest_packed_layout" in loaded.pack_kernel_layout.__code__.co_names
 
 
-def test_public_runner_loader_rejects_manifest_selected_python_without_package_anchor(
+def test_public_runner_loader_accepts_manifest_selected_python_with_exact_sha(
     tmp_path: Path,
 ) -> None:
     runner = tmp_path / "untrusted_runner.py"
@@ -735,8 +735,12 @@ def test_public_runner_loader_rejects_manifest_selected_python_without_package_a
         "    return pack_kernel_layout(cb, states, m, k)\n"
     )
 
-    with pytest.raises(ValueError, match="trusted package anchor"):
-        qtip._load_public_qtip_runner(runner, _sha256(runner))
+    loaded = qtip._load_public_qtip_runner(runner, _sha256(runner))
+
+    assert loaded.__file__ is not None
+    assert Path(loaded.__file__).resolve() == runner.resolve()
+    with pytest.raises(ValueError, match="runner SHA mismatch"):
+        qtip._load_public_qtip_runner(runner, "0" * 64)
 
 
 def test_public_runner_loader_owns_manifest_shape_for_generic_inline_pack(

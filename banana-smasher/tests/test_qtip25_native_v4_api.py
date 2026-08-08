@@ -7,6 +7,7 @@ import numpy as np
 from banana_smasher import (
     anchor_qtip25_native_v4_cell,
     build_qtip25_native_v4_cell,
+    build_qtip_native_v4_cell,
 )
 from banana_smasher.qtip1 import gaussian_tlut
 from banana_smasher.cli import main
@@ -92,6 +93,68 @@ def test_build_and_anchor_native_v4_cell_through_public_api(tmp_path: Path) -> N
     assert anchor["candidate_receipt_sha256"] == receipt["receipt_sha256"]
     assert set(anchor["metrics"]["by_class"]) == set(CLASSES)
     assert Path(anchor["receipt"]).is_file()
+
+
+def test_build_native_v4_cell_can_skip_decoded_file_for_packed_product(
+    tmp_path: Path,
+) -> None:
+    source, control, tlut = _fixture(tmp_path)
+    candidate_root = tmp_path / "packed-candidate"
+
+    receipt = build_qtip_native_v4_cell(
+        source,
+        control,
+        tlut,
+        candidate_root,
+        bpw=3.0,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        backend="reference",
+        materialize_decoded=False,
+    )
+
+    assert receipt["accounting"]["exact_code_bpw"] == 3.0
+    assert receipt["decode_validation"]["tensor_sha256"]
+    assert receipt["decode_validation"]["materialized"] is False
+    assert "decoded" not in receipt["artifacts"]
+    assert not (candidate_root / "decoded.npy").exists()
+    assert receipt["direct_error"]["mse"] >= 0.0
+
+
+def test_shared_rate_parameterized_api_accepts_compact_pr31_lut_at_qtip3_rate(
+    tmp_path: Path,
+) -> None:
+    source, control, tlut = _fixture(tmp_path)
+    np.save(
+        tlut,
+        np.linspace(-2.0, 2.0, 1024, dtype=np.float16),
+        allow_pickle=False,
+    )
+
+    receipt = build_qtip_native_v4_cell(
+        source,
+        control,
+        tlut,
+        tmp_path / "shared-qtip3-candidate",
+        bpw=3.0,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        backend="reference",
+        codec_version="v6",
+        materialize_decoded=False,
+        scale_factors=(1.0,),
+        ldlq_scale_semantics="rms_ratio",
+        feedback_mode="off",
+        trellis_objective="lexicographic_l4",
+    )
+
+    assert receipt["codec_version"] == "v6"
+    assert receipt["geometry"]["rate_num"] == 3
+    assert receipt["tlut"]["shape"] == [1024]
+    assert receipt["tlut"]["dtype"] == "float16"
+    assert receipt["optimization"]["feedback_mode"] == "off"
+    assert receipt["optimization"]["scale_factors"] == [1.0]
+    assert receipt["optimization"]["trellis_objective"] == "lexicographic_l4"
 
 
 def test_native_v4_cli_builds_and_anchors_a_cell(tmp_path: Path, capsys) -> None:

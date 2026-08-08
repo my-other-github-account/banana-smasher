@@ -1142,6 +1142,11 @@ def solve_class_balanced_options(
     envelope_bytes: int,
     class_caps: dict[str, float],
     class_weights: dict[str, float] | None = None,
+    exact_envelope: bool = False,
+    activation_artifacts_by_option: dict[
+        tuple[str, str], tuple[dict[str, Any], ...]
+    ]
+    | None = None,
     time_limit_seconds: float | None = 60.0,
     mip_rel_gap: float = 0.0,
     require_optimal: bool = False,
@@ -1213,6 +1218,55 @@ def solve_class_balanced_options(
             f"class_costs_by_option must cover every cell/tier exactly: missing={missing[:3]}, extra={extra[:3]}"
         )
 
+    if activation_artifacts_by_option is None:
+        raw_activations = {key: () for key in expected_options}
+    else:
+        if set(activation_artifacts_by_option) != expected_options:
+            missing = sorted(expected_options - set(activation_artifacts_by_option))
+            extra = sorted(set(activation_artifacts_by_option) - expected_options)
+            raise KnapsackValidationError(
+                "activation_artifacts_by_option must cover every cell/tier exactly: "
+                f"missing={missing[:3]}, extra={extra[:3]}"
+            )
+        raw_activations = activation_artifacts_by_option
+
+    activation_registry: dict[str, dict[str, Any]] = {}
+    option_activation_ids: dict[tuple[str, str], tuple[str, ...]] = {}
+    for key in sorted(expected_options):
+        identifiers: list[str] = []
+        for index, row in enumerate(raw_activations[key]):
+            if not isinstance(row, dict):
+                raise KnapsackValidationError(
+                    f"activation artifact must be an object for {key!r}[{index}]"
+                )
+            artifact_id = row.get("id")
+            byte_count = row.get("bytes")
+            if not isinstance(artifact_id, str) or not artifact_id:
+                raise KnapsackValidationError(
+                    f"activation artifact id must be non-empty for {key!r}[{index}]"
+                )
+            if (
+                isinstance(byte_count, bool)
+                or not isinstance(byte_count, int)
+                or byte_count < 0
+            ):
+                raise KnapsackValidationError(
+                    f"activation artifact bytes must be non-negative for {artifact_id!r}"
+                )
+            canonical = dict(row)
+            prior = activation_registry.get(artifact_id)
+            if prior is not None and prior != canonical:
+                raise KnapsackValidationError(
+                    f"activation artifact {artifact_id!r} has inconsistent declarations"
+                )
+            activation_registry[artifact_id] = canonical
+            identifiers.append(artifact_id)
+        if len(identifiers) != len(set(identifiers)):
+            raise KnapsackValidationError(
+                f"option {key!r} declares a duplicate activation artifact"
+            )
+        option_activation_ids[key] = tuple(sorted(identifiers))
+
     costs: dict[tuple[str, str], int] = {}
     predictions: dict[tuple[str, str], dict[str, float]] = {}
     for key in sorted(expected_options):
@@ -1248,32 +1302,67 @@ def solve_class_balanced_options(
         for cell in cells
         for tier in tiers
     }
+    activation_sizes = {
+        artifact_id: int(row["bytes"])
+        for artifact_id, row in activation_registry.items()
+    }
     positive = [delta for delta in byte_deltas.values() if 0 < delta <= remaining_envelope]
+    positive.extend(
+        size for size in activation_sizes.values() if 0 < size <= remaining_envelope
+    )
     byte_divisor = math.gcd(*positive) if positive else 1
+    if exact_envelope and remaining_envelope % byte_divisor:
+        raise KnapsackValidationError(
+            "exact envelope is not representable by payload and activation byte increments"
+        )
     scaled_capacity = remaining_envelope // byte_divisor
     scaled_deltas = {
         key: delta // byte_divisor for key, delta in byte_deltas.items() if delta <= remaining_envelope
     }
     maximum_scaled_use = sum(
         max(scaled_deltas.get((cell, tier), 0) for tier in tiers) for cell in cells
-    )
-    enforce_bytes = scaled_capacity < maximum_scaled_use
+    ) + sum(size // byte_divisor for size in activation_sizes.values())
+    enforce_bytes = exact_envelope or scaled_capacity < maximum_scaled_use
     if enforce_bytes and (
         scaled_capacity > 2**53 or any(delta > 2**53 for delta in scaled_deltas.values())
     ):
         raise KnapsackValidationError("exact byte row exceeds float64 integer range after GCD normalization")
 
-    variable_count = len(cells) * len(tiers)
-    row_count = len(cells) + int(enforce_bytes) + len(classes)
-    objective = np.empty(variable_count, dtype=np.float64)
+    option_variable_count = len(cells) * len(tiers)
+    activation_ids = sorted(activation_registry)
+    activation_variable = {
+        artifact_id: option_variable_count + index
+        for index, artifact_id in enumerate(activation_ids)
+    }
+    option_activation_pairs = [
+        (key, artifact_id)
+        for key in sorted(expected_options)
+        for artifact_id in option_activation_ids[key]
+    ]
+    base_row_count = len(cells) + int(enforce_bytes) + len(classes)
+    link_row_offset = base_row_count
+    reverse_link_row_offset = link_row_offset + len(option_activation_pairs)
+    variable_count = option_variable_count + len(activation_ids)
+    row_count = reverse_link_row_offset + len(activation_ids)
+    objective = np.zeros(variable_count, dtype=np.float64)
     variable_upper = np.ones(variable_count, dtype=np.float64)
     row_indices: list[int] = []
     column_indices: list[int] = []
     coefficients: list[float] = []
     for cell_index, cell in enumerate(cells):
+        seen_equal_options: set[tuple[int, tuple[float, ...], tuple[str, ...]]] = set()
         for tier_index, tier in enumerate(tiers):
             variable_index = cell_index * len(tiers) + tier_index
             key = (cell, tier)
+            equal_option_key = (
+                costs[key],
+                tuple(predictions[key][name] for name in classes),
+                option_activation_ids[key],
+            )
+            if equal_option_key in seen_equal_options:
+                variable_upper[variable_index] = 0.0
+            else:
+                seen_equal_options.add(equal_option_key)
             objective[variable_index] = math.fsum(
                 weights[name] * predictions[key][name] for name in classes
             )
@@ -1292,6 +1381,32 @@ def solve_class_balanced_options(
                 row_indices.append(class_row_offset + class_index)
                 column_indices.append(variable_index)
                 coefficients.append(predictions[key][name])
+    if enforce_bytes:
+        byte_row = len(cells)
+        for artifact_id in activation_ids:
+            row_indices.append(byte_row)
+            column_indices.append(activation_variable[artifact_id])
+            coefficients.append(float(activation_sizes[artifact_id] // byte_divisor))
+    option_variable = {
+        (cell, tier): cell_index * len(tiers) + tier_index
+        for cell_index, cell in enumerate(cells)
+        for tier_index, tier in enumerate(tiers)
+    }
+    for pair_index, (key, artifact_id) in enumerate(option_activation_pairs):
+        row = link_row_offset + pair_index
+        row_indices.extend((row, row))
+        column_indices.extend((option_variable[key], activation_variable[artifact_id]))
+        coefficients.extend((1.0, -1.0))
+    for activation_index, artifact_id in enumerate(activation_ids):
+        row = reverse_link_row_offset + activation_index
+        row_indices.append(row)
+        column_indices.append(activation_variable[artifact_id])
+        coefficients.append(1.0)
+        for key in sorted(expected_options):
+            if artifact_id in option_activation_ids[key]:
+                row_indices.append(row)
+                column_indices.append(option_variable[key])
+                coefficients.append(-1.0)
     matrix = coo_matrix(
         (coefficients, (row_indices, column_indices)), shape=(row_count, variable_count)
     ).tocsr()
@@ -1301,13 +1416,18 @@ def solve_class_balanced_options(
     upper[: len(cells)] = 1.0
     cursor = len(cells)
     if enforce_bytes:
-        lower[cursor] = -np.inf
+        lower[cursor] = float(scaled_capacity) if exact_envelope else -np.inf
         upper[cursor] = float(scaled_capacity)
         cursor += 1
     for name in classes:
         lower[cursor] = 0.0
         upper[cursor] = caps[name]
         cursor += 1
+    lower[cursor : cursor + len(option_activation_pairs)] = -np.inf
+    upper[cursor : cursor + len(option_activation_pairs)] = 0.0
+    cursor += len(option_activation_pairs)
+    lower[cursor : cursor + len(activation_ids)] = -np.inf
+    upper[cursor : cursor + len(activation_ids)] = 0.0
     solver_options: dict[str, bool | float] = {
         "presolve": True,
         "mip_rel_gap": float(mip_rel_gap),
@@ -1358,7 +1478,31 @@ def solve_class_balanced_options(
                 "prediction_by_class": predictions[key],
             }
         )
-    assigned_bytes = sum(row["bytes"] for row in assignments)
+    selected_activation_ids = [
+        artifact_id
+        for artifact_id in activation_ids
+        if rounded[activation_variable[artifact_id]] == 1
+    ]
+    required_activation_ids = sorted(
+        {
+            artifact_id
+            for row in assignments
+            for artifact_id in option_activation_ids[(row["cell_id"], row["tier"])]
+        }
+    )
+    if selected_activation_ids != required_activation_ids:
+        raise RuntimeError("class-balanced solver activation linkage drift")
+    activated_artifacts = [
+        activation_registry[artifact_id] for artifact_id in selected_activation_ids
+    ]
+    cell_payload_bytes = sum(row["bytes"] for row in assignments)
+    activation_bytes = sum(int(row["bytes"]) for row in activated_artifacts)
+    assigned_bytes = cell_payload_bytes + activation_bytes
+    if exact_envelope and assigned_bytes != envelope_bytes:
+        raise RuntimeError(
+            "class-balanced solver violated exact envelope: "
+            f"{assigned_bytes} != {envelope_bytes}"
+        )
     if assigned_bytes > envelope_bytes:
         raise RuntimeError(f"class-balanced solver violated envelope: {assigned_bytes} > {envelope_bytes}")
     if any(predicted[name] < -1e-10 or predicted[name] > caps[name] + 1e-10 for name in classes):
@@ -1371,6 +1515,9 @@ def solve_class_balanced_options(
             else "PASS_FEASIBLE_PREDICTION_ONLY"
         ),
         "assignments": assignments,
+        "activated_artifacts": activated_artifacts,
+        "cell_payload_bytes": cell_payload_bytes,
+        "activation_bytes": activation_bytes,
         "assigned_bytes": assigned_bytes,
         "envelope_bytes": envelope_bytes,
         "slack_bytes": envelope_bytes - assigned_bytes,
@@ -1394,6 +1541,7 @@ def solve_class_balanced_options(
             ),
             "wall_seconds": solve_wall_seconds,
             "byte_gcd_divisor": byte_divisor,
+            "equal_option_tie_breaker": "first_manifest_tier",
         },
     }
 
