@@ -570,15 +570,17 @@ def test_native_moe_apply_uses_two_accelerated_projections_and_original_route_or
 def test_qtip_transform_and_lut_are_exact_and_family_masked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    native_planes.runtime_identity_counters(reset=True)
     x = torch.tensor([[1.0, 2.0, 3.0, 4.0], [4.0, 3.0, 2.0, 1.0]])
     assert torch.allclose(_fwht(_fwht(x)), x)
     lut = _expanded_qtip_lut(torch.device("cpu"))
     assert lut.shape == (65536, 2)
 
     kernels = ModuleType("banana_smasher_plugin.p1016_kernels")
+    seen_luts = []
 
     def mixed_exact_gemv(kernel_input, *args):
-        del args
+        seen_luts.append(args[-2:])
         return kernel_input
 
     kernels.mixed_exact_gemv = mixed_exact_gemv
@@ -599,6 +601,7 @@ def test_qtip_transform_and_lut_are_exact_and_family_masked(
         torch.zeros(1, dtype=torch.int64),
         torch.zeros(1, dtype=torch.int64),
         lut,
+        lut.clone(),
     )
     run = _load_accelerated_dispatch()
     result = run(
@@ -609,6 +612,14 @@ def test_qtip_transform_and_lut_are_exact_and_family_masked(
     )
     assert torch.allclose(result[0].float(), x[0] * 3.0, atol=2e-2)
     assert torch.allclose(result[1].float(), x[1], atol=2e-2)
+    assert len(seen_luts) == 1
+    assert seen_luts[0][0] is state.lut2
+    assert seen_luts[0][1] is state.lut3
+    assert native_planes.runtime_identity_counters() == {
+        "dispatch_calls": 1,
+        "cuda_calls": 0,
+        "fallback_calls": 0,
+    }
 
 
 def test_quant_config_selects_only_stock_deepseek_routed_experts(

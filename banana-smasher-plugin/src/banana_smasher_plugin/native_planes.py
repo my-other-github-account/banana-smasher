@@ -23,6 +23,12 @@ _PLANE_LOAD_PROGRESS: dict[Path, int] = {}
 _PLANE_LOAD_TOTALS: dict[Path, int] = {}
 OS_FLOOR_BYTES = 4 << 30
 SELECTION_SCHEMA = "bs-pack-selected-payloads-v1"
+PERIODIC_PARITY_SCHEMA = "banana-smasher-periodic-qtip-parity-v1"
+_RUNTIME_IDENTITY_COUNTERS = {
+    "dispatch_calls": 0,
+    "cuda_calls": 0,
+    "fallback_calls": 0,
+}
 
 
 class NativePlanePrerequisiteError(RuntimeError):
@@ -31,6 +37,29 @@ class NativePlanePrerequisiteError(RuntimeError):
 
 def _fail(message: str) -> NativePlanePrerequisiteError:
     return NativePlanePrerequisiteError(f"{FAST_PATH_ERROR}: {message}")
+
+
+def runtime_identity_counters(*, reset: bool = False) -> dict[str, int]:
+    counters = dict(_RUNTIME_IDENTITY_COUNTERS)
+    if reset:
+        for name in _RUNTIME_IDENTITY_COUNTERS:
+            _RUNTIME_IDENTITY_COUNTERS[name] = 0
+        counters = dict(_RUNTIME_IDENTITY_COUNTERS)
+    return counters
+
+
+def _is_periodic_parity_rule(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and value.get("schema") == PERIODIC_PARITY_SCHEMA
+        and value.get("global_expert_ordinal") == {"even": "qtip2", "odd": "qtip3"}
+        and value.get("assignment_payload_bytes") == 0
+        and isinstance(value.get("qtip2_experts"), int)
+        and value.get("qtip2_experts") == value.get("qtip3_experts")
+        and value["qtip2_experts"] >= 128
+        and value["qtip2_experts"] % 128 == 0
+        and value.get("nominal_code_bpw") == 2.5
+    )
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -329,7 +358,8 @@ class ProjectionState:
     pointer_tables: dict[str, torch.Tensor]
     offsets2: torch.Tensor
     offsets3: torch.Tensor
-    lut: torch.Tensor
+    lut2: torch.Tensor
+    lut3: torch.Tensor
 
 
 Dispatch = Callable[..., torch.Tensor]
@@ -432,6 +462,19 @@ def _fwht(value: torch.Tensor) -> torch.Tensor:
     return output / math.sqrt(width)
 
 
+def _expand_qtip_lut(tlut: torch.Tensor, device: torch.device) -> torch.Tensor:
+    tlut = tlut.to(device=device, dtype=torch.float32).contiguous()
+    if tuple(tlut.shape) != (512, 2):
+        raise _fail(f"QTIP TLUT shape drift: {tuple(tlut.shape)}")
+    index = torch.arange(1 << 16, device=device, dtype=torch.int64)
+    quadratic = (index + 1) * index
+    sign_flip = 1 - ((quadratic >> 15) & 1) * 2
+    lookup = (quadratic >> 6) & 511
+    expanded = tlut[lookup]
+    expanded[:, 0] *= sign_flip
+    return expanded.contiguous()
+
+
 def _expanded_qtip_lut(device: torch.device) -> torch.Tensor:
     path = Path(__file__).with_name("qtip_tlut.npy")
     try:
@@ -445,14 +488,7 @@ def _expanded_qtip_lut(device: torch.device) -> torch.Tensor:
     digest = hashlib.sha256(tlut_array.tobytes()).hexdigest()
     if digest != "000c7985f6ac0cbece4a9850d3913102f9a6cf6ccb20cacf582d4fa95b569c19":
         raise _fail(f"QTIP TLUT tensor drift: {digest}")
-    tlut = torch.from_numpy(tlut_array.copy()).to(device=device)
-    index = torch.arange(1 << 16, device=device, dtype=torch.int64)
-    quadratic = (index + 1) * index
-    sign_flip = 1 - ((quadratic >> 15) & 1) * 2
-    lookup = (quadratic >> 6) & 511
-    expanded = tlut[lookup]
-    expanded[:, 0] *= sign_flip
-    return expanded.contiguous()
+    return _expand_qtip_lut(torch.from_numpy(tlut_array.copy()), device)
 
 
 def _load_accelerated_dispatch() -> Dispatch:
@@ -466,6 +502,9 @@ def _load_accelerated_dispatch() -> Dispatch:
 
     def run(*, projection: str, x: torch.Tensor, expert_ids: torch.Tensor, state: ProjectionState) -> torch.Tensor:
         del projection
+        _RUNTIME_IDENTITY_COUNTERS["dispatch_calls"] += 1
+        if x.is_cuda:
+            _RUNTIME_IDENTITY_COUNTERS["cuda_calls"] += 1
         selected_family = state.families.index_select(0, expert_ids)
         qtip_mask = selected_family.lt(2).reshape(-1, 1)
         su = state.pointer_tables["su"].index_select(0, expert_ids)
@@ -478,7 +517,8 @@ def _load_accelerated_dispatch() -> Dispatch:
             state.pointer_tables,
             state.offsets2,
             state.offsets3,
-            state.lut,
+            state.lut2,
+            state.lut3,
         )
         qtip_result = _fwht(
             raw * state.pointer_tables["wscale"].index_select(0, expert_ids).reshape(-1, 1)
@@ -543,9 +583,24 @@ class NativePlaneLayer:
         output_width = int(self.meta["N13" if projection == "fused13" else "N2"])
         experts = int(self.meta["E"])
         selected = self.pack.selected_projection(self.layer_index, projection)
-        tiers_value = selected.get("tiers")
-        slots_value = selected.get("slots")
-        families_value = selected.get("families")
+        assignment_rule = selected.get("assignment_rule")
+        deterministic_parity = _is_periodic_parity_rule(assignment_rule)
+        if deterministic_parity:
+            if assignment_rule != self.meta.get("assignment_rule"):
+                raise _fail(
+                    f"layer {self.layer_index} {projection} parity rule binding drift"
+                )
+            if {"tiers", "slots", "families"} & selected.keys():
+                raise _fail(
+                    f"layer {self.layer_index} {projection} serializes parity route vectors"
+                )
+            tiers_value = [f"qtip25k{2 + expert % 2}" for expert in range(experts)]
+            slots_value = [expert // 2 for expert in range(experts)]
+            families_value = [expert % 2 for expert in range(experts)]
+        else:
+            tiers_value = selected.get("tiers")
+            slots_value = selected.get("slots")
+            families_value = selected.get("families")
         if not all(isinstance(value, list) and len(value) == experts for value in (tiers_value, slots_value, families_value)):
             raise _fail(f"layer {self.layer_index} {projection} route shape drift")
         tier_values = cast(list[Any], tiers_value)
@@ -621,11 +676,24 @@ class NativePlaneLayer:
             payload = payloads[tier]
             slot = int(slot_values[expert])
             expert_ids = payload.get("expert_ids")
-            if expert_ids is None or slot < 0 or slot >= expert_ids.numel() or int(expert_ids[slot]) != expert:
+            inferred = (
+                deterministic_parity
+                and tier == f"qtip25k{2 + expert % 2}"
+                and slot == expert // 2
+            )
+            if not inferred and (
+                expert_ids is None
+                or slot < 0
+                or slot >= expert_ids.numel()
+                or int(expert_ids[slot]) != expert
+            ):
                 raise _fail(
                     f"layer {self.layer_index} {projection}/{tier} slot binding drift at expert {expert}"
                 )
-            state = {name: value[slot] if name not in {"codebooks"} else value for name, value in payload.items()}
+            state = {
+                name: value[slot] if name not in {"codebooks", "tlut"} else value
+                for name, value in payload.items()
+            }
             if "codebook_index" in payload and "codebooks" in payload:
                 state["codebook"] = payload["codebooks"][int(payload["codebook_index"][slot])]
             states.append(state)
@@ -681,7 +749,22 @@ class NativePlaneLayer:
             offsets3 = torch.cat(
                 (offsets3, offsets3.new_zeros(offset_count - offsets3.numel()))
             )
-        lut = _expanded_qtip_lut(self.device)
+        shared_lut = None
+        qtip2_tlut = payloads.get("qtip25k2", {}).get("tlut")
+        qtip3_tlut = payloads.get("qtip25k3", {}).get("tlut")
+        if qtip2_tlut is None or qtip3_tlut is None:
+            shared_lut = _expanded_qtip_lut(self.device)
+        lut2 = (
+            shared_lut
+            if qtip2_tlut is None
+            else _expand_qtip_lut(qtip2_tlut, self.device)
+        )
+        lut3 = (
+            shared_lut
+            if qtip3_tlut is None
+            else _expand_qtip_lut(qtip3_tlut, self.device)
+        )
+        assert lut2 is not None and lut3 is not None
         return ProjectionState(
             projection,
             input_width,
@@ -693,7 +776,8 @@ class NativePlaneLayer:
             pointer_tables,
             offsets2,
             offsets3,
-            lut,
+            lut2,
+            lut3,
         )
 
     def state(self, projection: str) -> ProjectionState:
@@ -753,7 +837,7 @@ class NativePlaneLayer:
     ) -> torch.Tensor:
         if projection not in _NATIVE_PLANE_PROJECTIONS:
             raise ValueError(f"unknown projection: {projection}")
-        if self._custom_op_key is None:
+        if self._custom_op_key is None or x.device.type != "cuda":
             return self._forward_impl(x, expert_ids, projection)
         output = x.new_empty(
             (x.shape[0], self.state(projection).output_width), dtype=torch.bfloat16

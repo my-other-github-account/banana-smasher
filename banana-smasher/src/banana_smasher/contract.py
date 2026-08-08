@@ -96,10 +96,33 @@ BANANA_SMASHER_PLANE_RE = re.compile(
 BANANA_SMASHER_SUBTIERS = (256, 1024, 2048, 4096)
 BANANA_SMASHER_PROJECTIONS = ("down", "fused13")
 BANANA_SMASHER_ROLES = ("codebooks", "codes", "expert_ids", "scales")
+PERIODIC_PARITY_SCHEMA = "banana-smasher-periodic-qtip-parity-v1"
+P1016_ROUTE_VECTOR_KEYS = (
+    "family13",
+    "family2",
+    "tier13",
+    "tier2",
+    "slot13",
+    "slot2",
+)
 
 
 class PackValidationError(ValueError):
     """Raised when a pack fails any fail-closed contract gate."""
+
+
+def _is_periodic_parity_rule(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and value.get("schema") == PERIODIC_PARITY_SCHEMA
+        and value.get("global_expert_ordinal") == {"even": "qtip2", "odd": "qtip3"}
+        and value.get("assignment_payload_bytes") == 0
+        and isinstance(value.get("qtip2_experts"), int)
+        and value.get("qtip2_experts") == value.get("qtip3_experts")
+        and value["qtip2_experts"] >= 128
+        and value["qtip2_experts"] % 128 == 0
+        and value.get("nominal_code_bpw") == 2.5
+    )
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -343,9 +366,20 @@ def _verify_p1016_source(
             or document.get("E") != 256
         ):
             raise PackValidationError(f"invalid p1016 layer metadata: {path}")
-        for key in ("family13", "family2", "tier13", "tier2", "slot13", "slot2"):
-            if not isinstance(document.get(key), list) or len(document[key]) != 256:
-                raise PackValidationError(f"invalid p1016 metadata vector {path.name}.{key}")
+        deterministic_parity = _is_periodic_parity_rule(document.get("assignment_rule"))
+        if deterministic_parity:
+            serialized_vectors = sorted(set(P1016_ROUTE_VECTOR_KEYS) & document.keys())
+            if serialized_vectors:
+                raise PackValidationError(
+                    f"deterministic parity metadata serializes assignment route vectors "
+                    f"{path.name}: {serialized_vectors}"
+                )
+        else:
+            for key in P1016_ROUTE_VECTOR_KEYS:
+                if not isinstance(document.get(key), list) or len(document[key]) != 256:
+                    raise PackValidationError(
+                        f"invalid p1016 metadata vector {path.name}.{key}"
+                    )
         layers.append(layer)
     if len(set(layers)) != len(layers):
         raise PackValidationError("duplicate p1016 layer metadata")
@@ -357,10 +391,17 @@ def _verify_p1016_source(
         selected_document = copy.deepcopy(document)
         selected_payload_maps: dict[str, dict[str, Any]] = {}
         experts = int(document["E"])
+        assignment_rule = document.get("assignment_rule")
+        deterministic_parity = _is_periodic_parity_rule(assignment_rule)
         for projection, suffix in (("fused13", "13"), ("down", "2")):
-            tiers = document[f"tier{suffix}"]
-            slots = document[f"slot{suffix}"]
-            families = document[f"family{suffix}"]
+            if deterministic_parity:
+                tiers = [f"qtip25k{2 + expert % 2}" for expert in range(experts)]
+                slots = [expert // 2 for expert in range(experts)]
+                families = [expert % 2 for expert in range(experts)]
+            else:
+                tiers = document[f"tier{suffix}"]
+                slots = document[f"slot{suffix}"]
+                families = document[f"family{suffix}"]
             if not all(
                 isinstance(values, list) and len(values) == experts
                 for values in (tiers, slots, families)
@@ -440,6 +481,40 @@ def _verify_p1016_source(
                     selected_paths[relative.as_posix()] = source
                     references.setdefault(relative.as_posix(), []).append((payload, role))
                 expert_spec = tensors.get("expert_ids")
+                if expert_spec is None and deterministic_parity:
+                    tlut_spec = tensors.get("tlut")
+                    if (
+                        not isinstance(tlut_spec, dict)
+                        or not isinstance(tlut_spec.get("file"), str)
+                    ):
+                        raise PackValidationError(
+                            f"deterministic parity payload has no exact tier-owned TLUT: "
+                            f"{path.name}/{projection}/{tier}"
+                        )
+                    expected_k = (
+                        2
+                        if tier == "qtip25k2"
+                        else 3
+                        if tier == "qtip25k3"
+                        else None
+                    )
+                    if expected_k is None:
+                        raise PackValidationError(
+                            f"deterministic parity route has unsupported tier {tier!r}"
+                        )
+                    expected_experts = [
+                        expert
+                        for expert in range(experts)
+                        if 2 + expert % 2 == expected_k
+                    ]
+                    if any(
+                        str(tiers[expert]) != tier or int(slots[expert]) != expert // 2
+                        for expert in expected_experts
+                    ):
+                        raise PackValidationError(
+                            f"deterministic parity slot drift {path.name}/{projection}/{tier}"
+                        )
+                    continue
                 if not isinstance(expert_spec, dict):
                     raise PackValidationError(
                         f"selected payload {path.name}/{projection}/{tier} has no expert_ids"
@@ -1587,12 +1662,19 @@ def export_pack(
             for selected_layer, document in sorted(p1016_documents.items()):
                 selected_layers[str(selected_layer)] = {}
                 for projection, suffix in (("fused13", "13"), ("down", "2")):
-                    selected_layers[str(selected_layer)][projection] = {
-                        "tiers": document[f"tier{suffix}"],
-                        "slots": document[f"slot{suffix}"],
-                        "families": document[f"family{suffix}"],
-                        "payloads": document["payloads"][projection],
-                    }
+                    assignment_rule = document.get("assignment_rule")
+                    if _is_periodic_parity_rule(assignment_rule):
+                        selected_layers[str(selected_layer)][projection] = {
+                            "assignment_rule": assignment_rule,
+                            "payloads": document["payloads"][projection],
+                        }
+                    else:
+                        selected_layers[str(selected_layer)][projection] = {
+                            "tiers": document[f"tier{suffix}"],
+                            "slots": document[f"slot{suffix}"],
+                            "families": document[f"family{suffix}"],
+                            "payloads": document["payloads"][projection],
+                        }
             manifest["selected_payloads"] = {
                 "schema": "bs-pack-selected-payloads-v1",
                 "producer_stage": "smash export:v4-row-packed-selected-wire-v1",

@@ -745,7 +745,8 @@ def _mixed_exact_gemv(
     native_scales,
     qtip_offsets2,
     qtip_offsets3,
-    lut_ptr,
+    lut2_ptr,
+    lut3_ptr,
     y_ptr,
     R: tl.constexpr,
     N: tl.constexpr,
@@ -813,7 +814,13 @@ def _mixed_exact_gemv(
                | (tl.load(qtip_ptr + source_base + next_hi, mask=qmask, other=0).to(tl.int64) << 8))
         word = (curr << 16) | nxt
         index = (word >> (16 - shift)) & 65535
-        qtip_weight = tl.load(lut_ptr + index * 2 + component, mask=qmask, other=0.0).to(tl.float32)
+        qtip2_weight = tl.load(
+            lut2_ptr + index * 2 + component, mask=qmask & is_q2, other=0.0
+        ).to(tl.float32)
+        qtip3_weight = tl.load(
+            lut3_ptr + index * 2 + component, mask=qmask & is_q3, other=0.0
+        ).to(tl.float32)
+        qtip_weight = tl.where(is_q2, qtip2_weight, qtip3_weight)
 
         d4mask = common_mask & is_d4
         d4_row_bytes = ((K // 4) * d4_bits + 7) // 8
@@ -863,7 +870,8 @@ def mixed_exact_gemv(
     pointer_tables: dict[str, torch.Tensor],
     offsets2: torch.Tensor,
     offsets3: torch.Tensor,
-    lut: torch.Tensor,
+    lut2: torch.Tensor,
+    lut3: torch.Tensor,
 ) -> torch.Tensor:
     x = x.float().contiguous()
     expert_ids = expert_ids.to(device=x.device, dtype=torch.int64).contiguous()
@@ -875,7 +883,7 @@ def mixed_exact_gemv(
         pointer_tables["d4_codes"], pointer_tables["d4_index_bits"],
         pointer_tables["d4_scales"],
         pointer_tables["d4_codebooks"], pointer_tables["native_packed"],
-        pointer_tables["native_scales"], offsets2, offsets3, lut, y,
+        pointer_tables["native_scales"], offsets2, offsets3, lut2, lut3, y,
         R=r, N=4096, K=k, BN=8, BK=256,
         num_warps=4, num_stages=2,
     )

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import shutil
 import tempfile
 from collections import Counter, defaultdict
@@ -23,6 +22,7 @@ from .contract import (
 )
 
 _FIXED_SCHEMA = "banana-smasher-fixed-qtip-members-v1"
+_PARITY_SCHEMA = "banana-smasher-periodic-qtip-parity-v1"
 _PROJECTIONS = {"fused13": "13", "down": "2"}
 _FAMILY_CODES = {"qtip2": 0, "qtip3": 1, "d4": 2, "native": 3}
 _REQUIRED_TENSORS = ("trellis", "SU", "SV", "Wscale")
@@ -126,6 +126,8 @@ def _load_member(row: dict[str, Any], member_root: Path | None) -> dict[str, Any
         if not isinstance(tensor, torch.Tensor):
             raise PackValidationError(f"fixed QTIP member lacks tensor {name}: {path}")
         tensors[name] = tensor.detach().cpu().contiguous()
+    if isinstance(payload.get("tlut"), torch.Tensor):
+        tensors["tlut"] = payload["tlut"].detach().cpu().contiguous()
     packed_sha = _tensor_sha256(tensors["trellis"])
     expected_packed_sha = row.get("canonical_packed_sha256")
     if not isinstance(expected_packed_sha, str) or packed_sha != expected_packed_sha:
@@ -141,7 +143,10 @@ def _validate_contract(
     admission: dict[str, Any],
     *,
     members_sha256: str,
-) -> dict[tuple[int, str, int], list[dict[str, Any]]]:
+) -> tuple[
+    dict[tuple[int, str, int], list[dict[str, Any]]],
+    dict[str, Any] | None,
+]:
     physical = admission.get("physical_payload")
     pack_gate = admission.get("pack_gate")
     coverage = admission.get("coverage")
@@ -218,7 +223,30 @@ def _validate_contract(
                 raise PackValidationError(
                     f"fixed member layer {layer}/{projection} is not 50/50 K2/K3: {dict(counts)}"
                 )
-    return grouped
+    assignment = admission.get("assignment_rule")
+    normalized_assignment = None
+    if assignment is not None:
+        expected_rule = {
+            "schema": _PARITY_SCHEMA,
+            "global_expert_ordinal": {"even": "qtip2", "odd": "qtip3"},
+            "assignment_payload_bytes": 0,
+        }
+        if assignment != expected_rule:
+            raise PackValidationError("fixed QTIP alternating-expert assignment rule drift")
+        for row in rows:
+            expert = int(row["expert"])
+            expected_k = 2 if expert % 2 == 0 else 3
+            if int(row["geometry"]["K"]) != expected_k:
+                raise PackValidationError(
+                    f"fixed QTIP parity drift at expert {expert}: expected K{expected_k}"
+                )
+        normalized_assignment = {
+            **expected_rule,
+            "qtip2_experts": len(layers) * 128,
+            "qtip3_experts": len(layers) * 128,
+            "nominal_code_bpw": 2.5,
+        }
+    return grouped, normalized_assignment
 
 
 def _write_group(
@@ -229,6 +257,8 @@ def _write_group(
     k: int,
     rows: list[dict[str, Any]],
     member_root: Path | None,
+    include_expert_ids: bool,
+    include_tlut: bool,
 ) -> tuple[dict[str, dict[str, str]], dict[int, int], dict[str, int]]:
     rows = sorted(rows, key=lambda row: int(row["expert"]))
     first = _load_member(rows[0], member_root)
@@ -239,6 +269,8 @@ def _write_group(
     dimensions = {"input": int(first["SU"].numel()), "output": int(first["SV"].numel())}
     try:
         for name, tensor in first.items():
+            if name == "tlut":
+                continue
             array = tensor.numpy()
             filename = f"layer_{layer:03d}.{tier}.{suffix}.{name}.npy"
             target = source_root / filename
@@ -249,17 +281,52 @@ def _write_group(
                 shape=(len(rows), *array.shape),
             )
             specs[name] = {"file": filename}
-        expert_name = f"layer_{layer:03d}.{tier}.{suffix}.expert_ids.npy"
-        expert_ids = np.lib.format.open_memmap(
-            source_root / expert_name,
-            mode="w+",
-            dtype=np.int16,
-            shape=(len(rows),),
-        )
-        specs["expert_ids"] = {"file": expert_name}
+        expected_tlut: np.ndarray | None = None
+        if include_tlut:
+            tlut_tensor = first.get("tlut")
+            tlut_array = tlut_tensor.numpy() if tlut_tensor is not None else None
+            if (
+                tlut_array is None
+                or tlut_array.shape != (512, 2)
+                or tlut_array.dtype != np.float32
+            ):
+                raise PackValidationError(
+                    f"fixed QTIP periodic TLUT drift for layer {layer}/{projection}/K{k}"
+                )
+            expected_tlut = np.ascontiguousarray(tlut_array)
+            tlut_name = f"layer_{layer:03d}.{tier}.{suffix}.tlut.npy"
+            tlut_path = source_root / tlut_name
+            if tlut_path.exists():
+                staged_tlut = np.load(tlut_path, allow_pickle=False)
+                if not np.array_equal(staged_tlut, expected_tlut):
+                    raise PackValidationError(
+                        f"fixed QTIP TLUT differs across projections for layer {layer}/K{k}"
+                    )
+            else:
+                np.save(tlut_path, np.ascontiguousarray(expected_tlut), allow_pickle=False)
+            specs["tlut"] = {"file": tlut_name}
+        expert_ids = None
+        if include_expert_ids:
+            expert_name = f"layer_{layer:03d}.{tier}.{suffix}.expert_ids.npy"
+            expert_ids = np.lib.format.open_memmap(
+                source_root / expert_name,
+                mode="w+",
+                dtype=np.int16,
+                shape=(len(rows),),
+            )
+            specs["expert_ids"] = {"file": expert_name}
         slots: dict[int, int] = {}
         for slot, row in enumerate(rows):
             tensors = first if slot == 0 else _load_member(row, member_root)
+            if include_tlut:
+                assert expected_tlut is not None
+                tlut_tensor = tensors.get("tlut")
+                if tlut_tensor is None or not np.array_equal(
+                    tlut_tensor.numpy(), expected_tlut
+                ):
+                    raise PackValidationError(
+                        f"fixed QTIP TLUT differs across experts for layer {layer}/{projection}/K{k}"
+                    )
             for name, target in arrays.items():
                 value = tensors[name].numpy()
                 if value.shape != target.shape[1:] or value.dtype != target.dtype:
@@ -268,9 +335,13 @@ def _write_group(
                     )
                 target[slot] = value
             expert = int(row["expert"])
-            expert_ids[slot] = expert
+            if expert_ids is not None:
+                expert_ids[slot] = expert
             slots[expert] = slot
-        for target in [*arrays.values(), expert_ids]:
+        targets = list(arrays.values())
+        if expert_ids is not None:
+            targets.append(expert_ids)
+        for target in targets:
             target.flush()
     finally:
         arrays.clear()
@@ -296,7 +367,9 @@ def materialize_fixed_qtip_source(
     _require_sha(admission_path, pack_admission_sha256, "fixed pack admission")
     rows, _ = _read_members(members_path)
     admission, _ = _read_json(admission_path)
-    grouped = _validate_contract(rows, admission, members_sha256=members_manifest_sha256)
+    grouped, assignment_rule = _validate_contract(
+        rows, admission, members_sha256=members_manifest_sha256
+    )
     relocated_root = Path(member_root).expanduser().resolve() if member_root is not None else None
 
     output.mkdir(parents=True)
@@ -310,6 +383,8 @@ def materialize_fixed_qtip_source(
                 "family_codes": dict(_FAMILY_CODES),
                 "payloads": {projection: {} for projection in _PROJECTIONS},
             }
+            if assignment_rule is not None:
+                document["assignment_rule"] = assignment_rule
             for projection, suffix in (("fused13", "13"), ("down", "2")):
                 tiers = [""] * 256
                 families = [-1] * 256
@@ -323,6 +398,8 @@ def materialize_fixed_qtip_source(
                         k=k,
                         rows=grouped[(layer, projection, k)],
                         member_root=relocated_root,
+                        include_expert_ids=assignment_rule is None,
+                        include_tlut=assignment_rule is not None,
                     )
                     if projection_dimensions is None:
                         projection_dimensions = dimensions
@@ -341,9 +418,10 @@ def materialize_fixed_qtip_source(
                         families[expert] = _FAMILY_CODES[f"qtip{k}"]
                         slots[expert] = slot
                 assert projection_dimensions is not None
-                document[f"tier{suffix}"] = tiers
-                document[f"family{suffix}"] = families
-                document[f"slot{suffix}"] = slots
+                if assignment_rule is None:
+                    document[f"tier{suffix}"] = tiers
+                    document[f"family{suffix}"] = families
+                    document[f"slot{suffix}"] = slots
                 document[f"K{suffix}"] = projection_dimensions["input"]
                 document[f"N{suffix}"] = projection_dimensions["output"]
             _write_bytes_durable(
@@ -361,6 +439,8 @@ def materialize_fixed_qtip_source(
             "members_manifest_sha256": members_manifest_sha256,
             "pack_admission_sha256": pack_admission_sha256,
         }
+        if assignment_rule is not None:
+            receipt["assignment_rule"] = assignment_rule
         _write_bytes_durable(output / "FIXED_QTIP_SOURCE.json", _canonical_json_bytes(receipt))
         return receipt
     except Exception:
@@ -446,3 +526,156 @@ def export_fixed_qtip_pack(
         raise
     finally:
         shutil.rmtree(source, ignore_errors=True)
+
+
+def build_periodic_parity_members(
+    *,
+    qtip2_members: str | Path,
+    qtip2_members_sha256: str,
+    qtip3_members: str | Path,
+    qtip3_members_sha256: str,
+    output: str | Path,
+) -> dict[str, Any]:
+    """Select even QTIP2 and odd QTIP3 experts from two frozen member ledgers."""
+    sources = {
+        2: Path(qtip2_members).expanduser().resolve(),
+        3: Path(qtip3_members).expanduser().resolve(),
+    }
+    source_hashes = {2: qtip2_members_sha256, 3: qtip3_members_sha256}
+    indexed: dict[int, dict[tuple[int, int, str], dict[str, Any]]] = {}
+    for k, path in sources.items():
+        _require_sha(path, source_hashes[k], f"QTIP{k} member manifest")
+        rows, _ = _read_members(path)
+        by_identity: dict[tuple[int, int, str], dict[str, Any]] = {}
+        for row in rows:
+            try:
+                identity = (
+                    int(row["layer"]),
+                    int(row["expert"]),
+                    str(row["projection"]),
+                )
+                geometry = row["geometry"]
+            except Exception as exc:
+                raise PackValidationError(f"malformed QTIP{k} member row: {row}") from exc
+            if (
+                identity in by_identity
+                or identity[2] not in _PROJECTIONS
+                or tuple(geometry.get(key) for key in ("L", "K", "V")) != (16, k, 2)
+            ):
+                raise PackValidationError(f"invalid QTIP{k} member identity: {identity}")
+            by_identity[identity] = row
+        indexed[k] = by_identity
+    if set(indexed[2]) != set(indexed[3]):
+        raise PackValidationError("QTIP2/QTIP3 member identity sets differ")
+
+    projections_by_expert: dict[tuple[int, int], set[str]] = defaultdict(set)
+    for layer, expert, projection in indexed[2]:
+        projections_by_expert[(layer, expert)].add(projection)
+    incomplete = sorted(
+        identity
+        for identity, projections in projections_by_expert.items()
+        if projections != set(_PROJECTIONS)
+    )
+    if incomplete:
+        raise PackValidationError(
+            "periodic parity source is not projection-complete for every routed expert: "
+            f"{incomplete[:8]}"
+        )
+
+    selected = []
+    tier_experts: dict[int, set[tuple[int, int]]] = {2: set(), 3: set()}
+    tier_rows = Counter()
+    for identity in sorted(indexed[2]):
+        layer, expert, _projection = identity
+        k = 2 if expert % 2 == 0 else 3
+        row = dict(indexed[k][identity])
+        row["source_tier"] = f"qtip{k}"
+        row["tier"] = "qtip@2.50"
+        selected.append(row)
+        tier_experts[k].add((layer, expert))
+        tier_rows[k] += 1
+    if (
+        len(tier_experts[2]) != len(tier_experts[3])
+        or tier_rows[2] != tier_rows[3]
+    ):
+        raise PackValidationError("periodic parity selection is not exact 50/50")
+
+    output = Path(output).expanduser().resolve()
+    if output.exists():
+        raise FileExistsError(f"output already exists: {output}")
+    payload = b"".join(
+        json.dumps(row, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n"
+        for row in selected
+    )
+    _write_bytes_durable(output, payload)
+    return {
+        "schema": "banana-smasher-periodic-qtip-parity-members-v1",
+        "status": "PASS",
+        "qtip2_members_sha256": qtip2_members_sha256,
+        "qtip3_members_sha256": qtip3_members_sha256,
+        "members_sha256": _sha256_file(output),
+        "member_count": len(selected),
+        "qtip2_experts": len(tier_experts[2]),
+        "qtip3_experts": len(tier_experts[3]),
+        "nominal_code_bpw": 2.5,
+        "assignment_payload_bytes": 0,
+    }
+
+
+def account_fixed_qtip_wire(root: str | Path) -> dict[str, Any]:
+    """Return an exact file-byte ledger for a deterministic parity QTIP pack."""
+    root = Path(root).expanduser().resolve()
+    verify_pack(root)
+    manifest = json.loads((root / MANIFEST_NAME).read_text(encoding="utf-8"))
+    assignment = (manifest.get("fixed_assignment") or {}).get("assignment_rule")
+    if not isinstance(assignment, dict) or assignment.get("schema") != _PARITY_SCHEMA:
+        raise PackValidationError("fixed QTIP pack has no deterministic parity assignment")
+    rows = manifest.get("files")
+    if not isinstance(rows, list):
+        raise PackValidationError("fixed QTIP pack file ledger is missing")
+
+    manifest_bytes = (root / MANIFEST_NAME).stat().st_size
+    complete_wire_bytes = manifest_bytes + sum(int(row["bytes"]) for row in rows)
+    tensor_file_bytes = sum(
+        int(row["bytes"]) for row in rows if row.get("role") == "npy_plane"
+    )
+    provider_rule_metadata_bytes = sum(
+        int(row["bytes"]) for row in rows if row.get("role") == "source_layer_meta"
+    )
+    provenance_bytes = sum(
+        int(row["bytes"])
+        for row in rows
+        if str(row.get("role", "")).startswith("fixed_qtip_")
+    )
+    routing_index_file_bytes = sum(
+        int(row["bytes"])
+        for row in rows
+        if str(row.get("path", "")).endswith(".expert_ids.npy")
+    )
+    serving_and_pack_bytes = (
+        complete_wire_bytes
+        - tensor_file_bytes
+        - provider_rule_metadata_bytes
+        - provenance_bytes
+    )
+    tensor_index = manifest.get("tensor_index") or {}
+    code_payload_data_bytes = sum(
+        int(spec["data_bytes"])
+        for name, spec in tensor_index.items()
+        if str(name).endswith(".trellis")
+    )
+    return {
+        "schema": "banana-smasher-periodic-qtip-wire-ledger-v1",
+        "status": "PASS",
+        "complete_wire_bytes": complete_wire_bytes,
+        "tensor_file_bytes": tensor_file_bytes,
+        "provider_rule_metadata_bytes": provider_rule_metadata_bytes,
+        "provenance_bytes": provenance_bytes,
+        "serving_and_pack_bytes": serving_and_pack_bytes,
+        "code_payload_data_bytes": code_payload_data_bytes,
+        "assignment_payload_bytes": int(assignment["assignment_payload_bytes"]),
+        "routing_index_file_bytes": routing_index_file_bytes,
+        "qtip2_experts": int(assignment["qtip2_experts"]),
+        "qtip3_experts": int(assignment["qtip3_experts"]),
+        "nominal_code_bpw": float(assignment["nominal_code_bpw"]),
+    }

@@ -14,7 +14,7 @@ from .contract import (
     verify_pack,
     verify_serve_compatibility,
 )
-from .fixed_qtip_export import export_fixed_qtip_pack
+from .fixed_qtip_export import build_periodic_parity_members, export_fixed_qtip_pack
 from .repack import repack_to_safetensors
 from .repair import load_repair_bundle
 from .validation import ValidationError, validate_artifact
@@ -79,6 +79,16 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--fixed-members-manifest-sha256")
     export.add_argument("--fixed-pack-admission", type=Path)
     export.add_argument("--fixed-pack-admission-sha256")
+
+    parity = subparsers.add_parser(
+        "build-periodic-parity-members",
+        help="select even QTIP2 and odd QTIP3 experts from frozen member ledgers",
+    )
+    parity.add_argument("--qtip2-members", type=Path, required=True)
+    parity.add_argument("--qtip2-members-sha256", required=True)
+    parity.add_argument("--qtip3-members", type=Path, required=True)
+    parity.add_argument("--qtip3-members-sha256", required=True)
+    parity.add_argument("--output", type=Path, required=True)
 
     verify = subparsers.add_parser("verify", help="verify manifest, schema, and bytes")
     verify.add_argument("pack", type=Path)
@@ -236,6 +246,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                         args.output,
                         drop_planes=args.drop_planes,
                     )
+        elif args.command == "build-periodic-parity-members":
+            result = {
+                **build_periodic_parity_members(
+                    qtip2_members=args.qtip2_members,
+                    qtip2_members_sha256=args.qtip2_members_sha256,
+                    qtip3_members=args.qtip3_members,
+                    qtip3_members_sha256=args.qtip3_members_sha256,
+                    output=args.output,
+                ),
+                "command": "build-periodic-parity-members",
+                "output": str(args.output.resolve()),
+            }
         elif args.command == "verify":
             result = {
                 **verify_pack(args.pack),
