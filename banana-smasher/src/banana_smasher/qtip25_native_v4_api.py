@@ -28,7 +28,6 @@ from .banana_v1 import (
 )
 from .qtip25_native_v4 import (
     NATIVE_QTIP25_GEOMETRY,
-    TOTAL_SSE_OBJECTIVE,
     decode_native_v4,
     expand_native_v4_tlut,
     ldlq_native_v4_matrix,
@@ -36,7 +35,6 @@ from .qtip25_native_v4 import (
     native_v4_geometry,
     native_v5_phase_widths,
     solve_native_v4,
-    solve_native_v4_cuda,
 )
 
 CELL_SCHEMA = "banana-smasher-qtip25-native-v4-cell-v1"
@@ -361,52 +359,6 @@ def fit_compact_pr31_codebook(
     return np.ascontiguousarray(np.concatenate((-upper[::-1], upper)))
 
 
-def _reencode_b10_at_scale(
-    blocks: np.ndarray,
-    *,
-    table: np.ndarray,
-    geometry: Any,
-    scale: float,
-    backend: Literal["cuda", "reference"],
-    solve_batch: int,
-    cyclic_warmup_cycles: int,
-    trellis_objective: str,
-) -> np.ndarray:
-    """Re-solve the same periodic codec once at a source-derived fixed scale."""
-
-    if backend == "reference":
-        return solve_native_v4(
-            blocks,
-            tlut=table,
-            scales=np.full(len(blocks), scale, dtype=np.float32),
-            geometry=geometry,
-            cyclic_warmup_cycles=cyclic_warmup_cycles,
-            trellis_objective=trellis_objective,
-        ).packed
-
-    import torch
-
-    from .qtip25_native_v4_cuda_cell import _pack_cuda_states_v4
-
-    state_lut = torch.from_numpy(expand_banana_v1_codebook(table)).cuda()
-    packed_parts: list[np.ndarray] = []
-    for start in range(0, len(blocks), solve_batch):
-        source = torch.from_numpy(
-            np.ascontiguousarray(blocks[start : start + solve_batch])
-        ).cuda()
-        states = solve_native_v4_cuda(
-            source / float(scale),
-            state_lut=state_lut,
-            geometry=geometry,
-            cyclic_warmup_cycles=cyclic_warmup_cycles,
-            trellis_objective=trellis_objective,
-        )
-        packed_parts.append(
-            _pack_cuda_states_v4(states, geometry=geometry).cpu().numpy()
-        )
-    return np.concatenate(packed_parts)
-
-
 def _build_qtip_native_v4_cell(
     source: str | Path,
     control: str | Path,
@@ -525,7 +477,8 @@ def _build_qtip_native_v4_cell(
         effective_hessian = transformed_hessian_path
     selected_scale = 1.0
     cyclic_warmup_cycles = 1
-    trellis_objective = TOTAL_SSE_OBJECTIVE
+    if codec_version == "v6" and geometry.B != 10:
+        cyclic_warmup_cycles = 2
     if ldlq_scale_semantics == "rms_ratio":
         expanded_lut = (
             expand_banana_v1_codebook(table)
@@ -548,7 +501,6 @@ def _build_qtip_native_v4_cell(
         "scale_factors": [1.0],
         "feedback_nonzero_count": 0,
         "cyclic_warmup_cycles": cyclic_warmup_cycles,
-        "trellis_objective": trellis_objective,
     }
     if backend == "cuda":
         from .qtip25_native_v4_cuda_cell import run_cuda_cell
@@ -582,7 +534,6 @@ def _build_qtip_native_v4_cell(
                     hadamard_block=compact.get("hadamard_block"),
                 ),
                 cyclic_warmup_cycles=cyclic_warmup_cycles,
-                trellis_objective=trellis_objective,
             )
         finally:
             normalized_path.unlink(missing_ok=True)
@@ -599,7 +550,6 @@ def _build_qtip_native_v4_cell(
                 scales=np.full(len(blocks), selected_scale, dtype=np.float32),
                 geometry=geometry,
                 cyclic_warmup_cycles=cyclic_warmup_cycles,
-                trellis_objective=trellis_objective,
             )
             packed = encoded.packed
         else:
@@ -646,7 +596,6 @@ def _build_qtip_native_v4_cell(
         np.save(codes_path, packed, allow_pickle=False)
         encode_seconds = time.perf_counter() - started
 
-    codes_path = output_root / "codes.npy"
     selected_scale = float(optimization["scale_factor"])
     unit_decoded_blocks = decode_native_v4(
         packed,
@@ -690,17 +639,6 @@ def _build_qtip_native_v4_cell(
                 }
             )
     decoded_blocks = unit_decoded_blocks * np.float32(selected_scale)
-    normalized_delta = decoded_blocks.astype(np.float64) - blocks.astype(np.float64)
-    normalized_vector_sse = np.sum(
-        normalized_delta * normalized_delta, axis=2, dtype=np.float64
-    )
-    optimization["trellis_objective"] = trellis_objective
-    optimization["maximum_normalized_vector_sse"] = float(
-        np.max(normalized_vector_sse)
-    )
-    optimization["total_normalized_sse"] = float(
-        np.sum(normalized_vector_sse, dtype=np.float64)
-    )
     decoded = _from_normalized_blocks(decoded_blocks, compact).astype(np.float32)
     decoded_path = output_root / "decoded.npy"
     su_path = output_root / "SU.npy"

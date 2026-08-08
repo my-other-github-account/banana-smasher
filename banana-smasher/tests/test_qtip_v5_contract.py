@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 
 import banana_smasher as banana
-import banana_smasher.qtip25_native_v4 as native_qtip
 import banana_smasher.qtip25_native_v4_api as native_qtip_api
 from banana_smasher import (
     DEFAULT_QTIP_V5_MENU,
@@ -299,6 +298,62 @@ def _cell_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     return source, control, tlut, hessian
 
 
+def test_qtip_v6_limits_single_cycle_warmup_to_periodic_b10(tmp_path: Path) -> None:
+    rng = np.random.default_rng(4286)
+    source = tmp_path / "source.npy"
+    control = tmp_path / "control.npz"
+    codebook = tmp_path / "pr31-codebook.npy"
+    source_weights = rng.normal(size=(16, 16)).astype(np.float32)
+    table = banana_v1_gaussian_codebook()
+    np.save(source, source_weights, allow_pickle=False)
+    np.savez(
+        control,
+        SU=np.ones(16, dtype=np.float16),
+        SV=np.ones(16, dtype=np.float16),
+        Wscale=np.asarray(1.0, dtype=np.float32),
+        shape=np.asarray([16, 16], dtype=np.int64),
+    )
+    np.save(codebook, table, allow_pickle=False)
+    compact, _ = native_qtip_api._load_control(control)
+    blocks = native_qtip_api._to_normalized_blocks(source_weights, compact)
+    source_rms = float(np.sqrt(np.mean(blocks.astype(np.float64) ** 2)))
+    lut_rms = float(
+        np.sqrt(
+            np.mean(
+                expand_banana_v1_codebook(table).astype(np.float64) ** 2
+            )
+        )
+    )
+    scale = source_rms / lut_rms
+
+    for bits, expected_cycles in ((8, 2), (10, 1), (12, 2)):
+        geometry = native_v4_geometry(bits / 4)
+        output = tmp_path / f"b{bits}"
+        receipt = banana.build_qtip_native_cell(
+            source,
+            control,
+            codebook,
+            output,
+            bpw=bits / 4,
+            codec_version="v6",
+            intended_basis_sha256="4" * 64,
+            observed_basis_sha256="4" * 64,
+            backend="reference",
+        )
+        expected = solve_native_v4(
+            blocks,
+            tlut=table,
+            scales=np.full(len(blocks), scale, dtype=np.float32),
+            geometry=geometry,
+            cyclic_warmup_cycles=expected_cycles,
+        )
+
+        assert receipt["optimization"]["cyclic_warmup_cycles"] == expected_cycles
+        np.testing.assert_array_equal(
+            np.load(output / "codes.npy", allow_pickle=False), expected.packed
+        )
+
+
 def test_qtip_v5_defaults_to_a_and_keeps_reverse_16_as_explicit_opt_in(
     tmp_path: Path,
 ) -> None:
@@ -552,199 +607,6 @@ def test_qtip_v6_b10_exposes_the_frozen_disjoint_bank_rate_specific_codebook() -
     )
     np.testing.assert_array_equal(table, -table[::-1])
     assert np.all(np.diff(table.astype(np.float32)) >= 0)
-
-
-def test_qtip_v6_b10_uses_deterministic_total_sse_objective_after_minimax_falsification(
-    tmp_path: Path,
-) -> None:
-    source, control, _old_tlut, _hessian = _cell_inputs(tmp_path)
-    codebook = tmp_path / "pr31-codebook.npy"
-    np.save(codebook, banana_v1_gaussian_codebook(), allow_pickle=False)
-    common = {
-        "bpw": 2.5,
-        "intended_basis_sha256": "6" * 64,
-        "observed_basis_sha256": "6" * 64,
-        "backend": "reference",
-    }
-
-    first = banana.build_qtip_native_cell(
-        source,
-        control,
-        codebook,
-        tmp_path / "first",
-        **common,
-    )
-    second = banana.build_qtip_native_cell(
-        source,
-        control,
-        codebook,
-        tmp_path / "second",
-        **common,
-    )
-
-    assert first["optimization"]["trellis_objective"] == "total_normalized_sse"
-    assert first["optimization"]["maximum_normalized_vector_sse"] >= 0.0
-    assert first["optimization"]["total_normalized_sse"] >= 0.0
-    assert first["optimization"] == second["optimization"]
-    np.testing.assert_array_equal(
-        np.load(tmp_path / "first" / "codes.npy", allow_pickle=False),
-        np.load(tmp_path / "second" / "codes.npy", allow_pickle=False),
-    )
-
-
-def test_qtip_v6_b10_minimax_objective_prioritizes_maximum_vector_sse() -> None:
-    geometry = native_v4_geometry(2.5)
-    target = np.random.default_rng(57).normal(size=(4, 64, 4)).astype(np.float32)
-    codebook = banana_v1_gaussian_codebook()
-    common = {
-        "tlut": codebook,
-        "scales": np.ones(4, dtype=np.float32),
-        "geometry": geometry,
-    }
-
-    total = solve_native_v4(
-        target,
-        trellis_objective=native_qtip.TOTAL_SSE_OBJECTIVE,
-        **common,
-    )
-    minimax = solve_native_v4(
-        target,
-        trellis_objective=native_qtip.LEXICOGRAPHIC_MINIMAX_OBJECTIVE,
-        **common,
-    )
-
-    def objective(encoded: native_qtip.EncodedNativeQtip25) -> tuple[float, float]:
-        decoded = decode_native_v4(
-            encoded.packed,
-            encoded.scales,
-            positions=256,
-            tlut=codebook,
-            geometry=geometry,
-        ).reshape(target.shape)
-        vector_sse = np.sum(
-            (decoded.astype(np.float64) - target.astype(np.float64)) ** 2,
-            axis=2,
-        )
-        return float(np.max(vector_sse)), float(np.sum(vector_sse))
-
-    assert objective(minimax) <= objective(total)
-
-
-def test_qtip_v6_b10_minimax_objective_is_solve_batch_invariant() -> None:
-    geometry = native_v4_geometry(2.5)
-    target = np.random.default_rng(0).normal(size=(4, 64, 4)).astype(np.float32)
-    codebook = banana_v1_gaussian_codebook()
-    common = {
-        "tlut": codebook,
-        "geometry": geometry,
-        "trellis_objective": native_qtip.LEXICOGRAPHIC_MINIMAX_OBJECTIVE,
-    }
-
-    together = solve_native_v4(
-        target,
-        scales=np.ones(4, dtype=np.float32),
-        **common,
-    )
-    separately = np.concatenate(
-        [
-            solve_native_v4(
-                target[row : row + 1],
-                scales=np.ones(1, dtype=np.float32),
-                **common,
-            ).packed
-            for row in range(len(target))
-        ]
-    )
-
-    np.testing.assert_array_equal(together.packed, separately)
-
-
-def test_qtip_v6_b10_minimax_selects_each_sequence_lexicographically() -> None:
-    geometry = native_v4_geometry(2.5)
-    target = np.random.default_rng(4812).normal(size=(4, 64, 4)).astype(np.float32)
-    codebook = banana_v1_gaussian_codebook()
-    common = {
-        "tlut": codebook,
-        "scales": np.ones(4, dtype=np.float32),
-        "geometry": geometry,
-    }
-
-    total = solve_native_v4(
-        target,
-        trellis_objective=native_qtip.TOTAL_SSE_OBJECTIVE,
-        **common,
-    )
-    minimax = solve_native_v4(
-        target,
-        trellis_objective=native_qtip.LEXICOGRAPHIC_MINIMAX_OBJECTIVE,
-        **common,
-    )
-
-    def objectives(encoded: native_qtip.EncodedNativeQtip25) -> list[tuple[float, float]]:
-        decoded = decode_native_v4(
-            encoded.packed,
-            encoded.scales,
-            positions=256,
-            tlut=codebook,
-            geometry=geometry,
-        ).reshape(target.shape)
-        vector_sse = np.sum(
-            (decoded.astype(np.float64) - target.astype(np.float64)) ** 2,
-            axis=2,
-        )
-        return [
-            (float(row.max()), float(row.sum(dtype=np.float64)))
-            for row in vector_sse
-        ]
-
-    assert all(
-        minimax_key <= total_key
-        for minimax_key, total_key in zip(objectives(minimax), objectives(total))
-    )
-
-
-def test_qtip_v6_b10_minimax_objective_drives_the_closed_final_recurrence() -> None:
-    geometry = native_v4_geometry(2.5)
-    target = np.random.default_rng(0).normal(size=(1, 64, 4)).astype(np.float32)
-    codebook = banana_v1_gaussian_codebook()
-    edge_lut = expand_banana_v1_codebook(codebook)
-    midpoint = target.shape[1] // 2
-    first_phases = native_qtip._viterbi_native_v5_numpy(
-        np.roll(target, midpoint, axis=1),
-        edge_lut,
-        overlap=None,
-        geometry=geometry,
-        objective=native_qtip.LEXICOGRAPHIC_MINIMAX_OBJECTIVE,
-    )
-    first_width = native_v5_phase_widths(geometry=geometry)[0]
-    overlap = first_phases[:, midpoint, 0] >> first_width
-    expected_phases = native_qtip._viterbi_native_v5_numpy(
-        target,
-        edge_lut,
-        overlap=overlap,
-        geometry=geometry,
-        objective=native_qtip.LEXICOGRAPHIC_MINIMAX_OBJECTIVE,
-    )
-    scalar_states = expected_phases.reshape(1, -1)
-    scalar_suffix_mask = (1 << (geometry.L - first_width)) - 1
-    np.testing.assert_array_equal(
-        scalar_states[:, -1] & scalar_suffix_mask,
-        scalar_states[:, 0] >> first_width,
-    )
-
-    observed = solve_native_v4(
-        target,
-        tlut=codebook,
-        scales=np.ones(1, dtype=np.float32),
-        geometry=geometry,
-        trellis_objective=native_qtip.LEXICOGRAPHIC_MINIMAX_OBJECTIVE,
-    )
-    expected = native_qtip.pack_native_v4_states(
-        expected_phases[:, :, -1],
-        geometry=geometry,
-    )
-
-    np.testing.assert_array_equal(observed.packed, expected)
 
 
 def test_qtip_v6_rms_ratio_supports_single_pass_reverse_16_feedback(

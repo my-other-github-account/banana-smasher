@@ -73,10 +73,6 @@ class NativeQtip25Geometry:
 
 NATIVE_QTIP25_GEOMETRY = NativeQtip25Geometry()
 _DEFAULT_SCALE_FACTORS = (0.80, 0.85, 0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20)
-TOTAL_SSE_OBJECTIVE = "total_normalized_sse"
-LEXICOGRAPHIC_MINIMAX_OBJECTIVE = (
-    "lexicographic_minimax_normalized_vector_sse_then_total_sse"
-)
 
 
 def native_v4_geometry(bpw: object) -> NativeQtip25Geometry:
@@ -369,29 +365,17 @@ def _viterbi_native_v5_numpy(
     *,
     overlap: np.ndarray | None,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
-    objective: str = TOTAL_SSE_OBJECTIVE,
 ) -> np.ndarray:
     """Exact variable-width scalar recurrence for PR31 V5 vector edges."""
 
     batch, steps, lanes = target.shape
     if lanes != geometry.V or steps * geometry.B < geometry.L:
         raise ValueError("native V5 target has insufficient L16/V4 transitions")
-    if objective not in {TOTAL_SSE_OBJECTIVE, LEXICOGRAPHIC_MINIMAX_OBJECTIVE}:
-        raise ValueError("unsupported native QTIP trellis objective")
     widths = native_v5_phase_widths(geometry=geometry)
     values = target.reshape(batch, steps * lanes)
     cost: np.ndarray | None = None
-    maximum: np.ndarray | None = None
-    partial: np.ndarray | None = None
     backpointers: list[np.ndarray | None] = []
     row_ids = np.arange(batch)
-
-    def lexicographic_argmin(*keys: np.ndarray) -> np.ndarray:
-        eligible = np.ones(keys[0].shape, dtype=bool)
-        for key in keys:
-            minimum = np.min(np.where(eligible, key, np.inf), axis=-1, keepdims=True)
-            eligible &= key == minimum
-        return np.argmax(eligible, axis=-1)
 
     for phase in range(values.shape[1]):
         width = widths[phase % geometry.V]
@@ -401,9 +385,6 @@ def _viterbi_native_v5_numpy(
         errors = delta * delta
         if phase == 0:
             cost = errors
-            if objective == LEXICOGRAPHIC_MINIMAX_OBJECTIVE:
-                maximum = np.zeros_like(errors)
-                partial = errors.copy()
             if overlap is not None:
                 expected = np.asarray(overlap, dtype=np.int32)
                 if expected.shape != (batch,) or bool(
@@ -416,18 +397,6 @@ def _viterbi_native_v5_numpy(
                 masked = np.full_like(cost, np.inf)
                 masked[row_ids[:, None], allowed] = cost[row_ids[:, None], allowed]
                 cost = masked
-                if objective == LEXICOGRAPHIC_MINIMAX_OBJECTIVE:
-                    assert maximum is not None and partial is not None
-                    masked_maximum = np.full_like(maximum, np.inf)
-                    masked_partial = np.full_like(partial, np.inf)
-                    masked_maximum[row_ids[:, None], allowed] = maximum[
-                        row_ids[:, None], allowed
-                    ]
-                    masked_partial[row_ids[:, None], allowed] = partial[
-                        row_ids[:, None], allowed
-                    ]
-                    maximum = masked_maximum
-                    partial = masked_partial
             backpointers.append(None)
             continue
 
@@ -437,87 +406,24 @@ def _viterbi_native_v5_numpy(
             np.arange(branches, dtype=np.int32)[None, :] * prefixes
         )
         options = cost[:, predecessors]
-        lane = phase % geometry.V
-        if objective == TOTAL_SSE_OBJECTIVE:
-            choice = np.argmin(options, axis=2)
-            best = np.take_along_axis(options, choice[:, :, None], axis=2)[:, :, 0]
-            cost = errors + np.repeat(best, branches, axis=1)
-            backpointers.append(choice.astype(np.uint8))
-            continue
-
-        assert maximum is not None and partial is not None
-        maximum_options = maximum[:, predecessors]
-        partial_options = partial[:, predecessors]
-        if lane == geometry.V - 1:
-            next_cost = np.empty_like(cost)
-            next_maximum = np.empty_like(maximum)
-            state_choice = np.empty((batch, geometry.states), dtype=np.uint8)
-            for branch in range(branches):
-                state_ids = np.arange(prefixes, dtype=np.int32) * branches + branch
-                edge_error = errors[:, state_ids, None]
-                candidate_maximum = np.maximum(
-                    maximum_options, partial_options + edge_error
-                )
-                candidate_total = options + edge_error
-                branch_choice = lexicographic_argmin(
-                    candidate_maximum, candidate_total
-                )
-                state_choice[:, state_ids] = branch_choice.astype(np.uint8)
-                next_maximum[:, state_ids] = np.take_along_axis(
-                    candidate_maximum, branch_choice[:, :, None], axis=2
-                )[:, :, 0]
-                next_cost[:, state_ids] = np.take_along_axis(
-                    candidate_total, branch_choice[:, :, None], axis=2
-                )[:, :, 0]
-            cost = next_cost
-            maximum = next_maximum
-            partial = np.zeros_like(cost)
-            backpointers.append(state_choice)
-            continue
-
-        choice = (
-            lexicographic_argmin(maximum_options, options)
-            if lane == 0
-            else lexicographic_argmin(maximum_options, partial_options, options)
-        )
-        best_total = np.take_along_axis(options, choice[:, :, None], axis=2)[:, :, 0]
-        best_maximum = np.take_along_axis(
-            maximum_options, choice[:, :, None], axis=2
-        )[:, :, 0]
-        best_partial = np.take_along_axis(
-            partial_options, choice[:, :, None], axis=2
-        )[:, :, 0]
-        cost = errors + np.repeat(best_total, branches, axis=1)
-        maximum = np.repeat(best_maximum, branches, axis=1)
-        partial = (
-            errors
-            if lane == 0
-            else errors + np.repeat(best_partial, branches, axis=1)
-        )
+        choice = np.argmin(options, axis=2)
+        best = np.take_along_axis(options, choice[:, :, None], axis=2)[:, :, 0]
+        cost = errors + np.repeat(best, branches, axis=1)
         backpointers.append(choice.astype(np.uint8))
 
     assert cost is not None
     if overlap is None:
-        if objective == TOTAL_SSE_OBJECTIVE:
-            final = np.argmin(cost, axis=1).astype(np.int32)
-        else:
-            assert maximum is not None
-            final = lexicographic_argmin(maximum, cost).astype(np.int32)
+        final = np.argmin(cost, axis=1).astype(np.int32)
     else:
         first_width = widths[0]
         first_prefixes = 1 << (geometry.L - first_width)
         final_allowed = np.asarray(overlap, dtype=np.int32)[:, None] + (
             np.arange(1 << first_width, dtype=np.int32)[None, :] * first_prefixes
         )
-        allowed_cost = cost[row_ids[:, None], final_allowed]
-        if objective == TOTAL_SSE_OBJECTIVE:
-            final_choice = np.argmin(allowed_cost, axis=1)
-        else:
-            assert maximum is not None
-            final_choice = lexicographic_argmin(
-                maximum[row_ids[:, None], final_allowed], allowed_cost
-            )
-        final = final_allowed[row_ids, final_choice]
+        final = final_allowed[
+            row_ids,
+            np.argmin(cost[row_ids[:, None], final_allowed], axis=1),
+        ]
 
     phase_states = np.empty((batch, values.shape[1]), dtype=np.int32)
     phase_states[:, -1] = final
@@ -527,13 +433,7 @@ def _viterbi_native_v5_numpy(
         prefix = phase_states[:, phase] >> width
         choice = backpointers[phase]
         assert choice is not None
-        choice_index = (
-            phase_states[:, phase]
-            if objective == LEXICOGRAPHIC_MINIMAX_OBJECTIVE
-            and phase % geometry.V == geometry.V - 1
-            else prefix
-        )
-        predecessor_branch = choice[row_ids, choice_index].astype(np.int32)
+        predecessor_branch = choice[row_ids, prefix].astype(np.int32)
         phase_states[:, phase - 1] = predecessor_branch * prefixes + prefix
     return phase_states.reshape(batch, steps, lanes)
 
@@ -546,7 +446,6 @@ def solve_native_v4(
     scales: np.ndarray | Sequence[float] | None = None,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
     cyclic_warmup_cycles: int = 1,
-    trellis_objective: str = TOTAL_SSE_OBJECTIVE,
 ) -> EncodedNativeQtip25:
     """Reference cyclic Viterbi encoder for homogeneous L16/B/V4 payloads."""
     values = np.asarray(target, dtype=np.float32)
@@ -558,8 +457,6 @@ def solve_native_v4(
         raise ValueError("native QTIP2.5 target must be finite")
     if cyclic_warmup_cycles not in {1, 2}:
         raise ValueError("native QTIP cyclic warmup must use one or two cycles")
-    if trellis_objective not in {TOTAL_SSE_OBJECTIVE, LEXICOGRAPHIC_MINIMAX_OBJECTIVE}:
-        raise ValueError("unsupported native QTIP trellis objective")
     if sum(value is not None for value in (tlut, state_lut)) != 1:
         raise ValueError("native QTIP solve requires exactly one TLUT or vector LUT")
     edge_lut: np.ndarray | None = None
@@ -608,7 +505,6 @@ def solve_native_v4(
             edge_lut,
             overlap=None,
             geometry=geometry,
-            objective=trellis_objective,
         )
         first_width = native_v5_phase_widths(geometry=geometry)[0]
         overlap = first_phases[:, overlap_step, 0] >> first_width
@@ -617,44 +513,7 @@ def solve_native_v4(
             edge_lut,
             overlap=overlap,
             geometry=geometry,
-            objective=trellis_objective,
         )
-        if trellis_objective == LEXICOGRAPHIC_MINIMAX_OBJECTIVE:
-            total_first_phases = _viterbi_native_v5_numpy(
-                warmup,
-                edge_lut,
-                overlap=None,
-                geometry=geometry,
-                objective=TOTAL_SSE_OBJECTIVE,
-            )
-            total_overlap = total_first_phases[:, overlap_step, 0] >> first_width
-            total_phase_states = _viterbi_native_v5_numpy(
-                normalized,
-                edge_lut,
-                overlap=total_overlap,
-                geometry=geometry,
-                objective=TOTAL_SSE_OBJECTIVE,
-            )
-            minimax_error = (
-                edge_lut[phase_states].astype(np.float64)
-                - normalized.astype(np.float64)
-            ) ** 2
-            total_error = (
-                edge_lut[total_phase_states].astype(np.float64)
-                - normalized.astype(np.float64)
-            ) ** 2
-            minimax_vector_sse = np.sum(minimax_error, axis=2, dtype=np.float64)
-            total_vector_sse = np.sum(total_error, axis=2, dtype=np.float64)
-            minimax_maximum = np.max(minimax_vector_sse, axis=1)
-            total_maximum = np.max(total_vector_sse, axis=1)
-            minimax_total = np.sum(minimax_vector_sse, axis=1, dtype=np.float64)
-            total_total = np.sum(total_vector_sse, axis=1, dtype=np.float64)
-            use_total = (total_maximum < minimax_maximum) | (
-                (total_maximum == minimax_maximum) & (total_total <= minimax_total)
-            )
-            phase_states = np.where(
-                use_total[:, None, None], total_phase_states, phase_states
-            )
         states = phase_states[:, :, -1]
         decoded = phase_states
     else:
@@ -1111,32 +970,17 @@ def _native_v5_cuda_pass(
     overlap: Any | None,
     *,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
-    objective: str = TOTAL_SSE_OBJECTIVE,
 ) -> Any:
     """Run the exact PR31 recurrence with variable-width on-device phases."""
 
     import torch
 
     batch, steps, lanes = target.shape
-    if objective not in {TOTAL_SSE_OBJECTIVE, LEXICOGRAPHIC_MINIMAX_OBJECTIVE}:
-        raise ValueError("unsupported native QTIP trellis objective")
     widths = native_v5_phase_widths(geometry=geometry)
     values = target.reshape(batch, steps * lanes)
     cost = None
-    maximum = None
-    partial = None
     backpointers = []
     row_ids = torch.arange(batch, device=target.device)
-
-    def lexicographic_argmin(*keys: Any) -> Any:
-        eligible = torch.ones_like(keys[0], dtype=torch.bool)
-        for key in keys:
-            minimum = torch.where(eligible, key, torch.inf).min(
-                dim=-1, keepdim=True
-            ).values
-            eligible &= key == minimum
-        return eligible.to(torch.uint8).argmax(dim=-1)
-
     for phase in range(values.shape[1]):
         width = widths[phase % geometry.V]
         prefixes = 1 << (geometry.L - width)
@@ -1144,9 +988,6 @@ def _native_v5_cuda_pass(
         errors = (scalar_lut.unsqueeze(0) - values[:, phase, None]).square()
         if phase == 0:
             cost = errors
-            if objective == LEXICOGRAPHIC_MINIMAX_OBJECTIVE:
-                maximum = torch.zeros_like(errors)
-                partial = errors.clone()
             if overlap is not None:
                 allowed = (overlap[:, None].to(torch.int64) << width) + torch.arange(
                     branches, device=target.device
@@ -1154,101 +995,27 @@ def _native_v5_cuda_pass(
                 masked = torch.full_like(cost, torch.inf)
                 masked.scatter_(1, allowed, cost.gather(1, allowed))
                 cost = masked
-                if objective == LEXICOGRAPHIC_MINIMAX_OBJECTIVE:
-                    assert maximum is not None and partial is not None
-                    masked_maximum = torch.full_like(maximum, torch.inf)
-                    masked_partial = torch.full_like(partial, torch.inf)
-                    masked_maximum.scatter_(
-                        1, allowed, maximum.gather(1, allowed)
-                    )
-                    masked_partial.scatter_(1, allowed, partial.gather(1, allowed))
-                    maximum = masked_maximum
-                    partial = masked_partial
             backpointers.append(None)
             continue
 
         assert cost is not None
-        options = cost.reshape(batch, branches, prefixes).permute(0, 2, 1)
-        lane = phase % geometry.V
-        if objective == TOTAL_SSE_OBJECTIVE:
-            best, choice = options.min(dim=2)
-            cost = errors + best.repeat_interleave(branches, dim=1)
-            backpointers.append(choice.to(torch.uint8))
-            continue
-
-        assert maximum is not None and partial is not None
-        maximum_options = maximum.reshape(batch, branches, prefixes).permute(0, 2, 1)
-        partial_options = partial.reshape(batch, branches, prefixes).permute(0, 2, 1)
-        if lane == geometry.V - 1:
-            next_cost = torch.empty_like(cost)
-            next_maximum = torch.empty_like(maximum)
-            state_choice = torch.empty(
-                (batch, geometry.states), device=target.device, dtype=torch.uint8
-            )
-            for branch in range(branches):
-                state_ids = (
-                    torch.arange(prefixes, device=target.device) * branches + branch
-                )
-                edge_error = errors[:, state_ids, None]
-                candidate_maximum = torch.maximum(
-                    maximum_options, partial_options + edge_error
-                )
-                candidate_total = options + edge_error
-                branch_choice = lexicographic_argmin(
-                    candidate_maximum, candidate_total
-                )
-                state_choice[:, state_ids] = branch_choice.to(torch.uint8)
-                next_maximum[:, state_ids] = candidate_maximum.gather(
-                    2, branch_choice[:, :, None]
-                )[:, :, 0]
-                next_cost[:, state_ids] = candidate_total.gather(
-                    2, branch_choice[:, :, None]
-                )[:, :, 0]
-            cost = next_cost
-            maximum = next_maximum
-            partial = torch.zeros_like(cost)
-            backpointers.append(state_choice)
-            continue
-
-        choice = (
-            lexicographic_argmin(maximum_options, options)
-            if lane == 0
-            else lexicographic_argmin(maximum_options, partial_options, options)
-        )
-        best_total = options.gather(2, choice[:, :, None])[:, :, 0]
-        best_maximum = maximum_options.gather(2, choice[:, :, None])[:, :, 0]
-        best_partial = partial_options.gather(2, choice[:, :, None])[:, :, 0]
-        cost = errors + best_total.repeat_interleave(branches, dim=1)
-        maximum = best_maximum.repeat_interleave(branches, dim=1)
-        partial = (
-            errors
-            if lane == 0
-            else errors + best_partial.repeat_interleave(branches, dim=1)
-        )
+        best, choice = cost.reshape(batch, branches, prefixes).min(dim=1)
+        cost = errors + best.repeat_interleave(branches, dim=1)
         backpointers.append(choice.to(torch.uint8))
 
     assert cost is not None
     if overlap is None:
-        if objective == TOTAL_SSE_OBJECTIVE:
-            final = cost.argmin(dim=1).to(torch.int32)
-        else:
-            assert maximum is not None
-            final = lexicographic_argmin(maximum, cost).to(torch.int32)
+        final = cost.argmin(dim=1).to(torch.int32)
     else:
         first_width = widths[0]
         first_prefixes = 1 << (geometry.L - first_width)
         final_allowed = overlap[:, None].to(torch.int64) + torch.arange(
             1 << first_width, device=target.device
         )[None, :] * first_prefixes
-        allowed_cost = cost.gather(1, final_allowed)
-        if objective == TOTAL_SSE_OBJECTIVE:
-            final_choice = allowed_cost.argmin(dim=1)
-        else:
-            assert maximum is not None
-            final_choice = lexicographic_argmin(
-                maximum.gather(1, final_allowed), allowed_cost
-            )
-        final = final_allowed[row_ids, final_choice].to(torch.int32)
+        final = final_allowed[
+            row_ids,
+            cost.gather(1, final_allowed).argmin(dim=1),
+        ].to(torch.int32)
 
     phase_states = torch.empty(
         (batch, values.shape[1]), device=target.device, dtype=torch.int32
@@ -1260,15 +1027,9 @@ def _native_v5_cuda_pass(
         prefix = phase_states[:, phase] >> width
         choice = backpointers[phase]
         assert choice is not None
-        choice_index = (
-            phase_states[:, phase]
-            if objective == LEXICOGRAPHIC_MINIMAX_OBJECTIVE
-            and phase % geometry.V == geometry.V - 1
-            else prefix
+        predecessor_branch = choice.gather(1, prefix[:, None].to(torch.int64))[:, 0].to(
+            torch.int32
         )
-        predecessor_branch = choice.gather(
-            1, choice_index[:, None].to(torch.int64)
-        )[:, 0].to(torch.int32)
         phase_states[:, phase - 1] = predecessor_branch * prefixes + prefix
     return phase_states.reshape(batch, steps, lanes)
 
@@ -1279,49 +1040,27 @@ def _solve_native_v5_cuda(
     *,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
     cyclic_warmup_cycles: int = 1,
-    trellis_objective: str = TOTAL_SSE_OBJECTIVE,
 ) -> Any:
     import torch
 
-    def closed_phases(objective: str) -> Any:
-        midpoint = int(target.shape[1]) // 2
-        rolled = target.roll(midpoint, dims=1)
-        warmup = torch.cat([rolled] * cyclic_warmup_cycles, dim=1)
-        first = _native_v5_cuda_pass(
-            warmup,
-            scalar_lut,
-            None,
-            geometry=geometry,
-            objective=objective,
-        )
-        first_width = native_v5_phase_widths(geometry=geometry)[0]
-        overlap_step = (cyclic_warmup_cycles - 1) * int(target.shape[1]) + midpoint
-        overlap = first[:, overlap_step, 0] >> first_width
-        return _native_v5_cuda_pass(
-            target,
-            scalar_lut,
-            overlap,
-            geometry=geometry,
-            objective=objective,
-        )
-
-    phases = closed_phases(trellis_objective)
-    if trellis_objective == LEXICOGRAPHIC_MINIMAX_OBJECTIVE:
-        total_phases = closed_phases(TOTAL_SSE_OBJECTIVE)
-        minimax_vector_sse = (
-            scalar_lut[phases].to(torch.float64) - target.to(torch.float64)
-        ).square().sum(dim=2)
-        total_vector_sse = (
-            scalar_lut[total_phases].to(torch.float64) - target.to(torch.float64)
-        ).square().sum(dim=2)
-        minimax_maximum = minimax_vector_sse.max(dim=1).values
-        total_maximum = total_vector_sse.max(dim=1).values
-        minimax_total = minimax_vector_sse.sum(dim=1)
-        total_total = total_vector_sse.sum(dim=1)
-        use_total = (total_maximum < minimax_maximum) | (
-            (total_maximum == minimax_maximum) & (total_total <= minimax_total)
-        )
-        phases = torch.where(use_total[:, None, None], total_phases, phases)
+    midpoint = int(target.shape[1]) // 2
+    rolled = target.roll(midpoint, dims=1)
+    warmup = torch.cat([rolled] * cyclic_warmup_cycles, dim=1)
+    first = _native_v5_cuda_pass(
+        warmup,
+        scalar_lut,
+        None,
+        geometry=geometry,
+    )
+    first_width = native_v5_phase_widths(geometry=geometry)[0]
+    overlap_step = (cyclic_warmup_cycles - 1) * int(target.shape[1]) + midpoint
+    overlap = first[:, overlap_step, 0] >> first_width
+    phases = _native_v5_cuda_pass(
+        target,
+        scalar_lut,
+        overlap,
+        geometry=geometry,
+    )
     return phases[:, :, -1].contiguous()
 
 
@@ -1331,7 +1070,6 @@ def solve_native_v4_cuda(
     state_lut: Any,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
     cyclic_warmup_cycles: int = 1,
-    trellis_objective: str = TOTAL_SSE_OBJECTIVE,
 ) -> Any:
     """Exact full-branch CUDA solve for ``[rows,steps,4]`` transformed targets."""
     import torch
@@ -1345,8 +1083,6 @@ def solve_native_v4_cuda(
         raise ValueError("native QTIP2.5 CUDA target must be float32 [rows,steps,4]")
     if cyclic_warmup_cycles not in {1, 2}:
         raise ValueError("native QTIP CUDA cyclic warmup must use one or two cycles")
-    if trellis_objective not in {TOTAL_SSE_OBJECTIVE, LEXICOGRAPHIC_MINIMAX_OBJECTIVE}:
-        raise ValueError("unsupported native QTIP trellis objective")
     if (
         state_lut.is_cuda
         and state_lut.device == target.device
@@ -1358,7 +1094,6 @@ def solve_native_v4_cuda(
             state_lut,
             geometry=geometry,
             cyclic_warmup_cycles=cyclic_warmup_cycles,
-            trellis_objective=trellis_objective,
         )
     midpoint = int(target.shape[1]) // 2
     rolled = torch.roll(target, midpoint, dims=1)
@@ -1453,11 +1188,9 @@ def native_v4_wire_accounting(
 
 __all__ = [
     "EncodedNativeQtip25",
-    "LEXICOGRAPHIC_MINIMAX_OBJECTIVE",
     "NATIVE_QTIP25_GEOMETRY",
     "NativeV4MatrixResult",
     "NativeQtip25Geometry",
-    "TOTAL_SSE_OBJECTIVE",
     "decode_native_v4",
     "decode_native_v4_torch",
     "expand_native_v4_tlut",

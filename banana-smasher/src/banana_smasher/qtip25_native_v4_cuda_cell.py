@@ -22,7 +22,6 @@ import numpy as np
 
 from .banana_v1 import expand_banana_v1_codebook
 from .qtip25_native_v4 import (
-    TOTAL_SSE_OBJECTIVE,
     NATIVE_QTIP25_GEOMETRY,
     NativeQtip25Geometry,
     decode_native_v4,
@@ -301,7 +300,6 @@ def run_cuda_cell(
     feedback_mode: str = "off",
     hessian_regularization_sigma: float = 1e-2,
     cyclic_warmup_cycles: int = 1,
-    trellis_objective: str = TOTAL_SSE_OBJECTIVE,
 ) -> dict[str, Any]:
     target, tlut, identity = validate_input(
         input_path,
@@ -373,7 +371,6 @@ def run_cuda_cell(
         "hessian_regularization_sigma": 0.0,
         "feedback_nonzero_count": 0,
         "cyclic_warmup_cycles": cyclic_warmup_cycles,
-        "trellis_objective": trellis_objective,
     }
     if hessian is not None:
         if matrix_shape is None:
@@ -402,7 +399,6 @@ def run_cuda_cell(
                 state_lut=state_lut,
                 geometry=geometry,
                 cyclic_warmup_cycles=cyclic_warmup_cycles,
-                trellis_objective=trellis_objective,
             )
             packed_parts.append(
                 _pack_cuda_states_v4(states, geometry=geometry).cpu().numpy()
@@ -447,29 +443,12 @@ def run_cuda_cell(
                 )
         torch.cuda.synchronize()
         decode_seconds = time.perf_counter() - decode_started
-    unit_decoded = torch.cat(observed_parts).reshape(len(target), 64, 4).numpy()
-    if geometry.B == 10 and tuple(tlut.shape) == (1024,) and hessian is None:
-        unit64 = unit_decoded.astype(np.float64)
-        target64 = np.asarray(target, dtype=np.float64)
-        pre_refinement_scale = selected_scale
-        selected_scale = float(np.vdot(unit64, target64) / np.vdot(unit64, unit64))
-        optimization.update(
-            {
-                "scale_refinement": "least_squares_fixed_path",
-                "pre_refinement_scale": pre_refinement_scale,
-                "selected_scale": selected_scale,
-                "scale_factor": selected_scale,
-            }
-        )
-    decoded = unit_decoded * np.float32(selected_scale)
+    decoded = (
+        torch.cat(observed_parts).reshape(len(target), 64, 4).numpy()
+        * np.float32(selected_scale)
+    )
     delta = decoded.astype(np.float64) - np.asarray(target, dtype=np.float64)
     sse = float(np.sum(delta * delta, dtype=np.float64))
-    vector_sse = np.sum(delta * delta, axis=2, dtype=np.float64)
-    optimization["trellis_objective"] = trellis_objective
-    optimization["maximum_normalized_vector_sse"] = float(np.max(vector_sse))
-    optimization["total_normalized_sse"] = float(
-        np.sum(vector_sse, dtype=np.float64)
-    )
     counters = native_v4_decode_counters()
     if counters["fallback_calls"] != 0 or counters["cuda_decode_calls"] < 1:
         raise RuntimeError(f"native V4 installed consumer counters invalid: {counters}")
