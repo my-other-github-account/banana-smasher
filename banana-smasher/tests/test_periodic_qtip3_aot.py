@@ -104,6 +104,12 @@ def test_periodic_qtip3_cell_solver_refuses_partial_b256_before_cuda_load() -> N
         solve_periodic_qtip3_cells_exact([target], scalar_lut)
 
 
+def test_periodic_qtip3_cell_solver_packs_b12_states() -> None:
+    source = (_package_root() / "periodic_qtip3_aot" / "__init__.py").read_text()
+
+    assert "geometry=native_v4_geometry(3.0)" in source
+
+
 @pytest.mark.skipif(
     not os.environ.get("BANANA_SMASHER_PERIODIC_QTIP3_EXTENSION"),
     reason="set the sealed Periodic QTIP3 AOT extension for physical parity",

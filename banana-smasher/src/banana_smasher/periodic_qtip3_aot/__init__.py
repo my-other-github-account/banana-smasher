@@ -139,6 +139,7 @@ def solve_periodic_qtip3_cells_exact(
             )
         checked.append(np.ascontiguousarray(value))
 
+    from ..qtip25_native_v4 import native_v4_geometry
     from ..qtip25_native_v4_cuda_cell import _pack_cuda_states_v4
 
     before = counters()
@@ -167,7 +168,11 @@ def solve_periodic_qtip3_cells_exact(
                 .reshape(BATCH, 64, 4)[:, :, -1]
                 .contiguous()
             )
-            packed_parts.append(_pack_cuda_states_v4(final_states).cpu())
+            packed_parts.append(
+                _pack_cuda_states_v4(
+                    final_states, geometry=native_v4_geometry(3.0)
+                ).cpu()
+            )
             chunk_calls += 1
         packed_cells.append(
             np.ascontiguousarray(torch.cat(packed_parts).numpy())
