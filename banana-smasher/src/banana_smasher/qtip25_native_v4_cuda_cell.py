@@ -280,6 +280,11 @@ def ldlq_native_v4_cuda_batch(
         device=device,
         dtype=torch.int32,
     )
+    tiles = torch.empty(
+        (group_count, row_blocks, 64, geometry.V),
+        device=device,
+        dtype=source.dtype,
+    )
     max_solver_batch = 0
     for column_block in range(column_blocks - 1, -1, -1):
         start = column_block * 16
@@ -299,15 +304,13 @@ def ldlq_native_v4_cuda_batch(
                 corrected.add_(
                     torch.bmm(error_right, lower_group[:, end:, start:end])
                 )
-        flattened_tiles = torch.stack(
-            torch._foreach_div(
-                [
-                    corrected[group].reshape(row_blocks, 64, geometry.V)
-                    for group in range(group_count)
-                ],
-                flat_scales,
+        for group in range(group_count):
+            torch.div(
+                corrected[group].reshape(row_blocks, 64, geometry.V),
+                flat_scales[group],
+                out=tiles[group],
             )
-        ).reshape(group_count * row_blocks, 64, geometry.V)
+        flattened_tiles = tiles.reshape(group_count * row_blocks, 64, geometry.V)
         parts = []
         for batch_start in range(0, len(flattened_tiles), solve_batch):
             part = flattened_tiles[batch_start : batch_start + solve_batch]
@@ -320,15 +323,12 @@ def ldlq_native_v4_cuda_batch(
                 )
             )
         states = torch.cat(parts).reshape(group_count, row_blocks, 64)
-        decoded[:, :, start:end] = torch.stack(
-            torch._foreach_mul(
-                [
-                    state_lut[states[group]].reshape(rows, 16)
-                    for group in range(group_count)
-                ],
-                flat_scales,
+        for group in range(group_count):
+            torch.mul(
+                state_lut[states[group]].reshape(rows, 16),
+                flat_scales[group],
+                out=decoded[group, :, start:end],
             )
-        )
         states_grid[:, :, column_block] = states
     difference = decoded.double() - source_group.double()
     distortions = (
