@@ -208,6 +208,29 @@
         }
       ]
     },
+    "artifactExternal": {
+      "allOf": [
+        {"$ref": "#/$defs/artifactCommon"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "identity_status", "missing_identity_fields", "base_model", "variant",
+            "format", "mechanism", "candidate_artifact_sha256",
+            "candidate_manifest_sha256"
+          ],
+          "properties": {
+            "identity_status": {"const": "partial"},
+            "missing_identity_fields": {"minItems": 1},
+            "base_model": {"const": "DeepSeek-V4-Flash-0731"},
+            "variant": {"type": "string", "minLength": 1},
+            "format": {"const": "EXL3"},
+            "mechanism": {"type": "string", "minLength": 1},
+            "candidate_artifact_sha256": {"$ref": "#/$defs/sha256"},
+            "candidate_manifest_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      ]
+    },
     "artifactDwarf": {
       "allOf": [
         {"$ref": "#/$defs/artifactCommon"},
@@ -356,6 +379,46 @@
         }
       }
     },
+    "externalMeasurement": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "status", "candidate_artifact_sha256", "teacher_bank",
+        "teacher_source_model_index_sha256", "scorer_source_sha256",
+        "suite_file_sha256", "suite_lock_sha256", "window_population_sha256",
+        "class_map_sha256", "windows", "positions", "support", "holdout_used",
+        "fallback_used", "numeric_semantics", "artifacts", "limitations",
+        "unavailable_fields"
+      ],
+      "properties": {
+        "status": {"const": "PASS"},
+        "candidate_artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "teacher_bank": {"type": "string", "minLength": 1},
+        "teacher_source_model_index_sha256": {"$ref": "#/$defs/sha256"},
+        "scorer_source_sha256": {"$ref": "#/$defs/sha256"},
+        "suite_file_sha256": {"$ref": "#/$defs/sha256"},
+        "suite_lock_sha256": {"$ref": "#/$defs/sha256"},
+        "window_population_sha256": {"$ref": "#/$defs/sha256"},
+        "class_map_sha256": {"$ref": "#/$defs/sha256"},
+        "windows": {"const": 64},
+        "positions": {"const": 65536},
+        "support": {"const": 8192},
+        "holdout_used": {"const": false},
+        "fallback_used": {"const": false},
+        "numeric_semantics": {"type": "string", "minLength": 1},
+        "artifacts": {
+          "type": "object", "minProperties": 6,
+          "additionalProperties": {"$ref": "#/$defs/sha256"}
+        },
+        "limitations": {
+          "type": "array", "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "unavailable_fields": {
+          "type": "array", "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
     "result": {
       "type": "object", "additionalProperties": false,
       "required": ["model_id", "display_name", "vendor", "fp", "artifact", "wire", "kld", "top1", "classes", "source_receipts", "replay"],
@@ -366,14 +429,18 @@
         "fp": {"type": "string", "minLength": 1},
         "artifact": {"oneOf": [
           {"$ref": "#/$defs/artifactIq2"}, {"$ref": "#/$defs/artifactPartial"},
-          {"$ref": "#/$defs/artifactDwarf"}, {"$ref": "#/$defs/artifactQtip"}
+          {"$ref": "#/$defs/artifactExternal"}, {"$ref": "#/$defs/artifactDwarf"},
+          {"$ref": "#/$defs/artifactQtip"}
         ]},
         "wire": {"$ref": "#/$defs/wire"},
         "kld": {"$ref": "#/$defs/kld"},
         "top1": {"$ref": "#/$defs/top1"},
         "classes": {"$ref": "#/$defs/classes"},
         "weight_components": {"$ref": "#/$defs/weightComponents"},
-        "measurement": {"$ref": "#/$defs/measurement"},
+        "measurement": {"oneOf": [
+          {"$ref": "#/$defs/measurement"},
+          {"$ref": "#/$defs/externalMeasurement"}
+        ]},
         "source_receipts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source"}},
         "replay": {"$ref": "#/$defs/replay"}
       },
