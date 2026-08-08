@@ -318,8 +318,10 @@ def _p1016_tensor_name(relative: Path, *, payload_family: str) -> tuple[int, str
         "native_mxfp4": "native_mxfp4",
         "qtip_native_v4": "qtip_native_v4",
         "qtip_native_v4_b7": "qtip_native_v4",
+        "qtip_native_v4_b8": "qtip_native_v4",
         "qtip_native_v4_b9": "qtip_native_v4",
         "qtip_native_v4_b10": "qtip_native_v4",
+        "qtip_native_v4_b12": "qtip_native_v4",
     }.get(payload_family)
     if family is None:
         raise PackValidationError(
@@ -360,9 +362,27 @@ def _verify_p1016_source(
             or document.get("E") != 256
         ):
             raise PackValidationError(f"invalid p1016 layer metadata: {path}")
-        for key in ("family13", "family2", "tier13", "tier2", "slot13", "slot2"):
-            if not isinstance(document.get(key), list) or len(document[key]) != 256:
-                raise PackValidationError(f"invalid p1016 metadata vector {path.name}.{key}")
+        rule = document.get("assignment_rule")
+        deterministic_parity = (
+            isinstance(rule, dict)
+            and rule.get("schema") == "banana-smasher-periodic-qtip-parity-v1"
+            and rule.get("assignment_payload_bytes") == 0
+            and isinstance(rule.get("global_expert_ordinal"), dict)
+        )
+        if deterministic_parity:
+            serialized = sorted(
+                key
+                for key in ("family13", "family2", "tier13", "tier2", "slot13", "slot2")
+                if key in document
+            )
+            if serialized:
+                raise PackValidationError(
+                    f"deterministic parity metadata serializes route vectors {path.name}: {serialized}"
+                )
+        else:
+            for key in ("family13", "family2", "tier13", "tier2", "slot13", "slot2"):
+                if not isinstance(document.get(key), list) or len(document[key]) != 256:
+                    raise PackValidationError(f"invalid p1016 metadata vector {path.name}.{key}")
         layers.append(layer)
     if len(set(layers)) != len(layers):
         raise PackValidationError("duplicate p1016 layer metadata")
@@ -375,9 +395,62 @@ def _verify_p1016_source(
         selected_payload_maps: dict[str, dict[str, Any]] = {}
         experts = int(document["E"])
         for projection, suffix in (("fused13", "13"), ("down", "2")):
-            tiers = document[f"tier{suffix}"]
-            slots = document[f"slot{suffix}"]
-            families = document[f"family{suffix}"]
+            rule = document.get("assignment_rule")
+            parity = (
+                rule.get("global_expert_ordinal")
+                if isinstance(rule, dict)
+                and rule.get("schema") == "banana-smasher-periodic-qtip-parity-v1"
+                and rule.get("assignment_payload_bytes") == 0
+                else None
+            )
+            if isinstance(parity, dict):
+                even_tier = parity.get("even")
+                odd_tier = parity.get("odd")
+                if not all(isinstance(value, str) and value for value in (even_tier, odd_tier)):
+                    raise PackValidationError(
+                        f"invalid periodic parity tiers {path.name}/{projection}"
+                    )
+                tiers = [
+                    even_tier if expert % 2 == 0 else odd_tier
+                    for expert in range(experts)
+                ]
+                slots = [expert // 2 for expert in range(experts)]
+                payload_map_value = (document.get("payloads") or {}).get(projection)
+                family_codes_value = document.get("family_codes")
+                if not isinstance(payload_map_value, dict) or not isinstance(
+                    family_codes_value, dict
+                ):
+                    raise PackValidationError(
+                        f"invalid periodic parity payload map {path.name}/{projection}"
+                    )
+                try:
+                    even_payload = payload_map_value[even_tier]
+                    odd_payload = payload_map_value[odd_tier]
+                    if (
+                        even_payload["geometry"]["B"] != 8
+                        or odd_payload["geometry"]["B"] != 12
+                    ):
+                        raise KeyError("geometry")
+                    families = [
+                        int(
+                            family_codes_value[
+                                (
+                                    even_payload
+                                    if expert % 2 == 0
+                                    else odd_payload
+                                )["family"]
+                            ]
+                        )
+                        for expert in range(experts)
+                    ]
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise PackValidationError(
+                        f"periodic parity payload geometry drift {path.name}/{projection}"
+                    ) from exc
+            else:
+                tiers = document[f"tier{suffix}"]
+                slots = document[f"slot{suffix}"]
+                families = document[f"family{suffix}"]
             if not all(
                 isinstance(values, list) and len(values) == experts
                 for values in (tiers, slots, families)
@@ -1805,12 +1878,23 @@ def export_pack(
             for selected_layer, document in sorted(p1016_documents.items()):
                 selected_layers[str(selected_layer)] = {}
                 for projection, suffix in (("fused13", "13"), ("down", "2")):
-                    selected_layers[str(selected_layer)][projection] = {
-                        "tiers": document[f"tier{suffix}"],
-                        "slots": document[f"slot{suffix}"],
-                        "families": document[f"family{suffix}"],
-                        "payloads": document["payloads"][projection],
-                    }
+                    rule = document.get("assignment_rule")
+                    if (
+                        isinstance(rule, dict)
+                        and rule.get("schema")
+                        == "banana-smasher-periodic-qtip-parity-v1"
+                    ):
+                        selected_layers[str(selected_layer)][projection] = {
+                            "assignment_rule": rule,
+                            "payloads": document["payloads"][projection],
+                        }
+                    else:
+                        selected_layers[str(selected_layer)][projection] = {
+                            "tiers": document[f"tier{suffix}"],
+                            "slots": document[f"slot{suffix}"],
+                            "families": document[f"family{suffix}"],
+                            "payloads": document["payloads"][projection],
+                        }
             manifest["selected_payloads"] = {
                 "schema": "bs-pack-selected-payloads-v1",
                 "producer_stage": "smash export:v4-row-packed-selected-wire-v1",

@@ -27,8 +27,10 @@ LEGACY_FAMILY_CODES = {"qtip2": 0, "qtip3": 1, "d4": 2, "native": 3}
 EXPECTED_FAMILY_CODES = {
     **LEGACY_FAMILY_CODES,
     "qtip_native_v4_b7": 4,
-    "qtip_native_v4_b9": 5,
-    "qtip_native_v4_b10": 6,
+    "qtip_native_v4_b8": 5,
+    "qtip_native_v4_b9": 6,
+    "qtip_native_v4_b10": 7,
+    "qtip_native_v4_b12": 8,
 }
 _LOGGER = logging.getLogger(__name__)
 _posix_fadvise = getattr(os, "posix_fadvise", None)
@@ -526,8 +528,10 @@ def _payload_residency(family: str, role: str) -> str:
         ("native", "packed"),
         ("native", "scales"),
         ("qtip_native_v4_b7", "codes"),
+        ("qtip_native_v4_b8", "codes"),
         ("qtip_native_v4_b9", "codes"),
         ("qtip_native_v4_b10", "codes"),
+        ("qtip_native_v4_b12", "codes"),
     }:
         return "cpu_uva"
     return "device"
@@ -1234,9 +1238,56 @@ class NativePlaneLayer:
         output_width = int(self.meta["N13" if projection == "fused13" else "N2"])
         experts = int(self.meta["E"])
         selected = self.pack.selected_projection(self.layer_index, projection)
-        tiers_value = selected.get("tiers")
-        slots_value = selected.get("slots")
-        families_value = selected.get("families")
+        assignment_rule = selected.get("assignment_rule")
+        parity = (
+            assignment_rule.get("global_expert_ordinal")
+            if isinstance(assignment_rule, dict)
+            and assignment_rule.get("schema")
+            == "banana-smasher-periodic-qtip-parity-v1"
+            and assignment_rule.get("assignment_payload_bytes") == 0
+            else None
+        )
+        specs = selected.get("payloads")
+        if isinstance(parity, dict):
+            if {"tiers", "slots", "families"} & selected.keys():
+                raise _fail(
+                    f"layer {self.layer_index} {projection} serializes parity route vectors"
+                )
+            even_tier = parity.get("even")
+            odd_tier = parity.get("odd")
+            if (
+                not isinstance(specs, dict)
+                or not isinstance(even_tier, str)
+                or not isinstance(odd_tier, str)
+                or even_tier not in specs
+                or odd_tier not in specs
+            ):
+                raise _fail(
+                    f"layer {self.layer_index} {projection} parity payloads are malformed"
+                )
+            try:
+                if (
+                    specs[even_tier]["geometry"]["B"] != 8
+                    or specs[odd_tier]["geometry"]["B"] != 12
+                ):
+                    raise KeyError("geometry")
+                tiers_value = [
+                    even_tier if expert % 2 == 0 else odd_tier
+                    for expert in range(experts)
+                ]
+                slots_value = [expert // 2 for expert in range(experts)]
+                families_value = [
+                    int(self.meta["family_codes"][specs[tier]["family"]])
+                    for tier in tiers_value
+                ]
+            except (KeyError, TypeError, ValueError) as exc:
+                raise _fail(
+                    f"layer {self.layer_index} {projection} parity geometry drift"
+                ) from exc
+        else:
+            tiers_value = selected.get("tiers")
+            slots_value = selected.get("slots")
+            families_value = selected.get("families")
         if not all(isinstance(value, list) and len(value) == experts for value in (tiers_value, slots_value, families_value)):
             raise _fail(f"layer {self.layer_index} {projection} route shape drift")
         tier_values = cast(list[Any], tiers_value)
@@ -1251,9 +1302,8 @@ class NativePlaneLayer:
             )
         if not all(isinstance(value, int) for value in family_values) or set(
             family_values
-        ) - {0, 1, 2, 3, 4, 5, 6}:
+        ) - set(EXPECTED_FAMILY_CODES.values()):
             raise _fail(f"layer {self.layer_index} {projection} has unsupported family code")
-        specs = selected.get("payloads")
         if not isinstance(specs, dict) or not specs:
             raise _fail(f"layer {self.layer_index} {projection} selected payload map missing")
         routed_tiers = set(tiers)
@@ -1328,7 +1378,10 @@ class NativePlaneLayer:
                 raise _fail(
                     f"layer {self.layer_index} {projection}/{tier} slot binding drift at expert {expert}"
                 )
-            state = {name: value[slot] if name not in {"codebooks"} else value for name, value in payload.items()}
+            state = {
+                name: value[slot] if name not in {"codebooks", "tlut"} else value
+                for name, value in payload.items()
+            }
             if "codebook_index" in payload and "codebooks" in payload:
                 state["codebook"] = payload["codebooks"][int(payload["codebook_index"][slot])]
             elif "codebooks" in payload:
@@ -1380,12 +1433,30 @@ class NativePlaneLayer:
         ).contiguous()
         lut = _expanded_qtip_lut(self.device)
         tlut_array = np.load(Path(__file__).with_name("qtip_tlut.npy"), allow_pickle=False)
-        qtip_codebook = (
+        default_qtip_codebook = (
             torch.from_numpy(tlut_array.copy())
             .to(device=self.device, dtype=torch.float16)
-            .reshape(-1)
+            .reshape(512, 2)
             .contiguous()
         )
+        native_v4_codebooks = []
+        family_values_list = [int(value) for value in family_values]
+        for family in range(4, 9):
+            family_tables = [
+                state["tlut"].to(device=self.device, dtype=torch.float16)
+                for state, value in zip(states, family_values_list, strict=True)
+                if value == family and "tlut" in state
+            ]
+            if family_tables and any(
+                not torch.equal(table, family_tables[0]) for table in family_tables[1:]
+            ):
+                raise _fail(
+                    f"layer {self.layer_index} {projection} native-V4 family {family} TLUT drift"
+                )
+            native_v4_codebooks.append(
+                family_tables[0] if family_tables else default_qtip_codebook
+            )
+        qtip_codebook = torch.stack(native_v4_codebooks).contiguous()
         acceleration = importlib.import_module("banana_smasher_plugin.v4_acceleration")
         vq_state = acceleration.build_device_resident_planes(
             states,

@@ -12,10 +12,11 @@
 namespace {
 
 constexpr int kLegacyFamilies = 4;
-constexpr int kNativeV4Families = 3;
+constexpr int kNativeV4Families = 5;
 constexpr int kThreads = 256;
 constexpr int kCounterBase = 140;
-constexpr int kDequantCounter = 152;
+constexpr int kDequantCounter = 160;
+constexpr int kTransitionBits[kNativeV4Families] = {7, 8, 9, 10, 12};
 
 __device__ __forceinline__ void atomic_add_counter(
     int64_t* address, int64_t value) {
@@ -92,15 +93,16 @@ __global__ void native_v4_fused_gemv_kernel(
   if (expert < 0 || route < 0) {
     return;
   }
-  const int transition_bits = native_family == 0 ? 7 : (native_family == 1 ? 9 : 10);
+  const int transition_bits = kTransitionBits[native_family];
   const auto* codes = reinterpret_cast<const uint8_t*>(sources[expert]);
+  const half* family_tlut = tlut + native_family * 1024;
   float sum = 0.0f;
   const int output_row = static_cast<int>(blockIdx.x);
   for (int input_column = threadIdx.x; input_column < k; input_column += blockDim.x) {
     const int64_t weight_index =
         static_cast<int64_t>(output_row) * k + input_column;
     sum += __half2float(x[static_cast<int64_t>(route) * k + input_column]) *
-           native_v4_value(codes, tlut, weight_index, transition_bits);
+           native_v4_value(codes, family_tlut, weight_index, transition_bits);
   }
   __shared__ float reduction[kThreads];
   reduction[threadIdx.x] = sum;
@@ -135,7 +137,7 @@ __global__ void native_v4_receipt_kernel(
     if (rows == 0) {
       continue;
     }
-    const int transition_bits = native_family == 0 ? 7 : (native_family == 1 ? 9 : 10);
+    const int transition_bits = kTransitionBits[native_family];
     const int base = kCounterBase + native_family * 4;
     atomic_add_counter(counters + base, int64_t{1});
     atomic_add_counter(counters + base + 1, rows);
@@ -160,19 +162,19 @@ void native_v4_gemv_cuda(
   TORCH_CHECK(out.scalar_type() == at::kFloat, "out must be float32");
   TORCH_CHECK(transformed_x.scalar_type() == at::kHalf,
               "transformed_x must be float16");
-  TORCH_CHECK(tlut.scalar_type() == at::kHalf && tlut.numel() == 1024,
-              "tlut must be float16 [512,2]");
+  TORCH_CHECK(tlut.scalar_type() == at::kHalf && tlut.numel() == 5120,
+              "tlut must be float16 [5,512,2]");
   TORCH_CHECK(sources.scalar_type() == at::kLong && sources.dim() == 1,
               "sources must be int64 [experts]");
-  TORCH_CHECK(family_block_counts.sizes() == at::IntArrayRef({7}),
-              "family_block_counts must be int32 [7]");
-  TORCH_CHECK(block_experts.dim() == 2 && block_experts.size(0) == 7,
-              "block_experts must be int32 [7,max_blocks]");
+  TORCH_CHECK(family_block_counts.sizes() == at::IntArrayRef({9}),
+              "family_block_counts must be int32 [9]");
+  TORCH_CHECK(block_experts.dim() == 2 && block_experts.size(0) == 9,
+              "block_experts must be int32 [9,max_blocks]");
   TORCH_CHECK(block_valid_m.sizes() == block_experts.sizes(),
               "block_valid_m must match block_experts");
-  TORCH_CHECK(block_route_rows.dim() == 3 && block_route_rows.size(0) == 7 &&
+  TORCH_CHECK(block_route_rows.dim() == 3 && block_route_rows.size(0) == 9 &&
                   block_route_rows.size(1) == block_experts.size(1),
-              "block_route_rows must be int32 [7,max_blocks,block_rows]");
+              "block_route_rows must be int32 [9,max_blocks,block_rows]");
   TORCH_CHECK(physical_counters.scalar_type() == at::kLong &&
                   physical_counters.numel() > kDequantCounter,
               "physical_counters must cover native V4 receipts");

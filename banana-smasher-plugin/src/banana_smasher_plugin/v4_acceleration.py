@@ -5,6 +5,9 @@ from typing import Any
 
 import torch
 
+FAMILY_COUNT = 9
+NATIVE_V4_TRANSITION_BITS = (7, 8, 9, 10, 12)
+
 
 class IncompleteAccelerationPortError(RuntimeError):
     """The mandatory native route cannot be activated from admitted evidence."""
@@ -45,11 +48,15 @@ def allocate_compaction_state(
         "qtip_input": torch.empty(
             (rows, input_width), dtype=torch.float16, device=device
         ),
-        "family_block_counts": torch.empty(7, dtype=torch.int32, device=device),
-        "block_experts": torch.empty((7, max_blocks), dtype=torch.int32, device=device),
-        "block_valid_m": torch.empty((7, max_blocks), dtype=torch.int32, device=device),
+        "family_block_counts": torch.empty(FAMILY_COUNT, dtype=torch.int32, device=device),
+        "block_experts": torch.empty(
+            (FAMILY_COUNT, max_blocks), dtype=torch.int32, device=device
+        ),
+        "block_valid_m": torch.empty(
+            (FAMILY_COUNT, max_blocks), dtype=torch.int32, device=device
+        ),
         "block_route_rows": torch.empty(
-            (7, max_blocks, block_rows), dtype=torch.int32, device=device
+            (FAMILY_COUNT, max_blocks, block_rows), dtype=torch.int32, device=device
         ),
         "expert_route_counts": torch.empty(experts, dtype=torch.int32, device=device),
         "expert_last_block": torch.empty(experts, dtype=torch.int32, device=device),
@@ -252,11 +259,11 @@ def physical_counter_tensor(vq_state: dict[str, Any], route_rows: int) -> torch.
 def native_v4_physical_receipt(
     vq_state: dict[str, Any], route_rows: int
 ) -> dict[str, Any]:
-    """Read the packed B7/B9/B10 physical counters for one warmed shape."""
+    """Read the packed native-V4 physical counters for one warmed shape."""
 
     values = physical_counter_tensor(vq_state, route_rows).detach().cpu().tolist()
     rates = {}
-    for offset, bits in enumerate((7, 9, 10)):
+    for offset, bits in enumerate(NATIVE_V4_TRANSITION_BITS):
         base = 140 + offset * 4
         rates[f"B{bits}"] = {
             "calls": int(values[base]),
@@ -265,7 +272,7 @@ def native_v4_physical_receipt(
         }
     return {
         "rates": rates,
-        "per_forward_dequantizations": int(values[152]),
+        "per_forward_dequantizations": int(values[160]),
         "forbidden_fallbacks": int(sum(values[24:27])),
     }
 
@@ -283,8 +290,10 @@ def runtime_sentinel() -> dict[str, Any]:
             "d4",
             "native_mxfp4",
             "qtip_native_v4_b7",
+            "qtip_native_v4_b8",
             "qtip_native_v4_b9",
             "qtip_native_v4_b10",
+            "qtip_native_v4_b12",
         ),
         "physical_launches": (10, 14),
         "physical_blocks": (14, 18),

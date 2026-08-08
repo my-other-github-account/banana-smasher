@@ -133,13 +133,13 @@ def specialized_native_v4_gemv(
     compact: dict[str, Any],
     physical_counters: Any,
 ) -> Any:
-    """Execute one fused selective B7/B9/B10 packed-state GEMV launch."""
+    """Execute one fused selective native-V4 packed-state GEMV launch."""
 
     import torch
 
     _module()
     x_half = compact["qtip_input"]
-    for family in (4, 5, 6):
+    for family in range(4, 9):
         torch.ops.banana_smasher_v4.qtip_pre_transform(
             transformed_x.to(torch.bfloat16).contiguous(),
             pointer_tables["su"],
@@ -160,7 +160,7 @@ def specialized_native_v4_gemv(
         compact["block_route_rows"],
         physical_counters,
     )
-    for family in (4, 5, 6):
+    for family in range(4, 9):
         torch.ops.banana_smasher_v4.qtip_post_transform(
             out,
             pointer_tables["wscale"],

@@ -462,10 +462,110 @@ def test_selected_b7_b9_b10_materialize_as_native_planes(tmp_path) -> None:
 
     assert manifest["source_format"] == "p1016-true-c-native-planes-v1"
     meta = json.loads((output / "planes" / "layer_000.meta.json").read_text())
-    assert set(meta["family13"]) == {4, 5, 6}
-    assert set(meta["family2"]) == {4, 5, 6}
+    assert set(meta["family13"]) == {4, 6, 7}
+    assert set(meta["family2"]) == {4, 6, 7}
     assert {
         payload["geometry"]["B"]
         for payloads in meta["payloads"].values()
         for payload in payloads.values()
     } == {7, 9, 10}
+
+
+def test_periodic_b8_b12_parity_materializes_without_route_vectors(tmp_path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "deepseek_v4",
+                "n_routed_experts": 256,
+                "hidden_size": 16,
+                "moe_intermediate_size": 8,
+            }
+        )
+    )
+    descriptors = {}
+    for transition_bits in (8, 12):
+        tlut = tmp_path / f"tlut-b{transition_bits}.npy"
+        np.save(
+            tlut,
+            np.full((512, 2), transition_bits, dtype=np.float32),
+            allow_pickle=False,
+        )
+        descriptors[f"native-b{transition_bits}"] = {
+            "id": f"native-b{transition_bits}",
+            "family": "qtip_native_v4",
+            "bpw": transition_bits / 4,
+            "tlut": str(tlut),
+        }
+    cells = []
+    selected = {}
+    roots = {}
+    for projection in ("fused13", "down"):
+        for transition_bits, expert_ids in (
+            (8, list(range(0, 256, 2))),
+            (12, list(range(1, 256, 2))),
+        ):
+            cell_id = f"{projection}-b{transition_bits}"
+            root = tmp_path / "candidates" / cell_id
+            root.mkdir(parents=True)
+            rows = len(expert_ids) * 16
+            blocks = rows * 16 // 256
+            (root / "wire.bin").write_bytes(bytes(blocks * 8 * transition_bits))
+            np.save(root / "SU.npy", np.ones(16, dtype=np.float16), allow_pickle=False)
+            np.save(root / "SV.npy", np.ones(rows, dtype=np.float16), allow_pickle=False)
+            np.save(
+                root / "Wscale.npy",
+                np.asarray(1.0, dtype=np.float32),
+                allow_pickle=False,
+            )
+            (root / "CELL_RECEIPT.json").write_text(
+                json.dumps({"source": {"shape": [rows, 16]}})
+            )
+            cells.append(
+                {
+                    "cell_id": cell_id,
+                    "layer": 0,
+                    "projection": projection,
+                    "expert_ids": expert_ids,
+                }
+            )
+            selected[cell_id] = {"tier": f"native-b{transition_bits}"}
+            roots[cell_id] = root
+
+    _materialize_native_v4_plane_source(
+        source,
+        cells=cells,
+        selected=selected,
+        tier_descriptors=descriptors,
+        artifact_roots=roots,
+    )
+    output = tmp_path / "pack"
+    manifest = export_pack(
+        source_root=source,
+        output=output,
+        model_id="fixture/periodic-parity",
+        instance_id="periodic-b8-b12",
+        runtime_floor_bytes=0,
+    )
+
+    route_keys = {"tier13", "tier2", "slot13", "slot2", "family13", "family2"}
+    meta = json.loads((output / "planes" / "layer_000.meta.json").read_text())
+    assert not route_keys & meta.keys()
+    assert meta["assignment_rule"] == {
+        "schema": "banana-smasher-periodic-qtip-parity-v1",
+        "global_expert_ordinal": {
+            "even": "native-b8",
+            "odd": "native-b12",
+        },
+        "assignment_payload_bytes": 0,
+    }
+    for projection in ("fused13", "down"):
+        selection = manifest["selected_payloads"]["layers"]["0"][projection]
+        assert not {"tiers", "slots", "families"} & selection.keys()
+        assert selection["assignment_rule"] == meta["assignment_rule"]
+        assert {
+            payload["geometry"]["B"] for payload in selection["payloads"].values()
+        } == {8, 12}
+        for payload in selection["payloads"].values():
+            assert "tlut" in payload["tensors"]

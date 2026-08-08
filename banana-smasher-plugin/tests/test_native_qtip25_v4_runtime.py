@@ -131,12 +131,106 @@ def test_b7_b9_b10_selected_pack_loads_and_executes_on_cpu(tmp_path) -> None:
     experts = torch.tensor([0, 100, 200], dtype=torch.int64)
     state = layer._states["down"]
 
-    assert set(state.families.tolist()) == {4, 5, 6}
+    assert set(state.families.tolist()) == {4, 6, 7}
     assert [
         int(state.pointer_tables["native_v4_transition_bits"][expert])
         for expert in experts.tolist()
     ] == [7, 9, 10]
     assert set(state.pointer_tables["native_v4_codes"].tolist()) - {0}
+
+
+def test_periodic_b8_b12_pack_derives_routes_and_loads_family_tluts(tmp_path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "deepseek_v4",
+                "n_routed_experts": 256,
+                "hidden_size": 16,
+                "moe_intermediate_size": 16,
+            }
+        )
+    )
+    descriptors = {}
+    for bits in (8, 12):
+        tlut = tmp_path / f"tlut-b{bits}.npy"
+        np.save(
+            tlut,
+            np.full((512, 2), bits, dtype=np.float32),
+            allow_pickle=False,
+        )
+        descriptors[f"native-b{bits}"] = {
+            "id": f"native-b{bits}",
+            "family": "qtip_native_v4",
+            "bpw": bits / 4,
+            "tlut": str(tlut),
+        }
+    cells = []
+    selected = {}
+    roots = {}
+    for projection, output_width in (("fused13", 32), ("down", 16)):
+        for bits, ids in (
+            (8, list(range(0, 256, 2))),
+            (12, list(range(1, 256, 2))),
+        ):
+            cell_id = f"{projection}-b{bits}"
+            root = tmp_path / "candidates" / cell_id
+            root.mkdir(parents=True)
+            rows = len(ids) * output_width
+            blocks = rows * 16 // 256
+            (root / "wire.bin").write_bytes(bytes(blocks * 8 * bits))
+            np.save(root / "SU.npy", np.ones(16, dtype=np.float16), allow_pickle=False)
+            np.save(root / "SV.npy", np.ones(rows, dtype=np.float16), allow_pickle=False)
+            np.save(
+                root / "Wscale.npy",
+                np.asarray(1.0, dtype=np.float32),
+                allow_pickle=False,
+            )
+            (root / "CELL_RECEIPT.json").write_text(
+                json.dumps({"source": {"shape": [rows, 16]}})
+            )
+            cells.append(
+                {
+                    "cell_id": cell_id,
+                    "layer": 0,
+                    "projection": projection,
+                    "expert_ids": ids,
+                }
+            )
+            selected[cell_id] = {"tier": f"native-b{bits}"}
+            roots[cell_id] = root
+    _materialize_native_v4_plane_source(
+        source,
+        cells=cells,
+        selected=selected,
+        tier_descriptors=descriptors,
+        artifact_roots=roots,
+    )
+    pack_root = tmp_path / "pack"
+    export_pack(
+        source_root=source,
+        output=pack_root,
+        model_id="fixture/periodic-native-v4",
+        instance_id="periodic-native-v4-cpu",
+        runtime_floor_bytes=0,
+    )
+
+    layer = NativePlaneLayer(NativePlanePack.from_model_root(pack_root), 0, device="cpu")
+    state = layer._states["down"]
+
+    assert state.tiers[:4] == (
+        "native-b8",
+        "native-b12",
+        "native-b8",
+        "native-b12",
+    )
+    assert state.slots[:4].tolist() == [0, 0, 1, 1]
+    assert set(state.families.tolist()) == {5, 8}
+    assert state.qtip_codebook is not None
+    assert tuple(state.qtip_codebook.shape) == (5, 512, 2)
+    assert torch.all(state.qtip_codebook[1] == 8)
+    assert torch.all(state.qtip_codebook[4] == 12)
 
 
 def test_native_v4_runtime_family_rejects_mismatched_declared_geometry() -> None:
@@ -173,10 +267,12 @@ def test_native_v4_runtime_families_append_without_aliasing_legacy_ids() -> None
     assert counters[:4] == ("qtip2", "qtip3", "d4", "native_mxfp4")
     assert counters[4:] == (
         "qtip_native_v4_b7",
+        "qtip_native_v4_b8",
         "qtip_native_v4_b9",
         "qtip_native_v4_b10",
+        "qtip_native_v4_b12",
     )
-    assert len(set(counters)) == 7
+    assert len(set(counters)) == 9
 
 
 def test_native_v4_cuda_source_matches_reference_state_values_and_receipt_order() -> None:

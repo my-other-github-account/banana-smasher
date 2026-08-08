@@ -2350,8 +2350,10 @@ def _materialize_native_v4_plane_source(
         "d4": 2,
         "native": 3,
         "qtip_native_v4_b7": 4,
-        "qtip_native_v4_b9": 5,
-        "qtip_native_v4_b10": 6,
+        "qtip_native_v4_b8": 5,
+        "qtip_native_v4_b9": 6,
+        "qtip_native_v4_b10": 7,
+        "qtip_native_v4_b12": 8,
     }
     for layer in sorted({int(cell["layer"]) for cell in cells}):
         layer_cells = [cell for cell in cells if int(cell["layer"]) == layer]
@@ -2426,6 +2428,18 @@ def _materialize_native_v4_plane_source(
                 for role, value in arrays.items():
                     path = source / f"layer_{layer:03d}.{file_tier}.{suffix}.{role}.npy"
                     tensors[role] = _native_v4_plane_spec(path, value)
+                tlut_value = descriptor.get("tlut")
+                if tlut_value is not None:
+                    tlut = np.asarray(
+                        np.load(Path(str(tlut_value)), allow_pickle=False),
+                        dtype=np.float32,
+                    )
+                    if tlut.shape != (512, 2) or not np.isfinite(tlut).all():
+                        raise BackpackPlanError(
+                            f"native V4 tier {tier} TLUT must be finite float32 [512,2]"
+                        )
+                    path = source / f"layer_{layer:03d}.{file_tier}.{suffix}.tlut.npy"
+                    tensors["tlut"] = _native_v4_plane_spec(path, tlut)
                 runtime_family = f"qtip_native_v4_b{geometry.B}"
                 if runtime_family not in family_codes:
                     raise BackpackPlanError(
@@ -2442,7 +2456,7 @@ def _materialize_native_v4_plane_source(
                     tiers[int(expert)] = tier
                     slots[int(expert)] = slot
                     families[int(expert)] = family_codes[runtime_family]
-            if set(families) - {4, 5, 6} or -1 in families:
+            if set(families) - {4, 5, 6, 7, 8} or -1 in families:
                 raise BackpackPlanError(
                     f"native V4 layer {layer} {projection} does not cover experts 0..255"
                 )
@@ -2453,9 +2467,45 @@ def _materialize_native_v4_plane_source(
             input_width, output_width = next(iter(dimensions))
             meta[f"K{suffix}"] = input_width
             meta[f"N{suffix}"] = output_width
-            meta[f"tier{suffix}"] = tiers
-            meta[f"slot{suffix}"] = slots
-            meta[f"family{suffix}"] = families
+            even_tiers = {
+                tiers[expert]
+                for expert in range(0, 256, 2)
+                if int(payloads[tiers[expert]]["geometry"]["B"]) == 8
+            }
+            odd_tiers = {
+                tiers[expert]
+                for expert in range(1, 256, 2)
+                if int(payloads[tiers[expert]]["geometry"]["B"]) == 12
+            }
+            periodic_parity = (
+                len(even_tiers) == 1
+                and len(odd_tiers) == 1
+                and all(
+                    int(payloads[tiers[expert]]["geometry"]["B"])
+                    == (8 if expert % 2 == 0 else 12)
+                    and slots[expert] == expert // 2
+                    for expert in range(256)
+                )
+            )
+            if periodic_parity:
+                rule = {
+                    "schema": "banana-smasher-periodic-qtip-parity-v1",
+                    "global_expert_ordinal": {
+                        "even": next(iter(even_tiers)),
+                        "odd": next(iter(odd_tiers)),
+                    },
+                    "assignment_payload_bytes": 0,
+                }
+                prior_rule = meta.get("assignment_rule")
+                if prior_rule is not None and prior_rule != rule:
+                    raise BackpackPlanError(
+                        f"native V4 layer {layer} parity rule differs across projections"
+                    )
+                meta["assignment_rule"] = rule
+            else:
+                meta[f"tier{suffix}"] = tiers
+                meta[f"slot{suffix}"] = slots
+                meta[f"family{suffix}"] = families
             meta["payloads"][projection] = payloads
         _atomic_json(source / f"layer_{layer:03d}.meta.json", meta)
 
