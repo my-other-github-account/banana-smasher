@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import torch
+
+from .update_engine import run_segmented_update
 
 QTIP3_FIXED_SCHEMA = "banana-smasher-qtip3-fixed-member-v1"
 QTIP3_UPDATE_SCHEMA = "banana-smasher-qtip3-fixed-update-request-v1"
@@ -33,7 +33,9 @@ QTIP3_LEGACY_GEOMETRY = {
 
 
 def _tensor_sha256(tensor: torch.Tensor) -> str:
-    payload = tensor.detach().cpu().contiguous().view(torch.uint8).numpy().tobytes()
+    payload = (
+        tensor.detach().cpu().contiguous().reshape(-1).view(torch.uint8).numpy().tobytes()
+    )
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -162,9 +164,15 @@ class Qtip3FixedRepairRuntime:
         self.shared_lut = torch.nn.Parameter(first.lut.to(self.device, torch.float32))
         self.optimizer = torch.optim.SGD((self.shared_lut,), lr=float(learning_rate))
         self.acceleration_counters = {
+            "periodic_qtip3_lut_gather_calls": 0,
             "periodic_qtip3_lut_vjp_calls": 0,
             "fallback_calls": 0,
         }
+        self.shared_lut.register_hook(self._record_lut_vjp)
+
+    def _record_lut_vjp(self, gradient: torch.Tensor) -> torch.Tensor:
+        self.acceleration_counters["periodic_qtip3_lut_vjp_calls"] += 1
+        return gradient
 
     def _weight(self, member: Qtip3FixedMember) -> torch.Tensor:
         input_features = int(member.SU.numel())
@@ -176,6 +184,7 @@ class Qtip3FixedRepairRuntime:
         base = self.shared_lut.index_select(0, indices).reshape(
             output_features, input_features
         )
+        self.acceleration_counters["periodic_qtip3_lut_gather_calls"] += 1
         return (
             base
             * member.Wscale.to(self.device, torch.float32)
@@ -198,7 +207,6 @@ class Qtip3FixedRepairRuntime:
         if inputs.shape[-1] != member.SU.numel() or targets.shape[-1] != member.SV.numel():
             raise ValueError("QTIP3 activation/teacher feature geometry mismatch")
         outputs = torch.matmul(inputs, self._weight(member).transpose(0, 1))
-        self.acceleration_counters["periodic_qtip3_lut_vjp_calls"] += 1
         selected = mask.unsqueeze(-1).expand_as(outputs)
         count = int(selected.sum().item())
         if count <= 0:
@@ -294,44 +302,114 @@ def run_qtip3_fixed_update(
         learning_rate=float(spec["learning_rate"]),
         device=spec.get("device", "cuda"),
     )
-    result = runtime.microdose(
-        activation_inputs=activation_inputs,
-        teacher_targets=teacher_targets,
-        teacher_mask=teacher_mask,
-    )
-    output.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{output.name}.", dir=output.parent)
-    os.close(descriptor)
-    temporary = Path(temporary_name)
-    try:
-        torch.save(
-            {
-                "schema": "banana-smasher-qtip3-fixed-repair-checkpoint-v1",
-                "identity": identity,
-                "shared_lut": runtime.shared_lut.detach().cpu(),
-                "packed_code_sha256": [_tensor_sha256(member.codes) for member in members],
-                "geometries": [member.geometry for member in members],
-            },
-            temporary,
-        )
-        os.replace(temporary, output)
-    finally:
-        temporary.unlink(missing_ok=True)
-    result.update(
+    member_state = tuple(
         {
-            "physical_tokens": int(physical_tokens),
-            "segments": int(segments),
-            "optimizer_steps": 1,
-            "observed_input_shape": [1, int(physical_tokens)],
+            "codes": _tensor_sha256(member.codes),
+            "SU": _tensor_sha256(member.SU),
+            "SV": _tensor_sha256(member.SV),
+            "Wscale": _tensor_sha256(member.Wscale),
+            "geometry": dict(member.geometry),
+        }
+        for member in members
+    )
+    work = []
+    for index in range(int(segments)):
+        start = index * int(physical_tokens)
+        stop = start + int(physical_tokens)
+        work.append(
+            {
+                "activation_inputs": activation_inputs[:, start:stop],
+                "teacher_targets": teacher_targets[:, start:stop],
+                "teacher_mask": teacher_mask[:, start:stop],
+            }
+        )
+    output_features = int(members[0].SV.numel())
+
+    def loss_sum(segment: dict[str, torch.Tensor]) -> torch.Tensor:
+        value, _count = runtime._loss_sum(
+            segment["activation_inputs"],
+            segment["teacher_targets"],
+            segment["teacher_mask"],
+        )
+        return value
+
+    def validate_fixed_state() -> dict[str, Any]:
+        observed = tuple(
+            {
+                "codes": _tensor_sha256(member.codes),
+                "SU": _tensor_sha256(member.SU),
+                "SV": _tensor_sha256(member.SV),
+                "Wscale": _tensor_sha256(member.Wscale),
+                "geometry": dict(member.geometry),
+            }
+            for member in members
+        )
+        codes_unchanged = all(
+            before["codes"] == after["codes"]
+            for before, after in zip(member_state, observed)
+        )
+        transforms_unchanged = all(
+            all(before[name] == after[name] for name in ("SU", "SV", "Wscale"))
+            for before, after in zip(member_state, observed)
+        )
+        geometry_unchanged = all(
+            before["geometry"] == after["geometry"]
+            for before, after in zip(member_state, observed)
+        )
+        counters = dict(runtime.acceleration_counters)
+        if not codes_unchanged or not transforms_unchanged or not geometry_unchanged:
+            raise RuntimeError("QTIP3 update changed immutable fixed-assignment state")
+        if (
+            counters["periodic_qtip3_lut_gather_calls"] <= 0
+            or counters["periodic_qtip3_lut_vjp_calls"] <= 0
+            or counters["fallback_calls"] != 0
+        ):
+            raise RuntimeError(f"QTIP3 update acceleration counters are invalid: {counters}")
+        return {
+            "fixed_qtip3": {
+                "provider_id": QTIP3_PROVIDER_ID,
+                "packed_codes_unchanged": codes_unchanged,
+                "transforms_unchanged": transforms_unchanged,
+                "geometry_unchanged": geometry_unchanged,
+                "member_state": list(observed),
+                "acceleration_counters": counters,
+            }
+        }
+
+    synchronize = None
+    peak_memory_bytes: Any = 0
+    if runtime.device.type == "cuda":
+        synchronize = torch.cuda.synchronize
+
+        def cuda_peak_memory_bytes() -> int:
+            return int(torch.cuda.max_memory_allocated(runtime.device))
+
+        peak_memory_bytes = cuda_peak_memory_bytes
+    return run_segmented_update(
+        parameters=[runtime.shared_lut],
+        optimizer=runtime.optimizer,
+        segments=work,
+        item_count=lambda segment: int(segment["teacher_mask"].sum().item())
+        * output_features,
+        loss_sum=loss_sum,
+        output=output,
+        receipt=receipt,
+        identity=identity,
+        physical_tokens=int(physical_tokens),
+        observed_input_shape=[1, int(physical_tokens)],
+        teacher_geometry={
+            "target_shape": [1, int(physical_tokens), output_features],
+            "mask_shape": [1, int(physical_tokens)],
+            "position_shape": [1, int(physical_tokens)],
+        },
+        peak_memory_bytes=peak_memory_bytes,
+        backend="accelerated",
+        resume=bool(resume),
+        restart=bool(restart),
+        synchronize=synchronize,
+        receipt_fields={
             "requested_physical_tokens": int(requested_tokens),
             "memory_sizing": memory_sizing,
-            "output": str(output),
-            "identity": identity,
-            "resume": bool(resume),
-            "restart": bool(restart),
-        }
+        },
+        post_step_validate=validate_fixed_state,
     )
-    if receipt is not None:
-        receipt.parent.mkdir(parents=True, exist_ok=True)
-        receipt.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-    return result

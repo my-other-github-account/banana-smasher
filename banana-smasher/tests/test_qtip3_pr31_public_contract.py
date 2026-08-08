@@ -159,3 +159,75 @@ def test_qtip3_public_repair_microdose_changes_only_authorized_continuous_state(
     project = (Path(__file__).parents[1] / "pyproject.toml").read_text()
     assert '[project.entry-points."banana_smasher.update_backends"]' in project
     assert "periodic-qtip3" in project
+
+
+def test_qtip3_public_update_backend_accumulates_exact_segments_with_real_lut_vjp(
+    tmp_path: Path,
+) -> None:
+    qtip3 = _qtip3_fixed_module()
+    member_path, lut_path = _write_member(tmp_path)
+    teacher_batch = tmp_path / "teacher-batch.pt"
+    torch.save(
+        {
+            "activation_inputs": torch.ones((1, 4, 8), dtype=torch.float32),
+            "teacher_targets": torch.zeros((1, 4, 6), dtype=torch.float32),
+            "teacher_mask": torch.ones((1, 4), dtype=torch.bool),
+        },
+        teacher_batch,
+    )
+    request = tmp_path / "request.json"
+    request.write_text(
+        __import__("json").dumps(
+            {
+                "schema": qtip3.QTIP3_UPDATE_SCHEMA,
+                "members": [
+                    {
+                        "artifact": member_path.name,
+                        "lut": lut_path.name,
+                    }
+                ],
+                "teacher_batch": teacher_batch.name,
+                "learning_rate": 0.05,
+                "device": "cpu",
+            }
+        )
+        + "\n"
+    )
+    output = tmp_path / "repair.pt"
+    receipt_path = tmp_path / "repair.receipt.json"
+
+    receipt = qtip3.run_qtip3_fixed_update(
+        request=request,
+        output=output,
+        receipt=receipt_path,
+        identity={
+            "content_sha256": "1" * 64,
+            "config_sha256": "2" * 64,
+            "assignment_sha256": "3" * 64,
+            "aot_sha256": "4" * 64,
+            "runtime_sha256": "5" * 64,
+            "code_sha256": "6" * 64,
+        },
+        requested_tokens=2,
+        physical_tokens=2,
+        segments=2,
+        batch_size=1,
+        memory_sizing={"physical_tokens": 2},
+        resume=True,
+        restart=False,
+    )
+
+    assert receipt["completed_segments"] == 2
+    assert receipt["forward_count"] == 2
+    assert receipt["backward_count"] == 2
+    assert receipt["optimizer_steps"] == 1
+    assert receipt["observed_input_shape"] == [1, 2]
+    assert receipt["fixed_qtip3"]["packed_codes_unchanged"] is True
+    assert receipt["fixed_qtip3"]["transforms_unchanged"] is True
+    assert receipt["fixed_qtip3"]["geometry_unchanged"] is True
+    counters = receipt["fixed_qtip3"]["acceleration_counters"]
+    assert counters["periodic_qtip3_lut_gather_calls"] == 2
+    assert counters["periodic_qtip3_lut_vjp_calls"] == 2
+    assert counters["fallback_calls"] == 0
+    assert output.is_file()
+    assert receipt_path.is_file()
