@@ -1059,6 +1059,29 @@ def _solve_native_v5_cuda(
     return phases[:, :, -1].contiguous()
 
 
+def _solve_native_v5_cuda_aot(
+    target: Any,
+    scalar_lut: Any,
+    *,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> Any:
+    from .periodic_qtip3_aot import solve_periodic_qtip3_exact
+
+    batch, steps, lanes = map(int, target.shape)
+
+    def solve_phases(values: Any, overlap: Any | None) -> Any:
+        phases = values.reshape(batch, steps * lanes).transpose(0, 1).contiguous()
+        states = solve_periodic_qtip3_exact(phases, scalar_lut, overlap=overlap)
+        return states.transpose(0, 1).reshape(batch, steps, lanes)
+
+    midpoint = steps // 2
+    first = solve_phases(target.roll(midpoint, dims=1), None)
+    first_width = native_v5_phase_widths(geometry=geometry)[0]
+    overlap = first[:, midpoint, 0] >> first_width
+    phases = solve_phases(target, overlap)
+    return phases[:, :, -1].contiguous()
+
+
 def solve_native_v4_cuda(
     target: Any,
     *,
@@ -1081,6 +1104,12 @@ def solve_native_v4_cuda(
         and state_lut.dtype == torch.float32
         and tuple(state_lut.shape) == (geometry.states,)
     ):
+        if (
+            int(target.shape[0]) == 256
+            and geometry.B == 12
+            and native_v5_phase_widths(geometry=geometry) == (3, 3, 3, 3)
+        ):
+            return _solve_native_v5_cuda_aot(target, state_lut, geometry=geometry)
         return _solve_native_v5_cuda(target, state_lut, geometry=geometry)
     midpoint = int(target.shape[1]) // 2
     rolled = torch.roll(target, midpoint, dims=1)

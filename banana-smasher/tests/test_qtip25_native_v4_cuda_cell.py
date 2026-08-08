@@ -4,15 +4,102 @@ import numpy as np
 import pytest
 import torch
 
+import banana_smasher.qtip25_native_v4 as native_v4
 import banana_smasher.qtip25_native_v4_cuda_cell as cuda_cell
 from banana_smasher.qtip1 import gaussian_tlut
 from banana_smasher.banana_v1 import expand_banana_v1_codebook
 from banana_smasher.qtip25_native_v4 import (
     NATIVE_QTIP25_GEOMETRY,
+    NativeQtip25Geometry,
     ldlq_native_v4_matrix,
     native_v4_lower_from_hessian,
 )
 from banana_smasher.qtip25_native_v4_cuda_cell import validate_input
+
+
+def test_scalar_pr31_b256_dispatches_to_paired_aot(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeCudaTensor:
+        is_cuda = True
+        device = "cuda:0"
+        dtype = torch.float32
+
+        def __init__(self, shape: tuple[int, ...]) -> None:
+            self.shape = shape
+            self.ndim = len(shape)
+
+    geometry = NativeQtip25Geometry(B=12)
+    target = FakeCudaTensor((256, 64, 4))
+    scalar_lut = FakeCudaTensor((geometry.states,))
+    expected = object()
+
+    monkeypatch.setattr(
+        native_v4,
+        "_solve_native_v5_cuda_aot",
+        lambda got_target, got_lut, *, geometry: (
+            expected
+            if got_target is target
+            and got_lut is scalar_lut
+            and geometry == NativeQtip25Geometry(B=12)
+            else None
+        ),
+    )
+    monkeypatch.setattr(
+        native_v4,
+        "_solve_native_v5_cuda",
+        lambda *_args, **_kwargs: pytest.fail("B256 used the scalar eager solver"),
+    )
+
+    assert (
+        native_v4.solve_native_v4_cuda(
+            target,
+            state_lut=scalar_lut,
+            geometry=geometry,
+        )
+        is expected
+    )
+
+
+def test_scalar_b10_b256_stays_on_variable_width_solver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeCudaTensor:
+        is_cuda = True
+        device = "cuda:0"
+        dtype = torch.float32
+
+        def __init__(self, shape: tuple[int, ...]) -> None:
+            self.shape = shape
+            self.ndim = len(shape)
+
+    target = FakeCudaTensor((256, 64, 4))
+    scalar_lut = FakeCudaTensor((NATIVE_QTIP25_GEOMETRY.states,))
+    expected = object()
+
+    monkeypatch.setattr(
+        native_v4,
+        "_solve_native_v5_cuda_aot",
+        lambda *_args, **_kwargs: pytest.fail("B10 entered the B12-only AOT solver"),
+    )
+    monkeypatch.setattr(
+        native_v4,
+        "_solve_native_v5_cuda",
+        lambda got_target, got_lut, *, geometry: (
+            expected
+            if got_target is target
+            and got_lut is scalar_lut
+            and geometry is NATIVE_QTIP25_GEOMETRY
+            else None
+        ),
+    )
+
+    assert (
+        native_v4.solve_native_v4_cuda(
+            target,
+            state_lut=scalar_lut,
+            geometry=NATIVE_QTIP25_GEOMETRY,
+        )
+        is expected
+    )
 
 
 def test_native_v4_cuda_cell_preflight_binds_exact_basis_and_geometry(tmp_path) -> None:
