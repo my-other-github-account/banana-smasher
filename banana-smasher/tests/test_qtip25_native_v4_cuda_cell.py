@@ -102,6 +102,29 @@ def test_scalar_b10_b256_stays_on_variable_width_solver(
     )
 
 
+def test_native_v5_phase_accumulation_reuses_error_storage() -> None:
+    errors = torch.arange(12, dtype=torch.float32).reshape(2, 6)
+    best = torch.tensor([[10.0, 20.0], [30.0, 40.0]])
+    storage = errors.data_ptr()
+
+    observed = native_v4._native_v5_accumulate_phase_cost_(
+        errors,
+        best,
+        branches=3,
+    )
+
+    assert observed.data_ptr() == storage
+    assert torch.equal(
+        observed,
+        torch.tensor(
+            [
+                [10.0, 11.0, 12.0, 23.0, 24.0, 25.0],
+                [36.0, 37.0, 38.0, 49.0, 50.0, 51.0],
+            ]
+        ),
+    )
+
+
 def test_native_v4_cuda_cell_preflight_binds_exact_basis_and_geometry(tmp_path) -> None:
     target_path = tmp_path / "target.npy"
     tlut_path = tmp_path / "tlut.npy"

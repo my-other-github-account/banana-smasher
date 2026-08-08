@@ -965,6 +965,20 @@ def _native_v4_cuda_pass(
     return states
 
 
+def _native_v5_accumulate_phase_cost_(
+    errors: Any,
+    best: Any,
+    *,
+    branches: int,
+) -> Any:
+    """Add predecessor costs in place without expanding them to full-state storage."""
+
+    batch = int(errors.shape[0])
+    costs = errors.view(batch, int(best.shape[1]), branches)
+    costs.add_(best.unsqueeze(-1))
+    return errors
+
+
 def _native_v5_cuda_pass(
     target: Any,
     scalar_lut: Any,
@@ -1001,7 +1015,7 @@ def _native_v5_cuda_pass(
 
         assert cost is not None
         best, choice = cost.reshape(batch, branches, prefixes).min(dim=1)
-        cost = errors + best.repeat_interleave(branches, dim=1)
+        cost = _native_v5_accumulate_phase_cost_(errors, best, branches=branches)
         backpointers.append(choice.to(torch.uint8))
 
     assert cost is not None
