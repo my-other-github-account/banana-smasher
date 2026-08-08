@@ -6,7 +6,12 @@ import torch
 
 import banana_smasher.qtip25_native_v4_cuda_cell as cuda_cell
 from banana_smasher.qtip1 import gaussian_tlut
-from banana_smasher.qtip25_native_v4 import NATIVE_QTIP25_GEOMETRY
+from banana_smasher.banana_v1 import expand_banana_v1_codebook
+from banana_smasher.qtip25_native_v4 import (
+    NATIVE_QTIP25_GEOMETRY,
+    ldlq_native_v4_matrix,
+    native_v4_lower_from_hessian,
+)
 from banana_smasher.qtip25_native_v4_cuda_cell import validate_input
 
 
@@ -95,3 +100,117 @@ def test_ldlq_batches_scale_candidates_on_solver_axis(monkeypatch) -> None:
     assert all(value["fixed_absolute_scale"] for value in optimizations)
     assert all(value["scale_batch_size"] == 1 for value in optimizations)
     assert all(value["cell_batch_size"] == 2 for value in optimizations)
+
+
+def test_native_v4_cuda_cells_use_one_homogeneous_solver_batch(monkeypatch) -> None:
+    calls: list[tuple[int, ...]] = []
+
+    def fake_solve(target, *, state_lut, geometry):
+        calls.append(tuple(target.shape))
+        return torch.zeros(
+            (target.shape[0], target.shape[1]),
+            dtype=torch.int32,
+            device=target.device,
+        )
+
+    def fake_pack(states, *, geometry):
+        return torch.arange(
+            states.shape[0] * 80,
+            dtype=torch.int64,
+            device=states.device,
+        ).reshape(states.shape[0], 80).to(torch.uint8)
+
+    monkeypatch.setattr(cuda_cell, "solve_native_v4_cuda", fake_solve)
+    monkeypatch.setattr(cuda_cell, "_pack_cuda_states_v4", fake_pack)
+    targets = [
+        np.zeros((2, 64, 4), dtype=np.float32),
+        np.ones((3, 64, 4), dtype=np.float32),
+    ]
+
+    packed, counters = cuda_cell.solve_native_v4_cuda_cells(
+        targets,
+        state_lut=torch.ones((1 << 16, 4), dtype=torch.float32),
+        geometry=NATIVE_QTIP25_GEOMETRY,
+    )
+
+    assert calls == [(5, 64, 4)]
+    assert [value.shape for value in packed] == [(2, 80), (3, 80)]
+    assert np.array_equal(packed[0], np.arange(160, dtype=np.uint8).reshape(2, 80))
+    assert counters == {
+        "cell_batch_calls": 1,
+        "cells": 2,
+        "blocks": 5,
+        "serial_cell_solver_calls": 0,
+    }
+
+
+def test_native_v4_cuda_cells_chunks_solver_rows_at_256(monkeypatch) -> None:
+    calls: list[tuple[int, ...]] = []
+
+    def fake_solve(target, *, state_lut, geometry):
+        calls.append(tuple(target.shape))
+        return torch.zeros(
+            (target.shape[0], target.shape[1]),
+            dtype=torch.int32,
+            device=target.device,
+        )
+
+    def fake_pack(states, *, geometry):
+        return torch.zeros(
+            (states.shape[0], 8 * geometry.B),
+            dtype=torch.uint8,
+            device=states.device,
+        )
+
+    monkeypatch.setattr(cuda_cell, "solve_native_v4_cuda", fake_solve)
+    monkeypatch.setattr(cuda_cell, "_pack_cuda_states_v4", fake_pack)
+    targets = [
+        np.zeros((200, 64, 4), dtype=np.float32),
+        np.ones((100, 64, 4), dtype=np.float32),
+    ]
+
+    packed, counters = cuda_cell.solve_native_v4_cuda_cells(
+        targets,
+        state_lut=torch.ones((1 << 16, 4), dtype=torch.float32),
+        geometry=NATIVE_QTIP25_GEOMETRY,
+    )
+
+    assert calls == [(256, 64, 4), (44, 64, 4)]
+    assert [value.shape for value in packed] == [(200, 80), (100, 80)]
+    assert counters["cell_batch_calls"] == 2
+    assert counters["serial_cell_solver_calls"] == 0
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA hardware required")
+def test_pr31_scalar_ldlq_cuda_matches_cpu_codes_exactly() -> None:
+    rng = np.random.default_rng(31)
+    matrix = rng.normal(size=(16, 16)).astype(np.float32)
+    basis = np.eye(16, dtype=np.float32) + np.tril(
+        rng.normal(scale=0.01, size=(16, 16)).astype(np.float32), -1
+    )
+    hessian = np.ascontiguousarray(basis @ basis.T)
+    compact_lut = np.linspace(-3.0, 3.0, 1024, dtype=np.float16)
+    scalar_lut = torch.from_numpy(expand_banana_v1_codebook(compact_lut)).to("cuda")
+    lower = native_v4_lower_from_hessian(hessian)
+
+    reference = ldlq_native_v4_matrix(
+        matrix,
+        lower,
+        tlut=compact_lut,
+        scale_factors=(1.0,),
+        scale_semantics="absolute_unit",
+    )
+    packed, selected_scales, optimization = cuda_cell.ldlq_native_v4_cuda_batch(
+        [matrix.reshape(1, 64, 4)],
+        [hessian],
+        matrix_shape=(16, 16),
+        state_lut=scalar_lut,
+        geometry=NATIVE_QTIP25_GEOMETRY,
+        solve_batch=64,
+        scale_factors=(1.0,),
+        cell_scales=(1.0,),
+    )
+
+    assert np.array_equal(packed[0], reference.packed)
+    assert selected_scales == [1.0]
+    assert optimization[0]["method"] == "qtip_batch_block_ldl_reverse_16_cell_scale_batched"

@@ -25,12 +25,14 @@ from .qtip25_native_v4 import (
     NativeQtip25Geometry,
     decode_native_v4,
     expand_native_v4_tlut,
+    native_v5_phase_widths,
     native_v4_geometry,
     native_v4_wire_accounting,
     solve_native_v4_cuda,
 )
 
 SCHEMA = "banana-smasher-qtip25-native-v4-cuda-cell-v1"
+NATIVE_V4_SOLVER_BLOCK_BATCH = 256
 
 
 def _pack_cuda_states_v4(
@@ -58,6 +60,29 @@ def _pack_cuda_states_v4(
         bits = torch.nn.functional.pad(bits, (0, padding))
     byte_shifts = torch.arange(7, -1, -1, device=values.device)
     return torch.sum(bits.reshape(values.shape[0], -1, 8) << byte_shifts, dim=2).to(torch.uint8)
+
+
+def _decode_native_v5_states_torch(
+    states: Any,
+    scalar_lut: Any,
+    *,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> Any:
+    """Materialize the four PR31 edge phases from terminal transition states."""
+
+    import torch
+
+    predecessor = torch.roll(states, 1, dims=1)
+    branch = states & (geometry.branches - 1)
+    edge_state = predecessor
+    consumed = 0
+    lanes = []
+    for width in native_v5_phase_widths(geometry=geometry):
+        consumed += width
+        chunk = (branch >> (geometry.B - consumed)) & ((1 << width) - 1)
+        edge_state = ((edge_state << width) | chunk) & (geometry.states - 1)
+        lanes.append(scalar_lut.index_select(0, edge_state.reshape(-1)).reshape_as(edge_state))
+    return torch.stack(lanes, dim=2)
 
 
 def _sha_file(path: Path) -> str:
@@ -132,6 +157,57 @@ def validate_input(
     }
 
 
+def solve_native_v4_cuda_cells(
+    targets: Sequence[np.ndarray],
+    *,
+    state_lut: Any,
+    geometry: NativeQtip25Geometry,
+) -> tuple[list[np.ndarray], dict[str, int]]:
+    """Solve homogeneous cells through one CUDA solver and pack submission."""
+
+    import torch
+
+    if not targets:
+        raise ValueError("native V4 CUDA cell batch must not be empty")
+    checked: list[np.ndarray] = []
+    for target in targets:
+        value = np.asarray(target)
+        if (
+            value.dtype != np.float32
+            or value.ndim != 3
+            or value.shape[1:] != (64, 4)
+            or not np.isfinite(value).all()
+        ):
+            raise ValueError("native V4 CUDA cell targets must be finite float32 [N,64,4]")
+        checked.append(np.ascontiguousarray(value))
+    counts = [len(value) for value in checked]
+    joined = np.ascontiguousarray(np.concatenate(checked, axis=0), dtype=np.float32)
+    host_target = torch.from_numpy(joined)
+    if state_lut.is_cuda:
+        host_target = host_target.pin_memory()
+    device_target = host_target.to(state_lut.device, non_blocking=state_lut.is_cuda)
+    packed_parts = []
+    for batch_start in range(0, len(device_target), NATIVE_V4_SOLVER_BLOCK_BATCH):
+        states = solve_native_v4_cuda(
+            device_target[batch_start : batch_start + NATIVE_V4_SOLVER_BLOCK_BATCH],
+            state_lut=state_lut,
+            geometry=geometry,
+        )
+        packed_parts.append(_pack_cuda_states_v4(states, geometry=geometry).cpu())
+    packed_batch = torch.cat(packed_parts).numpy()
+    offsets = np.cumsum([0, *counts])
+    packed = [
+        np.ascontiguousarray(packed_batch[offsets[index] : offsets[index + 1]])
+        for index in range(len(counts))
+    ]
+    return packed, {
+        "cell_batch_calls": len(packed_parts),
+        "cells": len(checked),
+        "blocks": int(sum(counts)),
+        "serial_cell_solver_calls": 0,
+    }
+
+
 def ldlq_native_v4_cuda_batch(
     targets: Sequence[np.ndarray],
     hessians: Sequence[np.ndarray],
@@ -201,6 +277,12 @@ def ldlq_native_v4_cuda_batch(
             "native V4 fixed cell scales require one positive absolute scale per cell and scale_factors=(1.0,)"
         )
     device = state_lut.device
+    scalar_pr31 = tuple(state_lut.shape) == (geometry.states,)
+    if tuple(state_lut.shape) not in {
+        (geometry.states,),
+        (geometry.states, geometry.V),
+    }:
+        raise ValueError("native V4 CUDA batch LUT must be scalar PR31 or vector V4")
     row_blocks = rows // 16
     column_blocks = columns // 16
     source_values = [
@@ -324,8 +406,15 @@ def ldlq_native_v4_cuda_batch(
             )
         states = torch.cat(parts).reshape(group_count, row_blocks, 64)
         for group in range(group_count):
+            quantized = (
+                _decode_native_v5_states_torch(
+                    states[group], state_lut, geometry=geometry
+                ).reshape(rows, 16)
+                if scalar_pr31
+                else state_lut[states[group]].reshape(rows, 16)
+            )
             torch.mul(
-                state_lut[states[group]].reshape(rows, 16),
+                quantized,
                 flat_scales[group],
                 out=decoded[group, :, start:end],
             )

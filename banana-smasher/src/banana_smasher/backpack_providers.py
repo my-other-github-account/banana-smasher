@@ -437,6 +437,28 @@ def qtip_native_v4_backpack_provider(bpw: object) -> BackpackFamilyProvider:
     )
 
 
+def periodic_qtip3_backpack_provider(
+    provider_id: str = "periodic-qtip3@3.00",
+) -> BackpackFamilyProvider:
+    """Return the homogeneous fixed-assignment Periodic QTIP3 provider."""
+
+    if provider_id not in {"periodic-qtip3@3.00", "qtip-native-v6@3.00"}:
+        raise ValueError(f"unsupported Periodic QTIP3 identity {provider_id!r}")
+    return BackpackFamilyProvider(
+        provider_id=provider_id,
+        kind="fixed_qtip",
+        runtime_family="periodic_qtip3",
+        generate=generate_backpack_candidate,
+        materialize=_materialize_provider_assignment,
+        price=price_backpack_candidate,
+        predict=predict_backpack_candidate,
+        verify=verify_backpack_candidate,
+        rate_num=3,
+        rate_den=1,
+        transition_bits=12,
+    )
+
+
 def vector_vq_backpack_provider(
     *, dimension: int, codebook_size: int
 ) -> BackpackFamilyProvider:
@@ -562,6 +584,8 @@ def builtin_backpack_family_providers() -> dict[str, BackpackFamilyProvider]:
         qtip_ring_backpack_provider(2.0),
         qtip_ring_backpack_provider(2.5),
         qtip_ring_backpack_provider(3.0),
+        periodic_qtip3_backpack_provider(),
+        periodic_qtip3_backpack_provider("qtip-native-v6@3.00"),
         fixed_d4_backpack_provider(2048),
         fixed_d4_backpack_provider(4096),
     )
@@ -608,6 +632,8 @@ def backpack_provider_from_declaration(
     if not isinstance(declaration, Mapping):
         raise TypeError("provider declaration must be a provider id or mapping")
     explicit = declaration.get("provider")
+    if explicit in {"periodic-qtip3@3.00", "qtip-native-v6@3.00"}:
+        return periodic_qtip3_backpack_provider(str(explicit))
     if explicit in {"qtip_native_v4", "qtip-native-v4"}:
         return qtip_native_v4_backpack_provider(declaration.get("bpw"))
     if isinstance(explicit, str) and explicit.startswith("qtip-native-v4@"):

@@ -99,6 +99,17 @@ def _fwht(value: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(result / np.float32(math.sqrt(count)), dtype=np.float32)
 
 
+def _fwht_blocks(value: np.ndarray, block: Any | None) -> np.ndarray:
+    if block is None:
+        return _fwht(value)
+    width = int(block)
+    source = np.asarray(value, dtype=np.float32)
+    if width <= 0 or width & (width - 1) or source.shape[-1] % width:
+        raise ValueError("native QTIP Hadamard block must divide the transform axis")
+    shaped = source.reshape(*source.shape[:-1], source.shape[-1] // width, width)
+    return _fwht(shaped).reshape(source.shape)
+
+
 def _numpy_control(path: Path) -> dict[str, Any]:
     with np.load(path, allow_pickle=False) as payload:
         required = {"SU", "SV", "Wscale", "shape"}
@@ -116,7 +127,7 @@ def _torch_control(path: Path) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise ValueError("native V4 PT control must contain a mapping")
     result: dict[str, Any] = {}
-    for name in ("SU", "SV", "Wscale", "shape", "qtip_k"):
+    for name in ("SU", "SV", "Wscale", "shape", "qtip_k", "hadamard_block"):
         if name not in raw:
             continue
         value = raw[name]
@@ -176,14 +187,24 @@ def _load_control(path: str | Path) -> tuple[dict[str, Any], Path]:
             if "qtip_k" in raw
             else {}
         ),
+        **(
+            {
+                "hadamard_block": int(
+                    np.asarray(raw["hadamard_block"]).reshape(-1)[0]
+                )
+            }
+            if "hadamard_block" in raw
+            else {}
+        ),
     }, control_path
 
 
 def _to_normalized_blocks(source: np.ndarray, control: Mapping[str, Any]) -> np.ndarray:
     su = np.asarray(control["SU"], dtype=np.float32)
     sv = np.asarray(control["SV"], dtype=np.float32)
-    transformed = _fwht(source * su)
-    transformed = _fwht((transformed * sv[:, None]).T).T
+    block = control.get("hadamard_block")
+    transformed = _fwht_blocks(source / su, block)
+    transformed = _fwht_blocks((transformed / sv[:, None]).T, block).T
     transformed = transformed / np.float32(control["Wscale"])
     rows, columns = transformed.shape
     return np.ascontiguousarray(
@@ -203,8 +224,13 @@ def _from_normalized_blocks(blocks: np.ndarray, control: Mapping[str, Any]) -> n
         .reshape(rows, columns)
     )
     transformed = transformed * np.float32(control["Wscale"])
-    physical = _fwht(transformed.T).T * np.asarray(control["SV"], dtype=np.float32)[:, None]
-    return np.ascontiguousarray(_fwht(physical) * np.asarray(control["SU"], dtype=np.float32))
+    block = control.get("hadamard_block")
+    physical = _fwht_blocks(transformed.T, block).T * np.asarray(
+        control["SV"], dtype=np.float32
+    )[:, None]
+    return np.ascontiguousarray(
+        _fwht_blocks(physical, block) * np.asarray(control["SU"], dtype=np.float32)
+    )
 
 
 def _build_qtip_native_v4_cell(

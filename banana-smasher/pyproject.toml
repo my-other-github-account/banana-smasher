@@ -27,6 +27,7 @@ smash = "banana_smasher.cli:main"
 
 [project.entry-points."banana_smasher.update_backends"]
 physical-repair = "banana_smasher.update_backends.physical_repair:run_physical_repair"
+periodic-qtip3 = "banana_smasher.qtip3_fixed:run_qtip3_fixed_update"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/banana_smasher"]

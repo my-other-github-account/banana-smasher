@@ -176,6 +176,48 @@ def expand_native_v4_tlut(
     )
 
 
+def native_v5_phase_widths(
+    *, geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY
+) -> tuple[int, int, int, int]:
+    """Split one B-bit transition into four ordered PR31 scalar updates."""
+
+    return tuple(
+        ((lane + 1) * geometry.B) // geometry.V
+        - (lane * geometry.B) // geometry.V
+        for lane in range(geometry.V)
+    )  # type: ignore[return-value]
+
+
+def native_v5_edge_states(
+    predecessor: np.ndarray,
+    branch: np.ndarray,
+    *,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> np.ndarray:
+    """Return the four intermediate states for predecessor/branch edges."""
+
+    previous, transition = np.broadcast_arrays(
+        np.asarray(predecessor, dtype=np.int64),
+        np.asarray(branch, dtype=np.int64),
+    )
+    if bool(
+        np.any(previous < 0)
+        or np.any(previous >= geometry.states)
+        or np.any(transition < 0)
+        or np.any(transition >= geometry.branches)
+    ):
+        raise ValueError("native V5 edge predecessor or branch is outside geometry")
+    state = previous.copy()
+    result = np.empty((*state.shape, geometry.V), dtype=np.int32)
+    consumed = 0
+    for lane, width in enumerate(native_v5_phase_widths(geometry=geometry)):
+        consumed += width
+        chunk = (transition >> (geometry.B - consumed)) & ((1 << width) - 1)
+        state = ((state << width) | chunk) & (geometry.states - 1)
+        result[..., lane] = state
+    return np.ascontiguousarray(result)
+
+
 def _validate_states(
     states: np.ndarray, *, geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY
 ) -> np.ndarray:
@@ -317,6 +359,85 @@ def _viterbi_numpy(
     return states
 
 
+def _viterbi_native_v5_numpy(
+    target: np.ndarray,
+    scalar_lut: np.ndarray,
+    *,
+    overlap: np.ndarray | None,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> np.ndarray:
+    """Exact variable-width scalar recurrence for PR31 V5 vector edges."""
+
+    batch, steps, lanes = target.shape
+    if lanes != geometry.V or steps * geometry.B < geometry.L:
+        raise ValueError("native V5 target has insufficient L16/V4 transitions")
+    widths = native_v5_phase_widths(geometry=geometry)
+    values = target.reshape(batch, steps * lanes)
+    cost: np.ndarray | None = None
+    backpointers: list[np.ndarray | None] = []
+    row_ids = np.arange(batch)
+
+    for phase in range(values.shape[1]):
+        width = widths[phase % geometry.V]
+        prefixes = 1 << (geometry.L - width)
+        branches = 1 << width
+        delta = scalar_lut[None, :] - values[:, phase, None]
+        errors = delta * delta
+        if phase == 0:
+            cost = errors
+            if overlap is not None:
+                expected = np.asarray(overlap, dtype=np.int32)
+                if expected.shape != (batch,) or bool(
+                    np.any(expected < 0) or np.any(expected >= prefixes)
+                ):
+                    raise ValueError("invalid native V5 cyclic overlap prefixes")
+                allowed = (expected[:, None] << width) + np.arange(
+                    branches, dtype=np.int32
+                )
+                masked = np.full_like(cost, np.inf)
+                masked[row_ids[:, None], allowed] = cost[row_ids[:, None], allowed]
+                cost = masked
+            backpointers.append(None)
+            continue
+
+        assert cost is not None
+        prefix_ids = np.arange(prefixes, dtype=np.int32)
+        predecessors = prefix_ids[:, None] + (
+            np.arange(branches, dtype=np.int32)[None, :] * prefixes
+        )
+        options = cost[:, predecessors]
+        choice = np.argmin(options, axis=2)
+        best = np.take_along_axis(options, choice[:, :, None], axis=2)[:, :, 0]
+        cost = errors + np.repeat(best, branches, axis=1)
+        backpointers.append(choice.astype(np.uint8))
+
+    assert cost is not None
+    if overlap is None:
+        final = np.argmin(cost, axis=1).astype(np.int32)
+    else:
+        first_width = widths[0]
+        first_prefixes = 1 << (geometry.L - first_width)
+        final_allowed = np.asarray(overlap, dtype=np.int32)[:, None] + (
+            np.arange(1 << first_width, dtype=np.int32)[None, :] * first_prefixes
+        )
+        final = final_allowed[
+            row_ids,
+            np.argmin(cost[row_ids[:, None], final_allowed], axis=1),
+        ]
+
+    phase_states = np.empty((batch, values.shape[1]), dtype=np.int32)
+    phase_states[:, -1] = final
+    for phase in range(values.shape[1] - 1, 0, -1):
+        width = widths[phase % geometry.V]
+        prefixes = 1 << (geometry.L - width)
+        prefix = phase_states[:, phase] >> width
+        choice = backpointers[phase]
+        assert choice is not None
+        predecessor_branch = choice[row_ids, prefix].astype(np.int32)
+        phase_states[:, phase - 1] = predecessor_branch * prefixes + prefix
+    return phase_states.reshape(batch, steps, lanes)
+
+
 def solve_native_v4(
     target: np.ndarray,
     *,
@@ -333,15 +454,26 @@ def solve_native_v4(
         raise ValueError("native QTIP2.5 target must be [rows, steps, 4]")
     if not bool(np.isfinite(values).all()):
         raise ValueError("native QTIP2.5 target must be finite")
-    if (tlut is None) == (state_lut is None):
-        raise ValueError("native QTIP2.5 solve requires exactly one TLUT or expanded LUT")
-    lut = (
-        expand_native_v4_tlut(np.asarray(tlut), geometry=geometry)
-        if tlut is not None
-        else np.asarray(state_lut, dtype=np.float32)
+    if sum(value is not None for value in (tlut, state_lut)) != 1:
+        raise ValueError("native QTIP solve requires exactly one TLUT or vector LUT")
+    edge_lut: np.ndarray | None = None
+    if tlut is not None:
+        table = np.asarray(tlut)
+        if table.shape == (1024,):
+            from .banana_v1 import expand_banana_v1_codebook
+
+            edge_lut = expand_banana_v1_codebook(table)
+            lut = edge_lut
+        else:
+            lut = expand_native_v4_tlut(table, geometry=geometry)
+    else:
+        lut = np.asarray(state_lut, dtype=np.float32)
+    expected_shape = (geometry.states,) if edge_lut is not None else (
+        geometry.states,
+        geometry.V,
     )
-    if lut.shape != (geometry.states, geometry.V) or not bool(np.isfinite(lut).all()):
-        raise ValueError("native QTIP2.5 expanded LUT must be finite [65536,4]")
+    if lut.shape != expected_shape or not bool(np.isfinite(lut).all()):
+        raise ValueError("native QTIP expanded LUT shape does not match its codec")
 
     flattened = values.reshape(values.shape[0], -1)
     if scales is None:
@@ -361,14 +493,33 @@ def solve_native_v4(
 
     normalized = values / row_scales[:, None, None]
     midpoint = values.shape[1] // 2
-    first = _viterbi_numpy(
-        np.roll(normalized, midpoint, axis=1), lut, overlap=None, geometry=geometry
-    )
-    overlap = first[:, midpoint] >> geometry.B
-    states = _viterbi_numpy(normalized, lut, overlap=overlap, geometry=geometry)
+    if edge_lut is not None:
+        first_phases = _viterbi_native_v5_numpy(
+            np.roll(normalized, midpoint, axis=1),
+            edge_lut,
+            overlap=None,
+            geometry=geometry,
+        )
+        first_width = native_v5_phase_widths(geometry=geometry)[0]
+        overlap = first_phases[:, midpoint, 0] >> first_width
+        phase_states = _viterbi_native_v5_numpy(
+            normalized,
+            edge_lut,
+            overlap=overlap,
+            geometry=geometry,
+        )
+        states = phase_states[:, :, -1]
+        decoded = phase_states
+    else:
+        first = _viterbi_numpy(
+            np.roll(normalized, midpoint, axis=1), lut, overlap=None, geometry=geometry
+        )
+        overlap = first[:, midpoint] >> geometry.B
+        states = _viterbi_numpy(normalized, lut, overlap=overlap, geometry=geometry)
+        decoded = states
     packed = pack_native_v4_states(states, geometry=geometry)
-    decoded = lut[states].reshape(flattened.shape) * row_scales[:, None]
-    distortion = float(np.sum((decoded - flattened) ** 2, dtype=np.float64))
+    decoded_values = lut[decoded].reshape(flattened.shape) * row_scales[:, None]
+    distortion = float(np.sum((decoded_values - flattened) ** 2, dtype=np.float64))
     return EncodedNativeQtip25(
         geometry=geometry,
         shape=(int(flattened.shape[0]), int(flattened.shape[1])),
@@ -416,8 +567,9 @@ def ldlq_native_v4_matrix(
     tlut: np.ndarray,
     geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
     scale_factors: Sequence[float] = _DEFAULT_SCALE_FACTORS,
+    scale_semantics: str = "absolute_unit",
 ) -> NativeV4MatrixResult:
-    """Run bounded global-scale search with reverse 16-column LDLQ feedback."""
+    """Run reverse-16 LDLQ at unit scale or with an explicit relative search."""
     source = np.asarray(transformed, dtype=np.float32)
     feedback = np.asarray(lower, dtype=np.float32)
     if (
@@ -435,7 +587,16 @@ def ldlq_native_v4_matrix(
     factors = tuple(float(value) for value in scale_factors)
     if not factors or any(not math.isfinite(value) or value <= 0 for value in factors):
         raise ValueError("native V4 LDLQ scale factors must be finite and positive")
-    lut = expand_native_v4_tlut(tlut, geometry=geometry)
+    if scale_semantics not in {"relative_search", "absolute_unit"}:
+        raise ValueError("native V4 LDLQ scale semantics must be relative_search or absolute_unit")
+    effective_factors = (1.0,) if scale_semantics == "absolute_unit" else factors
+    table = np.asarray(tlut)
+    if table.shape == (1024,):
+        from .banana_v1 import expand_banana_v1_codebook
+
+        lut = expand_banana_v1_codebook(table)
+    else:
+        lut = expand_native_v4_tlut(table, geometry=geometry)
     source_rms = float(np.sqrt(np.mean(source.astype(np.float64) ** 2)))
     lut_rms = float(np.sqrt(np.mean(lut.astype(np.float64) ** 2)))
     base_scale = 1.0 if source_rms == 0 else source_rms / lut_rms
@@ -443,8 +604,8 @@ def ldlq_native_v4_matrix(
     column_blocks = source.shape[1] // 16
     packed_bytes = 8 * geometry.B
     best: tuple[float, float, np.ndarray, np.ndarray, np.ndarray] | None = None
-    for factor in factors:
-        scale = np.float32(base_scale * factor)
+    for factor in effective_factors:
+        scale = np.float32(1.0 if scale_semantics == "absolute_unit" else base_scale * factor)
         decoded = np.zeros_like(source)
         state_grid = np.empty((row_blocks, column_blocks, 64), dtype=np.int32)
         packed_grid = np.empty(
@@ -497,11 +658,13 @@ def ldlq_native_v4_matrix(
         states=np.ascontiguousarray(state_grid.reshape(tile_count, 64)),
         packed=np.ascontiguousarray(packed_grid.reshape(tile_count, packed_bytes)),
         scales=np.full(
-            tile_count, base_scale * selected_factor, dtype=np.float32
+            tile_count,
+            1.0 if scale_semantics == "absolute_unit" else base_scale * selected_factor,
+            dtype=np.float32,
         ),
         distortion=distortion,
-        scale_factor=base_scale * selected_factor,
-        scale_factors=factors,
+        scale_factor=1.0 if scale_semantics == "absolute_unit" else base_scale * selected_factor,
+        scale_factors=effective_factors,
         feedback_nonzero_count=int(np.count_nonzero(feedback)),
     )
 
@@ -523,9 +686,22 @@ def decode_native_v4(
     states = states_from_native_v4_packed(
         words, steps=positions // geometry.V, geometry=geometry
     )
-    decoded = expand_native_v4_tlut(tlut, geometry=geometry)[states].reshape(
-        words.shape[0], positions
-    )
+    table = np.asarray(tlut)
+    if table.shape == (1024,):
+        from .banana_v1 import expand_banana_v1_codebook
+
+        edge_states = native_v5_edge_states(
+            np.roll(states, 1, axis=1),
+            states & (geometry.branches - 1),
+            geometry=geometry,
+        )
+        decoded = expand_banana_v1_codebook(table)[edge_states].reshape(
+            words.shape[0], positions
+        )
+    else:
+        decoded = expand_native_v4_tlut(table, geometry=geometry)[states].reshape(
+            words.shape[0], positions
+        )
     return decoded * row_scales[:, None]
 
 
@@ -550,8 +726,14 @@ def decode_native_v4_torch(
         raise ValueError("Torch native QTIP2.5 packed byte shape drift")
     if scales.shape != (packed.shape[0],) or scales.device != packed.device:
         raise ValueError("Torch native QTIP2.5 scales must be one row value on-device")
-    if tlut.shape != (1 << geometry.tlut_bits, 2) or tlut.device != packed.device:
-        raise ValueError("Torch native QTIP2.5 TLUT must be Q9xV2 on-device")
+    table_shape = tuple(tlut.shape)
+    if table_shape not in {
+        (1 << geometry.tlut_bits, 2),
+        (1024,),
+    } or tlut.device != packed.device:
+        raise ValueError(
+            "Torch native QTIP LUT must be V4 Q9xV2 or compact PR31 [1024] on-device"
+        )
 
     shifts = torch.arange(7, -1, -1, device=packed.device, dtype=torch.int64)
     all_bits = ((packed.to(torch.int64).unsqueeze(-1) >> shifts) & 1).reshape(
@@ -574,24 +756,42 @@ def decode_native_v4_torch(
         states.append(((states[-1] << geometry.B) & mask) + branch)
     state_tensor = torch.stack(states, dim=1)
 
-    base = torch.arange(geometry.states, device=packed.device, dtype=torch.int64)
+    if table_shape == (1024,):
+        from .banana_v1 import BANANA_V1_MULTIPLIER, BANANA_V1_OFFSET
 
-    def pair(index: Any) -> Any:
-        hashed = (index + 1) * index
-        sign = 1 - 2 * ((hashed >> 15) & 1)
-        lookup = (hashed >> (16 - geometry.tlut_bits - 1)) & (
-            (1 << geometry.tlut_bits) - 1
+        predecessor = torch.roll(state_tensor, 1, dims=1)
+        branch = state_tensor & (geometry.branches - 1)
+        edge_state = predecessor
+        consumed = 0
+        lanes = []
+        for width in native_v5_phase_widths(geometry=geometry):
+            consumed += width
+            chunk = (branch >> (geometry.B - consumed)) & ((1 << width) - 1)
+            edge_state = ((edge_state << width) | chunk) & (geometry.states - 1)
+            level = (
+                (edge_state * BANANA_V1_MULTIPLIER + BANANA_V1_OFFSET) & 0xFFFF
+            ) >> 6
+            lanes.append(tlut.index_select(0, level.reshape(-1)).reshape_as(level))
+        decoded = torch.stack(lanes, dim=2).reshape(packed.shape[0], positions)
+    else:
+        base = torch.arange(geometry.states, device=packed.device, dtype=torch.int64)
+
+        def pair(index: Any) -> Any:
+            hashed = (index + 1) * index
+            sign = 1 - 2 * ((hashed >> 15) & 1)
+            lookup = (hashed >> (16 - geometry.tlut_bits - 1)) & (
+                (1 << geometry.tlut_bits) - 1
+            )
+            result = tlut.index_select(0, lookup).clone()
+            result[:, 0] *= sign
+            return result
+
+        half = geometry.L // 2
+        rotated = ((base << half) | (base >> half)) & (geometry.states - 1)
+        expanded = torch.cat((pair(base), pair(rotated)), dim=1)
+        decoded = expanded.index_select(0, state_tensor.reshape(-1)).reshape(
+            packed.shape[0], positions
         )
-        result = tlut.index_select(0, lookup).clone()
-        result[:, 0] *= sign
-        return result
-
-    half = geometry.L // 2
-    rotated = ((base << half) | (base >> half)) & (geometry.states - 1)
-    expanded = torch.cat((pair(base), pair(rotated)), dim=1)
-    decoded = expanded.index_select(0, state_tensor.reshape(-1)).reshape(
-        packed.shape[0], positions
-    )
     return decoded * scales.reshape(-1, 1)
 
 
@@ -765,6 +965,100 @@ def _native_v4_cuda_pass(
     return states
 
 
+def _native_v5_cuda_pass(
+    target: Any,
+    scalar_lut: Any,
+    overlap: Any | None,
+    *,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> Any:
+    """Run the exact PR31 recurrence with variable-width on-device phases."""
+
+    import torch
+
+    batch, steps, lanes = target.shape
+    widths = native_v5_phase_widths(geometry=geometry)
+    values = target.reshape(batch, steps * lanes)
+    cost = None
+    backpointers = []
+    row_ids = torch.arange(batch, device=target.device)
+    for phase in range(values.shape[1]):
+        width = widths[phase % geometry.V]
+        prefixes = 1 << (geometry.L - width)
+        branches = 1 << width
+        errors = (scalar_lut.unsqueeze(0) - values[:, phase, None]).square()
+        if phase == 0:
+            cost = errors
+            if overlap is not None:
+                allowed = (overlap[:, None].to(torch.int64) << width) + torch.arange(
+                    branches, device=target.device
+                )
+                masked = torch.full_like(cost, torch.inf)
+                masked.scatter_(1, allowed, cost.gather(1, allowed))
+                cost = masked
+            backpointers.append(None)
+            continue
+
+        assert cost is not None
+        best, choice = cost.reshape(batch, branches, prefixes).min(dim=1)
+        cost = errors + best.repeat_interleave(branches, dim=1)
+        backpointers.append(choice.to(torch.uint8))
+
+    assert cost is not None
+    if overlap is None:
+        final = cost.argmin(dim=1).to(torch.int32)
+    else:
+        first_width = widths[0]
+        first_prefixes = 1 << (geometry.L - first_width)
+        final_allowed = overlap[:, None].to(torch.int64) + torch.arange(
+            1 << first_width, device=target.device
+        )[None, :] * first_prefixes
+        final = final_allowed[
+            row_ids,
+            cost.gather(1, final_allowed).argmin(dim=1),
+        ].to(torch.int32)
+
+    phase_states = torch.empty(
+        (batch, values.shape[1]), device=target.device, dtype=torch.int32
+    )
+    phase_states[:, -1] = final
+    for phase in range(values.shape[1] - 1, 0, -1):
+        width = widths[phase % geometry.V]
+        prefixes = 1 << (geometry.L - width)
+        prefix = phase_states[:, phase] >> width
+        choice = backpointers[phase]
+        assert choice is not None
+        predecessor_branch = choice.gather(1, prefix[:, None].to(torch.int64))[:, 0].to(
+            torch.int32
+        )
+        phase_states[:, phase - 1] = predecessor_branch * prefixes + prefix
+    return phase_states.reshape(batch, steps, lanes)
+
+
+def _solve_native_v5_cuda(
+    target: Any,
+    scalar_lut: Any,
+    *,
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> Any:
+    midpoint = int(target.shape[1]) // 2
+    first = _native_v5_cuda_pass(
+        target.roll(midpoint, dims=1),
+        scalar_lut,
+        None,
+        geometry=geometry,
+    )
+    first_width = native_v5_phase_widths(geometry=geometry)[0]
+    overlap = first[:, midpoint, 0] >> first_width
+    phases = _native_v5_cuda_pass(
+        target,
+        scalar_lut,
+        overlap,
+        geometry=geometry,
+    )
+    return phases[:, :, -1].contiguous()
+
+
 def solve_native_v4_cuda(
     target: Any,
     *,
@@ -781,6 +1075,13 @@ def solve_native_v4_cuda(
         or target.shape[2] != geometry.V
     ):
         raise ValueError("native QTIP2.5 CUDA target must be float32 [rows,steps,4]")
+    if (
+        state_lut.is_cuda
+        and state_lut.device == target.device
+        and state_lut.dtype == torch.float32
+        and tuple(state_lut.shape) == (geometry.states,)
+    ):
+        return _solve_native_v5_cuda(target, state_lut, geometry=geometry)
     midpoint = int(target.shape[1]) // 2
     rolled = torch.roll(target, midpoint, dims=1)
     first = _native_v4_cuda_pass(

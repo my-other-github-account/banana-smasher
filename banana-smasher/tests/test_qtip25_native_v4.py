@@ -3,11 +3,13 @@ from __future__ import annotations
 import numpy as np
 import torch
 
+from banana_smasher.banana_v1 import expand_banana_v1_codebook
 from banana_smasher.qtip25_native_v4 import (
     NATIVE_QTIP25_GEOMETRY,
     decode_native_v4,
     decode_native_v4_torch,
     expand_native_v4_tlut,
+    native_v5_edge_states,
     native_v4_wire_accounting,
     pack_native_v4_states,
     solve_native_v4,
@@ -82,6 +84,34 @@ def test_native_v4_roundtrip_decode_and_exact_code_rate() -> None:
     assert accounting["unique_transition_bits_per_payload"] == 1
     assert accounting["assignment_map_bytes"] == 0
     assert accounting["routing_bytes"] == 0
+
+
+def test_native_v6_pr31_compact_lut_decodes_exactly_in_numpy_and_torch() -> None:
+    symbols = np.array([0, 1023, 17, 513, 7, 992, 341, 682], dtype=np.uint16)
+    states = _closed_states(symbols)[None, :]
+    packed = pack_native_v4_states(states)
+    compact_lut = np.linspace(-2.0, 2.0, 1024, dtype=np.float16)
+    edge_states = native_v5_edge_states(
+        np.roll(states, 1, axis=1),
+        states & (NATIVE_QTIP25_GEOMETRY.branches - 1),
+    )
+    expected = expand_banana_v1_codebook(compact_lut)[edge_states].reshape(1, 32)
+
+    observed_numpy = decode_native_v4(
+        packed,
+        np.ones(1, dtype=np.float32),
+        positions=32,
+        tlut=compact_lut,
+    )
+    observed_torch = decode_native_v4_torch(
+        torch.from_numpy(packed),
+        torch.ones(1, dtype=torch.float16),
+        positions=32,
+        tlut=torch.from_numpy(compact_lut),
+    )
+
+    assert np.array_equal(observed_numpy, expected)
+    assert torch.equal(observed_torch, torch.from_numpy(expected))
 
 
 def test_native_v4_reference_solve_recovers_zero_distortion_closed_path() -> None:
