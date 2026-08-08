@@ -77,6 +77,19 @@ def test_periodic_qtip3_aot_open_terminal_ties_use_lowest_full_state() -> None:
     assert "static_cast<int64_t>(PAIRS - 1) * BATCH" in source
 
 
+def test_periodic_qtip3_cell_solver_refuses_partial_b256_before_cuda_load() -> None:
+    import numpy as np
+    import torch
+
+    from banana_smasher.periodic_qtip3_aot import solve_periodic_qtip3_cells_exact
+
+    target = np.zeros((1, 64, 4), dtype=np.float32)
+    scalar_lut = torch.zeros(65536, dtype=torch.float32)
+
+    with pytest.raises(ValueError, match="multiple of 256 blocks"):
+        solve_periodic_qtip3_cells_exact([target], scalar_lut)
+
+
 @pytest.mark.skipif(
     not os.environ.get("BANANA_SMASHER_PERIODIC_QTIP3_EXTENSION"),
     reason="set the sealed Periodic QTIP3 AOT extension for physical parity",

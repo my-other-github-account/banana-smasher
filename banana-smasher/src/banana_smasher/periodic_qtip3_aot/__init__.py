@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 
 STEPS = 256
@@ -112,4 +114,78 @@ def solve_periodic_qtip3_exact(
     return states
 
 
-__all__ = ["counters", "geometry", "solve_periodic_qtip3_exact"]
+def solve_periodic_qtip3_cells_exact(
+    targets: Sequence[np.ndarray],
+    scalar_lut: torch.Tensor,
+) -> tuple[list[np.ndarray], dict[str, int]]:
+    """Encode homogeneous ``[blocks,64,4]`` cells through exact AOT B256 passes."""
+    if not targets:
+        raise ValueError("Periodic QTIP3 AOT cell batch must not be empty")
+    checked: list[np.ndarray] = []
+    for target in targets:
+        value = np.asarray(target)
+        if (
+            value.dtype != np.float32
+            or value.ndim != 3
+            or value.shape[1:] != (64, 4)
+            or not np.isfinite(value).all()
+        ):
+            raise ValueError(
+                "Periodic QTIP3 AOT cell targets must be finite float32 [N,64,4]"
+            )
+        if len(value) % BATCH:
+            raise ValueError(
+                "Periodic QTIP3 AOT cells require a multiple of 256 blocks"
+            )
+        checked.append(np.ascontiguousarray(value))
+
+    from ..qtip25_native_v4_cuda_cell import _pack_cuda_states_v4
+
+    before = counters()
+    packed_cells: list[np.ndarray] = []
+    chunk_calls = 0
+    for target in checked:
+        packed_parts = []
+        for start in range(0, len(target), BATCH):
+            host = torch.from_numpy(target[start : start + BATCH])
+            if scalar_lut.is_cuda:
+                host = host.pin_memory()
+            values = host.to(
+                scalar_lut.device, non_blocking=scalar_lut.is_cuda
+            ).contiguous()
+            phases = values.reshape(BATCH, STEPS).transpose(0, 1).contiguous()
+            open_states = solve_periodic_qtip3_exact(
+                phases.roll(STEPS // 2, dims=0), scalar_lut
+            )
+            open_values = open_states.transpose(0, 1).reshape(BATCH, 64, 4)
+            overlap = (open_values[:, 32, 0] >> 3).to(torch.int32).contiguous()
+            closed_states = solve_periodic_qtip3_exact(
+                phases, scalar_lut, overlap=overlap
+            )
+            final_states = (
+                closed_states.transpose(0, 1)
+                .reshape(BATCH, 64, 4)[:, :, -1]
+                .contiguous()
+            )
+            packed_parts.append(_pack_cuda_states_v4(final_states).cpu())
+            chunk_calls += 1
+        packed_cells.append(
+            np.ascontiguousarray(torch.cat(packed_parts).numpy())
+        )
+    after = counters()
+    return packed_cells, {
+        "cells": len(checked),
+        "blocks": int(sum(len(value) for value in checked)),
+        "contiguous_b256_chunks": chunk_calls,
+        "graph_replay_calls": after["graph_replay_calls"]
+        - before["graph_replay_calls"],
+        "fallback_calls": after["fallback_calls"] - before["fallback_calls"],
+    }
+
+
+__all__ = [
+    "counters",
+    "geometry",
+    "solve_periodic_qtip3_cells_exact",
+    "solve_periodic_qtip3_exact",
+]
