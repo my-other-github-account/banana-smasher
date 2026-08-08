@@ -451,7 +451,7 @@ def _build_qtip_native_v4_cell(
         np.save(codes_path, packed, allow_pickle=False)
         encode_seconds = time.perf_counter() - started
 
-    selected_scale = np.float32(optimization["scale_factor"])
+    selected_scale = np.float32(optimization["selected_scale"])
     decoded_blocks = decode_native_v4(
         packed,
         np.full(len(packed), selected_scale, dtype=np.float32),

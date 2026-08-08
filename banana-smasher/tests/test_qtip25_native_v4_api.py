@@ -11,6 +11,7 @@ from banana_smasher import (
 )
 from banana_smasher.qtip1 import gaussian_tlut
 from banana_smasher.cli import main
+from banana_smasher import qtip25_native_v4_cuda_cell
 
 
 CLASSES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
@@ -155,6 +156,47 @@ def test_shared_rate_parameterized_api_accepts_compact_pr31_lut_at_qtip3_rate(
     assert receipt["optimization"]["feedback_mode"] == "off"
     assert receipt["optimization"]["scale_factors"] == [1.0]
     assert receipt["optimization"]["trellis_objective"] == "lexicographic_l4"
+
+
+def test_cuda_cell_uses_selected_scale_from_cuda_optimization(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source, control, tlut = _fixture(tmp_path)
+    output = tmp_path / "cuda-candidate"
+
+    def fake_run_cuda_cell(*_args, **_kwargs):
+        np.save(output / "codes.npy", np.zeros((1, 96), dtype=np.uint8), allow_pickle=False)
+        (output / "NATIVE_V4_CELL_RECEIPT.json").write_text("{}\n")
+        return {
+            "encode": {"wall_seconds": 1.0},
+            "optimization": {
+                "method": "rms_only_no_feedback",
+                "base_scale": 1.0,
+                "selected_factor": 1.0,
+                "selected_scale": 1.0,
+                "scale_factors": [1.0],
+                "feedback_nonzero_count": 0,
+            },
+            "installed_cuda_decode": {"counters": {"fallback_calls": 0}},
+            "cuda": {"device": "test"},
+        }
+
+    monkeypatch.setattr(qtip25_native_v4_cuda_cell, "run_cuda_cell", fake_run_cuda_cell)
+
+    receipt = build_qtip_native_v4_cell(
+        source,
+        control,
+        tlut,
+        output,
+        bpw=3.0,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        backend="cuda",
+        materialize_decoded=False,
+    )
+
+    assert receipt["optimization"]["selected_scale"] == 1.0
+    assert receipt["decode_validation"]["materialized"] is False
 
 
 def test_native_v4_cli_builds_and_anchors_a_cell(tmp_path: Path, capsys) -> None:
