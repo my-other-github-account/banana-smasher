@@ -12,10 +12,13 @@ import pytest
 import torch
 
 import banana_smasher_plugin.native_planes as native_planes
+import banana_smasher_plugin.v4_acceleration as v4_acceleration
 
 from banana_smasher_plugin.native_planes import (
     EXPECTED_LAYOUT_SHA256,
     FAST_PATH_ERROR,
+    MATERIALIZED_WIRE_LAYOUT_SHA256,
+    MATERIALIZED_WIRE_SOURCE_FORMAT,
     NativePlaneLayer,
     NativePlanePack,
     NativePlanePrerequisiteError,
@@ -55,6 +58,352 @@ def _write_packed_codes(
         }
     )
     return spec
+
+
+def test_specialized_physical_proof_reads_each_runtime_counter_tensor_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    matrix_path = Path(native_planes.__file__).with_name("specialized_kernel_matrix.json")
+    matrix = json.loads(matrix_path.read_text())
+    values = [0] * 160
+    for row in matrix["rows"]:
+        values[row["counter"]["index"]] = 1
+
+    class CounterSnapshot:
+        def data_ptr(self) -> int:
+            return 1234
+
+        def detach(self) -> "CounterSnapshot":
+            return self
+
+        def cpu(self) -> "CounterSnapshot":
+            return self
+
+        def tolist(self) -> list[int]:
+            return values
+
+    counter = CounterSnapshot()
+    state = SimpleNamespace(
+        vq_state={"physical_counter_tensors": {(6, 1): counter, (12, 2): counter}}
+    )
+    layer = SimpleNamespace(state=lambda projection: state)
+    monkeypatch.setattr(native_planes, "_NATIVE_PLANE_LAYER_REGISTRY", {1: layer})
+
+    proof = native_planes.specialized_physical_proof()
+
+    assert proof["status"] == "PASS"
+    assert proof["snapshot_count"] == 1
+    assert {row["count"] for row in proof["rows"]} == {1}
+
+
+def test_specialized_shape_proof_requires_large_8192_geometry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    counters = torch.ones(160, dtype=torch.int64)
+    counters[24:27] = 0
+    geometries = {
+        (6, 1): counters.clone(),
+        (12, 2): counters.clone(),
+        (18, 4): counters.clone(),
+        (24, 4): counters.clone(),
+        (30, 4): counters.clone(),
+        (42, 4): counters.clone(),
+        (48, 4): counters.clone(),
+        (54, 4): counters.clone(),
+        (90, 4): counters.clone(),
+        (96, 4): counters.clone(),
+        (192, 16): counters.clone(),
+        (384, 16): counters.clone(),
+        (12288, 16): counters.clone(),
+    }
+    state = SimpleNamespace(vq_state={"physical_counter_tensors": geometries})
+    layer = SimpleNamespace(state=lambda projection: state)
+    monkeypatch.setattr(
+        native_planes,
+        "_NATIVE_PLANE_LAYER_REGISTRY",
+        {1: layer},
+    )
+
+    proof = native_planes._specialized_shape_physical_proof()
+    assert proof["status"] == "FAIL"
+    assert proof["geometries"]["8192"]["nonzero_named_counter_count"] == 0
+
+    geometries[(49152, 16)] = counters.clone()
+    proof = native_planes._specialized_shape_physical_proof()
+    assert proof["status"] == "PASS"
+    assert proof["geometries"]["8192"]["expected_named_counter_count"] == 12
+    assert len(proof["geometries"]["8192"]["rows"]) == 12
+
+
+def test_specialized_matrix_warmup_executes_every_tier_projection_and_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tiers = (
+        "qtip2_2.0117",
+        "qtip3_3.0117",
+        "d4_k1024",
+        "d4_k2048",
+        "d4_k4096",
+        "native_mxfp4",
+    )
+    warmup_tokens = (1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 32, 64, 2048, 8192)
+    calls: list[tuple[str, int, tuple[int, ...]]] = []
+
+    class Layer:
+        device = torch.device("cpu")
+
+        def state(self, projection: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                name=projection,
+                tiers=(
+                    "qtip25k2",
+                    "qtip25k3",
+                    "fixed_d4_1024",
+                    "fixed_d4_2048",
+                    "fixed_d4_4096",
+                    "mxfp4_payload",
+                ),
+                specialized_tiers=tiers,
+                input_width=4,
+                output_width=4,
+            )
+
+        def forward(
+            self, x: torch.Tensor, expert_ids: torch.Tensor, projection: str
+        ) -> torch.Tensor:
+            assert x.shape == (expert_ids.numel(), 4)
+            calls.append(
+                (
+                    projection,
+                    x.shape[0] // 6,
+                    tuple(sorted(set(expert_ids.tolist()))),
+                )
+            )
+            return x
+
+    monkeypatch.setattr(native_planes, "_NATIVE_PLANE_LAYER_REGISTRY", {1: Layer()})
+    monkeypatch.setattr(
+        native_planes,
+        "specialized_physical_proof",
+        lambda **_kwargs: {"status": "PASS", "rows": []},
+    )
+    shape_proof = {"status": "PASS", "geometries": {"8192": {"status": "PASS"}}}
+    monkeypatch.setattr(
+        native_planes,
+        "_specialized_shape_physical_proof",
+        lambda **_kwargs: shape_proof,
+    )
+    monkeypatch.setattr(native_planes.os, "getpid", lambda: 4242)
+    monkeypatch.setattr(native_planes, "_process_startticks", lambda: 777)
+
+    proof = native_planes.warmup_specialized_matrix()
+
+    assert proof["status"] == "PASS"
+    assert proof["process_pid"] == 4242
+    assert proof["process_startticks"] == 777
+    assert proof["shape_physical_proof"] == shape_proof
+    assert proof["warmup_execution_count"] == 28
+    assert proof["warmup_tokens"] == list(warmup_tokens)
+    assert set(calls) == {
+        (projection, tokens, tuple(range(len(tiers))))
+        for projection in ("fused13", "down")
+        for tokens in warmup_tokens
+    }
+
+
+def test_fixed_qtip_payload_aliases_bind_canonical_specialized_tiers() -> None:
+    assert native_planes._canonical_specialized_tier(
+        "qtip25k2",
+        {"family": "qtip2", "geometry": {"K": 2, "L": 16, "V": 2}},
+    ) == "qtip2_2.0117"
+    assert native_planes._canonical_specialized_tier(
+        "qtip25k3",
+        {"family": "qtip3", "geometry": {"K": 3, "L": 16, "V": 2}},
+    ) == "qtip3_3.0117"
+
+    with pytest.raises(
+        NativePlanePrerequisiteError,
+        match="qtip25k3.*geometry",
+    ):
+        native_planes._canonical_specialized_tier(
+            "qtip25k3",
+            {"family": "qtip3", "geometry": {"K": 2, "L": 16, "V": 2}},
+        )
+
+
+def test_process_startticks_reads_proc_stat_field_22_after_spaced_comm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stat = "4242 (vllm engine core) S " + " ".join(
+        str(value) for value in range(1, 20)
+    )
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(Path, "read_text", lambda _path: stat)
+
+    assert native_planes._process_startticks() == 19
+
+
+def test_process_startticks_is_explicitly_unavailable_off_linux(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+
+    assert native_planes._process_startticks() == -1
+
+
+def test_specialized_matrix_proof_path_respects_service_receipt_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    configured = tmp_path / "mounted-receipts" / "specialized.json"
+    monkeypatch.setenv("BANANA_SMASHER_SPECIALIZED_PROOF_PATH", str(configured))
+
+    assert native_planes._specialized_matrix_proof_path() == configured
+
+    monkeypatch.delenv("BANANA_SMASHER_SPECIALIZED_PROOF_PATH")
+    assert native_planes._specialized_matrix_proof_path() == Path(
+        "/tmp/banana-smasher-specialized-physical-proof.json"
+    )
+
+
+def test_live_specialized_proof_refreshes_current_engine_counters_atomically(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    live_path = tmp_path / "live" / "specialized-live.json"
+    proof = {
+        "schema": "banana-smasher-specialized-physical-proof-v1",
+        "status": "PASS",
+        "rows": [{"counter_name": "physical.qtip2.decode_c1", "count": 7}],
+        "forbidden_counters": {"mixed_exact_gemv": 0},
+    }
+    monkeypatch.setattr(native_planes, "SPECIALIZED_LIVE_PROOF_PATH", live_path)
+    monkeypatch.setattr(native_planes, "specialized_physical_proof", lambda: proof)
+    monkeypatch.setattr(native_planes.os, "getpid", lambda: 4242)
+    monkeypatch.setattr(native_planes, "_process_startticks", lambda: 777)
+    monkeypatch.setattr(native_planes.time, "time", lambda: 1234.5)
+
+    observed = native_planes._write_specialized_live_proof()
+
+    assert observed["status"] == "PASS"
+    assert observed["rows"][0]["count"] == 7
+    assert observed["process_pid"] == 4242
+    assert observed["process_startticks"] == 777
+    assert observed["captured_unix"] == 1234.5
+    assert json.loads(live_path.read_text()) == observed
+    assert not list(live_path.parent.glob(".*.tmp"))
+
+
+def test_live_specialized_proof_includes_shape_bound_counters(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    live_path = tmp_path / "specialized-live.json"
+    shape_proof = {
+        "schema": "banana-smasher-specialized-shape-physical-proof-v1",
+        "status": "PASS",
+        "geometries": {"1": {"status": "PASS", "variant": "decode_c1"}},
+    }
+    monkeypatch.setattr(native_planes, "SPECIALIZED_LIVE_PROOF_PATH", live_path)
+    monkeypatch.setattr(
+        native_planes,
+        "specialized_physical_proof",
+        lambda: {"status": "PASS", "rows": [], "forbidden_counters": {}},
+    )
+    monkeypatch.setattr(
+        native_planes, "_specialized_shape_physical_proof", lambda: shape_proof
+    )
+
+    observed = native_planes._write_specialized_live_proof()
+
+    assert observed["shape_physical_proof"] == shape_proof
+    assert json.loads(live_path.read_text())["shape_physical_proof"] == shape_proof
+
+
+def test_live_specialized_proof_installs_sigusr2_refresh_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installed: list[tuple[int, object]] = []
+    refreshed: list[str] = []
+    monkeypatch.setattr(native_planes, "_LIVE_PROOF_SIGNAL_INSTALLED", False)
+    monkeypatch.setattr(
+        native_planes.signal,
+        "signal",
+        lambda signum, handler: installed.append((signum, handler)),
+    )
+    monkeypatch.setattr(
+        native_planes,
+        "_write_specialized_live_proof",
+        lambda: refreshed.append("refreshed") or {"status": "PASS"},
+    )
+
+    native_planes._install_specialized_live_proof_signal_handler()
+
+    assert installed == [
+        (native_planes.signal.SIGUSR2, native_planes._specialized_live_proof_signal_handler)
+    ]
+    assert native_planes._LIVE_PROOF_SIGNAL_INSTALLED is True
+    installed[0][1](native_planes.signal.SIGUSR2, None)
+    assert refreshed == ["refreshed"]
+
+
+def test_specialized_matrix_warmup_runs_once_after_complete_pack_registration(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proof_path = tmp_path / "specialized-proof.json"
+    pack = SimpleNamespace(root=tmp_path / "model", layers=(0, 1))
+    first = SimpleNamespace(pack=pack, layer_index=0)
+    second = SimpleNamespace(pack=pack, layer_index=1)
+    calls: list[str] = []
+
+    monkeypatch.setattr(native_planes, "SPECIALIZED_MATRIX_PROOF_PATH", proof_path)
+    monkeypatch.setattr(native_planes, "SPECIALIZED_MATRIX_REQUIRED_LAYER_COUNT", 2)
+    monkeypatch.setattr(native_planes, "_SPECIALIZED_MATRIX_WARMED_ROOTS", set())
+    monkeypatch.setattr(
+        native_planes,
+        "warmup_specialized_matrix",
+        lambda: calls.append("warm") or {"status": "PASS", "rows": []},
+    )
+    monkeypatch.setattr(
+        native_planes,
+        "_install_specialized_live_proof_signal_handler",
+        lambda: calls.append("install"),
+    )
+    monkeypatch.setattr(native_planes, "_NATIVE_PLANE_LAYER_REGISTRY", {1: first})
+
+    assert native_planes._maybe_warmup_specialized_matrix(first) is None
+    assert calls == []
+    assert not proof_path.exists()
+
+    native_planes._NATIVE_PLANE_LAYER_REGISTRY[2] = second
+    proof = native_planes._maybe_warmup_specialized_matrix(second)
+
+    assert proof is not None
+    assert proof["status"] == "PASS"
+    assert proof["registered_layers"] == [0, 1]
+    assert calls == ["warm", "install"]
+    assert json.loads(proof_path.read_text()) == proof
+
+    assert native_planes._maybe_warmup_specialized_matrix(second) is None
+    assert calls == ["warm", "install"]
+
+
+def test_payload_residency_keeps_large_immutable_planes_on_coherent_host() -> None:
+    for family, role in (
+        ("qtip2", "trellis"),
+        ("qtip3", "trellis"),
+        ("d4", "codes"),
+        ("d4", "scales"),
+        ("d4", "codebooks"),
+        ("native", "packed"),
+        ("native", "scales"),
+    ):
+        assert native_planes._payload_residency(family, role) == "cpu_uva"
+    for family, role in (
+        ("qtip2", "SU"),
+        ("qtip2", "SV"),
+        ("qtip3", "Wscale"),
+        ("d4", "expert_ids"),
+        ("native", "expert_ids"),
+    ):
+        assert native_planes._payload_residency(family, role) == "device"
 
 
 def _tiny_pack(root: Path, *, layout: str = EXPECTED_LAYOUT_SHA256) -> Path:
@@ -166,7 +515,115 @@ def test_pack_binds_quant_config_root_and_every_declared_layer(tmp_path: Path) -
     assert pack.meta_path(0) == root.resolve() / "planes/layer_000.meta.json"
 
 
-def test_plane_loader_moves_named_planes_and_dispatches_projection(tmp_path: Path) -> None:
+def test_materialized_wire_pack_builds_native_d4_state(tmp_path: Path) -> None:
+    root = tmp_path / "model"
+    layer_root = root / "planes/layers/layer_000"
+    layer_root.mkdir(parents=True)
+    experts, hidden, intermediate = 2, 32, 32
+    tensor_index: dict[str, dict[str, object]] = {}
+
+    def write_raw(name: str, relative: str, value: np.ndarray) -> None:
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        value.tofile(path)
+        tensor_index[name] = {
+            "data_bytes": int(value.nbytes),
+            "dtype": value.dtype.str,
+            "path": relative,
+            "shape": [int(value.size)],
+            "storage": {"kind": "raw", "path": relative},
+        }
+
+    for projection, input_width, output_width in (
+        ("fused13", hidden, 2 * intermediate),
+        ("down", intermediate, hidden),
+    ):
+        prefix = f"layers.0.truevq_d4.d4_k2048.{projection}."
+        file_root = f"planes/layers/layer_000/truevq_d4/{projection}"
+        packed_row_bytes = ((input_width // 4) * 11 + 7) // 8
+        write_raw(
+            prefix + "expert_ids",
+            file_root + ".expert_ids.bin",
+            np.arange(experts, dtype=np.int16),
+        )
+        write_raw(
+            prefix + "codes",
+            file_root + ".codes.bin",
+            np.zeros((experts, output_width, packed_row_bytes), dtype=np.uint8),
+        )
+        write_raw(
+            prefix + "scales",
+            file_root + ".scales.bin",
+            np.full((experts, output_width, input_width // 32), 127, dtype=np.uint8),
+        )
+        write_raw(
+            prefix + "codebooks",
+            file_root + ".codebooks.bin",
+            np.ones((2048, 4), dtype=np.float16),
+        )
+
+    manifest = {
+        "schema": "bs-pack",
+        "schema_version": 1,
+        "quant_method": "banana_smasher",
+        "source_format": MATERIALIZED_WIRE_SOURCE_FORMAT,
+        "layers": [0],
+        "tensor_layout_sha256": MATERIALIZED_WIRE_LAYOUT_SHA256,
+        "tensor_index": tensor_index,
+    }
+    (root / "BANANA_PACK_MANIFEST.json").write_text(json.dumps(manifest))
+    (root / "config.json").write_text(
+        json.dumps(
+            {
+                "hidden_size": hidden,
+                "moe_intermediate_size": intermediate,
+                "n_routed_experts": experts,
+                "quantization_config": {
+                    "quant_method": "banana_smasher",
+                    "format": "bs-pack",
+                    "format_version": 1,
+                    "pack_root": ".",
+                    "pack_manifest": "BANANA_PACK_MANIFEST.json",
+                    "architecture": "sm_120",
+                },
+            }
+        )
+    )
+    (layer_root / "meta.json").write_text(
+        json.dumps(
+            {
+                "schema": "bs-pack-layer-meta",
+                "schema_version": 1,
+                "layer": 0,
+                "families": ["truevq_d4"],
+            }
+        )
+    )
+
+    pack = NativePlanePack.from_model_root(root)
+
+    def dispatch(*, projection, x, expert_ids, state):
+        del projection, expert_ids
+        return torch.zeros((x.shape[0], state.output_width), dtype=torch.float32)
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    fused = layer.state("fused13")
+    assert pack.source_format == MATERIALIZED_WIRE_SOURCE_FORMAT
+    assert fused.pointer_tables["d4_index_bits"].tolist() == [11, 11]
+    assert fused.payloads["d4_k2048"]["codes"].shape == (experts, 2 * intermediate, 11)
+    assert fused.pointer_tables["d4_codebooks"].tolist()[0] != 0
+
+
+def test_pack_accepts_manifest_bound_layout_from_public_export(tmp_path: Path) -> None:
+    public_layout = "8264c6393ff40c545de05ac06a39cd7668aab1e31b96aca82a914079721444f8"
+    root = _tiny_pack(tmp_path / "model", layout=public_layout)
+    pack = NativePlanePack.from_model_root(root)
+    assert pack.layout_sha256 == public_layout
+
+
+def test_plane_loader_moves_named_planes_and_dispatches_projection(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
     calls: list[tuple[str, tuple[int, ...], tuple[int, ...]]] = []
 
@@ -184,38 +641,26 @@ def test_plane_loader_moves_named_planes_and_dispatches_projection(tmp_path: Pat
     assert result.shape == (2, 4)
     assert calls == [("fused13", (2, 4), (1, 0))]
     assert layer.state("fused13").families.tolist() == [2, 2]
-    assert set(layer.state("fused13").payloads) == {"d4_k16"}
-    assert layer.state("fused13").payloads["d4_k16"]["codes"].dtype == torch.uint8
-    assert layer.state("fused13").pointer_tables["d4_index_bits"].tolist() == [4, 4]
-
-
-def test_mixed_qtip_offset_tables_cover_qtip3_speculative_loads(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    kernels = ModuleType("banana_smasher_plugin.p1016_kernels")
-    setattr(
-        kernels,
-        "qtip_offset_map",
-        lambda rate: torch.arange(128 * rate, dtype=torch.int32).reshape(
-            2, 2, rate * 16, 2
-        ),
-    )
-    monkeypatch.setitem(sys.modules, kernels.__name__, kernels)
-    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
-    layer = NativePlaneLayer(
-        pack,
-        0,
-        device="cpu",
-        dispatch=lambda **kwargs: kwargs["x"],
-    )
-
     state = layer.state("fused13")
-    assert state.offsets2.shape == (384,)
-    assert state.offsets3.shape == (384,)
-    assert state.offsets2.numel() == 384
-    assert state.offsets3.numel() == 384
-    assert torch.equal(state.offsets2[:256], torch.arange(256, dtype=torch.int32))
-    assert torch.count_nonzero(state.offsets2[256:]) == 0
+    assert set(state.payloads) == {"d4_k16"}
+    payload = state.payloads["d4_k16"]
+    assert {"codes", "scales", "codebooks"} <= set(payload)
+    assert state.pointer_tables["d4_index_bits"].tolist() == [4, 4]
+    assert state.vq_state is not None
+    assert not ({"codes", "scales", "codebooks"} & set(state.vq_state))
+    assert state.pointer_tables["d4_codes"].tolist() == [
+        payload["codes"][slot].data_ptr() for slot in state.slots.tolist()
+    ]
+    assert state.pointer_tables["d4_scales"].tolist() == [
+        payload["scales"][slot].data_ptr() for slot in state.slots.tolist()
+    ]
+    assert state.pointer_tables["d4_codebooks"].tolist() == [
+        payload["codebooks"][int(payload["codebook_index"][slot])].data_ptr()
+        for slot in state.slots.tolist()
+    ]
+    assert "packed_payload_residency=cpu_uva" in caplog.text
+    assert "device_metadata_residency=true" in caplog.text
+    assert "device_residency=true" not in caplog.text
 
 
 def test_plane_forward_uses_capture_safe_async_expert_range_guards(
@@ -249,23 +694,104 @@ def test_plane_forward_uses_capture_safe_async_expert_range_guards(
     result = layer.forward(torch.ones((2, 4)), torch.tensor([0, 1]), "fused13")
 
     assert result.shape == (2, 4)
-    assert calls == [
-        (True, "layer 0 fused13 expert id out of range"),
-        (True, "layer 0 fused13 expert id out of range"),
-    ]
+    assert calls == []
 
 
-def test_plane_forward_async_guard_rejects_out_of_range_expert(tmp_path: Path) -> None:
+def test_plane_forward_normalizes_arbitrary_upper_dummy_capture_sentinel(
+    tmp_path: Path,
+) -> None:
     pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
-    layer = NativePlaneLayer(
-        pack,
-        0,
-        device="cpu",
-        dispatch=lambda **kwargs: kwargs["x"],
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        observed_ids.append(kwargs["expert_ids"].clone())
+        return kwargs["x"]
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    layer.forward(
+        torch.ones((2, 4)),
+        torch.tensor([0, 999]),
+        "fused13",
+        route_weights=torch.tensor([1.0, 1.0]),
     )
 
-    with pytest.raises(RuntimeError, match="expert id out of range"):
-        layer.forward(torch.ones((2, 4)), torch.tensor([0, 2]), "fused13")
+    assert observed_ids
+    assert torch.equal(observed_ids[0], torch.tensor([0, -1]))
+
+
+def test_plane_forward_normalizes_num_experts_padding_at_native_boundary(
+    tmp_path: Path,
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        observed_ids.append(kwargs["expert_ids"].clone())
+        return torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width),
+            dtype=kwargs["x"].dtype,
+        )
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    layer.forward(
+        torch.ones((2, 4)),
+        torch.tensor([0, 999]),
+        "fused13",
+        route_weights=torch.tensor([1.0, 0.0]),
+    )
+
+    assert observed_ids
+    assert torch.equal(observed_ids[0], torch.tensor([0, -1]))
+
+
+def test_plane_forward_normalizes_below_minus_one_dummy_capture_sentinel(
+    tmp_path: Path,
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        observed_ids.append(kwargs["expert_ids"].clone())
+        return torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width),
+            dtype=kwargs["x"].dtype,
+        )
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    layer.forward(
+        torch.ones((2, 4)),
+        torch.tensor([0, -17]),
+        "fused13",
+        route_weights=torch.tensor([1.0, 1.0]),
+    )
+
+    assert observed_ids
+    assert torch.equal(observed_ids[0], torch.tensor([0, -1]))
+
+
+def test_plane_forward_normalizes_num_experts_dummy_capture_sentinel(
+    tmp_path: Path,
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    observed_ids: list[torch.Tensor] = []
+
+    def dispatch(**kwargs):
+        observed_ids.append(kwargs["expert_ids"].clone())
+        return torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width),
+            dtype=kwargs["x"].dtype,
+        )
+
+    layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    layer.forward(
+        torch.ones((2, 4)),
+        torch.tensor([0, 2]),
+        "fused13",
+        route_weights=torch.tensor([1.0, 1.0]),
+    )
+
+    assert observed_ids
+    assert torch.equal(observed_ids[0], torch.tensor([0, -1]))
 
 
 def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) -> None:
@@ -273,14 +799,14 @@ def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) ->
     observed_ids: list[torch.Tensor] = []
 
     def dispatch(**kwargs):
-        safe_ids = kwargs["expert_ids"]
-        observed_ids.append(safe_ids.clone())
-        assert bool(torch.all((safe_ids >= 0) & (safe_ids < 2)))
-        return torch.full(
-            (safe_ids.numel(), kwargs["state"].output_width),
-            3.0,
-            dtype=torch.float32,
+        route_ids = kwargs["expert_ids"]
+        observed_ids.append(route_ids.clone())
+        assert bool(torch.all((route_ids == -1) | ((route_ids >= 0) & (route_ids < 2))))
+        result = torch.full(
+            (route_ids.numel(), kwargs["state"].output_width), 3.0, dtype=torch.float32
         )
+        result[route_ids == -1] = 0
+        return result
 
     layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
     expert_ids = torch.tensor(([0, 1, 0, 1, 0, -1] * 16), dtype=torch.long)
@@ -288,10 +814,9 @@ def test_plane_forward_safely_zeroes_batched_padding_sentinel(tmp_path: Path) ->
     result = layer.forward(torch.ones((96, 4)), expert_ids, "fused13")
 
     assert observed_ids and observed_ids[0].shape == (96,)
-    assert torch.equal(observed_ids[0][5::6], torch.zeros(16, dtype=torch.long))
+    assert torch.equal(observed_ids[0][5::6], torch.full((16,), -1, dtype=torch.long))
     assert torch.count_nonzero(result[5::6]) == 0
     assert torch.all(result[:5] == 3)
-
 
 def test_manifest_selection_is_the_only_payload_allocation_source(tmp_path: Path) -> None:
     root = _tiny_pack(tmp_path / "model")
@@ -405,6 +930,41 @@ def test_streamed_plane_load_releases_mmap_pages_and_logs_watermark(
     assert "BANANA_SMASHER_PLANE_LOAD_WATERMARK loaded=50" in caplog.text
     assert "total=10" in caplog.text
     assert "MemAvailable_kB=" in caplog.text
+
+
+def test_native_plane_construction_preallocates_only_decode_graph_workspaces(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allocations: list[tuple[int, int]] = []
+
+    def record_allocation(*, rows: int, block_rows: int, **_kwargs):
+        allocations.append((rows, block_rows))
+        return {"physical_counters": torch.zeros(160, dtype=torch.int64)}
+
+    monkeypatch.setattr(
+        v4_acceleration,
+        "allocate_compaction_state",
+        record_allocation,
+    )
+    state = {
+        "codes": torch.zeros(1, dtype=torch.uint8),
+        "scales": torch.zeros(1, dtype=torch.uint8),
+        "codebook": torch.zeros(4, dtype=torch.float16),
+    }
+
+    resident = v4_acceleration.build_device_resident_planes(
+        [state],
+        torch.tensor([2], dtype=torch.int8),
+        [4],
+        input_width=4,
+        output_width=4,
+        device=torch.device("cpu"),
+    )
+
+    assert allocations == [(6, 1), (12, 2), (24, 4), (48, 4), (96, 4)]
+    assert set(resident["compaction"]) == set(allocations)
+    assert resident["physical_counter_tensors"] == {}
+    assert not ({"codes", "scales", "codebooks"} & set(resident))
 
 
 def _install_fake_vllm(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -567,7 +1127,58 @@ def test_native_moe_apply_uses_two_accelerated_projections_and_original_route_or
     ]
 
 
-def test_qtip_transform_and_lut_are_exact_and_family_masked(
+def test_native_moe_apply_normalizes_zero_weight_num_experts_padding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    calls: list[tuple[str, tuple[int, ...]]] = []
+
+    def dispatch(*, projection, x, expert_ids, state):
+        calls.append((projection, tuple(expert_ids.tolist())))
+        return torch.zeros((x.shape[0], state.output_width), dtype=x.dtype)
+
+    plane_layer = NativePlaneLayer(pack, 0, device="cpu", dispatch=dispatch)
+    method = SimpleNamespace(native_layer=plane_layer, prefix="model.layers.0.ffn.experts")
+    _install_fake_vllm(monkeypatch)
+    from banana_smasher_plugin.quantization import BananaSmasherMoEMethod
+
+    x = torch.ones((1, 4), dtype=torch.float32)
+    ids = torch.tensor([[0, 1, 2, 0, 1, 2]], dtype=torch.long)
+    weights = torch.tensor([[0.5, 0.25, 0.0, 0.125, 0.125, 0.0]])
+
+    BananaSmasherMoEMethod.apply(method, object(), x, weights, ids, None, None)
+
+    assert calls == [
+        ("fused13", (0, 1, -1, 0, 1, -1)),
+        ("down", (0, 1, -1, 0, 1, -1)),
+    ]
+
+
+def test_native_moe_apply_normalizes_nonzero_weight_id_above_capture_sentinel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pack = NativePlanePack.from_model_root(_tiny_pack(tmp_path / "model"))
+    plane_layer = NativePlaneLayer(
+        pack,
+        0,
+        device="cpu",
+        dispatch=lambda **kwargs: torch.zeros(
+            (kwargs["x"].shape[0], kwargs["state"].output_width)
+        ),
+    )
+    method = SimpleNamespace(native_layer=plane_layer, prefix="model.layers.0.ffn.experts")
+    _install_fake_vllm(monkeypatch)
+    from banana_smasher_plugin.quantization import BananaSmasherMoEMethod
+
+    x = torch.ones((1, 4), dtype=torch.float32)
+    ids = torch.tensor([[0, 1, 3, 0, 1, 0]], dtype=torch.long)
+    weights = torch.tensor([[0.4, 0.2, 0.1, 0.1, 0.1, 0.1]])
+
+    result = BananaSmasherMoEMethod.apply(method, object(), x, weights, ids, None, None)
+    assert result.shape == x.shape
+
+
+def test_qtip_transform_and_lut_are_owned_by_the_native_dispatch_boundary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     x = torch.tensor([[1.0, 2.0, 3.0, 4.0], [4.0, 3.0, 2.0, 1.0]])
@@ -575,14 +1186,21 @@ def test_qtip_transform_and_lut_are_exact_and_family_masked(
     lut = _expanded_qtip_lut(torch.device("cpu"))
     assert lut.shape == (65536, 2)
 
-    kernels = ModuleType("banana_smasher_plugin.p1016_kernels")
+    import banana_smasher_plugin.v4_acceleration as acceleration
 
-    def mixed_exact_gemv(kernel_input, *args):
-        del args
+    observed_inputs: list[torch.Tensor] = []
+
+    def mixed_exact_gemv(kernel_input, *args, **kwargs):
+        del args, kwargs
+        observed_inputs.append(kernel_input.clone())
         return kernel_input
 
-    kernels.mixed_exact_gemv = mixed_exact_gemv
-    monkeypatch.setitem(sys.modules, "banana_smasher_plugin.p1016_kernels", kernels)
+    monkeypatch.setattr(acceleration, "mixed_exact_native_gemv", mixed_exact_gemv)
+    monkeypatch.setattr(
+        acceleration,
+        "runtime_sentinel",
+        lambda: {"activated": True, "blocked": []},
+    )
     state = ProjectionState(
         "fused13",
         4,
@@ -596,9 +1214,9 @@ def test_qtip_transform_and_lut_are_exact_and_family_masked(
             "sv": torch.tensor([[3.0] * 4, [9.0] * 4]),
             "wscale": torch.tensor([0.5, 9.0]),
         },
-        torch.zeros(1, dtype=torch.int64),
-        torch.zeros(1, dtype=torch.int64),
         lut,
+        torch.zeros(1024, dtype=torch.float16),
+        {},
     )
     run = _load_accelerated_dispatch()
     result = run(
@@ -607,8 +1225,8 @@ def test_qtip_transform_and_lut_are_exact_and_family_masked(
         expert_ids=torch.tensor([0, 1]),
         state=state,
     )
-    assert torch.allclose(result[0].float(), x[0] * 3.0, atol=2e-2)
-    assert torch.allclose(result[1].float(), x[1], atol=2e-2)
+    assert observed_inputs and torch.equal(observed_inputs[0], x)
+    assert torch.equal(result, x)
 
 
 def test_quant_config_selects_only_stock_deepseek_routed_experts(

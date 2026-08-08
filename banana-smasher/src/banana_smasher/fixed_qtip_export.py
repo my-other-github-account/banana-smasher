@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import shutil
 import tempfile
 from collections import Counter, defaultdict
@@ -25,7 +24,8 @@ from .contract import (
 _FIXED_SCHEMA = "banana-smasher-fixed-qtip-members-v1"
 _PROJECTIONS = {"fused13": "13", "down": "2"}
 _FAMILY_CODES = {"qtip2": 0, "qtip3": 1, "d4": 2, "native": 3}
-_REQUIRED_TENSORS = ("trellis", "SU", "SV", "Wscale")
+_PAYLOAD_TENSORS = ("trellis", "SU", "SV", "Wscale")
+_REQUIRED_TENSORS = (*_PAYLOAD_TENSORS, "tlut")
 
 
 def _read_json(path: Path) -> tuple[dict[str, Any], bytes]:
@@ -85,6 +85,64 @@ def _tensor_sha256(tensor: Any) -> str:
     return hashlib.sha256(tensor.detach().cpu().contiguous().numpy().tobytes()).hexdigest()
 
 
+def _canonical_trellis_from_kernel(
+    trellis: Any,
+    *,
+    shape: Any,
+    k: int,
+    expected_bytes: Any,
+) -> Any:
+    import torch
+
+    if (
+        (
+            trellis.dtype != torch.uint16
+            and not (k == 3 and trellis.dtype == torch.int16)
+        )
+        or not isinstance(shape, (list, tuple))
+        or len(shape) != 2
+    ):
+        raise PackValidationError("fixed QTIP canonical wire shape/dtype drift")
+    try:
+        m, n = (int(value) for value in shape)
+    except (TypeError, ValueError) as exc:
+        raise PackValidationError("fixed QTIP canonical wire shape/dtype drift") from exc
+    required_elements = m * n * k // 16
+    required_bytes = m * n * k // 8
+    actual_bytes = trellis.numel() * trellis.element_size()
+    if (
+        m <= 0
+        or n <= 0
+        or m % 32 != 0
+        or n % 32 != 0
+        or trellis.numel() != required_elements
+        or actual_bytes != required_bytes
+        or expected_bytes != required_bytes
+    ):
+        raise PackValidationError(
+            "fixed QTIP canonical wire geometry drift: "
+            f"shape={(m, n)} K={k} elements={trellis.numel()}/{required_elements} "
+            f"bytes={actual_bytes}/{required_bytes}/{expected_bytes!r}"
+        )
+    kernel_words = trellis.contiguous().view(torch.uint16)
+    return (
+        kernel_words
+        .view(torch.uint8)
+        .flatten()
+        .reshape(m // 32, n // 32, 32, 2, 2, k)
+        .flip((-1,))
+        .permute(0, 4, 1, 3, 2, 5)
+        .contiguous()
+        .flatten()
+        .view(-1, 2)
+        .flip((-1,))
+        .contiguous()
+        .flatten()
+        .view(torch.uint16)
+        .reshape(trellis.shape)
+    )
+
+
 def _load_member(row: dict[str, Any], member_root: Path | None) -> dict[str, Any]:
     try:
         import torch
@@ -126,12 +184,29 @@ def _load_member(row: dict[str, Any], member_root: Path | None) -> dict[str, Any
         if not isinstance(tensor, torch.Tensor):
             raise PackValidationError(f"fixed QTIP member lacks tensor {name}: {path}")
         tensors[name] = tensor.detach().cpu().contiguous()
-    packed_sha = _tensor_sha256(tensors["trellis"])
-    expected_packed_sha = row.get("canonical_packed_sha256")
-    if not isinstance(expected_packed_sha, str) or packed_sha != expected_packed_sha:
+    trellis = tensors["trellis"]
+    kernel_packed_sha = _tensor_sha256(trellis)
+    expected_kernel_sha = row.get("kernel_packed_sha256")
+    if expected_kernel_sha is not None:
+        if not isinstance(expected_kernel_sha, str) or kernel_packed_sha != expected_kernel_sha:
+            raise PackValidationError(
+                f"fixed QTIP kernel payload drift: expected={expected_kernel_sha!r} "
+                f"actual={kernel_packed_sha} path={path}"
+            )
+    if row.get("canonical_pack_roundtrip_exact") is not True:
+        raise PackValidationError(f"fixed QTIP canonical roundtrip attestation drift: {path}")
+    canonical = _canonical_trellis_from_kernel(
+        trellis,
+        shape=payload.get("shape"),
+        k=int(geometry["K"]),
+        expected_bytes=row.get("kernel_packed_bytes"),
+    )
+    canonical_sha = _tensor_sha256(canonical)
+    expected_canonical_sha = row.get("canonical_packed_sha256")
+    if not isinstance(expected_canonical_sha, str) or canonical_sha != expected_canonical_sha:
         raise PackValidationError(
-            f"fixed QTIP canonical payload drift: expected={expected_packed_sha!r} "
-            f"actual={packed_sha} path={path}"
+            f"fixed QTIP canonical payload drift: expected={expected_canonical_sha!r} "
+            f"actual={canonical_sha} path={path}"
         )
     return tensors
 
@@ -229,9 +304,13 @@ def _write_group(
     k: int,
     rows: list[dict[str, Any]],
     member_root: Path | None,
+    shared_tlut_sha256: str,
 ) -> tuple[dict[str, dict[str, str]], dict[int, int], dict[str, int]]:
     rows = sorted(rows, key=lambda row: int(row["expert"]))
-    first = _load_member(rows[0], member_root)
+    first_member = _load_member(rows[0], member_root)
+    if _tensor_sha256(first_member["tlut"]) != shared_tlut_sha256:
+        raise PackValidationError("fixed QTIP shared TLUT drift")
+    first = {name: first_member[name] for name in _PAYLOAD_TENSORS}
     suffix = _PROJECTIONS[projection]
     tier = f"qtip25k{k}"
     arrays: dict[str, np.memmap] = {}
@@ -259,7 +338,10 @@ def _write_group(
         specs["expert_ids"] = {"file": expert_name}
         slots: dict[int, int] = {}
         for slot, row in enumerate(rows):
-            tensors = first if slot == 0 else _load_member(row, member_root)
+            member = first_member if slot == 0 else _load_member(row, member_root)
+            if _tensor_sha256(member["tlut"]) != shared_tlut_sha256:
+                raise PackValidationError("fixed QTIP shared TLUT drift")
+            tensors = {name: member[name] for name in _PAYLOAD_TENSORS}
             for name, target in arrays.items():
                 value = tensors[name].numpy()
                 if value.shape != target.shape[1:] or value.dtype != target.dtype:
@@ -298,6 +380,13 @@ def materialize_fixed_qtip_source(
     admission, _ = _read_json(admission_path)
     grouped = _validate_contract(rows, admission, members_sha256=members_manifest_sha256)
     relocated_root = Path(member_root).expanduser().resolve() if member_root is not None else None
+    shared_tlut = _load_member(rows[0], relocated_root)["tlut"]
+    if str(shared_tlut.dtype) != "torch.float32" or tuple(shared_tlut.shape) != (512, 2):
+        raise PackValidationError(
+            f"fixed QTIP shared TLUT shape/dtype drift: {tuple(shared_tlut.shape)}/{shared_tlut.dtype}"
+        )
+    shared_tlut_sha256 = _tensor_sha256(shared_tlut)
+    shared_tlut_bytes = shared_tlut.numel() * shared_tlut.element_size()
 
     output.mkdir(parents=True)
     layer_documents: dict[int, dict[str, Any]] = {}
@@ -323,6 +412,7 @@ def materialize_fixed_qtip_source(
                         k=k,
                         rows=grouped[(layer, projection, k)],
                         member_root=relocated_root,
+                        shared_tlut_sha256=shared_tlut_sha256,
                     )
                     if projection_dimensions is None:
                         projection_dimensions = dimensions
@@ -360,6 +450,13 @@ def materialize_fixed_qtip_source(
             "member_count": len(rows),
             "members_manifest_sha256": members_manifest_sha256,
             "pack_admission_sha256": pack_admission_sha256,
+            "shared_tlut": {
+                "data_bytes": shared_tlut_bytes,
+                "data_sha256": shared_tlut_sha256,
+                "dtype": "float32",
+                "shape": [512, 2],
+                "storage": "runtime-shared",
+            },
         }
         _write_bytes_durable(output / "FIXED_QTIP_SOURCE.json", _canonical_json_bytes(receipt))
         return receipt

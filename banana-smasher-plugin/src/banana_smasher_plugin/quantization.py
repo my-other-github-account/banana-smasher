@@ -11,6 +11,7 @@ import torch
 import torch.nn.functional as F
 
 from .native_planes import (
+    MATERIALIZED_WIRE_SOURCE_FORMAT,
     NativePlaneLayer,
     NativePlanePack,
     NativePlanePrerequisiteError,
@@ -303,7 +304,10 @@ class BananaSmasherMoEMethod(FusedMoEMethodBase):
             raise _fail(f"native planes were not loaded for {self.prefix}")
 
         def project(
-            value: torch.Tensor, expert_ids: torch.Tensor, projection: str
+            value: torch.Tensor,
+            expert_ids: torch.Tensor,
+            route_weights: torch.Tensor,
+            projection: str,
         ) -> torch.Tensor:
             if runtime_adapter is not None:
                 return runtime_adapter.forward(
@@ -313,7 +317,12 @@ class BananaSmasherMoEMethod(FusedMoEMethodBase):
                     expert_ids=expert_ids,
                 )
             assert native_layer is not None
-            return native_layer.forward(value, expert_ids, projection)
+            return native_layer.forward(
+                value,
+                expert_ids,
+                projection,
+                route_weights=route_weights,
+            )
 
         original_shape = x.shape
         flat = x.reshape(-1, x.shape[-1])
@@ -327,13 +336,14 @@ class BananaSmasherMoEMethod(FusedMoEMethodBase):
                 f"weights={tuple(weights.shape)} ids={tuple(ids.shape)}"
             )
         routed_ids = ids.reshape(-1)
+        routed_weights = weights.reshape(-1)
         expanded = flat[:, None, :].expand(
             flat.shape[0], ids.shape[1], flat.shape[1]
         ).reshape(-1, flat.shape[1])
-        fused = project(expanded, routed_ids, "fused13")
+        fused = project(expanded, routed_ids, routed_weights, "fused13")
         gate, up = fused.chunk(2, dim=-1)
         activated = F.silu(gate) * up
-        down = project(activated, routed_ids, "down")
+        down = project(activated, routed_ids, routed_weights, "down")
         result = (
             down.reshape(flat.shape[0], ids.shape[1], flat.shape[1])
             * weights[..., None].to(down.dtype)
@@ -438,7 +448,10 @@ class BananaSmasherQuantizationConfig(QuantizationConfig):
             manifest = json.loads((self.model_root / manifest_name).read_text())
         except Exception as exc:
             raise _fail(f"cannot read bs-pack manifest before runtime selection: {exc}") from exc
-        if manifest.get("source_format") == "p1016-true-c-native-planes-v1":
+        if manifest.get("source_format") in {
+            "p1016-true-c-native-planes-v1",
+            MATERIALIZED_WIRE_SOURCE_FORMAT,
+        }:
             self.pack = NativePlanePack.from_model_root(self.model_root)
             architecture = self.pack.architecture
         else:

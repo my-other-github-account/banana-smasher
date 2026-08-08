@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+import numpy as np
+import pytest
+import torch
+
+import banana_smasher.qtip25_native_v4_cuda_cell as cuda_cell
+from banana_smasher.qtip1 import gaussian_tlut
+from banana_smasher.qtip25_native_v4 import NATIVE_QTIP25_GEOMETRY
+from banana_smasher.qtip25_native_v4_cuda_cell import validate_input
+
+
+def test_native_v4_cuda_cell_preflight_binds_exact_basis_and_geometry(tmp_path) -> None:
+    target_path = tmp_path / "target.npy"
+    tlut_path = tmp_path / "tlut.npy"
+    np.save(target_path, np.zeros((3, 64, 4), dtype=np.float32), allow_pickle=False)
+    np.save(tlut_path, gaussian_tlut(bits=9, columns=2), allow_pickle=False)
+
+    target, tlut, identity = validate_input(
+        target_path,
+        tlut_path,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+    )
+    assert target.shape == (3, 64, 4)
+    assert tlut.shape == (512, 2)
+    assert identity["basis_sha256"] == "9" * 64
+    with pytest.raises(ValueError, match="basis mismatch"):
+        validate_input(
+            target_path,
+            tlut_path,
+            intended_basis_sha256="9" * 64,
+            observed_basis_sha256="8" * 64,
+        )
+
+
+def test_ldlq_batches_scale_candidates_on_solver_axis(monkeypatch) -> None:
+    calls: list[tuple[int, ...]] = []
+    solver_targets: list[torch.Tensor] = []
+
+    def fake_solve(target, *, state_lut, geometry):
+        calls.append(tuple(target.shape))
+        solver_targets.append(target.detach().cpu().clone())
+        return torch.zeros(
+            (target.shape[0], target.shape[1]),
+            dtype=torch.int32,
+            device=target.device,
+        )
+
+    monkeypatch.setattr(cuda_cell, "solve_native_v4_cuda", fake_solve)
+    monkeypatch.setattr(
+        cuda_cell,
+        "_pack_cuda_states_v4",
+        lambda states, *, geometry: torch.zeros(
+            (states.shape[0], 8 * geometry.B), dtype=torch.uint8, device=states.device
+        ),
+    )
+    target = np.linspace(-1.0, 1.0, 512, dtype=np.float32).reshape(2, 64, 4)
+    basis = np.eye(32, dtype=np.float32) + np.tril(
+        np.full((32, 32), 0.01, dtype=np.float32), -1
+    )
+    hessian = np.ascontiguousarray(basis @ basis.T)
+    state_lut = torch.ones((1 << 16, 4), dtype=torch.float32)
+
+    packed, selected_scales, optimizations = cuda_cell.ldlq_native_v4_cuda_batch(
+        [target, target],
+        [hessian, hessian],
+        matrix_shape=(16, 32),
+        state_lut=state_lut,
+        geometry=NATIVE_QTIP25_GEOMETRY,
+        solve_batch=2048,
+        scale_factors=(1.0,),
+        cell_scales=(0.9, 1.1),
+    )
+
+    assert calls == [(2, 64, 4), (2, 64, 4)]
+    assert len(packed) == 2
+    assert all(value.shape == (2, 80) for value in packed)
+    assert selected_scales == [0.9, 1.1]
+    serial_source = (
+        torch.from_numpy(target.copy())
+        .reshape(1, 2, 16, 16)
+        .permute(0, 2, 1, 3)
+        .reshape(16, 32)
+        .contiguous()
+    )
+    expected_last_column = torch.stack(
+        [
+            serial_source[:, 16:32].reshape(1, 64, 4) / 0.9,
+            serial_source[:, 16:32].reshape(1, 64, 4) / 1.1,
+        ]
+    ).reshape(2, 64, 4)
+    assert torch.equal(solver_targets[0], expected_last_column)
+    assert [value["selected_factor"] for value in optimizations] == [1.0, 1.0]
+    assert all(value["fixed_absolute_scale"] for value in optimizations)
+    assert all(value["scale_batch_size"] == 1 for value in optimizations)
+    assert all(value["cell_batch_size"] == 2 for value in optimizations)

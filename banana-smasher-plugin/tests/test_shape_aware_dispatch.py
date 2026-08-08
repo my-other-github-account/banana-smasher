@@ -1,0 +1,125 @@
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+import pytest
+
+
+SOURCE = (
+    Path(__file__).resolve().parents[1]
+    / "src/banana_smasher_plugin/dispatch_policy.py"
+)
+
+
+def _load_policy():
+    spec = importlib.util.spec_from_file_location("banana_smasher_dispatch_policy", SOURCE)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_shape_policy_covers_decision_rows_and_prefill() -> None:
+    policy = _load_policy()
+    expected = {
+        6: ("decode_c1", 1, 1),
+        12: ("decode_c2", 2, 1),
+        24: ("decode_c4", 4, 1),
+        48: ("decode_c8", 4, 2),
+        96: ("decode_c16", 4, 4),
+        192: ("prefill_bm16", 16, 2),
+        49152: ("prefill_large_8192", 16, 512),
+    }
+    for rows, wanted in expected.items():
+        decision = policy.shape_policy(rows)
+        assert (
+            decision["kernel"],
+            decision["chunk_tokens"],
+            decision["chunks"],
+        ) == wanted
+        assert decision["route_rows"] == rows
+        assert decision["tokens"] == rows // 6
+        assert decision["zero_dequant"] is True
+        assert decision["graph_reuse"] is (rows <= 96)
+        assert decision["activation"] == "active"
+
+    for rows in (378, 384, 390, 3072, 12000, 49152):
+        decision = policy.shape_policy(rows)
+        assert decision["mblock"] == 16
+        assert decision["zero_dequant"] is True
+    with pytest.raises(NotImplementedError, match="at most 8192"):
+        policy.shape_policy(8193 * 6)
+
+
+def test_shape_policy_fails_closed_on_unreachable_route_shapes() -> None:
+    policy = _load_policy()
+    for rows in (0, -6, 1, 7, 97):
+        with pytest.raises(ValueError):
+            policy.shape_policy(rows)
+
+
+@pytest.mark.parametrize(
+    ("tokens", "kernel", "chunks", "graph_reuse"),
+    (
+        (3, "decode_c4", 1, True),
+        (5, "decode_c8", 2, True),
+        (7, "decode_c8", 2, True),
+        (9, "decode_c16", 3, True),
+        (15, "decode_c16", 4, True),
+        (31, "prefill_bm16", 2, False),
+    ),
+)
+def test_intermediate_scheduler_shapes_use_four_token_graph_chunks(
+    tokens: int, kernel: str, chunks: int, graph_reuse: bool
+) -> None:
+    decision = _load_policy().shape_policy(tokens * 6)
+    assert decision["kernel"] == kernel
+    assert decision["chunk_tokens"] == (16 if tokens == 31 else 4)
+    assert decision["chunks"] == chunks
+    assert decision["graph_reuse"] is graph_reuse
+
+
+def test_intermediate_scheduler_shapes_are_warmed_before_live_graph_replay() -> None:
+    policy = _load_policy()
+
+    route_rows = policy.required_warmup_route_rows()
+
+    for tokens in (3, 5, 7, 9, 15):
+        assert tokens * policy.TOP_K in route_rows
+
+
+def test_shape_policy_has_no_environment_driven_product_switches() -> None:
+    source = SOURCE.read_text()
+    assert "os.environ" not in source
+    assert "os.getenv" not in source
+    assert "fallback" not in source
+    assert policy_labels(source) == {
+        "decode_c1",
+        "decode_c2",
+        "decode_c4",
+        "decode_c8",
+        "decode_c16",
+        "prefill_bm16",
+        "prefill_large",
+        "prefill_exact_2k",
+        "prefill_large_8192",
+    }
+
+
+def policy_labels(source: str) -> set[str]:
+    return {
+        label
+        for label in (
+            "decode_c1",
+            "decode_c2",
+            "decode_c4",
+            "decode_c8",
+            "decode_c16",
+            "prefill_bm16",
+            "prefill_large",
+            "prefill_exact_2k",
+            "prefill_large_8192",
+        )
+        if label in source
+    }

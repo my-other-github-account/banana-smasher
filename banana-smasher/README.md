@@ -38,6 +38,12 @@ or D8 vector-VQ fixtures. Prices are read from candidate receipts as per-cell
 payload bytes plus shared activation artifacts; the exact solver charges each
 activation identity once.
 
+Homogeneous native-V4 Anchor64 menus use the separate `qtip_native_v4`
+family. Any exact quarter-rate set can be declared without adding provider
+code; see [`QTIP_NATIVE_V4_FINE_RATES_API.md`](../notes/QTIP_NATIVE_V4_FINE_RATES_API.md)
+for the Python/CLI contracts, scalable build geometry, and measured B7/B9 CUDA
+results.
+
 The equivalent CLI path is:
 
 ```console
@@ -137,6 +143,18 @@ receipts import those stages without candidate-generation or anchor replay;
 receipts as evidence. Use
 `admission="evidence_only"` for quarantined diagnostics or historical rails;
 they are retained as evidence but cannot be promoted as current solve inputs.
+
+## QTIP 2.5 native V4 cell API
+
+The homogeneous `L16/B10/V4` winner is available through
+`build_qtip25_native_v4_cell(...)` and
+`anchor_qtip25_native_v4_cell(...)`, with matching
+`smash qtip-native-v4 build-cell` and `anchor-cell` commands. The CUDA path
+binds physical source weights, a same-basis compact QTIP transform, and the
+shared Q9/V2 TLUT; it emits exact 2.5-BPW codes, a physical decoded cell, and
+hash-bound mechanics/anchor receipts. See
+[QTIP25_NATIVE_V4_API.md](../notes/QTIP25_NATIVE_V4_API.md) for the measured
+configuration and a pasteable agent brief.
 
 ## Three-command release path
 
