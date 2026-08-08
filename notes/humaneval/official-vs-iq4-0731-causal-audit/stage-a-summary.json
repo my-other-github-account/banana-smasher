@@ -1,0 +1,127 @@
+{
+  "causal_limit": "Different runtimes and native reasoning routes; no quantization-causal claim is admissible.",
+  "classification": "prompt-render/tokenization mismatch",
+  "discordant_task_ids": [
+    "HumanEval/49",
+    "HumanEval/54",
+    "HumanEval/65",
+    "HumanEval/75",
+    "HumanEval/86",
+    "HumanEval/92",
+    "HumanEval/93",
+    "HumanEval/99",
+    "HumanEval/103",
+    "HumanEval/115",
+    "HumanEval/124",
+    "HumanEval/127",
+    "HumanEval/130",
+    "HumanEval/160",
+    "HumanEval/163"
+  ],
+  "official": {
+    "canonical_sha256": "f5ad9013abe6013891f745969a2e9bf7ce66fccf03cc8e7ea950f3b2f519b541",
+    "humaneval_passed": 154,
+    "humaneval_plus_passed": 147,
+    "rows": 164,
+    "runtime_receipt_sha256": "eead902fb5836c5ce7fb0a1168ee1aa839964f277d75d64d6b380daff3387dbc"
+  },
+  "paired": {
+    "humaneval": {
+      "both_fail": 2,
+      "both_pass": 151,
+      "iq4_only": 8,
+      "iq4_passed": 159,
+      "mcnemar_exact_two_sided_p": 0.2265625,
+      "official_only": 3,
+      "official_passed": 154
+    },
+    "humaneval_plus": {
+      "both_fail": 7,
+      "both_pass": 142,
+      "iq4_only": 10,
+      "iq4_passed": 152,
+      "mcnemar_exact_two_sided_p": 0.3017578125,
+      "official_only": 5,
+      "official_passed": 147
+    }
+  },
+  "physical_replay_status": "pending a genuinely released, allocation-authorized two-Spark pair",
+  "promotion_status": "not eligible before stable native-route and prompt-normalized replay",
+  "prompt_route": {
+    "iq4_template": "<\uff5cbegin\u2581of\u2581sentence\uff5c><\uff5cUser\uff5c>{content}<\uff5cAssistant\uff5c><think>",
+    "iq4_terminal_token_id": [
+      128821
+    ],
+    "iq4_usage_token_count_match": 164,
+    "messages_equal_count": 164,
+    "official_template": "<\uff5cbegin\u2581of\u2581sentence\uff5c><\uff5cUser\uff5c>{content}<\uff5cAssistant\uff5c></think>",
+    "official_terminal_token_id": [
+      128822
+    ],
+    "official_usage_token_count_match": 164,
+    "rendered_byte_equal_count": 0,
+    "token_id_equal_count": 0
+  },
+  "route_artifact_concentration": {
+    "humaneval": {
+      "iq4_only_due_to_official_route_class": 0,
+      "net_iq4_direction_from_route_classes": -2,
+      "official_only_due_to_iq4_route_class": 2
+    },
+    "humaneval_plus": {
+      "iq4_only_due_to_official_route_class": 0,
+      "net_iq4_direction_from_route_classes": -2,
+      "official_only_due_to_iq4_route_class": 2
+    }
+  },
+  "sampling": {
+    "both": {
+      "max_completion_tokens": 4096,
+      "message_roles": [
+        "user"
+      ],
+      "n": 1,
+      "requested_top_p": 0.95,
+      "response_extraction": "OpenAI-compatible message.content, then EvalPlus sanitize(entrypoint)",
+      "temperature": 0.0
+    },
+    "iq4_effective": {
+      "ignore_eos": false,
+      "min_p": 0.05000000074505806,
+      "reasoning_format": "deepseek",
+      "reasoning_in_content": false,
+      "reasoning_mode": "thinking",
+      "seed": 4294967295,
+      "stop_strings": [],
+      "top_k": 40,
+      "top_p": 0.949999988079071
+    },
+    "official_effective": {
+      "engine_seed": 0,
+      "min_p": 0.0,
+      "reasoning_mode": "chat",
+      "request_seed": null,
+      "stop_strings": [],
+      "stop_token_ids": [],
+      "top_k": 0,
+      "top_p_after_vllm_greedy_normalization": 1.0
+    }
+  },
+  "schema": "banana-smasher.public.humaneval-0731-official-vs-iq4-stage-a.v1",
+  "status": "PASS",
+  "tokenizer_identity": {
+    "gguf_first_shard_sha256": "b68fd7fa0579916d7b91bacdbdabece42789b4716be7131f32f59b58642c9472",
+    "hf_tokenizer_json_sha256": "8f9f37ca37fdc4f5fd36d5cf4d3b0e8392edb4e894fd10cc0d70b4957c8633cf",
+    "merge_count": 127741,
+    "merges_equal": true,
+    "token_arrays_equal": true,
+    "token_count": 129280
+  },
+  "ud_iq4_xs": {
+    "canonical_sha256": "46f499f8ff03ca9bf944269c76c222b52f05c61db469d1d30955e71dbcb48fcd",
+    "humaneval_passed": 159,
+    "humaneval_plus_passed": 152,
+    "rows": 164,
+    "runtime_receipt_sha256": "d0e8547ba3565187436dbde1b86dffbd5b29a6f2d33dfbac0d231607b5bf8bbc"
+  }
+}

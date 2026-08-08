@@ -1,6 +1,6 @@
 # DeepSeek-V4-Flash-0731 HumanEval: official release vs UD-IQ4_XS
 
-Status: NEW — measured
+Status: MEASURED — causal audit finds a native prompt-route mismatch; matched physical replay pending
 
 Owner: TBD
 
@@ -14,6 +14,33 @@ This report compares two exact DeepSeek-V4-Flash-0731 artifacts on the frozen `H
 | --- | ---: | ---: | ---: | ---: |
 | Official DeepSeek release | **154/164 (93.90%)** | **147/164 (89.63%)** | 0 | 164 |
 | Unsloth `UD-IQ4_XS` | **159/164 (96.95%)** | **152/164 (92.68%)** | 4 | 164 |
+
+## Causal-audit correction
+
+The five-task direction in each aggregate is not an established major gap. Exact paired recount gives:
+
+| Suite | Both pass | UD-IQ4_XS only | Official only | Both fail | Exact two-sided McNemar p |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| HumanEval | 151 | 8 | 3 | 2 | 0.2265625 |
+| HumanEval+ | 142 | 10 | 5 | 7 | 0.3017578125 |
+
+Both rows used byte-identical user messages for all 164 tasks, but they did **not** use the same rendered model prompt. The official vLLM 0.24.0 DeepSeek-V4 tokenizer route defaulted to chat mode and rendered every request as:
+
+```text
+<｜begin▁of▁sentence｜><｜User｜>{content}<｜Assistant｜></think>
+```
+
+The stock GGUF/llama.cpp route defaulted to thinking mode and rendered:
+
+```text
+<｜begin▁of▁sentence｜><｜User｜>{content}<｜Assistant｜><think>
+```
+
+This is not a vocabulary-conversion artifact. The official HF tokenizer and GGUF metadata have exactly the same 129,280 tokens by ID and the same 127,741 BPE merges. Re-tokenization matched both sealed prompt-token counts on 164/164 tasks, while rendered bytes and token IDs differed on 164/164: the terminal route token is 128822 (`</think>`) for official and 128821 (`<think>`) for GGUF.
+
+The exact discordance audit also does not attribute the IQ4 direction to empties, truncation, syntax, or response-format failures: such route-failure classes net two tasks *against* IQ4 in both suites. The global reasoning-route mismatch remains the decisive instrument confound.
+
+Plain answer: both published scores are real measurements of their named artifacts and native stacks. They do not establish a major reproducible quality gap, and they do not establish that IQ4 quantization caused the observed direction. Until native-route and prompt-normalized repeat replays are complete, the defensible classification is **prompt-render/tokenization mismatch**, not quantization causality.
 
 ## Basis
 
@@ -71,7 +98,8 @@ Both canonical JSONL files were scored in the same frozen container (`sha256:c34
 | UD-IQ4_XS generation handoff | `6fee67e9f80b253c0ede0bbf91223738556ae4bbb159c52e84e87cd64e9b2da6` |
 | UD-IQ4_XS runtime identity | `d0e8547ba3565187436dbde1b86dffbd5b29a6f2d33dfbac0d231607b5bf8bbc` |
 | UD-IQ4_XS four-file identity manifest | `3df9c62e534bc03a4d05ef303dd2f14e0d83bb0c530f2cc7ee974dd3bbd0ef07` |
+| Stage-A causal-audit public summary | `2b9d9a0c28dabf8953755e21ff5faae670fbc8cda9b273c85843064b12b9dbf8` |
 
 ## Limitations
 
-These are N=1 pass@1 rows, not confidence intervals over repeated stochastic samples. Artifact bpw is intentionally not inferred from filenames or marketing labels because this evaluation receipt does not carry the exact whole-model denominator required for that calculation.
+These are one generation per task under two different native runtime/render routes. Exact paired uncertainty is reported above and does not reject equal discordance probabilities at conventional thresholds. The causal audit proves that the native routes differ at the final reasoning-mode token on all 164 prompts; it does not yet measure what happens when both stacks receive a normalized rendered prompt. A stable repeated discordant/control replay under native and normalized routes is required before considering a full aggregate rerun. Even a reproduced normalized-route direction would remain a stack-level result unless a common runtime/token path isolates weight representation.
