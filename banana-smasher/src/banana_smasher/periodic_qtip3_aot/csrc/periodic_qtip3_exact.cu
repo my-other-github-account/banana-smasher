@@ -215,6 +215,18 @@ __global__ void backtrack_kernel(
   }
 }
 
+void configure_dynamic_shared_memory() {
+  C10_CUDA_CHECK(cudaFuncSetAttribute(
+      paired_step_kernel<true, true>,
+      cudaFuncAttributeMaxDynamicSharedMemorySize, SHARED_BYTES));
+  C10_CUDA_CHECK(cudaFuncSetAttribute(
+      paired_step_kernel<true, false>,
+      cudaFuncAttributeMaxDynamicSharedMemorySize, SHARED_BYTES));
+  C10_CUDA_CHECK(cudaFuncSetAttribute(
+      paired_step_kernel<false, false>,
+      cudaFuncAttributeMaxDynamicSharedMemorySize, SHARED_BYTES));
+}
+
 struct GraphState {
   torch::Tensor x;
   torch::Tensor scalar_lut;
@@ -233,6 +245,7 @@ std::map<GraphKey, GraphState*> graph_cache;
 constexpr size_t MAX_GRAPH_CACHE_ENTRIES = 4;
 
 void build_graph(GraphState* state, bool has_overlap) {
+  configure_dynamic_shared_memory();
   C10_CUDA_CHECK(cudaGraphCreate(&state->graph, 0));
   float* in_ptr = state->cost0.data_ptr<float>();
   float* out_ptr = state->cost1.data_ptr<float>();

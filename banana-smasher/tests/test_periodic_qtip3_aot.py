@@ -51,6 +51,20 @@ def test_periodic_qtip3_aot_source_packs_every_exact_pair_in_one_graph() -> None
     assert 'name="periodic_qtip3_cuda_exact"' in setup
 
 
+def test_periodic_qtip3_aot_opts_in_to_its_dynamic_shared_memory() -> None:
+    source = (
+        _package_root()
+        / "periodic_qtip3_aot"
+        / "csrc"
+        / "periodic_qtip3_exact.cu"
+    ).read_text()
+
+    assert source.count("cudaFuncAttributeMaxDynamicSharedMemorySize") == 3
+    assert "paired_step_kernel<true, true>" in source
+    assert "paired_step_kernel<true, false>" in source
+    assert "paired_step_kernel<false, false>" in source
+
+
 def test_periodic_qtip3_aot_reuses_each_previous_prefix_across_low_bits() -> None:
     source = (
         _package_root()
