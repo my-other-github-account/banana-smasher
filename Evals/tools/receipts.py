@@ -348,6 +348,31 @@ def _verify_artifact(artifact: Mapping[str, Any], label: str) -> None:
             raise ReceiptError(f"{label}: recorded-complete identity status drift")
         for field in ("repository", "revision", "variant"):
             _nonempty_string(artifact.get(field), f"{label}.{field}")
+    elif "format" in artifact:
+        _require_exact_keys(
+            artifact,
+            {
+                "base_model",
+                "candidate_artifact_sha256",
+                "candidate_manifest_sha256",
+                "format",
+                "identity_status",
+                "mechanism",
+                "missing_identity_fields",
+                "variant",
+            },
+            label,
+        )
+        if identity_status != "partial" or not missing_fields:
+            raise ReceiptError(f"{label}: external artifact identity must name missing lineage")
+        if artifact.get("base_model") != "DeepSeek-V4-Flash-0731":
+            raise ReceiptError(f"{label}.base_model must remain DeepSeek-V4-Flash-0731")
+        if artifact.get("format") != "EXL3":
+            raise ReceiptError(f"{label}.format must be EXL3")
+        for field in ("variant", "mechanism"):
+            _nonempty_string(artifact.get(field), f"{label}.{field}")
+        for digest_field in ("candidate_artifact_sha256", "candidate_manifest_sha256"):
+            _sha256(artifact.get(digest_field), f"{label}.{digest_field}")
     elif "family" in artifact:
         _require_exact_keys(
             artifact,
@@ -499,6 +524,96 @@ def _verify_classes(
     weighted_kld /= Decimal(positions)
     if repr(float(weighted_kld)) != str(kld_mean):
         raise ReceiptError(f"{model_id}: weighted class KLD does not round to global KLD")
+
+
+def _verify_external_measurement(
+    row: Mapping[str, Any],
+    artifact: Mapping[str, Any],
+    suite_lock: Mapping[str, Any],
+    *,
+    model_id: str,
+) -> None:
+    measurement = _mapping(row.get("measurement"), f"{model_id}.measurement")
+    _require_exact_keys(
+        measurement,
+        {
+            "artifacts",
+            "candidate_artifact_sha256",
+            "class_map_sha256",
+            "fallback_used",
+            "holdout_used",
+            "limitations",
+            "numeric_semantics",
+            "positions",
+            "scorer_source_sha256",
+            "status",
+            "suite_file_sha256",
+            "suite_lock_sha256",
+            "support",
+            "teacher_bank",
+            "teacher_source_model_index_sha256",
+            "unavailable_fields",
+            "window_population_sha256",
+            "windows",
+        },
+        f"{model_id}.measurement",
+    )
+    if measurement.get("status") != "PASS":
+        raise ReceiptError(f"{model_id}: measurement status must be PASS")
+    if measurement.get("candidate_artifact_sha256") != artifact.get(
+        "candidate_artifact_sha256"
+    ):
+        raise ReceiptError(f"{model_id}: candidate identity drift between artifact and measurement")
+    expected_measurement = {
+        "teacher_bank": suite_lock["teacher_bank"],
+        "teacher_source_model_index_sha256": suite_lock[
+            "teacher_source_model_index_sha256"
+        ],
+        "suite_lock_sha256": suite_lock["suite_lock_sha256"],
+        "window_population_sha256": suite_lock["window_population_sha256"],
+        "class_map_sha256": suite_lock["class_map_sha256"],
+        "windows": suite_lock["window_count"],
+        "positions": suite_lock["positions"],
+        "support": suite_lock["support"],
+    }
+    for field, expected in expected_measurement.items():
+        if measurement.get(field) != expected:
+            raise ReceiptError(f"{model_id}: measurement {field} differs from suite lock")
+    for digest_field in ("scorer_source_sha256", "suite_file_sha256"):
+        _sha256(measurement.get(digest_field), f"{model_id}.measurement.{digest_field}")
+    for flag in ("holdout_used", "fallback_used"):
+        if measurement.get(flag) is not False:
+            raise ReceiptError(f"{model_id}: measurement {flag} must be false")
+    _nonempty_string(
+        measurement.get("numeric_semantics"), f"{model_id}.measurement.numeric_semantics"
+    )
+
+    artifacts = _mapping(measurement.get("artifacts"), f"{model_id}.measurement.artifacts")
+    required_artifacts = {
+        "candidate_artifact_tree_sha256",
+        "candidate_manifest_sha256",
+        "independent_exact_recompute_sha256",
+        "independent_validation_sha256",
+        "main_measurement_receipt_sha256",
+        "teacher_tree_sha256",
+    }
+    if set(artifacts) != required_artifacts:
+        raise ReceiptError(f"{model_id}: measurement artifact hash set is incomplete")
+    for name, digest in artifacts.items():
+        _sha256(digest, f"{model_id}.measurement.artifacts.{name}")
+    if artifacts["candidate_artifact_tree_sha256"] != artifact.get(
+        "candidate_artifact_sha256"
+    ):
+        raise ReceiptError(f"{model_id}: candidate artifact tree hash drift")
+    if artifacts["candidate_manifest_sha256"] != artifact.get("candidate_manifest_sha256"):
+        raise ReceiptError(f"{model_id}: candidate manifest hash drift")
+
+    for field in ("limitations", "unavailable_fields"):
+        values = _sequence(measurement.get(field), f"{model_id}.measurement.{field}")
+        if not values:
+            raise ReceiptError(f"{model_id}: measurement {field} must not be empty")
+        for value_index, value in enumerate(values):
+            _nonempty_string(value, f"{model_id}.measurement.{field}[{value_index}]")
 
 
 def _verify_qtip_details(
@@ -711,6 +826,7 @@ def verify_result_receipt(
         row = _mapping(raw_row, f"results[{index}]")
         artifact = _mapping(row.get("artifact"), f"results[{index}].artifact")
         is_qtip = "family" in artifact
+        has_external_measurement = "measurement" in row and not is_qtip
         expected_row_keys = {
             "artifact",
             "display_name",
@@ -726,6 +842,8 @@ def verify_result_receipt(
         expected_row_keys.add("classes")
         if is_qtip:
             expected_row_keys.update({"measurement", "weight_components"})
+        elif has_external_measurement:
+            expected_row_keys.add("measurement")
         _require_exact_keys(
             row,
             expected_row_keys,
@@ -864,6 +982,13 @@ def verify_result_receipt(
                 matches=matches,
                 positions=top1_positions,
             )
+            if has_external_measurement:
+                _verify_external_measurement(
+                    row,
+                    artifact,
+                    suite_lock,
+                    model_id=model_id,
+                )
 
         sources = _sequence(row.get("source_receipts"), f"{model_id}.source_receipts")
         if not sources:
