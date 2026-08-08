@@ -300,11 +300,13 @@ def ldlq_native_v4_cuda_batch(
                     torch.bmm(error_right, lower_group[:, end:, start:end])
                 )
         flattened_tiles = torch.stack(
-            [
-                corrected[group].reshape(row_blocks, 64, geometry.V)
-                / flat_scales[group]
-                for group in range(group_count)
-            ]
+            torch._foreach_div(
+                [
+                    corrected[group].reshape(row_blocks, 64, geometry.V)
+                    for group in range(group_count)
+                ],
+                flat_scales,
+            )
         ).reshape(group_count * row_blocks, 64, geometry.V)
         parts = []
         for batch_start in range(0, len(flattened_tiles), solve_batch):
@@ -318,10 +320,15 @@ def ldlq_native_v4_cuda_batch(
                 )
             )
         states = torch.cat(parts).reshape(group_count, row_blocks, 64)
-        for group in range(group_count):
-            decoded[group, :, start:end] = (
-                state_lut[states[group]].reshape(rows, 16) * flat_scales[group]
+        decoded[:, :, start:end] = torch.stack(
+            torch._foreach_mul(
+                [
+                    state_lut[states[group]].reshape(rows, 16)
+                    for group in range(group_count)
+                ],
+                flat_scales,
             )
+        )
         states_grid[:, :, column_block] = states
     difference = decoded.double() - source_group.double()
     distortions = (
