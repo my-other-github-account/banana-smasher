@@ -1,0 +1,57 @@
+{
+  "schema": "banana-smasher-backpack-provider-smoke-v1",
+  "status": "PASS",
+  "source_commit": "55a7e733a3dffd11fdf2ad78a7b9634fba877c0f",
+  "focused_tests": {
+    "command": "PYTHONPATH=src python3.13 -m pytest -q tests/test_backpack_family_providers.py tests/test_fixed_d4_source_adapter.py tests/test_qtip_public_api.py tests/test_qtip1.py tests/test_qtip_batch.py tests/test_backpack_framework.py tests/test_contract.py tests/test_repair.py tests/test_physical_repair_backend.py tests/test_cli.py",
+    "result": "115 passed, 4 platform skips"
+  },
+  "ruff": "PASS",
+  "source": {
+    "commands": [
+      "PYTHONPATH=src python3.13 tests/backpack_provider_flat_smoke.py --root <temporary-root>",
+      "PYTHONPATH=src python3.13 tests/backpack_fixed_d4_production_smoke.py --root <temporary-root>"
+    ],
+    "module_origin": "source-tree",
+    "result": {
+      "flat_lifecycle": "PASS",
+      "cli_status": "PASS",
+      "qtip15_declaration": "qtip@1.50",
+      "fixed_d4": {
+        "algorithm": "exact-native-mxfp4-d4",
+        "source_dtype": "packed-mxfp4-e2m1-with-e8m0-scales",
+        "nonunity_e8m0_scale": 128,
+        "k2048": {
+          "candidate_cells": 2,
+          "whole_model_bytes": 8438064,
+          "final_status": "PASS",
+          "pack_status": "PASS"
+        },
+        "k4096": {
+          "candidate_cells": 2,
+          "whole_model_bytes": 16827440,
+          "final_status": "PASS",
+          "pack_status": "PASS"
+        }
+      }
+    }
+  },
+  "installed_wheel": {
+    "filename": "banana_smasher-1.0.0-py3-none-any.whl",
+    "sha256": "8e1e111533e53d43c17a3799c1d15e6b1c6bf677a0761a446816e5e3c72427ef",
+    "module_origin": "isolated-site-packages",
+    "dependency_install": "ordinary wheel install",
+    "update_backends": [
+      "physical-repair=banana_smasher.update_backends.physical_repair:run_physical_repair"
+    ],
+    "result": {
+      "flat_lifecycle": "PASS",
+      "fixed_d4_k2048": "PASS",
+      "fixed_d4_k4096": "PASS",
+      "fixed_d4_algorithm": "exact-native-mxfp4-d4",
+      "nonunity_e8m0_scale": 128,
+      "pack_status": "PASS",
+      "cli_status": "PASS"
+    }
+  }
+}

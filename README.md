@@ -1,10 +1,17 @@
 # Banana Smasher runtime
 
-This standalone repository owns one path only:
+This standalone repository owns two reusable product paths:
 
 materialized quant source -> `smash export` -> `smash verify` -> self-contained `/model` pack -> pinned stock vLLM image with `vllm.general_plugins` -> OpenAI-compatible API.
 
-It does not contain training, solver orchestration, benchmark ledgers, or historical run artifacts.
+bank manifest -> materialized evaluation bank -> exact teacher/candidate producer rows -> resumable KLD -> measured aggregate -> optional parent estimate -> training-only solver row.
+
+It does not contain campaign orchestration, private benchmark ledgers, raw
+historical run artifacts, model weights, or logits. The generic anchor API,
+schemas, public-safe four-bank provenance bundle, and commands are documented in
+`banana-smasher/ANCHOR_EVALUATION.md`. Public frozen competitive evaluation
+contracts and result tables live under [`Evals/`](Evals/); separate internal
+QTIP family-anchor calculations live under [`Backpack/`](Backpack/).
 
 ## Clone
 
@@ -13,7 +20,40 @@ git clone https://github.com/my-other-github-account/banana-smasher.git
 cd banana-smasher
 ```
 
-The repository contains two installable Python distributions: `banana-smasher` for export, verification, and pack development, and `banana-smasher-plugin` for stock-vLLM serving integration.
+The repository contains two installable Python distributions: `banana-smasher` for export, verification, pack development, and anchor evaluation, and `banana-smasher-plugin` for stock-vLLM serving integration.
+
+## Five-minute Backpack quickstart
+
+Install the ordinary wheel, inspect the built-in tier menu, and run the small
+end-to-end fixture. The smoke calls the public generate, candidate-anchor,
+predict, exact-solve, materialize, pack-verify, and one-plan build APIs; it also
+checks the installed `smash backpack status` CLI.
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install ./banana-smasher
+smash backpack providers
+python banana-smasher/tests/backpack_provider_flat_smoke.py --root /tmp/banana-backpack-smoke
+```
+
+For a real model, create a `banana-smasher-backpack-plan-v1` JSON document using
+`banana-smasher/schema/banana-smasher-backpack-plan-v1.schema.json`, then run:
+
+```bash
+smash backpack build --plan plan.json --run-root ./backpack-run
+smash backpack status --run-root ./backpack-run
+smash verify ./backpack-run/final-pack
+```
+
+Plans can compose native MXFP4, QTIP2/QTIP2.5/QTIP3, and fixed D4 K2048/K4096
+providers. Authentic QTIP1/QTIP1.5 declarations are public extension points but
+do not yet claim stock-vLLM K1/V1 execution. Python users can independently call
+`generate_backpack_candidate`, `anchor_backpack_candidates`,
+`predict_backpack_candidate`, `solve_backpack`,
+`materialize_backpack_assignment`, and `verify_backpack_candidate`; the
+`build_backpack` orchestration path calls those same provider operations rather
+than a private duplicate implementation.
 
 ## Build and test both Python packages on a development host
 
@@ -57,6 +97,12 @@ smash verify "$MODEL_OUT"
 ```
 
 `examples/export_model.sh` provides the same fail-closed command. The resulting directory is self-contained and is the only directory mounted at `/model` for serving.
+
+For model-size reports and public names, use `smash bpw` rather than dividing by
+container tensor counts. It emits the versioned whole-model accounting record,
+uses canonical base-model logical parameters for the comparable/publication BPW,
+and reports any auxiliary-model denominator separately. See
+[`banana-smasher/README.md`](banana-smasher/README.md#standard-whole-model-bpw-accounting).
 
 ## Build and serve the pinned Linux ARM64 image
 

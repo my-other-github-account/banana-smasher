@@ -1,0 +1,51 @@
+{
+  "schema": "banana-smasher.humaneval-suite-lock.v1",
+  "name": "HUMANEVAL_0731_V1",
+  "model_family": "DeepSeek-V4-Flash-0731",
+  "harness": {
+    "name": "EvalPlus",
+    "version": "0.4.0.dev44",
+    "git_commit": "26d6d00bb1fd0fa37f39c99d5290da67891d1c5e"
+  },
+  "dataset": {
+    "name": "HumanEvalPlus",
+    "release": "v0.1.10",
+    "hash": "fe585eb4df8c88d844eeb463ea4d0302",
+    "task_count": 164
+  },
+  "prompt": {
+    "system": null,
+    "user_prefix": "Please provide a self-contained Python script that solves the following problem in a markdown code block:",
+    "code_fence_language": "python"
+  },
+  "generation": {
+    "backend": "openai",
+    "decode": "greedy",
+    "samples_per_task": 1,
+    "temperature": 0.0,
+    "top_p": 0.95,
+    "max_completion_tokens": 4096,
+    "prompt_tokens_counted": false,
+    "scored_response_field": "message.content",
+    "reasoning_response_field": "not-scored",
+    "semantic_null_policy": "write-empty-and-fail",
+    "client_concurrency": 1,
+    "speculative_decoding": false
+  },
+  "shard_ranges": [
+    [0, 41],
+    [41, 82],
+    [82, 123],
+    [123, 164]
+  ],
+  "cap_shim": {
+    "implementation": "Evals.tools.humaneval.install_openai_cap_shim",
+    "historical_reference_sha256": "459a84bb6c594b4e03ed74992c30eb4ddbe05bb04ba127a659f540d4fea99282"
+  },
+  "evaluation": {
+    "parallel_workers": 8,
+    "minimum_time_limit_seconds": 4.0,
+    "ground_truth_time_limit_factor": 4.0,
+    "failed_sample_policy": "retain-in-denominator"
+  }
+}

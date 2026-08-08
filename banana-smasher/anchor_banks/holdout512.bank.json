@@ -1,0 +1,2127 @@
+{
+  "bank_id": "holdout512",
+  "class_counts": {
+    "agentic": 154,
+    "chat": 52,
+    "code": 76,
+    "multilingual": 76,
+    "prose": 78,
+    "reasoning": 76
+  },
+  "content_hashes": {
+    "class_map_sha256": "6b7237d98560a48e5857edcdae8b3bc356b63e40af8fc4b8f00a25c28a15b628",
+    "manifest_payload_sha256": "92dd4c244eff5cf7cd94c9bf8e5f52a9b7fc0815cece348d9371aa65d1e821b1",
+    "membership_sha256": "2548ed49e7d5f9ce5e915cb2b7702cc19757516c88f03b3629f87250900c8ae6"
+  },
+  "creation": {
+    "config": {
+      "builder_spec_sha256": "46ead6c6ea02f2a1b17273db7a1faaa95f66e1b27d8375313f1688c1963706df",
+      "seed": 20260730,
+      "source_manifest_sha256": "063b7552deeda0494ef623b048a325e271671867df7501ffdc79faca6708fe1b",
+      "source_windows_sha256": "2de3ac4110ade4efe7c1b9f1482ef920352142cbee549cffb475f0aa91cc7896",
+      "tokens_per_window": 1024
+    },
+    "method": "deterministic_source_build"
+  },
+  "dataset_fields": {
+    "class": "class",
+    "window_id": "id_1m"
+  },
+  "identities": {
+    "corpus": {
+      "sha256": "2de3ac4110ade4efe7c1b9f1482ef920352142cbee549cffb475f0aa91cc7896",
+      "status": "resolved",
+      "uri": "artifact://banana-smasher/historical/holdout512-windows-v1.jsonl"
+    },
+    "scorer": {
+      "reason": "Historical receipts describe the KLD convention but do not bind an immutable scorer code/config hash.",
+      "status": "unresolved"
+    },
+    "teacher": {
+      "reason": "Teacher logits are candidate-basis-specific and no reusable public teacher-bank hash was recovered.",
+      "status": "unresolved"
+    },
+    "tokenizer": {
+      "reason": "The recovered public-safe receipts do not bind an exact tokenizer artifact hash.",
+      "status": "unresolved"
+    }
+  },
+  "parent_corpus": {
+    "sha256": "2de3ac4110ade4efe7c1b9f1482ef920352142cbee549cffb475f0aa91cc7896",
+    "status": "resolved",
+    "uri": "artifact://banana-smasher/historical/holdout512-windows-v1.jsonl"
+  },
+  "relationships": [
+    {
+      "bank_id": "train512",
+      "evidence_sha256": "79943e7398c665c88a223e5eb41f4958787d3cd10b1da845fe99b567f456492e",
+      "relation": "content_disjoint"
+    },
+    {
+      "bank_id": "train_balanced64",
+      "evidence_sha256": "79943e7398c665c88a223e5eb41f4958787d3cd10b1da845fe99b567f456492e",
+      "relation": "content_disjoint"
+    },
+    {
+      "bank_id": "holdout_balanced64",
+      "evidence_sha256": "79943e7398c665c88a223e5eb41f4958787d3cd10b1da845fe99b567f456492e",
+      "relation": "content_disjoint"
+    }
+  ],
+  "role": "holdout512",
+  "schema": "banana-smasher-bank-manifest-v1",
+  "split_lineage": {
+    "parent_bank_id": null,
+    "split": "HOLDOUT512_V1"
+  },
+  "windows": [
+    {
+      "class": "multilingual",
+      "id": 0
+    },
+    {
+      "class": "agentic",
+      "id": 1
+    },
+    {
+      "class": "chat",
+      "id": 2
+    },
+    {
+      "class": "code",
+      "id": 3
+    },
+    {
+      "class": "prose",
+      "id": 4
+    },
+    {
+      "class": "agentic",
+      "id": 5
+    },
+    {
+      "class": "agentic",
+      "id": 6
+    },
+    {
+      "class": "agentic",
+      "id": 7
+    },
+    {
+      "class": "agentic",
+      "id": 8
+    },
+    {
+      "class": "prose",
+      "id": 9
+    },
+    {
+      "class": "prose",
+      "id": 10
+    },
+    {
+      "class": "code",
+      "id": 11
+    },
+    {
+      "class": "agentic",
+      "id": 12
+    },
+    {
+      "class": "multilingual",
+      "id": 13
+    },
+    {
+      "class": "prose",
+      "id": 14
+    },
+    {
+      "class": "agentic",
+      "id": 15
+    },
+    {
+      "class": "agentic",
+      "id": 16
+    },
+    {
+      "class": "code",
+      "id": 17
+    },
+    {
+      "class": "code",
+      "id": 18
+    },
+    {
+      "class": "multilingual",
+      "id": 19
+    },
+    {
+      "class": "code",
+      "id": 20
+    },
+    {
+      "class": "reasoning",
+      "id": 21
+    },
+    {
+      "class": "agentic",
+      "id": 22
+    },
+    {
+      "class": "reasoning",
+      "id": 23
+    },
+    {
+      "class": "multilingual",
+      "id": 24
+    },
+    {
+      "class": "agentic",
+      "id": 25
+    },
+    {
+      "class": "reasoning",
+      "id": 26
+    },
+    {
+      "class": "code",
+      "id": 27
+    },
+    {
+      "class": "agentic",
+      "id": 28
+    },
+    {
+      "class": "agentic",
+      "id": 29
+    },
+    {
+      "class": "multilingual",
+      "id": 30
+    },
+    {
+      "class": "chat",
+      "id": 31
+    },
+    {
+      "class": "agentic",
+      "id": 32
+    },
+    {
+      "class": "agentic",
+      "id": 33
+    },
+    {
+      "class": "agentic",
+      "id": 34
+    },
+    {
+      "class": "code",
+      "id": 35
+    },
+    {
+      "class": "agentic",
+      "id": 36
+    },
+    {
+      "class": "reasoning",
+      "id": 37
+    },
+    {
+      "class": "chat",
+      "id": 38
+    },
+    {
+      "class": "prose",
+      "id": 39
+    },
+    {
+      "class": "reasoning",
+      "id": 40
+    },
+    {
+      "class": "prose",
+      "id": 41
+    },
+    {
+      "class": "agentic",
+      "id": 42
+    },
+    {
+      "class": "code",
+      "id": 43
+    },
+    {
+      "class": "multilingual",
+      "id": 44
+    },
+    {
+      "class": "agentic",
+      "id": 45
+    },
+    {
+      "class": "prose",
+      "id": 46
+    },
+    {
+      "class": "reasoning",
+      "id": 47
+    },
+    {
+      "class": "code",
+      "id": 48
+    },
+    {
+      "class": "reasoning",
+      "id": 49
+    },
+    {
+      "class": "agentic",
+      "id": 50
+    },
+    {
+      "class": "reasoning",
+      "id": 51
+    },
+    {
+      "class": "agentic",
+      "id": 52
+    },
+    {
+      "class": "multilingual",
+      "id": 53
+    },
+    {
+      "class": "agentic",
+      "id": 54
+    },
+    {
+      "class": "reasoning",
+      "id": 55
+    },
+    {
+      "class": "chat",
+      "id": 56
+    },
+    {
+      "class": "reasoning",
+      "id": 57
+    },
+    {
+      "class": "code",
+      "id": 58
+    },
+    {
+      "class": "agentic",
+      "id": 59
+    },
+    {
+      "class": "code",
+      "id": 60
+    },
+    {
+      "class": "code",
+      "id": 61
+    },
+    {
+      "class": "agentic",
+      "id": 62
+    },
+    {
+      "class": "agentic",
+      "id": 63
+    },
+    {
+      "class": "agentic",
+      "id": 64
+    },
+    {
+      "class": "multilingual",
+      "id": 65
+    },
+    {
+      "class": "agentic",
+      "id": 66
+    },
+    {
+      "class": "code",
+      "id": 67
+    },
+    {
+      "class": "prose",
+      "id": 68
+    },
+    {
+      "class": "multilingual",
+      "id": 69
+    },
+    {
+      "class": "reasoning",
+      "id": 70
+    },
+    {
+      "class": "code",
+      "id": 71
+    },
+    {
+      "class": "prose",
+      "id": 72
+    },
+    {
+      "class": "agentic",
+      "id": 73
+    },
+    {
+      "class": "prose",
+      "id": 74
+    },
+    {
+      "class": "agentic",
+      "id": 75
+    },
+    {
+      "class": "multilingual",
+      "id": 76
+    },
+    {
+      "class": "agentic",
+      "id": 77
+    },
+    {
+      "class": "chat",
+      "id": 78
+    },
+    {
+      "class": "multilingual",
+      "id": 79
+    },
+    {
+      "class": "agentic",
+      "id": 80
+    },
+    {
+      "class": "prose",
+      "id": 81
+    },
+    {
+      "class": "chat",
+      "id": 82
+    },
+    {
+      "class": "prose",
+      "id": 83
+    },
+    {
+      "class": "chat",
+      "id": 84
+    },
+    {
+      "class": "reasoning",
+      "id": 85
+    },
+    {
+      "class": "agentic",
+      "id": 86
+    },
+    {
+      "class": "multilingual",
+      "id": 87
+    },
+    {
+      "class": "multilingual",
+      "id": 88
+    },
+    {
+      "class": "prose",
+      "id": 89
+    },
+    {
+      "class": "prose",
+      "id": 90
+    },
+    {
+      "class": "agentic",
+      "id": 91
+    },
+    {
+      "class": "code",
+      "id": 92
+    },
+    {
+      "class": "agentic",
+      "id": 93
+    },
+    {
+      "class": "reasoning",
+      "id": 94
+    },
+    {
+      "class": "agentic",
+      "id": 95
+    },
+    {
+      "class": "code",
+      "id": 96
+    },
+    {
+      "class": "code",
+      "id": 97
+    },
+    {
+      "class": "agentic",
+      "id": 98
+    },
+    {
+      "class": "prose",
+      "id": 99
+    },
+    {
+      "class": "agentic",
+      "id": 100
+    },
+    {
+      "class": "reasoning",
+      "id": 101
+    },
+    {
+      "class": "agentic",
+      "id": 102
+    },
+    {
+      "class": "prose",
+      "id": 103
+    },
+    {
+      "class": "prose",
+      "id": 104
+    },
+    {
+      "class": "chat",
+      "id": 105
+    },
+    {
+      "class": "code",
+      "id": 106
+    },
+    {
+      "class": "reasoning",
+      "id": 107
+    },
+    {
+      "class": "prose",
+      "id": 108
+    },
+    {
+      "class": "prose",
+      "id": 109
+    },
+    {
+      "class": "chat",
+      "id": 110
+    },
+    {
+      "class": "reasoning",
+      "id": 111
+    },
+    {
+      "class": "prose",
+      "id": 112
+    },
+    {
+      "class": "chat",
+      "id": 113
+    },
+    {
+      "class": "reasoning",
+      "id": 114
+    },
+    {
+      "class": "agentic",
+      "id": 115
+    },
+    {
+      "class": "prose",
+      "id": 116
+    },
+    {
+      "class": "reasoning",
+      "id": 117
+    },
+    {
+      "class": "prose",
+      "id": 118
+    },
+    {
+      "class": "chat",
+      "id": 119
+    },
+    {
+      "class": "code",
+      "id": 120
+    },
+    {
+      "class": "agentic",
+      "id": 121
+    },
+    {
+      "class": "prose",
+      "id": 122
+    },
+    {
+      "class": "reasoning",
+      "id": 123
+    },
+    {
+      "class": "agentic",
+      "id": 124
+    },
+    {
+      "class": "prose",
+      "id": 125
+    },
+    {
+      "class": "code",
+      "id": 126
+    },
+    {
+      "class": "agentic",
+      "id": 127
+    },
+    {
+      "class": "agentic",
+      "id": 128
+    },
+    {
+      "class": "agentic",
+      "id": 129
+    },
+    {
+      "class": "code",
+      "id": 130
+    },
+    {
+      "class": "prose",
+      "id": 131
+    },
+    {
+      "class": "agentic",
+      "id": 132
+    },
+    {
+      "class": "agentic",
+      "id": 133
+    },
+    {
+      "class": "chat",
+      "id": 134
+    },
+    {
+      "class": "multilingual",
+      "id": 135
+    },
+    {
+      "class": "agentic",
+      "id": 136
+    },
+    {
+      "class": "agentic",
+      "id": 137
+    },
+    {
+      "class": "chat",
+      "id": 138
+    },
+    {
+      "class": "multilingual",
+      "id": 139
+    },
+    {
+      "class": "reasoning",
+      "id": 140
+    },
+    {
+      "class": "reasoning",
+      "id": 141
+    },
+    {
+      "class": "agentic",
+      "id": 142
+    },
+    {
+      "class": "prose",
+      "id": 143
+    },
+    {
+      "class": "multilingual",
+      "id": 144
+    },
+    {
+      "class": "prose",
+      "id": 145
+    },
+    {
+      "class": "agentic",
+      "id": 146
+    },
+    {
+      "class": "code",
+      "id": 147
+    },
+    {
+      "class": "agentic",
+      "id": 148
+    },
+    {
+      "class": "multilingual",
+      "id": 149
+    },
+    {
+      "class": "code",
+      "id": 150
+    },
+    {
+      "class": "agentic",
+      "id": 151
+    },
+    {
+      "class": "agentic",
+      "id": 152
+    },
+    {
+      "class": "agentic",
+      "id": 153
+    },
+    {
+      "class": "prose",
+      "id": 154
+    },
+    {
+      "class": "code",
+      "id": 155
+    },
+    {
+      "class": "multilingual",
+      "id": 156
+    },
+    {
+      "class": "chat",
+      "id": 157
+    },
+    {
+      "class": "reasoning",
+      "id": 158
+    },
+    {
+      "class": "agentic",
+      "id": 159
+    },
+    {
+      "class": "agentic",
+      "id": 160
+    },
+    {
+      "class": "code",
+      "id": 161
+    },
+    {
+      "class": "prose",
+      "id": 162
+    },
+    {
+      "class": "reasoning",
+      "id": 163
+    },
+    {
+      "class": "chat",
+      "id": 164
+    },
+    {
+      "class": "multilingual",
+      "id": 165
+    },
+    {
+      "class": "agentic",
+      "id": 166
+    },
+    {
+      "class": "chat",
+      "id": 167
+    },
+    {
+      "class": "chat",
+      "id": 168
+    },
+    {
+      "class": "reasoning",
+      "id": 169
+    },
+    {
+      "class": "agentic",
+      "id": 170
+    },
+    {
+      "class": "reasoning",
+      "id": 171
+    },
+    {
+      "class": "prose",
+      "id": 172
+    },
+    {
+      "class": "reasoning",
+      "id": 173
+    },
+    {
+      "class": "multilingual",
+      "id": 174
+    },
+    {
+      "class": "prose",
+      "id": 175
+    },
+    {
+      "class": "prose",
+      "id": 176
+    },
+    {
+      "class": "multilingual",
+      "id": 177
+    },
+    {
+      "class": "chat",
+      "id": 178
+    },
+    {
+      "class": "chat",
+      "id": 179
+    },
+    {
+      "class": "reasoning",
+      "id": 180
+    },
+    {
+      "class": "reasoning",
+      "id": 181
+    },
+    {
+      "class": "reasoning",
+      "id": 182
+    },
+    {
+      "class": "chat",
+      "id": 183
+    },
+    {
+      "class": "code",
+      "id": 184
+    },
+    {
+      "class": "agentic",
+      "id": 185
+    },
+    {
+      "class": "multilingual",
+      "id": 186
+    },
+    {
+      "class": "code",
+      "id": 187
+    },
+    {
+      "class": "agentic",
+      "id": 188
+    },
+    {
+      "class": "agentic",
+      "id": 189
+    },
+    {
+      "class": "reasoning",
+      "id": 190
+    },
+    {
+      "class": "multilingual",
+      "id": 191
+    },
+    {
+      "class": "reasoning",
+      "id": 192
+    },
+    {
+      "class": "multilingual",
+      "id": 193
+    },
+    {
+      "class": "prose",
+      "id": 194
+    },
+    {
+      "class": "multilingual",
+      "id": 195
+    },
+    {
+      "class": "prose",
+      "id": 196
+    },
+    {
+      "class": "agentic",
+      "id": 197
+    },
+    {
+      "class": "code",
+      "id": 198
+    },
+    {
+      "class": "prose",
+      "id": 199
+    },
+    {
+      "class": "multilingual",
+      "id": 200
+    },
+    {
+      "class": "agentic",
+      "id": 201
+    },
+    {
+      "class": "multilingual",
+      "id": 202
+    },
+    {
+      "class": "code",
+      "id": 203
+    },
+    {
+      "class": "reasoning",
+      "id": 204
+    },
+    {
+      "class": "multilingual",
+      "id": 205
+    },
+    {
+      "class": "agentic",
+      "id": 206
+    },
+    {
+      "class": "agentic",
+      "id": 207
+    },
+    {
+      "class": "agentic",
+      "id": 208
+    },
+    {
+      "class": "code",
+      "id": 209
+    },
+    {
+      "class": "chat",
+      "id": 210
+    },
+    {
+      "class": "prose",
+      "id": 211
+    },
+    {
+      "class": "reasoning",
+      "id": 212
+    },
+    {
+      "class": "multilingual",
+      "id": 213
+    },
+    {
+      "class": "chat",
+      "id": 214
+    },
+    {
+      "class": "code",
+      "id": 215
+    },
+    {
+      "class": "reasoning",
+      "id": 216
+    },
+    {
+      "class": "multilingual",
+      "id": 217
+    },
+    {
+      "class": "agentic",
+      "id": 218
+    },
+    {
+      "class": "code",
+      "id": 219
+    },
+    {
+      "class": "agentic",
+      "id": 220
+    },
+    {
+      "class": "prose",
+      "id": 221
+    },
+    {
+      "class": "reasoning",
+      "id": 222
+    },
+    {
+      "class": "agentic",
+      "id": 223
+    },
+    {
+      "class": "agentic",
+      "id": 224
+    },
+    {
+      "class": "agentic",
+      "id": 225
+    },
+    {
+      "class": "agentic",
+      "id": 226
+    },
+    {
+      "class": "multilingual",
+      "id": 227
+    },
+    {
+      "class": "prose",
+      "id": 228
+    },
+    {
+      "class": "agentic",
+      "id": 229
+    },
+    {
+      "class": "code",
+      "id": 230
+    },
+    {
+      "class": "reasoning",
+      "id": 231
+    },
+    {
+      "class": "agentic",
+      "id": 232
+    },
+    {
+      "class": "chat",
+      "id": 233
+    },
+    {
+      "class": "agentic",
+      "id": 234
+    },
+    {
+      "class": "agentic",
+      "id": 235
+    },
+    {
+      "class": "reasoning",
+      "id": 236
+    },
+    {
+      "class": "agentic",
+      "id": 237
+    },
+    {
+      "class": "agentic",
+      "id": 238
+    },
+    {
+      "class": "code",
+      "id": 239
+    },
+    {
+      "class": "agentic",
+      "id": 240
+    },
+    {
+      "class": "multilingual",
+      "id": 241
+    },
+    {
+      "class": "reasoning",
+      "id": 242
+    },
+    {
+      "class": "multilingual",
+      "id": 243
+    },
+    {
+      "class": "chat",
+      "id": 244
+    },
+    {
+      "class": "multilingual",
+      "id": 245
+    },
+    {
+      "class": "multilingual",
+      "id": 246
+    },
+    {
+      "class": "code",
+      "id": 247
+    },
+    {
+      "class": "code",
+      "id": 248
+    },
+    {
+      "class": "agentic",
+      "id": 249
+    },
+    {
+      "class": "multilingual",
+      "id": 250
+    },
+    {
+      "class": "agentic",
+      "id": 251
+    },
+    {
+      "class": "code",
+      "id": 252
+    },
+    {
+      "class": "chat",
+      "id": 253
+    },
+    {
+      "class": "multilingual",
+      "id": 254
+    },
+    {
+      "class": "agentic",
+      "id": 255
+    },
+    {
+      "class": "agentic",
+      "id": 256
+    },
+    {
+      "class": "agentic",
+      "id": 257
+    },
+    {
+      "class": "prose",
+      "id": 258
+    },
+    {
+      "class": "prose",
+      "id": 259
+    },
+    {
+      "class": "prose",
+      "id": 260
+    },
+    {
+      "class": "prose",
+      "id": 261
+    },
+    {
+      "class": "prose",
+      "id": 262
+    },
+    {
+      "class": "multilingual",
+      "id": 263
+    },
+    {
+      "class": "agentic",
+      "id": 264
+    },
+    {
+      "class": "agentic",
+      "id": 265
+    },
+    {
+      "class": "multilingual",
+      "id": 266
+    },
+    {
+      "class": "code",
+      "id": 267
+    },
+    {
+      "class": "agentic",
+      "id": 268
+    },
+    {
+      "class": "code",
+      "id": 269
+    },
+    {
+      "class": "code",
+      "id": 270
+    },
+    {
+      "class": "chat",
+      "id": 271
+    },
+    {
+      "class": "agentic",
+      "id": 272
+    },
+    {
+      "class": "code",
+      "id": 273
+    },
+    {
+      "class": "chat",
+      "id": 274
+    },
+    {
+      "class": "multilingual",
+      "id": 275
+    },
+    {
+      "class": "multilingual",
+      "id": 276
+    },
+    {
+      "class": "reasoning",
+      "id": 277
+    },
+    {
+      "class": "code",
+      "id": 278
+    },
+    {
+      "class": "prose",
+      "id": 279
+    },
+    {
+      "class": "code",
+      "id": 280
+    },
+    {
+      "class": "agentic",
+      "id": 281
+    },
+    {
+      "class": "multilingual",
+      "id": 282
+    },
+    {
+      "class": "agentic",
+      "id": 283
+    },
+    {
+      "class": "code",
+      "id": 284
+    },
+    {
+      "class": "agentic",
+      "id": 285
+    },
+    {
+      "class": "agentic",
+      "id": 286
+    },
+    {
+      "class": "multilingual",
+      "id": 287
+    },
+    {
+      "class": "code",
+      "id": 288
+    },
+    {
+      "class": "reasoning",
+      "id": 289
+    },
+    {
+      "class": "agentic",
+      "id": 290
+    },
+    {
+      "class": "prose",
+      "id": 291
+    },
+    {
+      "class": "reasoning",
+      "id": 292
+    },
+    {
+      "class": "multilingual",
+      "id": 293
+    },
+    {
+      "class": "chat",
+      "id": 294
+    },
+    {
+      "class": "prose",
+      "id": 295
+    },
+    {
+      "class": "agentic",
+      "id": 296
+    },
+    {
+      "class": "agentic",
+      "id": 297
+    },
+    {
+      "class": "code",
+      "id": 298
+    },
+    {
+      "class": "code",
+      "id": 299
+    },
+    {
+      "class": "reasoning",
+      "id": 300
+    },
+    {
+      "class": "agentic",
+      "id": 301
+    },
+    {
+      "class": "reasoning",
+      "id": 302
+    },
+    {
+      "class": "chat",
+      "id": 303
+    },
+    {
+      "class": "prose",
+      "id": 304
+    },
+    {
+      "class": "agentic",
+      "id": 305
+    },
+    {
+      "class": "reasoning",
+      "id": 306
+    },
+    {
+      "class": "code",
+      "id": 307
+    },
+    {
+      "class": "code",
+      "id": 308
+    },
+    {
+      "class": "chat",
+      "id": 309
+    },
+    {
+      "class": "multilingual",
+      "id": 310
+    },
+    {
+      "class": "multilingual",
+      "id": 311
+    },
+    {
+      "class": "reasoning",
+      "id": 312
+    },
+    {
+      "class": "agentic",
+      "id": 313
+    },
+    {
+      "class": "agentic",
+      "id": 314
+    },
+    {
+      "class": "prose",
+      "id": 315
+    },
+    {
+      "class": "agentic",
+      "id": 316
+    },
+    {
+      "class": "multilingual",
+      "id": 317
+    },
+    {
+      "class": "prose",
+      "id": 318
+    },
+    {
+      "class": "chat",
+      "id": 319
+    },
+    {
+      "class": "agentic",
+      "id": 320
+    },
+    {
+      "class": "prose",
+      "id": 321
+    },
+    {
+      "class": "multilingual",
+      "id": 322
+    },
+    {
+      "class": "multilingual",
+      "id": 323
+    },
+    {
+      "class": "multilingual",
+      "id": 324
+    },
+    {
+      "class": "reasoning",
+      "id": 325
+    },
+    {
+      "class": "multilingual",
+      "id": 326
+    },
+    {
+      "class": "agentic",
+      "id": 327
+    },
+    {
+      "class": "agentic",
+      "id": 328
+    },
+    {
+      "class": "agentic",
+      "id": 329
+    },
+    {
+      "class": "multilingual",
+      "id": 330
+    },
+    {
+      "class": "prose",
+      "id": 331
+    },
+    {
+      "class": "reasoning",
+      "id": 332
+    },
+    {
+      "class": "multilingual",
+      "id": 333
+    },
+    {
+      "class": "prose",
+      "id": 334
+    },
+    {
+      "class": "multilingual",
+      "id": 335
+    },
+    {
+      "class": "multilingual",
+      "id": 336
+    },
+    {
+      "class": "agentic",
+      "id": 337
+    },
+    {
+      "class": "agentic",
+      "id": 338
+    },
+    {
+      "class": "chat",
+      "id": 339
+    },
+    {
+      "class": "chat",
+      "id": 340
+    },
+    {
+      "class": "agentic",
+      "id": 341
+    },
+    {
+      "class": "multilingual",
+      "id": 342
+    },
+    {
+      "class": "code",
+      "id": 343
+    },
+    {
+      "class": "agentic",
+      "id": 344
+    },
+    {
+      "class": "agentic",
+      "id": 345
+    },
+    {
+      "class": "code",
+      "id": 346
+    },
+    {
+      "class": "agentic",
+      "id": 347
+    },
+    {
+      "class": "agentic",
+      "id": 348
+    },
+    {
+      "class": "reasoning",
+      "id": 349
+    },
+    {
+      "class": "code",
+      "id": 350
+    },
+    {
+      "class": "agentic",
+      "id": 351
+    },
+    {
+      "class": "reasoning",
+      "id": 352
+    },
+    {
+      "class": "prose",
+      "id": 353
+    },
+    {
+      "class": "reasoning",
+      "id": 354
+    },
+    {
+      "class": "code",
+      "id": 355
+    },
+    {
+      "class": "agentic",
+      "id": 356
+    },
+    {
+      "class": "reasoning",
+      "id": 357
+    },
+    {
+      "class": "agentic",
+      "id": 358
+    },
+    {
+      "class": "reasoning",
+      "id": 359
+    },
+    {
+      "class": "multilingual",
+      "id": 360
+    },
+    {
+      "class": "agentic",
+      "id": 361
+    },
+    {
+      "class": "reasoning",
+      "id": 362
+    },
+    {
+      "class": "code",
+      "id": 363
+    },
+    {
+      "class": "prose",
+      "id": 364
+    },
+    {
+      "class": "multilingual",
+      "id": 365
+    },
+    {
+      "class": "agentic",
+      "id": 366
+    },
+    {
+      "class": "chat",
+      "id": 367
+    },
+    {
+      "class": "agentic",
+      "id": 368
+    },
+    {
+      "class": "chat",
+      "id": 369
+    },
+    {
+      "class": "reasoning",
+      "id": 370
+    },
+    {
+      "class": "agentic",
+      "id": 371
+    },
+    {
+      "class": "multilingual",
+      "id": 372
+    },
+    {
+      "class": "prose",
+      "id": 373
+    },
+    {
+      "class": "code",
+      "id": 374
+    },
+    {
+      "class": "code",
+      "id": 375
+    },
+    {
+      "class": "chat",
+      "id": 376
+    },
+    {
+      "class": "multilingual",
+      "id": 377
+    },
+    {
+      "class": "chat",
+      "id": 378
+    },
+    {
+      "class": "code",
+      "id": 379
+    },
+    {
+      "class": "agentic",
+      "id": 380
+    },
+    {
+      "class": "agentic",
+      "id": 381
+    },
+    {
+      "class": "code",
+      "id": 382
+    },
+    {
+      "class": "multilingual",
+      "id": 383
+    },
+    {
+      "class": "agentic",
+      "id": 384
+    },
+    {
+      "class": "multilingual",
+      "id": 385
+    },
+    {
+      "class": "chat",
+      "id": 386
+    },
+    {
+      "class": "code",
+      "id": 387
+    },
+    {
+      "class": "agentic",
+      "id": 388
+    },
+    {
+      "class": "agentic",
+      "id": 389
+    },
+    {
+      "class": "prose",
+      "id": 390
+    },
+    {
+      "class": "agentic",
+      "id": 391
+    },
+    {
+      "class": "reasoning",
+      "id": 392
+    },
+    {
+      "class": "agentic",
+      "id": 393
+    },
+    {
+      "class": "chat",
+      "id": 394
+    },
+    {
+      "class": "chat",
+      "id": 395
+    },
+    {
+      "class": "reasoning",
+      "id": 396
+    },
+    {
+      "class": "agentic",
+      "id": 397
+    },
+    {
+      "class": "prose",
+      "id": 398
+    },
+    {
+      "class": "multilingual",
+      "id": 399
+    },
+    {
+      "class": "multilingual",
+      "id": 400
+    },
+    {
+      "class": "prose",
+      "id": 401
+    },
+    {
+      "class": "multilingual",
+      "id": 402
+    },
+    {
+      "class": "reasoning",
+      "id": 403
+    },
+    {
+      "class": "agentic",
+      "id": 404
+    },
+    {
+      "class": "prose",
+      "id": 405
+    },
+    {
+      "class": "multilingual",
+      "id": 406
+    },
+    {
+      "class": "multilingual",
+      "id": 407
+    },
+    {
+      "class": "agentic",
+      "id": 408
+    },
+    {
+      "class": "chat",
+      "id": 409
+    },
+    {
+      "class": "prose",
+      "id": 410
+    },
+    {
+      "class": "chat",
+      "id": 411
+    },
+    {
+      "class": "prose",
+      "id": 412
+    },
+    {
+      "class": "chat",
+      "id": 413
+    },
+    {
+      "class": "prose",
+      "id": 414
+    },
+    {
+      "class": "multilingual",
+      "id": 415
+    },
+    {
+      "class": "multilingual",
+      "id": 416
+    },
+    {
+      "class": "code",
+      "id": 417
+    },
+    {
+      "class": "chat",
+      "id": 418
+    },
+    {
+      "class": "code",
+      "id": 419
+    },
+    {
+      "class": "prose",
+      "id": 420
+    },
+    {
+      "class": "agentic",
+      "id": 421
+    },
+    {
+      "class": "reasoning",
+      "id": 422
+    },
+    {
+      "class": "reasoning",
+      "id": 423
+    },
+    {
+      "class": "code",
+      "id": 424
+    },
+    {
+      "class": "prose",
+      "id": 425
+    },
+    {
+      "class": "reasoning",
+      "id": 426
+    },
+    {
+      "class": "multilingual",
+      "id": 427
+    },
+    {
+      "class": "agentic",
+      "id": 428
+    },
+    {
+      "class": "reasoning",
+      "id": 429
+    },
+    {
+      "class": "prose",
+      "id": 430
+    },
+    {
+      "class": "chat",
+      "id": 431
+    },
+    {
+      "class": "prose",
+      "id": 432
+    },
+    {
+      "class": "prose",
+      "id": 433
+    },
+    {
+      "class": "reasoning",
+      "id": 434
+    },
+    {
+      "class": "multilingual",
+      "id": 435
+    },
+    {
+      "class": "multilingual",
+      "id": 436
+    },
+    {
+      "class": "chat",
+      "id": 437
+    },
+    {
+      "class": "chat",
+      "id": 438
+    },
+    {
+      "class": "prose",
+      "id": 439
+    },
+    {
+      "class": "chat",
+      "id": 440
+    },
+    {
+      "class": "chat",
+      "id": 441
+    },
+    {
+      "class": "reasoning",
+      "id": 442
+    },
+    {
+      "class": "agentic",
+      "id": 443
+    },
+    {
+      "class": "agentic",
+      "id": 444
+    },
+    {
+      "class": "agentic",
+      "id": 445
+    },
+    {
+      "class": "agentic",
+      "id": 446
+    },
+    {
+      "class": "code",
+      "id": 447
+    },
+    {
+      "class": "code",
+      "id": 448
+    },
+    {
+      "class": "reasoning",
+      "id": 449
+    },
+    {
+      "class": "agentic",
+      "id": 450
+    },
+    {
+      "class": "multilingual",
+      "id": 451
+    },
+    {
+      "class": "agentic",
+      "id": 452
+    },
+    {
+      "class": "agentic",
+      "id": 453
+    },
+    {
+      "class": "agentic",
+      "id": 454
+    },
+    {
+      "class": "prose",
+      "id": 455
+    },
+    {
+      "class": "agentic",
+      "id": 456
+    },
+    {
+      "class": "reasoning",
+      "id": 457
+    },
+    {
+      "class": "prose",
+      "id": 458
+    },
+    {
+      "class": "agentic",
+      "id": 459
+    },
+    {
+      "class": "reasoning",
+      "id": 460
+    },
+    {
+      "class": "chat",
+      "id": 461
+    },
+    {
+      "class": "code",
+      "id": 462
+    },
+    {
+      "class": "code",
+      "id": 463
+    },
+    {
+      "class": "prose",
+      "id": 464
+    },
+    {
+      "class": "multilingual",
+      "id": 465
+    },
+    {
+      "class": "chat",
+      "id": 466
+    },
+    {
+      "class": "reasoning",
+      "id": 467
+    },
+    {
+      "class": "prose",
+      "id": 468
+    },
+    {
+      "class": "prose",
+      "id": 469
+    },
+    {
+      "class": "reasoning",
+      "id": 470
+    },
+    {
+      "class": "agentic",
+      "id": 471
+    },
+    {
+      "class": "reasoning",
+      "id": 472
+    },
+    {
+      "class": "reasoning",
+      "id": 473
+    },
+    {
+      "class": "code",
+      "id": 474
+    },
+    {
+      "class": "agentic",
+      "id": 475
+    },
+    {
+      "class": "chat",
+      "id": 476
+    },
+    {
+      "class": "agentic",
+      "id": 477
+    },
+    {
+      "class": "agentic",
+      "id": 478
+    },
+    {
+      "class": "agentic",
+      "id": 479
+    },
+    {
+      "class": "prose",
+      "id": 480
+    },
+    {
+      "class": "reasoning",
+      "id": 481
+    },
+    {
+      "class": "agentic",
+      "id": 482
+    },
+    {
+      "class": "agentic",
+      "id": 483
+    },
+    {
+      "class": "reasoning",
+      "id": 484
+    },
+    {
+      "class": "multilingual",
+      "id": 485
+    },
+    {
+      "class": "agentic",
+      "id": 486
+    },
+    {
+      "class": "prose",
+      "id": 487
+    },
+    {
+      "class": "agentic",
+      "id": 488
+    },
+    {
+      "class": "code",
+      "id": 489
+    },
+    {
+      "class": "prose",
+      "id": 490
+    },
+    {
+      "class": "agentic",
+      "id": 491
+    },
+    {
+      "class": "reasoning",
+      "id": 492
+    },
+    {
+      "class": "prose",
+      "id": 493
+    },
+    {
+      "class": "code",
+      "id": 494
+    },
+    {
+      "class": "code",
+      "id": 495
+    },
+    {
+      "class": "multilingual",
+      "id": 496
+    },
+    {
+      "class": "code",
+      "id": 497
+    },
+    {
+      "class": "reasoning",
+      "id": 498
+    },
+    {
+      "class": "code",
+      "id": 499
+    },
+    {
+      "class": "agentic",
+      "id": 500
+    },
+    {
+      "class": "agentic",
+      "id": 501
+    },
+    {
+      "class": "code",
+      "id": 502
+    },
+    {
+      "class": "code",
+      "id": 503
+    },
+    {
+      "class": "reasoning",
+      "id": 504
+    },
+    {
+      "class": "code",
+      "id": 505
+    },
+    {
+      "class": "prose",
+      "id": 506
+    },
+    {
+      "class": "agentic",
+      "id": 507
+    },
+    {
+      "class": "agentic",
+      "id": 508
+    },
+    {
+      "class": "code",
+      "id": 509
+    },
+    {
+      "class": "agentic",
+      "id": 510
+    },
+    {
+      "class": "reasoning",
+      "id": 511
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://banana-smasher.dev/schema/anchor-window-score-v1.schema.json",
+  "title": "Banana Smasher per-window anchor score v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "bank_id",
+    "bank_role",
+    "candidate_id",
+    "window_id",
+    "class",
+    "position_count",
+    "kld",
+    "bindings"
+  ],
+  "properties": {
+    "schema": {"const": "banana-smasher-anchor-window-score-v1"},
+    "bank_id": {"type": "string", "minLength": 1},
+    "bank_role": {
+      "enum": ["train_balanced64", "train512", "holdout_balanced64", "holdout512"]
+    },
+    "candidate_id": {"type": "string", "minLength": 1},
+    "window_id": {"type": ["integer", "string"]},
+    "class": {"type": "string", "minLength": 1},
+    "position_count": {"type": "integer", "minimum": 1},
+    "kld": {"type": "number", "minimum": 0},
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis_sha256",
+        "bank_content_sha256",
+        "teacher_sha256",
+        "teacher_producer_sha256",
+        "candidate_sha256",
+        "candidate_producer_sha256",
+        "scorer_sha256"
+      ],
+      "properties": {
+        "basis_sha256": {"$ref": "#/$defs/sha256"},
+        "bank_content_sha256": {"$ref": "#/$defs/sha256"},
+        "teacher_sha256": {"$ref": "#/$defs/sha256"},
+        "teacher_producer_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_producer_sha256": {"$ref": "#/$defs/sha256"},
+        "scorer_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
