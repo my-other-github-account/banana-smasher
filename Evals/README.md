@@ -1,28 +1,30 @@
 # DeepSeek-V4-Flash-0731 quant results
 
-This page compares quality and exact whole-model shipping size for nine quants measured on the frozen competitive `BALANCED64_V1` population.
+This page compares quality and declared shipping-accounting size for nine quants measured on the frozen competitive `BALANCED64_V1` population. Every row states whether its byte numerator excludes MTP, includes the native MTP checkpoint, or includes a separate drafter.
 
 ## Results
 
 Every model below ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. The table is ordered by Top-1 agreement; by KLD, EXL3 K3 moves ahead of both IQ3 and QTIP2.5, while IQ3 also moves ahead of QTIP2.5. EXL3 K2 ranks below DwarfStar Q2 on both metrics.
 
-| Quant | Top-1 ↑ | KLD ↓ | Exact decimal GB | Comparison BPW | FP basis |
-|---|---:|---:|---:|---:|---|
-| **Unsloth IQ4** | **92.44%** (60,584/65,536) | **0.068349** | 136.662 | 3.845 | FP8 e4m3 dynamic own-base |
-| **QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** | 123.935 | 3.487 | FP8 e4m3 dynamic own-base |
-| **QTIP2.5 deterministic mixed ring** | **89.09%** (58,389/65,536) | **0.181971** | 106.623 | 3.000 | FP8 e4m3 dynamic own-base |
-| **EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** | 113.260 | 3.187 | FP8 e4m3 dynamic own-base |
-| **Unsloth IQ3** | **87.95%** (57,638/65,536) | **0.177708** | 104.208 | 2.932 | FP8 e4m3 dynamic own-base |
-| **QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** | 89.296 | 2.512 | FP8 e4m3 dynamic own-base |
-| **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | 90.861 | 2.556 | FP8 e4m3 dynamic own-base |
-| **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | 93.691 | 2.636 | FP8 e4m3 dynamic own-base |
-| **EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** | 77.862 | 2.191 | FP8 e4m3 dynamic own-base |
+| Quant | Top-1 ↑ | KLD ↓ | Exact accounting GB | Shipped auxiliary scope | Base-equivalent BPW | Matched physical BPW | FP basis |
+|---|---:|---:|---:|---|---:|---:|---|
+| **Unsloth IQ4** | **92.44%** (60,584/65,536) | **0.068349** | 136.662 | MTP excluded | 3.845 | 3.845 | FP8 e4m3 dynamic own-base |
+| **QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** | **123.969** | MTP included | **3.488** | 3.367 | FP8 e4m3 dynamic own-base |
+| **QTIP2.5 deterministic mixed ring** | **89.09%** (58,389/65,536) | **0.181971** | **106.657** | MTP included | **3.001** | 2.897 | FP8 e4m3 dynamic own-base |
+| **EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** | 113.260 | MTP included | 3.187 | 3.076 | FP8 e4m3 dynamic own-base |
+| **Unsloth IQ3** | **87.95%** (57,638/65,536) | **0.177708** | 104.208 | MTP excluded | 2.932 | 2.932 | FP8 e4m3 dynamic own-base |
+| **QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** | **89.330** | MTP included | **2.513** | 2.426 | FP8 e4m3 dynamic own-base |
+| **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | 90.861 | MTP excluded | 2.556 | 2.556 | FP8 e4m3 dynamic own-base |
+| **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | 93.691 | Stock MTP excluded; separate drafter included | 2.636 | 2.464 | FP8 e4m3 dynamic own-base |
+| **EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** | 77.862 | MTP included | 2.191 | 2.115 | FP8 e4m3 dynamic own-base |
 
 Top-1 is how often the quant selects the same next token as FP8 on the common ordered support. KLD measures movement of the full supported token distribution. Higher Top-1 and lower KLD are better.
 
-Comparison BPW is exact total artifact weight bytes × 8 divided by the canonical 284,334,567,511 base-model logical parameters for every row. This fixed denominator is the apples-to-apples value used in the table and in public quant labels. DwarfStar additionally ships a 19,845,850,983-parameter drafter; its auxiliary-inclusive BPW is 2.464 and remains available as the separately labeled `total_model_bpw` field in the machine receipt, but it is not a comparable quant label. `UD-IQ3_XXS` is a dynamic mixed quant—not a uniform three-bit model—so its exact comparison value is 2.932 BPW.
+**Base-equivalent BPW** is every shipped artifact byte × 8 divided by the fixed 284,334,567,511-parameter base-model denominator. Native MTP and separate-drafter bytes receive no denominator credit, so this is the conservative apples-to-apples value used for public quant labels. **Matched physical BPW** divides the same bytes by the parameters represented by that row's declared payload scope: 284,334,567,511 for base-only artifacts, 294,550,374,339 for base plus the 10,215,806,828-parameter native MTP checkpoint, and 304,180,418,494 for DwarfStar's base plus separate 19,845,850,983-parameter drafter. Because those payload scopes differ, matched physical BPW is disclosure—not a cross-row ranking.
 
-The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, candidate/teacher/scorer/population identities, available component-byte ledgers, source hashes, replay limits, and the six-category breakdowns for all nine quants. EXL3 K2 records its upstream revision, complete artifact/tree ledger, exact component bytes, physical readback, and independent recomputation. The older EXL3 K3 source revision, code lineage, weight-component ledger, and runtime measurements remain explicitly unavailable rather than inferred.
+The corrected QTIP accounting restores ten omitted MTP tensors totaling 33,843,220 payload bytes and includes the deterministic index-length increase. That raises QTIP2 from 89.296 to **89.330 GB**, QTIP2.5 from 106.623 to **106.657 GB**, and QTIP3 from 123.935 to **123.969 GB**; quality metrics do not change. The source index hashes remain recorded in the machine receipt. Corrected index byte lengths are exact reconstructions, but new corrected index content hashes are explicitly unmaterialized rather than fabricated.
+
+The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, per-row payload scope, both BPW conventions, candidate/teacher/scorer/population identities, available component-byte ledgers, source hashes, replay limits, and the six-category breakdowns for all nine quants. The SHA-bound [MTP size-accounting correction](results/deepseek-v4-flash-0731-mtp-size-accounting-v1.json) records the omitted tensor names, old and corrected QTIP byte totals, source-index hashes, corrected index lengths, denominator policy, and scope evidence. EXL3 K2 records its upstream revision, complete artifact/tree ledger, exact component bytes, physical readback, and independent recomputation. The older EXL3 K3 source revision, code lineage, weight-component ledger, and runtime measurements remain explicitly unavailable rather than inferred.
 
 ## What makes these apples to apples
 
@@ -31,7 +33,8 @@ The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json)
 - Same FP8 e4m3 dynamic own-base teacher
 - Same teacher top-8,192 token support
 - Same KLD and Top-1 definitions
-- Same 284,334,567,511-parameter base-model denominator for comparable/publication BPW; auxiliary-inclusive BPW is reported separately
+- Same 284,334,567,511-parameter base-model denominator for conservative base-equivalent/publication BPW
+- Explicit per-row payload scope; matched physical BPW uses 294,550,374,339 parameters for native-MTP rows and 304,180,418,494 for DwarfStar's separate drafter
 - Same corrected class mix: agentic/chat/code/multilingual/prose/reasoning = `19/7/9/10/10/9`
 
 No partial run, different window bank, fallback output, or HOLDOUT result is admitted to this ranking.
@@ -121,6 +124,7 @@ The aggregator rejects missing or duplicate windows, changed classes, wrong posi
 ## Files
 
 - [Exact competitive result JSON](results/deepseek-v4-flash-0731-balanced64-v1.json)
+- [MTP size-accounting correction receipt](results/deepseek-v4-flash-0731-mtp-size-accounting-v1.json)
 - [Frozen BALANCED64 lock](configs/balanced64-v1.json)
 - [Full measurement protocol](protocols/balanced64-v1.md)
 - [One-window receipt template](templates/balanced64-window-v1.json)

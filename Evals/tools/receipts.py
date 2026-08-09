@@ -17,6 +17,13 @@ RESULT_SCHEMA = "banana-smasher.evaluation-comparison.v1"
 WINDOW_SCHEMA = "banana-smasher.balanced64-window.v1"
 SUITE_LOCK_SCHEMA = "banana-smasher.balanced64-suite-lock.v1"
 BALANCED64_V1_LOCK_SHA256 = "d5610f11c23b75f81e196e74407cb7e642a4f4a2e12f55925e13e5a7fe43ffb9"
+MTP_PARAMETER_COUNT = 10_215_806_828
+MTP_INCLUSIVE_PARAMETER_DENOMINATOR = 294_550_374_339
+ARTIFACT_PAYLOAD_SCOPES = {
+    "base-model-only",
+    "base-plus-native-mtp",
+    "base-plus-separate-drafter",
+}
 SOURCE_CLASSES = (
     "agentic",
     "chat",
@@ -707,6 +714,7 @@ def _verify_qtip_details(
     matches: int,
     positions: int,
     wire_bytes: int,
+    accounting_receipt_sha256: str,
 ) -> None:
     _verify_classes(
         row,
@@ -722,6 +730,7 @@ def _verify_qtip_details(
         components,
         {
             "qtip_expert_payload",
+            "mtp_accounting_correction",
             "repair_payload",
             "retained_non_routed_payload",
             "runtime_and_headroom_bytes",
@@ -752,14 +761,69 @@ def _verify_qtip_details(
         f"{model_id}.weight_pack_index_metadata",
     )
     _require_exact_keys(
-        index, {"bytes", "sha256"}, f"{model_id}.weight_pack_index_metadata"
+        index,
+        {"corrected_bytes", "corrected_index_materialized", "source_bytes", "source_sha256"},
+        f"{model_id}.weight_pack_index_metadata",
+    )
+    _integer(
+        index.get("source_bytes"),
+        f"{model_id}.weight_pack_index_metadata.source_bytes",
+        minimum=1,
     )
     index_bytes = _integer(
-        index.get("bytes"), f"{model_id}.weight_pack_index_metadata.bytes", minimum=1
+        index.get("corrected_bytes"),
+        f"{model_id}.weight_pack_index_metadata.corrected_bytes",
+        minimum=1,
     )
     index_sha256 = _sha256(
-        index.get("sha256"), f"{model_id}.weight_pack_index_metadata.sha256"
+        index.get("source_sha256"),
+        f"{model_id}.weight_pack_index_metadata.source_sha256",
     )
+    if index.get("corrected_index_materialized") is not False:
+        raise ReceiptError(f"{model_id}: corrected index must remain explicitly unmaterialized")
+
+    correction = _mapping(
+        components.get("mtp_accounting_correction"),
+        f"{model_id}.mtp_accounting_correction",
+    )
+    _require_exact_keys(
+        correction,
+        {
+            "accounting_receipt_sha256",
+            "corrected_retained_payload_bytes",
+            "corrected_retained_tensor_count",
+            "missing_tensor_count",
+            "missing_tensor_payload_bytes",
+        },
+        f"{model_id}.mtp_accounting_correction",
+    )
+    if _integer(
+        correction.get("missing_tensor_count"),
+        f"{model_id}.mtp_accounting_correction.missing_tensor_count",
+    ) != 10:
+        raise ReceiptError(f"{model_id}: MTP correction must contain ten tensors")
+    if _integer(
+        correction.get("missing_tensor_payload_bytes"),
+        f"{model_id}.mtp_accounting_correction.missing_tensor_payload_bytes",
+    ) != 33_843_220:
+        raise ReceiptError(f"{model_id}: MTP correction payload-byte drift")
+    _integer(
+        correction.get("corrected_retained_tensor_count"),
+        f"{model_id}.mtp_accounting_correction.corrected_retained_tensor_count",
+        minimum=1,
+    )
+    corrected_retained_bytes = _integer(
+        correction.get("corrected_retained_payload_bytes"),
+        f"{model_id}.mtp_accounting_correction.corrected_retained_payload_bytes",
+        minimum=1,
+    )
+    if corrected_retained_bytes != components["retained_non_routed_payload"]["bytes"]:
+        raise ReceiptError(f"{model_id}: corrected retained payload does not match ledger")
+    if _sha256(
+        correction.get("accounting_receipt_sha256"),
+        f"{model_id}.mtp_accounting_correction.accounting_receipt_sha256",
+    ) != accounting_receipt_sha256:
+        raise ReceiptError(f"{model_id}: MTP correction receipt hash drift")
     repair = _mapping(components.get("repair_payload"), f"{model_id}.repair_payload")
     _require_exact_keys(repair, {"bytes"}, f"{model_id}.repair_payload")
     repair_bytes = _integer(repair.get("bytes"), f"{model_id}.repair_payload.bytes")
@@ -864,8 +928,10 @@ def verify_result_receipt(
             "comparison_id",
             "fp",
             "metrics",
+            "mtp_inclusive_parameter_denominator",
             "results",
             "schema",
+            "size_accounting",
             "suite",
             "title",
             "verification_scope",
@@ -884,6 +950,30 @@ def verify_result_receipt(
         "wire_parameter_denominator"
     ):
         raise ReceiptError("receipt BPW denominator differs from suite lock")
+    mtp_inclusive_denominator = _integer(
+        receipt.get("mtp_inclusive_parameter_denominator"),
+        "mtp_inclusive_parameter_denominator",
+        minimum=1,
+    )
+    if mtp_inclusive_denominator != MTP_INCLUSIVE_PARAMETER_DENOMINATOR:
+        raise ReceiptError("receipt MTP-inclusive parameter denominator drift")
+    if mtp_inclusive_denominator != int(receipt["wire_parameter_denominator"]) + MTP_PARAMETER_COUNT:
+        raise ReceiptError("receipt base and MTP parameter counts do not close")
+    size_accounting = _mapping(receipt.get("size_accounting"), "size_accounting")
+    _require_exact_keys(
+        size_accounting,
+        {"comparison_bpw_kind", "matched_physical_bpw_kind", "receipt_path", "receipt_sha256"},
+        "size_accounting",
+    )
+    if size_accounting.get("receipt_path") != (
+        "deepseek-v4-flash-0731-mtp-size-accounting-v1.json"
+    ):
+        raise ReceiptError("size-accounting receipt path drift")
+    accounting_receipt_sha256 = _sha256(
+        size_accounting.get("receipt_sha256"), "size_accounting.receipt_sha256"
+    )
+    for field in ("comparison_bpw_kind", "matched_physical_bpw_kind"):
+        _nonempty_string(size_accounting.get(field), f"size_accounting.{field}")
     if _mapping(receipt.get("suite"), "suite") != _suite_projection(suite_lock):
         raise ReceiptError("receipt suite fields differ from the published suite lock")
     if _mapping(receipt.get("metrics"), "metrics") != suite_lock.get("metrics"):
@@ -984,6 +1074,7 @@ def verify_result_receipt(
             {
                 "bytes",
                 "decimal_gb",
+                "artifact_payload_scope",
                 "normalized_bpw",
                 "parameter_denominator",
                 "total_model_bpw",
@@ -994,6 +1085,9 @@ def verify_result_receipt(
         )
         if wire.get("parameter_denominator") != denominator:
             raise ReceiptError(f"{model_id}: parameter denominator differs from suite lock")
+        payload_scope = wire.get("artifact_payload_scope")
+        if payload_scope not in ARTIFACT_PAYLOAD_SCOPES:
+            raise ReceiptError(f"{model_id}: unsupported artifact payload scope")
         wire_bytes = _integer(wire.get("bytes"), f"{model_id}.wire.bytes", minimum=1)
         expected_gb = _ratio(wire_bytes, 1_000_000_000)
         stored_gb = _decimal(wire.get("decimal_gb"), f"{model_id}.wire.decimal_gb")
@@ -1036,8 +1130,20 @@ def verify_result_receipt(
         if total_parameters != base_parameters + auxiliary_parameters:
             raise ReceiptError(f"{model_id}: total-model parameter components do not sum")
         has_drafter = "drafter_repository" in artifact
-        if has_drafter != (auxiliary_parameters > 0):
-            raise ReceiptError(f"{model_id}: auxiliary parameter count disagrees with artifact identity")
+        if payload_scope == "base-model-only":
+            if auxiliary_parameters != 0 or total_parameters != denominator or has_drafter:
+                raise ReceiptError(f"{model_id}: base-only parameter scope drift")
+        elif payload_scope == "base-plus-native-mtp":
+            if (
+                auxiliary_parameters != MTP_PARAMETER_COUNT
+                or total_parameters != mtp_inclusive_denominator
+                or has_drafter
+            ):
+                raise ReceiptError(f"{model_id}: native-MTP parameter scope drift")
+        elif not has_drafter or auxiliary_parameters <= 0:
+            raise ReceiptError(f"{model_id}: separate-drafter parameter scope drift")
+        if is_qtip and payload_scope != "base-plus-native-mtp":
+            raise ReceiptError(f"{model_id}: QTIP shipping scope must include native MTP")
         stored_total_bpw, expected_total_bpw = _ratio_at_stored_precision(
             wire_bytes * 8,
             total_parameters,
@@ -1059,6 +1165,7 @@ def verify_result_receipt(
                 matches=matches,
                 positions=top1_positions,
                 wire_bytes=wire_bytes,
+                accounting_receipt_sha256=accounting_receipt_sha256,
             )
         else:
             _verify_classes(
@@ -1128,6 +1235,172 @@ def verify_result_receipt(
         ],
         "full_gpu_replay": "blocked",
     }
+
+
+def verify_size_accounting_receipt(
+    comparison: Mapping[str, Any], accounting: Mapping[str, Any]
+) -> None:
+    """Verify the linked MTP accounting receipt against the comparison rows."""
+    _require_exact_keys(
+        accounting,
+        {
+            "accounting_policy",
+            "basis_model_index_sha256",
+            "comparison_id",
+            "limitations",
+            "qtip_mtp_correction",
+            "quality_metrics_changed",
+            "rows",
+            "schema",
+            "source_result_repository_commit",
+            "status",
+        },
+        "size-accounting receipt",
+    )
+    if accounting.get("schema") != "banana-smasher.mtp-size-accounting-correction.v1":
+        raise ReceiptError("unsupported size-accounting receipt schema")
+    if accounting.get("comparison_id") != comparison.get("comparison_id"):
+        raise ReceiptError("size-accounting comparison_id drift")
+    if accounting.get("status") != "PASS" or accounting.get("quality_metrics_changed") is not False:
+        raise ReceiptError("size-accounting status or quality-metric scope drift")
+    _verify_sha256_fields(accounting, "size-accounting receipt")
+    source_commit = _nonempty_string(
+        accounting.get("source_result_repository_commit"),
+        "size-accounting receipt.source_result_repository_commit",
+    )
+    if _GIT_COMMIT.fullmatch(source_commit) is None:
+        raise ReceiptError("size-accounting source repository commit is invalid")
+    if accounting.get("basis_model_index_sha256") != comparison["suite"][
+        "teacher_source_model_index_sha256"
+    ]:
+        raise ReceiptError("size-accounting basis model index drift")
+
+    policy = _mapping(accounting.get("accounting_policy"), "size-accounting policy")
+    _require_exact_keys(
+        policy,
+        {
+            "base_equivalent_comparison_bpw",
+            "base_model_parameter_denominator",
+            "matched_physical_bpw",
+            "mtp_inclusive_parameter_denominator",
+            "mtp_parameter_denominator",
+        },
+        "size-accounting policy",
+    )
+    if policy.get("base_model_parameter_denominator") != comparison.get(
+        "wire_parameter_denominator"
+    ):
+        raise ReceiptError("size-accounting base denominator drift")
+    if policy.get("mtp_parameter_denominator") != MTP_PARAMETER_COUNT:
+        raise ReceiptError("size-accounting MTP denominator drift")
+    if policy.get("mtp_inclusive_parameter_denominator") != comparison.get(
+        "mtp_inclusive_parameter_denominator"
+    ):
+        raise ReceiptError("size-accounting MTP-inclusive denominator drift")
+    for field in ("base_equivalent_comparison_bpw", "matched_physical_bpw"):
+        _nonempty_string(policy.get(field), f"size-accounting policy.{field}")
+
+    correction = _mapping(
+        accounting.get("qtip_mtp_correction"), "size-accounting QTIP correction"
+    )
+    _require_exact_keys(
+        correction,
+        {
+            "corrected_index_status",
+            "corrected_retained_payload_bytes",
+            "corrected_retained_tensor_count",
+            "missing_tensor_count",
+            "missing_tensor_names",
+            "missing_tensor_payload_bytes",
+        },
+        "size-accounting QTIP correction",
+    )
+    missing_names = _sequence(
+        correction.get("missing_tensor_names"),
+        "size-accounting QTIP correction.missing_tensor_names",
+    )
+    missing_count = _integer(
+        correction.get("missing_tensor_count"),
+        "size-accounting QTIP correction.missing_tensor_count",
+    )
+    if missing_count != 10 or len(missing_names) != missing_count or len(set(missing_names)) != missing_count:
+        raise ReceiptError("size-accounting missing MTP tensor-name closure drift")
+    for index, name in enumerate(missing_names):
+        _nonempty_string(name, f"size-accounting missing_tensor_names[{index}]")
+    if correction.get("missing_tensor_payload_bytes") != 33_843_220:
+        raise ReceiptError("size-accounting missing MTP payload-byte drift")
+    if correction.get("corrected_retained_tensor_count") != 6_279:
+        raise ReceiptError("size-accounting corrected retained tensor-count drift")
+    if correction.get("corrected_retained_payload_bytes") != 19_742_640_908:
+        raise ReceiptError("size-accounting corrected retained payload-byte drift")
+    _nonempty_string(
+        correction.get("corrected_index_status"),
+        "size-accounting QTIP correction.corrected_index_status",
+    )
+
+    comparison_rows = {
+        row["model_id"]: row
+        for row in _sequence(comparison.get("results"), "comparison results")
+    }
+    accounting_rows = _mapping(accounting.get("rows"), "size-accounting rows")
+    if set(accounting_rows) != set(comparison_rows):
+        raise ReceiptError("size-accounting row population drift")
+    for model_id, comparison_row in comparison_rows.items():
+        accounting_row = _mapping(accounting_rows.get(model_id), f"size-accounting {model_id}")
+        wire = _mapping(comparison_row.get("wire"), f"comparison {model_id}.wire")
+        if accounting_row.get("artifact_payload_scope") != wire.get("artifact_payload_scope"):
+            raise ReceiptError(f"{model_id}: size-accounting payload scope drift")
+        if accounting_row.get("comparison_bpw") != wire.get("normalized_bpw"):
+            raise ReceiptError(f"{model_id}: size-accounting comparison BPW drift")
+        if accounting_row.get("matched_physical_parameter_denominator") != wire.get(
+            "total_model_parameters"
+        ):
+            raise ReceiptError(f"{model_id}: size-accounting physical denominator drift")
+        if accounting_row.get("matched_physical_bpw") != wire.get("total_model_bpw"):
+            raise ReceiptError(f"{model_id}: size-accounting physical BPW drift")
+        accounted_bytes = accounting_row.get(
+            "corrected_shipping_bytes", accounting_row.get("shipping_bytes")
+        )
+        if accounted_bytes != wire.get("bytes"):
+            raise ReceiptError(f"{model_id}: size-accounting shipping-byte drift")
+
+        if model_id.startswith("QTIP"):
+            components = _mapping(
+                comparison_row.get("weight_components"), f"comparison {model_id}.weight_components"
+            )
+            index = _mapping(
+                components.get("weight_pack_index_metadata"),
+                f"comparison {model_id}.weight_pack_index_metadata",
+            )
+            if accounting_row.get("source_index_bytes") != index.get("source_bytes"):
+                raise ReceiptError(f"{model_id}: size-accounting source index-byte drift")
+            if accounting_row.get("source_index_sha256") != index.get("source_sha256"):
+                raise ReceiptError(f"{model_id}: size-accounting source index hash drift")
+            if accounting_row.get("corrected_index_bytes") != index.get("corrected_bytes"):
+                raise ReceiptError(f"{model_id}: size-accounting corrected index-byte drift")
+            if accounting_row.get("corrected_index_materialized") is not False:
+                raise ReceiptError(f"{model_id}: corrected index materialization claim drift")
+            source_bytes = _integer(
+                accounting_row.get("source_shipping_bytes"),
+                f"size-accounting {model_id}.source_shipping_bytes",
+                minimum=1,
+            )
+            correction_bytes = _integer(
+                accounting_row.get("correction_bytes"),
+                f"size-accounting {model_id}.correction_bytes",
+                minimum=1,
+            )
+            expected_correction = 33_843_220 + (
+                int(index["corrected_bytes"]) - int(index["source_bytes"])
+            )
+            if correction_bytes != expected_correction or source_bytes + correction_bytes != wire["bytes"]:
+                raise ReceiptError(f"{model_id}: size-accounting correction-byte closure drift")
+
+    limitations = _sequence(accounting.get("limitations"), "size-accounting limitations")
+    if not limitations:
+        raise ReceiptError("size-accounting limitations must not be empty")
+    for index, limitation in enumerate(limitations):
+        _nonempty_string(limitation, f"size-accounting limitations[{index}]")
 
 
 def aggregate_windows(
@@ -1318,9 +1591,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         suite_lock = _mapping(_load_json(args.suite_lock), "suite lock")
         if args.command == "verify":
+            comparison = _mapping(_load_json(args.receipt), "receipt")
             summary = verify_result_receipt(
-                _mapping(_load_json(args.receipt), "receipt"),
+                comparison,
                 suite_lock,
+            )
+            size_accounting = _mapping(
+                comparison.get("size_accounting"), "size_accounting"
+            )
+            linked_name = _nonempty_string(
+                size_accounting.get("receipt_path"), "size_accounting.receipt_path"
+            )
+            if Path(linked_name).name != linked_name:
+                raise ReceiptError("size-accounting receipt path must be a basename")
+            linked_path = args.receipt.parent / linked_name
+            expected_digest = _sha256(
+                size_accounting.get("receipt_sha256"), "size_accounting.receipt_sha256"
+            )
+            observed_digest = hashlib.sha256(linked_path.read_bytes()).hexdigest()
+            if observed_digest != expected_digest:
+                raise ReceiptError("size-accounting receipt content hash mismatch")
+            verify_size_accounting_receipt(
+                comparison,
+                _mapping(_load_json(linked_path), "size-accounting receipt"),
             )
         else:
             paths = sorted(args.directory.glob("*.json"))
