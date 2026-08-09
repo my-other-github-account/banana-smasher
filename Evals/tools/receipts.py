@@ -349,22 +349,43 @@ def _verify_artifact(artifact: Mapping[str, Any], label: str) -> None:
         for field in ("repository", "revision", "variant"):
             _nonempty_string(artifact.get(field), f"{label}.{field}")
     elif "format" in artifact:
-        _require_exact_keys(
-            artifact,
-            {
-                "base_model",
-                "candidate_artifact_sha256",
-                "candidate_manifest_sha256",
-                "format",
-                "identity_status",
-                "mechanism",
-                "missing_identity_fields",
-                "variant",
-            },
-            label,
-        )
-        if identity_status != "partial" or not missing_fields:
-            raise ReceiptError(f"{label}: external artifact identity must name missing lineage")
+        expected_keys = {
+            "base_model",
+            "candidate_artifact_sha256",
+            "candidate_manifest_sha256",
+            "format",
+            "identity_status",
+            "mechanism",
+            "missing_identity_fields",
+            "variant",
+        }
+        if "upstream_repository" in artifact:
+            expected_keys.add("upstream_repository")
+        if "upstream_revision" in artifact:
+            expected_keys.add("upstream_revision")
+        _require_exact_keys(artifact, expected_keys, label)
+        if identity_status == "complete-as-recorded":
+            if (
+                missing_fields
+                or "upstream_repository" not in artifact
+                or "upstream_revision" not in artifact
+            ):
+                raise ReceiptError(f"{label}: complete EXL3 identity requires recorded upstream lineage")
+            upstream_repository = _nonempty_string(
+                artifact.get("upstream_repository"), f"{label}.upstream_repository"
+            )
+            if upstream_repository != "https://github.com/turboderp-org/exllamav3":
+                raise ReceiptError(f"{label}.upstream_repository must identify upstream exllamav3")
+            upstream_revision = _nonempty_string(
+                artifact.get("upstream_revision"), f"{label}.upstream_revision"
+            )
+            if _GIT_COMMIT.fullmatch(upstream_revision) is None:
+                raise ReceiptError(f"{label}.upstream_revision must be a 40-character Git commit")
+        elif identity_status == "partial":
+            if not missing_fields:
+                raise ReceiptError(f"{label}: partial EXL3 identity must name missing lineage")
+        else:
+            raise ReceiptError(f"{label}: unsupported EXL3 identity status")
         if artifact.get("base_model") != "DeepSeek-V4-Flash-0731":
             raise ReceiptError(f"{label}.base_model must remain DeepSeek-V4-Flash-0731")
         if artifact.get("format") != "EXL3":
@@ -534,30 +555,30 @@ def _verify_external_measurement(
     model_id: str,
 ) -> None:
     measurement = _mapping(row.get("measurement"), f"{model_id}.measurement")
-    _require_exact_keys(
-        measurement,
-        {
-            "artifacts",
-            "candidate_artifact_sha256",
-            "class_map_sha256",
-            "fallback_used",
-            "holdout_used",
-            "limitations",
-            "numeric_semantics",
-            "positions",
-            "scorer_source_sha256",
-            "status",
-            "suite_file_sha256",
-            "suite_lock_sha256",
-            "support",
-            "teacher_bank",
-            "teacher_source_model_index_sha256",
-            "unavailable_fields",
-            "window_population_sha256",
-            "windows",
-        },
-        f"{model_id}.measurement",
-    )
+    expected_keys = {
+        "artifacts",
+        "candidate_artifact_sha256",
+        "class_map_sha256",
+        "fallback_used",
+        "holdout_used",
+        "limitations",
+        "numeric_semantics",
+        "positions",
+        "scorer_source_sha256",
+        "status",
+        "suite_file_sha256",
+        "suite_lock_sha256",
+        "support",
+        "teacher_bank",
+        "teacher_source_model_index_sha256",
+        "unavailable_fields",
+        "window_population_sha256",
+        "windows",
+    }
+    complete_identity = artifact.get("identity_status") == "complete-as-recorded"
+    if complete_identity or "censoring_used" in measurement:
+        expected_keys.add("censoring_used")
+    _require_exact_keys(measurement, expected_keys, f"{model_id}.measurement")
     if measurement.get("status") != "PASS":
         raise ReceiptError(f"{model_id}: measurement status must be PASS")
     if measurement.get("candidate_artifact_sha256") != artifact.get(
@@ -584,6 +605,9 @@ def _verify_external_measurement(
     for flag in ("holdout_used", "fallback_used"):
         if measurement.get(flag) is not False:
             raise ReceiptError(f"{model_id}: measurement {flag} must be false")
+    if complete_identity or "censoring_used" in measurement:
+        if measurement.get("censoring_used") is not False:
+            raise ReceiptError(f"{model_id}: measurement censoring_used must be false")
     _nonempty_string(
         measurement.get("numeric_semantics"), f"{model_id}.measurement.numeric_semantics"
     )
@@ -593,12 +617,16 @@ def _verify_external_measurement(
         "candidate_artifact_tree_sha256",
         "candidate_manifest_sha256",
         "independent_exact_recompute_sha256",
-        "independent_validation_sha256",
         "main_measurement_receipt_sha256",
         "teacher_tree_sha256",
     }
-    if set(artifacts) != required_artifacts:
-        raise ReceiptError(f"{model_id}: measurement artifact hash set is incomplete")
+    if complete_identity:
+        if len(artifacts) < 6 or not required_artifacts.issubset(artifacts):
+            raise ReceiptError(f"{model_id}: measurement artifact hash set is incomplete")
+    else:
+        required_artifacts.add("independent_validation_sha256")
+        if set(artifacts) != required_artifacts:
+            raise ReceiptError(f"{model_id}: partial external artifact hash set has drifted")
     for name, digest in artifacts.items():
         _sha256(digest, f"{model_id}.measurement.artifacts.{name}")
     if artifacts["candidate_artifact_tree_sha256"] != artifact.get(
@@ -608,12 +636,65 @@ def _verify_external_measurement(
     if artifacts["candidate_manifest_sha256"] != artifact.get("candidate_manifest_sha256"):
         raise ReceiptError(f"{model_id}: candidate manifest hash drift")
 
-    for field in ("limitations", "unavailable_fields"):
-        values = _sequence(measurement.get(field), f"{model_id}.measurement.{field}")
-        if not values:
-            raise ReceiptError(f"{model_id}: measurement {field} must not be empty")
-        for value_index, value in enumerate(values):
-            _nonempty_string(value, f"{model_id}.measurement.{field}[{value_index}]")
+    limitations = _sequence(
+        measurement.get("limitations"), f"{model_id}.measurement.limitations"
+    )
+    if not limitations:
+        raise ReceiptError(f"{model_id}: measurement limitations must not be empty")
+    for value_index, value in enumerate(limitations):
+        _nonempty_string(value, f"{model_id}.measurement.limitations[{value_index}]")
+    unavailable = _sequence(
+        measurement.get("unavailable_fields"), f"{model_id}.measurement.unavailable_fields"
+    )
+    for value_index, value in enumerate(unavailable):
+        _nonempty_string(value, f"{model_id}.measurement.unavailable_fields[{value_index}]")
+
+
+def _verify_external_weight_components(
+    row: Mapping[str, Any], *, model_id: str, wire_bytes: int
+) -> None:
+    components = _mapping(row.get("weight_components"), f"{model_id}.weight_components")
+    _require_exact_keys(
+        components,
+        {
+            "artifact_metadata_bytes",
+            "format_retained_payload",
+            "quantized_eligible_payload",
+            "repair_payload",
+            "runtime_and_headroom_bytes",
+            "safetensors_container_bytes",
+        },
+        f"{model_id}.weight_components",
+    )
+
+    component_total = 0
+    for group_name in ("quantized_eligible_payload", "format_retained_payload"):
+        group = _mapping(components.get(group_name), f"{model_id}.{group_name}")
+        _require_exact_keys(group, {"bytes", "components"}, f"{model_id}.{group_name}")
+        group_bytes = _integer(group.get("bytes"), f"{model_id}.{group_name}.bytes")
+        ledger = _mapping(group.get("components"), f"{model_id}.{group_name}.components")
+        if not ledger:
+            raise ReceiptError(f"{model_id}: {group_name} component ledger is empty")
+        ledger_total = sum(
+            _integer(value, f"{model_id}.{group_name}.components.{name}")
+            for name, value in ledger.items()
+        )
+        if ledger_total != group_bytes:
+            raise ReceiptError(f"{model_id}: {group_name} components do not sum to bytes")
+        component_total += group_bytes
+
+    for field in ("safetensors_container_bytes", "artifact_metadata_bytes"):
+        component_total += _integer(components.get(field), f"{model_id}.{field}")
+    repair = _mapping(components.get("repair_payload"), f"{model_id}.repair_payload")
+    _require_exact_keys(repair, {"bytes"}, f"{model_id}.repair_payload")
+    component_total += _integer(repair.get("bytes"), f"{model_id}.repair_payload.bytes")
+    if _integer(
+        components.get("runtime_and_headroom_bytes"),
+        f"{model_id}.runtime_and_headroom_bytes",
+    ) != 0:
+        raise ReceiptError(f"{model_id}: runtime_and_headroom_bytes must remain excluded")
+    if component_total != wire_bytes:
+        raise ReceiptError(f"{model_id}: EXL3 weight components do not sum to whole-model bytes")
 
 
 def _verify_qtip_details(
@@ -826,7 +907,11 @@ def verify_result_receipt(
         row = _mapping(raw_row, f"results[{index}]")
         artifact = _mapping(row.get("artifact"), f"results[{index}].artifact")
         is_qtip = "family" in artifact
+        is_external = "format" in artifact
         has_external_measurement = "measurement" in row and not is_qtip
+        has_complete_external_identity = (
+            is_external and artifact.get("identity_status") == "complete-as-recorded"
+        )
         expected_row_keys = {
             "artifact",
             "display_name",
@@ -842,8 +927,10 @@ def verify_result_receipt(
         expected_row_keys.add("classes")
         if is_qtip:
             expected_row_keys.update({"measurement", "weight_components"})
-        elif has_external_measurement:
+        elif has_external_measurement or has_complete_external_identity:
             expected_row_keys.add("measurement")
+            if has_complete_external_identity:
+                expected_row_keys.add("weight_components")
         _require_exact_keys(
             row,
             expected_row_keys,
@@ -989,6 +1076,10 @@ def verify_result_receipt(
                     suite_lock,
                     model_id=model_id,
                 )
+                if has_complete_external_identity:
+                    _verify_external_weight_components(
+                        row, model_id=model_id, wire_bytes=wire_bytes
+                    )
 
         sources = _sequence(row.get("source_receipts"), f"{model_id}.source_receipts")
         if not sources:
