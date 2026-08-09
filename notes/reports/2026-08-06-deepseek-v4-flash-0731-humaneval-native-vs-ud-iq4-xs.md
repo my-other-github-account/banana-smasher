@@ -1,6 +1,6 @@
 # DeepSeek-V4-Flash-0731 HumanEval: official release vs UD-IQ4_XS
 
-Status: MEASURED — causal audit finds a native prompt-route mismatch; matched physical replay pending
+Status: MEASURED — causal audit finds a native prompt-route mismatch; matched provider rail complete; matched local physical replay pending
 
 Owner: TBD
 
@@ -40,7 +40,20 @@ This is not a vocabulary-conversion artifact. The official HF tokenizer and GGUF
 
 The exact discordance audit also does not attribute the IQ4 direction to empties, truncation, syntax, or response-format failures: such route-failure classes net two tasks *against* IQ4 in both suites. The global reasoning-route mismatch remains the decisive instrument confound.
 
-Plain answer: both published scores are real measurements of their named artifacts and native stacks. They do not establish a major reproducible quality gap, and they do not establish that IQ4 quantization caused the observed direction. Until native-route and prompt-normalized repeat replays are complete, the defensible classification is **prompt-render/tokenization mismatch**, not quantization causality.
+Plain answer: both published scores are real measurements of their named artifacts and native stacks. They do not establish a major reproducible quality gap, and they do not establish that IQ4 quantization caused the observed direction. Until the matched local replay is complete, the defensible classification is **prompt-render/tokenization mismatch**, not quantization causality.
+
+## Separate matched provider-stack rail
+
+A separate API rail measured the exact 0731 provider stack with provider `DeepSeek` pinned, fallbacks disabled, client concurrency 1, temperature 0, top-p 0.95, N=1, and the same 164 user messages. This rail is deliberately reported separately from the local artifact comparison because API-rendered token IDs, backend kernels, sharding, K/V details, and physical weight identity are opaque.
+
+| Explicit provider mode | HumanEval pass@1 | HumanEval+ pass@1 | Empty/error/length |
+| --- | ---: | ---: | ---: |
+| OFF, 4,096 total completion tokens | **154/164 (93.90%)** | **146/164 (89.02%)** | 0/0/0 |
+| ON, medium effort, 16,384 total completion tokens | **160/164 (97.56%)** | **153/164 (93.29%)** | 0/0/0 |
+
+Exact paired OFF→ON recount gives HumanEval both-pass/OFF-only/ON-only/both-fail = 152/2/8/2 (two-sided McNemar p=0.109375) and HumanEval+ = 142/4/11/7 (p=0.11846923828125). All 164 responses in each arm returned the requested model and provider, used one endpoint fingerprint, and stopped normally. The ON arm recorded 163,910 reasoning tokens and zero length stops, so the predeclared 32,768-token rerun was not triggered.
+
+This is a valid provider-stack mode measurement, but it is **not** an intrinsic FP8-vs-IQ4 result and does not supply the missing local representation control. The exact local OFF/OFF at 4,096 and ON/ON at 16,384 replay remains pending.
 
 ## Basis
 
@@ -99,6 +112,7 @@ Both canonical JSONL files were scored in the same frozen container (`sha256:c34
 | UD-IQ4_XS runtime identity | `d0e8547ba3565187436dbde1b86dffbd5b29a6f2d33dfbac0d231607b5bf8bbc` |
 | UD-IQ4_XS four-file identity manifest | `3df9c62e534bc03a4d05ef303dd2f14e0d83bb0c530f2cc7ee974dd3bbd0ef07` |
 | Stage-A causal-audit public summary | `2b9d9a0c28dabf8953755e21ff5faae670fbc8cda9b273c85843064b12b9dbf8` |
+| Matched API provider-rail public summary | `b22c4677b94aa5a894107fdfbb51282bcab962a7201afd84d74aef13ae779891` |
 
 ## Limitations
 

@@ -1,0 +1,106 @@
+{
+  "schema": "banana-smasher.humaneval-openrouter-0731-matched-provider-rail-receipt.v1",
+  "status": "PASS",
+  "created_unix": 1786240295,
+  "scope": "DeepSeek-V4-Flash-0731 provider-stack rail only; Preview is excluded",
+  "contract": {
+    "model_requested_and_returned": "deepseek/deepseek-v4-flash-0731",
+    "canonical_slug": "deepseek/deepseek-v4-flash-20260731",
+    "provider_requested_and_returned": "DeepSeek",
+    "provider_endpoint_metadata_quantization": "fp8",
+    "provider_fallback_disabled": true,
+    "client_concurrency": 1,
+    "temperature": 0.0,
+    "top_p": 0.95,
+    "n": 1,
+    "prompt_rows": 164,
+    "prompt_messages_sha256": "6b4f5f30169054a7505f6704c246984f53671c6f4f168c9ee05fdfbd8444b598",
+    "producer_script_sha256": "8e261901ef57afa180bff2eb40bb5bb5cb0e59ef6d9d599f5b20b80c58d4b9e8",
+    "provider_endpoint_tag_returned_all_rows": "fp_a18b46594c_prod0820_fp8_kvcache_20260402",
+    "frozen_evalplus_source_commit": "26d6d00b",
+    "frozen_dataset_md5": "fe585eb4df8c88d844eeb463ea4d0302",
+    "frozen_dataset_sha256": "42526ec0e7d5f3ee0b06d6ced98f8c8bae3d76519151bfb3d36f79010645bd7f",
+    "darwin_only_rlimit_patch_sha256_prefix": "eeef4198"
+  },
+  "top1_counts_first": {
+    "off_4096_c1": {
+      "humaneval": "154/164",
+      "humaneval_plus": "146/164"
+    },
+    "on_16384_medium_c1": {
+      "humaneval": "160/164",
+      "humaneval_plus": "153/164"
+    }
+  },
+  "off_4096_c1": {
+    "reasoning_config": {"enabled": false},
+    "max_completion_tokens_total": 4096,
+    "rows": 164,
+    "empty_or_null": 0,
+    "finish_reasons": {"stop": 164},
+    "total_completion_tokens": 35656,
+    "total_reasoning_tokens": 0,
+    "total_visible_tokens": 35656,
+    "run_identity_sha256": "74d4e21e016519a9c6ba52a534666a31cc04f1a1c7a9a0387dceb6dde0a6aa01",
+    "generation_handoff_sha256": "14b6104d4c1d8915fe81fc0b5206720eba67492427b76dcffe01c495e012f5a9",
+    "canonical_sha256": "bf859deddf1c52c8d05d9f1568868196303f37f8151d41e69feace80ad026222",
+    "request_audit_sha256": "e678c15e99bb71392be3d31aa7fe3508d2336e34f019a3355f0c381adc7941ea",
+    "eval_results_sha256": "47f03293eb672102a96b5447a18b32b686d265ae0b2636916ea482d498bf2953"
+  },
+  "on_16384_medium_c1": {
+    "reasoning_config": {"enabled": true, "effort": "medium", "exclude": false},
+    "include_reasoning": true,
+    "max_completion_tokens_total": 16384,
+    "rows": 164,
+    "empty_or_null": 0,
+    "finish_reasons": {"stop": 164},
+    "total_completion_tokens": 200083,
+    "total_reasoning_tokens": 163910,
+    "total_visible_tokens": 36173,
+    "run_identity_sha256": "f28546131dd8e08355e67b000e56c9a630237f8128e7284d57b2fa7716443119",
+    "generation_handoff_sha256": "44df9e4428d5f90b1b3357f0ae9abb1e6d0f62410e11e0bc443e17021ef9cb75",
+    "canonical_sha256": "3f79b6ea31e49dedf7f7dad776fb08137ddafc80415e2ef242b07bdf0f672ab2",
+    "request_audit_sha256": "119211b358d95bfa8fe2cc011cf3ce7503575cde1c592c48d2edf9187b3abc2b",
+    "eval_results_sha256": "91e1699049dff3f414f5bfd8d126d09bb62da83cf99d8b59a25fb67bdaf9c098"
+  },
+  "paired_off_vs_on": {
+    "humaneval": {
+      "both_pass": 152,
+      "off_only": 2,
+      "on_only": 8,
+      "both_fail": 2,
+      "off_only_task_numbers": [95, 113],
+      "on_only_task_numbers": [54, 93, 103, 115, 129, 132, 160, 163],
+      "exact_two_sided_mcnemar_p": 0.109375
+    },
+    "humaneval_plus": {
+      "both_pass": 142,
+      "off_only": 4,
+      "on_only": 11,
+      "both_fail": 7,
+      "off_only_task_numbers": [86, 95, 113, 141],
+      "on_only_task_numbers": [49, 54, 93, 103, 115, 124, 129, 151, 154, 160, 163],
+      "exact_two_sided_mcnemar_p": 0.11846923828125
+    }
+  },
+  "independent_validation": {
+    "all_checkpoint_files_present": true,
+    "checkpoint_count_per_arm": 164,
+    "unique_exact_task_ids_per_arm": 164,
+    "checkpoint_self_hash_failures": 0,
+    "raw_response_hash_failures": 0,
+    "message_hash_failures": 0,
+    "run_identity_binding_failures": 0,
+    "returned_model_or_provider_failures": 0,
+    "canonical_rebuild_hash_match": true,
+    "request_audit_rebuild_hash_match": true,
+    "score_task_closure_match": true,
+    "on_row_zero_length_stop_acceptance": true
+  },
+  "plain_answer": {
+    "provider_rail_realized_result": "Explicit provider ON at 16384 produced +6 HumanEval and +7 HumanEval+ passes versus explicit provider OFF at 4096 in these two deterministic served rows, but neither paired difference is significant at alpha=0.05.",
+    "local_representation_causality": "NOT TESTED by this receipt.",
+    "quantization_causal": false,
+    "reason": "OpenRouter-rendered token IDs, backend kernels, sharding, KV details, and physical weight identity remain opaque; ON and OFF also intentionally use different completion limits under the corrected rail contract. This receipt is provider-stack evidence only and must not be used as intrinsic FP8-vs-IQ4 evidence."
+  }
+}
