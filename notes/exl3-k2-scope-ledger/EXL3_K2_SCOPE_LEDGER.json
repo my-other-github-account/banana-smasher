@@ -1,0 +1,460 @@
+{
+  "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "decision": {
+    "current_scope_key": "ff0731/exl3-k2/l034-experts000-255-fused13-down/rows10-12/positions1024/support8192/eagerteacher/scorer0fa1c72b",
+    "historical_scope_key": "ff0731/exl3-k2/l000-e000-e001-down/rows10-12-19-24-37-45-57-60/positions1024/support8192/teacher31c5ec76/scorer704f34b2",
+    "scope_substitution_forbidden": true,
+    "status": "USE_SCOPE_KEYED_CURRENT_WHOLE_L034_ONLY",
+    "top1_first": "Current ordinary Q2 ties K2 at 1968/2048 Top-1, then loses on KLD; the gate is RED."
+  },
+  "measurement_scopes": {
+    "ff0731/exl3-k2/l000-e000-e001-down/rows10-12-19-24-37-45-57-60/positions1024/support8192/teacher31c5ec76/scorer704f34b2": {
+      "artifact": {
+        "artifact_kind": "candidate-score-artifact-manifest",
+        "artifact_sha256": "ec067e5c859ac2a0699c562b64ba0a9dd679d18783c19f933a34035f12784975",
+        "build_terminal_sha256": "354208175303507c274ea0221aae0a2ec7c0bfd6bbe9ad4d731446ce8fd62367",
+        "candidate_payload_sha256": "3e1c359f6cebc704cfb798b9eced9af66eec246532763642906392686877a9d8",
+        "codec_members": {
+          "E000_down": {
+            "decoded_tensor_sha256": "1ed975d11698e295ad9eea8ff313f198e143a99fb299f47dc67cfa625bd9ed51",
+            "packed_sha256": "b96bf121752594b70a66738c7ab1c69be3133b02f663a0631c4dc34885fae9ee"
+          },
+          "E001_down": {
+            "decoded_tensor_sha256": "a52e060c99268b6f30a21b378ff4c0a8ec3e9deb019d18d8a29ab78027a43930",
+            "packed_sha256": "91af1c32cbe029c28e57e8e4f1a0a4561ba7be2fab1ff76e0eda00d0ee0bd722"
+          }
+        }
+      },
+      "authorized_use": "Historical two-cell L000 Full Train8 comparison only.",
+      "evidence": {
+        "direct_file_rehash": true,
+        "manifest": {
+          "name": "NATURAL_ANCHORS_MATCHED_EXL3_MANIFEST.json",
+          "sha256": "f5f9d314d20dbef61ac094ab1355f2d9eb68238d45345bac882842871c60dc69"
+        },
+        "signal": {
+          "name": "TRAIN8_SIGNAL.json",
+          "sha256": "8c4bcf8259052d4651716828fb92d59c45698b616235d5a573bc5b67c88cb60d"
+        },
+        "teacher_artifact_sha256": "31c5ec7676916825633017373235822316629b95ca222683265688182e4e9efc",
+        "terminal": {
+          "decision": "GREEN",
+          "name": "NATURAL_ANCHORS_MATCHED_EXL3_ACCEPTANCE.json",
+          "relative_path": "receipts/NATURAL_ANCHORS_MATCHED_EXL3_ACCEPTANCE.json",
+          "sha256": "54c4c751728689f377b8772e48da7bbb7096ee449ed1e3d9624330df56b0b49c",
+          "status": "PASS"
+        }
+      },
+      "lifecycle": "historical-authenticated-not-current-whole-layer",
+      "measurement": {
+        "kld_semantics": "natural_log_teacher_support_renormalized_float64_nonnegative",
+        "mean_support_renormalized_kld": 0.007272738103343451,
+        "top1_matches": 7983,
+        "top1_positions": 8192,
+        "top1_rate": 0.9744873046875,
+        "top1_semantics": "teacher_support_argmax_matches_candidate_full_vocab_argmax",
+        "wire": {
+          "denominator_weights": 16777216,
+          "numerator_bits": 33751104,
+          "selected_payload_bpw": 2.0117225646972656
+        }
+      },
+      "per_row_evidence": {
+        "checks": {
+          "aggregate_matches_expected": true,
+          "aggregate_mean_kld_expected": true,
+          "positions_expected": true
+        },
+        "method": "Immutable candidate and teacher row payloads were rehashed, scored in float64 with the authenticated scorer semantics, and reduced with math.fsum.",
+        "rows": [
+          {
+            "candidate_payload_sha256": "7d8d6b0e3942a8aff996dbda1bf64be05ff6079c6d2f3e2156c93af34a58ec29",
+            "mean_support_renormalized_kld": 0.002391004574826025,
+            "positions": 1024,
+            "row_id": "10",
+            "teacher_payload_sha256": "b2f0fcd9ba40a22c3bd395a5c38fce727b929722a5a5f30bbfbac1dc8ed5a656",
+            "top1_matches": 1012,
+            "top1_rate": 0.98828125
+          },
+          {
+            "candidate_payload_sha256": "bda843bbc24b29651fe4e633b0f2b549da38266ab370dc92f9796b85e30baa93",
+            "mean_support_renormalized_kld": 0.02462181041041953,
+            "positions": 1024,
+            "row_id": "12",
+            "teacher_payload_sha256": "a3cc101890449488729160b5c1d52d4070c572c8a08ae38df8d208c889e096a3",
+            "top1_matches": 973,
+            "top1_rate": 0.9501953125
+          },
+          {
+            "candidate_payload_sha256": "10e4955f5ad0e7c2e6076f9cf10396bb57c6d80b91aeec7b9b08d714c6f9f642",
+            "mean_support_renormalized_kld": 0.006427243053653169,
+            "positions": 1024,
+            "row_id": "19",
+            "teacher_payload_sha256": "3f4ec10fb4656ab9c5e85f32cbfe8757a67575977fa72582358bcb28818c0c8e",
+            "top1_matches": 991,
+            "top1_rate": 0.9677734375
+          },
+          {
+            "candidate_payload_sha256": "c6daf2cf24f99a4a501f35852c81ba83a42981bae504962637bdd3448e4b822c",
+            "mean_support_renormalized_kld": 0.006262797505077219,
+            "positions": 1024,
+            "row_id": "24",
+            "teacher_payload_sha256": "7e292743acf28289a0c83ea6828ac593d68e5b8eabb6a67e07b36464c9b80f86",
+            "top1_matches": 1006,
+            "top1_rate": 0.982421875
+          },
+          {
+            "candidate_payload_sha256": "e426f9184ef3c71b19f4279621f4a7c38be9e72090b38ab61362bba49b221d09",
+            "mean_support_renormalized_kld": 0.007455668874977674,
+            "positions": 1024,
+            "row_id": "37",
+            "teacher_payload_sha256": "bbfb8a46960b4cb3990131a43395f77f5a118403cda55db8bc08b58cc2224c59",
+            "top1_matches": 997,
+            "top1_rate": 0.9736328125
+          },
+          {
+            "candidate_payload_sha256": "d5d9f3b14c750f31c4a2bfc57a8c4ece674ed53e156406cae8cdb68c0cf8ee84",
+            "mean_support_renormalized_kld": 0.004797843676874159,
+            "positions": 1024,
+            "row_id": "45",
+            "teacher_payload_sha256": "7732daaa8d4b616900bfcda5106ae154d0f18219b966c6c9d6cdfb877c0fb574",
+            "top1_matches": 996,
+            "top1_rate": 0.97265625
+          },
+          {
+            "candidate_payload_sha256": "1df164f7cd3dacc481b2f2bb99bba44a3e5839addafc4c76a3a0d001230f6b34",
+            "mean_support_renormalized_kld": 0.0035891696829442924,
+            "positions": 1024,
+            "row_id": "57",
+            "teacher_payload_sha256": "e2eadcdb46c2533a0425b86a9b65e3b1d45e499257b1793038749bc058bac281",
+            "top1_matches": 1004,
+            "top1_rate": 0.98046875
+          },
+          {
+            "candidate_payload_sha256": "f8bfda695726d2e02a75b357f7d7730fb0216d56ebeeb1e903f694f06d0672bc",
+            "mean_support_renormalized_kld": 0.0026363670479755408,
+            "positions": 1024,
+            "row_id": "60",
+            "teacher_payload_sha256": "40404acd80c768bab084b1bd3a21f0a51c67476153f308adbf2347043cd2f8be",
+            "top1_matches": 1004,
+            "top1_rate": 0.98046875
+          }
+        ],
+        "status": "REAGGREGATED_EXACT_MATCH"
+      },
+      "referenced_by": [
+        "periodic-q2-endpoint",
+        "qpalette-q2.5-fix"
+      ],
+      "reporting_binding": {
+        "artifact_sha256": "ec067e5c859ac2a0699c562b64ba0a9dd679d18783c19f933a34035f12784975",
+        "bank_positions": "rows10-12-19-24-37-45-57-60:8192",
+        "intervention_scope": "l000-e000-e001-down",
+        "measurement_key": "ff0731/exl3-k2/l000-e000-e001-down/rows10-12-19-24-37-45-57-60/positions1024/support8192/teacher31c5ec76/scorer704f34b2",
+        "scorer_sha256": "704f34b24f86f0c3cd00be65b0bfb2a36bbbfb9a367294ad55dee0733c255101",
+        "support": 8192,
+        "terminal_sha256": "54c4c751728689f377b8772e48da7bbb7096ee449ed1e3d9624330df56b0b49c"
+      },
+      "scope": {
+        "base_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "intervention": {
+          "changed_tensors": 2,
+          "experts": [
+            0,
+            1
+          ],
+          "layer": 0,
+          "nontarget_source_identical": true,
+          "projections": [
+            "down"
+          ]
+        },
+        "positions_per_row": 1024,
+        "prefix_identity": {
+          "reason": "Full-model candidate and teacher row sidecars were scored directly; no split prefix artifact participated.",
+          "status": "NOT_APPLICABLE"
+        },
+        "reducer_semantics": "position-weighted float64 mean over 8192 positions using math.fsum",
+        "reducer_sha256": "dacc4ea7460c8d59e7d4e61386d0203185617c979977e317a61d09954d816a5e",
+        "row_ids": [
+          "10",
+          "12",
+          "19",
+          "24",
+          "37",
+          "45",
+          "57",
+          "60"
+        ],
+        "scorer_semantics": "teacher-support argmax match plus natural-log support-renormalized KLD",
+        "scorer_sha256": "704f34b24f86f0c3cd00be65b0bfb2a36bbbfb9a367294ad55dee0733c255101",
+        "suffix_identity": {
+          "reason": "Full-model candidate and teacher row sidecars were scored directly; no split suffix artifact participated.",
+          "status": "NOT_APPLICABLE"
+        },
+        "support_width": 8192,
+        "teacher_mode": "precomputed-full-model-teacher-sidecars",
+        "teacher_sha256": "31c5ec7676916825633017373235822316629b95ca222683265688182e4e9efc",
+        "window_manifest_sha256": "f5f9d314d20dbef61ac094ab1355f2d9eb68238d45345bac882842871c60dc69",
+        "wrapper_sha256": "815a4eadaaf83a37e414d1dfed0c7053998c4107dd7acf66fefbc60c35f97e86"
+      },
+      "scope_key": "ff0731/exl3-k2/l000-e000-e001-down/rows10-12-19-24-37-45-57-60/positions1024/support8192/teacher31c5ec76/scorer704f34b2",
+      "status": "HISTORICAL_AUTHENTICATED"
+    },
+    "ff0731/exl3-k2/l034-experts000-255-fused13-down/rows10-12/positions1024/support8192/eagerteacher/scorer0fa1c72b": {
+      "artifact": {
+        "artifact_file_bytes": 1664230542,
+        "artifact_kind": "whole-layer-safetensors-shard",
+        "artifact_sha256": "12dfb4cdb961fbe53a8c741a009825e4a575ff954a7e347092f558babe54559b",
+        "candidate_payload_sha256": "17427008ac6bfd28371fe5c11d549918abb038bfb90023d32ccf8e924fdd7758"
+      },
+      "authorized_use": "Current corrected eager-teacher whole-L034 rows10/12 endpoint comparisons only.",
+      "comparison_gates": [
+        {
+          "decision": "RED",
+          "expand_full_train8": false,
+          "k2": {
+            "candidate_payload_sha256": "17427008ac6bfd28371fe5c11d549918abb038bfb90023d32ccf8e924fdd7758",
+            "mean_support_renormalized_kld": 0.018689766940723482,
+            "top1_matches": 1968,
+            "top1_positions": 2048
+          },
+          "q2": {
+            "candidate_payload_sha256": "cde060c986f58ef105ee3f1f202875b39b3f94726b93a3f5e85528ce0d8331bd",
+            "mean_support_renormalized_kld": 0.02153485798949228,
+            "top1_matches": 1959,
+            "top1_positions": 2048
+          },
+          "relative_path": "receipts/Q2_V6_EXACT512_VS_AUTHENTIC_EXL3_K2_ROWS2_GATE.json",
+          "role": "raw-shared-method-history",
+          "sha256": "476ee64e7e919bfaa851ccc8e0e1e3e760831dd547e7c9d1dfdc837b2126a0da"
+        },
+        {
+          "decision": "RED",
+          "expand_full_train8": false,
+          "k2": {
+            "candidate_payload_sha256": "17427008ac6bfd28371fe5c11d549918abb038bfb90023d32ccf8e924fdd7758",
+            "mean_support_renormalized_kld": 0.018689766940723482,
+            "selected_payload_bpw": 2.0117225646972656,
+            "top1_matches": 1968,
+            "top1_positions": 2048
+          },
+          "q2": {
+            "candidate_payload_sha256": "d0aaffe61eaf8c9eb3118e015c0fd6d0493fc4933637df8b3e622b933f1d6f51",
+            "full_wire_bpw": 2.009119669596354,
+            "mean_support_renormalized_kld": 0.024969158662642835,
+            "top1_matches": 1968,
+            "top1_positions": 2048
+          },
+          "relative_path": "comparison-gates/current-ordinary-q2-rms-one-encode.json",
+          "role": "current-ordinary-q2-rms-one-encode",
+          "sha256": "cd30688a38e863921525e233548ce0ecd3326a33a11ca7d741f11672ae3ee395",
+          "source_locator": "Private run suffix omitted; bind this gate by role and SHA-256."
+        }
+      ],
+      "evidence": {
+        "direct_file_rehash": true,
+        "manifest": {
+          "name": "manifest.json",
+          "sha256": "bab7223bb0c74ecdc599027af2679f57655237df7c628ef8122139129ae46582"
+        },
+        "score_artifact": {
+          "name": "ARTIFACT.json",
+          "sha256": "c609c860d82f934c7fc6a326a3f0e1b15f54e85cc10d3963548f5853e7af61d0"
+        },
+        "terminal": {
+          "name": "TERMINAL.json",
+          "relative_path": "results/attempt14-exl3-k2-eagerteacher/TERMINAL.json",
+          "sha256": "9b671c0926a17c2449b71cf602df767cf5f69a147807bc865235f4b9d876200c",
+          "status": "PASS"
+        }
+      },
+      "lifecycle": "current-authoritative-whole-l034",
+      "measurement": {
+        "kld_semantics": "natural_log_teacher_support_renormalized_float64_nonnegative",
+        "mean_support_renormalized_kld": 0.018689766940723482,
+        "top1_matches": 1968,
+        "top1_positions": 2048,
+        "top1_rate": 0.9609375,
+        "top1_semantics": "teacher_support_argmax_matches_candidate_full_vocab_argmax",
+        "wire": {
+          "artifact_file_bpw": 2.066580630838871,
+          "denominator_weights": 6442450944,
+          "numerator_bits": 12960423936,
+          "selected_payload_bpw": 2.0117225646972656,
+          "selected_tensor_payload_bytes": 1620052992
+        }
+      },
+      "per_row_evidence": {
+        "available_inputs": [
+          "teacher row payload hashes",
+          "aggregate candidate payload hash"
+        ],
+        "missing_inputs": [
+          "candidate logits and argmax sidecars by row",
+          "per-row KLD and Top-1 counters"
+        ],
+        "reason": "The sealed result contains only the aggregate arm result; exact per-row reaggregation is unavailable without rerunning evaluation.",
+        "status": "NOT_PERSISTED"
+      },
+      "referenced_by": [
+        "periodic-q2-endpoint",
+        "late-layer-l034-evaluation",
+        "qpalette-q2.5-fix",
+        "qpalette-fixed-v2-comparator"
+      ],
+      "reporting_binding": {
+        "artifact_sha256": "12dfb4cdb961fbe53a8c741a009825e4a575ff954a7e347092f558babe54559b",
+        "bank_positions": "rows10-12:2048",
+        "intervention_scope": "l034-experts000-255-fused13-down",
+        "measurement_key": "ff0731/exl3-k2/l034-experts000-255-fused13-down/rows10-12/positions1024/support8192/eagerteacher/scorer0fa1c72b",
+        "scorer_sha256": "0fa1c72b095479f7dc99264eae9ae25ad3ccd9dac22b85dbb62e15a081305e25",
+        "support": 8192,
+        "terminal_sha256": "9b671c0926a17c2449b71cf602df767cf5f69a147807bc865235f4b9d876200c"
+      },
+      "scope": {
+        "base_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "intervention": {
+          "changed_tensors": 512,
+          "experts": {
+            "count": 256,
+            "first": 0,
+            "last": 255
+          },
+          "layer": 34,
+          "nontarget_tensors_changed": 0,
+          "projections": [
+            "fused13",
+            "down"
+          ],
+          "roster_sha256": "499f9e139f05376ec976ba2524db4868637c6dda11c27284ee211b4a7866983e"
+        },
+        "positions_per_row": 1024,
+        "prefix_identity": {
+          "sha256": "1031f9a134501f88345337efeb3b26ede5b81fbae680ad9c50b3f3e5a58c57b8",
+          "status": "BOUND"
+        },
+        "prefix_payload_sha256": "1031f9a134501f88345337efeb3b26ede5b81fbae680ad9c50b3f3e5a58c57b8",
+        "reducer_semantics": "sealed aggregate over the exact 2048-position bank; per-row counters were not persisted",
+        "reducer_sha256": "71b74c0e0a289143db3e3cd939cb60902d0ecbd69d81232f23521d145d3d2d88",
+        "row_ids": [
+          "10",
+          "12"
+        ],
+        "scorer_semantics": "teacher-support argmax match plus natural-log support-renormalized KLD",
+        "scorer_sha256": "0fa1c72b095479f7dc99264eae9ae25ad3ccd9dac22b85dbb62e15a081305e25",
+        "suffix_identity": {
+          "sha256": "349f5259193638c30bd1de69d31c7f98a0bdde12d65f554f79a79470f2452efd",
+          "status": "BOUND"
+        },
+        "suffix_layers": [
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42
+        ],
+        "suffix_shard_sha256": "349f5259193638c30bd1de69d31c7f98a0bdde12d65f554f79a79470f2452efd",
+        "support_width": 8192,
+        "teacher_mode": "eagerteacher",
+        "teacher_row_payloads": {
+          "10": "3901389a1f7805864ddf939ea45580834113cde9ca24f68310efab81e7d3748a",
+          "12": "2ccb865c9085f7daaa342b0820d9aff295eaaf27708f33c6ac414db7a482dafb"
+        },
+        "teacher_sha256": "5144020ccea986c85f2a6c21c2f6f409926681af2cd2f6634aa5d173ef4e1917",
+        "teacher_support_sha256": "5144020ccea986c85f2a6c21c2f6f409926681af2cd2f6634aa5d173ef4e1917",
+        "window_manifest_sha256": "bab7223bb0c74ecdc599027af2679f57655237df7c628ef8122139129ae46582"
+      },
+      "scope_key": "ff0731/exl3-k2/l034-experts000-255-fused13-down/rows10-12/positions1024/support8192/eagerteacher/scorer0fa1c72b",
+      "status": "CURRENT_AUTHORITATIVE"
+    }
+  },
+  "missing_scopes": [
+    {
+      "family": "EXL3 K2",
+      "measurement_key": "ff0731/exl3-k2/routed-only-native-rest/exact64/positions65536/support8192",
+      "reason": "No valid frozen routed-only/native-rest Exact64 row exists; full all-linear and rows8 results are not substitutes.",
+      "status": "MISSING_NOT_A_MEASUREMENT"
+    },
+    {
+      "family": "EXL3 K3",
+      "measurement_key": "ff0731/exl3-k3/routed-only-native-rest/exact64/positions65536/support8192",
+      "reason": "No valid frozen routed-only/native-rest Exact64 row exists; full all-linear and rows8 results are not substitutes.",
+      "status": "MISSING_NOT_A_MEASUREMENT"
+    }
+  ],
+  "quarantine": [
+    {
+      "claim": "A planning card named a Full Train8 terminal digest that does not match the located immutable terminal.",
+      "claimed_sha256": "54c4c751728689f377b877c7e48da7bbb7096ee449ed1e3d9624330df56b0b49c",
+      "id": "Q-001",
+      "observed_sha256": "54c4c751728689f377b8772e48da7bbb7096ee449ed1e3d9624330df56b0b49c",
+      "resolution": "Use only the observed digest, which closes against independently reaggregated row payloads.",
+      "status": "QUARANTINED",
+      "type": "terminal-digest-mismatch"
+    },
+    {
+      "claimed": {
+        "decision": "GREEN",
+        "k2_mean_kld": 0.318,
+        "k2_top1_rate": 0.413,
+        "q2_mean_kld": 0.276,
+        "q2_top1_rate": 0.428
+      },
+      "gate_sha256": "476ee64e7e919bfaa851ccc8e0e1e3e760831dd547e7c9d1dfdc837b2126a0da",
+      "id": "Q-002",
+      "observed": {
+        "decision": "RED",
+        "k2_mean_kld": 0.018689766940723482,
+        "k2_top1_matches": 1968,
+        "k2_top1_positions": 2048,
+        "q2_mean_kld": 0.02153485798949228,
+        "q2_top1_matches": 1959,
+        "q2_top1_positions": 2048
+      },
+      "resolution": "The direct file rehash matches the named digest; its contents are the observed RED values.",
+      "status": "QUARANTINED",
+      "type": "gate-content-conflict"
+    },
+    {
+      "claim": "The historical two-cell Full Train8 result was used as a threshold for whole-L034 rows2 decisions.",
+      "id": "Q-003",
+      "resolution": "Keep the measurements under different scope keys. Neither Top-1 nor KLD transfers between them.",
+      "status": "QUARANTINED",
+      "type": "scope-substitution"
+    },
+    {
+      "claim": {
+        "mean_kld": 0.31855187054408535,
+        "top1_matches": 846,
+        "top1_positions": 2048
+      },
+      "id": "Q-004",
+      "resolution": "The old teacher failed zero-control and was superseded by the corrected eager-teacher terminal.",
+      "status": "QUARANTINED",
+      "type": "old-teacher-result"
+    },
+    {
+      "claim": "An input document labeled the K2 Full Train8 metric and a malformed K2 digest as an ordinary-QTIP2 reference.",
+      "id": "Q-005",
+      "resolution": "Use physical terminals, row payload hashes, and scope keys instead of copied labels.",
+      "source_document_sha256": "e1b94586aa40a97248f9abb17740286b385e290575e439a955b944b2a6c12d83",
+      "status": "QUARANTINED",
+      "type": "mislabeled-input-reference"
+    },
+    {
+      "claim": "A routed-only/native-rest Exact64 K2/K3 comparator was treated as if it already existed.",
+      "id": "Q-006",
+      "resolution": "Keep the scope explicitly missing until a frozen 64-window, 65,536-position terminal is handed into this ledger; do not substitute full all-linear or rows8 evidence.",
+      "status": "QUARANTINED",
+      "type": "missing-scope"
+    }
+  ],
+  "schema": "banana-smasher-exl3-k2-scope-ledger-v1"
+}
