@@ -27,6 +27,15 @@ from .anchor import (
     status_report,
     validate_bank_manifest,
 )
+from .anchor_sidecars import (
+    CandidateSidecarWriter,
+    aggregate_historical_anchor_ledger,
+    load_candidate_manifest,
+    load_teacher_support_manifest,
+    load_teacher_window,
+    score_anchor_sidecars,
+    write_teacher_support_manifest,
+)
 from .bank import build_bank, verify_bank
 from .bpw import (
     BPW_ACCOUNTING_SCHEMA,
@@ -218,6 +227,7 @@ __all__ = [
     "BackpackWirePrice",
     "BANANA_V1_GEOMETRY",
     "ContextualValuationError",
+    "CandidateSidecarWriter",
     "EXACT64_TERMINAL_SCHEMA",
     "EncodedQtip",
     "QTIP1_GEOMETRY",
@@ -229,6 +239,7 @@ __all__ = [
     "NativeV4MatrixResult",
     "UpdateQueue",
     "aggregate_scores",
+    "aggregate_historical_anchor_ledger",
     "anchor_backpack",
     "anchor_backpack_candidates",
     "anchor_qtip25_native_v4_cell",
@@ -277,6 +288,9 @@ __all__ = [
     "import_producer",
     "inspect_backpack",
     "load_manifest",
+    "load_candidate_manifest",
+    "load_teacher_support_manifest",
+    "load_teacher_window",
     "ldlq_banana_v1_matrix",
     "ldlq_native_v4_matrix",
     "materialize_backpack_assignment",
@@ -319,6 +333,7 @@ __all__ = [
     "run_contextual_value_update",
     "run_backpack_exact64",
     "score_bank",
+    "score_anchor_sidecars",
     "score_backpack",
     "serve_persistent_updates",
     "solve_backpack",
@@ -347,4 +362,5 @@ __all__ = [
     "write_encoded_qtip_wire",
     "write_banana_v1_candidate",
     "write_qtip_wire",
+    "write_teacher_support_manifest",
 ]
