@@ -1,0 +1,139 @@
+{
+  "schema": "banana-smasher.mtp-size-accounting-correction.v1",
+  "comparison_id": "deepseek-v4-flash-0731-balanced64-v1",
+  "source_result_repository_commit": "cce0de31f97c6129ed29af34702226cc68e02c88",
+  "basis_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "status": "PASS",
+  "quality_metrics_changed": false,
+  "accounting_policy": {
+    "base_model_parameter_denominator": 284334567511,
+    "mtp_parameter_denominator": 10215806828,
+    "mtp_inclusive_parameter_denominator": 294550374339,
+    "base_equivalent_comparison_bpw": "all shipped artifact bytes times eight divided by the fixed base-model denominator; MTP and drafter bytes receive no denominator credit",
+    "matched_physical_bpw": "all shipped artifact bytes times eight divided by the parameters represented by that artifact"
+  },
+  "qtip_mtp_correction": {
+    "missing_tensor_count": 10,
+    "missing_tensor_payload_bytes": 33843220,
+    "missing_tensor_names": [
+      "mtp.0.e_proj.scale",
+      "mtp.0.e_proj.weight",
+      "mtp.0.enorm.weight",
+      "mtp.0.h_proj.scale",
+      "mtp.0.h_proj.weight",
+      "mtp.0.hc_head_base",
+      "mtp.0.hc_head_fn",
+      "mtp.0.hc_head_scale",
+      "mtp.0.hnorm.weight",
+      "mtp.0.norm.weight"
+    ],
+    "corrected_retained_tensor_count": 6279,
+    "corrected_retained_payload_bytes": 19742640908,
+    "corrected_index_status": "byte-exact reconstruction; corrected content-addressed indexes are not yet materialized or sealed"
+  },
+  "rows": {
+    "UD-IQ4_XS": {
+      "artifact_payload_scope": "base-model-only",
+      "mtp_included": false,
+      "shipping_bytes": 136662446656,
+      "comparison_bpw": "3.84511662728346850440505038646609313779223476049666531535789",
+      "matched_physical_parameter_denominator": 284334567511,
+      "matched_physical_bpw": "3.84511662728346850440505038646609313779223476049666531535789",
+      "scope_evidence": "UD-IQ4_XS GGUF file-sum match and direct tensor-header census: blocks 0-42 only; no MTP, draft, or next-token tensors or metadata"
+    },
+    "QTIP3-uniform-exact": {
+      "artifact_payload_scope": "base-plus-native-mtp",
+      "mtp_included": true,
+      "source_shipping_bytes": 123934682354,
+      "corrected_shipping_bytes": 123968528042,
+      "correction_bytes": 33845688,
+      "source_index_bytes": 25649658,
+      "source_index_sha256": "077fad199be8cebc9e8b4eeb1fec3b64f29acbc86414ba7b41319e8e924a4eb8",
+      "corrected_index_bytes": 25652126,
+      "corrected_index_materialized": false,
+      "comparison_bpw": "3.487962202476954954739203475489728352391106959317205859774720270487259967167516979310499463726247446",
+      "matched_physical_parameter_denominator": 294550374339,
+      "matched_physical_bpw": "3.366990201800220160609014760760561777803648476523622293748953251775890964062985583520759295272402536"
+    },
+    "QTIP2.5-all43-FF0731": {
+      "artifact_payload_scope": "base-plus-native-mtp",
+      "mtp_included": true,
+      "source_shipping_bytes": 106623252108,
+      "corrected_shipping_bytes": 106657097796,
+      "correction_bytes": 33845688,
+      "source_index_bytes": 28306324,
+      "source_index_sha256": "6e07f7e69be28049c8a2bc688bf5769ecf28d2247298f8a3a5c7834855784c90",
+      "corrected_index_bytes": 28308792,
+      "corrected_index_materialized": false,
+      "comparison_bpw": "3.000890077619529004844566360882975546159322569853373356482985112524832787917096430186638982148897429",
+      "matched_physical_parameter_denominator": 294550374339,
+      "matched_physical_bpw": "2.896811060867914736939960239797059224609223965397080350440803586284251617516665253536057228198517241"
+    },
+    "EXL3-K3-uniform-exact": {
+      "artifact_payload_scope": "base-plus-native-mtp",
+      "mtp_included": true,
+      "shipping_bytes": 113260003977,
+      "comparison_bpw": "3.1866685776112911267683828052512390676600950753402115068941016938581162185549624",
+      "matched_physical_parameter_denominator": 294550374339,
+      "matched_physical_bpw": "3.0761462580019892235388085204751561835019841251086898351320855762696230344782987",
+      "scope_evidence": "recorded physical readback reports MTP tensors, including mtp.0, mtp.1, and mtp.2 names"
+    },
+    "UD-IQ3_XXS": {
+      "artifact_payload_scope": "base-model-only",
+      "mtp_included": false,
+      "shipping_bytes": 104207848032,
+      "comparison_bpw": "2.93197830834883710932601535266166267708804597088615155566779",
+      "matched_physical_parameter_denominator": 284334567511,
+      "matched_physical_bpw": "2.93197830834883710932601535266166267708804597088615155566779",
+      "scope_evidence": "UD-IQ3_XXS GGUF file-sum match and direct tensor-header census: blocks 0-42 only; no MTP, draft, or next-token tensors or metadata"
+    },
+    "QTIP2-corrected-all43": {
+      "artifact_payload_scope": "base-plus-native-mtp",
+      "mtp_included": true,
+      "source_shipping_bytes": 89296314458,
+      "corrected_shipping_bytes": 89330159521,
+      "correction_bytes": 33845063,
+      "source_index_bytes": 15455586,
+      "source_index_sha256": "86e1a27915c4cd2afef945c349c4bfecc4978ad530cc5a1bf78cea8258c25121",
+      "corrected_index_bytes": 15457429,
+      "corrected_index_materialized": false,
+      "comparison_bpw": "2.513381620897546346242712786553221881289247601967419161507186034365733436972896136497009434136188510",
+      "matched_physical_parameter_denominator": 294550374339,
+      "matched_physical_bpw": "2.426210721244966287151807957492313699829509147925225173380186121318986696899809435485437887681774107"
+    },
+    "UD-IQ2_XXS": {
+      "artifact_payload_scope": "base-model-only",
+      "mtp_included": false,
+      "shipping_bytes": 90860736928,
+      "comparison_bpw": "2.55644574554192780938968595190844480957809362062402409152428",
+      "matched_physical_parameter_denominator": 284334567511,
+      "matched_physical_bpw": "2.55644574554192780938968595190844480957809362062402409152428",
+      "scope_evidence": "UD-IQ2_XXS GGUF file-sum match and direct tensor-header census: blocks 0-42 only; no MTP, draft, or next-token tensors or metadata"
+    },
+    "DwarfStar-Q2-0731": {
+      "artifact_payload_scope": "base-plus-separate-drafter",
+      "mtp_included": false,
+      "separate_drafter_included": true,
+      "base_shipping_bytes": 86720111488,
+      "drafter_shipping_bytes": 6971241504,
+      "shipping_bytes": 93691352992,
+      "comparison_bpw": "2.63608758687774759058919129311816402968907463449170730541087",
+      "matched_physical_parameter_denominator": 304180418494,
+      "matched_physical_bpw": "2.464099522404939413068858133872326001823927255892520785440878485452689555401858115769576234883829175"
+    },
+    "EXL3-K2-uniform-exact": {
+      "artifact_payload_scope": "base-plus-native-mtp",
+      "mtp_included": true,
+      "shipping_bytes": 77861675750,
+      "comparison_bpw": "2.190705869682560617373727635873499608890823674832293965020080670932770468085065052285857872081823338",
+      "matched_physical_parameter_denominator": 294550374339,
+      "matched_physical_bpw": "2.1147262413019642073129200430786759258921493038829459642230205354565125708522857",
+      "scope_evidence": "converter and artifact ledger include the native MTP path"
+    }
+  },
+  "limitations": [
+    "The correction changes shipping-size accounting only; BALANCED64 quality metrics and candidate identities are unchanged.",
+    "Corrected QTIP index byte lengths are deterministic reconstructions from the recorded source indexes plus ten declared MTP entries. New corrected index content hashes remain unsealed and are not fabricated here.",
+    "Matched physical BPW values are not a cross-row ranking while artifact payload scopes differ. Base-equivalent comparison BPW intentionally charges MTP and drafter bytes against the fixed base-model denominator."
+  ]
+}

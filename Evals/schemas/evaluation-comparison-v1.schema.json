@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": [
     "schema", "comparison_id", "title", "fp", "wire_parameter_denominator",
+    "mtp_inclusive_parameter_denominator", "size_accounting",
     "suite", "metrics", "verification_scope", "results"
   ],
   "properties": {
@@ -14,6 +15,8 @@
     "title": {"type": "string", "minLength": 1},
     "fp": {"type": "string", "minLength": 1},
     "wire_parameter_denominator": {"type": "integer", "minimum": 1},
+    "mtp_inclusive_parameter_denominator": {"type": "integer", "minimum": 1},
+    "size_accounting": {"$ref": "#/$defs/sizeAccounting"},
     "suite": {"$ref": "#/$defs/suiteProjection"},
     "metrics": {"$ref": "#/$defs/metrics"},
     "verification_scope": {
@@ -33,6 +36,16 @@
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "decimal": {"type": "string", "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:e[+-]?[0-9]+)?$"},
+    "sizeAccounting": {
+      "type": "object", "additionalProperties": false,
+      "required": ["receipt_path", "receipt_sha256", "comparison_bpw_kind", "matched_physical_bpw_kind"],
+      "properties": {
+        "receipt_path": {"type": "string", "minLength": 1},
+        "receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "comparison_bpw_kind": {"type": "string", "minLength": 1},
+        "matched_physical_bpw_kind": {"type": "string", "minLength": 1}
+      }
+    },
     "suiteProjection": {
       "type": "object", "additionalProperties": false,
       "required": [
@@ -127,12 +140,16 @@
     "wire": {
       "type": "object", "additionalProperties": false,
       "required": [
-        "bytes", "decimal_gb", "parameter_denominator", "normalized_bpw",
+        "bytes", "decimal_gb", "artifact_payload_scope", "parameter_denominator", "normalized_bpw",
         "total_model_parameters", "total_model_parameter_components", "total_model_bpw"
       ],
       "properties": {
         "bytes": {"type": "integer", "minimum": 1},
         "decimal_gb": {"$ref": "#/$defs/decimal"},
+        "artifact_payload_scope": {
+          "enum": ["base-model-only", "base-plus-native-mtp", "base-plus-separate-drafter"],
+          "description": "Declares whether exact shipping bytes exclude MTP, include the native MTP checkpoint, or include a separately packaged drafter."
+        },
         "parameter_denominator": {
           "type": "integer",
           "minimum": 1,
@@ -140,13 +157,16 @@
         },
         "normalized_bpw": {
           "$ref": "#/$defs/decimal",
-          "description": "Legacy field name for comparison BPW: whole artifact weight bytes times eight divided by parameter_denominator."
+          "description": "Legacy field name for base-equivalent comparison BPW: every shipped artifact byte times eight divided by the fixed base-model parameter_denominator. Extra MTP or drafter bytes receive no denominator credit."
         },
-        "total_model_parameters": {"type": "integer", "minimum": 1},
+        "total_model_parameters": {
+          "type": "integer", "minimum": 1,
+          "description": "Parameters represented by artifact_payload_scope: base only, base plus native MTP, or base plus separate drafter."
+        },
         "total_model_parameter_components": {"$ref": "#/$defs/modelParameterComponents"},
         "total_model_bpw": {
           "$ref": "#/$defs/decimal",
-          "description": "Secondary auxiliary-inclusive BPW; not the comparable or publication quant label."
+          "description": "Matched physical BPW: shipped bytes times eight divided by total_model_parameters. This is not a cross-row ranking while artifact payload scopes differ."
         }
       }
     },
@@ -329,7 +349,7 @@
       "type": "object", "additionalProperties": false,
       "required": [
         "qtip_expert_payload", "retained_non_routed_payload",
-        "weight_pack_index_metadata", "repair_payload",
+        "weight_pack_index_metadata", "mtp_accounting_correction", "repair_payload",
         "torch_container_inflation_bytes", "runtime_and_headroom_bytes"
       ],
       "properties": {
@@ -337,10 +357,27 @@
         "retained_non_routed_payload": {"$ref": "#/$defs/componentLedger"},
         "weight_pack_index_metadata": {
           "type": "object", "additionalProperties": false,
-          "required": ["bytes", "sha256"],
+          "required": ["source_bytes", "source_sha256", "corrected_bytes", "corrected_index_materialized"],
           "properties": {
-            "bytes": {"type": "integer", "minimum": 1},
-            "sha256": {"$ref": "#/$defs/sha256"}
+            "source_bytes": {"type": "integer", "minimum": 1},
+            "source_sha256": {"$ref": "#/$defs/sha256"},
+            "corrected_bytes": {"type": "integer", "minimum": 1},
+            "corrected_index_materialized": {"const": false}
+          }
+        },
+        "mtp_accounting_correction": {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "missing_tensor_count", "missing_tensor_payload_bytes",
+            "corrected_retained_tensor_count", "corrected_retained_payload_bytes",
+            "accounting_receipt_sha256"
+          ],
+          "properties": {
+            "missing_tensor_count": {"const": 10},
+            "missing_tensor_payload_bytes": {"const": 33843220},
+            "corrected_retained_tensor_count": {"const": 6279},
+            "corrected_retained_payload_bytes": {"const": 19742640908},
+            "accounting_receipt_sha256": {"$ref": "#/$defs/sha256"}
           }
         },
         "repair_payload": {
