@@ -138,6 +138,7 @@ from .qtip25_native_v4 import (
     ldlq_native_v4_matrix,
     native_v4_lower_from_hessian,
 )
+from .qtip3_fixed import decode_qtip3_fixed_member, smoke_qtip3_fixed_manifest
 from .banana_v1 import (
     BANANA_V1_GEOMETRY,
     banana_v1_gaussian_codebook,
@@ -257,6 +258,7 @@ __all__ = [
     "compare_training_rails",
     "create_balanced_subset",
     "decode_qtip",
+    "decode_qtip3_fixed_member",
     "decode_banana_v1",
     "decode_banana_v1_torch",
     "emit_solver_row",
@@ -324,6 +326,7 @@ __all__ = [
     "solve_fixed_d4_exact",
     "solve_qtip_profiles",
     "solve_banana_v1",
+    "smoke_qtip3_fixed_manifest",
     "status_backpack",
     "status_report",
     "stage_qsfp_manifest",

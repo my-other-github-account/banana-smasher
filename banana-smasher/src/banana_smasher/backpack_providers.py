@@ -449,14 +449,34 @@ def periodic_qtip3_backpack_provider(
         kind="fixed_qtip",
         runtime_family="periodic_qtip3",
         generate=generate_backpack_candidate,
-        materialize=_materialize_provider_assignment,
+        materialize=_fixed_qtip_materialize,
         price=price_backpack_candidate,
         predict=predict_backpack_candidate,
-        verify=verify_backpack_candidate,
+        verify=_fixed_qtip_verify,
         rate_num=3,
         rate_den=1,
         transition_bits=12,
     )
+
+
+def _fixed_qtip_materialize(*args: Any, **kwargs: Any) -> Any:
+    """Dispatch one plan assignment or a streaming physical-cell manifest."""
+
+    if "tier" in kwargs and "cell" in kwargs and "artifact_root" in kwargs:
+        return _materialize_provider_assignment(*args, **kwargs)
+    from .qtip3_fixed import materialize_qtip3_fixed_manifest
+
+    return materialize_qtip3_fixed_manifest(*args, **kwargs)
+
+
+def _fixed_qtip_verify(*args: Any, **kwargs: Any) -> Any:
+    """Dispatch candidate verification or complete fixed-QTIP3 pack verification."""
+
+    if "tier" in kwargs and "cell" in kwargs:
+        return verify_backpack_candidate(*args, **kwargs)
+    from .qtip3_fixed import verify_qtip3_shipping_pack
+
+    return verify_qtip3_shipping_pack(*args, **kwargs)
 
 
 def vector_vq_backpack_provider(
