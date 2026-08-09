@@ -1,10 +1,10 @@
 # DeepSeek-V4-Flash-0731 quant results
 
-This page compares quality and exact whole-model shipping size for eight quants measured on the frozen competitive `BALANCED64_V1` population.
+This page compares quality and exact whole-model shipping size for nine quants measured on the frozen competitive `BALANCED64_V1` population.
 
 ## Results
 
-Every model below ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. The table is ordered by Top-1 agreement; by KLD, EXL3 moves ahead of both IQ3 and QTIP2.5, while IQ3 also moves ahead of QTIP2.5.
+Every model below ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. The table is ordered by Top-1 agreement; by KLD, EXL3 K3 moves ahead of both IQ3 and QTIP2.5, while IQ3 also moves ahead of QTIP2.5. EXL3 K2 ranks below DwarfStar Q2 on both metrics.
 
 | Quant | Top-1 ↑ | KLD ↓ | Exact decimal GB | Comparison BPW | FP basis |
 |---|---:|---:|---:|---:|---|
@@ -16,12 +16,13 @@ Every model below ran the same 64 windows and 65,536 scored positions against th
 | **QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** | 89.296 | 2.512 | FP8 e4m3 dynamic own-base |
 | **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | 90.861 | 2.556 | FP8 e4m3 dynamic own-base |
 | **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | 93.691 | 2.636 | FP8 e4m3 dynamic own-base |
+| **EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** | 77.862 | 2.191 | FP8 e4m3 dynamic own-base |
 
 Top-1 is how often the quant selects the same next token as FP8 on the common ordered support. KLD measures movement of the full supported token distribution. Higher Top-1 and lower KLD are better.
 
 Comparison BPW is exact total artifact weight bytes × 8 divided by the canonical 284,334,567,511 base-model logical parameters for every row. This fixed denominator is the apples-to-apples value used in the table and in public quant labels. DwarfStar additionally ships a 19,845,850,983-parameter drafter; its auxiliary-inclusive BPW is 2.464 and remains available as the separately labeled `total_model_bpw` field in the machine receipt, but it is not a comparable quant label. `UD-IQ3_XXS` is a dynamic mixed quant—not a uniform three-bit model—so its exact comparison value is 2.932 BPW.
 
-The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, candidate/teacher/scorer/population identities, available component-byte ledgers, source hashes, replay limits, and the six-category breakdowns for all eight quants. The EXL3 source revision, code lineage, weight-component ledger, and runtime measurements were not recorded and are explicitly marked unavailable rather than inferred.
+The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, candidate/teacher/scorer/population identities, available component-byte ledgers, source hashes, replay limits, and the six-category breakdowns for all nine quants. EXL3 K2 records its upstream revision, complete artifact/tree ledger, exact component bytes, physical readback, and independent recomputation. The older EXL3 K3 source revision, code lineage, weight-component ledger, and runtime measurements remain explicitly unavailable rather than inferred.
 
 ## What makes these apples to apples
 
@@ -51,6 +52,7 @@ These category rows are derived from the exact same 64-window competitive aggreg
 | **QTIP2 all-43** | 87.78% (17,079/19,456) | 91.62% (6,567/7,168) | 91.29% (8,413/9,216) | 80.11% (8,203/10,240) | 79.01% (8,091/10,240) | 94.80% (8,737/9,216) |
 | **Unsloth IQ2** | 84.43% (16,426/19,456) | 88.85% (6,369/7,168) | 89.08% (8,210/9,216) | 78.76% (8,065/10,240) | 76.81% (7,865/10,240) | 92.09% (8,487/9,216) |
 | **DwarfStar Q2** | 83.13% (16,174/19,456) | 88.38% (6,335/7,168) | 88.10% (8,119/9,216) | 77.75% (7,962/10,240) | 76.12% (7,795/10,240) | 91.80% (8,460/9,216) |
+| **EXL3 K2 exact** | 82.56% (16,063/19,456) | 84.15% (6,032/7,168) | 86.74% (7,994/9,216) | 75.98% (7,780/10,240) | 74.20% (7,598/10,240) | 88.17% (8,126/9,216) |
 
 ### KLD
 
@@ -64,6 +66,7 @@ These category rows are derived from the exact same 64-window competitive aggreg
 | **QTIP2 all-43** | 0.2896 | 0.0683 | 0.1223 | 0.4477 | 0.3549 | 0.0341 |
 | **Unsloth IQ2** | 0.3770 | 0.1123 | 0.1441 | 0.4302 | 0.3623 | 0.0601 |
 | **DwarfStar Q2** | 0.4198 | 0.1250 | 0.1745 | 0.4674 | 0.4150 | 0.0625 |
+| **EXL3 K2 exact** | 0.4630 | 0.1931 | 0.1964 | 0.5621 | 0.4817 | 0.1246 |
 
 ## Internal anchors are separate
 
@@ -82,13 +85,13 @@ python3 -m Evals.tools.receipts verify \
 Expected Top-1 order:
 
 ```text
-IQ4 > QTIP3 > QTIP2.5 > EXL3 K3 > IQ3 > QTIP2 > IQ2 > DwarfStar
+IQ4 > QTIP3 > QTIP2.5 > EXL3 K3 > IQ3 > QTIP2 > IQ2 > DwarfStar > EXL3 K2
 ```
 
 Expected KLD order:
 
 ```text
-IQ4 > QTIP3 > EXL3 K3 > IQ3 > QTIP2.5 > QTIP2 > IQ2 > DwarfStar
+IQ4 > QTIP3 > EXL3 K3 > IQ3 > QTIP2.5 > QTIP2 > IQ2 > DwarfStar > EXL3 K2
 ```
 
 ## Standard HumanEval tooling

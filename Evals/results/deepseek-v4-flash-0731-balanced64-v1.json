@@ -1266,6 +1266,208 @@
           "top1_rate": "0.91796875"
         }
       }
+    },
+    {
+      "model_id": "EXL3-K2-uniform-exact",
+      "display_name": "EXL3 K2 uniform exact",
+      "vendor": "upstream EXL3",
+      "fp": "FP8 e4m3 dynamic own-base teacher",
+      "artifact": {
+        "base_model": "DeepSeek-V4-Flash-0731",
+        "variant": "EXL3 K2 uniform exact",
+        "format": "EXL3",
+        "mechanism": "homogeneous K2/mul1 across every EXL3-eligible linear, including head and MTP, on exact current DeepSeek-V4-Flash-0731",
+        "candidate_artifact_sha256": "4c6c834e7c65907cb8c5fee6ba1edf8888deb3485ec2be1682c6edc199ca6e52",
+        "candidate_manifest_sha256": "161bcd01142d4b0b583975c94ff74e87fa58e4af94eea756601369a1bfd5fa7c",
+        "upstream_repository": "https://github.com/turboderp-org/exllamav3",
+        "upstream_revision": "791c83073f7f90c44f765a0ceeab7a05fa15b96b",
+        "identity_status": "complete-as-recorded",
+        "missing_identity_fields": []
+      },
+      "wire": {
+        "bytes": 77861675750,
+        "decimal_gb": "77.86167575",
+        "parameter_denominator": 284334567511,
+        "normalized_bpw": "2.190705869682560617373727635873499608890823674832293965020080670932770468085065052285857872081823338",
+        "total_model_parameters": 284334567511,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 0
+        },
+        "total_model_bpw": "2.190705869682560617373727635873499608890823674832293965020080670932770468085065052285857872081823338"
+      },
+      "kld": {
+        "direction": "KL(teacher||candidate)",
+        "mean": "0.36681969489879596"
+      },
+      "top1": {
+        "matches": 53593,
+        "positions": 65536,
+        "rate": "0.8177642822265625"
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.46302174855187817",
+          "top1_matches": 16063,
+          "top1_rate": "0.8256064967105263157894736842105263157894736842105263157894736842105263157894736842105263157894736842"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.19306986599935175",
+          "top1_matches": 6032,
+          "top1_rate": "0.8415178571428571428571428571428571428571428571428571428571428571428571428571428571428571428571428571"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.19644068100437007",
+          "top1_matches": 7994,
+          "top1_rate": "0.8674045138888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.5621391436884384",
+          "top1_matches": 7780,
+          "top1_rate": "0.759765625"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.4817025575780189",
+          "top1_matches": 7598,
+          "top1_rate": "0.7419921875"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.12457500525976556",
+          "top1_matches": 8126,
+          "top1_rate": "0.8817274305555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556"
+        }
+      },
+      "weight_components": {
+        "quantized_eligible_payload": {
+          "bytes": 71346747996,
+          "components": {
+            "exl3_k2_eligible_tensors": 71346747996
+          }
+        },
+        "format_retained_payload": {
+          "bytes": 6442016432,
+          "components": {
+            "upstream_format_retained_tensors": 6442016432
+          }
+        },
+        "safetensors_container_bytes": 15285059,
+        "artifact_metadata_bytes": 57626263,
+        "repair_payload": {
+          "bytes": 0
+        },
+        "runtime_and_headroom_bytes": 0
+      },
+      "measurement": {
+        "status": "PASS",
+        "candidate_artifact_sha256": "4c6c834e7c65907cb8c5fee6ba1edf8888deb3485ec2be1682c6edc199ca6e52",
+        "teacher_bank": "TEACHER_0731_BALANCED64_V2",
+        "teacher_source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "scorer_source_sha256": "d414a79316372ed9e6def693e43b577bc68d4c0341f4a049bdffffe2003d442e",
+        "suite_file_sha256": "c8564f82d151f0f61b255432c20cd1eec24d0b8529f3bed248b8a039f52b9d42",
+        "suite_lock_sha256": "d5610f11c23b75f81e196e74407cb7e642a4f4a2e12f55925e13e5a7fe43ffb9",
+        "window_population_sha256": "24089eea1b3e5650265b971930571dbf249aba0b2f62e954a9628dcbfd182f09",
+        "class_map_sha256": "c9ccf14df02d8f5d41508bb2e6e9c9525f1ea1d16533f2d65398d708a6ac9aaa",
+        "windows": 64,
+        "positions": 65536,
+        "support": 8192,
+        "holdout_used": false,
+        "fallback_used": false,
+        "censoring_used": false,
+        "numeric_semantics": "binary64 normalization and per-position KL(teacher||candidate) on common ordered teacher top-8192 support; no clamp; ordered math.fsum reduction; deterministic first-index Top-1 ties",
+        "artifacts": {
+          "candidate_artifact_tree_sha256": "4c6c834e7c65907cb8c5fee6ba1edf8888deb3485ec2be1682c6edc199ca6e52",
+          "candidate_manifest_sha256": "161bcd01142d4b0b583975c94ff74e87fa58e4af94eea756601369a1bfd5fa7c",
+          "exact64_capture_sha256": "3009e240335afe30fb832be07f286926508f00f0ba1450a7c05ab7bd5b0f015a",
+          "main_measurement_receipt_sha256": "d3f08bedb99cd74a24e8ffdbf124546734e57d8d2e640a78e343791755c2ace0",
+          "independent_exact_recompute_sha256": "52e90935ed61805acd5f2ffb14e1eeebc0d2168bf5aec77c3a0f8b6518a5c8a8",
+          "functional_readback_sha256": "067a2e3962e0799d2c75b07a7d8fe53da3e5299c6485dd41c19c7df620f2c1de",
+          "decision_grade_report_sha256": "b6f14153cc876c21aa1e979a7c65fab191332aa4b300830a3b8e779ed6b0dfea",
+          "final_pipeline_terminal_sha256": "f161c1adaa296d535af55c6e554aa9568e5cc937b0663b623722d58f72acc864",
+          "teacher_tree_sha256": "2d39efcfc09de5b3c20dadfc5efa78b2bb62dab0ff8265569f11e2a42ddb2acf"
+        },
+        "limitations": [
+          "Protected candidate, teacher, frozen-corpus, and full structural-ledger payloads are not distributed by this result.",
+          "This proves the physical whole-model artifact, exact wire audit, functional readback, 64-window measurement, and exact independent reaggregation, not clean-clone accelerator replay.",
+          "Runtime timings exist in the protected decision report but are not treated as apples-to-apples comparison metrics because equivalent timing receipts are unavailable for every table row."
+        ],
+        "unavailable_fields": []
+      },
+      "source_receipts": [
+        {
+          "sha256": "161bcd01142d4b0b583975c94ff74e87fa58e4af94eea756601369a1bfd5fa7c",
+          "label": "EXL3 K2 structural artifact validation",
+          "role": "complete file ledger, tree identity, exact wire bytes, homogeneous-K2 checks, and component-byte evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "d3f08bedb99cd74a24e8ffdbf124546734e57d8d2e640a78e343791755c2ace0",
+          "label": "EXL3 K2 exact64 measurement bindings",
+          "role": "global and six-category KLD and Top-1 evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "52e90935ed61805acd5f2ffb14e1eeebc0d2168bf5aec77c3a0f8b6518a5c8a8",
+          "label": "EXL3 K2 independent exact recompute",
+          "role": "independent global and six-category float64 recomputation evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "3009e240335afe30fb832be07f286926508f00f0ba1450a7c05ab7bd5b0f015a",
+          "label": "EXL3 K2 exact64 sidecar capture",
+          "role": "64 candidate-sidecar collection identity; distinct from the physical artifact manifest",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "067a2e3962e0799d2c75b07a7d8fe53da3e5299c6485dd41c19c7df620f2c1de",
+          "label": "EXL3 K2 functional readback",
+          "role": "physical model load and forward-pass evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "b6f14153cc876c21aa1e979a7c65fab191332aa4b300830a3b8e779ed6b0dfea",
+          "label": "EXL3 K2 decision-grade report",
+          "role": "acceptance, source, artifact, timing, and closeout evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "d526c5532494ffbe25fbd02ed8a1bd5e989a0c1996011b7bfcd55956327d097c",
+          "label": "EXL3 K2 archive receipt",
+          "role": "checksum-verified atomic artifact archive evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "f161c1adaa296d535af55c6e554aa9568e5cc937b0663b623722d58f72acc864",
+          "label": "EXL3 K2 final pipeline terminal",
+          "role": "terminal artifact and measurement binding",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "d414a79316372ed9e6def693e43b577bc68d4c0341f4a049bdffffe2003d442e",
+          "label": "EXL3 exact64 scorer source",
+          "role": "scoring implementation identity",
+          "availability": "protected-not-distributed"
+        }
+      ],
+      "replay": {
+        "status": "blocked",
+        "blockers": [
+          "candidate, teacher-bank, frozen-corpus, and full structural-ledger payloads are protected and not distributed by this repository",
+          "mission-specific conversion and closeout machinery is not present in a clean public clone",
+          "the protected physical measurement environment is not reproducible from a clean public clone"
+        ]
+      }
     }
   ],
   "verification_scope": {
