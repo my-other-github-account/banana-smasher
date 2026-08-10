@@ -1,7 +1,7 @@
 {
   "schema": "banana-smasher.mtp-size-accounting-correction.v1",
   "comparison_id": "deepseek-v4-flash-0731-balanced64-v1",
-  "source_result_repository_commit": "cce0de31f97c6129ed29af34702226cc68e02c88",
+  "source_result_repository_commit": "493aecd943ecdeaac847ad52e8c5b2ab1a4568c3",
   "basis_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
   "status": "PASS",
   "quality_metrics_changed": false,
@@ -177,6 +177,29 @@
       "matched_physical_parameter_denominator": 294550374339,
       "matched_physical_bpw": "2.1147262413019642073129200430786759258921493038829459642230205354565125708522857",
       "scope_evidence": "converter and artifact ledger include the native MTP path"
+    },
+    "EXL3-K2P5-greedy-routed-native-rest": {
+      "artifact_payload_scope": "base-plus-native-mtp",
+      "mtp_included": true,
+      "shipping_bytes": 106282510072,
+      "comparison_bpw": "2.990350726677318761133570203797083967844437614338647678644542139727383081773899285391977912993952953",
+      "matched_physical_parameter_denominator": 294550374339,
+      "matched_physical_bpw": "2.886637243235786808211855375258090922632836912396751146876837308679676476518714841150246405221221918",
+      "routed_optimizer_payload_bytes": 86573712384,
+      "routed_payload_bytes_by_source": {
+        "K2": 35641165824,
+        "K3": 50932546560
+      },
+      "retained_native_nonrouted_payload_bytes": 19708797688,
+      "solution_group_counts": {
+        "K2": 66,
+        "K3": 63
+      },
+      "routed_group_counts": {
+        "K2": 42,
+        "K3": 44
+      },
+      "scope_evidence": "protected optimizer solution, routed tensor-source manifest, overlay identity, and successful runtime-selected proof bind the 07a8 greedy assignment only to layers.*.ffn.experts.* while every shared and non-routed tensor remains exact native source storage"
     }
   },
   "limitations": [

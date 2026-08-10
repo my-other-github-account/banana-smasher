@@ -48,7 +48,7 @@ EXPECTED_VERIFICATION_SCOPE = {
     ),
     "full_gpu_replay": "blocked; see each result replay.blockers",
 }
-EXPECTED_RESULT_MODEL_COUNT = 13
+EXPECTED_RESULT_MODEL_COUNT = 14
 _PROTECTED_EXL_PUBLICATION_ROWS = {
     "EXL3-K2P5-greedy-full": {
         "display_name": "EXL3 K2.5 greedy optimizer full",
@@ -107,6 +107,40 @@ _PROTECTED_EXL_PUBLICATION_ROWS = {
             "EXL routed-native reporting handoff": "47d837d3eefb2a12843fb185419f2de72e1467fc3aabd86942fedea3fe426dca",
             "EXL routed-native pair decision terminal": "599760e7624018cbc9204726b69f329d09acdb01523909cb9c9b8d3d7be90533",
             "EXL routed-native durable evidence mirror seal": "836864b810e729e50aca2922f0e3e7b0f0cd7b1cb374ba53019f6174c194f9bf",
+        },
+    },
+    "EXL3-K2P5-greedy-routed-native-rest": {
+        "display_name": "EXL3 K2.5 greedy-upcast routed-only + native rest",
+        "kld_mean": "0.1746041415211709",
+        "top1_matches": 57_885,
+        "wire_bytes": 106_282_510_072,
+        "normalized_bpw": "2.990350726677318761133570203797083967844437614338647678644542139727383081773899285391977912993952953",
+        "total_model_bpw": "2.886637243235786808211855375258090922632836912396751146876837308679676476518714841150246405221221918",
+        "candidate_artifact_sha256": "5bedb489dfe62bad9107948d011a42cf888f7e2789a6386b680b2da7681be051",
+        "candidate_manifest_sha256": "6e77d799bbc6516375fddeda848df972143639880140099b840ef364b035aad7",
+        "classes": {
+            "agentic": ("0.2567325914331791", 17_107, 19_456, 19),
+            "chat": ("0.0654209493349179", 6_534, 7_168, 7),
+            "code": ("0.08451931125373331", 8_460, 9_216, 9),
+            "multilingual": ("0.2674554124711736", 8_616, 10_240, 10),
+            "prose": ("0.21185796815801314", 8_509, 10_240, 10),
+            "reasoning": ("0.03166572968940458", 8_659, 9_216, 9),
+        },
+        "sources": {
+            "EXL3 K2.5 greedy exact-rate optimizer solution": "07a8eb1fbd59bc34aff90aac0d8635647fd9c09074adc93e79aec7ea40497f6f",
+            "EXL3 corrected level-3 optimizer measurement": "989eca997272e168ede2a92b2bbbbc018c197fae6e3963396a3c9d61cab3c089",
+            "EXL3 K2.5 greedy physical provenance": "8271f49c24e9f2ab302f642c9cfbbf97ab75b5c894b25ed2d35f2c1d7122cd56",
+            "EXL3 K2.5 greedy optimized payload manifest": "a226f60c6193f6fb2a8b1240cbf83b8ecea3bea3de9d905460244501545cc503",
+            "EXL3 K2.5 greedy routed-native Exact64 terminal": "6d344da2022930818319bdc0c5f82709324a0145e74b68a099aaee2456cae549",
+            "EXL3 K2.5 greedy routed-native overlay identity": "5bedb489dfe62bad9107948d011a42cf888f7e2789a6386b680b2da7681be051",
+            "EXL3 K2.5 greedy routed-native selected-payload proof": "6e77d799bbc6516375fddeda848df972143639880140099b840ef364b035aad7",
+            "EXL3 K2.5 greedy routed tensor-source manifest": "24191b3074b9a778f5eff8af48f832bfc26afd180fa9747ae6643687dd098146",
+            "EXL3 K2.5 greedy routed-native BALANCED64 measurement bindings": "5f277890ad9239427963b9875ba3d0d8c94cd495e186b74ddd59f2467c184a33",
+            "EXL3 K2.5 greedy routed-native independent Exact64 recompute": "6449da9c85d7297d0d05804747bad9782b54ac5bb63f38e16d586fc6f7a09f20",
+            "EXL3 K2.5 greedy routed-native Exact64 capture terminal": "d1f8cb18d42c819cf20a234ab22a861078a6980680a343dcf880fcdae02329f9",
+            "EXL3 K2.5 greedy routed-native functional readback": "fa80ee530a2c83f2bf9c30ef0c7f9b715368905631f093d2e300937b33dab772",
+            "EXL3 K2.5 greedy routed-native durable mirror manifest": "6126d283d20be77e4ba686a64cd72a318d1392f60e5db60b634113b0e7095fa1",
+            "EXL3 K2.5 greedy routed-native release terminal": "d06e15d7875262611a697c03902de311207fb14e843024cab7553ab3aed49236",
         },
     },
     "Physical-K2K3-2P5-alternating-comparator": {
