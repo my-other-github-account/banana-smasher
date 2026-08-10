@@ -98,16 +98,21 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         self.assertEqual(alternating["kld"]["mean"], "0.29960352599248635")
 
         matrix_text = (evals_dir / "README.md").read_text()
-        self.assertIn(
-            "| Base-equivalent BPW | Matched physical BPW |",
-            matrix_text,
-        )
-        self.assertNotIn("| Comparison BPW |", matrix_text)
+        public_table = matrix_text.split("## EXL 2×3 scope/rate matrix", 1)[0]
+        self.assertIn("| Comparison BPW | FP basis |", public_table)
+        self.assertNotIn("Matched physical BPW", public_table)
+        self.assertNotIn("| Base-equivalent BPW |", public_table)
         self.assertIn(
             "| **EXL3 K2.5 greedy-upcast routed-only + native rest** | "
             "**88.33%** (57,885/65,536) | **0.174604** | 106.283 | "
-            "MTP included | 2.990 | 2.887 |",
-            matrix_text,
+            "MTP included | 2.990 | FP8 e4m3 dynamic own-base |",
+            public_table,
+        )
+        self.assertIn(
+            "| **DwarfStar Q2** | **83.69%** (54,845/65,536) | "
+            "**0.309521** | 93.691 | Stock MTP excluded; separate drafter included | "
+            "2.636 | FP8 e4m3 dynamic own-base |",
+            public_table,
         )
         self.assertIn("## EXL 2×3 scope/rate matrix", matrix_text)
         self.assertNotIn("measurement in progress", matrix_text)
