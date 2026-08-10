@@ -7,7 +7,7 @@
   "mtp_inclusive_parameter_denominator": 294550374339,
   "size_accounting": {
     "receipt_path": "deepseek-v4-flash-0731-mtp-size-accounting-v1.json",
-    "receipt_sha256": "16a3a72a21c88f760621e3ec0d565c204e1e9ce50ba58446d2e0dee7f8c633de",
+    "receipt_sha256": "b1a127ee4608210119b89b10ede652fe377ca3e636c3341348cb89e70450d26f",
     "comparison_bpw_kind": "base-equivalent: all shipped bytes divided by the fixed base-model parameter denominator",
     "matched_physical_bpw_kind": "all shipped bytes divided by parameters represented by the artifact payload"
   },
@@ -306,7 +306,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "16a3a72a21c88f760621e3ec0d565c204e1e9ce50ba58446d2e0dee7f8c633de"
+          "accounting_receipt_sha256": "b1a127ee4608210119b89b10ede652fe377ca3e636c3341348cb89e70450d26f"
         }
       },
       "measurement": {
@@ -505,7 +505,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "16a3a72a21c88f760621e3ec0d565c204e1e9ce50ba58446d2e0dee7f8c633de"
+          "accounting_receipt_sha256": "b1a127ee4608210119b89b10ede652fe377ca3e636c3341348cb89e70450d26f"
         }
       },
       "measurement": {
@@ -988,7 +988,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "16a3a72a21c88f760621e3ec0d565c204e1e9ce50ba58446d2e0dee7f8c633de"
+          "accounting_receipt_sha256": "b1a127ee4608210119b89b10ede652fe377ca3e636c3341348cb89e70450d26f"
         }
       },
       "measurement": {
@@ -1065,6 +1065,158 @@
           "the protected physical measurement environment is not reproducible from a clean public clone",
           "three accepted layers retain authority receipts but not their cleaned materialized configs",
           "corrected MTP-inclusive shipping index content hash is not yet materialized or sealed"
+        ]
+      }
+    },
+    {
+      "model_id": "EXL3-K2-routed-native-rest",
+      "display_name": "EXL3 K2 routed-only + native rest",
+      "vendor": "upstream EXL3",
+      "fp": "FP8 e4m3 dynamic own-base teacher",
+      "artifact": {
+        "base_model": "DeepSeek-V4-Flash-0731",
+        "variant": "EXL3 K2 routed-only + native rest",
+        "format": "EXL3",
+        "mechanism": "homogeneous K2/mul1 only for layers.*.ffn.experts.*; every shared expert and non-routed tensor is selected from the exact native DeepSeek-V4-Flash-0731 source payload",
+        "candidate_artifact_sha256": "4c6c834e7c65907cb8c5fee6ba1edf8888deb3485ec2be1682c6edc199ca6e52",
+        "candidate_manifest_sha256": "0bc64482f21c3cb76b078e0ecf3835b5e7294a28dba01080a69403bf85d13533",
+        "upstream_repository": "https://github.com/turboderp-org/exllamav3",
+        "upstream_revision": "791c83073f7f90c44f765a0ceeab7a05fa15b96b",
+        "identity_status": "partial",
+        "missing_identity_fields": [
+          "standalone materialized composite tree digest separate from the routed K2 source tree",
+          "standalone composite manifest digest separate from the routed K2 source index and protected overlay/payload proofs"
+        ]
+      },
+      "wire": {
+        "bytes": 89371076344,
+        "decimal_gb": "89.371076344",
+        "artifact_payload_scope": "base-plus-native-mtp",
+        "parameter_denominator": 284334567511,
+        "normalized_bpw": "2.5145328512486971484262613667868966546438084310621785627887683259240843040121566",
+        "total_model_parameters": 294550374339,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 10215806828
+        },
+        "total_model_bpw": "2.4273220238013951186880076912235235955776634019794933505294131935834137741587886"
+      },
+      "kld": {
+        "direction": "KL(teacher||candidate)",
+        "mean": "0.23428769710091882"
+      },
+      "top1": {
+        "matches": 56579,
+        "positions": 65536,
+        "rate": "0.8633270263671875"
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.3231889470175587",
+          "top1_matches": 16815,
+          "top1_rate": "0.8642578125"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.0989122228686422",
+          "top1_matches": 6401,
+          "top1_rate": "0.8929966517857142857142857142857142857142857142857142857142857142857142857142857142857142857142857143"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.1223480211377152",
+          "top1_matches": 8302,
+          "top1_rate": "0.9008246527777777777777777777777777777777777777777777777777777777777777777777777777777777777777777778"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.3636492967406757",
+          "top1_matches": 8344,
+          "top1_rate": "0.81484375"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.2959973654754073",
+          "top1_matches": 8210,
+          "top1_rate": "0.8017578125"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.051537583182714196",
+          "top1_matches": 8507,
+          "top1_rate": "0.9230685763888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889"
+        }
+      },
+      "source_receipts": [
+        {
+          "sha256": "d429601b2b4eec6ce926d45da23f1f17b25637e82cd91af468be53cb9d28930b",
+          "label": "EXL3 routed-only K2 native-rest arm terminal",
+          "role": "global and six-category metrics, exact byte components, artifact identities, and 64 raw-row bindings",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "c88e19c503831b0f6329ddee11a41f204d2b3f1f5f42299b505d7d4367ce9f04",
+          "label": "EXL3 routed-only K2 overlay identity",
+          "role": "routed-expert-only override and exact native non-routed selection identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "d7527ea33b05c56e4d49705af0a4d2f7ed72aaef4cbd12c866c34103a97a742b",
+          "label": "EXL3 routed-only K2 selected-payload proof",
+          "role": "selected checkpoint payload key, dtype, shape, and payload-hash evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "663744eb37608be4b60a21e1d4cb93620c68ff81f623dff7e92d670b31c9c6cf",
+          "label": "EXL3 routed-only K2 BALANCED64 measurement bindings",
+          "role": "64-window population and measurement identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "55b287008e0aa2a4e3cbe4cc85140965dd3e345c4e4f636662cb73fc83bc5869",
+          "label": "EXL3 routed-only K2 independent Exact64 recompute",
+          "role": "independent global and six-category binary64 recomputation evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "6508fdb78a29ee2f621e8b4239a32edb68ecbc1b3fc5af1365f92a796605f1f0",
+          "label": "EXL3 routed-only K2 Exact64 capture terminal",
+          "role": "64 candidate-row capture identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "924a380be45a4ef02fe5fdb0804bfd3940502b233c78c13ab1da71bae210b51c",
+          "label": "EXL3 routed-only K2 functional readback",
+          "role": "physical selected-model forward-pass evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "47d837d3eefb2a12843fb185419f2de72e1467fc3aabd86942fedea3fe426dca",
+          "label": "EXL routed-native reporting handoff",
+          "role": "scope-keyed terminal and result binding",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "599760e7624018cbc9204726b69f329d09acdb01523909cb9c9b8d3d7be90533",
+          "label": "EXL routed-native pair decision terminal",
+          "role": "same-suite matched-arm and release-bound decision evidence",
+          "availability": "protected-not-distributed"
+        }
+      ],
+      "replay": {
+        "status": "blocked",
+        "blockers": [
+          "routed K2, exact native source, teacher-bank, and frozen-corpus payloads are protected and not distributed by this repository",
+          "the task-specific overlay and physical measurement runtime are not present in a clean public clone",
+          "a standalone composite tree and manifest were not sealed separately from the routed K2 source tree/index and protected overlay/payload proofs",
+          "the protected physical compilation and measurement environment is not reproducible from a clean public clone"
         ]
       }
     },

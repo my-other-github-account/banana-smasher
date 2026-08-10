@@ -5,10 +5,11 @@ import io
 import json
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from Evals.tools.receipts import main, verify_result_receipt
+from Evals.tools.receipts import ReceiptError, _verify_classes, main, verify_result_receipt
 
 
 class PublishedMtpAccountingTest(unittest.TestCase):
@@ -23,7 +24,7 @@ class PublishedMtpAccountingTest(unittest.TestCase):
 
         summary = verify_result_receipt(result, suite_lock)
 
-        self.assertEqual(summary["models"], 10)
+        self.assertEqual(summary["models"], 11)
         accounting_receipt = (
             evals_dir / "results/deepseek-v4-flash-0731-mtp-size-accounting-v1.json"
         )
@@ -39,6 +40,98 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         self.assertEqual(scopes["UD-IQ4_XS"], "base-model-only")
         self.assertEqual(scopes["QTIP2-corrected-all43"], "base-plus-native-mtp")
         self.assertEqual(scopes["DwarfStar-Q2-0731"], "base-plus-separate-drafter")
+        self.assertEqual(scopes["EXL3-K2-routed-native-rest"], "base-plus-native-mtp")
+        routed_k2 = next(
+            row
+            for row in result["results"]
+            if row["model_id"] == "EXL3-K2-routed-native-rest"
+        )
+        self.assertEqual(routed_k2["display_name"], "EXL3 K2 routed-only + native rest")
+        self.assertEqual(routed_k2["wire"]["bytes"], 89_371_076_344)
+        self.assertEqual(
+            routed_k2["wire"]["normalized_bpw"],
+            "2.5145328512486971484262613667868966546438084310621785627887683259240843040121566",
+        )
+        self.assertEqual(
+            routed_k2["wire"]["total_model_bpw"],
+            "2.4273220238013951186880076912235235955776634019794933505294131935834137741587886",
+        )
+        self.assertEqual(routed_k2["top1"]["matches"], 56_579)
+        self.assertEqual(routed_k2["kld"]["mean"], "0.23428769710091882")
+        self.assertEqual(
+            routed_k2["artifact"]["mechanism"].split(";")[0],
+            "homogeneous K2/mul1 only for layers.*.ffn.experts.*",
+        )
+
+    def test_class_kld_reaggregation_accepts_one_binary64_ulp_from_rounded_means(
+        self,
+    ) -> None:
+        evals_dir = Path(__file__).resolve().parents[1]
+        suite_lock = json.loads(
+            (evals_dir / "configs/balanced64-v1.json").read_text()
+        )
+        classes = {
+            "agentic": {
+                "windows": 19,
+                "positions": 19456,
+                "kld_mean": "0.3231889470175587",
+                "top1_matches": 16815,
+                "top1_rate": "0.8642578125",
+            },
+            "chat": {
+                "windows": 7,
+                "positions": 7168,
+                "kld_mean": "0.0989122228686422",
+                "top1_matches": 6401,
+                "top1_rate": "0.8929966517857142857142857142857142857142857142857142857142857142857142857142857142857142857142857143",
+            },
+            "code": {
+                "windows": 9,
+                "positions": 9216,
+                "kld_mean": "0.1223480211377152",
+                "top1_matches": 8302,
+                "top1_rate": "0.9008246527777777777777777777777777777777777777777777777777777777777777777777777777777777777777777778",
+            },
+            "multilingual": {
+                "windows": 10,
+                "positions": 10240,
+                "kld_mean": "0.3636492967406757",
+                "top1_matches": 8344,
+                "top1_rate": "0.81484375",
+            },
+            "prose": {
+                "windows": 10,
+                "positions": 10240,
+                "kld_mean": "0.2959973654754073",
+                "top1_matches": 8210,
+                "top1_rate": "0.8017578125",
+            },
+            "reasoning": {
+                "windows": 9,
+                "positions": 9216,
+                "kld_mean": "0.051537583182714196",
+                "top1_matches": 8507,
+                "top1_rate": "0.9230685763888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889",
+            },
+        }
+
+        _verify_classes(
+            {"classes": classes},
+            suite_lock,
+            model_id="EXL3-K2-routed-native-rest",
+            kld_mean=Decimal("0.23428769710091882"),
+            matches=56579,
+            positions=65536,
+        )
+        with self.assertRaisesRegex(ReceiptError, "more than one binary64 ULP"):
+            _verify_classes(
+                {"classes": classes},
+                suite_lock,
+                model_id="EXL3-K2-routed-native-rest",
+                kld_mean=Decimal("0.2342876971009187"),
+                matches=56579,
+                positions=65536,
+            )
 
     def test_cli_rejects_tampered_mtp_accounting_receipt(self) -> None:
         evals_dir = Path(__file__).resolve().parents[1]
