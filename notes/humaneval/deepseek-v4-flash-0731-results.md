@@ -5,7 +5,7 @@
 | **Official, Thinking ON** | **96.95%** (159/164) | **92.68%** (152/164) | 156.016 | 4.390 |
 | **UD-IQ4_XS, Thinking ON** | **96.95%** (159/164) | **92.68%** (152/164) | 136.662 | 3.845 |
 | **UD-IQ3_XXS, Thinking ON** | **94.51%** (155/164) | **90.24%** (148/164) | 104.208 | 2.932 |
-| **UD-IQ2_XXS, Thinking ON** | **95.73%** (157/164) | **92.07%** (151/164) | 90.861 | 2.556 |
+| **UD-IQ2_XXS, Thinking ON** | **95.73%** (157/164) | **89.63%** (147/164) | 90.861 | 2.556 |
 | **DwarfStar/DS4 asymmetric Q2, Thinking ON** | **93.90%** (154/164) | **87.80%** (144/164) | 86.720 | 2.440 |
 
 Each score is actual benchmark accuracy from one generated solution per task. It is not token Top-1 agreement or best-of-n.
@@ -20,4 +20,6 @@ That artifact ran target-only with no MTP through the Entrpi DwarfStar/DS4 engin
 
 ## Direct Unsloth IQ2/IQ3 4K-cap audit
 
-All 164 requests completed for both direct Unsloth rows; no timeout, dropped-request, or HTTP-error row entered either score. IQ3 produced eight 4,096-token length stops before any visible solution, while IQ2 produced six. This two-task difference accounts for the full two-task HumanEval inversion; the single-run ordering is not evidence that IQ2 is intrinsically higher quality.
+All 164 requests completed for both direct Unsloth rows; no unresolved timeout, dropped-request, HTTP-error, or context-error row entered either score. The matched IQ2 run used `--parallel 4 --ctx-size 32768` (8,192 tokens per slot, F16/F16 KV) and produced seven 4,096-token length stops before any visible solution: `HumanEval/1`, `HumanEval/76`, `HumanEval/116`, `HumanEval/129`, `HumanEval/130`, `HumanEval/132`, and `HumanEval/145`. Those seven are exactly its HumanEval failures. Ten additional tasks failed only the strict HumanEval+ tests: `HumanEval/32`, `HumanEval/39`, `HumanEval/86`, `HumanEval/91`, `HumanEval/99`, `HumanEval/124`, `HumanEval/125`, `HumanEval/134`, `HumanEval/141`, and `HumanEval/151`.
+
+The replaced IQ2 run used 34,816 total context tokens (8,704 per slot) and produced six length stops: `HumanEval/32`, `HumanEval/47`, `HumanEval/116`, `HumanEval/129`, `HumanEval/132`, and `HumanEval/145`. Moving IQ2 to the common 8,192-token-per-slot rail preserved its 157/164 HumanEval count but changed the task-level outcomes and reduced strict HumanEval+ from 151/164 to 147/164. IQ3 remains unchanged at 155/164 HumanEval and 148/164 HumanEval+, with eight 4,096-token length stops before any visible solution. These single-run orderings are not evidence that either quant is intrinsically higher quality.
