@@ -1,0 +1,195 @@
+{
+  "schema": "banana-exl3-code-provenance-ledger-v1",
+  "audit_date": "2026-08-10",
+  "status": "remediation_required",
+  "refs": {
+    "banana_origin_main": "50ddd88654c3dad549caf6670a620c1cd81c27d3",
+    "banana_active_q2_fanin": "29c5a126f40ade02c48a647fcc6cc4d1df7c64be",
+    "exllamav3": "791c83073f7f90c44f765a0ceeab7a05fa15b96b"
+  },
+  "summary": {
+    "large_verbatim_import_found": false,
+    "runtime_dependency_found": false,
+    "exact_complete_file_matches": 0,
+    "active_q2_exact_40_token_groups": 0,
+    "literal_translated_test_oracle_found": true,
+    "close_production_translations_found": true,
+    "clean_room_claim_authorized": false,
+    "product_merge_authorized": false
+  },
+  "scan_counts": {
+    "origin_main": {
+      "source_files": 185,
+      "exact_file_matches": 0,
+      "exact_40_token_groups": 2,
+      "classification": "two NVFP4 E2M1 standard-table occurrences"
+    },
+    "active_q2_fanin": {
+      "source_files": 64,
+      "exact_file_matches": 0,
+      "exact_40_token_groups": 0
+    },
+    "all_reachable_history": {
+      "unique_source_blobs": 2647,
+      "exact_file_matches": 0,
+      "exact_40_token_groups": 52,
+      "classification": "all NVFP4 E2M1 standard-table versions/copies"
+    }
+  },
+  "wheel_receipts": [
+    {
+      "source": "origin/main",
+      "members": 104,
+      "sha256": "ae9b82327ef9298fba785ab909ee5a55b2f43d57c977fb5973e71f56f38210d7",
+      "exl_dependency": false
+    },
+    {
+      "source": "active-q2-fanin-29c5a12",
+      "members": 25,
+      "sha256": "a0f1490e805c21248a6099db957d7d3c687c57284c8b045562a5e7dfc1225ef9",
+      "exl_dependency": false
+    }
+  ],
+  "findings": [
+    {
+      "id": "EXL-001",
+      "classification": "independent_package_boundary",
+      "status": "green",
+      "banana_paths": [],
+      "upstream_paths": [],
+      "action": "Preserve one-way external oracle data flow and no EXL runtime dependency."
+    },
+    {
+      "id": "EXL-002",
+      "classification": "constants_data_only_standard_nvfp4_e2m1",
+      "status": "green_with_provenance_comment_recommended",
+      "banana_paths": [
+        "banana-smasher/src/banana_smasher/qtip_runner.py:48",
+        "banana-smasher/src/banana_smasher/solver_qtip_profile.py:906"
+      ],
+      "upstream_paths": ["eval/qbench/engines.py:433"],
+      "introducing_commits": ["1ae202c"],
+      "action": "Retain if needed and label as the standard NVFP4 E2M1 value table."
+    },
+    {
+      "id": "EXL-003",
+      "classification": "mechanical_structural_reimplementation",
+      "status": "amber_rewrite_before_acceptance",
+      "banana_paths": ["banana-smasher/src/banana_smasher/q2_assignment.py:46-65"],
+      "upstream_paths": ["exllamav3/modules/quant/exl3_lib/quantize.py:22-45"],
+      "introducing_commits": ["c4015c9"],
+      "evidence": {"identifier_normalized_ast_similarity": 0.758},
+      "action": "Rewrite from a documented tensor-core layout and fixed vectors without EXL source access."
+    },
+    {
+      "id": "EXL-004",
+      "classification": "mechanical_structural_reimplementation",
+      "status": "red_rewrite_before_acceptance",
+      "banana_paths": ["banana-smasher/src/banana_smasher/q2_assignment.py:185-191"],
+      "upstream_paths": ["exllamav3/modules/quant/exl3_lib/quantize.py:1074-1087"],
+      "introducing_commits": ["c4015c9"],
+      "evidence": {"identifier_normalized_ast_similarity": 0.825},
+      "action": "Rewrite from the mathematical RMS definition and dtype/order vectors."
+    },
+    {
+      "id": "EXL-005",
+      "classification": "mechanical_translation_with_exact_snippets",
+      "status": "red_rewrite_before_acceptance",
+      "banana_paths": ["banana-smasher/src/banana_smasher/q2_assignment.py:194-213"],
+      "upstream_paths": ["exllamav3/modules/quant/exl3_lib/quantize.py:949-977"],
+      "introducing_commits": ["c4015c9"],
+      "evidence": {
+        "identifier_normalized_ast_similarity": 0.905,
+        "exact_line": "tiles_k = weight.shape[0] // 16",
+        "exact_short_reshape_permute_shingles": true
+      },
+      "action": "Replace with a Banana-owned sampler specified by selected indices and output hashes."
+    },
+    {
+      "id": "EXL-006",
+      "classification": "source_guided_reimplementation_with_exact_line_and_constants",
+      "status": "red_rewrite_before_acceptance",
+      "banana_paths": ["banana-smasher/src/banana_smasher/q2_assignment.py:216-250"],
+      "upstream_paths": ["exllamav3/modules/quant/exl3_lib/quantize.py:979-1042"],
+      "introducing_commits": ["c4015c9"],
+      "evidence": {
+        "exact_line": "offset = max(-0.5, min(0.5, offset))",
+        "shared_constants": [0.1, 0.2, 0.075, 0.5],
+        "shared_search_structure": true
+      },
+      "action": "Reimplement from a mathematical specification or use a Banana-owned deterministic search."
+    },
+    {
+      "id": "EXL-007",
+      "classification": "source_guided_behavioral_mechanical_reimplementation",
+      "status": "red_diagnostic_only_pending_clean_replacement",
+      "banana_paths": [
+        "banana-smasher/src/banana_smasher/q2_assignment.py:392-423",
+        "banana-smasher/src/banana_smasher/q2_ldlq.py:279-362"
+      ],
+      "upstream_paths": ["exllamav3/modules/quant/exl3_lib/quantize.py:411-604"],
+      "introducing_commits": [
+        "d056d18",
+        "03e2f7f",
+        "cd10bc3",
+        "bd97e36",
+        "b4f8fed",
+        "22d6be0",
+        "03efa8f",
+        "965b5af",
+        "29c5a12"
+      ],
+      "action": "Freeze boundary vectors and rewrite from an implementation-neutral recurrence/storage specification without EXL source access."
+    },
+    {
+      "id": "EXL-008",
+      "classification": "literal_translated_test_oracle",
+      "status": "red_nonshipping_remove",
+      "banana_paths": ["banana-smasher/tests/test_q2_ldlq.py:89-119"],
+      "upstream_paths": ["exllamav3/modules/quant/exl3_lib/quantize.py:488-604"],
+      "introducing_commits": ["cd10bc3"],
+      "evidence": {"self_description": "Literal NumPy transcription of EXL3 ldlq's row-axis recurrence."},
+      "action": "Delete and replace with immutable EXL-generated fixtures/hashes or an equation-derived independent reference."
+    },
+    {
+      "id": "EXL-009",
+      "classification": "algorithmic_source_guided_cuda_reimplementation",
+      "status": "amber_manual_clean_reimplementation_review",
+      "banana_paths": [
+        "banana-smasher/src/banana_smasher/csrc/q2_k2_exact.cu:30-227",
+        "banana-smasher/src/banana_smasher/q2_k2_cuda.py"
+      ],
+      "upstream_paths": ["exllamav3/exllamav3_ext/quant/quantize_tiles_kernel.cuh"],
+      "introducing_commits": ["aa01c9e", "f84dede", "4d8289d"],
+      "evidence": {
+        "exact_40_token_groups": 0,
+        "generic_exact_short_warp_reduction": "for (int offset = 16; offset > 0; offset >>= 1)",
+        "revision_specific_behavior_comments": true
+      },
+      "action": "Review/rewrite recurrence, reduction, and backtrack from trellis specification and sealed vectors."
+    },
+    {
+      "id": "EXL-010",
+      "classification": "external_behavioral_oracle",
+      "status": "green_with_one_way_data_flow_rule",
+      "banana_paths": [],
+      "upstream_paths": [],
+      "action": "Keep only immutable vectors, hashes, and receipts; never package or invoke EXL in the product path."
+    }
+  ],
+  "upstream_license": {
+    "spdx_expression": "MIT",
+    "copyright": "Copyright (c) 2025 Turboderp",
+    "notice_required_for_copies_or_substantial_portions": true,
+    "banana_license_decision": "unset",
+    "third_party_notice_added": false,
+    "policy": "Rewrite RED/AMBER findings by default. If retained by owner decision, add component-scoped upstream notice without assigning a license to Banana original work."
+  },
+  "acceptance_gate": {
+    "no_more_exl_source_guided_implementation": true,
+    "current_fanin_diagnostic_only": true,
+    "remove_literal_test_transcription": true,
+    "rerun_similarity_and_wheel_audit_after_rewrite": true,
+    "rerun_e000_physical_parity_after_rewrite": true
+  }
+}
