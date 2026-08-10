@@ -24,7 +24,46 @@ class PublishedMtpAccountingTest(unittest.TestCase):
 
         summary = verify_result_receipt(result, suite_lock)
 
-        self.assertEqual(summary["models"], 11)
+        self.assertEqual(summary["models"], 13)
+        model_ids = {row["model_id"] for row in result["results"]}
+        self.assertIn("EXL3-K2P5-greedy-full", model_ids)
+        self.assertIn("EXL3-K3-routed-native-rest", model_ids)
+        self.assertIn("Physical-K2K3-2P5-alternating-comparator", model_ids)
+        self.assertNotIn("EXL3-K2P5-physical-alternating", model_ids)
+
+        full_greedy = next(
+            row for row in result["results"] if row["model_id"] == "EXL3-K2P5-greedy-full"
+        )
+        self.assertEqual(full_greedy["display_name"], "EXL3 K2.5 greedy optimizer full")
+        self.assertEqual(full_greedy["top1"]["matches"], 54_732)
+        self.assertEqual(full_greedy["kld"]["mean"], "0.30277489559979315")
+        self.assertEqual(full_greedy["wire"]["bytes"], 94_832_865_520)
+        self.assertEqual(
+            full_greedy["artifact"]["candidate_artifact_sha256"],
+            "7c8d1aa6d5fea5c22374346b0e18450881cc97cee118f7bc75f064f56f828044",
+        )
+        self.assertEqual(
+            full_greedy["artifact"]["candidate_manifest_sha256"],
+            "a226f60c6193f6fb2a8b1240cbf83b8ecea3bea3de9d905460244501545cc503",
+        )
+
+        routed_k3 = next(
+            row for row in result["results"] if row["model_id"] == "EXL3-K3-routed-native-rest"
+        )
+        self.assertEqual(routed_k3["display_name"], "EXL3 K3 routed-only + native rest")
+        self.assertEqual(routed_k3["top1"]["matches"], 60_447)
+        self.assertEqual(routed_k3["kld"]["mean"], "0.07686796725357639")
+        self.assertEqual(routed_k3["wire"]["bytes"], 123_999_250_168)
+        self.assertEqual(
+            routed_k3["artifact"]["candidate_manifest_sha256"],
+            "42f3d57f5f112a9dbb7badd4dc76536f0ef6da7a3fe0422bc271891b487f83c8",
+        )
+
+        matrix_text = (evals_dir / "README.md").read_text()
+        self.assertIn("## EXL 2×3 scope/rate matrix", matrix_text)
+        self.assertIn("measurement in progress — owner t_2ee10a3d", matrix_text)
+        self.assertIn("Physical alternating K2/K3 2.5-BPW comparator", matrix_text)
+
         accounting_receipt = (
             evals_dir / "results/deepseek-v4-flash-0731-mtp-size-accounting-v1.json"
         )
@@ -62,6 +101,30 @@ class PublishedMtpAccountingTest(unittest.TestCase):
             routed_k2["artifact"]["mechanism"].split(";")[0],
             "homogeneous K2/mul1 only for layers.*.ffn.experts.*",
         )
+
+    def test_exl_matrix_protected_receipt_hash_drift_is_rejected(self) -> None:
+        evals_dir = Path(__file__).resolve().parents[1]
+        result = json.loads(
+            (evals_dir / "results/deepseek-v4-flash-0731-balanced64-v1.json").read_text()
+        )
+        suite_lock = json.loads(
+            (evals_dir / "configs/balanced64-v1.json").read_text()
+        )
+        full_greedy = next(
+            row for row in result["results"] if row["model_id"] == "EXL3-K2P5-greedy-full"
+        )
+        solution_receipt = next(
+            source
+            for source in full_greedy["source_receipts"]
+            if source["label"] == "EXL3 K2.5 greedy exact-rate optimizer solution"
+        )
+        solution_receipt["sha256"] = "f" * 64
+
+        with self.assertRaisesRegex(
+            ReceiptError,
+            "EXL3-K2P5-greedy-full: protected EXL publication value drift",
+        ):
+            verify_result_receipt(result, suite_lock)
 
     def test_class_kld_reaggregation_accepts_one_binary64_ulp_from_rounded_means(
         self,

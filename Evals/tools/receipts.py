@@ -48,6 +48,96 @@ EXPECTED_VERIFICATION_SCOPE = {
     ),
     "full_gpu_replay": "blocked; see each result replay.blockers",
 }
+EXPECTED_RESULT_MODEL_COUNT = 13
+_PROTECTED_EXL_PUBLICATION_ROWS = {
+    "EXL3-K2P5-greedy-full": {
+        "display_name": "EXL3 K2.5 greedy optimizer full",
+        "kld_mean": "0.30277489559979315",
+        "top1_matches": 54_732,
+        "wire_bytes": 94_832_865_520,
+        "normalized_bpw": "2.6682050332506607541984592911089396395596594633708887538020512532588125649342761",
+        "total_model_bpw": "2.5756644372376514306392840126330402137510080619975999995940035714829300785993458",
+        "candidate_artifact_sha256": "7c8d1aa6d5fea5c22374346b0e18450881cc97cee118f7bc75f064f56f828044",
+        "candidate_manifest_sha256": "a226f60c6193f6fb2a8b1240cbf83b8ecea3bea3de9d905460244501545cc503",
+        "classes": {
+            "agentic": ("0.3964723762975632", 16_355, 19_456, 19),
+            "chat": ("0.1511617236051681", 6_159, 7_168, 7),
+            "code": ("0.16400093568881688", 8_113, 9_216, 9),
+            "multilingual": ("0.4480915980718887", 8_020, 10_240, 10),
+            "prose": ("0.39144750210645024", 7_845, 10_240, 10),
+            "reasoning": ("0.10167629783490464", 8_240, 9_216, 9),
+        },
+        "sources": {
+            "EXL3 K2.5 greedy exact-rate optimizer solution": "07a8eb1fbd59bc34aff90aac0d8635647fd9c09074adc93e79aec7ea40497f6f",
+            "EXL3 corrected level-3 optimizer measurement": "989eca997272e168ede2a92b2bbbbc018c197fae6e3963396a3c9d61cab3c089",
+            "EXL3 K2.5 greedy physical provenance": "8271f49c24e9f2ab302f642c9cfbbf97ab75b5c894b25ed2d35f2c1d7122cd56",
+            "EXL3 K2.5 greedy optimized payload manifest": "a226f60c6193f6fb2a8b1240cbf83b8ecea3bea3de9d905460244501545cc503",
+            "EXL3 K2.5 greedy BALANCED64 measurement bindings": "ae0c5e616c23867df6a59d55540a915e3b0d7d16461515c306bf767e6abfbc5d",
+            "EXL3 K2.5 greedy independent Exact64 recompute": "7ea0919f389f34a6de691d6ea9d74c7b33ac71d9c2b487bfb035ff072acb611a",
+            "EXL3 K2.5 greedy Exact64 capture manifest": "5f438d19df70fe5b2dd3da171e82b08e766b40a1425db3169351611d172cd9bb",
+        },
+    },
+    "EXL3-K3-routed-native-rest": {
+        "display_name": "EXL3 K3 routed-only + native rest",
+        "kld_mean": "0.07686796725357639",
+        "top1_matches": 60_447,
+        "wire_bytes": 123_999_250_168,
+        "normalized_bpw": "3.4888265961739699744459889854268040102450967587235200857315432779975056108576297",
+        "total_model_bpw": "3.3678246159765781019987434251990662176430186852148307430503292387805231170862566",
+        "candidate_artifact_sha256": "4ae72ab897698d94f12e93918294d4e7e1c79f5b5f0df2112d18113670ea0ee3",
+        "candidate_manifest_sha256": "42f3d57f5f112a9dbb7badd4dc76536f0ef6da7a3fe0422bc271891b487f83c8",
+        "upstream_repository": "https://github.com/turboderp-org/exllamav3",
+        "upstream_revision": "791c83073f7f90c44f765a0ceeab7a05fa15b96b",
+        "classes": {
+            "agentic": ("0.12174968537781196", 17_871, 19_456, 19),
+            "chat": ("0.028756867612099144", 6_753, 7_168, 7),
+            "code": ("0.031304263141010216", 8_722, 9_216, 9),
+            "multilingual": ("0.10764323388773885", 9_161, 10_240, 10),
+            "prose": ("0.09123982241898246", 9_089, 10_240, 10),
+            "reasoning": ("0.014937653047718106", 8_851, 9_216, 9),
+        },
+        "sources": {
+            "EXL3 routed-only K3 native-rest arm terminal": "69234474ce937b5685007dacd1657bf60d4f19ed56a6e4d2c28eb58fb231e2ff",
+            "EXL3 routed-only K3 overlay identity": "71f9a2d74d0b3f39d7daba0624dacdd86d24b03e246c27323496d96130acbda8",
+            "EXL3 routed-only K3 selected-payload proof": "a9284944717bcbddfa9b60ff54b0468317d5a234daff29136d3be48764d0823e",
+            "EXL3 routed-only K3 BALANCED64 measurement bindings": "6fab4d832299f782d27af03c8333b8b921faa7ffb14db1fd764c6224c9544b51",
+            "EXL3 routed-only K3 independent Exact64 recompute": "014869075e2ef73bb328fdc83aef0a6f4943e93cb513fae47479df3dffc49aeb",
+            "EXL3 routed-only K3 Exact64 capture terminal": "556fb2293635ce017407f791a20eb04baa64e7be37c6293cf82898dc2f1afb4e",
+            "EXL3 routed-only K3 functional readback": "04317b764ad511e5735cb05e5928f579bee0dce43f35a4a3726a6ee3f7a88c55",
+            "EXL routed-native reporting handoff": "47d837d3eefb2a12843fb185419f2de72e1467fc3aabd86942fedea3fe426dca",
+            "EXL routed-native pair decision terminal": "599760e7624018cbc9204726b69f329d09acdb01523909cb9c9b8d3d7be90533",
+            "EXL routed-native durable evidence mirror seal": "836864b810e729e50aca2922f0e3e7b0f0cd7b1cb374ba53019f6174c194f9bf",
+        },
+    },
+    "Physical-K2K3-2P5-alternating-comparator": {
+        "display_name": "Physical alternating K2/K3 2.5-BPW comparator",
+        "kld_mean": "0.29960352599248635",
+        "top1_matches": 54_585,
+        "wire_bytes": 94_832_907_712,
+        "normalized_bpw": "2.6682062203592242845254773071874904890730094033332647693753735642321114923652284",
+        "total_model_bpw": "2.5756655831740664070723314987285659393901029185138807891100977264136044544482164",
+        "candidate_artifact_sha256": "0e1a0d7da3c3917a72e827052d57b5278005b2a228896e89a3b96d7cc01fb24d",
+        "candidate_manifest_sha256": "047c0ff5ba2de074c1e4f11712b73755849267d62d785d6908993e550bf5e628",
+        "classes": {
+            "agentic": ("0.38563935297463126", 16_310, 19_456, 19),
+            "chat": ("0.15400998095795138", 6_134, 7_168, 7),
+            "code": ("0.1626202665162457", 8_100, 9_216, 9),
+            "multilingual": ("0.438331370333361", 8_022, 10_240, 10),
+            "prose": ("0.39809882999045076", 7_801, 10_240, 10),
+            "reasoning": ("0.10461374315679389", 8_218, 9_216, 9),
+        },
+        "sources": {
+            "EXL3 K2.5 physical provenance": "1cd820cfa3a12251d69e5121793cbc618ce8810f524944808a728499c10fc62c",
+            "EXL3 K2.5 terminal acceptance": "9a633e8adb351ae9e638e192d0f9a818497b62dc22831fa7367b91a4c74e622e",
+            "EXL3 K2.5 Exact64 capture manifest": "7fa640d61e0bf179ebf65d03c9dcd5d51d991d86e97e19698d35dfb4a967d7f8",
+            "EXL3 K2.5 measurement bindings": "2937b661a968c965fef6f9451c94e6fd425192f5007d497ca44793f5c0eca316",
+            "EXL3 K2.5 independent exact recompute": "b90c04e2643b8bb9e371343bec67dbca907572ed9581b1dbd5f46b2d18b4d4f4",
+            "EXL3 K2.5 native MTP closure": "6d2b42005c11cb4f2ec8289926d2261dcd489a1cdf7aef19395f0d475efbbc84",
+            "EXL3 K2.5 physical alternating assignment": "ffbf48cfe16c5ae29c1254995176d32177ebef9e2030bce135586bfa03ffa5ef",
+            "EXL3 corrected level-3 measurement": "989eca997272e168ede2a92b2bbbbc018c197fae6e3963396a3c9d61cab3c089",
+        },
+    },
+}
 
 
 class ReceiptError(ValueError):
@@ -132,6 +222,66 @@ def _verify_sha256_fields(value: Any, label: str = "receipt") -> None:
     elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         for index, item in enumerate(value):
             _verify_sha256_fields(item, f"{label}[{index}]")
+
+
+def _verify_protected_exl_publication(rows: Sequence[Any]) -> None:
+    if len(rows) != EXPECTED_RESULT_MODEL_COUNT:
+        raise ReceiptError(
+            f"published result population drift: expected {EXPECTED_RESULT_MODEL_COUNT}, "
+            f"found {len(rows)}"
+        )
+    by_id = {
+        str(_mapping(row, f"results[{index}]").get("model_id")): _mapping(
+            row, f"results[{index}]"
+        )
+        for index, row in enumerate(rows)
+    }
+    if "EXL3-K2P5-physical-alternating" in by_id:
+        raise ReceiptError("the in-house physical comparator must not use the EXL K2.5 identity")
+
+    for model_id, expected in _PROTECTED_EXL_PUBLICATION_ROWS.items():
+        row = by_id.get(model_id)
+        if row is None:
+            raise ReceiptError(f"{model_id}: required protected EXL publication row is missing")
+        artifact = _mapping(row.get("artifact"), f"{model_id}.artifact")
+        wire = _mapping(row.get("wire"), f"{model_id}.wire")
+        kld = _mapping(row.get("kld"), f"{model_id}.kld")
+        top1 = _mapping(row.get("top1"), f"{model_id}.top1")
+        observed = {
+            "display_name": row.get("display_name"),
+            "kld_mean": kld.get("mean"),
+            "top1_matches": top1.get("matches"),
+            "wire_bytes": wire.get("bytes"),
+            "normalized_bpw": wire.get("normalized_bpw"),
+            "total_model_bpw": wire.get("total_model_bpw"),
+            "candidate_artifact_sha256": artifact.get("candidate_artifact_sha256"),
+            "candidate_manifest_sha256": artifact.get("candidate_manifest_sha256"),
+        }
+        for optional_identity in ("upstream_repository", "upstream_revision"):
+            if optional_identity in expected:
+                observed[optional_identity] = artifact.get(optional_identity)
+        classes = _mapping(row.get("classes"), f"{model_id}.classes")
+        observed["classes"] = {
+            name: (
+                _mapping(classes.get(name), f"{model_id}.classes.{name}").get("kld_mean"),
+                _mapping(classes.get(name), f"{model_id}.classes.{name}").get(
+                    "top1_matches"
+                ),
+                _mapping(classes.get(name), f"{model_id}.classes.{name}").get("positions"),
+                _mapping(classes.get(name), f"{model_id}.classes.{name}").get("windows"),
+            )
+            for name in SOURCE_CLASSES
+        }
+        observed["sources"] = {
+            str(
+                _mapping(source, f"{model_id}.source_receipts[{index}]").get("label")
+            ): _mapping(source, f"{model_id}.source_receipts[{index}]").get("sha256")
+            for index, source in enumerate(
+                _sequence(row.get("source_receipts"), f"{model_id}.source_receipts")
+            )
+        }
+        if observed != expected:
+            raise ReceiptError(f"{model_id}: protected EXL publication value drift")
 
 
 def _ratio(numerator: int | Decimal, denominator: int | Decimal) -> Decimal:
@@ -997,6 +1147,7 @@ def verify_result_receipt(
     rows = _sequence(receipt.get("results"), "results")
     if not rows:
         raise ReceiptError("results must not be empty")
+    _verify_protected_exl_publication(rows)
 
     seen_models: set[str] = set()
     kld_rows: list[tuple[Decimal, str]] = []
