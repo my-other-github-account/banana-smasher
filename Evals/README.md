@@ -6,22 +6,22 @@ This page compares quality and declared shipping-accounting size for fourteen qu
 
 Every model below ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. The table is ordered by Top-1 agreement. `EXL3 K2.5` denotes the measured greedy optimizer assignment: the full row applies it to all eligible weights, while the routed-only row applies that exact assignment only to routed experts and preserves every shared and non-routed tensor in the exact native source representation. The routed K2 and K3 rows use the same native-rest scope at homogeneous endpoints. The in-house physical alternating K2/K3 comparator is a separate control outside the EXL matrix and is not labeled EXL K2.5.
 
-| Quant | Top-1 ↑ | KLD ↓ | Exact accounting GB | Shipped auxiliary scope | Base-equivalent BPW | Matched physical BPW | FP basis |
-|---|---:|---:|---:|---|---:|---:|---|
-| **Unsloth IQ4** | **92.44%** (60,584/65,536) | **0.068349** | 136.662 | MTP excluded | 3.845 | 3.845 | FP8 e4m3 dynamic own-base |
-| **EXL3 K3 routed-only + native rest** | **92.23%** (60,447/65,536) | **0.076868** | 123.999 | MTP included | 3.489 | 3.368 | FP8 e4m3 dynamic own-base |
-| **QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** | **123.969** | MTP included | **3.488** | 3.367 | FP8 e4m3 dynamic own-base |
-| **QTIP2.5 deterministic mixed ring** | **89.09%** (58,389/65,536) | **0.181971** | **106.657** | MTP included | **3.001** | 2.897 | FP8 e4m3 dynamic own-base |
-| **EXL3 K2.5 greedy-upcast routed-only + native rest** | **88.33%** (57,885/65,536) | **0.174604** | 106.283 | MTP included | 2.990 | 2.887 | FP8 e4m3 dynamic own-base |
-| **EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** | 113.260 | MTP included | 3.187 | 3.076 | FP8 e4m3 dynamic own-base |
-| **Unsloth IQ3** | **87.95%** (57,638/65,536) | **0.177708** | 104.208 | MTP excluded | 2.932 | 2.932 | FP8 e4m3 dynamic own-base |
-| **QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** | **89.330** | MTP included | **2.513** | 2.426 | FP8 e4m3 dynamic own-base |
-| **EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | 89.371 | MTP included | 2.515 | 2.427 | FP8 e4m3 dynamic own-base |
-| **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | 90.861 | MTP excluded | 2.556 | 2.556 | FP8 e4m3 dynamic own-base |
-| **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | 93.691 | Stock MTP excluded; separate drafter included | 2.636 | 2.464 | FP8 e4m3 dynamic own-base |
-| **EXL3 K2.5 greedy optimizer full** | **83.51%** (54,732/65,536) | **0.302775** | 94.833 | MTP included | 2.668 | 2.576 | FP8 e4m3 dynamic own-base |
-| **Physical alternating K2/K3 2.5-BPW comparator** | **83.29%** (54,585/65,536) | **0.299604** | 94.833 | MTP included | 2.668 | 2.576 | FP8 e4m3 dynamic own-base |
-| **EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** | 77.862 | MTP included | 2.191 | 2.115 | FP8 e4m3 dynamic own-base |
+| Quant | Top-1 ↑ | KLD ↓ | Exact accounting GB | Shipped auxiliary scope | Comparison BPW | FP basis |
+|---|---:|---:|---:|---|---:|---|
+| **Unsloth IQ4** | **92.44%** (60,584/65,536) | **0.068349** | 136.662 | MTP excluded | 3.845 | FP8 e4m3 dynamic own-base |
+| **EXL3 K3 routed-only + native rest** | **92.23%** (60,447/65,536) | **0.076868** | 123.999 | MTP included | 3.489 | FP8 e4m3 dynamic own-base |
+| **QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** | **123.969** | MTP included | **3.488** | FP8 e4m3 dynamic own-base |
+| **QTIP2.5 deterministic mixed ring** | **89.09%** (58,389/65,536) | **0.181971** | **106.657** | MTP included | **3.001** | FP8 e4m3 dynamic own-base |
+| **EXL3 K2.5 greedy-upcast routed-only + native rest** | **88.33%** (57,885/65,536) | **0.174604** | 106.283 | MTP included | 2.990 | FP8 e4m3 dynamic own-base |
+| **EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** | 113.260 | MTP included | 3.187 | FP8 e4m3 dynamic own-base |
+| **Unsloth IQ3** | **87.95%** (57,638/65,536) | **0.177708** | 104.208 | MTP excluded | 2.932 | FP8 e4m3 dynamic own-base |
+| **QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** | **89.330** | MTP included | **2.513** | FP8 e4m3 dynamic own-base |
+| **EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | 89.371 | MTP included | 2.515 | FP8 e4m3 dynamic own-base |
+| **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | 90.861 | MTP excluded | 2.556 | FP8 e4m3 dynamic own-base |
+| **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | 93.691 | Stock MTP excluded; separate drafter included | 2.636 | FP8 e4m3 dynamic own-base |
+| **EXL3 K2.5 greedy optimizer full** | **83.51%** (54,732/65,536) | **0.302775** | 94.833 | MTP included | 2.668 | FP8 e4m3 dynamic own-base |
+| **Physical alternating K2/K3 2.5-BPW comparator** | **83.29%** (54,585/65,536) | **0.299604** | 94.833 | MTP included | 2.668 | FP8 e4m3 dynamic own-base |
+| **EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** | 77.862 | MTP included | 2.191 | FP8 e4m3 dynamic own-base |
 
 ## EXL 2×3 scope/rate matrix
 
