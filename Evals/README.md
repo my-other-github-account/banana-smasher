@@ -107,7 +107,7 @@ Inspect the frozen config:
 python3 -m Evals.tools.humaneval show-config
 ```
 
-The CLI supports `generate`, `merge`, `audit`, and `score`. Generated code must be scored in the provided network-isolated Docker environment. See the [HumanEval 0731 protocol](protocols/humaneval-0731-v1.md) for the complete commands.
+The CLI supports `generate`, `merge`, `audit`, and `score`. Generated code must be scored in the provided network-isolated Docker environment. See the [HumanEval 0731 protocol](protocols/humaneval-0731-v1.md) for the complete commands and the [published FF0731 result table](../notes/humaneval/deepseek-v4-flash-0731-results.md) for Official, IQ4, IQ3, and DwarfStar scores.
 
 ## Aggregate a new 64-window result
 
