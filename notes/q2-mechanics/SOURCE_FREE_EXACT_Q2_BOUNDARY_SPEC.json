@@ -1,0 +1,136 @@
+{
+  "schema": "banana-q2-source-free-exact-boundary-spec-v1",
+  "status": "SOURCE_FREE_SPECIFICATION_BUNDLE_READY",
+  "created_utc": "2026-08-10T18:14:00Z",
+  "purpose": "Input to a clean-room Banana Q2 implementation; contains only declarative math, operation-order requirements, wire rules, and sealed trace identities. It contains no comparator source text.",
+  "forbidden_inputs": [
+    "EXL source files",
+    "copied or mechanically translated comparator code",
+    "candidate or archived comparator packed codes as assignment inputs"
+  ],
+  "identity": {
+    "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "standard250_token_sha256": "e9488334fb7641b55fb16e29c7b92687704d711f4b4345ff5dc255d18edad27f",
+    "input_manifest_sha256": "ec13a3775f9757863b4201ac4fbacd2eed27325a24d0240c986ef890d54d8a20",
+    "seed": 36,
+    "hessian_count": 512000,
+    "regularization_sigma": 0.025,
+    "target": "L034_E000_w1",
+    "source_weight_bfloat16_sha256": "09405db01ca1199673f075ca36ab92d36b038472c29a85b20099251318901cc1"
+  },
+  "geometry": {
+    "state_bits": 16,
+    "branch_bits_per_position": 2,
+    "positions_per_tile": 256,
+    "tile_rows": 16,
+    "tile_columns": 16,
+    "product_buffer_rows": 128,
+    "packed_bytes_per_tile": 64,
+    "parent_lut_dtype": "float16",
+    "parent_lut_shape": [1024],
+    "external_state_map_bytes": 0
+  },
+  "parent_equivalence": {
+    "rule": "Duplicate Banana child classes are initialized to exact FP16 parent values.",
+    "state_id_identity_required": false,
+    "packed_byte_identity_required_when_state_ids_are_parent_equivalent": false,
+    "decoded_tile_value_identity_required": true,
+    "sealed_decoded_trellis_receipt_sha256": "821b9b492eb57be46e0ff5985e98003cc81fac09494666c341b0001a71729ce9",
+    "decoded_exact_calls": 256,
+    "state_exact_calls": 0
+  },
+  "operation_contract": [
+    {
+      "order": 1,
+      "boundary": "source_weight",
+      "dtype": "bfloat16 source; float32 working tensor",
+      "requirement": "Use original source weights only and preserve declared orientation before transformation."
+    },
+    {
+      "order": 2,
+      "boundary": "rng_signs",
+      "dtype": "float32",
+      "requirement": "Seed once with 36, draw the full input-sign vector, then continue the same RNG stream for the output-sign vector without reseeding. Each sign is sign(sign(randn)+1e-5)."
+    },
+    {
+      "order": 3,
+      "boundary": "weight_transform_and_scale",
+      "dtype": "float32 until FP16 wire materialization",
+      "requirement": "Apply output RMS/sign normalization, normalized 128-point Hadamard, input RMS/sign normalization with the declared parent-codebook scale, the second normalized Hadamard, and one deterministic global-scale search in that order. Materialize SUH as divide-in-FP32 then cast to FP16; materialize SVH as FP16."
+    },
+    {
+      "order": 4,
+      "boundary": "hessian",
+      "dtype": "float32",
+      "requirement": "Accumulate ordered sample batches with in-place addmm boundaries, divide exactly once by total mass/count, add sigma times the diagonal mean to the scalar diagonal, then apply input signs and the two normalized Hadamard transforms in the declared order."
+    },
+    {
+      "order": 5,
+      "boundary": "block_ldl",
+      "dtype": "float32",
+      "requirement": "Compute Cholesky, force the factor through the original contiguous H storage, normalize 16-column blocks serially by their diagonal-block inverses, write exact identity into every 16x16 diagonal block, then clear the scalar diagonal. The factor must be block-lower-triangular."
+    },
+    {
+      "order": 6,
+      "boundary": "reverse_ldlq_targets",
+      "dtype": "float32",
+      "requirement": "Visit 128-row buffers from high rows to low rows and, inside each buffer, visit 16-row targets from high rows to low rows. For target slice i, form local_error = W[right]-Q[right], mutate the live persistent product-cache slice with addmm(L_local^T, local_error), then target = W[i] + that live slice."
+    },
+    {
+      "order": 7,
+      "boundary": "product_cache_transition",
+      "dtype": "float32",
+      "requirement": "After all eight targets in a 128-row buffer, update the full persistent product cache in place with addmm(L_buffer^T, W_buffer-Q_buffer). No detached compensation clones are allowed."
+    },
+    {
+      "order": 8,
+      "boundary": "fp16_cyclic_trellis",
+      "dtype": "float16 cost/delta/state values; uint8 backpointer branches; uint16 reconstructed states",
+      "requirement": "Materialize targets to FP16, run a 256-position open pass with roll 128 and strict-less predecessor updates, choose the historical terminal plane/order defined by the sealed trace, recover the start edge, run the constrained pass with roll 0, and backtrack one closed cycle. Equal-cost updates preserve the earlier branch/order."
+    },
+    {
+      "order": 9,
+      "boundary": "compact_wire",
+      "dtype": "uint8",
+      "requirement": "Pack the cyclic two-bit branch stream MSB-first into 64 bytes per 256-position tile with the canonical four-branch pre-roll alignment. Decode through the procedural 1024-class mapping and the one shared FP16 LUT."
+    },
+    {
+      "order": 10,
+      "boundary": "runtime_physical_decode",
+      "dtype": "FP16 scale tensors with float32 working decode and BF16 reported wire output",
+      "requirement": "Product identity uses the authentic packed-FP16 runtime scale domain. The pre-pack FP32-scale return tensor is a separate diagnostic domain and must never be substituted as the packed-wire target."
+    }
+  ],
+  "required_boundary_hashes": {
+    "regularized_h_float32": "c03b4724e22183e271b7112477d779c7ff276837ea88346a0f7cd0f9ea582af5",
+    "input_signs_float32": "98b40523e99e3756c4f0003b705d293543b27a53a2c6cee139d24680c9689f87",
+    "output_signs_float32": "7f6ccea9bc7b022b2e166f74ffe58064c625d985725952d075e88c003be96323",
+    "suh_fp16": "eff6decc2a706b4dcaa65bf050b66262b2d7df88f8d8d53a7ccdbf0dbc86da84",
+    "svh_fp16": "01da92b2c3be8ad2e56aeadd26793c5af0903e1e8fc58533b7ce8b8cf636d846",
+    "transformed_weight_float32": "5903c1eace14d997b89701ca362186e98a07c69551cb00fcc0fb661212c29bcd",
+    "transformed_h_float32": "bbe21a7da175ab92c274a0cc9ad5be6ce9204b126462d6382b7e111f52312976",
+    "block_ldl_lower_float32": "bd3e0c769b007187787cd72ca30ec24d7b13e3fcf08a07507d97caeb2fc9aaee",
+    "product_buffer_0_float32": "9a8d6aa78c8505cd409f3f5833918f434872cd017b2e7a90269d205f48f29c19",
+    "final_product_float32": "d26eceefbef54de205e10f598b053e60961ea348dbea4d8325e52a95bfbb8de6"
+  },
+  "sealed_trace_receipts": {
+    "upstream_w1_manifest_sha256": "6c543c4491fa271335b9ae4c242fcebd81dd17c667f574586fd49c694429e03b",
+    "real_physical_w1_sha256": "6554186bc072af0820cd0044c451aa70eed9782db68c528c7c5c11166653ae07",
+    "copyback_lower_diagnostic_sha256": "10c940095e8c8046f1ccb4bec3aa3ff7715a6f8326403774bcb0abe96f788b63",
+    "buffer0_product_diagnostic_sha256": "98813ea9ca848d06e91c6d0d83e3191356b47c48babfcd9f8e0d43f23df3b3db",
+    "all_buffer_product_diagnostic_sha256": "6c5887bf8b5c773eed4b042f62399813efbd069054b2b487a09f1b15d8a27e0e",
+    "trellis_decoded_boundary_sha256": "821b9b492eb57be46e0ff5985e98003cc81fac09494666c341b0001a71729ce9",
+    "postdecode_scale_precision_sha256": "2e35d259acf32648c98a2f01d329d4e5d9cf70a113a3ddf93b14f78674feec5b"
+  },
+  "acceptance": {
+    "minimum_product_buffers": 2,
+    "w1_target_exact_required": [256, 256],
+    "w1_product_exact_required": [32, 32],
+    "decoded_trellis_exact_required": [256, 256],
+    "cpu_cuda_state_and_packed_mismatch_count_required": 0,
+    "fallback_calls_required": 0,
+    "packed_wire_runtime_domain": "FP16 SUH/SVH",
+    "prepack_fp32_scale_domain_is_product_target": false,
+    "current_source_guided_tree_is_product_acceptable": false
+  }
+}
