@@ -23,7 +23,7 @@ class PublishedMtpAccountingTest(unittest.TestCase):
 
         summary = verify_result_receipt(result, suite_lock)
 
-        self.assertEqual(summary["models"], 9)
+        self.assertEqual(summary["models"], 10)
         accounting_receipt = (
             evals_dir / "results/deepseek-v4-flash-0731-mtp-size-accounting-v1.json"
         )

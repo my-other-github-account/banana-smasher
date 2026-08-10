@@ -7,7 +7,7 @@
   "mtp_inclusive_parameter_denominator": 294550374339,
   "size_accounting": {
     "receipt_path": "deepseek-v4-flash-0731-mtp-size-accounting-v1.json",
-    "receipt_sha256": "d814bf37451261024fac0db0362caeb766f5ecc463ec57b45fb8977fa58c519e",
+    "receipt_sha256": "16a3a72a21c88f760621e3ec0d565c204e1e9ce50ba58446d2e0dee7f8c633de",
     "comparison_bpw_kind": "base-equivalent: all shipped bytes divided by the fixed base-model parameter denominator",
     "matched_physical_bpw_kind": "all shipped bytes divided by parameters represented by the artifact payload"
   },
@@ -306,7 +306,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "d814bf37451261024fac0db0362caeb766f5ecc463ec57b45fb8977fa58c519e"
+          "accounting_receipt_sha256": "16a3a72a21c88f760621e3ec0d565c204e1e9ce50ba58446d2e0dee7f8c633de"
         }
       },
       "measurement": {
@@ -505,7 +505,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "d814bf37451261024fac0db0362caeb766f5ecc463ec57b45fb8977fa58c519e"
+          "accounting_receipt_sha256": "16a3a72a21c88f760621e3ec0d565c204e1e9ce50ba58446d2e0dee7f8c633de"
         }
       },
       "measurement": {
@@ -988,7 +988,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "d814bf37451261024fac0db0362caeb766f5ecc463ec57b45fb8977fa58c519e"
+          "accounting_receipt_sha256": "16a3a72a21c88f760621e3ec0d565c204e1e9ce50ba58446d2e0dee7f8c633de"
         }
       },
       "measurement": {
@@ -1309,6 +1309,148 @@
           "kld_mean": "0.06254742770998356",
           "top1_matches": 8460,
           "top1_rate": "0.91796875"
+        }
+      }
+    },
+    {
+      "model_id": "EXL3-K2P5-physical-alternating",
+      "display_name": "EXL3 K2.5 physical alternating",
+      "vendor": "Banana Smasher",
+      "fp": "FP8 e4m3 dynamic own-base teacher",
+      "artifact": {
+        "base_model": "DeepSeek-V4-Flash-0731",
+        "variant": "EXL3 K2.5 physical alternating",
+        "format": "EXL3",
+        "mechanism": "physical alternating K2/K3 assignment across all 129 sparse-MoE level-3 groups; 68 K2 groups and 61 K3 groups",
+        "candidate_artifact_sha256": "0e1a0d7da3c3917a72e827052d57b5278005b2a228896e89a3b96d7cc01fb24d",
+        "candidate_manifest_sha256": "047c0ff5ba2de074c1e4f11712b73755849267d62d785d6908993e550bf5e628",
+        "identity_status": "partial",
+        "missing_identity_fields": [
+          "homogeneous K3 upstream source revision and code lineage"
+        ]
+      },
+      "wire": {
+        "bytes": 94832907712,
+        "decimal_gb": "94.832907712",
+        "artifact_payload_scope": "base-plus-native-mtp",
+        "parameter_denominator": 284334567511,
+        "normalized_bpw": "2.6682062203592242845254773071874904890730094033332647693753735642321114923652284",
+        "total_model_parameters": 294550374339,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 10215806828
+        },
+        "total_model_bpw": "2.5756655831740664070723314987285659393901029185138807891100977264136044544482164"
+      },
+      "kld": {
+        "direction": "KL(teacher||candidate)",
+        "mean": "0.29960352599248635"
+      },
+      "top1": {
+        "matches": 54585,
+        "positions": 65536,
+        "rate": "0.8329010009765625"
+      },
+      "source_receipts": [
+        {
+          "sha256": "1cd820cfa3a12251d69e5121793cbc618ce8810f524944808a728499c10fc62c",
+          "label": "EXL3 K2.5 physical provenance",
+          "role": "exact shipping bytes, payload manifest, and K2/K3 tensor-source evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "9a633e8adb351ae9e638e192d0f9a818497b62dc22831fa7367b91a4c74e622e",
+          "label": "EXL3 K2.5 terminal acceptance",
+          "role": "terminal artifact, rate, KLD, and Top-1 binding",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "7fa640d61e0bf179ebf65d03c9dcd5d51d991d86e97e19698d35dfb4a967d7f8",
+          "label": "EXL3 K2.5 Exact64 capture manifest",
+          "role": "64 candidate sidecars and frozen evaluation identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "2937b661a968c965fef6f9451c94e6fd425192f5007d497ca44793f5c0eca316",
+          "label": "EXL3 K2.5 measurement bindings",
+          "role": "global and six-category KLD and Top-1 evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "b90c04e2643b8bb9e371343bec67dbca907572ed9581b1dbd5f46b2d18b4d4f4",
+          "label": "EXL3 K2.5 independent exact recompute",
+          "role": "independent global and six-category recomputation evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "6d2b42005c11cb4f2ec8289926d2261dcd489a1cdf7aef19395f0d475efbbc84",
+          "label": "EXL3 K2.5 native MTP closure",
+          "role": "native MTP tensor closure and payload-scope evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "ffbf48cfe16c5ae29c1254995176d32177ebef9e2030bce135586bfa03ffa5ef",
+          "label": "EXL3 K2.5 physical alternating assignment",
+          "role": "61-group K3 selection pattern and eligible-weight rate evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "989eca997272e168ede2a92b2bbbbc018c197fae6e3963396a3c9d61cab3c089",
+          "label": "EXL3 corrected level-3 measurement",
+          "role": "all-129-group routed-override measurement evidence",
+          "availability": "protected-not-distributed"
+        }
+      ],
+      "replay": {
+        "status": "blocked",
+        "blockers": [
+          "candidate, teacher-bank, and frozen-corpus payloads are protected and not distributed by this repository",
+          "the homogeneous K3 upstream source revision and code lineage were not preserved in the sealed source receipts",
+          "the protected physical compilation and measurement environment is not reproducible from a clean public clone"
+        ]
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.38563935297463126",
+          "top1_matches": 16310,
+          "top1_rate": "0.8383018092105263157894736842105263157894736842105263157894736842105263157894736842105263157894736842"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.15400998095795138",
+          "top1_matches": 6134,
+          "top1_rate": "0.8557477678571428571428571428571428571428571428571428571428571428571428571428571428571428571428571429"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.1626202665162457",
+          "top1_matches": 8100,
+          "top1_rate": "0.87890625"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.438331370333361",
+          "top1_matches": 8022,
+          "top1_rate": "0.7833984375"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.39809882999045076",
+          "top1_matches": 7801,
+          "top1_rate": "0.76181640625"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.10461374315679389",
+          "top1_matches": 8218,
+          "top1_rate": "0.8917100694444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444"
         }
       }
     },
