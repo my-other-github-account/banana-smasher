@@ -24,9 +24,10 @@ class PublishedMtpAccountingTest(unittest.TestCase):
 
         summary = verify_result_receipt(result, suite_lock)
 
-        self.assertEqual(summary["models"], 13)
+        self.assertEqual(summary["models"], 14)
         model_ids = {row["model_id"] for row in result["results"]}
         self.assertIn("EXL3-K2P5-greedy-full", model_ids)
+        self.assertIn("EXL3-K2P5-greedy-routed-native-rest", model_ids)
         self.assertIn("EXL3-K3-routed-native-rest", model_ids)
         self.assertIn("Physical-K2K3-2P5-alternating-comparator", model_ids)
         self.assertNotIn("EXL3-K2P5-physical-alternating", model_ids)
@@ -47,6 +48,31 @@ class PublishedMtpAccountingTest(unittest.TestCase):
             "a226f60c6193f6fb2a8b1240cbf83b8ecea3bea3de9d905460244501545cc503",
         )
 
+        routed_greedy = next(
+            row
+            for row in result["results"]
+            if row["model_id"] == "EXL3-K2P5-greedy-routed-native-rest"
+        )
+        self.assertEqual(
+            routed_greedy["display_name"],
+            "EXL3 K2.5 greedy-upcast routed-only + native rest",
+        )
+        self.assertEqual(routed_greedy["top1"]["matches"], 57_885)
+        self.assertEqual(routed_greedy["kld"]["mean"], "0.1746041415211709")
+        self.assertEqual(routed_greedy["wire"]["bytes"], 106_282_510_072)
+        self.assertEqual(
+            routed_greedy["artifact"]["candidate_artifact_sha256"],
+            "5bedb489dfe62bad9107948d011a42cf888f7e2789a6386b680b2da7681be051",
+        )
+        self.assertEqual(
+            routed_greedy["artifact"]["candidate_manifest_sha256"],
+            "6e77d799bbc6516375fddeda848df972143639880140099b840ef364b035aad7",
+        )
+        self.assertNotEqual(
+            routed_greedy["artifact"]["candidate_artifact_sha256"],
+            full_greedy["artifact"]["candidate_artifact_sha256"],
+        )
+
         routed_k3 = next(
             row for row in result["results"] if row["model_id"] == "EXL3-K3-routed-native-rest"
         )
@@ -59,9 +85,33 @@ class PublishedMtpAccountingTest(unittest.TestCase):
             "42f3d57f5f112a9dbb7badd4dc76536f0ef6da7a3fe0422bc271891b487f83c8",
         )
 
+        alternating = next(
+            row
+            for row in result["results"]
+            if row["model_id"] == "Physical-K2K3-2P5-alternating-comparator"
+        )
+        self.assertEqual(
+            alternating["display_name"],
+            "Physical alternating K2/K3 2.5-BPW comparator",
+        )
+        self.assertEqual(alternating["top1"]["matches"], 54_585)
+        self.assertEqual(alternating["kld"]["mean"], "0.29960352599248635")
+
         matrix_text = (evals_dir / "README.md").read_text()
+        self.assertIn(
+            "| Base-equivalent BPW | Matched physical BPW |",
+            matrix_text,
+        )
+        self.assertNotIn("| Comparison BPW |", matrix_text)
+        self.assertIn(
+            "| **EXL3 K2.5 greedy-upcast routed-only + native rest** | "
+            "**88.33%** (57,885/65,536) | **0.174604** | 106.283 | "
+            "MTP included | 2.990 | 2.887 |",
+            matrix_text,
+        )
         self.assertIn("## EXL 2×3 scope/rate matrix", matrix_text)
-        self.assertIn("measurement in progress — owner t_2ee10a3d", matrix_text)
+        self.assertNotIn("measurement in progress", matrix_text)
+        self.assertIn("57,885/65,536; KLD 0.174604", matrix_text)
         self.assertIn("Physical alternating K2/K3 2.5-BPW comparator", matrix_text)
 
         accounting_receipt = (
@@ -80,6 +130,35 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         self.assertEqual(scopes["QTIP2-corrected-all43"], "base-plus-native-mtp")
         self.assertEqual(scopes["DwarfStar-Q2-0731"], "base-plus-separate-drafter")
         self.assertEqual(scopes["EXL3-K2-routed-native-rest"], "base-plus-native-mtp")
+        self.assertEqual(
+            scopes["EXL3-K2P5-greedy-routed-native-rest"],
+            "base-plus-native-mtp",
+        )
+        accounting = json.loads(accounting_receipt.read_text())
+        routed_greedy_accounting = accounting["rows"][
+            "EXL3-K2P5-greedy-routed-native-rest"
+        ]
+        self.assertEqual(routed_greedy_accounting["shipping_bytes"], 106_282_510_072)
+        self.assertEqual(
+            routed_greedy_accounting["routed_optimizer_payload_bytes"],
+            86_573_712_384,
+        )
+        self.assertEqual(
+            routed_greedy_accounting["retained_native_nonrouted_payload_bytes"],
+            19_708_797_688,
+        )
+        self.assertEqual(
+            routed_greedy_accounting["routed_payload_bytes_by_source"],
+            {"K2": 35_641_165_824, "K3": 50_932_546_560},
+        )
+        self.assertEqual(
+            routed_greedy_accounting["solution_group_counts"],
+            {"K2": 66, "K3": 63},
+        )
+        self.assertEqual(
+            routed_greedy_accounting["routed_group_counts"],
+            {"K2": 42, "K3": 44},
+        )
         routed_k2 = next(
             row
             for row in result["results"]
@@ -123,6 +202,32 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         with self.assertRaisesRegex(
             ReceiptError,
             "EXL3-K2P5-greedy-full: protected EXL publication value drift",
+        ):
+            verify_result_receipt(result, suite_lock)
+
+    def test_routed_greedy_protected_receipt_hash_drift_is_rejected(self) -> None:
+        evals_dir = Path(__file__).resolve().parents[1]
+        result = json.loads(
+            (evals_dir / "results/deepseek-v4-flash-0731-balanced64-v1.json").read_text()
+        )
+        suite_lock = json.loads(
+            (evals_dir / "configs/balanced64-v1.json").read_text()
+        )
+        routed_greedy = next(
+            row
+            for row in result["results"]
+            if row["model_id"] == "EXL3-K2P5-greedy-routed-native-rest"
+        )
+        terminal_receipt = next(
+            source
+            for source in routed_greedy["source_receipts"]
+            if source["label"] == "EXL3 K2.5 greedy routed-native Exact64 terminal"
+        )
+        terminal_receipt["sha256"] = "f" * 64
+
+        with self.assertRaisesRegex(
+            ReceiptError,
+            "EXL3-K2P5-greedy-routed-native-rest: protected EXL publication value drift",
         ):
             verify_result_receipt(result, suite_lock)
 
