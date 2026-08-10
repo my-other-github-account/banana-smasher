@@ -1,14 +1,15 @@
 # DeepSeek-V4-Flash-0731 quant results
 
-This page compares quality and declared shipping-accounting size for eleven quants measured on the frozen competitive `BALANCED64_V1` population. Every row states whether its byte numerator excludes MTP, includes the native MTP checkpoint, or includes a separate drafter.
+This page compares quality and declared shipping-accounting size for thirteen quants measured on the frozen competitive `BALANCED64_V1` population. Every row states whether its byte numerator excludes MTP, includes the native MTP checkpoint, or includes a separate drafter.
 
 ## Results
 
-Every model below ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. The table is ordered by Top-1 agreement; by KLD, EXL3 K3 moves ahead of both IQ3 and QTIP2.5, while IQ3 also moves ahead of QTIP2.5. The EXL3 routed-only K2 row replaces only routed experts and preserves every shared and non-routed tensor in the exact native source representation; it is distinct from both the all-eligible-linears EXL3 K2 row and the EXL3 K2.5 physical-alternating control.
+Every model below ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. The table is ordered by Top-1 agreement. The full EXL K2.5 row is the measured greedy optimizer result, while the routed K2 and K3 rows replace only routed experts and preserve every shared and non-routed tensor in the exact native source representation. The in-house physical alternating K2/K3 comparator is a separate control outside the EXL matrix and is not labeled EXL K2.5.
 
 | Quant | Top-1 ↑ | KLD ↓ | Exact accounting GB | Shipped auxiliary scope | Base-equivalent BPW | Matched physical BPW | FP basis |
 |---|---:|---:|---:|---|---:|---:|---|
 | **Unsloth IQ4** | **92.44%** (60,584/65,536) | **0.068349** | 136.662 | MTP excluded | 3.845 | 3.845 | FP8 e4m3 dynamic own-base |
+| **EXL3 K3 routed-only + native rest** | **92.23%** (60,447/65,536) | **0.076868** | 123.999 | MTP included | 3.489 | 3.368 | FP8 e4m3 dynamic own-base |
 | **QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** | **123.969** | MTP included | **3.488** | 3.367 | FP8 e4m3 dynamic own-base |
 | **QTIP2.5 deterministic mixed ring** | **89.09%** (58,389/65,536) | **0.181971** | **106.657** | MTP included | **3.001** | 2.897 | FP8 e4m3 dynamic own-base |
 | **EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** | 113.260 | MTP included | 3.187 | 3.076 | FP8 e4m3 dynamic own-base |
@@ -17,18 +18,30 @@ Every model below ran the same 64 windows and 65,536 scored positions against th
 | **EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | 89.371 | MTP included | 2.515 | 2.427 | FP8 e4m3 dynamic own-base |
 | **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | 90.861 | MTP excluded | 2.556 | 2.556 | FP8 e4m3 dynamic own-base |
 | **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | 93.691 | Stock MTP excluded; separate drafter included | 2.636 | 2.464 | FP8 e4m3 dynamic own-base |
-| **EXL3 K2.5 physical alternating** | **83.29%** (54,585/65,536) | **0.299604** | 94.833 | MTP included | 2.668 | 2.576 | FP8 e4m3 dynamic own-base |
+| **EXL3 K2.5 greedy optimizer full** | **83.51%** (54,732/65,536) | **0.302775** | 94.833 | MTP included | 2.668 | 2.576 | FP8 e4m3 dynamic own-base |
+| **Physical alternating K2/K3 2.5-BPW comparator** | **83.29%** (54,585/65,536) | **0.299604** | 94.833 | MTP included | 2.668 | 2.576 | FP8 e4m3 dynamic own-base |
 | **EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** | 77.862 | MTP included | 2.191 | 2.115 | FP8 e4m3 dynamic own-base |
+
+## EXL 2×3 scope/rate matrix
+
+These are scope-matched physical `BALANCED64_V1` cells. Each measured cell shows Top-1 agreement, KLD, exact shipped GB, and base-equivalent BPW. The routed K2.5 cell remains reserved for its active physical owner and carries no guessed score.
+
+| EXL scope | K2 | EXL optimizer K2.5 | K3 |
+|---|---|---|---|
+| **Full / all eligible** | 53,593/65,536; KLD 0.366820; 77.862 GB; 2.191 BPW | 54,732/65,536; KLD 0.302775; 94.833 GB; 2.668 BPW — greedy optimizer | 57,870/65,536; KLD 0.136015; 113.260 GB; 3.187 BPW |
+| **Routed experts only + exact native rest** | 56,579/65,536; KLD 0.234288; 89.371 GB; 2.515 BPW | **measurement in progress — owner t_2ee10a3d** | 60,447/65,536; KLD 0.076868; 123.999 GB; 3.489 BPW |
+
+The **Physical alternating K2/K3 2.5-BPW comparator** is an in-house 68-K2/61-K3 control. It remains in the global comparison table with every original metric and receipt preserved, but it is outside this EXL matrix and is not the EXL optimizer K2.5 cell.
 
 Top-1 is how often the quant selects the same next token as FP8 on the common ordered support. KLD measures movement of the full supported token distribution. Higher Top-1 and lower KLD are better.
 
 **Base-equivalent BPW** is every shipped artifact byte × 8 divided by the fixed 284,334,567,511-parameter base-model denominator. Native MTP and separate-drafter bytes receive no denominator credit, so this is the conservative apples-to-apples value used for public quant labels. **Matched physical BPW** divides the same bytes by the parameters represented by that row's declared payload scope: 284,334,567,511 for base-only artifacts, 294,550,374,339 for base plus the 10,215,806,828-parameter native MTP checkpoint, and 304,180,418,494 for DwarfStar's base plus separate 19,845,850,983-parameter drafter. Because those payload scopes differ, matched physical BPW is disclosure—not a cross-row ranking.
 
-The EXL3 K2.5 physical-alternating control has `2.499913678623607` BPW over EXL3-eligible optimized weights. That optimizer-scope rate is recorded in the accounting receipt but is **not** used as its public quant label. Its apples-to-apples base-equivalent value is `2.668206220359224…` BPW because the public numerator includes all 94,832,907,712 shipped bytes, including native MTP and metadata.
+The physical alternating comparator has `2.499913678623607` BPW over EXL3-eligible optimized weights. That optimizer-scope rate is recorded in the accounting receipt but is **not** used as an EXL K2.5 label. Its apples-to-apples base-equivalent value is `2.668206220359224…` BPW because the public numerator includes all 94,832,907,712 shipped bytes, including native MTP and metadata. The distinct full EXL K2.5 greedy optimizer ships 94,832,865,520 bytes and has base-equivalent BPW `2.6682050332506607541984592911089396395596594633708887538020512532588125649342761`.
 
 The corrected QTIP accounting restores ten omitted MTP tensors totaling 33,843,220 payload bytes and includes the deterministic index-length increase. That raises QTIP2 from 89.296 to **89.330 GB**, QTIP2.5 from 106.623 to **106.657 GB**, and QTIP3 from 123.935 to **123.969 GB**; quality metrics do not change. The source index hashes remain recorded in the machine receipt. Corrected index byte lengths are exact reconstructions, but new corrected index content hashes are explicitly unmaterialized rather than fabricated.
 
-The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, per-row payload scope, both BPW conventions, candidate/teacher/scorer/population identities, available component-byte ledgers, source hashes, replay limits, and the six-category breakdowns for all eleven quants. The SHA-bound [MTP size-accounting correction](results/deepseek-v4-flash-0731-mtp-size-accounting-v1.json) records the omitted tensor names, old and corrected QTIP byte totals, source-index hashes, corrected index lengths, denominator policy, and scope evidence. The routed-only EXL3 K2 row binds the protected K2 source tree/index, overlay and selected-payload proofs, 64-window measurement, independent recomputation, functional readback, exact 69,662,278,656-byte routed payload, and exact 19,708,797,688-byte native-rest payload. Its separately materialized composite tree and manifest remain explicitly unavailable rather than inferred. The all-eligible-linears EXL3 K2 and physical-alternating EXL3 K2.5 rows remain unchanged. The older EXL3 K3 source revision, code lineage, weight-component ledger, and runtime measurements also remain explicitly unavailable rather than inferred.
+The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, per-row payload scope, both BPW conventions, candidate identities, measurement bindings, protected source hashes, replay limits, and six-category breakdowns for all thirteen quants. The SHA-bound [MTP size-accounting correction](results/deepseek-v4-flash-0731-mtp-size-accounting-v1.json) records denominator policy and scope evidence for the complete row population. The full greedy K2.5 row binds its exact-rate solution, corrected optimizer measurement, artifact identity, payload manifest, physical provenance, 64-window bindings, capture manifest, and independent recomputation. The routed K3 row binds its protected source tree/index, overlay and selected-payload proofs, 64-window measurement, raw rows, independent recomputation, functional readback, exact 104,290,452,480-byte routed payload, and exact 19,708,797,688-byte native-rest payload. Separately materialized routed composite tree and manifest digests remain explicitly unavailable rather than inferred.
 
 ## What makes these apples to apples
 
@@ -52,6 +65,7 @@ These category rows are derived from the exact same 64-window competitive aggreg
 | Quant | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
 |---|---:|---:|---:|---:|---:|---:|
 | **Unsloth IQ4** | 92.12% (17,922/19,456) | 94.45% (6,770/7,168) | 94.61% (8,719/9,216) | 89.90% (9,206/10,240) | 89.05% (9,119/10,240) | 96.01% (8,848/9,216) |
+| **EXL3 K3 routed + native rest** | 91.85% (17,871/19,456) | 94.21% (6,753/7,168) | 94.64% (8,722/9,216) | 89.46% (9,161/10,240) | 88.76% (9,089/10,240) | 96.04% (8,851/9,216) |
 | **QTIP3 exact** | 91.75% (17,851/19,456) | 95.37% (6,836/7,168) | 94.34% (8,694/9,216) | 87.47% (8,957/10,240) | 86.48% (8,856/10,240) | 96.46% (8,890/9,216) |
 | **QTIP2.5 mixed** | 89.27% (17,368/19,456) | 93.22% (6,682/7,168) | 93.09% (8,579/9,216) | 83.30% (8,530/10,240) | 82.26% (8,423/10,240) | 95.56% (8,807/9,216) |
 | **EXL3 K3 exact** | 88.87% (17,291/19,456) | 90.11% (6,459/7,168) | 91.44% (8,427/9,216) | 84.84% (8,688/10,240) | 82.76% (8,475/10,240) | 92.56% (8,530/9,216) |
@@ -60,7 +74,8 @@ These category rows are derived from the exact same 64-window competitive aggreg
 | **EXL3 K2 routed + native rest** | 86.43% (16,815/19,456) | 89.30% (6,401/7,168) | 90.08% (8,302/9,216) | 81.48% (8,344/10,240) | 80.18% (8,210/10,240) | 92.31% (8,507/9,216) |
 | **Unsloth IQ2** | 84.43% (16,426/19,456) | 88.85% (6,369/7,168) | 89.08% (8,210/9,216) | 78.76% (8,065/10,240) | 76.81% (7,865/10,240) | 92.09% (8,487/9,216) |
 | **DwarfStar Q2** | 83.13% (16,174/19,456) | 88.38% (6,335/7,168) | 88.10% (8,119/9,216) | 77.75% (7,962/10,240) | 76.12% (7,795/10,240) | 91.80% (8,460/9,216) |
-| **EXL3 K2.5 physical alternating** | 83.83% (16,310/19,456) | 85.57% (6,134/7,168) | 87.89% (8,100/9,216) | 78.34% (8,022/10,240) | 76.18% (7,801/10,240) | 89.17% (8,218/9,216) |
+| **EXL3 K2.5 greedy optimizer full** | 84.06% (16,355/19,456) | 85.92% (6,159/7,168) | 88.03% (8,113/9,216) | 78.32% (8,020/10,240) | 76.61% (7,845/10,240) | 89.41% (8,240/9,216) |
+| **Physical alternating K2/K3 comparator** | 83.83% (16,310/19,456) | 85.57% (6,134/7,168) | 87.89% (8,100/9,216) | 78.34% (8,022/10,240) | 76.18% (7,801/10,240) | 89.17% (8,218/9,216) |
 | **EXL3 K2 exact** | 82.56% (16,063/19,456) | 84.15% (6,032/7,168) | 86.74% (7,994/9,216) | 75.98% (7,780/10,240) | 74.20% (7,598/10,240) | 88.17% (8,126/9,216) |
 
 ### KLD
@@ -68,6 +83,7 @@ These category rows are derived from the exact same 64-window competitive aggreg
 | Quant | Agentic | Chat | Code | Multilingual | Prose | Reasoning |
 |---|---:|---:|---:|---:|---:|---:|
 | **Unsloth IQ4** | 0.1061 | 0.0256 | 0.0332 | 0.0941 | 0.0823 | 0.0131 |
+| **EXL3 K3 routed + native rest** | 0.1217 | 0.0288 | 0.0313 | 0.1076 | 0.0912 | 0.0149 |
 | **QTIP3 exact** | 0.1513 | 0.0285 | 0.0528 | 0.1792 | 0.1563 | 0.0168 |
 | **EXL3 K3 exact** | 0.1870 | 0.0665 | 0.0733 | 0.1900 | 0.1745 | 0.0425 |
 | **Unsloth IQ3** | 0.2507 | 0.0736 | 0.0894 | 0.2688 | 0.2279 | 0.0360 |
@@ -75,7 +91,8 @@ These category rows are derived from the exact same 64-window competitive aggreg
 | **EXL3 K2 routed + native rest** | 0.3232 | 0.0989 | 0.1223 | 0.3636 | 0.2960 | 0.0515 |
 | **QTIP2 all-43** | 0.2896 | 0.0683 | 0.1223 | 0.4477 | 0.3549 | 0.0341 |
 | **Unsloth IQ2** | 0.3770 | 0.1123 | 0.1441 | 0.4302 | 0.3623 | 0.0601 |
-| **EXL3 K2.5 physical alternating** | 0.3856 | 0.1540 | 0.1626 | 0.4383 | 0.3981 | 0.1046 |
+| **Physical alternating K2/K3 comparator** | 0.3856 | 0.1540 | 0.1626 | 0.4383 | 0.3981 | 0.1046 |
+| **EXL3 K2.5 greedy optimizer full** | 0.3965 | 0.1512 | 0.1640 | 0.4481 | 0.3914 | 0.1017 |
 | **DwarfStar Q2** | 0.4198 | 0.1250 | 0.1745 | 0.4674 | 0.4150 | 0.0625 |
 | **EXL3 K2 exact** | 0.4630 | 0.1931 | 0.1964 | 0.5621 | 0.4817 | 0.1246 |
 
@@ -96,13 +113,13 @@ python3 -m Evals.tools.receipts verify \
 Expected Top-1 order:
 
 ```text
-IQ4 > QTIP3 > QTIP2.5 > EXL3 K3 > IQ3 > QTIP2 > EXL3 K2 routed + native rest > IQ2 > DwarfStar > EXL3 K2.5 > EXL3 K2
+IQ4 > EXL3 K3 routed + native rest > QTIP3 > QTIP2.5 > EXL3 K3 full > IQ3 > QTIP2 > EXL3 K2 routed + native rest > IQ2 > DwarfStar > EXL3 K2.5 greedy > physical alternating comparator > EXL3 K2
 ```
 
 Expected KLD order:
 
 ```text
-IQ4 > QTIP3 > EXL3 K3 > IQ3 > QTIP2.5 > EXL3 K2 routed + native rest > QTIP2 > IQ2 > EXL3 K2.5 > DwarfStar > EXL3 K2
+IQ4 > EXL3 K3 routed + native rest > QTIP3 > EXL3 K3 full > IQ3 > QTIP2.5 > EXL3 K2 routed + native rest > QTIP2 > IQ2 > physical alternating comparator > EXL3 K2.5 greedy > DwarfStar > EXL3 K2
 ```
 
 ## Standard HumanEval tooling

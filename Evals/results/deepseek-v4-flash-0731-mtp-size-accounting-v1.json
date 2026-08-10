@@ -41,6 +41,17 @@
       "matched_physical_bpw": "3.84511662728346850440505038646609313779223476049666531535789",
       "scope_evidence": "UD-IQ4_XS GGUF file-sum match and direct tensor-header census: blocks 0-42 only; no MTP, draft, or next-token tensors or metadata"
     },
+    "EXL3-K3-routed-native-rest": {
+      "artifact_payload_scope": "base-plus-native-mtp",
+      "mtp_included": true,
+      "shipping_bytes": 123999250168,
+      "comparison_bpw": "3.4888265961739699744459889854268040102450967587235200857315432779975056108576297",
+      "matched_physical_parameter_denominator": 294550374339,
+      "matched_physical_bpw": "3.3678246159765781019987434251990662176430186852148307430503292387805231170862566",
+      "routed_exl3_payload_bytes": 104290452480,
+      "retained_native_nonrouted_payload_bytes": 19708797688,
+      "scope_evidence": "protected overlay and selected-payload proofs bind EXL3 K3 only to layers.*.ffn.experts.* and select the exact native source payload for every shared expert and non-routed tensor"
+    },
     "QTIP3-uniform-exact": {
       "artifact_payload_scope": "base-plus-native-mtp",
       "mtp_included": true,
@@ -132,7 +143,22 @@
       "matched_physical_parameter_denominator": 304180418494,
       "matched_physical_bpw": "2.464099522404939413068858133872326001823927255892520785440878485452689555401858115769576234883829175"
     },
-    "EXL3-K2P5-physical-alternating": {
+    "EXL3-K2P5-greedy-full": {
+      "artifact_payload_scope": "base-plus-native-mtp",
+      "mtp_included": true,
+      "shipping_bytes": 94832865520,
+      "comparison_bpw": "2.6682050332506607541984592911089396395596594633708887538020512532588125649342761",
+      "matched_physical_parameter_denominator": 294550374339,
+      "matched_physical_bpw": "2.5756644372376514306392840126330402137510080619975999995940035714829300785993458",
+      "eligible_weight_bpw": "2.499913678623607",
+      "eligible_weight_bpw_scope": "optimized EXL3-eligible weights only; not the public comparison BPW",
+      "group_counts": {
+        "K2": 66,
+        "K3": 63
+      },
+      "scope_evidence": "greedy exact-rate solution, physical provenance, and native-MTP closure bind the full all-eligible 129-group EXL3 optimizer result"
+    },
+    "Physical-K2K3-2P5-alternating-comparator": {
       "artifact_payload_scope": "base-plus-native-mtp",
       "mtp_included": true,
       "shipping_bytes": 94832907712,
