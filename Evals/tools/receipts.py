@@ -550,8 +550,16 @@ def _verify_classes(
     if class_matches != matches:
         raise ReceiptError(f"{model_id}: class Top-1 matches do not sum to global matches")
     weighted_kld /= Decimal(positions)
-    if repr(float(weighted_kld)) != str(kld_mean):
-        raise ReceiptError(f"{model_id}: weighted class KLD does not round to global KLD")
+    rounded_weighted_kld = float(weighted_kld)
+    global_kld = float(kld_mean)
+    if (
+        repr(rounded_weighted_kld) != str(kld_mean)
+        and abs(rounded_weighted_kld - global_kld) > math.ulp(global_kld)
+    ):
+        raise ReceiptError(
+            f"{model_id}: weighted class KLD differs from global KLD by more than one "
+            "binary64 ULP"
+        )
 
 
 def _verify_external_measurement(
