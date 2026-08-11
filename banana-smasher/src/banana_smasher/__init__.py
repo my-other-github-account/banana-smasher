@@ -127,6 +127,7 @@ from .qtip25_native_v4_api import (
     anchor_qtip25_native_v4_cell,
     build_qtip25_native_v4_cell,
 )
+from .qtip_v7_batch import produce_qtip2_v7_batch10
 from .update_service import serve_persistent_updates
 
 
@@ -244,6 +245,7 @@ __all__ = [
     "prepare_contextual_iteration",
     "produce_fixed_d4_layerwise_logits",
     "produce_fixed_d4_logits",
+    "produce_qtip2_v7_batch10",
     "qtip1_5_provider_declaration",
     "qtip1_provider_declaration",
     "qtip_provider_counts",
