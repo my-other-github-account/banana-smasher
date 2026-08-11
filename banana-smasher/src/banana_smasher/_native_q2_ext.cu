@@ -184,10 +184,12 @@ __global__ __launch_bounds__(kThreads, 2) void native_q2_kernel(
                 local_index1 = other_index1;
             }
         }
-        shared_minimum[warp] = local_minimum0;
-        shared_index[warp] = local_index0;
-        shared_minimum[16 + warp] = local_minimum1;
-        shared_index[16 + warp] = local_index1;
+        if (lane == 0) {
+            shared_minimum[warp] = local_minimum0;
+            shared_index[warp] = local_index0;
+            shared_minimum[16 + warp] = local_minimum1;
+            shared_index[16 + warp] = local_index1;
+        }
         __syncthreads();
 
         int result = 0;

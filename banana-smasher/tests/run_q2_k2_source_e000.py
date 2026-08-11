@@ -170,6 +170,42 @@ def verify_authority(
     }
 
 
+def validate_resume_output(output: Path) -> None:
+    """Refuse sealed or foreign output while permitting owned checkpoints."""
+
+    if not output.exists():
+        return
+    allowed_top = {"PROGRESS.json", "checkpoints", "members"}
+    unexpected_top = {path.name for path in output.iterdir()} - allowed_top
+    if unexpected_top:
+        raise RuntimeError(
+            f"output contains sealed or foreign entries: {sorted(unexpected_top)}"
+        )
+    checkpoints = output / "checkpoints"
+    if checkpoints.exists():
+        allowed_checkpoints = {f"{member}.pt" for member in MEMBERS}
+        unexpected = {path.name for path in checkpoints.iterdir()} - allowed_checkpoints
+        if unexpected:
+            raise RuntimeError(f"foreign checkpoints refused: {sorted(unexpected)}")
+    members_root = output / "members"
+    if members_root.exists():
+        suffixes = (
+            "states.npy",
+            "codes.npy",
+            "su.npy",
+            "sv.npy",
+            "suh.npy",
+            "svh.npy",
+            "physical.bf16.bin",
+        )
+        allowed_members = {
+            f"{member}.{suffix}" for member in MEMBERS for suffix in suffixes
+        }
+        unexpected = {path.name for path in members_root.iterdir()} - allowed_members
+        if unexpected:
+            raise RuntimeError(f"foreign member artifacts refused: {sorted(unexpected)}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-root", type=Path, required=True)
@@ -186,8 +222,7 @@ def main() -> int:
     transform_seed = args.seed + conversion_module_index
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA unavailable")
-    if args.output.exists() and any(args.output.iterdir()):
-        raise RuntimeError("output is nonempty; sealed work is never redone")
+    validate_resume_output(args.output)
     args.output.mkdir(parents=True, exist_ok=True)
     authority = verify_authority(
         basis=args.basis,

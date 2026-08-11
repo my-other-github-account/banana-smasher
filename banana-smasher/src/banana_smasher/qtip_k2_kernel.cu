@@ -116,12 +116,14 @@ __device__ int historical_argmin(const half* costs, half* warp_min, int* warp_in
             local_index1 = other_index1;
         }
     }
-    // Preserve the historical kernel's unconditional same-warp shared stores
-    // rather than normalizing this reduction to lane-zero-only writes.
-    warp_min[warp] = local_min0;
-    warp_index[warp] = local_index0;
-    warp_min[16 + warp] = local_min1;
-    warp_index[16 + warp] = local_index1;
+    // Only lane zero holds the completed warp reduction. A single writer also
+    // makes the shared result independent of same-address store arbitration.
+    if (lane == 0) {
+        warp_min[warp] = local_min0;
+        warp_index[warp] = local_index0;
+        warp_min[16 + warp] = local_min1;
+        warp_index[16 + warp] = local_index1;
+    }
     __syncthreads();
 
     if (warp == 0) {

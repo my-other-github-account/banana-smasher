@@ -1,0 +1,68 @@
+{
+  "schema": "banana-smasher-l034-q2-vs-k2-public-evidence-v1",
+  "status": "PASS",
+  "date": "2026-08-10",
+  "candidate": {
+    "name": "Banana Q2 current variant",
+    "commit": "bb807b9f6ffcae211f9dc779b5b576198c3ac6da"
+  },
+  "control": {
+    "name": "authentic EXL K2"
+  },
+  "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "scope": {
+    "layer": 34,
+    "experts": 256,
+    "projections": [
+      "w1",
+      "w2",
+      "w3"
+    ],
+    "physical_members": 768,
+    "gaps": 0,
+    "duplicates": 0,
+    "pass_through_bytes": 0,
+    "route_count_coverage": 1.0,
+    "route_mass_coverage": 1.0,
+    "evaluation_rows": [
+      10,
+      12
+    ],
+    "token_positions": 2048,
+    "kld_log_base": "natural"
+  },
+  "metrics": {
+    "authentic_k2": {
+      "top1_matches": 1968,
+      "top1_total": 2048,
+      "mean_kld": 0.018689766940723482,
+      "bpw": 2.0117225646972656
+    },
+    "banana_q2": {
+      "top1_matches": 1978,
+      "top1_total": 2048,
+      "mean_kld": 0.01788801344325433,
+      "bpw": 2.035162607828776
+    },
+    "banana_minus_k2": {
+      "top1_matches": 10,
+      "top1_percentage_points": 0.48828125,
+      "mean_kld": -0.000801753497469152,
+      "kld_reduction_percent": 4.289799332501019,
+      "bpw": 0.0234400431315104,
+      "bpw_increase_percent": 1.165172750102238
+    }
+  },
+  "artifact_identity": {
+    "roster_sha256": "13aaa61931aa362a355854aad7bfdb78db328833dfcb83f2444435d058ad2140",
+    "ordered_physical_file_set_sha256": "cdbbaa738d658758c75df711185b1d57f87ed612b1518e9173957517ed5d7052",
+    "final_terminal_sha256": "146eb45a6c6b6ced321e2bc85e453d3ac6f7f987bce23025b972b9cee958c0aa",
+    "scientific_terminal_sha256": "8f1bad8cb0f52557dabcbe43cbe2cb5936a936c6a92ab9e30e48d47f3f51d138",
+    "score_terminal_sha256": "068cf52b8d8f1f8984bf84dea2d216bb527d95253111648b261ae0e2556c2fb7"
+  },
+  "limits": {
+    "full_256_candidate_compact_wire_decode_run": false,
+    "trainable_lut_optimizer_complete": false,
+    "serving_integration_complete": false
+  }
+}

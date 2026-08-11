@@ -29,8 +29,8 @@ control.
 | Banana Q2 current variant | **1978/2048** | **96.58203125%** | **0.01788801344325433** | 2.035162607828776 BPW |
 
 Banana Q2 improved Top-1 by 10 positions (0.48828125 percentage points) and
-reduced mean KLD by `0.0008017534974691515` (4.289799332501016%). Its complete
-accounting is `0.02344004313151027` BPW (1.1651727501022313%) larger, including
+reduced mean KLD by `0.000801753497469152` (4.289799332501019%). Its complete
+accounting is `0.0234400431315104` BPW (1.165172750102238%) larger, including
 one deduplicated 2,048-byte FP16 `[1024]` LUT.
 
 ## Immutable evidence
@@ -41,6 +41,8 @@ one deduplicated 2,048-byte FP16 `[1024]` LUT.
   `8f1bad8cb0f52557dabcbe43cbe2cb5936a936c6a92ab9e30e48d47f3f51d138`
 - Complete score terminal SHA-256:
   `068cf52b8d8f1f8984bf84dea2d216bb527d95253111648b261ae0e2556c2fb7`
+- Public evidence receipt:
+  `notes/reports/2026-08-10-l034-banana-q2-vs-exl-k2.json`
 
 ## Interpretation and limits
 

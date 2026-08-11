@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+import runpy
+
 import numpy as np
+import pytest
 import torch
 
 from banana_smasher.q2_codec import (
@@ -157,3 +161,22 @@ def test_executable_raw_hessian_finalization_uses_target_device() -> None:
 
     assert finalized.device == raw_sum.device
     assert torch.equal(finalized.diagonal(), torch.full((32,), 1.025))
+
+
+def test_source_runner_resume_gate_accepts_only_owned_partial_artifacts(
+    tmp_path: Path,
+) -> None:
+    runner = runpy.run_path(str(Path(__file__).with_name("run_q2_k2_source_e000.py")))
+    validate = runner["validate_resume_output"]
+
+    output = tmp_path / "run"
+    (output / "checkpoints").mkdir(parents=True)
+    (output / "members").mkdir()
+    (output / "PROGRESS.json").write_text("{}")
+    (output / "checkpoints" / "w1.pt").write_bytes(b"checkpoint")
+    (output / "members" / "w1.states.npy").write_bytes(b"states")
+    validate(output)
+
+    (output / "TERMINAL.json").write_text("{}")
+    with pytest.raises(RuntimeError, match="sealed or foreign"):
+        validate(output)
