@@ -1,0 +1,74 @@
+{
+  "schema": "banana-smasher.kimi-iq1s-mmlu500-evidence.v1",
+  "status": "PASS",
+  "bank": {
+    "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+    "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+    "ledger_sha256": "7cdb6a0a93a3d613212ac9960666ee9a26256de86709aaa9fa5765cd1c91e8b4",
+    "ledger_manifest_sha256": "1ff74c4099b120a3345b9199548d22435f64c606a4637fc21ba8cbe5dba73631",
+    "ledger_pass_sha256": "2628c36e28be8f293d4e8f61747de0dccb8738745121146d5377bd0faab42272",
+    "rows": 500,
+    "candidate_ids": {
+      "A": 32,
+      "B": 33,
+      "C": 34,
+      "D": 35
+    }
+  },
+  "base_parameter_authority": {
+    "repository": "moonshotai/Kimi-K3",
+    "revision": "9f62e4e9fffbd0a83ddd60e1c209d828994b3569",
+    "metadata_url": "https://huggingface.co/api/models/moonshotai/Kimi-K3/revision/9f62e4e9fffbd0a83ddd60e1c209d828994b3569",
+    "field": "safetensors.total",
+    "base_parameter_count": 2779931837184,
+    "denominator_scope": "complete base-model parameter count; not active parameters"
+  },
+  "rows": [
+    {
+      "repository": "vcruz305/Kimi-K3-Neuron-IQ1S-GGUF",
+      "revision": "a2d6283870dd97d2f177c69d94fb18120e79fe65",
+      "variant": "Neuron-IQ1S",
+      "complete_artifact_bytes": 330167807328,
+      "physical_member_count": 9,
+      "model_tree_sha256": "9f65d48efe784d9047d1b64546c4699e23df5f38cc88dc8ef7597f0321d05756",
+      "model_index_identity_sha256": "68ef0712991865d2bf060f04f9b0371606b438255838be6c28ad3b32f10e7422",
+      "qrows_sha256": "bd3e7ee3006dc2120ec1e5cee09aff52c9995dcd0c333e8a0f7d572453ed5258",
+      "terminal_status": "PASS",
+      "scope": "base model only / no drafter-MTP claim"
+    },
+    {
+      "repository": "unsloth/Kimi-K3-GGUF",
+      "revision": "a0836360ce58dfec088d966a97f2ddc8a606279b",
+      "variant": "UD-IQ1_S",
+      "complete_artifact_bytes": 594040923616,
+      "physical_member_count": 14,
+      "model_manifest_sha256": "19b3f31335844a6e9f6c128a7a0e8759e6325880f696e590bbc76cab26748be7",
+      "qrows_sha256": "8d2514d7ee5f71a6c551d280b39e95a1bd4ae99afc42093b69cfcfde99391124",
+      "terminal_status": "PASS",
+      "scope": "base model only / no drafter-MTP claim"
+    }
+  ],
+  "reference_context": {
+    "repository": "unsloth/DeepSeek-V4-Flash-0731-GGUF",
+    "revision": "fbbb5b93fb787c21338159b0af3318bb3f4d9768",
+    "variant": "UD-IQ4_XS",
+    "correct": 417,
+    "n": 500,
+    "complete_artifact_bytes": 136662446656,
+    "qrows_sha256": "376279254d98d0efdfaeba1303099c65a9a3ba4599117616cb107444c083eb16",
+    "model_identity_sha256": "5b0bf6a2b9f89d907e5fd23f46b452af0a3e43d991bad9e745c8e3971d12d73d",
+    "tokenizer_receipt_sha256": "b432b40c5a2e84b4e558361becee851363c9257178653b486b150168e2ebc25c",
+    "terminal_status": "PASS",
+    "relative_density": 1.0
+  },
+  "validation": {
+    "independent_recomputation": "PASS",
+    "ordered_ordinals": "0..499 exactly once",
+    "row_identity_and_answer_match": "500/500 for each Kimi row and the IQ4 reference",
+    "candidate_values": "finite four-choice logits and probabilities; softmax agreement PASS",
+    "candidate_token_ids": "Kimi A/B/C/D = 32/33/34/35; IQ4 A/B/C/D = 35/36/37/38",
+    "density_formula": "(MMLU percentage - 25) / complete decimal GB",
+    "bpw_formula": "8 * complete artifact bytes / 2779931837184"
+  },
+  "results_sha256": "32bf3a15e573080db98671e6c6013e878c48b9c3d20a3cc5e2a9eede0daa691b"
+}
