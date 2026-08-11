@@ -48,11 +48,13 @@ class PublishFourRowResultsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsealed"):
             render(terminal)
 
-    def test_live_evals_page_links_exact_four_row_table(self):
+    def test_live_evals_page_links_extended_seven_row_table(self):
         readme = (Path(__file__).resolve().parents[1] / "Evals/README.md").read_text()
         self.assertIn("MMLU-500 capability-density table", readme)
         self.assertIn("notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md", readme)
-        self.assertIn("exactly the Unsloth IQ4, Unsloth IQ3, Unsloth IQ2, and DwarfStar Q2", readme)
+        self.assertIn("scores seven sealed rows", readme)
+        self.assertIn("Official native MXFP4 reference", readme)
+        self.assertIn("routed-only EXL3 K2/K3 native-rest measurements", readme)
 
 
 if __name__ == "__main__":
