@@ -10,21 +10,28 @@
 
 namespace {
 
-constexpr int kThreads = 512;
+constexpr int kThreads = 1024;
 constexpr int kEdges = 16384;
+constexpr int kPackedEdges = kEdges / 4;
 constexpr int kPositions = 256;
 constexpr uint32_t kMul1 = 0x83DCD12Du;
 
 __device__ __forceinline__ int parent_index(uint16_t state) {
     const uint32_t product = static_cast<uint32_t>(state) * kMul1;
-    return static_cast<int>((product & 0xffu) + ((product >> 8) & 0xffu) +
-                            ((product >> 16) & 0xffu) + ((product >> 24) & 0xffu));
+    // Recenter each unsigned product byte into int8, sum all four lanes with
+    // one exact DP4A, then restore the removed 4*128 offset. This is exactly
+    // the historical unsigned byte sum for every uint16 state.
+    return __dp4a(
+        static_cast<int>(product ^ 0x80808080u),
+        static_cast<int>(0x01010101u),
+        512
+    );
 }
 
 __device__ half* forward_pass(
     const half* input,
     const half* parent_lut,
-    uint16_t* edges,
+    uint8_t* branches,
     half* costs_a,
     half* costs_b,
     int roll,
@@ -37,35 +44,75 @@ __device__ half* forward_pass(
     for (int step = 0; step < kPositions; ++step) {
         const int position = (step + roll) & 255;
         const half target = input[position];
-        for (int out_edge = thread; out_edge < kEdges; out_edge += kThreads) {
-            int best_predecessor = out_edge >> 2;
-            const uint16_t first_state = static_cast<uint16_t>(out_edge);
-            half delta = __hsub(parent_lut[parent_index(first_state)], target);
-            half best = step == 0
-                ? __hmul(delta, delta)
-                : __hfma(delta, delta, previous[best_predecessor]);
-            if (step == 0 && required_pre_state >= 0 && best_predecessor != required_pre_state) {
-                best = __ushort_as_half(0x7c00);
-            }
+        const half2 target2 = __halves2half2(target, target);
+        const half inf = __ushort_as_half(0x7c00);
+        for (int packed_edge = thread; packed_edge < kPackedEdges; packed_edge += kThreads) {
+            const int base_edge = packed_edge * 4;
+            half best0;
+            half best1;
+            half best2;
+            half best3;
+            uint8_t branch0 = 0;
+            uint8_t branch1 = 0;
+            uint8_t branch2 = 0;
+            uint8_t branch3 = 0;
 
+            // Four adjacent output edges share one predecessor for each branch.
+            // Issue their independent FP16 recurrence arithmetic as two half2
+            // lanes while preserving branch order and scalar strict-tie tests.
             #pragma unroll
-            for (int branch = 1; branch < 4; ++branch) {
-                const uint16_t state = static_cast<uint16_t>((branch << 14) | out_edge);
-                const int predecessor = state >> 2;
-                delta = __hsub(parent_lut[parent_index(state)], target);
-                half candidate = step == 0
-                    ? __hmul(delta, delta)
-                    : __hfma(delta, delta, previous[predecessor]);
+            for (int branch = 0; branch < 4; ++branch) {
+                const int predecessor = (branch << 12) | (base_edge >> 2);
+                const uint16_t state0 = static_cast<uint16_t>((branch << 14) | (base_edge + 0));
+                const uint16_t state1 = static_cast<uint16_t>((branch << 14) | (base_edge + 1));
+                const uint16_t state2 = static_cast<uint16_t>((branch << 14) | (base_edge + 2));
+                const uint16_t state3 = static_cast<uint16_t>((branch << 14) | (base_edge + 3));
+                const half2 lut01 = __halves2half2(
+                    parent_lut[parent_index(state0)], parent_lut[parent_index(state1)]
+                );
+                const half2 lut23 = __halves2half2(
+                    parent_lut[parent_index(state2)], parent_lut[parent_index(state3)]
+                );
+                const half2 delta01 = __hsub2(lut01, target2);
+                const half2 delta23 = __hsub2(lut23, target2);
+                const half2 prior2 = __halves2half2(previous[predecessor], previous[predecessor]);
+                half2 candidate01 = step == 0
+                    ? __hmul2(delta01, delta01)
+                    : __hfma2(delta01, delta01, prior2);
+                half2 candidate23 = step == 0
+                    ? __hmul2(delta23, delta23)
+                    : __hfma2(delta23, delta23, prior2);
+                half candidate0 = __low2half(candidate01);
+                half candidate1 = __high2half(candidate01);
+                half candidate2 = __low2half(candidate23);
+                half candidate3 = __high2half(candidate23);
                 if (step == 0 && required_pre_state >= 0 && predecessor != required_pre_state) {
-                    candidate = __ushort_as_half(0x7c00);
+                    candidate0 = inf;
+                    candidate1 = inf;
+                    candidate2 = inf;
+                    candidate3 = inf;
                 }
-                if (__hlt(candidate, best)) {
-                    best = candidate;
-                    best_predecessor = predecessor;
+                if (branch == 0) {
+                    best0 = candidate0;
+                    best1 = candidate1;
+                    best2 = candidate2;
+                    best3 = candidate3;
+                } else {
+                    if (__hlt(candidate0, best0)) { best0 = candidate0; branch0 = static_cast<uint8_t>(branch); }
+                    if (__hlt(candidate1, best1)) { best1 = candidate1; branch1 = static_cast<uint8_t>(branch); }
+                    if (__hlt(candidate2, best2)) { best2 = candidate2; branch2 = static_cast<uint8_t>(branch); }
+                    if (__hlt(candidate3, best3)) { best3 = candidate3; branch3 = static_cast<uint8_t>(branch); }
                 }
             }
-            current[out_edge] = best;
-            edges[position * kEdges + out_edge] = static_cast<uint16_t>(best_predecessor);
+            reinterpret_cast<half2*>(current + base_edge)[0] = __halves2half2(best0, best1);
+            reinterpret_cast<half2*>(current + base_edge)[1] = __halves2half2(best2, best3);
+            const uint8_t packed_branches = static_cast<uint8_t>(
+                branch0 | (branch1 << 2) | (branch2 << 4) | (branch3 << 6)
+            );
+            // Four independent 2-bit predecessor branches share one byte. Each
+            // byte has exactly one writer, avoiding atomics and preserving the
+            // historical strict-tie path while reducing traceback traffic 4x.
+            branches[position * kPackedEdges + packed_edge] = packed_branches;
         }
         __syncthreads();
         half* swap = previous;
@@ -118,7 +165,7 @@ __device__ int historical_argmin(const half* costs, half* warp_min, int* warp_in
     }
     // Only lane zero holds the completed warp reduction. A single writer also
     // makes the shared result independent of same-address store arbitration.
-    if (lane == 0) {
+    if (lane == 0 && warp < 16) {
         warp_min[warp] = local_min0;
         warp_index[warp] = local_index0;
         warp_min[16 + warp] = local_min1;
@@ -144,12 +191,12 @@ __device__ int historical_argmin(const half* costs, half* warp_min, int* warp_in
     return warp_index[0];
 }
 
-__global__ __launch_bounds__(kThreads, 2) void quantize_k2_kernel(
+__global__ __launch_bounds__(kThreads, 1) void quantize_k2_kernel(
     const float* input,
     const half* parent_lut,
     float* output,
     uint16_t* output_indices,
-    uint16_t* all_edges
+    uint8_t* all_branches
 ) {
     extern __shared__ half shared[];
     half* input_half = shared;
@@ -164,20 +211,22 @@ __global__ __launch_bounds__(kThreads, 2) void quantize_k2_kernel(
     const float* tile_input = input + tile * kPositions;
     float* tile_output = output + tile * kPositions;
     uint16_t* tile_indices = output_indices + tile * kPositions;
-    uint16_t* tile_edges = all_edges + static_cast<int64_t>(tile) * kPositions * kEdges;
+    uint8_t* tile_branches = all_branches + static_cast<int64_t>(tile) * kPositions * kPackedEdges;
 
     if (thread < kPositions) input_half[thread] = __float2half_rn(tile_input[thread]);
     __syncthreads();
 
     half* terminal = forward_pass(
-        input_half, parent_lut, tile_edges, costs_a, costs_b, 128, -1
+        input_half, parent_lut, tile_branches, costs_a, costs_b, 128, -1
     );
     int terminal_edge = historical_argmin(terminal, warp_min, warp_index);
     if (thread == 0) {
         int edge = terminal_edge;
         for (int step = 255; step >= 0; --step) {
             const int position = (step + 128) & 255;
-            edge = static_cast<int>(tile_edges[position * kEdges + edge]);
+            const uint8_t packed = tile_branches[position * kPackedEdges + (edge >> 2)];
+            const int branch = static_cast<int>((packed >> ((edge & 3) * 2)) & 3u);
+            edge = (branch << 12) | (edge >> 2);
             if (position == 0) break;
         }
         shared_state = edge;
@@ -186,12 +235,14 @@ __global__ __launch_bounds__(kThreads, 2) void quantize_k2_kernel(
 
     const int cyclic_state = shared_state;
     forward_pass(
-        input_half, parent_lut, tile_edges, costs_a, costs_b, 0, cyclic_state
+        input_half, parent_lut, tile_branches, costs_a, costs_b, 0, cyclic_state
     );
     if (thread == 0) {
         int edge = cyclic_state;
         for (int position = 255; position >= 0; --position) {
-            const int predecessor = static_cast<int>(tile_edges[position * kEdges + edge]);
+            const uint8_t packed = tile_branches[position * kPackedEdges + (edge >> 2)];
+            const int branch = static_cast<int>((packed >> ((edge & 3) * 2)) & 3u);
+            const int predecessor = (branch << 12) | (edge >> 2);
             const uint16_t encoded = static_cast<uint16_t>((predecessor << 2) | edge);
             edge = predecessor;
             tile_indices[position] = encoded;
@@ -218,8 +269,8 @@ std::vector<torch::Tensor> quantize_k2_mul1_cuda(
     const c10::cuda::CUDAGuard guard(input.device());
     auto output = torch::empty_like(input);
     auto indices = torch::empty(input.sizes(), input.options().dtype(torch::kInt16));
-    auto edges = torch::empty(
-        {input.size(0), kPositions, kEdges}, input.options().dtype(torch::kInt16)
+    auto branches = torch::empty(
+        {input.size(0), kPositions, kPackedEdges}, input.options().dtype(torch::kUInt8)
     );
     const size_t shared_bytes = (kPositions + 2 * kEdges) * sizeof(half);
     cudaFuncSetAttribute(
@@ -233,11 +284,11 @@ std::vector<torch::Tensor> quantize_k2_mul1_cuda(
         reinterpret_cast<const half*>(parent_lut.data_ptr<at::Half>()),
         output.data_ptr<float>(),
         reinterpret_cast<uint16_t*>(indices.data_ptr<int16_t>()),
-        reinterpret_cast<uint16_t*>(edges.data_ptr<int16_t>())
+        branches.data_ptr<uint8_t>()
     );
     const cudaError_t error = cudaGetLastError();
     TORCH_CHECK(error == cudaSuccess, "quantize_k2_kernel launch failed: ", cudaGetErrorString(error));
-    return {output, indices, edges};
+    return {output, indices, branches};
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
