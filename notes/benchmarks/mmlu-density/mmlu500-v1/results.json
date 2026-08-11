@@ -1,0 +1,101 @@
+{
+  "basis_sha256": "c5d933b7b1de3b9d22c6f78a042ce44f5be6a7249284a3016342857b92a65423",
+  "independent_recomputation": "PASS",
+  "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+  "public_copy_transform": "removed the internal task identifier and serialized the declared BPW values as exact decimal strings; bank, model, and scoring fields are unchanged",
+  "relative_density_reference": "UD-IQ4_XS",
+  "results_manifest_sha256": "ae2f17b13db87c4a91b827dac05aa8eace1bf69c194f3e6460febf7a85a53961",
+  "rows": [
+    {
+      "base_equivalent_bpw": "3.8451166272834685",
+      "choice_token_ids": [
+        35,
+        36,
+        37,
+        38
+      ],
+      "complete_artifact_bytes": 136662446656,
+      "complete_decimal_gb": 136.662446656,
+      "correct": 417,
+      "gold_cross_entropy_bits": 0.7017265675436639,
+      "label": "Unsloth IQ4",
+      "mmlu_capability_density": 0.42733026832895527,
+      "mmlu_percent": 83.4,
+      "model_identity_sha256": "5b0bf6a2b9f89d907e5fd23f46b452af0a3e43d991bad9e745c8e3971d12d73d",
+      "n": 500,
+      "qrows_sha256": "376279254d98d0efdfaeba1303099c65a9a3ba4599117616cb107444c083eb16",
+      "relative_density": 1.0,
+      "tokenizer_receipt_sha256": "b432b40c5a2e84b4e558361becee851363c9257178653b486b150168e2ebc25c",
+      "variant": "UD-IQ4_XS"
+    },
+    {
+      "base_equivalent_bpw": "2.931978308348837",
+      "choice_token_ids": [
+        35,
+        36,
+        37,
+        38
+      ],
+      "complete_artifact_bytes": 104207848032,
+      "complete_decimal_gb": 104.207848032,
+      "correct": 416,
+      "gold_cross_entropy_bits": 0.7499497586819865,
+      "label": "Unsloth IQ3",
+      "mmlu_capability_density": 0.5584992023069897,
+      "mmlu_percent": 83.2,
+      "model_identity_sha256": "fb03b630ead8e3460fcfa57e58b4b894b24f82fec5007e2664fe96216a4cd6f3",
+      "n": 500,
+      "qrows_sha256": "537707dca2df62e5bbeae531f822b7f0013707f63d5f91cadb5b3f1e6fada8b6",
+      "relative_density": 1.306949784977697,
+      "tokenizer_receipt_sha256": "40f191d7fca5e438a85e7d26dcd44d514530da7e405ad6e1b9401c74d9e1eb08",
+      "variant": "UD-IQ3_XXS"
+    },
+    {
+      "base_equivalent_bpw": "2.556445745541928",
+      "choice_token_ids": [
+        35,
+        36,
+        37,
+        38
+      ],
+      "complete_artifact_bytes": 90860736928,
+      "complete_decimal_gb": 90.860736928,
+      "correct": 409,
+      "gold_cross_entropy_bits": 0.8428418918804729,
+      "label": "Unsloth IQ2",
+      "mmlu_capability_density": 0.6251325040981072,
+      "mmlu_percent": 81.8,
+      "model_identity_sha256": "3d04d8b9b9b9d12d906a46ed91263605ddcb71bdc7354aab4c9108547ce5532d",
+      "n": 500,
+      "qrows_sha256": "b8cae63e3bb2892473818a77ea94bb66922add35febf65214b7b98419cc3e42b",
+      "relative_density": 1.462879066682179,
+      "tokenizer_receipt_sha256": "962647b3ef11db52798ac8ab380516606641a4e87a9c41a2edd297be35a9b329",
+      "variant": "UD-IQ2_XXS"
+    },
+    {
+      "base_equivalent_bpw": "2.6360875868777476",
+      "choice_token_ids": [
+        35,
+        36,
+        37,
+        38
+      ],
+      "complete_artifact_bytes": 93691352992,
+      "complete_decimal_gb": 93.691352992,
+      "correct": 403,
+      "gold_cross_entropy_bits": 0.8091757408135026,
+      "label": "DwarfStar Q2 0731",
+      "mmlu_capability_density": 0.5934379024790847,
+      "mmlu_percent": 80.6,
+      "model_identity_sha256": "fcf241981a93e88b933e710bf3952e5ba0bc5bf71f83dae15070e373620393d6",
+      "n": 500,
+      "qrows_sha256": "61f15219884e03f79072824c79665cea7e06f896e3640b0ecf6da164392aa228",
+      "relative_density": 1.3887102001917195,
+      "tokenizer_receipt_sha256": "7b44f7cd192fdc02e775bbc88b80dac23e006e30d16418343bf0b73890f3cd54",
+      "variant": "DwarfStar-Q2-0731"
+    }
+  ],
+  "schema": "banana-smasher.mmlu500-four-row-density-terminal.v1",
+  "source_scoring_basis_sha256": "83ace3f25a4f77325479690a47e7b86f7dee5ef44513996b551f24145ff88f8e",
+  "status": "PASS"
+}

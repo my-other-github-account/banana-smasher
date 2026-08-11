@@ -2,6 +2,8 @@
 
 This page compares quality and declared shipping-accounting size for fourteen quants measured on the frozen competitive `BALANCED64_V1` population. Every row states whether its byte numerator excludes MTP, includes the native MTP checkpoint, or includes a separate drafter.
 
+The separate [MMLU-500 capability-density table](../notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md) scores exactly the Unsloth IQ4, Unsloth IQ3, Unsloth IQ2, and DwarfStar Q2 rows on one immutable zero-shot question bank and publishes all 500 per-question records.
+
 ## Results
 
 Every model below ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. The table is ordered by Top-1 agreement. `EXL3 K2.5` denotes the measured greedy optimizer assignment: the full row applies it to all eligible weights, while the routed-only row applies that exact assignment only to routed experts and preserves every shared and non-routed tensor in the exact native source representation. The routed K2 and K3 rows use the same native-rest scope at homogeneous endpoints. The in-house physical alternating K2/K3 comparator is a separate control outside the EXL matrix and is not labeled EXL K2.5.
