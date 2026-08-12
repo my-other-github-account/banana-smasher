@@ -21,7 +21,7 @@
     },
     {
       "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/Physical-alternating-K2K3-full/result.json",
-      "sha256": "0c591b5608df6158dafd547a780d478a52812296b9bf8be92741e81925105380",
+      "sha256": "e0d143eee75a3cd7fc907b0498f81f8875da806fcf9128ad14676887b99d0280",
       "status": "PASS",
       "variant": "Physical-alternating-K2K3-full"
     },
