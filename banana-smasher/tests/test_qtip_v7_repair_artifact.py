@@ -132,7 +132,7 @@ def test_real_update1_trains_shared_lut_and_exports_same_complete_wire(
     torch.save({
         "input_ids": torch.zeros(1, 1, dtype=torch.int64),
         "activation_inputs": torch.ones(1, 1, 4096) / 4096,
-        "teacher_targets": torch.zeros(1, 1, 2048),
+        "teacher_targets": torch.linspace(-1, 1, 4096).reshape(1, 1, 4096),
         "teacher_mask": torch.ones(1, 1, dtype=torch.bool),
         "positions": torch.zeros(1, 1, dtype=torch.int64),
     }, training)
@@ -140,7 +140,7 @@ def test_real_update1_trains_shared_lut_and_exports_same_complete_wire(
 
     receipt = build_qtip_v7_repair_bundle(
         manifest=manifest, training=training, output=output,
-        learning_rate=1e-12,
+        learning_rate=1e-6,
         members=["33:0:w1", "33:0:w2", "33:0:w3"],
     )
     bundle = torch.load(output, weights_only=False)
@@ -161,9 +161,21 @@ def test_real_update1_trains_shared_lut_and_exports_same_complete_wire(
     }
     backend = PhysicalRepairBackend(request, _physical_context(tmp_path))
     worker = backend.initialize()
-    assert len({id(layer.tlut) for layer in worker["runtime"].layers}) == 1
+    assert len(worker["runtime"].layers) == 1
+    expert = worker["runtime"].layers[0]
+    assert len({id(expert.w1.tlut), id(expert.w2.tlut), id(expert.w3.tlut)}) == 1
     packed_before = [value.detach().clone() for value in worker["packed_indices"]]
-    decoded_update0 = worker["runtime"].layers[0]._weight().detach().clone()
+    decoded_update0 = expert.w1._weight().detach().clone()
+    activation = bundle["activation_inputs"]
+    with torch.no_grad():
+        gate = expert.w1(activation)
+        up = expert.w3(activation)
+        product = torch.nn.functional.silu(gate) * up
+        expected = expert.w2(product)
+        observed = expert(activation)
+    assert gate.shape == up.shape == product.shape == (1, 1, 2048)
+    assert observed.shape == expected.shape == (1, 1, 4096)
+    assert torch.equal(observed, expected)
     result = backend.cycle(worker, request)
 
     assert result["gradient"]["nonzero"] is True
@@ -172,7 +184,7 @@ def test_real_update1_trains_shared_lut_and_exports_same_complete_wire(
     assert result["physical_repair"]["train_objective_improved"] is True
     assert result["physical_repair"]["train_objective_after"] < result["physical_repair"]["train_objective_before"]
     assert all(torch.equal(before, after) for before, after in zip(packed_before, worker["packed_indices"]))
-    assert not torch.equal(decoded_update0, worker["runtime"].layers[0]._weight().detach())
+    assert not torch.equal(decoded_update0, expert.w1._weight().detach())
 
     source = load_qtip_v7_artifact(manifest)
     update1 = tmp_path / "update1"

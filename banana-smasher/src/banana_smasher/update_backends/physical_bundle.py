@@ -242,6 +242,40 @@ class Qtip2PhysicalLayer(torch.nn.Module):
         return checkpoint(self._forward, hidden, use_reentrant=False)
 
 
+class QtipV7ExpertLayer(torch.nn.Module):
+    """One causal DeepSeek expert backed by three fixed QTIP V7 projections."""
+
+    source_schema = "banana-smasher-qtip-v7-public-unit-v1"
+
+    def __init__(
+        self,
+        *,
+        w1: Qtip2PhysicalLayer,
+        w2: Qtip2PhysicalLayer,
+        w3: Qtip2PhysicalLayer,
+    ) -> None:
+        super().__init__()
+        self.w1 = w1
+        self.w2 = w2
+        self.w3 = w3
+        self.frozen = torch.nn.ModuleList((w1.frozen, w2.frozen, w3.frozen))
+        self.checkpoint_depth = False
+
+    @property
+    def codebooks(self) -> list[torch.nn.Parameter]:
+        return [self.w1.tlut]
+
+    def _forward(self, hidden: torch.Tensor) -> torch.Tensor:
+        return self.w2(torch.nn.functional.silu(self.w1(hidden)) * self.w3(hidden))
+
+    def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+        if not self.checkpoint_depth:
+            return self._forward(hidden)
+        from torch.utils.checkpoint import checkpoint
+
+        return checkpoint(self._forward, hidden, use_reentrant=False)
+
+
 class PhysicalBundleRuntime:
     """Data-only physical runtime; no external module or mission-code imports."""
 
@@ -377,55 +411,99 @@ class PhysicalBundleRuntime:
         reset_layer_graph_vjp(allow_reference=self.device.type != "cuda")
         fwht_stats(reset=True)
         shared_qtip_v7_luts: dict[int, torch.nn.Parameter] = {}
+        v7_groups: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
+        for layer_document in self.document["layers"]:
+            if layer_document.get("schema") != "banana-smasher-qtip-v7-public-unit-v1":
+                continue
+            key = (int(layer_document["layer"]), int(layer_document["expert"]))
+            projection = str(layer_document["projection"])
+            group = v7_groups.setdefault(key, {})
+            if projection in group:
+                raise ValueError(f"duplicate QTIP V7 causal projection {key}:{projection}")
+            group[projection] = layer_document
+        invalid_groups = {
+            key: sorted(group)
+            for key, group in v7_groups.items()
+            if set(group) != {"w1", "w2", "w3"}
+        }
+        if invalid_groups:
+            raise ValueError(
+                f"QTIP V7 repair requires complete w1/w2/w3 causal groups: {invalid_groups}"
+            )
+
+        def build_qtip_layer(
+            layer_document: dict[str, Any], layer_index: int
+        ) -> Qtip2PhysicalLayer:
+            m, k = (int(value) for value in layer_document["shape"])
+            su = _require_tensor(layer_document, "SU")
+            sv = _require_tensor(layer_document, "SV")
+            tlut = _require_tensor(layer_document, "tlut")
+            wscale = _require_tensor(layer_document, "Wscale")
+            if tuple(su.shape) != (k,) or tuple(sv.shape) != (m,):
+                raise ValueError(
+                    f"physical QTIP2 layer {layer_index} sign-plane shape mismatch"
+                )
+            if tuple(tlut.shape) != (512, 2) or wscale.numel() != 1:
+                raise ValueError(
+                    f"physical QTIP2 layer {layer_index} TLUT/scale shape mismatch"
+                )
+            frozen = _FrozenQtip2Payload(
+                {
+                    "trellis": layer_document["decoded_trellis"],
+                    "states": layer_document["decoded_states"],
+                    "su": su.to(self.device, dtype=torch.float32),
+                    "sv": sv.to(self.device, dtype=torch.float32),
+                    "wscale": wscale.to(self.device, dtype=torch.float32),
+                }
+            )
+            source_schema = str(layer_document["schema"])
+            layer_lut = int(layer_document.get("layer_lut", layer_index))
+            shared_tlut: torch.Tensor = tlut.to(self.device)
+            if source_schema == "banana-smasher-qtip-v7-public-unit-v1":
+                shared_tlut = shared_qtip_v7_luts.setdefault(
+                    layer_lut,
+                    torch.nn.Parameter(shared_tlut.float().contiguous()),
+                )
+            qtip2_layer = Qtip2PhysicalLayer(
+                tlut=shared_tlut,
+                frozen=frozen,
+                source_schema=source_schema,
+            )
+            reconstructed = layer_document.get("reconstructed_weight")
+            if isinstance(reconstructed, torch.Tensor):
+                with torch.no_grad():
+                    decoded = qtip2_layer._weight().half().cpu()
+                if not torch.equal(
+                    decoded.view(torch.int16),
+                    reconstructed.half().cpu().view(torch.int16),
+                ):
+                    raise ValueError(
+                        f"physical QTIP2 layer {layer_index} packed decode mismatch"
+                    )
+            return qtip2_layer
+
+        built_v7: set[tuple[int, int]] = set()
         for layer_index, layer_document in enumerate(self.document["layers"]):
+            if layer_document.get("schema") == "banana-smasher-qtip-v7-public-unit-v1":
+                key = (int(layer_document["layer"]), int(layer_document["expert"]))
+                if key in built_v7:
+                    continue
+                group = v7_groups[key]
+                projections = {
+                    name: build_qtip_layer(document, layer_index)
+                    for name, document in group.items()
+                }
+                self.layers.append(
+                    QtipV7ExpertLayer(
+                        w1=projections["w1"],
+                        w2=projections["w2"],
+                        w3=projections["w3"],
+                    )
+                )
+                built_v7.add(key)
+                continue
             if layer_document.get("schema") in _QTIP2_SCHEMAS:
-                m, k = (int(value) for value in layer_document["shape"])
-                su = _require_tensor(layer_document, "SU")
-                sv = _require_tensor(layer_document, "SV")
-                tlut = _require_tensor(layer_document, "tlut")
-                wscale = _require_tensor(layer_document, "Wscale")
-                if tuple(su.shape) != (k,) or tuple(sv.shape) != (m,):
-                    raise ValueError(
-                        f"physical QTIP2 layer {layer_index} sign-plane shape mismatch"
-                    )
-                if tuple(tlut.shape) != (512, 2) or wscale.numel() != 1:
-                    raise ValueError(
-                        f"physical QTIP2 layer {layer_index} TLUT/scale shape mismatch"
-                    )
-                frozen = _FrozenQtip2Payload(
-                    {
-                        "trellis": layer_document["decoded_trellis"],
-                        "states": layer_document["decoded_states"],
-                        "su": su.to(self.device, dtype=torch.float32),
-                        "sv": sv.to(self.device, dtype=torch.float32),
-                        "wscale": wscale.to(self.device, dtype=torch.float32),
-                    }
-                )
-                source_schema = str(layer_document["schema"])
-                layer_lut = int(layer_document.get("layer_lut", layer_index))
-                shared_tlut: torch.Tensor = tlut.to(self.device)
-                if source_schema == "banana-smasher-qtip-v7-public-unit-v1":
-                    shared_tlut = shared_qtip_v7_luts.setdefault(
-                        layer_lut,
-                        torch.nn.Parameter(shared_tlut.float().contiguous()),
-                    )
-                qtip2_layer = Qtip2PhysicalLayer(
-                    tlut=shared_tlut,
-                    frozen=frozen,
-                    source_schema=source_schema,
-                )
-                reconstructed = layer_document.get("reconstructed_weight")
-                if isinstance(reconstructed, torch.Tensor):
-                    with torch.no_grad():
-                        decoded = qtip2_layer._weight().half().cpu()
-                    if not torch.equal(
-                        decoded.view(torch.int16),
-                        reconstructed.half().cpu().view(torch.int16),
-                    ):
-                        raise ValueError(
-                            f"physical QTIP2 layer {layer_index} packed decode mismatch"
-                        )
-                self.layers.append(qtip2_layer)
+                self.layers.append(build_qtip_layer(layer_document, layer_index))
                 continue
             projections: dict[str, dict[str, torch.Tensor]] = {}
             codebooks: dict[str, torch.Tensor] = {}
@@ -534,7 +612,8 @@ class PhysicalBundleRuntime:
             "reset_backend_sentinels": self.reset_backend_sentinels,
             "backend_sentinels": self.backend_sentinels,
             "allow_reference": all(
-                isinstance(layer, Qtip2PhysicalLayer) for layer in self.layers
+                isinstance(layer, (Qtip2PhysicalLayer, QtipV7ExpertLayer))
+                for layer in self.layers
             ),
             "peak_memory_bytes": self.peak_memory_bytes,
             "synchronize": self.synchronize,
