@@ -1,43 +1,74 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/my-other-github-account/banana-smasher/blob/main/notes/benchmarks/mmlu-density/mmlu500-v1/results.schema.json",
-  "title": "Banana Smasher MMLU-500 eight-row intelligence-density results",
-  "type": "object",
-  "required": [
-    "schema",
-    "status",
-    "intelligence_density",
-    "rows"
-  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
   "properties": {
-    "schema": {
-      "const": "banana-smasher.mmlu500-eight-row-density-terminal.v1"
-    },
-    "status": {
-      "const": "PASS"
-    },
     "intelligence_density": {
-      "type": "object",
-      "required": ["formula", "unit", "reference"],
+      "additionalProperties": false,
       "properties": {
         "formula": {
           "const": "(MMLU percentage - 25) / exact base-equivalent comparison BPW"
         },
-        "unit": {
-          "const": "MMLU percentage points above chance per BPW"
-        },
         "reference": {
           "const": "UD-IQ4_XS"
+        },
+        "unit": {
+          "const": "MMLU percentage points above chance per BPW"
         }
       },
-      "additionalProperties": false
+      "required": [
+        "formula",
+        "unit",
+        "reference"
+      ],
+      "type": "object"
     },
     "rows": {
-      "type": "array",
-      "minItems": 8,
-      "maxItems": 8,
       "items": {
-        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "base_equivalent_bpw": {
+            "pattern": "^[0-9]+\\.[0-9]+$",
+            "type": "string"
+          },
+          "correct": {
+            "maximum": 500,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "mmlu_intelligence_density": {
+            "pattern": "^[0-9]+\\.[0-9]+$",
+            "type": "string"
+          },
+          "mmlu_per_gb": {
+            "pattern": "^[0-9]+\\.[0-9]+$",
+            "type": "string"
+          },
+          "mmlu_percent": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "number"
+          },
+          "n": {
+            "const": 500
+          },
+          "variant": {
+            "enum": [
+              "UD-IQ4_XS",
+              "UD-IQ3_XXS",
+              "UD-IQ2_XXS",
+              "DwarfStar-Q2-0731",
+              "Official-native-MXFP4",
+              "EXL3-K2-routed-native-rest",
+              "EXL3-K3-routed-native-rest",
+              "QTIP2-corrected-all43",
+              "EXL3-K3-uniform-exact"
+            ]
+          }
+        },
         "required": [
           "variant",
           "label",
@@ -48,51 +79,25 @@
           "mmlu_intelligence_density",
           "mmlu_per_gb"
         ],
-        "properties": {
-          "variant": {
-            "enum": [
-              "UD-IQ4_XS",
-              "UD-IQ3_XXS",
-              "UD-IQ2_XXS",
-              "DwarfStar-Q2-0731",
-              "Official-native-MXFP4",
-              "EXL3-K2-routed-native-rest",
-              "EXL3-K3-routed-native-rest",
-              "EXL3-K3-uniform-exact"
-            ]
-          },
-          "label": {
-            "type": "string"
-          },
-          "n": {
-            "const": 500
-          },
-          "correct": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 500
-          },
-          "mmlu_percent": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "base_equivalent_bpw": {
-            "type": "string",
-            "pattern": "^[0-9]+\\.[0-9]+$"
-          },
-          "mmlu_intelligence_density": {
-            "type": "string",
-            "pattern": "^[0-9]+\\.[0-9]+$"
-          },
-          "mmlu_per_gb": {
-            "type": "string",
-            "pattern": "^[0-9]+\\.[0-9]+$"
-          }
-        },
-        "additionalProperties": true
-      }
+        "type": "object"
+      },
+      "maxItems": 9,
+      "minItems": 9,
+      "type": "array"
+    },
+    "schema": {
+      "const": "banana-smasher.mmlu500-nine-row-density-terminal.v1"
+    },
+    "status": {
+      "const": "PASS"
     }
   },
-  "additionalProperties": true
+  "required": [
+    "schema",
+    "status",
+    "intelligence_density",
+    "rows"
+  ],
+  "title": "Banana Smasher MMLU-500 nine-row intelligence-density results",
+  "type": "object"
 }

@@ -13,18 +13,18 @@ EVALS = REPO / "Evals/README.md"
 
 
 class MMLUDensityPublicationTest(unittest.TestCase):
-    def test_eight_row_result_and_evals_table_are_consistent(self):
+    def test_nine_row_result_and_evals_table_are_consistent(self):
         getcontext().prec = 120
         result = json.loads(RESULTS.read_text())
         schema = json.loads(SCHEMA.read_text())
         rows = result["rows"]
 
-        self.assertEqual(result["schema"], "banana-smasher.mmlu500-eight-row-density-terminal.v1")
+        self.assertEqual(result["schema"], "banana-smasher.mmlu500-nine-row-density-terminal.v1")
         self.assertEqual(schema["properties"]["schema"]["const"], result["schema"])
-        self.assertEqual(schema["properties"]["rows"]["minItems"], 8)
-        self.assertEqual(schema["properties"]["rows"]["maxItems"], 8)
+        self.assertEqual(schema["properties"]["rows"]["minItems"], 9)
+        self.assertEqual(schema["properties"]["rows"]["maxItems"], 9)
         self.assertIn("mmlu_per_gb", schema["properties"]["rows"]["items"]["required"])
-        self.assertEqual(len(rows), 8)
+        self.assertEqual(len(rows), 9)
         self.assertEqual(
             [row["variant"] for row in rows],
             [
@@ -34,6 +34,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 "DwarfStar-Q2-0731",
                 "Official-native-MXFP4",
                 "EXL3-K2-routed-native-rest",
+                "QTIP2-corrected-all43",
                 "EXL3-K3-routed-native-rest",
                 "EXL3-K3-uniform-exact",
             ],
@@ -58,6 +59,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
         expected_new = {
             "Official-native-MXFP4": (423, Decimal("84.6"), 156035165824, "4.3901849061799633842692039291812057173773172588621", "13.575737986822021169770638279576235636557835123104"),
             "EXL3-K2-routed-native-rest": (418, Decimal("83.6"), 89371076344, "2.5145328512486971484262613667868966546438084310621785627887683259240843040121566", "23.30452750732594444179988514428135015815648841012239784287586670715144855970965066658501975422521871"),
+            "QTIP2-corrected-all43": (412, Decimal("82.4"), 89330008924, "2.5133773837201586429658372611602203102766869054250902646239944325064734214647636621385741278765751357100035806", "22.837796015749841659559084631083944388300462093436429846337177334456839441477273304117463719419610073876633838"),
             "EXL3-K3-routed-native-rest": (426, Decimal("85.2"), 123999250168, "3.488881932423359811648345096334173619526617322555388135469206037221313139582164", "17.25481147428379249155385572471416346148579182105134544577220219255627215867777214170883080045737066"),
             "EXL3-K3-uniform-exact": (424, Decimal("84.8"), 113260003977, "3.186668577611291126768382805251239067660095075340211506894101693858116218554962444360182878967180057", "18.76567912337647118428195391233153179107803343530514769372618419610599904720503080757189191494425088"),
         }
@@ -85,6 +87,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
         for fragment in (
             "Official native MXFP4** |  |  | **84.60%** (423/500) | **13.576**",
             "EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | **83.60%** (418/500) | **23.305**",
+            "QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** | **82.40%** (412/500) | **22.838**",
             "EXL3 K3 routed-only + native rest** | **92.23%** (60,447/65,536) | **0.076868** | **85.20%** (426/500) | **17.255**",
             "EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** | **84.80%** (424/500) | **18.766**",
         ):
