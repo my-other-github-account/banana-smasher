@@ -18,7 +18,7 @@
       "variant": "EXL3-K2P5-greedy-routed-native-rest"
     }
   ],
-  "finished_evidence_manifest_sha256": "867b14fd94a0ab4db611849c2301bdd097e85d62247ffb7c1e3248419b985074",
+  "finished_evidence_manifest_sha256": "0f266eed3613c15703e5862c0f606d3860161b3acb3c67016c719ce02f964422",
   "independent_recomputation": "PASS",
   "intelligence_density": {
     "formula": "(MMLU percentage - 25) / exact base-equivalent comparison BPW",
@@ -422,7 +422,7 @@
         "artifact_index_sha256": "470760b75f8ea0e47ed78eb2d4969d7e791aa7975edffd9199910bab7d8d7e2b",
         "artifact_tree_sha256": "9a633e8adb351ae9e638e192d0f9a818497b62dc22831fa7367b91a4c74e622e",
         "candidate_artifact_sha256": "0e1a0d7da3c3917a72e827052d57b5278005b2a228896e89a3b96d7cc01fb24d",
-        "evidence_sha256": "0c591b5608df6158dafd547a780d478a52812296b9bf8be92741e81925105380",
+        "evidence_sha256": "e0d143eee75a3cd7fc907b0498f81f8875da806fcf9128ad14676887b99d0280",
         "independent_reaggregation_sha256": "9acd68f4294ed10a3528e232750dc2d1ee5a48456eea86ecc44b99528ac426ef",
         "independent_recomputation": "PASS",
         "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
@@ -433,6 +433,7 @@
       },
       "qrows_sha256": "b5d1e9293006d10b48fcb64f027f499883bcd63f69ce63cd6f7cd584fd1d797e",
       "raw_mmlu_per_bpw": "28.0338151636306330195592263144883965655957551242821476674875195036348101552134763673120853131054524875940991371931692328",
+      "raw_mmlu_per_gb": "0.788755736849930323899589088664049588516744435305330902305930551703718701641744299065703628227056423592876114214997191628",
       "relative_intelligence_density": "1.22887191937197945593247531430347809250192987553486132513168918628163921897515554406864382991226965404517236716710346449",
       "tokenizer_receipt_sha256": "6567660333093914c48b1f0b793262d8b1898629d89d1d21098af3b18a4ddf66",
       "variant": "Physical-alternating-K2K3-full"
