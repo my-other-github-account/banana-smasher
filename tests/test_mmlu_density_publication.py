@@ -15,19 +15,19 @@ FINISHED_EVIDENCE_MANIFEST = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/fi
 
 
 class MMLUDensityPublicationTest(unittest.TestCase):
-    def test_twelve_row_result_and_evals_table_are_consistent(self):
+    def test_thirteen_row_result_and_evals_table_are_consistent(self):
         getcontext().prec = 120
         result = json.loads(RESULTS.read_text())
         schema = json.loads(SCHEMA.read_text())
         rows = result["rows"]
 
-        self.assertEqual(result["schema"], "banana-smasher.mmlu500-twelve-row-density-terminal.v2")
+        self.assertEqual(result["schema"], "banana-smasher.mmlu500-thirteen-row-density-terminal.v3")
         self.assertEqual(schema["properties"]["schema"]["const"], result["schema"])
-        self.assertEqual(schema["properties"]["rows"]["minItems"], 12)
-        self.assertEqual(schema["properties"]["rows"]["maxItems"], 12)
+        self.assertEqual(schema["properties"]["rows"]["minItems"], 13)
+        self.assertEqual(schema["properties"]["rows"]["maxItems"], 13)
         self.assertIn("mmlu_per_gb", schema["properties"]["rows"]["items"]["required"])
         self.assertIn("raw_mmlu_per_bpw", schema["properties"]["rows"]["items"]["required"])
-        self.assertEqual(len(rows), 12)
+        self.assertEqual(len(rows), 13)
         self.assertEqual(
             [row["variant"] for row in rows],
             [
@@ -43,6 +43,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 "QTIP3-uniform-exact",
                 "QTIP2P5-deterministic-mixed-ring",
                 "EXL3-K2-uniform-exact",
+                "Physical-alternating-K2K3-full",
             ],
         )
 
@@ -71,6 +72,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             "QTIP3-uniform-exact": (421, Decimal("84.2"), 123968528042, "3.487962202476954954739203475489728352391106959317205859774720270487259967167516979310499463726247446", "16.9726609875415172996428276813531353488618362504699811994239440321836712512089020485040050968648412588229151660448353183"),
             "QTIP2P5-deterministic-mixed-ring": (414, Decimal("82.8"), 106657444992, "3.000899846280526906707937310598763864978934006978352098969598998585827630738411347265673123546884941", "19.2608893867752233807419799625420976444760774192163389939983159352072096559378267241213458075333678430680736149955799898"),
             "EXL3-K2-uniform-exact": (369, Decimal("73.8"), 77861675750, "2.1907058696825606173737276358734996088908236748322939650200806709327704680850651", "22.2759251597163319465289057819950657817687670304218953314782722230326515930399810618438699876324023710314001979897142511"),
+            "Physical-alternating-K2K3-full": (374, Decimal("74.8"), 94832907712, "2.668206220359224284525477307187490489073009403333264769375373564232111492365228415584687878052563670", "18.6642245340749401654284688564374618845811310854177935005465036267515179910378492391997573341263574048420606555109602646"),
         }
         for row in rows[4:]:
             correct, percent, complete_bytes, bpw, density = expected_new[row["variant"]]
@@ -103,6 +105,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 ("QTIP3-uniform-exact", "PASS"),
                 ("QTIP2P5-deterministic-mixed-ring", "PASS"),
                 ("EXL3-K2-uniform-exact", "PASS"),
+                ("Physical-alternating-K2K3-full", "PASS"),
                 ("EXL3-K2P5-greedy-full", "ARTIFACT_UNAVAILABLE"),
                 ("EXL3-K2P5-greedy-routed-native-rest", "MEASUREMENT_SUPERSEDED"),
             ],
@@ -131,6 +134,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             "QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** | **84.20%** (421/500) | **16.973**",
             "QTIP2.5 deterministic mixed ring** | **89.09%** (58,389/65,536) | **0.181971** | **82.80%** (414/500) | **19.261**",
             "EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** | **73.80%** (369/500) | **22.276**",
+            "Physical alternating K2/K3 2.5-BPW comparator** | **83.29%** (54,585/65,536) | **0.299604** | **74.80%** (374/500) | **18.664**",
             "ARTIFACT_UNAVAILABLE",
         ):
             self.assertIn(fragment, evals)

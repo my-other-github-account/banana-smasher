@@ -1,0 +1,64 @@
+{
+  "artifact": {
+    "artifact_identity_sha256": "0e1a0d7da3c3917a72e827052d57b5278005b2a228896e89a3b96d7cc01fb24d",
+    "artifact_index_sha256": "470760b75f8ea0e47ed78eb2d4969d7e791aa7975edffd9199910bab7d8d7e2b",
+    "artifact_tree_sha256": "9a633e8adb351ae9e638e192d0f9a818497b62dc22831fa7367b91a4c74e622e",
+    "base_equivalent_bpw": "2.668206220359224284525477307187490489073009403333264769375373564232111492365228415584687878052563670",
+    "complete_artifact_bytes": 94832907712,
+    "complete_decimal_gb": "94.832907712",
+    "eligible_weight_bpw": "2.499913678623607",
+    "group_counts": {
+      "K2": 68,
+      "K3": 61
+    },
+    "mtp_closure_sha256": "6d2b42005c11cb4f2ec8289926d2261dcd489a1cdf7aef19395f0d475efbbc84",
+    "producer_provenance_sha256": "1cd820cfa3a12251d69e5121793cbc618ce8810f524944808a728499c10fc62c",
+    "solution_sha256": "ffbf48cfe16c5ae29c1254995176d32177ebef9e2030bce135586bfa03ffa5ef",
+    "source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+  },
+  "bank": {
+    "choice_token_ids": [
+      35,
+      36,
+      37,
+      38
+    ],
+    "dataset": "cais/mmlu",
+    "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+    "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+    "revision": "c30699e8356da336a370243923dbaf21066bb9fe",
+    "split": "all/test"
+  },
+  "density": {
+    "above_chance_mmlu_per_bpw": "18.6642245340749401654284688564374618845811310854177935005465036267515179910378492391997573341263574048420606555109602646",
+    "above_chance_mmlu_per_gb": "0.525134167047146124735287922666706811606067819227345975064643602604882237189289653656043324675232752605952279250091713143",
+    "raw_mmlu_per_bpw": "28.0338151636306330195592263144883965655957551242821476674875195036348101552134763673120853131054524875940991371931692328",
+    "relative_to_unsloth_iq4": "1.22887191937197945593247531430347809250192987553486132513168918628163921897515554406864382991226965404517236716710346449"
+  },
+  "label": "Physical alternating K2/K3 2.5-BPW comparator",
+  "measurement": {
+    "artifact_band_terminal_sha256": "de996cab1da981bfb9e9c06b4e71b2f722382fea5adf98086687d012721f950d",
+    "choice_accumulation_dtype": "FP32",
+    "correct": 374,
+    "duplicates": 0,
+    "errors": 0,
+    "fp32_head_materialization_sha256": "8c086ee974d4e0e0001eef524f1cc9bc9e54390bad54d9987bb08f302f052d9b",
+    "gaps": 0,
+    "gold_cross_entropy_bits": 1.0550834233424868,
+    "independent_reaggregation_sha256": "9acd68f4294ed10a3528e232750dc2d1ee5a48456eea86ecc44b99528ac426ef",
+    "independent_recomputation": "PASS",
+    "loader_proof_sha256": "f538c1d0738a4542346c6adeaf657903a37ab0ce53b4ddd256b9e30c996e0282",
+    "mmlu_percent_exact": "74.8",
+    "n": 500,
+    "nonfinite": 0,
+    "primary_terminal_sha256": "30479470330f1110362daaa1db2984c622b6a9d93924b139207305944eefbb2a",
+    "qrows_sha256": "b5d1e9293006d10b48fcb64f027f499883bcd63f69ce63cd6f7cd584fd1d797e",
+    "run_terminal_sha256": "f1a71f8e288cd96e56bed1835a31d224c0305ab657b253c95cff0eed9c5e4ae4",
+    "runtime_terminal_sha256": "a8ff77e7b3e298d4b9c55e21c70b67bf27a6cd21e99bbcde42324144505ff459",
+    "tied": 0,
+    "tokenizer_receipt_sha256": "6567660333093914c48b1f0b793262d8b1898629d89d1d21098af3b18a4ddf66"
+  },
+  "schema": "banana-smasher.mmlu500-physical-alternating-k2k3-full-result.v1",
+  "status": "PASS",
+  "variant": "Physical-alternating-K2K3-full"
+}

@@ -20,6 +20,12 @@
       "variant": "EXL3-K2-uniform-exact"
     },
     {
+      "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/Physical-alternating-K2K3-full/result.json",
+      "sha256": "0c591b5608df6158dafd547a780d478a52812296b9bf8be92741e81925105380",
+      "status": "PASS",
+      "variant": "Physical-alternating-K2K3-full"
+    },
+    {
       "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/EXL3-K2P5-greedy-full/unavailability.json",
       "sha256": "bc84211ab95f9fc584b6fd679d57c7eaa2b094766775d98d99049294029bd63c",
       "status": "ARTIFACT_UNAVAILABLE",
