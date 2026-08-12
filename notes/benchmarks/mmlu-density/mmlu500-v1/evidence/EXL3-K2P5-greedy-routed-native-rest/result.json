@@ -1,0 +1,63 @@
+{
+  "artifact": {
+    "base_equivalent_bpw": "2.990350726677318761133570203797083967844437614338647678644542139727383081773899285391977912993952953",
+    "complete_artifact_bytes": 106282510072,
+    "complete_decimal_gb": "106.282510072",
+    "greedy_artifact_identity_sha256": "7c8d1aa6d5fea5c22374346b0e18450881cc97cee118f7bc75f064f56f828044",
+    "group_counts": {
+      "K2": 66,
+      "K3": 63
+    },
+    "native_rest_bytes": 19708797688,
+    "routed_group_counts": {
+      "K2": 42,
+      "K3": 44
+    },
+    "routed_payload_bytes": 86573712384,
+    "solution_sha256": "07a8eb1fbd59bc34aff90aac0d8635647fd9c09074adc93e79aec7ea40497f6f",
+    "source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+  },
+  "bank": {
+    "choice_token_ids": [
+      35,
+      36,
+      37,
+      38
+    ],
+    "dataset": "cais/mmlu",
+    "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+    "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+    "revision": "c30699e8356da336a370243923dbaf21066bb9fe",
+    "split": "all/test"
+  },
+  "density": {
+    "above_chance_mmlu_per_bpw": "19.9976542773114211551230553063823955412839565138944792609771588308334509994164752793475970777033117705023648987223690617",
+    "above_chance_mmlu_per_gb": "0.562651370949830798045813770682508425053749609377215763203564396901647913876717347011059025753190719204601662279792604784",
+    "raw_mmlu_per_bpw": "28.3578776373914467216460717388165073896468145882650809587100847634561311831190151118507731135324554872675676155795467630",
+    "raw_mmlu_per_gb": "0.797873515995746683516471701569844723153143258782406299659904027713373630380361722851802765616564765694819748517164095078",
+    "relative_to_unsloth_iq4": "1.31666631795131026373409689687196109792806274332902517049569936441862819270007137840722610203248903069498593850352778794"
+  },
+  "label": "EXL3 K2.5 greedy-upcast routed-only + native rest",
+  "measurement": {
+    "artifact_band_terminal_sha256": "18fd65fd3c06564c7f99874a0c7324cf18ebf230f56ed439fb7f68d79bde3826",
+    "choice_accumulation_dtype": "FP32",
+    "correct": 424,
+    "duplicates": 0,
+    "errors": 0,
+    "gaps": 0,
+    "gold_cross_entropy_bits": 0.6931491669630314,
+    "independent_reaggregation_sha256": "bee863af5d255e34fae2bc0d46efe81e158154f798916aacc8220f337cd45b3e",
+    "independent_recomputation": "PASS",
+    "mmlu_percent_exact": "84.8",
+    "n": 500,
+    "nonfinite": 0,
+    "primary_terminal_sha256": "26a5703330eaa212c95d2e0e25190101f6342918d413062e449332cf8ba88542",
+    "qrows_sha256": "56da67d17a3fc0900e16bebc90f2bdcedd7ad7206b0a9cb5f57336a072305e6a",
+    "run_terminal_sha256": "90701576b515b289b9513137b8f481611be2e80ef7e78857c208bc6f7bb01871",
+    "tied": 0,
+    "tokenizer_receipt_sha256": "7fd719c395fc03ac5a94369100ff0064e900eaeec5cbba83ee49c364160f78b9"
+  },
+  "schema": "banana-smasher.mmlu500-exl3-greedy-k2p5-routed-native-result.v1",
+  "status": "PASS",
+  "variant": "EXL3-K2P5-greedy-routed-native-rest"
+}

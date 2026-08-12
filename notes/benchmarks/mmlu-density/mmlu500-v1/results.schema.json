@@ -42,8 +42,8 @@
         ],
         "type": "object"
       },
-      "maxItems": 2,
-      "minItems": 2,
+      "maxItems": 1,
+      "minItems": 1,
       "type": "array"
     },
     "finished_evidence_manifest_sha256": {
@@ -115,12 +115,12 @@
             "minimum": 0,
             "type": "number"
           },
+          "n": {
+            "const": 500
+          },
           "raw_mmlu_per_bpw": {
             "pattern": "^[0-9]+\\.[0-9]+$",
             "type": "string"
-          },
-          "n": {
-            "const": 500
           },
           "variant": {
             "enum": [
@@ -132,6 +132,7 @@
               "EXL3-K2-routed-native-rest",
               "QTIP2-corrected-all43",
               "EXL3-K3-routed-native-rest",
+              "EXL3-K2P5-greedy-routed-native-rest",
               "EXL3-K3-uniform-exact",
               "QTIP3-uniform-exact",
               "QTIP2P5-deterministic-mixed-ring",
@@ -153,12 +154,12 @@
         ],
         "type": "object"
       },
-      "maxItems": 13,
-      "minItems": 13,
+      "maxItems": 14,
+      "minItems": 14,
       "type": "array"
     },
     "schema": {
-      "const": "banana-smasher.mmlu500-thirteen-row-density-terminal.v3"
+      "const": "banana-smasher.mmlu500-fourteen-row-density-terminal.v4"
     },
     "status": {
       "const": "PASS"
@@ -173,6 +174,6 @@
     "dispositions",
     "rows"
   ],
-  "title": "Banana Smasher MMLU-500 thirteen-row intelligence-density results",
+  "title": "Banana Smasher MMLU-500 fourteen-row intelligence-density results",
   "type": "object"
 }
