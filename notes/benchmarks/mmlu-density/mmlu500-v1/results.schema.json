@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/my-other-github-account/banana-smasher/blob/main/notes/benchmarks/mmlu-density/mmlu500-v1/results.schema.json",
-  "title": "Banana Smasher MMLU-500 seven-row intelligence-density results",
+  "title": "Banana Smasher MMLU-500 eight-row intelligence-density results",
   "type": "object",
   "required": [
     "schema",
@@ -11,7 +11,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "banana-smasher.mmlu500-seven-row-density-terminal.v1"
+      "const": "banana-smasher.mmlu500-eight-row-density-terminal.v1"
     },
     "status": {
       "const": "PASS"
@@ -34,8 +34,8 @@
     },
     "rows": {
       "type": "array",
-      "minItems": 7,
-      "maxItems": 7,
+      "minItems": 8,
+      "maxItems": 8,
       "items": {
         "type": "object",
         "required": [
@@ -57,7 +57,8 @@
               "DwarfStar-Q2-0731",
               "Official-native-MXFP4",
               "EXL3-K2-routed-native-rest",
-              "EXL3-K3-routed-native-rest"
+              "EXL3-K3-routed-native-rest",
+              "EXL3-K3-uniform-exact"
             ]
           },
           "label": {

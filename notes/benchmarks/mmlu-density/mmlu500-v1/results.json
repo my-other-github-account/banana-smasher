@@ -198,9 +198,42 @@
       },
       "relative_intelligence_density": "1.1360747003494895368542723107011917619804114572014952426898136099571721782138650964351742389712387815",
       "variant": "EXL3-K3-routed-native-rest"
+    },
+    {
+      "base_equivalent_bpw": "3.186668577611291126768382805251239067660095075340211506894101693858116218554962444360182878967180057",
+      "choice_token_ids": [
+        35,
+        36,
+        37,
+        38
+      ],
+      "complete_artifact_bytes": 113260003977,
+      "complete_decimal_gb": 113.260003977,
+      "correct": 424,
+      "gold_cross_entropy_bits": 0.7013783993446359,
+      "label": "EXL3 K3 uniform exact",
+      "mmlu_capability_density": 0.5279886800299225,
+      "mmlu_intelligence_density": "18.76567912337647118428195391233153179107803343530514769372618419610599904720503080757189191494425088",
+      "mmlu_per_gb": "0.5279886800299224750220582450757050974211621716054921730969241355600628013211216594199113587057436555",
+      "mmlu_percent": 84.8,
+      "n": 500,
+      "provenance": {
+        "artifact_index_sha256": "42f3d57f5f112a9dbb7badd4dc76536f0ef6da7a3fe0422bc271891b487f83c8",
+        "candidate_artifact_sha256": "4ae72ab897698d94f12e93918294d4e7e1c79f5b5f0df2112d18113670ea0ee3",
+        "candidate_manifest_sha256": "6765e093dd6dd253cc3a20c097bf018384f4cd1c5a5d4b60a808f11448e70c09",
+        "independent_reaggregation_sha256": "905333b7e74f461723133b71be9020c72911eb0687403e80775e082dd23ada2c",
+        "independent_recomputation": "PASS",
+        "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "qrows_sha256": "52d0c2e52f6df1c9c8b12a8533a48e68bc1218cdebd8cfd9e746961d4b1f4ff0",
+        "terminal_sha256": "b421823930dd978fd5d4a696dde45b8e476e45bf755279bb4f5d67d5ad0a5aa3",
+        "tokenizer_receipt_sha256": "9a20ab996c3597c3af133109ae15bfead5689769f6937d64eaf3e70db7171d59",
+        "upstream_exllamav3_revision": "791c83073f7f90c44f765a0ceeab7a05fa15b96b"
+      },
+      "relative_intelligence_density": "1.235551794855498846641331597024919559569366223220427324258442666039911411569316699095112300949917837",
+      "variant": "EXL3-K3-uniform-exact"
     }
   ],
-  "schema": "banana-smasher.mmlu500-seven-row-density-terminal.v1",
+  "schema": "banana-smasher.mmlu500-eight-row-density-terminal.v1",
   "source_scoring_basis_sha256": "83ace3f25a4f77325479690a47e7b86f7dee5ef44513996b551f24145ff88f8e",
   "status": "PASS"
 }

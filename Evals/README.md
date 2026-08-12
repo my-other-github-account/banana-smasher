@@ -2,7 +2,7 @@
 
 This page compares quality and declared shipping-accounting size for fourteen quants measured on the frozen competitive `BALANCED64_V1` population. Every row states whether its byte numerator excludes MTP, includes the native MTP checkpoint, or includes a separate drafter.
 
-The separate [MMLU-500 capability-density table](../notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md) scores seven sealed rows on one immutable zero-shot question bank: the Official native MXFP4 reference, the four previously published Unsloth/DwarfStar rows, and the two routed-only EXL3 K2/K3 native-rest measurements. The original four per-question result sets remain unchanged; the three new rows carry compact public-safe measurement provenance.
+The separate [MMLU-500 capability-density table](../notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md) scores eight sealed rows on one immutable zero-shot question bank: the Official native MXFP4 reference, the four previously published Unsloth/DwarfStar rows, the two routed-only EXL3 K2/K3 native-rest measurements, and EXL3 K3 uniform exact. The original four per-question result sets remain unchanged; the four extended rows carry compact public-safe measurement provenance.
 
 ## Results
 
@@ -16,7 +16,7 @@ Every quant row with Top-1/KLD values ran the same 64 windows and 65,536 scored 
 | **QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** |  |  |  | **123.969** | MTP included | **3.488** | FP8 e4m3 dynamic own-base |
 | **QTIP2.5 deterministic mixed ring** | **89.09%** (58,389/65,536) | **0.181971** |  |  |  | **106.657** | MTP included | **3.001** | FP8 e4m3 dynamic own-base |
 | **EXL3 K2.5 greedy-upcast routed-only + native rest** | **88.33%** (57,885/65,536) | **0.174604** |  |  |  | 106.283 | MTP included | 2.990 | FP8 e4m3 dynamic own-base |
-| **EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** |  |  |  | 113.260 | MTP included | 3.187 | FP8 e4m3 dynamic own-base |
+| **EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** | **84.80%** (424/500) | **18.766** | **0.528** | 113.260 | MTP included | 3.187 | FP8 e4m3 dynamic own-base |
 | **Unsloth IQ3** | **87.95%** (57,638/65,536) | **0.177708** | **83.20%** (416/500) | **19.850** | **0.558** | 104.208 | MTP excluded | 2.932 | FP8 e4m3 dynamic own-base |
 | **QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** |  |  |  | **89.330** | MTP included | **2.513** | FP8 e4m3 dynamic own-base |
 | **EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | **83.60%** (418/500) | **23.305** | **0.656** | 89.371 | MTP included | 2.515 | FP8 e4m3 dynamic own-base |
