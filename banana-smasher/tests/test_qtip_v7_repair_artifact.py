@@ -214,6 +214,34 @@ def test_external_runtime_layer_is_billed_without_fabricating_members(tmp_path: 
     assert composed.complete_wire_bytes == source.complete_wire_bytes
 
 
+def test_all_external_layers_export_without_fabricating_members(tmp_path: Path) -> None:
+    manifest = _genuine_fixture(tmp_path)
+    document = json.loads(manifest.read_text())
+    document["members"] = []
+    document["external_layers"] = [{
+        "layer": 33,
+        "member_count": 768,
+        "complete_wire_bytes": 768 * MEMBER_BYTES,
+        "identity_sha256": "b" * 64,
+        "provider": "census-bound-existing-artifact",
+    }]
+    manifest.write_text(json.dumps(document, sort_keys=True))
+    source = load_qtip_v7_artifact(manifest)
+    update = _update_artifact(tmp_path / "update33.pt", 3.0)
+
+    receipt = export_qtip_v7_artifact(
+        manifest=manifest,
+        output=tmp_path / "all-external",
+        update_artifact=[f"33={update}"],
+    )
+
+    assert receipt["members"] == 768
+    assert receipt["external_layers"] == [33]
+    assert receipt["packed_identity"] is True
+    assert receipt["wire_size_delta"] == 0
+    assert receipt["complete_wire_bytes"] == source.complete_wire_bytes
+
+
 def test_real_update1_trains_shared_lut_and_exports_same_complete_wire(
     tmp_path: Path,
 ) -> None:

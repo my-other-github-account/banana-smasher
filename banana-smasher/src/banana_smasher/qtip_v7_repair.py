@@ -73,7 +73,7 @@ def load_qtip_v7_artifact(manifest: str | Path) -> QtipV7Artifact:
         raise ValueError("QTIP V7 rate must be a positive integer")
     members = document.get("members")
     luts = document.get("layer_luts")
-    if not isinstance(members, list) or not members or not isinstance(luts, list) or not luts:
+    if not isinstance(members, list) or not isinstance(luts, list) or not luts:
         raise ValueError("QTIP V7 manifest requires members and layer_luts")
     root = manifest_path.parent
     member_root_value = document.get("member_root")
@@ -139,6 +139,8 @@ def load_qtip_v7_artifact(manifest: str | Path) -> QtipV7Artifact:
         external_member_count += member_count
         external_wire_bytes += complete_wire_bytes
         external_shas.append(identity_sha256)
+    if not members and not external_layers:
+        raise ValueError("QTIP V7 manifest requires members or external_layers")
     layer_luts: dict[int, np.ndarray] = {}
     for row in luts:
         if not isinstance(row, dict) or row.get("dtype") != "float16" or row.get("shape") != [1024]:
@@ -400,7 +402,8 @@ def export_qtip_v7_artifact(
         document = json.loads(json.dumps(source.document))
         # Packed members are immutable parent wires. Export is a tiny LUT overlay
         # manifest that binds them by hash instead of duplicating tens of GiB.
-        document["member_root"] = str(source.member_paths[0].parent)
+        if source.member_paths:
+            document["member_root"] = str(source.member_paths[0].parent)
         for row, source_path in zip(document["members"], source.member_paths, strict=True):
             row["path"] = source_path.name
         for row in document["layer_luts"]:
