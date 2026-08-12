@@ -98,20 +98,6 @@
       "matched_physical_bpw": "2.93197830834883710932601535266166267708804597088615155566779",
       "scope_evidence": "UD-IQ3_XXS GGUF file-sum match and direct tensor-header census: blocks 0-42 only; no MTP, draft, or next-token tensors or metadata"
     },
-    "QTIP2-corrected-all43": {
-      "artifact_payload_scope": "base-plus-native-mtp",
-      "mtp_included": true,
-      "source_shipping_bytes": 89296314458,
-      "corrected_shipping_bytes": 89330159521,
-      "correction_bytes": 33845063,
-      "source_index_bytes": 15455586,
-      "source_index_sha256": "86e1a27915c4cd2afef945c349c4bfecc4978ad530cc5a1bf78cea8258c25121",
-      "corrected_index_bytes": 15457429,
-      "corrected_index_materialized": false,
-      "comparison_bpw": "2.513381620897546346242712786553221881289247601967419161507186034365733436972896136497009434136188510",
-      "matched_physical_parameter_denominator": 294550374339,
-      "matched_physical_bpw": "2.426210721244966287151807957492313699829509147925225173380186121318986696899809435485437887681774107"
-    },
     "EXL3-K2-routed-native-rest": {
       "artifact_payload_scope": "base-plus-native-mtp",
       "mtp_included": true,

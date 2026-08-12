@@ -12,22 +12,24 @@ SCHEMA = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/results.schema.json"
 REPORT = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md"
 EVALS = REPO / "Evals/README.md"
 FINISHED_EVIDENCE_MANIFEST = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/finished-evidence-manifest.json"
+EVIDENCE_MANIFEST = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/evidence-manifest.json"
+QTIP2_IDENTITY = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/model-identity.json"
 
 
 class MMLUDensityPublicationTest(unittest.TestCase):
-    def test_fourteen_row_result_and_evals_table_are_consistent(self):
+    def test_thirteen_row_result_and_evals_table_are_consistent(self):
         getcontext().prec = 120
         result = json.loads(RESULTS.read_text())
         schema = json.loads(SCHEMA.read_text())
         rows = result["rows"]
 
-        self.assertEqual(result["schema"], "banana-smasher.mmlu500-fourteen-row-density-terminal.v4")
+        self.assertEqual(result["schema"], "banana-smasher.mmlu500-thirteen-row-density-terminal.v5")
         self.assertEqual(schema["properties"]["schema"]["const"], result["schema"])
-        self.assertEqual(schema["properties"]["rows"]["minItems"], 14)
-        self.assertEqual(schema["properties"]["rows"]["maxItems"], 14)
+        self.assertEqual(schema["properties"]["rows"]["minItems"], 13)
+        self.assertEqual(schema["properties"]["rows"]["maxItems"], 13)
         self.assertIn("mmlu_per_gb", schema["properties"]["rows"]["items"]["required"])
         self.assertIn("raw_mmlu_per_bpw", schema["properties"]["rows"]["items"]["required"])
-        self.assertEqual(len(rows), 14)
+        self.assertEqual(len(rows), 13)
         self.assertEqual(
             [row["variant"] for row in rows],
             [
@@ -37,7 +39,6 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 "DwarfStar-Q2-0731",
                 "Official-native-MXFP4",
                 "EXL3-K2-routed-native-rest",
-                "QTIP2-corrected-all43",
                 "EXL3-K3-routed-native-rest",
                 "EXL3-K3-uniform-exact",
                 "QTIP3-uniform-exact",
@@ -67,7 +68,6 @@ class MMLUDensityPublicationTest(unittest.TestCase):
         expected_new = {
             "Official-native-MXFP4": (423, Decimal("84.6"), 156035165824, "4.3901849061799633842692039291812057173773172588621", "13.575737986822021169770638279576235636557835123104"),
             "EXL3-K2-routed-native-rest": (418, Decimal("83.6"), 89371076344, "2.5145328512486971484262613667868966546438084310621785627887683259240843040121566", "23.30452750732594444179988514428135015815648841012239784287586670715144855970965066658501975422521871"),
-            "QTIP2-corrected-all43": (412, Decimal("82.4"), 89330008924, "2.5133773837201586429658372611602203102766869054250902646239944325064734214647636621385741278765751357100035806", "22.837796015749841659559084631083944388300462093436429846337177334456839441477273304117463719419610073876633838"),
             "EXL3-K3-routed-native-rest": (426, Decimal("85.2"), 123999250168, "3.488881932423359811648345096334173619526617322555388135469206037221313139582164", "17.25481147428379249155385572471416346148579182105134544577220219255627215867777214170883080045737066"),
             "EXL3-K3-uniform-exact": (424, Decimal("84.8"), 113260003977, "3.186668577611291126768382805251239067660095075340211506894101693858116218554962444360182878967180057", "18.76567912337647118428195391233153179107803343530514769372618419610599904720503080757189191494425088"),
             "QTIP3-uniform-exact": (421, Decimal("84.2"), 123968528042, "3.487962202476954954739203475489728352391106959317205859774720270487259967167516979310499463726247446", "16.9726609875415172996428276813531353488618362504699811994239440321836712512089020485040050968648412588229151660448353183"),
@@ -119,8 +119,36 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             [(entry["variant"], entry["status"]) for entry in result["dispositions"]],
             [
                 ("EXL3-K2P5-greedy-full", "ARTIFACT_UNAVAILABLE"),
+                ("QTIP2-corrected-all43", "METHOD_DIVERGENT_QUARANTINED"),
             ],
         )
+        quarantine = result["dispositions"][1]
+        self.assertEqual(quarantine["accepted_score"], 0)
+        self.assertFalse(quarantine["replacement_score_published"])
+        self.assertEqual(
+            quarantine["candidate_artifact_sha256"],
+            "86e1a27915c4cd2afef945c349c4bfecc4978ad530cc5a1bf78cea8258c25121",
+        )
+        self.assertEqual(
+            quarantine["qrows_sha256"],
+            "a2071096f9a8207f50b661aeddf5911586a5de7f50ae1e887d952855d2a110b2",
+        )
+        self.assertEqual(
+            quarantine["producer_manifest_sha256"],
+            "7dbdbeb1977388461e61a2a2899eec5b6853dd7f58d454f7e682bd953fbe90c2",
+        )
+        self.assertEqual(quarantine["prior_publication_pr"], 62)
+
+        evidence_manifest = json.loads(EVIDENCE_MANIFEST.read_text())
+        qtip2_evidence = next(
+            entry for entry in evidence_manifest["rows"]
+            if entry["variant"] == "QTIP2-corrected-all43"
+        )
+        self.assertEqual(qtip2_evidence["status"], "METHOD_DIVERGENT_QUARANTINED")
+        self.assertEqual(qtip2_evidence["accepted_score"], 0)
+        qtip2_identity = json.loads(QTIP2_IDENTITY.read_text())
+        self.assertEqual(qtip2_identity["status"], "METHOD_DIVERGENT_QUARANTINED")
+        self.assertEqual(qtip2_identity["accepted_score"], 0)
 
         evals = EVALS.read_text()
         self.assertIn("Above-Chance MMLU/GB ↑", evals)
@@ -129,7 +157,6 @@ class MMLUDensityPublicationTest(unittest.TestCase):
         for fragment in (
             "Official native MXFP4** |  |  | **84.60%** (423/500) | **13.576**",
             "EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | **83.60%** (418/500) | **23.305**",
-            "QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** | **82.40%** (412/500) | **22.838**",
             "EXL3 K3 routed-only + native rest** | **92.23%** (60,447/65,536) | **0.076868** | **85.20%** (426/500) | **17.255**",
             "EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** | **84.80%** (424/500) | **18.766**",
             "QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** | **84.20%** (421/500) | **16.973**",
@@ -140,6 +167,10 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             "ARTIFACT_UNAVAILABLE",
         ):
             self.assertIn(fragment, evals)
+        self.assertNotIn("QTIP2 corrected all-43** |", evals)
+        self.assertNotIn("| QTIP2 corrected all-43 |", REPORT.read_text())
+        self.assertNotIn("QTIP2-corrected-all43", [row["variant"] for row in rows])
+        self.assertIn("METHOD_DIVERGENT_QUARANTINED", REPORT.read_text())
 
         evidence_paths = [REPO / entry["path"] for entry in finished_manifest["entries"]]
         public_text = "\n".join(path.read_text() for path in (RESULTS, SCHEMA, REPORT, FINISHED_EVIDENCE_MANIFEST, *evidence_paths))

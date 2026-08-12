@@ -7,7 +7,7 @@
   "mtp_inclusive_parameter_denominator": 294550374339,
   "size_accounting": {
     "receipt_path": "deepseek-v4-flash-0731-mtp-size-accounting-v1.json",
-    "receipt_sha256": "8e2826e6a39dd03fd927ac4d797c6da321ee8603c7dd3343bfb3a09701529d7a",
+    "receipt_sha256": "4fa47c03bd821324901d53723d038243ae95c8d5f4e5457e6a234c5ceb9becfb",
     "comparison_bpw_kind": "base-equivalent: all shipped bytes divided by the fixed base-model parameter denominator",
     "matched_physical_bpw_kind": "all shipped bytes divided by parameters represented by the artifact payload"
   },
@@ -464,7 +464,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "8e2826e6a39dd03fd927ac4d797c6da321ee8603c7dd3343bfb3a09701529d7a"
+          "accounting_receipt_sha256": "4fa47c03bd821324901d53723d038243ae95c8d5f4e5457e6a234c5ceb9becfb"
         }
       },
       "measurement": {
@@ -663,7 +663,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "8e2826e6a39dd03fd927ac4d797c6da321ee8603c7dd3343bfb3a09701529d7a"
+          "accounting_receipt_sha256": "4fa47c03bd821324901d53723d038243ae95c8d5f4e5457e6a234c5ceb9becfb"
         }
       },
       "measurement": {
@@ -1203,207 +1203,6 @@
           "top1_matches": 8633,
           "top1_rate": "0.9367404513888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889"
         }
-      }
-    },
-    {
-      "model_id": "QTIP2-corrected-all43",
-      "display_name": "QTIP2 corrected all-43",
-      "vendor": "Banana Smasher",
-      "fp": "FP8 e4m3 dynamic own-base teacher",
-      "artifact": {
-        "base_model": "DeepSeek-V4-Flash-0731",
-        "variant": "genuine-corrected-all43-ff0731-qtip2",
-        "family": "QTIP2",
-        "geometry": "K2/L16/V2",
-        "description": "uniform QTIP2 P821 full16 corrected all-43 candidate",
-        "layers": 43,
-        "units": 22016,
-        "candidate_artifact_sha256": "86e1a27915c4cd2afef945c349c4bfecc4978ad530cc5a1bf78cea8258c25121",
-        "identity_status": "complete-as-recorded",
-        "missing_identity_fields": []
-      },
-      "wire": {
-        "bytes": 89330159521,
-        "decimal_gb": "89.330159521",
-        "artifact_payload_scope": "base-plus-native-mtp",
-        "parameter_denominator": 284334567511,
-        "normalized_bpw": "2.513381620897546346242712786553221881289247601967419161507186034365733436972896136497009434136188510",
-        "total_model_parameters": 294550374339,
-        "total_model_parameter_components": {
-          "base_model": 284334567511,
-          "auxiliary_models": 10215806828
-        },
-        "total_model_bpw": "2.426210721244966287151807957492313699829509147925225173380186121318986696899809435485437887681774107"
-      },
-      "kld": {
-        "direction": "KL(teacher||candidate)",
-        "mean": "0.24085164613260832"
-      },
-      "top1": {
-        "matches": 57090,
-        "positions": 65536,
-        "rate": "0.871124267578125"
-      },
-      "classes": {
-        "agentic": {
-          "windows": 19,
-          "positions": 19456,
-          "kld_mean": "0.2895987644328912",
-          "top1_matches": 17079,
-          "top1_rate": "0.8778268914473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789"
-        },
-        "chat": {
-          "windows": 7,
-          "positions": 7168,
-          "kld_mean": "0.06834523870039978",
-          "top1_matches": 6567,
-          "top1_rate": "0.9161551339285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714"
-        },
-        "code": {
-          "windows": 9,
-          "positions": 9216,
-          "kld_mean": "0.12232676385912493",
-          "top1_matches": 8413,
-          "top1_rate": "0.9128689236111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
-        },
-        "multilingual": {
-          "windows": 10,
-          "positions": 10240,
-          "kld_mean": "0.44767736691985716",
-          "top1_matches": 8203,
-          "top1_rate": "0.80107421875"
-        },
-        "prose": {
-          "windows": 10,
-          "positions": 10240,
-          "kld_mean": "0.3548677734881941",
-          "top1_matches": 8091,
-          "top1_rate": "0.79013671875"
-        },
-        "reasoning": {
-          "windows": 9,
-          "positions": 9216,
-          "kld_mean": "0.03414665317184049",
-          "top1_matches": 8737,
-          "top1_rate": "0.9480251736111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
-        }
-      },
-      "weight_components": {
-        "qtip_expert_payload": {
-          "bytes": 69572061184,
-          "components": {
-            "qtip_shared_tlut": 4096,
-            "qtip_su": 135266304,
-            "qtip_sv": 180355072,
-            "qtip_trellis": 69256347648,
-            "qtip_wscale": 88064
-          }
-        },
-        "retained_non_routed_payload": {
-          "bytes": 19742640908,
-          "components": {
-            "retained_attention": 5400554112,
-            "retained_embedding_head_global": 2118393876,
-            "retained_layer_misc": 135980104,
-            "retained_mtp": 10896681520,
-            "retained_router": 108834816,
-            "retained_shared_experts": 1082196480
-          }
-        },
-        "weight_pack_index_metadata": {
-          "source_bytes": 15455586,
-          "source_sha256": "86e1a27915c4cd2afef945c349c4bfecc4978ad530cc5a1bf78cea8258c25121",
-          "corrected_bytes": 15457429,
-          "corrected_index_materialized": false
-        },
-        "repair_payload": {
-          "bytes": 0
-        },
-        "torch_container_inflation_bytes": 0,
-        "runtime_and_headroom_bytes": 0,
-        "mtp_accounting_correction": {
-          "missing_tensor_count": 10,
-          "missing_tensor_payload_bytes": 33843220,
-          "corrected_retained_tensor_count": 6279,
-          "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "8e2826e6a39dd03fd927ac4d797c6da321ee8603c7dd3343bfb3a09701529d7a"
-        }
-      },
-      "measurement": {
-        "status": "PASS",
-        "candidate_artifact_sha256": "86e1a27915c4cd2afef945c349c4bfecc4978ad530cc5a1bf78cea8258c25121",
-        "teacher_bank": "TEACHER_0731_BALANCED64_V2",
-        "teacher_source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
-        "scorer_source_sha256": "648af9bb9b1a3d4e8f299ad4dd7be8ea0afa2ecbd10f385773e80601ecaff155",
-        "repository_commit": "2c719c9488c6dd889fe011b94fb244a24c7e209f",
-        "suite_file_sha256": "c8564f82d151f0f61b255432c20cd1eec24d0b8529f3bed248b8a039f52b9d42",
-        "window_population_sha256": "24089eea1b3e5650265b971930571dbf249aba0b2f62e954a9628dcbfd182f09",
-        "class_map_sha256": "c9ccf14df02d8f5d41508bb2e6e9c9525f1ea1d16533f2d65398d708a6ac9aaa",
-        "windows": 64,
-        "positions": 65536,
-        "support": 8192,
-        "holdout_used": false,
-        "fallback_used": false,
-        "censoring_used": false,
-        "numeric_semantics": "FP16 producer tensors promoted to binary64; common ordered teacher top-8192 support; no clamp; math.fsum in ascending ordinal/position order; first-index Top-1 ties",
-        "artifacts": {
-          "terminal_handoff_sha256": "990d9c30d9180c0717439b93b8d3341de82867932e81cac2fa7b25af6145cf5d",
-          "aggregate_sha256": "8d21d08d561cf2f076260b636bc8033ee2d54b3e5b2dc3667f7832aed33fa020",
-          "row_collection_sha256": "7f60343942dd6e855d63f432b6327aade20718f6755455ba164b80f91498840e",
-          "producer_manifest_sha256": "7dbdbeb1977388461e61a2a2899eec5b6853dd7f58d454f7e682bd953fbe90c2",
-          "whole_model_receipt_sha256": "4125334c355c498c2a21ab4bbaf44a0da9ec849c46ebb8793f1c3772796cbd99",
-          "independent_verification_sha256": "841ac18d071b97ad635fd635f211f4216ce60b93e955b1512c414d0eaa087704",
-          "weight_pack_index_sha256": "86e1a27915c4cd2afef945c349c4bfecc4978ad530cc5a1bf78cea8258c25121"
-        },
-        "limitations": [
-          "Candidate and teacher tensors were generated in the fresh task run and scored after the shipping-weight audit repair; generation was not duplicated.",
-          "The fresh task row set is authoritative; separately generated prior acceptance is lineage evidence only and is neither substituted nor numerically forced to match.",
-          "Teacher-bank payloads and frozen corpus text are protected and not distributed in this handoff.",
-          "Internal train_balanced64 evidence is excluded and is not relabeled as BALANCED64_V1.",
-          "Materialized configs for three accepted layers were cleaned after their PASS authority receipts; the weight audit cross-binds each authority record to the immutable unit manifest and SHA-pinned solve receipt."
-        ]
-      },
-      "source_receipts": [
-        {
-          "sha256": "990d9c30d9180c0717439b93b8d3341de82867932e81cac2fa7b25af6145cf5d",
-          "label": "QTIP2 public-safe terminal handoff",
-          "role": "terminal measurement and shipping-weight evidence",
-          "availability": "protected-not-distributed"
-        },
-        {
-          "sha256": "8d21d08d561cf2f076260b636bc8033ee2d54b3e5b2dc3667f7832aed33fa020",
-          "label": "QTIP2 position-exact aggregate",
-          "role": "global and six-category KLD and Top-1 evidence",
-          "availability": "protected-not-distributed"
-        },
-        {
-          "sha256": "7f60343942dd6e855d63f432b6327aade20718f6755455ba164b80f91498840e",
-          "label": "QTIP2 row manifest",
-          "role": "64-row collection identity",
-          "availability": "protected-not-distributed"
-        },
-        {
-          "sha256": "4125334c355c498c2a21ab4bbaf44a0da9ec849c46ebb8793f1c3772796cbd99",
-          "label": "QTIP2 whole-model shipping-weight receipt",
-          "role": "exact bytes and component evidence",
-          "availability": "protected-not-distributed"
-        },
-        {
-          "sha256": "841ac18d071b97ad635fd635f211f4216ce60b93e955b1512c414d0eaa087704",
-          "label": "QTIP2 independent verification",
-          "role": "independent arithmetic and public-safety verification",
-          "availability": "protected-not-distributed"
-        }
-      ],
-      "replay": {
-        "status": "blocked",
-        "blockers": [
-          "teacher-bank payloads and frozen corpus text are not distributed by this repository",
-          "candidate model and QTIP tensor payloads are not distributed by this repository",
-          "the protected physical measurement environment is not reproducible from a clean public clone",
-          "three accepted layers retain authority receipts but not their cleaned materialized configs",
-          "corrected MTP-inclusive shipping index content hash is not yet materialized or sealed"
-        ]
       }
     },
     {
