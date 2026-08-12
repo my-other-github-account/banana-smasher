@@ -96,6 +96,24 @@ def _add_fixture_layer(manifest: Path, layer: int) -> None:
     manifest.write_text(json.dumps(document, sort_keys=True))
 
 
+def _add_external_layer(manifest: Path, layer: int) -> None:
+    document = json.loads(manifest.read_text())
+    lut = manifest.parent / f"L{layer:03d}.tlut.f16"
+    np.linspace(-1, 1, 1024, dtype=np.float16).astype("<f2").tofile(lut)
+    document["external_layers"] = [{
+        "layer": layer,
+        "member_count": 768,
+        "complete_wire_bytes": 768 * MEMBER_BYTES,
+        "identity_sha256": "a" * 64,
+        "provider": "assignment-physical-bf16",
+    }]
+    document["layer_luts"].append({
+        "layer": layer, "path": lut.name, "bytes": 2048, "sha256": _sha(lut),
+        "dtype": "float16", "shape": [1024],
+    })
+    manifest.write_text(json.dumps(document, sort_keys=True))
+
+
 def _update_artifact(path: Path, value: float) -> Path:
     torch.save({
         "schema": "banana-smasher-update-artifact-v2",
@@ -171,6 +189,29 @@ def test_public_cli_composes_layer_bound_updates_and_rejects_bad_rosters(
         ]) == 2
         failure = json.loads(capsys.readouterr().err)
         assert error in failure["error"].lower()
+
+
+def test_external_runtime_layer_is_billed_without_fabricating_members(tmp_path: Path) -> None:
+    manifest = _genuine_fixture(tmp_path)
+    _add_external_layer(manifest, 34)
+    source = load_qtip_v7_artifact(manifest)
+    update33 = _update_artifact(tmp_path / "update33.pt", 3.0)
+    update34 = _update_artifact(tmp_path / "update34.pt", 4.0)
+    output = tmp_path / "external-composed"
+
+    assert source.complete_wire_bytes == 769 * MEMBER_BYTES + 2 * 2048
+    receipt = export_qtip_v7_artifact(
+        manifest=manifest,
+        output=output,
+        update_artifact=[f"33={update33}", f"34={update34}"],
+    )
+    composed = load_qtip_v7_artifact(output / "QTIP_V7_MANIFEST.json")
+    assert receipt["updated_layers"] == [33, 34]
+    assert receipt["members"] == 769
+    assert receipt["external_layers"] == [34]
+    assert receipt["wire_size_delta"] == 0
+    assert composed.member_wire_sha256 == source.member_wire_sha256
+    assert composed.complete_wire_bytes == source.complete_wire_bytes
 
 
 def test_real_update1_trains_shared_lut_and_exports_same_complete_wire(

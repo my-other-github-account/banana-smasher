@@ -55,6 +55,9 @@ class QtipV7Artifact:
     document: dict[str, Any]
     member_paths: tuple[Path, ...]
     member_wire_sha256: tuple[str, ...]
+    external_layers: tuple[int, ...]
+    external_member_count: int
+    external_wire_sha256: tuple[str, ...]
     layer_luts: dict[int, np.ndarray]
     complete_wire_bytes: int
 
@@ -97,6 +100,45 @@ def load_qtip_v7_artifact(manifest: str | Path) -> QtipV7Artifact:
             raise ValueError(f"QTIP V7 member packed byte accounting drift: {path}")
         member_paths.append(path)
         member_shas.append(str(row["sha256"]))
+    external = document.get("external_layers", [])
+    if not isinstance(external, list):
+        raise ValueError("QTIP V7 external_layers must be a list")
+    external_layers: set[int] = set()
+    external_member_count = 0
+    external_wire_bytes = 0
+    external_shas: list[str] = []
+    for row in external:
+        if not isinstance(row, dict):
+            raise ValueError("QTIP V7 external layer row must be an object")
+        layer = int(row["layer"])
+        if layer in layers or layer in external_layers:
+            raise ValueError(f"duplicate QTIP V7 physical layer {layer}")
+        member_count = row.get("member_count")
+        complete_wire_bytes = row.get("complete_wire_bytes")
+        identity_sha256 = row.get("identity_sha256")
+        provider = row.get("provider")
+        if isinstance(member_count, bool) or not isinstance(member_count, int) or member_count <= 0:
+            raise ValueError(f"QTIP V7 external layer {layer} requires positive member_count")
+        if (
+            isinstance(complete_wire_bytes, bool)
+            or not isinstance(complete_wire_bytes, int)
+            or complete_wire_bytes <= 0
+        ):
+            raise ValueError(
+                f"QTIP V7 external layer {layer} requires positive complete_wire_bytes"
+            )
+        if (
+            not isinstance(identity_sha256, str)
+            or len(identity_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in identity_sha256)
+        ):
+            raise ValueError(f"QTIP V7 external layer {layer} requires lowercase SHA-256 identity")
+        if not isinstance(provider, str) or not provider:
+            raise ValueError(f"QTIP V7 external layer {layer} requires provider identity")
+        external_layers.add(layer)
+        external_member_count += member_count
+        external_wire_bytes += complete_wire_bytes
+        external_shas.append(identity_sha256)
     layer_luts: dict[int, np.ndarray] = {}
     for row in luts:
         if not isinstance(row, dict) or row.get("dtype") != "float16" or row.get("shape") != [1024]:
@@ -106,15 +148,23 @@ def load_qtip_v7_artifact(manifest: str | Path) -> QtipV7Artifact:
             raise ValueError(f"duplicate QTIP V7 layer LUT {layer}")
         path = _bound_file(root, row, expected_bytes=_LUT_BYTES)
         layer_luts[layer] = np.fromfile(path, dtype="<f2").astype(np.float16, copy=True)
-    if set(layer_luts) != layers:
-        raise ValueError("QTIP V7 artifact requires exactly one shared LUT per member layer")
-    complete = sum(path.stat().st_size for path in member_paths) + len(layer_luts) * _LUT_BYTES
+    physical_layers = layers | external_layers
+    if set(layer_luts) != physical_layers:
+        raise ValueError("QTIP V7 artifact requires exactly one shared LUT per physical layer")
+    complete = (
+        sum(path.stat().st_size for path in member_paths)
+        + external_wire_bytes
+        + len(layer_luts) * _LUT_BYTES
+    )
     return QtipV7Artifact(
         manifest_path=manifest_path,
         rate=rate,
         document=document,
         member_paths=tuple(member_paths),
         member_wire_sha256=tuple(member_shas),
+        external_layers=tuple(sorted(external_layers)),
+        external_member_count=external_member_count,
+        external_wire_sha256=tuple(external_shas),
         layer_luts=layer_luts,
         complete_wire_bytes=complete,
     )
@@ -370,8 +420,12 @@ def export_qtip_v7_artifact(
             "updated_layers": updated_layers,
             "rate": source.rate,
             "layers": sorted(source.layer_luts),
-            "members": len(source.member_paths),
-            "packed_identity": readback.member_wire_sha256 == source.member_wire_sha256,
+            "members": len(source.member_paths) + source.external_member_count,
+            "external_layers": list(source.external_layers),
+            "packed_identity": (
+                readback.member_wire_sha256 == source.member_wire_sha256
+                and readback.external_wire_sha256 == source.external_wire_sha256
+            ),
             "complete_wire_bytes": readback.complete_wire_bytes,
             "wire_size_delta": readback.complete_wire_bytes - source.complete_wire_bytes,
             "layer_lut_bytes": len(source.layer_luts) * _LUT_BYTES,
