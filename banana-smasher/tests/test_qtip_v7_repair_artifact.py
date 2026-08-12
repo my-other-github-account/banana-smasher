@@ -77,6 +77,34 @@ def _genuine_fixture(tmp_path: Path) -> Path:
     return manifest
 
 
+def _add_fixture_layer(manifest: Path, layer: int) -> None:
+    document = json.loads(manifest.read_text())
+    root = manifest.parent
+    member = root / f"L{layer:03d}.E000.w1.q2v7wire"
+    member.write_bytes(bytes((index * 17 + layer) & 255 for index in range(MEMBER_BYTES)))
+    lut = root / f"L{layer:03d}.tlut.f16"
+    np.linspace(-1, 1, 1024, dtype=np.float16).astype("<f2").tofile(lut)
+    document["members"].append({
+        "layer": layer, "expert": 0, "projection": "w1",
+        "path": member.name, "bytes": MEMBER_BYTES, "sha256": _sha(member),
+        "packed_code_bytes": 2_097_152,
+    })
+    document["layer_luts"].append({
+        "layer": layer, "path": lut.name, "bytes": 2048, "sha256": _sha(lut),
+        "dtype": "float16", "shape": [1024],
+    })
+    manifest.write_text(json.dumps(document, sort_keys=True))
+
+
+def _update_artifact(path: Path, value: float) -> Path:
+    torch.save({
+        "schema": "banana-smasher-update-artifact-v2",
+        "optimizer_steps": 1,
+        "parameters": [torch.full((1024,), value, dtype=torch.float32)],
+    }, path)
+    return path
+
+
 def test_update0_export_preserves_complete_v7_wire(tmp_path: Path) -> None:
     manifest = _genuine_fixture(tmp_path)
     source = load_qtip_v7_artifact(manifest)
@@ -104,6 +132,45 @@ def test_public_cli_exports_v7_update0(tmp_path: Path, capsys) -> None:
     assert result["status"] == "PASS"
     assert result["command"] == "qtip-v7-export"
     assert load_qtip_v7_artifact(output / "QTIP_V7_MANIFEST.json").complete_wire_bytes == MEMBER_BYTES + 2048
+
+
+def test_public_cli_composes_layer_bound_updates_and_rejects_bad_rosters(
+    tmp_path: Path, capsys
+) -> None:
+    manifest = _genuine_fixture(tmp_path)
+    _add_fixture_layer(manifest, 34)
+    source = load_qtip_v7_artifact(manifest)
+    update33 = _update_artifact(tmp_path / "update33.pt", 3.0)
+    update34 = _update_artifact(tmp_path / "update34.pt", 4.0)
+    output = tmp_path / "composed"
+
+    assert main([
+        "qtip-v7-export", "--manifest", str(manifest), "--output", str(output),
+        "--update-artifact", f"33={update33}",
+        "--update-artifact", f"34={update34}",
+    ]) == 0
+    receipt = json.loads(capsys.readouterr().out)
+    composed = load_qtip_v7_artifact(output / "QTIP_V7_MANIFEST.json")
+    assert receipt["updated_layers"] == [33, 34]
+    assert receipt["packed_identity"] is True
+    assert receipt["wire_size_delta"] == 0
+    assert composed.member_wire_sha256 == source.member_wire_sha256
+    assert composed.complete_wire_bytes == source.complete_wire_bytes
+    assert composed.layer_luts[33].tobytes() != source.layer_luts[33].tobytes()
+    assert composed.layer_luts[34].tobytes() != source.layer_luts[34].tobytes()
+
+    for name, entries, error in (
+        ("duplicate", (f"33={update33}", f"33={update34}"), "duplicate"),
+        ("missing", (f"33={update33}",), "missing"),
+        ("foreign", (f"33={update33}", f"35={update34}"), "foreign"),
+    ):
+        assert main([
+            "qtip-v7-export", "--manifest", str(manifest),
+            "--output", str(tmp_path / name),
+            *sum((["--update-artifact", entry] for entry in entries), []),
+        ]) == 2
+        failure = json.loads(capsys.readouterr().err)
+        assert error in failure["error"].lower()
 
 
 def test_real_update1_trains_shared_lut_and_exports_same_complete_wire(

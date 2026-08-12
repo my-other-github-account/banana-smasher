@@ -191,7 +191,13 @@ def _parser() -> argparse.ArgumentParser:
     )
     v7_export.add_argument("--manifest", type=Path, required=True)
     v7_export.add_argument("--output", type=Path, required=True)
-    v7_export.add_argument("--update-artifact", type=Path)
+    v7_export.add_argument(
+        "--update-artifact",
+        action="append",
+        default=[],
+        metavar="LAYER=PATH",
+        help="one explicit source-layer binding per repaired update artifact; repeat for every layer",
+    )
     v7_bundle = subparsers.add_parser(
         "qtip-v7-bundle",
         help="build a causal physical-repair bundle from fixed QTIP V7 members",

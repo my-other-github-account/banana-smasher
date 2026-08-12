@@ -281,9 +281,9 @@ def export_qtip_v7_artifact(
     *,
     manifest: str | Path,
     output: str | Path,
-    update_artifact: str | Path | None = None,
+    update_artifact: str | Path | list[str | Path] | None = None,
 ) -> dict[str, Any]:
-    """Export update 0 or one repaired update without changing complete wire bytes."""
+    """Export update 0 or a complete set of layer-bound repaired updates."""
     source = load_qtip_v7_artifact(manifest)
     output_path = Path(output).expanduser().resolve()
     if output_path.exists():
@@ -292,21 +292,60 @@ def export_qtip_v7_artifact(
     try:
         trained: dict[int, np.ndarray] = dict(source.layer_luts)
         update = 0
-        if update_artifact is not None:
+        updated_layers: list[int] = []
+        artifacts = (
+            []
+            if update_artifact is None
+            else list(update_artifact)
+            if isinstance(update_artifact, list)
+            else [update_artifact]
+        )
+        if artifacts:
             import torch
 
-            payload = torch.load(Path(update_artifact).resolve(), map_location="cpu", weights_only=True)
-            if not isinstance(payload, dict) or payload.get("schema") != "banana-smasher-update-artifact-v2" or payload.get("optimizer_steps") != 1:
-                raise ValueError("QTIP V7 export requires one completed update artifact")
-            parameters = payload.get("parameters")
-            layers = sorted(source.layer_luts)
-            if not isinstance(parameters, list) or len(parameters) != len(layers):
-                raise ValueError("QTIP V7 update parameter count does not match layer LUT count")
-            for layer, parameter in zip(layers, parameters, strict=True):
+            layers = set(source.layer_luts)
+            bound: dict[int, Path] = {}
+            for artifact in artifacts:
+                value = str(artifact)
+                if "=" not in value:
+                    if len(layers) != 1 or len(artifacts) != 1:
+                        raise ValueError(
+                            "QTIP V7 multi-layer export requires explicit LAYER=PATH update bindings"
+                        )
+                    layer, path_value = next(iter(layers)), value
+                else:
+                    layer_value, path_value = value.split("=", 1)
+                    try:
+                        layer = int(layer_value)
+                    except ValueError as exc:
+                        raise ValueError(
+                            f"QTIP V7 update binding has invalid layer {layer_value!r}"
+                        ) from exc
+                if layer not in layers:
+                    raise ValueError(f"QTIP V7 update binding names foreign layer {layer}")
+                if layer in bound:
+                    raise ValueError(f"duplicate QTIP V7 update binding for layer {layer}")
+                bound[layer] = Path(path_value).expanduser().resolve()
+            missing = sorted(layers.difference(bound))
+            if missing:
+                raise ValueError(f"QTIP V7 update bindings are missing layers {missing}")
+            for layer in sorted(bound):
+                payload = torch.load(bound[layer], map_location="cpu", weights_only=True)
+                if not isinstance(payload, dict) or payload.get("schema") != "banana-smasher-update-artifact-v2" or payload.get("optimizer_steps") != 1:
+                    raise ValueError(
+                        f"QTIP V7 export requires one completed update artifact for layer {layer}"
+                    )
+                parameters = payload.get("parameters")
+                if not isinstance(parameters, list) or len(parameters) != 1:
+                    raise ValueError(
+                        f"QTIP V7 layer {layer} update artifact must contain one layer-shared LUT"
+                    )
+                parameter = parameters[0]
                 array = parameter.detach().cpu().reshape(-1).numpy()
                 if array.shape != (1024,) or not np.isfinite(array).all():
                     raise ValueError("QTIP V7 update parameter must be finite [1024]")
                 trained[layer] = np.ascontiguousarray(array, dtype=np.float16)
+                updated_layers.append(layer)
             update = 1
         document = json.loads(json.dumps(source.document))
         # Packed members are immutable parent wires. Export is a tiny LUT overlay
@@ -328,6 +367,7 @@ def export_qtip_v7_artifact(
             "schema": "banana-smasher-qtip-v7-export-receipt-v1",
             "status": "PASS",
             "update": update,
+            "updated_layers": updated_layers,
             "rate": source.rate,
             "layers": sorted(source.layer_luts),
             "members": len(source.member_paths),
