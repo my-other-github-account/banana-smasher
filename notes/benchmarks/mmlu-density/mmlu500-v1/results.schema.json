@@ -3,6 +3,49 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": true,
   "properties": {
+    "dispositions": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "base_equivalent_bpw": {
+            "pattern": "^[0-9]+\\.[0-9]+$",
+            "type": "string"
+          },
+          "complete_artifact_bytes": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "evidence_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "const": "ARTIFACT_UNAVAILABLE"
+          },
+          "variant": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "variant",
+          "label",
+          "status",
+          "complete_artifact_bytes",
+          "base_equivalent_bpw",
+          "evidence_sha256"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "finished_evidence_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
     "intelligence_density": {
       "additionalProperties": false,
       "properties": {
@@ -63,9 +106,12 @@
               "DwarfStar-Q2-0731",
               "Official-native-MXFP4",
               "EXL3-K2-routed-native-rest",
-              "EXL3-K3-routed-native-rest",
               "QTIP2-corrected-all43",
-              "EXL3-K3-uniform-exact"
+              "EXL3-K3-routed-native-rest",
+              "EXL3-K3-uniform-exact",
+              "QTIP3-uniform-exact",
+              "QTIP2P5-deterministic-mixed-ring",
+              "EXL3-K2-uniform-exact"
             ]
           }
         },
@@ -81,12 +127,12 @@
         ],
         "type": "object"
       },
-      "maxItems": 9,
-      "minItems": 9,
+      "maxItems": 12,
+      "minItems": 12,
       "type": "array"
     },
     "schema": {
-      "const": "banana-smasher.mmlu500-nine-row-density-terminal.v1"
+      "const": "banana-smasher.mmlu500-twelve-row-density-terminal.v2"
     },
     "status": {
       "const": "PASS"
@@ -96,8 +142,10 @@
     "schema",
     "status",
     "intelligence_density",
+    "finished_evidence_manifest_sha256",
+    "dispositions",
     "rows"
   ],
-  "title": "Banana Smasher MMLU-500 nine-row intelligence-density results",
+  "title": "Banana Smasher MMLU-500 twelve-row intelligence-density results",
   "type": "object"
 }

@@ -50,15 +50,16 @@ class PublishFourRowResultsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsealed"):
             render(terminal)
 
-    def test_live_evals_page_links_extended_nine_row_table(self):
+    def test_live_evals_page_links_extended_twelve_row_table(self):
         readme = (Path(__file__).resolve().parents[1] / "Evals/README.md").read_text()
         self.assertIn("MMLU-500 capability-density table", readme)
         self.assertIn("notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md", readme)
-        self.assertIn("scores nine sealed rows", readme)
+        self.assertIn("scores twelve sealed rows", readme)
         self.assertIn("Official native MXFP4 reference", readme)
         self.assertIn("routed-only EXL3 K2/K3 native-rest measurements", readme)
         self.assertIn("EXL3 K3 uniform exact", readme)
         self.assertIn("QTIP2 corrected all-43", readme)
+        self.assertIn("newly completed QTIP3, QTIP2.5, and full EXL3 K2 measurements", readme)
 
 
 if __name__ == "__main__":

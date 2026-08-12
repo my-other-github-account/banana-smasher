@@ -1,0 +1,30 @@
+{
+  "bank_items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+  "entries": [
+    {
+      "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP3-uniform-exact/result.json",
+      "sha256": "82eb4918a3b50eb5424d3cd95e23713cf70310838ecbb1663606c0b66f920fd2",
+      "status": "PASS",
+      "variant": "QTIP3-uniform-exact"
+    },
+    {
+      "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2P5-deterministic-mixed-ring/result.json",
+      "sha256": "276b1a788f93fa49dd9193b7cf91e47f458c233a46256e4c1d2dc961813b6da8",
+      "status": "PASS",
+      "variant": "QTIP2P5-deterministic-mixed-ring"
+    },
+    {
+      "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/EXL3-K2-uniform-exact/result.json",
+      "sha256": "4e14cb81b900904bb31dc852007dbcc006a7b26aebad98d8f02b6b74613d1a4d",
+      "status": "PASS",
+      "variant": "EXL3-K2-uniform-exact"
+    },
+    {
+      "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/EXL3-K2P5-greedy-full/unavailability.json",
+      "sha256": "bc84211ab95f9fc584b6fd679d57c7eaa2b094766775d98d99049294029bd63c",
+      "status": "ARTIFACT_UNAVAILABLE",
+      "variant": "EXL3-K2P5-greedy-full"
+    }
+  ],
+  "schema": "banana-smasher.mmlu500-finished-evidence-manifest.v1"
+}
