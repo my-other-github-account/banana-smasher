@@ -48,7 +48,7 @@ EXPECTED_VERIFICATION_SCOPE = {
     ),
     "full_gpu_replay": "blocked; see each result replay.blockers",
 }
-EXPECTED_RESULT_MODEL_COUNT = 14
+EXPECTED_RESULT_MODEL_COUNT = 13
 _PROTECTED_EXL_PUBLICATION_ROWS = {
     "EXL3-K2P5-greedy-full": {
         "display_name": "EXL3 K2.5 greedy optimizer full",

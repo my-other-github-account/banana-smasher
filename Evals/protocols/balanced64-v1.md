@@ -98,13 +98,13 @@ python3 -m Evals.tools.receipts verify \
 Expected KLD ranking, from lower to higher:
 
 ```text
-UD-IQ4_XS > QTIP3-uniform-exact > UD-IQ3_XXS > QTIP2.5-all43-FF0731 > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
+UD-IQ4_XS > QTIP3-uniform-exact > UD-IQ3_XXS > QTIP2.5-all43-FF0731 > UD-IQ2_XXS > DwarfStar-Q2-0731
 ```
 
 Expected Top-1 ranking, from higher to lower:
 
 ```text
-UD-IQ4_XS > QTIP3-uniform-exact > QTIP2.5-all43-FF0731 > UD-IQ3_XXS > QTIP2-corrected-all43 > UD-IQ2_XXS > DwarfStar-Q2-0731
+UD-IQ4_XS > QTIP3-uniform-exact > QTIP2.5-all43-FF0731 > UD-IQ3_XXS > UD-IQ2_XXS > DwarfStar-Q2-0731
 ```
 
 This validates tracked structure, suite-lock consistency, Top-1/GB arithmetic,

@@ -24,12 +24,13 @@ class PublishedMtpAccountingTest(unittest.TestCase):
 
         summary = verify_result_receipt(result, suite_lock)
 
-        self.assertEqual(summary["models"], 14)
+        self.assertEqual(summary["models"], 13)
         model_ids = {row["model_id"] for row in result["results"]}
         self.assertIn("EXL3-K2P5-greedy-full", model_ids)
         self.assertIn("EXL3-K2P5-greedy-routed-native-rest", model_ids)
         self.assertIn("EXL3-K3-routed-native-rest", model_ids)
         self.assertIn("Physical-K2K3-2P5-alternating-comparator", model_ids)
+        self.assertNotIn("QTIP2-corrected-all43", model_ids)
         self.assertNotIn("EXL3-K2P5-physical-alternating", model_ids)
 
         full_greedy = next(
@@ -104,13 +105,15 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         self.assertNotIn("| Base-equivalent BPW |", public_table)
         self.assertIn(
             "| **EXL3 K2.5 greedy-upcast routed-only + native rest** | "
-            "**88.33%** (57,885/65,536) | **0.174604** | 106.283 | "
+            "**88.33%** (57,885/65,536) | **0.174604** | **84.80%** (424/500) | "
+            "**19.998** | **28.358** | **0.563** | 106.283 | "
             "MTP included | 2.990 | FP8 e4m3 dynamic own-base |",
             public_table,
         )
         self.assertIn(
             "| **DwarfStar Q2** | **83.69%** (54,845/65,536) | "
-            "**0.309521** | 93.691 | Stock MTP excluded; separate drafter included | "
+            "**0.309521** | **80.60%** (403/500) | **21.092** | **30.576** | "
+            "**0.593** | 93.691 | Stock MTP excluded; separate drafter included | "
             "2.636 | FP8 e4m3 dynamic own-base |",
             public_table,
         )
@@ -132,7 +135,6 @@ class PublishedMtpAccountingTest(unittest.TestCase):
             for row in result["results"]
         }
         self.assertEqual(scopes["UD-IQ4_XS"], "base-model-only")
-        self.assertEqual(scopes["QTIP2-corrected-all43"], "base-plus-native-mtp")
         self.assertEqual(scopes["DwarfStar-Q2-0731"], "base-plus-separate-drafter")
         self.assertEqual(scopes["EXL3-K2-routed-native-rest"], "base-plus-native-mtp")
         self.assertEqual(

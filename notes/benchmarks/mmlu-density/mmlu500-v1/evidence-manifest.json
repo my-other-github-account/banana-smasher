@@ -25,11 +25,13 @@
       "variant": "DwarfStar-Q2-0731"
     },
     {
+      "accepted_score": 0,
       "model_identity": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/model-identity.json",
       "qrows": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/qrows.jsonl",
+      "status": "METHOD_DIVERGENT_QUARANTINED",
       "tokenizer_receipt": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/tokenizer.json",
       "variant": "QTIP2-corrected-all43"
     }
   ],
-  "schema": "banana-smasher.mmlu500-five-public-evidence.v1"
+  "schema": "banana-smasher.mmlu500-five-public-evidence.v2"
 }
