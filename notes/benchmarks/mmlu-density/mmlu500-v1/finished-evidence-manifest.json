@@ -32,9 +32,9 @@
       "variant": "EXL3-K2P5-greedy-full"
     },
     {
-      "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/EXL3-K2P5-greedy-routed-native-rest/unmeasured.json",
-      "sha256": "ab9e3275727f1ff3738db7f7da40e0326aad92a680dc00b4cba14a17577d8733",
-      "status": "MEASUREMENT_SUPERSEDED",
+      "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/EXL3-K2P5-greedy-routed-native-rest/result.json",
+      "sha256": "0bcf78a03dd17701f43c68acb5eaeceea0661bd13fcb17a610e53070308e95e5",
+      "status": "PASS",
       "variant": "EXL3-K2P5-greedy-routed-native-rest"
     }
   ],

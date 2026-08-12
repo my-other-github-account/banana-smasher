@@ -8,17 +8,9 @@
       "label": "EXL3 K2.5 greedy optimizer full",
       "status": "ARTIFACT_UNAVAILABLE",
       "variant": "EXL3-K2P5-greedy-full"
-    },
-    {
-      "base_equivalent_bpw": "2.990350726677318761133570203797083967844437614338647678644542139727383081773899285391977912993952953",
-      "complete_artifact_bytes": 106282510072,
-      "evidence_sha256": "ab9e3275727f1ff3738db7f7da40e0326aad92a680dc00b4cba14a17577d8733",
-      "label": "EXL3 K2.5 greedy-upcast routed-only + native rest",
-      "status": "MEASUREMENT_SUPERSEDED",
-      "variant": "EXL3-K2P5-greedy-routed-native-rest"
     }
   ],
-  "finished_evidence_manifest_sha256": "0f266eed3613c15703e5862c0f606d3860161b3acb3c67016c719ce02f964422",
+  "finished_evidence_manifest_sha256": "d9047d1eba1b209dcb7e722ac5d45dabf4e0ec609e71c1e6f1b5316a8d7a05cd",
   "independent_recomputation": "PASS",
   "intelligence_density": {
     "formula": "(MMLU percentage - 25) / exact base-equivalent comparison BPW",
@@ -367,6 +359,42 @@
       "variant": "QTIP2P5-deterministic-mixed-ring"
     },
     {
+      "base_equivalent_bpw": "2.990350726677318761133570203797083967844437614338647678644542139727383081773899285391977912993952953",
+      "choice_token_ids": [
+        35,
+        36,
+        37,
+        38
+      ],
+      "complete_artifact_bytes": 106282510072,
+      "complete_decimal_gb": 106.282510072,
+      "correct": 424,
+      "gold_cross_entropy_bits": 0.6931491669630314,
+      "label": "EXL3 K2.5 greedy-upcast routed-only + native rest",
+      "mmlu_capability_density": 0.5626513709498308,
+      "mmlu_intelligence_density": "19.9976542773114211551230553063823955412839565138944792609771588308334509994164752793475970777033117705023648987223690617",
+      "mmlu_per_gb": "0.562651370949830798045813770682508425053749609377215763203564396901647913876717347011059025753190719204601662279792604784",
+      "mmlu_percent": 84.8,
+      "n": 500,
+      "provenance": {
+        "artifact_band_terminal_sha256": "18fd65fd3c06564c7f99874a0c7324cf18ebf230f56ed439fb7f68d79bde3826",
+        "greedy_artifact_identity_sha256": "7c8d1aa6d5fea5c22374346b0e18450881cc97cee118f7bc75f064f56f828044",
+        "independent_reaggregation_sha256": "bee863af5d255e34fae2bc0d46efe81e158154f798916aacc8220f337cd45b3e",
+        "independent_recomputation": "PASS",
+        "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "primary_terminal_sha256": "26a5703330eaa212c95d2e0e25190101f6342918d413062e449332cf8ba88542",
+        "qrows_sha256": "56da67d17a3fc0900e16bebc90f2bdcedd7ad7206b0a9cb5f57336a072305e6a",
+        "run_terminal_sha256": "90701576b515b289b9513137b8f481611be2e80ef7e78857c208bc6f7bb01871",
+        "solution_sha256": "07a8eb1fbd59bc34aff90aac0d8635647fd9c09074adc93e79aec7ea40497f6f",
+        "tokenizer_receipt_sha256": "7fd719c395fc03ac5a94369100ff0064e900eaeec5cbba83ee49c364160f78b9",
+        "upstream_exllamav3_revision": "791c83073f7f90c44f765a0ceeab7a05fa15b96b"
+      },
+      "raw_mmlu_per_bpw": "28.3578776373914467216460717388165073896468145882650809587100847634561311831190151118507731135324554872675676155795467630",
+      "raw_mmlu_per_gb": "0.797873515995746683516471701569844723153143258782406299659904027713373630380361722851802765616564765694819748517164095078",
+      "relative_intelligence_density": "1.31666631795131026373409689687196109792806274332902517049569936441862819270007137840722610203248903069498593850352778794",
+      "variant": "EXL3-K2P5-greedy-routed-native-rest"
+    },
+    {
       "base_equivalent_bpw": "2.1907058696825606173737276358734996088908236748322939650200806709327704680850651",
       "choice_token_ids": [
         35,
@@ -439,7 +467,7 @@
       "variant": "Physical-alternating-K2K3-full"
     }
   ],
-  "schema": "banana-smasher.mmlu500-thirteen-row-density-terminal.v3",
+  "schema": "banana-smasher.mmlu500-fourteen-row-density-terminal.v4",
   "source_scoring_basis_sha256": "83ace3f25a4f77325479690a47e7b86f7dee5ef44513996b551f24145ff88f8e",
   "status": "PASS"
 }
