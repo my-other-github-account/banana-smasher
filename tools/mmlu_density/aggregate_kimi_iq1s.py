@@ -126,6 +126,10 @@ def aggregate_kimi(rows: list[dict], ledger: list[dict], spec: dict) -> dict:
     mmlu_percent = correct / 5.0
     decimal_gb = spec["complete_artifact_bytes"] / 1e9
     density = (mmlu_percent - 25.0) / decimal_gb
+    getcontext().prec = 100
+    mmlu_per_gb = (Decimal(str(mmlu_percent)) - Decimal(25)) / (
+        Decimal(spec["complete_artifact_bytes"]) / Decimal(1_000_000_000)
+    )
     getcontext().prec = 80
     bpw = Decimal(8) * Decimal(spec["complete_artifact_bytes"]) / Decimal(BASE_PARAMETER_COUNT)
     return {
@@ -143,6 +147,7 @@ def aggregate_kimi(rows: list[dict], ledger: list[dict], spec: dict) -> dict:
         "base_parameter_count": BASE_PARAMETER_COUNT,
         "base_equivalent_bpw": str(bpw),
         "complete_size_intelligence_density": density,
+        "mmlu_per_gb": str(mmlu_per_gb),
         "qrows_sha256": spec["qrows_sha256"],
     }
 
@@ -172,6 +177,10 @@ def validate_iq4(rows: list[dict], ledger: list[dict]) -> dict:
         gold_bits.append(-float(logprobs[item["answer_index"]]) / math.log(2.0))
     percentage = correct / 5.0
     density = (percentage - 25.0) / (IQ4_BYTES / 1e9)
+    getcontext().prec = 100
+    mmlu_per_gb = (Decimal(str(percentage)) - Decimal(25)) / (
+        Decimal(IQ4_BYTES) / Decimal(1_000_000_000)
+    )
     return {
         "variant": "UD-IQ4_XS",
         "correct": correct,
@@ -181,6 +190,7 @@ def validate_iq4(rows: list[dict], ledger: list[dict]) -> dict:
         "complete_artifact_bytes": IQ4_BYTES,
         "complete_decimal_gb": IQ4_BYTES / 1e9,
         "complete_size_intelligence_density": density,
+        "mmlu_per_gb": str(mmlu_per_gb),
         "relative_density": 1.0,
         "qrows_sha256": IQ4_QROWS_SHA256,
     }

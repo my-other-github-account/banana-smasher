@@ -9,12 +9,14 @@ import math
 import os
 import statistics
 import tempfile
+from decimal import Decimal, getcontext
 from pathlib import Path
 
 EXPECTED_BASIS_SHA256 = "c5d933b7b1de3b9d22c6f78a042ce44f5be6a7249284a3016342857b92a65423"
 EXPECTED_ITEMS_SHA256 = "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded"
 EXPECTED_VARIANTS = ["UD-IQ4_XS", "UD-IQ3_XXS", "UD-IQ2_XXS", "DwarfStar-Q2-0731"]
 LABELS = "ABCD"
+getcontext().prec = 100
 
 
 def sha256(path: Path) -> str:
@@ -154,6 +156,9 @@ def aggregate(rows: list[dict], basis_row: dict) -> dict:
     complete_bytes = int(basis_row["complete_bytes"])
     decimal_gb = complete_bytes / 1e9
     density = (percentage - 25.0) / decimal_gb
+    mmlu_per_gb = (Decimal(str(percentage)) - Decimal(25)) / (
+        Decimal(complete_bytes) / Decimal(1_000_000_000)
+    )
     gold_logprobs = [float(row["choice_logprobs"][row["gold_index"]]) for row in rows]
     return {
         "label": basis_row["label"],
@@ -166,6 +171,7 @@ def aggregate(rows: list[dict], basis_row: dict) -> dict:
         "complete_decimal_gb": decimal_gb,
         "base_equivalent_bpw": basis_row["base_equivalent_bpw"],
         "mmlu_capability_density": density,
+        "mmlu_per_gb": str(mmlu_per_gb),
     }
 
 

@@ -19,6 +19,7 @@ class PublishFourRowResultsTest(unittest.TestCase):
                 "complete_decimal_gb": (136662446656 - index) / 1e9,
                 "base_equivalent_bpw": 3.8451166272834687 - index,
                 "mmlu_capability_density": 0.40123456789012345 + index,
+                "mmlu_per_gb": str(0.40123456789012345 + index),
                 "relative_density": 1.0 + index,
             })
         return {
@@ -35,6 +36,7 @@ class PublishFourRowResultsTest(unittest.TestCase):
         self.assertIn("136662446656", text)
         self.assertIn("3.8451166272834687", text)
         self.assertIn("0.40123456789012346", text)
+        self.assertIn("MMLU/GB", text)
         self.assertIn("complete base-plus-drafter", text)
         self.assertIn("independently recomputed", text)
         self.assertIn("source-scoring basis", text)

@@ -45,7 +45,8 @@
           "correct",
           "mmlu_percent",
           "base_equivalent_bpw",
-          "mmlu_intelligence_density"
+          "mmlu_intelligence_density",
+          "mmlu_per_gb"
         ],
         "properties": {
           "variant": {
@@ -80,6 +81,10 @@
             "pattern": "^[0-9]+\\.[0-9]+$"
           },
           "mmlu_intelligence_density": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+$"
+          },
+          "mmlu_per_gb": {
             "type": "string",
             "pattern": "^[0-9]+\\.[0-9]+$"
           }

@@ -9,7 +9,7 @@ This directory is the public reporting surface for Banana Smasher. It contains c
 - Prefer aggregate metrics and reproducible commands over raw logs.
 - Record failures and rejected comparisons; do not present a missing gate as a pass.
 - Mark newly added measurements as `NEW`, and leave the owner as `TBD` until a named public maintainer accepts it.
-- Every comparison row must state method, exact basis, KLD, top-1, GB, packed bpw, floating-point format, instrument, sample count (`n`), status, and source. Record FP8 as 8 bits.
+- Every comparison row must state method, exact basis, KLD, top-1, GB, packed bpw, floating-point format, instrument, sample count (`n`), status, and source. Every row with a sealed MMLU score must also report `MMLU/GB`; pending MMLU rows use a blank cell, never a projection. Record FP8 as 8 bits.
 - Keep raw private receipts, machine paths, host identities, task identifiers, credentials, and internal orchestration outside Git.
 - Do not add model weights, generated packs, checkpoints, or other large binary payloads.
 

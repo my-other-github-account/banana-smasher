@@ -8,25 +8,25 @@ The separate [MMLU-500 capability-density table](../notes/benchmarks/mmlu-densit
 
 Every quant row with Top-1/KLD values ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. Those measured rows are ordered by Top-1 agreement; the Official native MMLU/accounting reference is pinned above them and has no inferred BALANCED64 values. `EXL3 K2.5` denotes the measured greedy optimizer assignment: the full row applies it to all eligible weights, while the routed-only row applies that exact assignment only to routed experts and preserves every shared and non-routed tensor in the exact native source representation. The routed K2 and K3 rows use the same native-rest scope at homogeneous endpoints. The in-house physical alternating K2/K3 comparator is a separate control outside the EXL matrix and is not labeled EXL K2.5.
 
-| Quant | Top-1 ↑ | KLD ↓ | MMLU ↑ | MMLU intelligence density ↑ | Exact accounting GB | Shipped auxiliary scope | Comparison BPW | FP basis |
-|---|---:|---:|---:|---:|---:|---|---:|---|
-| **Official native MXFP4** |  |  | **84.60%** (423/500) | **13.576** | 156.035 | MTP/drafter excluded; base-only reference | 4.390 | Native MXFP4; BALANCED64 not measured |
-| **Unsloth IQ4** | **92.44%** (60,584/65,536) | **0.068349** | **83.40%** (417/500) | **15.188** | 136.662 | MTP excluded | 3.845 | FP8 e4m3 dynamic own-base |
-| **EXL3 K3 routed-only + native rest** | **92.23%** (60,447/65,536) | **0.076868** | **85.20%** (426/500) | **17.255** | 123.999 | MTP included | 3.489 | FP8 e4m3 dynamic own-base |
-| **QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** |  |  | **123.969** | MTP included | **3.488** | FP8 e4m3 dynamic own-base |
-| **QTIP2.5 deterministic mixed ring** | **89.09%** (58,389/65,536) | **0.181971** |  |  | **106.657** | MTP included | **3.001** | FP8 e4m3 dynamic own-base |
-| **EXL3 K2.5 greedy-upcast routed-only + native rest** | **88.33%** (57,885/65,536) | **0.174604** |  |  | 106.283 | MTP included | 2.990 | FP8 e4m3 dynamic own-base |
-| **EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** |  |  | 113.260 | MTP included | 3.187 | FP8 e4m3 dynamic own-base |
-| **Unsloth IQ3** | **87.95%** (57,638/65,536) | **0.177708** | **83.20%** (416/500) | **19.850** | 104.208 | MTP excluded | 2.932 | FP8 e4m3 dynamic own-base |
-| **QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** |  |  | **89.330** | MTP included | **2.513** | FP8 e4m3 dynamic own-base |
-| **EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | **83.60%** (418/500) | **23.305** | 89.371 | MTP included | 2.515 | FP8 e4m3 dynamic own-base |
-| **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | **81.80%** (409/500) | **22.218** | 90.861 | MTP excluded | 2.556 | FP8 e4m3 dynamic own-base |
-| **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | **80.60%** (403/500) | **21.092** | 93.691 | Stock MTP excluded; separate drafter included | 2.636 | FP8 e4m3 dynamic own-base |
-| **EXL3 K2.5 greedy optimizer full** | **83.51%** (54,732/65,536) | **0.302775** |  |  | 94.833 | MTP included | 2.668 | FP8 e4m3 dynamic own-base |
-| **Physical alternating K2/K3 2.5-BPW comparator** | **83.29%** (54,585/65,536) | **0.299604** |  |  | 94.833 | MTP included | 2.668 | FP8 e4m3 dynamic own-base |
-| **EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** |  |  | 77.862 | MTP included | 2.191 | FP8 e4m3 dynamic own-base |
+| Quant | Top-1 ↑ | KLD ↓ | MMLU ↑ | MMLU/BPW ↑ | MMLU/GB ↑ | Exact accounting GB | Shipped auxiliary scope | Comparison BPW | FP basis |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---|
+| **Official native MXFP4** |  |  | **84.60%** (423/500) | **13.576** | **0.382** | 156.035 | MTP/drafter excluded; base-only reference | 4.390 | Native MXFP4; BALANCED64 not measured |
+| **Unsloth IQ4** | **92.44%** (60,584/65,536) | **0.068349** | **83.40%** (417/500) | **15.188** | **0.427** | 136.662 | MTP excluded | 3.845 | FP8 e4m3 dynamic own-base |
+| **EXL3 K3 routed-only + native rest** | **92.23%** (60,447/65,536) | **0.076868** | **85.20%** (426/500) | **17.255** | **0.485** | 123.999 | MTP included | 3.489 | FP8 e4m3 dynamic own-base |
+| **QTIP3 uniform exact** | **91.68%** (60,084/65,536) | **0.110227** |  |  |  | **123.969** | MTP included | **3.488** | FP8 e4m3 dynamic own-base |
+| **QTIP2.5 deterministic mixed ring** | **89.09%** (58,389/65,536) | **0.181971** |  |  |  | **106.657** | MTP included | **3.001** | FP8 e4m3 dynamic own-base |
+| **EXL3 K2.5 greedy-upcast routed-only + native rest** | **88.33%** (57,885/65,536) | **0.174604** |  |  |  | 106.283 | MTP included | 2.990 | FP8 e4m3 dynamic own-base |
+| **EXL3 K3 uniform exact** | **88.30%** (57,870/65,536) | **0.136015** |  |  |  | 113.260 | MTP included | 3.187 | FP8 e4m3 dynamic own-base |
+| **Unsloth IQ3** | **87.95%** (57,638/65,536) | **0.177708** | **83.20%** (416/500) | **19.850** | **0.558** | 104.208 | MTP excluded | 2.932 | FP8 e4m3 dynamic own-base |
+| **QTIP2 corrected all-43** | **87.11%** (57,090/65,536) | **0.240852** |  |  |  | **89.330** | MTP included | **2.513** | FP8 e4m3 dynamic own-base |
+| **EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | **83.60%** (418/500) | **23.305** | **0.656** | 89.371 | MTP included | 2.515 | FP8 e4m3 dynamic own-base |
+| **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | **81.80%** (409/500) | **22.218** | **0.625** | 90.861 | MTP excluded | 2.556 | FP8 e4m3 dynamic own-base |
+| **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | **80.60%** (403/500) | **21.092** | **0.593** | 93.691 | Stock MTP excluded; separate drafter included | 2.636 | FP8 e4m3 dynamic own-base |
+| **EXL3 K2.5 greedy optimizer full** | **83.51%** (54,732/65,536) | **0.302775** |  |  |  | 94.833 | MTP included | 2.668 | FP8 e4m3 dynamic own-base |
+| **Physical alternating K2/K3 2.5-BPW comparator** | **83.29%** (54,585/65,536) | **0.299604** |  |  |  | 94.833 | MTP included | 2.668 | FP8 e4m3 dynamic own-base |
+| **EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** |  |  |  | 77.862 | MTP included | 2.191 | FP8 e4m3 dynamic own-base |
 
-**MMLU intelligence density** is `(MMLU percentage - 25) / comparison BPW`, reported as above-chance MMLU percentage points per base-equivalent BPW. The calculation uses the exact machine-readable BPW rather than the three-decimal display value. Blank cells mean no sealed result is available for that metric. The Official native row is the base-only MMLU/accounting reference: 156,035,165,824 complete bytes with native MTP and any drafter excluded. No BALANCED64 Top-1/KLD terminal is sealed for that artifact, so those cells remain blank rather than being inferred from its reference role.
+`MMLU/BPW` is `(MMLU percentage - 25) / comparison BPW`. `MMLU/GB` is `(MMLU percentage - 25) / complete decimal artifact GB`. Both are chance-adjusted and use exact machine-readable denominators rather than the rounded display values. Blank cells mean no sealed MMLU result is available; no score or density is projected. The Official native row is the base-only MMLU/accounting reference: 156,035,165,824 complete bytes with native MTP and any drafter excluded. No BALANCED64 Top-1/KLD terminal is sealed for that artifact, so those cells remain blank rather than being inferred from its reference role.
 
 ## EXL 2×3 scope/rate matrix
 

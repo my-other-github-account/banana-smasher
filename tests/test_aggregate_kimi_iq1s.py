@@ -4,7 +4,7 @@ import importlib.util
 import json
 import math
 import unittest
-from decimal import Decimal, getcontext
+from decimal import Decimal, getcontext, localcontext
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -54,6 +54,12 @@ class KimiIQ1SAggregateTest(unittest.TestCase):
         getcontext().prec = 80
         expected_bpw = Decimal(8 * module.SOURCE_SPECS[0]["complete_artifact_bytes"]) / Decimal(module.BASE_PARAMETER_COUNT)
         self.assertEqual(result["base_equivalent_bpw"], str(expected_bpw))
+        with localcontext() as context:
+            context.prec = 100
+            expected_per_gb = (Decimal("80.0") - Decimal(25)) / (
+                Decimal(module.SOURCE_SPECS[0]["complete_artifact_bytes"]) / Decimal(1_000_000_000)
+            )
+        self.assertEqual(result["mmlu_per_gb"], str(expected_per_gb))
         self.assertEqual(result["scope"], "base model only / no drafter-MTP claim")
 
     def test_rejects_duplicate_or_out_of_order_ids(self):
@@ -89,6 +95,7 @@ class KimiIQ1SAggregateTest(unittest.TestCase):
         for row in result["rows"]:
             recomputed = (row["mmlu_percent"] - 25.0) / row["complete_decimal_gb"]
             self.assertAlmostEqual(row["complete_size_intelligence_density"], recomputed, places=15)
+            self.assertAlmostEqual(float(row["mmlu_per_gb"]), recomputed, places=15)
             self.assertEqual(row["scope"], "base model only / no drafter-MTP claim")
         public_text = "\n".join(path.read_text() for path in (result_path, report_path, evidence_path))
         for forbidden in ("/home/", "/Users/", "task_id", "dnola", "macmini", "spark-"):

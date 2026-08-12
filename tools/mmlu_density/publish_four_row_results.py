@@ -41,7 +41,7 @@ def render(terminal: dict) -> str:
         "",
         "All four rows use the immutable `mmlu500-v1` bank: 500 ordered zero-shot literal prompts, no chat template or answer generation, and final-position A/B/C/D logits normalized over the four choices. Aggregates below were independently recomputed from the published per-question rows.",
         "",
-        "| Evals row | MMLU | MMLU % | Gold CE (bits) | Complete bytes | Decimal GB | Base-eq BPW | Capability density | Density vs Unsloth IQ4 |",
+        "| Evals row | MMLU | MMLU % | Gold CE (bits) | Complete bytes | Decimal GB | Base-eq BPW | MMLU/GB | MMLU/GB vs Unsloth IQ4 |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
@@ -50,12 +50,12 @@ def render(terminal: dict) -> str:
                 label=row["label"], correct=row["correct"], mmlu=row["mmlu_percent"],
                 ce=row["gold_cross_entropy_bits"], bytes=row["complete_artifact_bytes"],
                 gb=row["complete_decimal_gb"], bpw=row["base_equivalent_bpw"],
-                density=row["mmlu_capability_density"], relative=row["relative_density"],
+                density=row["mmlu_per_gb"], relative=row["relative_density"],
             )
         )
     lines += [
         "",
-        "Capability density is `(MMLU percentage - 25) / complete decimal GB`. Relative density uses `Unsloth IQ4` as the fixed 1.0x reference. DwarfStar's denominator is the complete base-plus-drafter Evals payload even though the measured next-token logits come from the target/base model.",
+        "`MMLU/GB` is `(MMLU percentage - 25) / complete decimal artifact GB`. The relative column uses `Unsloth IQ4` as the fixed 1.0x reference. DwarfStar's denominator is the complete base-plus-drafter Evals payload even though the measured next-token logits come from the target/base model.",
         "",
         "Machine-readable aggregates and evidence hashes are in [`results.json`](results.json). The exact model basis is [`four-row-mission-basis.json`](four-row-mission-basis.json), and the frozen prompts are [`items.jsonl`](items.jsonl).",
         "",

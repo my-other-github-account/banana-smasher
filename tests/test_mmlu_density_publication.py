@@ -23,6 +23,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
         self.assertEqual(schema["properties"]["schema"]["const"], result["schema"])
         self.assertEqual(schema["properties"]["rows"]["minItems"], 7)
         self.assertEqual(schema["properties"]["rows"]["maxItems"], 7)
+        self.assertIn("mmlu_per_gb", schema["properties"]["rows"]["items"]["required"])
         self.assertEqual(len(rows), 7)
         self.assertEqual(
             [row["variant"] for row in rows],
@@ -70,7 +71,15 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             self.assertLess(abs(recomputed - Decimal(density)), Decimal("1e-47"))
             self.assertEqual(row["provenance"]["independent_recomputation"], "PASS")
 
+        for row in rows:
+            expected_per_gb = (Decimal(str(row["mmlu_percent"])) - Decimal(25)) / (
+                Decimal(row["complete_artifact_bytes"]) / Decimal(1_000_000_000)
+            )
+            self.assertLess(abs(expected_per_gb - Decimal(row["mmlu_per_gb"])), Decimal("1e-49"))
+
         evals = EVALS.read_text()
+        self.assertIn("MMLU/GB ↑", evals)
+        self.assertIn("MMLU/GB", REPORT.read_text())
         for fragment in (
             "Official native MXFP4** |  |  | **84.60%** (423/500) | **13.576**",
             "EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | **83.60%** (418/500) | **23.305**",

@@ -70,5 +70,5 @@
     "density_formula": "(MMLU percentage - 25) / complete decimal GB",
     "bpw_formula": "8 * complete artifact bytes / 2779931837184"
   },
-  "results_sha256": "32bf3a15e573080db98671e6c6013e878c48b9c3d20a3cc5e2a9eede0daa691b"
+  "results_sha256": "9f4f43d30066e62f7669ee157fa78c0eab9c00230c40276d59b33349c8ad1d6f"
 }
