@@ -1,0 +1,51 @@
+{
+  "bank_items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+  "bank_manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+  "base_equivalent_bpw": "3.000899846280526906707937310598763864978934006978352098969598998585827630738411347265673123546884941",
+  "choice_token_ids": [
+    35,
+    36,
+    37,
+    38
+  ],
+  "closure": {
+    "duplicates": 0,
+    "errors": 0,
+    "gaps": 0,
+    "nonfinite": 0,
+    "ties": 0,
+    "unique_raw_logit_qrows": 500
+  },
+  "complete_artifact_bytes": 106657444992,
+  "complete_decimal_gb": "106.657444992",
+  "correct": 414,
+  "gold_cross_entropy_bits": "0.756421462120626179239394616728919899712378424279110530708304",
+  "label": "QTIP2.5 deterministic mixed ring",
+  "mmlu_intelligence_density": "19.2608893867752233807419799625420976444760774192163389939983159352072096559378267241213458075333678430680736149955799898",
+  "mmlu_per_gb": "0.541921850878158339598564982658158742329382350558229280707650874682599109677348757767625036040765839537278684261546200306",
+  "mmlu_percent": "82.8",
+  "n": 500,
+  "provenance": {
+    "alternate_source_verification_sha256": "3e85496bb059d4fb9e1de4446c88cd57c4cb5deba9982eed0aa536517c688571",
+    "independent_recomputation": "PASS",
+    "independent_recomputation_sha256": "b2c59467bec54c68d52bb387373bda35cb9f6c2a37f56f8f5228215813ed47ba",
+    "mmlu_public_row_sha256": "d3ec930015731376295fd4790432ad64d289aa55c69cbfaebc3d2533e6d3b7ef",
+    "pack_admission_sha256": "a3241fb207a2f2f9c7bc4a496e27aee1e2752ef1930846a58ec425b3fa1d7f70",
+    "pack_members_manifest_sha256": "4bb99e3192b02aeac9fd54e11a2f7685a9df02e0ab20586b49fcfeffb612f41f",
+    "qrows_sha256": "91c6add17cc1782ba73cc316f0cf420f4c462ecd661b849d8133785cf914011c",
+    "score_sha256": "432f4f467026cdd5a6ec21bcd4ef31729225dfa53de57000dd93806d62097754",
+    "terminal_sha256": "9c235e559f94133361ac72d85f2f0256b6fe26dbd9f01ebb1b04213848ec679e"
+  },
+  "raw_mmlu_per_bpw": "27.5917238966260985454227671435724166948550036386005686626827086407466601991635303245198517796498764257099739675023187397",
+  "raw_mmlu_per_gb": "0.776317115098815060878221117025874461329980253048812879629645197642200800714264310435282923601650718229873270879862030888",
+  "schema": "banana-smasher.mmlu500-public-result.v1",
+  "scoring": "one zero-shot literal prompt forward; genuine FP32 A/B/C/D accumulation at the final prompt position; no generation",
+  "status": "PASS",
+  "variant": "QTIP2P5-deterministic-mixed-ring",
+  "wire_accounting": {
+    "physical_terminal_complete_bytes": 106657444992,
+    "physical_terminal_delta_bytes": 347196,
+    "previous_reconstructed_complete_bytes": 106657097796,
+    "reason": "the completed physical MMLU terminal materialized and independently aggregated the exact complete artifact; this exact terminal total supersedes the earlier reconstructed index-length estimate"
+  }
+}
