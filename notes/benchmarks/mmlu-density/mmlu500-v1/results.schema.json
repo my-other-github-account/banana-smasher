@@ -135,7 +135,8 @@
               "EXL3-K3-uniform-exact",
               "QTIP3-uniform-exact",
               "QTIP2P5-deterministic-mixed-ring",
-              "EXL3-K2-uniform-exact"
+              "EXL3-K2-uniform-exact",
+              "Physical-alternating-K2K3-full"
             ]
           }
         },
@@ -152,12 +153,12 @@
         ],
         "type": "object"
       },
-      "maxItems": 12,
-      "minItems": 12,
+      "maxItems": 13,
+      "minItems": 13,
       "type": "array"
     },
     "schema": {
-      "const": "banana-smasher.mmlu500-twelve-row-density-terminal.v2"
+      "const": "banana-smasher.mmlu500-thirteen-row-density-terminal.v3"
     },
     "status": {
       "const": "PASS"
@@ -172,6 +173,6 @@
     "dispositions",
     "rows"
   ],
-  "title": "Banana Smasher MMLU-500 twelve-row intelligence-density results",
+  "title": "Banana Smasher MMLU-500 thirteen-row intelligence-density results",
   "type": "object"
 }
