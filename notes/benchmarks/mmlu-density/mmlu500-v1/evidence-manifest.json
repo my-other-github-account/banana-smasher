@@ -23,7 +23,13 @@
       "qrows": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/DwarfStar-Q2-0731/qrows.jsonl",
       "tokenizer_receipt": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/DwarfStar-Q2-0731/tokenizer.json",
       "variant": "DwarfStar-Q2-0731"
+    },
+    {
+      "model_identity": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/model-identity.json",
+      "qrows": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/qrows.jsonl",
+      "tokenizer_receipt": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/tokenizer.json",
+      "variant": "QTIP2-corrected-all43"
     }
   ],
-  "schema": "banana-smasher.mmlu500-four-results.v1"
+  "schema": "banana-smasher.mmlu500-five-public-evidence.v1"
 }
