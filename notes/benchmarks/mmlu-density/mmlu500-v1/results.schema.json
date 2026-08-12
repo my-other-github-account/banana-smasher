@@ -23,7 +23,10 @@
             "type": "string"
           },
           "status": {
-            "const": "ARTIFACT_UNAVAILABLE"
+            "enum": [
+              "ARTIFACT_UNAVAILABLE",
+              "MEASUREMENT_SUPERSEDED"
+            ]
           },
           "variant": {
             "type": "string"
@@ -39,7 +42,8 @@
         ],
         "type": "object"
       },
-      "minItems": 1,
+      "maxItems": 2,
+      "minItems": 2,
       "type": "array"
     },
     "finished_evidence_manifest_sha256": {
@@ -63,6 +67,22 @@
         "formula",
         "unit",
         "reference"
+      ],
+      "type": "object"
+    },
+    "raw_density": {
+      "additionalProperties": false,
+      "properties": {
+        "formula": {
+          "const": "MMLU percentage / exact base-equivalent comparison BPW"
+        },
+        "unit": {
+          "const": "raw MMLU percentage points per BPW"
+        }
+      },
+      "required": [
+        "formula",
+        "unit"
       ],
       "type": "object"
     },
@@ -95,6 +115,10 @@
             "minimum": 0,
             "type": "number"
           },
+          "raw_mmlu_per_bpw": {
+            "pattern": "^[0-9]+\\.[0-9]+$",
+            "type": "string"
+          },
           "n": {
             "const": 500
           },
@@ -123,7 +147,8 @@
           "mmlu_percent",
           "base_equivalent_bpw",
           "mmlu_intelligence_density",
-          "mmlu_per_gb"
+          "mmlu_per_gb",
+          "raw_mmlu_per_bpw"
         ],
         "type": "object"
       },
@@ -142,6 +167,7 @@
     "schema",
     "status",
     "intelligence_density",
+    "raw_density",
     "finished_evidence_manifest_sha256",
     "dispositions",
     "rows"

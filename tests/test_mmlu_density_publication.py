@@ -26,6 +26,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
         self.assertEqual(schema["properties"]["rows"]["minItems"], 12)
         self.assertEqual(schema["properties"]["rows"]["maxItems"], 12)
         self.assertIn("mmlu_per_gb", schema["properties"]["rows"]["items"]["required"])
+        self.assertIn("raw_mmlu_per_bpw", schema["properties"]["rows"]["items"]["required"])
         self.assertEqual(len(rows), 12)
         self.assertEqual(
             [row["variant"] for row in rows],
@@ -88,6 +89,8 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 Decimal(row["complete_artifact_bytes"]) / Decimal(1_000_000_000)
             )
             self.assertLess(abs(expected_per_gb - Decimal(row["mmlu_per_gb"])), Decimal("1e-49"))
+            expected_raw_per_bpw = Decimal(str(row["mmlu_percent"])) / Decimal(row["base_equivalent_bpw"])
+            self.assertLess(abs(expected_raw_per_bpw - Decimal(row["raw_mmlu_per_bpw"])), Decimal("1e-49"))
 
         finished_manifest = json.loads(FINISHED_EVIDENCE_MANIFEST.read_text())
         self.assertEqual(
@@ -101,16 +104,24 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 ("QTIP2P5-deterministic-mixed-ring", "PASS"),
                 ("EXL3-K2-uniform-exact", "PASS"),
                 ("EXL3-K2P5-greedy-full", "ARTIFACT_UNAVAILABLE"),
+                ("EXL3-K2P5-greedy-routed-native-rest", "MEASUREMENT_SUPERSEDED"),
             ],
         )
         for entry in finished_manifest["entries"]:
             evidence = REPO / entry["path"]
             self.assertEqual(hashlib.sha256(evidence.read_bytes()).hexdigest(), entry["sha256"])
-        self.assertEqual(result["dispositions"][0]["status"], "ARTIFACT_UNAVAILABLE")
+        self.assertEqual(
+            [(entry["variant"], entry["status"]) for entry in result["dispositions"]],
+            [
+                ("EXL3-K2P5-greedy-full", "ARTIFACT_UNAVAILABLE"),
+                ("EXL3-K2P5-greedy-routed-native-rest", "MEASUREMENT_SUPERSEDED"),
+            ],
+        )
 
         evals = EVALS.read_text()
-        self.assertIn("MMLU/GB ↑", evals)
-        self.assertIn("MMLU/GB", REPORT.read_text())
+        self.assertIn("Above-Chance MMLU/GB ↑", evals)
+        self.assertIn("Raw MMLU/BPW ↑", evals)
+        self.assertIn("Above-Chance MMLU per BPW (within model)", REPORT.read_text())
         for fragment in (
             "Official native MXFP4** |  |  | **84.60%** (423/500) | **13.576**",
             "EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | **83.60%** (418/500) | **23.305**",

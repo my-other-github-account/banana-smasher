@@ -38,18 +38,21 @@ Every result reports at least:
 
 - MMLU accuracy as `correct/500` and a percentage;
 - complete model artifact bytes, decimal GB, and exact base-equivalent comparison BPW;
-- MMLU intelligence density;
+- above-chance MMLU per BPW and raw MMLU per BPW;
+- above-chance MMLU per complete decimal artifact GB;
 - density relative to the official DeepSeek-V4-Flash-0731 reference scored on
   this identical bank;
 - model repository revision and complete artifact member hashes.
 
-### Public intelligence-density metric
+### Public density metrics
 
 ```text
-MMLU intelligence density = (MMLU percentage - 25) / exact base-equivalent comparison BPW
+Above-Chance MMLU per BPW (within model) = (MMLU percentage - 25) / exact base-equivalent comparison BPW
+Raw MMLU per BPW = MMLU percentage / exact base-equivalent comparison BPW
+Above-Chance MMLU per GB = (MMLU percentage - 25) / complete decimal artifact GB
 ```
 
-The unit is **MMLU percentage points above random guessing per base-equivalent BPW**. Compute with the exact machine-readable BPW, never the rounded three-decimal display value.
+The primary BPW unit is **MMLU percentage points above random guessing per base-equivalent BPW**. Compute with exact machine-readable denominators, never rounded display values. BPW density is comparable only within variants sharing the same base-model parameter denominator; use complete bytes/decimal GB and Above-Chance MMLU per GB for cross-model storage comparisons.
 MMLU has four choices, so the random baseline is 25%.
 
 ```text
