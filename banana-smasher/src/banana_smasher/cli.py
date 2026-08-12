@@ -185,6 +185,25 @@ def _parser() -> argparse.ArgumentParser:
         "--no-resume", dest="resume", action="store_false", default=True
     )
 
+    v7_export = subparsers.add_parser(
+        "qtip-v7-export",
+        help="export fixed QTIP V7 members plus repaired layer-shared LUTs",
+    )
+    v7_export.add_argument("--manifest", type=Path, required=True)
+    v7_export.add_argument("--output", type=Path, required=True)
+    v7_export.add_argument("--update-artifact", type=Path)
+    v7_bundle = subparsers.add_parser(
+        "qtip-v7-bundle",
+        help="build a causal physical-repair bundle from fixed QTIP V7 members",
+    )
+    v7_bundle.add_argument("--manifest", type=Path, required=True)
+    v7_bundle.add_argument("--training", type=Path, required=True)
+    v7_bundle.add_argument("--output", type=Path, required=True)
+    v7_bundle.add_argument("--learning-rate", type=float, required=True)
+    v7_bundle.add_argument(
+        "--member", action="append", required=True, metavar="LAYER:EXPERT:PROJECTION"
+    )
+
     enqueue = subparsers.add_parser(
         "update-enqueue", help="durably enqueue an exactly-once update request"
     )
@@ -1133,6 +1152,32 @@ def main(argv: Sequence[str] | None = None) -> int:
                     restart=args.restart,
                 ),
                 "command": "update",
+            }
+        elif args.command == "qtip-v7-export":
+            from .qtip_v7_repair import export_qtip_v7_artifact
+
+            result = {
+                **export_qtip_v7_artifact(
+                    manifest=args.manifest,
+                    output=args.output,
+                    update_artifact=args.update_artifact,
+                ),
+                "command": "qtip-v7-export",
+                "output": str(args.output.resolve()),
+            }
+        elif args.command == "qtip-v7-bundle":
+            from .qtip_v7_repair import build_qtip_v7_repair_bundle
+
+            result = {
+                **build_qtip_v7_repair_bundle(
+                    manifest=args.manifest,
+                    training=args.training,
+                    output=args.output,
+                    learning_rate=args.learning_rate,
+                    members=args.member,
+                ),
+                "command": "qtip-v7-bundle",
+                "output": str(args.output.resolve()),
             }
         elif args.command == "bank":
             from .bank import build_bank

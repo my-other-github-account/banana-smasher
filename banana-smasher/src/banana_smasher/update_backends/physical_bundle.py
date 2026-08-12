@@ -18,6 +18,7 @@ _BUNDLE_SCHEMA = "banana-smasher-physical-repair-bundle-v1"
 _QTIP2_SCHEMAS = {
     "banana-smasher-qtip2-public-unit-v1",
     "banana-smasher-qtip-unit-v1",
+    "banana-smasher-qtip-v7-public-unit-v1",
 }
 
 
@@ -190,10 +191,16 @@ class Qtip2PhysicalLayer(torch.nn.Module):
         *,
         tlut: torch.Tensor,
         frozen: _FrozenQtip2Payload,
+        source_schema: str,
     ) -> None:
         super().__init__()
-        self.tlut = torch.nn.Parameter(tlut.float().contiguous())
+        self.tlut = (
+            tlut
+            if isinstance(tlut, torch.nn.Parameter)
+            else torch.nn.Parameter(tlut.float().contiguous())
+        )
         self.frozen = frozen
+        self.source_schema = source_schema
         self.checkpoint_depth = False
 
     @property
@@ -301,16 +308,25 @@ class PhysicalBundleRuntime:
                     )
                 expected_geometry = {
                     "L": 16,
-                    "K": 2,
                     "V": 2,
                     "tlut_bits": 9,
                     "decode_mode": "quantlut_sym",
                     "td_x": 16,
                     "td_y": 16,
                 }
-                if any(geometry.get(name) != value for name, value in expected_geometry.items()):
+                rate = geometry.get("K")
+                if (
+                    isinstance(rate, bool)
+                    or not isinstance(rate, int)
+                    or rate <= 0
+                    or any(geometry.get(name) != value for name, value in expected_geometry.items())
+                ):
                     raise ValueError(
-                        f"physical QTIP2 layer {layer_index} geometry is not P821 K2/L16/V2"
+                        f"physical QTIP layer {layer_index} geometry is not rate-parameterized L16/V2"
+                    )
+                if rate != 2:
+                    raise ValueError(
+                        f"installed canonical consumer does not support QTIP rate {rate}"
                     )
                 m, k = (int(shape[0]), int(shape[1]))
                 source_trellis = _require_tensor(layer, "trellis")
@@ -360,6 +376,7 @@ class PhysicalBundleRuntime:
             raise RuntimeError("physical repair persistent layout state drift")
         reset_layer_graph_vjp(allow_reference=self.device.type != "cuda")
         fwht_stats(reset=True)
+        shared_qtip_v7_luts: dict[int, torch.nn.Parameter] = {}
         for layer_index, layer_document in enumerate(self.document["layers"]):
             if layer_document.get("schema") in _QTIP2_SCHEMAS:
                 m, k = (int(value) for value in layer_document["shape"])
@@ -384,9 +401,18 @@ class PhysicalBundleRuntime:
                         "wscale": wscale.to(self.device, dtype=torch.float32),
                     }
                 )
+                source_schema = str(layer_document["schema"])
+                layer_lut = int(layer_document.get("layer_lut", layer_index))
+                shared_tlut: torch.Tensor = tlut.to(self.device)
+                if source_schema == "banana-smasher-qtip-v7-public-unit-v1":
+                    shared_tlut = shared_qtip_v7_luts.setdefault(
+                        layer_lut,
+                        torch.nn.Parameter(shared_tlut.float().contiguous()),
+                    )
                 qtip2_layer = Qtip2PhysicalLayer(
-                    tlut=tlut.to(self.device),
+                    tlut=shared_tlut,
                     frozen=frozen,
+                    source_schema=source_schema,
                 )
                 reconstructed = layer_document.get("reconstructed_weight")
                 if isinstance(reconstructed, torch.Tensor):
@@ -488,9 +514,17 @@ class PhysicalBundleRuntime:
         if not self.layers or self._staged is None or not self._source_retired:
             raise RuntimeError("physical repair runtime was not fully initialized")
         optimizer = self.document_optimizer
+        codebooks: list[torch.Tensor] = []
+        seen: set[int] = set()
+        for layer in self.layers:
+            layer_codebooks = getattr(layer, "codebooks")
+            for value in layer_codebooks:
+                if id(value) not in seen:
+                    seen.add(id(value))
+                    codebooks.append(value)
         return {
             "layers": self.layers,
-            "codebooks": [value for layer in self.layers for value in layer.codebooks],
+            "codebooks": codebooks,
             "frozen_modules": [layer.frozen for layer in self.layers],
             "encode": self._encode,
             "loss_sum": self._loss_sum,
