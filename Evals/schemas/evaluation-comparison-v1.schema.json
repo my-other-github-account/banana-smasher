@@ -147,8 +147,8 @@
         "bytes": {"type": "integer", "minimum": 1},
         "decimal_gb": {"$ref": "#/$defs/decimal"},
         "artifact_payload_scope": {
-          "enum": ["base-model-only", "base-plus-native-mtp", "base-plus-separate-drafter"],
-          "description": "Declares whether exact shipping bytes exclude MTP, include the native MTP checkpoint, or include a separately packaged drafter."
+          "enum": ["base-model-only", "base-plus-native-mtp", "base-plus-partial-native-mtp", "base-plus-separate-drafter"],
+          "description": "Declares whether exact shipping bytes exclude MTP, include the complete native MTP checkpoint, include a sealed historical partial native-MTP payload, or include a separately packaged drafter."
         },
         "parameter_denominator": {
           "type": "integer",

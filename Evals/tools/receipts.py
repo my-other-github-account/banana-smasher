@@ -22,6 +22,7 @@ MTP_INCLUSIVE_PARAMETER_DENOMINATOR = 294_550_374_339
 ARTIFACT_PAYLOAD_SCOPES = {
     "base-model-only",
     "base-plus-native-mtp",
+    "base-plus-partial-native-mtp",
     "base-plus-separate-drafter",
 }
 SOURCE_CLASSES = (
@@ -48,7 +49,7 @@ EXPECTED_VERIFICATION_SCOPE = {
     ),
     "full_gpu_replay": "blocked; see each result replay.blockers",
 }
-EXPECTED_RESULT_MODEL_COUNT = 13
+EXPECTED_RESULT_MODEL_COUNT = 14
 _PROTECTED_EXL_PUBLICATION_ROWS = {
     "EXL3-K2P5-greedy-full": {
         "display_name": "EXL3 K2.5 greedy optimizer full",
@@ -1333,6 +1334,14 @@ def verify_result_receipt(
                 or has_drafter
             ):
                 raise ReceiptError(f"{model_id}: native-MTP parameter scope drift")
+        elif payload_scope == "base-plus-partial-native-mtp":
+            if (
+                model_id != "QTIP2-V7-pre-repair"
+                or auxiliary_parameters != 10_142_105_897
+                or total_parameters != 294_476_673_408
+                or has_drafter
+            ):
+                raise ReceiptError(f"{model_id}: historical partial-native-MTP scope drift")
         elif not has_drafter or auxiliary_parameters <= 0:
             raise ReceiptError(f"{model_id}: separate-drafter parameter scope drift")
         if is_qtip and payload_scope != "base-plus-native-mtp":
@@ -1557,7 +1566,9 @@ def verify_size_accounting_receipt(
         if accounted_bytes != wire.get("bytes"):
             raise ReceiptError(f"{model_id}: size-accounting shipping-byte drift")
 
-        if model_id.startswith("QTIP"):
+        if "family" in _mapping(
+            comparison_row.get("artifact"), f"comparison {model_id}.artifact"
+        ):
             components = _mapping(
                 comparison_row.get("weight_components"), f"comparison {model_id}.weight_components"
             )

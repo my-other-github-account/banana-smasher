@@ -186,6 +186,15 @@
         "K3": 44
       },
       "scope_evidence": "protected optimizer solution, routed tensor-source manifest, overlay identity, and successful runtime-selected proof bind the 07a8 greedy assignment only to layers.*.ffn.experts.* while every shared and non-routed tensor remains exact native source storage"
+    },
+    "QTIP2-V7-pre-repair": {
+      "artifact_payload_scope": "base-plus-partial-native-mtp",
+      "mtp_included": false,
+      "shipping_bytes": 100636011256,
+      "comparison_bpw": "2.831481578534603263235376275888125565194357238266015863087325200113206153869260839371695918636102327",
+      "matched_physical_parameter_denominator": 294476673408,
+      "matched_physical_bpw": "2.733962186989743081307444759220580226529533181651880663179160168733985428980087482094462223516969077",
+      "scope_evidence": "QTIP2 V7 pre-repair independent exact wire accounting: 42 compact layers, one dense L034 layer, exact historical native-rest payload, and ten later-identified native MTP tensors absent from this measured artifact"
     }
   },
   "limitations": [
