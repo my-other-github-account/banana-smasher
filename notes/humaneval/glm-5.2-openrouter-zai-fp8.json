@@ -1,0 +1,121 @@
+{
+  "schema": "banana-smasher.openrouter-humaneval-result.v1",
+  "status": "PASS",
+  "measurement_label": "NEW",
+  "owner": "TBD",
+  "recorded_date": "2026-08-13",
+  "claim_scope": "Same frozen benchmark, request, and scorer contract; provider and wall-clock matching were intentionally not required. This is a served OpenRouter model-rail comparison, not isolated weight causality.",
+  "protocol": {
+    "task_count": 164,
+    "ordered_task_range": "HumanEval/0..HumanEval/163",
+    "samples_per_task": 1,
+    "temperature": 0.0,
+    "top_p": 0.95,
+    "max_completion_tokens": 16384,
+    "reasoning_enabled": true,
+    "reasoning_effort": "medium",
+    "include_reasoning": true,
+    "client_concurrency": 1,
+    "scored_field": "message.content",
+    "semantic_empty_is_failure": true,
+    "length_capped_is_failure": true,
+    "retry_scope": "transient transport/API failures without an accepted canonical response only",
+    "prompt_messages_sha256": "6b4f5f30169054a7505f6704c246984f53671c6f4f168c9ee05fdfbd8444b598",
+    "evalplus_commit": "26d6d00bb1fd0fa37f39c99d5290da67891d1c5e",
+    "evalplus_version": "0.4.0.dev44",
+    "humaneval_plus_release": "v0.1.10",
+    "dataset_hash": "fe585eb4df8c88d844eeb463ea4d0302",
+    "sanitizer": "evalplus.sanitize(content, entrypoint=...)"
+  },
+  "primary_row": {
+    "requested_model": "z-ai/glm-5.2",
+    "returned_model_counts": {
+      "z-ai/glm-5.2": 164
+    },
+    "canonical_endpoint_model": "z-ai/glm-5.2-20260616",
+    "requested_provider": "Z.AI",
+    "returned_provider_counts": {
+      "Z.AI": 164
+    },
+    "provider_fallbacks": false,
+    "require_parameters": true,
+    "endpoint_tag": "z-ai/fp8",
+    "quantization": "fp8",
+    "accepted_rows": 164,
+    "humaneval_passed": 163,
+    "humaneval_total": 164,
+    "humaneval_accuracy": 0.9939024390243902,
+    "humaneval_failed_task_ids": [
+      "HumanEval/145"
+    ],
+    "humaneval_plus_passed": 157,
+    "humaneval_plus_total": 164,
+    "humaneval_plus_accuracy": 0.9573170731707317,
+    "humaneval_plus_failed_task_ids": [
+      "HumanEval/55",
+      "HumanEval/76",
+      "HumanEval/91",
+      "HumanEval/99",
+      "HumanEval/132",
+      "HumanEval/145",
+      "HumanEval/151"
+    ],
+    "finish_reason_counts": {
+      "stop": 163,
+      "length": 1
+    },
+    "semantic_empty_or_null_task_ids": [
+      "HumanEval/145"
+    ],
+    "length_task_ids": [
+      "HumanEval/145"
+    ],
+    "total_completion_tokens": 177433,
+    "total_reasoning_tokens": 137553,
+    "response_reported_cost_usd": 0.8102993579999997
+  },
+  "length_diagnostic_32768": {
+    "task_id": "HumanEval/145",
+    "completion_tokens": 32768,
+    "finish_reason": "length",
+    "semantic_empty_or_null": true,
+    "replaced_primary_row": false,
+    "checkpoint_sha256": "243d10755c2c24be9cb128466e4d57d8c7e39b8263cc2ced5a399b9021d46691"
+  },
+  "historical_comparator": {
+    "requested_model": "deepseek/deepseek-v4-flash-0731",
+    "provider": "DeepSeek",
+    "quantization": "fp8",
+    "reasoning_enabled": true,
+    "reasoning_effort": "medium",
+    "max_completion_tokens": 16384,
+    "humaneval_passed": 160,
+    "humaneval_total": 164,
+    "humaneval_plus_passed": 153,
+    "humaneval_plus_total": 164,
+    "comparison_to_glm52": {
+      "humaneval_task_delta": 3,
+      "humaneval_percentage_point_delta": 1.8292682926829268,
+      "humaneval_plus_task_delta": 4,
+      "humaneval_plus_percentage_point_delta": 2.4390243902439024
+    },
+    "provenance_commit": "ad02132c77df9b68a2869e88b5ccdd6e7239dfa7",
+    "provenance_ref": "notes/t802-humaneval-0731-two-row"
+  },
+  "verification": {
+    "status": "PASS",
+    "checkpoint_count": 164,
+    "ordered_unique_tasks": 164,
+    "canonical_rebuilt_byte_exact": true,
+    "request_audit_rebuilt_byte_exact": true,
+    "eval_task_closure": true,
+    "canonical_jsonl_sha256": "257e1b9d5f8ccef4c91f812deb4c33c4700c97f5c88b73d94742a173e635343b",
+    "request_audit_sha256": "1b48dc902f2ab37c4002b9d2397e012121d339d1ffa20416c34c22b33d5cc179",
+    "run_identity_sha256": "d19784b2d10acfc01e10eda11710a027ae73d7de2281805bedd5abd66c39d8d2",
+    "endpoint_snapshot_sha256": "72e2f05021913d79bce9e8c23bd1115c8fe2908bc865909e1f1398965edbcb45",
+    "evalplus_results_sha256": "c5331fb20afc99ddd4ee3d847d535fc902063ee5a3bf50a2e3ccc39b87509d2d",
+    "task_results_sha256": "558752663f3031e4c1399ffff8c71edd3e305a8b536800d03dd833cdb5d56bf8",
+    "generation_handoff_sha256": "b1d507af52c2c8d6c5c5ac28c5acbfd8e8f5c0291fa7e1aa8cb840877cecc0a4",
+    "independent_verification_sha256": "17f69e265e5bc58cd3a60c9a584bf93c67d3ebb670acc1a11d9fd0db9f1b1dec"
+  }
+}

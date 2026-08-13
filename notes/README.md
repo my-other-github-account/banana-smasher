@@ -15,6 +15,12 @@ This directory is the public reporting surface for Banana Smasher. It contains c
 
 Use `report-template.md` for new performance or quality reports.
 
+## OpenRouter HumanEval
+
+**Owner:** TBD · **Status:** independently verified same-contract measurement
+
+**NEW** GLM-5.2 through Z.AI's pinned FP8 OpenRouter endpoint scored **163/164 (99.39%) HumanEval** and **157/164 (95.73%) HumanEval+** under the frozen 164-task, medium-reasoning, 16,384-token EvalPlus contract. The historical FF0731 provider rail scored 160/164 and 153/164 respectively. Provider and wall-clock matching were intentionally not required; see [`humaneval/glm-5.2-openrouter-zai-fp8.md`](humaneval/glm-5.2-openrouter-zai-fp8.md) and its adjacent machine-readable receipt for the exact scope and hash bindings.
+
 ## Kimi K3
 
 **Owner:** TBD · **Status:** independently verified same-bank measurements
