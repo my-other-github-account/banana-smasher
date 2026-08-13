@@ -295,13 +295,13 @@ qtip_trellis_tlut_kernel(
             // of issuing an alignment-sensitive half2 global load.
             const auto* codebook_bytes =
                 reinterpret_cast<const uint8_t*>(codebook) + my_cb_idx * sizeof(half2);
-            uint32_t codebook_bits =
+            ditto codebook_element = {};
+            codebook_element.u32 =
                 static_cast<uint32_t>(codebook_bytes[0]) |
                 (static_cast<uint32_t>(codebook_bytes[1]) << 8) |
                 (static_cast<uint32_t>(codebook_bytes[2]) << 16) |
                 (static_cast<uint32_t>(codebook_bytes[3]) << 24);
-            half2 my_codebook_element =
-                *reinterpret_cast<half2*>(&codebook_bits);
+            half2 my_codebook_element = codebook_element.f16x2;
             for (uint32_t i = 0; i < 32; i+= 2) {
                 smem_codebook[(my_cb_idx << 5)|(i ^ (threadIdx.x & 0x1f) ^ (threadIdx.x >> 9))] = my_codebook_element;
             }

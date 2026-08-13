@@ -72,8 +72,11 @@ def test_fixed_envelope_round_trip_reconstructs_exact_order(tmp_path: Path) -> N
     assert verified["roster_authenticated"] is True
     assert verified["physical_bytes_authenticated"] is True
     assert verified["roster"] == list(originals)
-    assert sorted(path.name for path in reconstructed.iterdir()) == sorted(originals)
+    assert sorted(path.name for path in reconstructed.iterdir()) == sorted(
+        [*originals, "embedded_lut.f16"]
+    )
     assert all((reconstructed / name).read_bytes() == payload for name, payload in originals.items())
+    assert (reconstructed / "embedded_lut.f16").read_bytes() == lut.read_bytes()
 
     with QtipV7LayerMapping(wire, _geometry=geometry) as mapping:
         packed_view = mapping.packed_view(1, "w2")

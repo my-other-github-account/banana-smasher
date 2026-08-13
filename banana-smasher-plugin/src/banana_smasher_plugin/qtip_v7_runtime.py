@@ -134,6 +134,10 @@ class QtipV7DirectLayer:
 
         if not isinstance(x, torch.Tensor) or not x.is_cuda:
             raise ValueError("QTIP V7 direct runtime requires a CUDA activation tensor")
+        if torch.cuda.get_device_capability(x.device) != (12, 1):
+            raise RuntimeError(
+                "QTIP V7 zero-copy envelopes require GB10 coherent host memory"
+            )
         try:
             output_width, input_width = _PROJECTION_SHAPES[projection]
         except KeyError as exc:
@@ -205,7 +209,11 @@ class QtipV7DirectLayer:
         )
         if self._codebook is None:
             self._codebook = torch.frombuffer(self.lut, dtype=torch.float16, count=1024)
-        specialized_counter_index = 32 if input_width == 4096 else 40
+        variant = variants[str(policy["kernel"])]
+        if input_width == 4096:
+            specialized_counter_index = 128 if variant == 8 else 32 + variant
+        else:
+            specialized_counter_index = 129 if variant == 8 else 40 + variant
         _module().qtip2_v7_direct(
             compact["out"],
             self._torch_sources(projection, x.device),
@@ -216,7 +224,7 @@ class QtipV7DirectLayer:
             compact["qtip_input"],
             self._codebook,
             compact["physical_counters"],
-            variants[str(policy["kernel"])],
+            variant,
             specialized_counter_index,
         )
         self._direct_dispatch_calls += 1

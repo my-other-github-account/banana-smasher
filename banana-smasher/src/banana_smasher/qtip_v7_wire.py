@@ -397,6 +397,8 @@ def verify_qtip_v7_layer(
             lut_sha256 = hashlib.sha256(lut_payload).hexdigest()
             if lut_sha256 != metadata["lut_sha256"]:
                 raise ValueError("QTIP V7 embedded LUT SHA-256 mismatch")
+            if output is not None:
+                (output / "embedded_lut.f16").write_bytes(lut_payload)
             reconstructed = hashlib.sha256()
             handle.seek(layout["packed_offset"])
             control_offset = 0
