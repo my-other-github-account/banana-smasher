@@ -137,6 +137,7 @@ from .qtip_v7_joint_workflow import (
     train_joint,
     verify_joint_checkpoint,
 )
+from .qtip_v7_plan import joint_plan_status, prepare_joint_inputs, run_joint_plan
 from .update_service import serve_persistent_updates
 
 
@@ -239,6 +240,7 @@ __all__ = [
     "import_producer",
     "inspect_joint_inputs",
     "inspect_backpack",
+    "joint_plan_status",
     "launch_balanced64_shards",
     "load_manifest",
     "materialize_backpack_assignment",
@@ -253,6 +255,7 @@ __all__ = [
     "pack_qtip_states",
     "persist_fixed_d4_solve",
     "prepare_fixed_d4_solve_config",
+    "prepare_joint_inputs",
     "price_backpack_candidate",
     "predict_backpack",
     "predict_backpack_candidate",
@@ -276,6 +279,7 @@ __all__ = [
     "run_contextual_trust_solve",
     "run_contextual_value_update",
     "run_backpack_exact64",
+    "run_joint_plan",
     "score_bank",
     "score_backpack",
     "serve_persistent_updates",

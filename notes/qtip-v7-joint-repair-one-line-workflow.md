@@ -2,6 +2,19 @@
 
 This is the public, one-line workflow for the exact all-43 QTIP V7 repair surface: 43 layer LUTs, 235 RMSNorm masters, 43 attention output gains, and a required teacher-KLD objective. Replace only the parameterized paths/hosts below; no mission-local Python is invoked by these commands.
 
+## Plan-driven INPUTS_READY lifecycle
+
+The ordinary API starts from a versioned `banana-smasher-qtip-v7-repair-plan-v1` JSON plan. Its `inputs` list declares `teacher_targets`, `teacher_bank`, `manifest`, `corpus`, `model`, `runtime`, `admission`, `inventory`, `roster`, `planes`, and `trainer`. Each row contains an absolute `source`, a run-root-relative `destination` beneath `inputs/`, and `expected` identity data: `count`, plus `bytes`/`sha256` for a file or one relative `path`/`bytes`/`sha256` row per directory file. The plan's `workflow` object binds `manifest`, `teacher_bank`, and `trainer` to those named staged inputs; `target_update`, `checkpoint`, `trainer_host`, and optional `resume_from` complete the run declaration.
+
+```bash
+smash qtip-v7-joint-repair prepare --plan /path/to/repair-plan.json --run-root "$RUN"
+smash qtip-v7-joint-repair status --run-root "$RUN"
+smash qtip-v7-joint-repair status --run-root "$RUN" --json
+smash qtip-v7-joint-repair run --plan /path/to/repair-plan.json --run-root "$RUN"
+```
+
+`prepare` verifies the complete declared source set before staging, hardlinks local files when possible (otherwise copies), rejects missing/size/SHA mismatches by relative name, and publishes immutable `$RUN/receipts/INPUTS_READY.json` last. Staged inputs are regular files, never required symlinks. `run` executes `INPUTS_READY → PRE → TRAIN` through the same public inspect/train functions and resumes already sealed PRE/TRAIN receipts. The trainer receives `QTIP_V7_INPUTS_READY`; manifest, teacher-bank, and trainer paths are resolved from that receipt rather than external environment paths. Human status is concise; `--json` exposes accepted/total counts and the first incomplete stage.
+
 ## Inputs and executables
 
 ```bash

@@ -220,6 +220,21 @@ def _parser() -> argparse.ArgumentParser:
         help="one-line all-43 QTIP V7 joint train/checkpoint/score workflow",
     )
     joint_commands = joint.add_subparsers(dest="joint_command", required=True)
+    joint_prepare = joint_commands.add_parser(
+        "prepare", help="stage and authenticate plan-declared inputs, then seal INPUTS_READY"
+    )
+    joint_prepare.add_argument("--plan", type=Path, required=True)
+    joint_prepare.add_argument("--run-root", type=Path, required=True)
+    joint_run = joint_commands.add_parser(
+        "run", help="prepare inputs, execute/resume PRE, then execute/resume TRAIN"
+    )
+    joint_run.add_argument("--plan", type=Path, required=True)
+    joint_run.add_argument("--run-root", type=Path, required=True)
+    joint_status = joint_commands.add_parser(
+        "status", help="show INPUTS/PRE/TRAIN accepted totals and first incomplete stage"
+    )
+    joint_status.add_argument("--run-root", type=Path, required=True)
+    joint_status.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     joint_inspect = joint_commands.add_parser(
         "inspect", help="validate and freeze exact 43-layer inventory plus teacher bank"
     )
@@ -1335,8 +1350,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                 train_joint,
                 verify_joint_checkpoint,
             )
+            from .qtip_v7_plan import (
+                joint_plan_status,
+                prepare_joint_inputs,
+                run_joint_plan,
+            )
 
-            if args.joint_command == "inspect":
+            if args.joint_command == "prepare":
+                result = prepare_joint_inputs(plan=args.plan, run_root=args.run_root)
+            elif args.joint_command == "run":
+                result = run_joint_plan(plan=args.plan, run_root=args.run_root)
+            elif args.joint_command == "status":
+                status = joint_plan_status(run_root=args.run_root)
+                if args.json:
+                    result = status
+                else:
+                    lines = [
+                        f"{name} {row['accepted']}/{row['total']} {row['status']}"
+                        for name, row in status["stages"].items()
+                    ]
+                    lines.append(
+                        f"first incomplete: {status['first_incomplete_stage'] or 'none'}"
+                    )
+                    result = "\n".join(lines) + "\n"
+            elif args.joint_command == "inspect":
                 result = inspect_joint_inputs(
                     manifest=args.manifest,
                     teacher_bank=args.teacher_bank,
@@ -1389,10 +1426,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ValueError(
                     f"unsupported QTIP V7 joint command {args.joint_command!r}"
                 )
-            result = {
-                **result,
-                "command": f"qtip-v7-joint-repair {args.joint_command}",
-            }
+            if isinstance(result, dict):
+                result = {
+                    **result,
+                    "command": f"qtip-v7-joint-repair {args.joint_command}",
+                }
         elif args.command == "qtip-v7-wire":
             from .qtip_v7_wire import (
                 account_qtip_v7_model,

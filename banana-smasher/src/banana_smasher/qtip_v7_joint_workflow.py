@@ -448,6 +448,7 @@ def train_joint(
     target_update: int,
     trainer: str | Path,
     resume_from: str | Path | None = None,
+    inputs_ready: str | Path | None = None,
 ) -> dict[str, Any]:
     """Run the caller-supplied public trainer and seal its authenticated checkpoint."""
     if target_update < 0:
@@ -484,6 +485,11 @@ def train_joint(
         "QTIP_V7_OUTPUT_GAINS": "43",
         "QTIP_V7_TRAINER_SHA256": trainer_sha256,
     })
+    if inputs_ready is not None:
+        ready_path = Path(inputs_ready).expanduser().resolve()
+        if not ready_path.is_file():
+            raise FileNotFoundError(ready_path)
+        environment["QTIP_V7_INPUTS_READY"] = str(ready_path)
     command = (
         [str(trainer_path)]
         if os.access(trainer_path, os.X_OK)

@@ -10,6 +10,7 @@ import torch
 
 from banana_smasher.cli import main
 from banana_smasher.qtip_v7_joint_workflow import _same_host
+from banana_smasher.qtip_v7_plan import run_joint_plan
 
 
 def _sha(path: Path) -> str:
@@ -89,6 +90,123 @@ def _teacher_bank(tmp_path: Path) -> Path:
     })
 
 
+def test_plan_refuses_missing_teacher_target_before_trainer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    targets = tmp_path / "source" / "teacher-targets"
+    targets.mkdir(parents=True)
+    expected = []
+    for ordinal in range(64):
+        name = f"t8192_win{ordinal:02d}.pt"
+        path = targets / name
+        path.write_bytes(f"teacher-{ordinal}".encode())
+        expected.append({"path": name, "bytes": path.stat().st_size, "sha256": _sha(path)})
+    (targets / "t8192_win20.pt").unlink()
+    trainer_called = False
+
+    def forbidden_trainer(**_: object) -> dict[str, object]:
+        nonlocal trainer_called
+        trainer_called = True
+        return {}
+
+    monkeypatch.setattr(
+        "banana_smasher.qtip_v7_joint_workflow.train_joint", forbidden_trainer
+    )
+    plan = _json(tmp_path / "plan.json", {
+        "schema": "banana-smasher-qtip-v7-repair-plan-v1",
+        "trainer_host": "trainer.example",
+        "target_update": 5,
+        "checkpoint": "checkpoints/UPDATE_005.pt",
+        "inputs": [{
+            "name": "teacher_targets",
+            "source": str(targets),
+            "destination": "inputs/teacher-targets",
+            "expected": {"count": 64, "files": expected},
+        }],
+    })
+
+    with pytest.raises(FileNotFoundError, match="teacher-targets/t8192_win20.pt"):
+        run_joint_plan(plan=plan, run_root=tmp_path / "run")
+
+    assert trainer_called is False
+    assert not (tmp_path / "run" / "receipts" / "INPUTS_READY.json").exists()
+
+
+def _plan_input(name: str, source: Path, destination: str) -> dict[str, object]:
+    if source.is_dir():
+        files = [
+            {
+                "path": str(path.relative_to(source)),
+                "bytes": path.stat().st_size,
+                "sha256": _sha(path),
+            }
+            for path in sorted(source.iterdir())
+        ]
+        expected: dict[str, object] = {"count": len(files), "files": files}
+    else:
+        expected = {"count": 1, "bytes": source.stat().st_size, "sha256": _sha(source)}
+    return {"name": name, "source": str(source), "destination": destination, "expected": expected}
+
+
+def test_plan_run_stages_regular_inputs_and_resumes_sealed_stages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    manifest = _v7_manifest(tmp_path)
+    bank = _teacher_bank(tmp_path)
+    trainer = _trainer(tmp_path)
+    targets = tmp_path / "teacher-targets"
+    targets.mkdir()
+    for ordinal in range(64):
+        (targets / f"t8192_win{ordinal:02d}.pt").write_bytes(f"teacher-{ordinal}".encode())
+    inputs = [
+        _plan_input("teacher_targets", targets, "inputs/teacher-targets"),
+        _plan_input("teacher_bank", bank, "inputs/teacher-bank.json"),
+        _plan_input("manifest", manifest.parent, "inputs/v7"),
+        _plan_input("trainer", trainer, "inputs/trainer.py"),
+    ]
+    for name in ("corpus", "model", "runtime", "admission", "inventory", "roster", "planes"):
+        source = tmp_path / f"{name}.json"
+        source.write_text(f'{{"fixture":"{name}"}}\n')
+        inputs.append(_plan_input(name, source, f"inputs/{name}.json"))
+    plan = _json(tmp_path / "plan.json", {
+        "schema": "banana-smasher-qtip-v7-repair-plan-v1",
+        "trainer_host": "trainer.example",
+        "target_update": 1,
+        "checkpoint": "checkpoints/UPDATE_001.pt",
+        "inputs": inputs,
+        "workflow": {
+            "manifest": {"input": "manifest", "path": "QTIP_V7_MANIFEST.json"},
+            "teacher_bank": {"input": "teacher_bank"},
+            "trainer": {"input": "trainer"},
+        },
+    })
+    run = tmp_path / "run"
+
+    assert main(["qtip-v7-joint-repair", "run", "--plan", str(plan), "--run-root", str(run)]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "PASS"
+    ready = json.loads((run / "receipts" / "INPUTS_READY.json").read_text())
+    assert ready["inputs"]["teacher_targets"]["accepted"] == 64
+    assert ready["accepted"] == ready["total"] == 160
+    assert all(
+        Path(row["path"]).is_file() and not Path(row["path"]).is_symlink()
+        for value in ready["inputs"].values()
+        for row in value["files"]
+    )
+
+    monkeypatch.setattr(
+        "banana_smasher.qtip_v7_joint_workflow.train_joint",
+        lambda **_: pytest.fail("sealed plan run invoked trainer again"),
+    )
+    assert main(["qtip-v7-joint-repair", "run", "--plan", str(plan), "--run-root", str(run)]) == 0
+    capsys.readouterr()
+    assert main(["qtip-v7-joint-repair", "status", "--run-root", str(run), "--json"]) == 0
+    status = json.loads(capsys.readouterr().out)
+    assert status["first_incomplete_stage"] is None
+    assert status["stages"]["INPUTS"]["accepted"] == 160
+    assert status["stages"]["PRE"]["accepted"] == 1
+    assert status["stages"]["TRAIN"]["accepted"] == 1
+
+
 def _trainer(tmp_path: Path) -> Path:
     path = tmp_path / "trainer.py"
     path.write_text("""#!/usr/bin/env python3
@@ -117,7 +235,7 @@ predictions = [[float(value) + (shift if i == 0 else -shift) for i, value in enu
 def softmax(values):
     a = np.asarray(values, dtype=np.float64); a -= a.max(); a = np.exp(a); return a / a.sum()
 losses = []
-for row, prediction in zip(bank['windows'], predictions, strict=True):
+for row, prediction in zip(bank['windows'], predictions):
     teacher = softmax(row['teacher_logits']); predicted = softmax(prediction)
     losses.append(float(np.sum(teacher * (np.log(teacher) - np.log(predicted)))))
 continuity = {'optimizer': {'step': update}, 'scheduler': {'update': update}, 'rng_state': torch.Generator().manual_seed(update).get_state(), 'trainer_identity': os.environ['QTIP_V7_TRAINER_SHA256'], 'parent': parent_row}
@@ -291,7 +409,7 @@ def test_joint_workflow_help_names_copy_pasteable_commands(capsys) -> None:
         main(["qtip-v7-joint-repair", "--help"])
     assert raised.value.code == 0
     help_text = capsys.readouterr().out
-    for command in ("inspect", "train", "verify", "shard-launch", "aggregate", "compare", "materialize"):
+    for command in ("prepare", "run", "status", "inspect", "train", "verify", "shard-launch", "aggregate", "compare", "materialize"):
         assert command in help_text
     assert "43 LUTs" in help_text
     assert "235 RMSNorm" in help_text
