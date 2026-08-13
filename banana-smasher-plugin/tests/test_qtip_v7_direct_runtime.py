@@ -32,6 +32,7 @@ def test_qtip_v7_runtime_selects_only_direct_kernel_and_zero_forbidden_state() -
     assert "qtip2_v7_direct" in source
     assert "_fault_mapped_pages" in source
     assert "direct_dispatch_calls" in source
+    assert "capture_qtip_v7_layer_smoke" in source
     assert "_qtip2_decode_states" not in source
     assert "dequant" not in source.lower()
     assert "packed_view(expert, projection).to(" not in source

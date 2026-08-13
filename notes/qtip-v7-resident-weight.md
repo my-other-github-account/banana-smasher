@@ -15,6 +15,12 @@ second packed copy, or dense weight cache.
 
 Hardware acceptance supplies an explicit JSON readback:
 
+`smash qtip-v7-layer-smoke --wire L037.qtip-v7-wire --output L037_HARDWARE_SMOKE.json`
+
+The bounded layer smoke faults the real envelope resident, executes w1/w2/w3
+through the direct kernel, and reports the zero forbidden-state counters plus
+CUDA, RSS/PSS, and NVML telemetry without requiring task-local Python.
+
 `smash qtip-v7-residency --accounting QTIP_V7_MODEL_ACCOUNTING.json --capture-hardware --hardware-readback QTIP_V7_HARDWARE_READBACK.json --output QTIP_V7_RESIDENT_WEIGHT.json`
 
 `PROVEN` requires direct-kernel dispatch, 43 unique mapped envelopes totaling

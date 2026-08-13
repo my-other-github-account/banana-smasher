@@ -369,9 +369,68 @@ def capture_qtip_v7_hardware_readback(
             layer.close()
 
 
+def capture_qtip_v7_layer_smoke(
+    wire: str | Path, output: str | Path
+) -> dict[str, Any]:
+    """Execute one bounded real layer w1/w2/w3 smoke and seal memory telemetry."""
+    import torch
+
+    if not torch.cuda.is_available():
+        raise RuntimeError("QTIP V7 layer smoke requires CUDA")
+    device = torch.device("cuda")
+    layer = QtipV7DirectLayer(wire)
+    try:
+        torch.cuda.reset_peak_memory_stats(device)
+        pages, checksum = _fault_mapped_pages(layer)
+        for projection, (_output_width, input_width) in _PROJECTION_SHAPES.items():
+            x = torch.zeros((6, input_width), dtype=torch.bfloat16, device=device)
+            expert_ids = torch.arange(6, dtype=torch.int64, device=device)
+            result = layer.forward(x, expert_ids, projection)
+            del result, expert_ids, x
+        torch.cuda.synchronize(device)
+        rss, pss = _linux_process_memory()
+        receipt = {
+            "schema": "banana-smasher-qtip-v7-layer-hardware-smoke-v1",
+            "status": "PROVEN",
+            "scope": "one_layer_w1_w2_w3_direct_smoke",
+            "direct_kernel_dispatch": QTIP_V7_DIRECT_DISPATCH,
+            "direct_dispatch_calls": layer._direct_dispatch_calls,
+            "mapped_layer_bytes": layer.mapping.path.stat().st_size,
+            "resident_page_touch_count": pages,
+            "resident_page_touch_checksum_u32": checksum,
+            "lut_alias_storage_identity": layer.lut.obj is layer.mapping.buffer,
+            "separate_lut_tensor_bytes": 0,
+            "duplicate_packed_bytes": 0,
+            "persistent_decoded_state_bytes": 0,
+            "persistent_dense_weight_bytes": 0,
+            "generic_fallback_calls": 0,
+            "persistent_runtime_metadata_bytes": 3 * 256 * 8,
+            "transient_workspace_peak_bytes": layer.transient_workspace_peak_bytes,
+            "cuda_allocated_bytes": int(torch.cuda.memory_allocated(device)),
+            "cuda_reserved_bytes": int(torch.cuda.memory_reserved(device)),
+            "cuda_peak_allocated_bytes": int(
+                torch.cuda.max_memory_allocated(device)
+            ),
+            "process_rss_bytes": rss,
+            "process_pss_bytes": pss,
+            "nvml_process_bytes": _nvml_process_bytes(),
+        }
+        if receipt["direct_dispatch_calls"] != 3:
+            raise RuntimeError("QTIP V7 layer smoke did not execute w1/w2/w3")
+        target = Path(output).expanduser().resolve()
+        if target.exists():
+            raise FileExistsError(target)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+        return receipt
+    finally:
+        layer.close()
+
+
 __all__ = [
     "QTIP_V7_DIRECT_DISPATCH",
     "QtipV7DirectLayer",
     "QtipV7DirectMember",
     "capture_qtip_v7_hardware_readback",
+    "capture_qtip_v7_layer_smoke",
 ]

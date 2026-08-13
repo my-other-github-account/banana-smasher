@@ -108,6 +108,13 @@ def test_public_cli_exposes_wire_one_liners(capsys) -> None:
     assert "--hardware-readback" in residency_help
     assert "--capture-hardware" in residency_help
 
+    with pytest.raises(SystemExit) as raised:
+        main(["qtip-v7-layer-smoke", "--help"])
+    assert raised.value.code == 0
+    layer_help = capsys.readouterr().out
+    assert "--wire" in layer_help
+    assert "--output" in layer_help
+
     # Parser coverage stays cheap; the physical implementation is exercised above.
     with pytest.raises(SystemExit) as raised:
         main(["qtip-v7-wire", "pack-layer", "--help"])
