@@ -28,6 +28,28 @@ This is a same frozen benchmark, request, and scorer comparison. Provider and wa
 - HumanEvalPlus release: `v0.1.10`; dataset hash: `fe585eb4df8c88d844eeb463ea4d0302`.
 - Sanitizer: `evalplus.sanitize(content, entrypoint=...)`.
 
+## Simple reproduction script
+
+The exact single-file producer is [`Evals/tools/openrouter_humaneval_glm52.py`](../../Evals/tools/openrouter_humaneval_glm52.py) (SHA-256 `d5d7afdc510a96d3e478dcfeac28d2d7a0d25c5c574b890b79bcb1a1e42a27ab`). It regenerates the frozen 164 prompts from the pinned EvalPlus dataset, refuses a prompt-hash mismatch, preflights the current Z.AI endpoint, runs serially, atomically checkpoints each response, resumes only fully validated checkpoints, and writes `canonical.jsonl`, `request-audit.jsonl`, and `GENERATION_HANDOFF.json`.
+
+```bash
+python3 -m venv .venv-humaneval
+. .venv-humaneval/bin/activate
+python -m pip install -r Evals/requirements-humaneval.txt
+
+# Validate the pinned dependency and all 164 prompts. This never calls OpenRouter.
+python -m Evals.tools.openrouter_humaneval_glm52 \
+  --root work/humaneval/glm-5.2-openrouter
+
+# Paid generation: 164 serial tasks, transport-only retries, strict resume.
+OPENROUTER_API_KEY='...' \
+python -m Evals.tools.openrouter_humaneval_glm52 \
+  --root work/humaneval/glm-5.2-openrouter \
+  --run
+```
+
+The token is read only from `OPENROUTER_API_KEY` or an explicitly supplied `--token-file`; it is never written into checkpoints. The default command does not call OpenRouter. `--run` is deliberately required before paid generation. Score the resulting `canonical.jsonl` with the pinned, network-disabled EvalPlus procedure in [`Evals/protocols/humaneval-0731-v1.md`](../../Evals/protocols/humaneval-0731-v1.md#score-safely).
+
 ## Outcome details
 
 - Accepted ordered unique rows: **164/164**.

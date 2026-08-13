@@ -19,7 +19,7 @@ Use `report-template.md` for new performance or quality reports.
 
 **Owner:** TBD · **Status:** independently verified same-contract measurement
 
-**NEW** GLM-5.2 through Z.AI's pinned FP8 OpenRouter endpoint scored **163/164 (99.39%) HumanEval** and **157/164 (95.73%) HumanEval+** under the frozen 164-task, medium-reasoning, 16,384-token EvalPlus contract. The historical FF0731 provider rail scored 160/164 and 153/164 respectively. Provider and wall-clock matching were intentionally not required; see [`humaneval/glm-5.2-openrouter-zai-fp8.md`](humaneval/glm-5.2-openrouter-zai-fp8.md) and its adjacent machine-readable receipt for the exact scope and hash bindings.
+**NEW** GLM-5.2 through Z.AI's pinned FP8 OpenRouter endpoint scored **163/164 (99.39%) HumanEval** and **157/164 (95.73%) HumanEval+** under the frozen 164-task, medium-reasoning, 16,384-token EvalPlus contract. The historical FF0731 provider rail scored 160/164 and 153/164 respectively. Provider and wall-clock matching were intentionally not required; see [`humaneval/glm-5.2-openrouter-zai-fp8.md`](humaneval/glm-5.2-openrouter-zai-fp8.md), its adjacent machine-readable receipt, and the [single-file OpenRouter producer](../Evals/tools/openrouter_humaneval_glm52.py) for the exact scope, reproduction command, and hash bindings.
 
 ## Kimi K3
 
