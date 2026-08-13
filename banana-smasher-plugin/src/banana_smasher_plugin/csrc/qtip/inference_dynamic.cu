@@ -290,7 +290,18 @@ qtip_trellis_tlut_kernel(
 #define DO_LOAD_CODEBOOK
 #ifdef DO_LOAD_CODEBOOK
             uint32_t my_cb_idx = threadIdx.x & 0x1ff;
-            half2 my_codebook_element = codebook[my_cb_idx];
+            // Embedded V7 LUTs follow the compressed control stream and may
+            // begin at an odd byte offset.  Reassemble the four bytes instead
+            // of issuing an alignment-sensitive half2 global load.
+            const auto* codebook_bytes =
+                reinterpret_cast<const uint8_t*>(codebook) + my_cb_idx * sizeof(half2);
+            uint32_t codebook_bits =
+                static_cast<uint32_t>(codebook_bytes[0]) |
+                (static_cast<uint32_t>(codebook_bytes[1]) << 8) |
+                (static_cast<uint32_t>(codebook_bytes[2]) << 16) |
+                (static_cast<uint32_t>(codebook_bytes[3]) << 24);
+            half2 my_codebook_element =
+                *reinterpret_cast<half2*>(&codebook_bits);
             for (uint32_t i = 0; i < 32; i+= 2) {
                 smem_codebook[(my_cb_idx << 5)|(i ^ (threadIdx.x & 0x1f) ^ (threadIdx.x >> 9))] = my_codebook_element;
             }

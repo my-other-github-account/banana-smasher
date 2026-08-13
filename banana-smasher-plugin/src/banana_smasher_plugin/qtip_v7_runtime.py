@@ -54,6 +54,7 @@ class QtipV7DirectLayer:
         self._source_pointers: dict[tuple[str, str], Any] = {}
         self._codebook: Any | None = None
         self._direct_dispatch_calls = 0
+        self._direct_counter_receipts: list[dict[str, int | str]] = []
 
     @property
     def transient_workspace_peak_bytes(self) -> int:
@@ -71,7 +72,7 @@ class QtipV7DirectLayer:
             output_width, input_width = _PROJECTION_SHAPES[projection]
         except KeyError as exc:
             raise ValueError(f"unknown QTIP V7 projection: {projection}") from exc
-        expected = self.transient_workspace_peak_bytes
+        expected = self.mapping.transient_workspace_peak_bytes
         if len(control_workspace) != expected:
             raise ValueError(
                 f"QTIP V7 transient control workspace requires {expected} bytes"
@@ -160,6 +161,9 @@ class QtipV7DirectLayer:
             block_rows=int(policy["mblock"]),
             device=x.device,
         )
+        # Register the extension's TORCH_LIBRARY fragments before the first
+        # torch.ops compaction/transform dispatch.
+        _module()
         families = torch.zeros(
             self.mapping.geometry.experts, dtype=torch.int8, device=x.device
         )
@@ -201,6 +205,7 @@ class QtipV7DirectLayer:
         )
         if self._codebook is None:
             self._codebook = torch.frombuffer(self.lut, dtype=torch.float16, count=1024)
+        specialized_counter_index = 32 if input_width == 4096 else 40
         _module().qtip2_v7_direct(
             compact["out"],
             self._torch_sources(projection, x.device),
@@ -212,7 +217,7 @@ class QtipV7DirectLayer:
             self._codebook,
             compact["physical_counters"],
             variants[str(policy["kernel"])],
-            132,
+            specialized_counter_index,
         )
         self._direct_dispatch_calls += 1
         torch.ops.banana_smasher_v4.qtip_post_transform(
@@ -225,6 +230,25 @@ class QtipV7DirectLayer:
             compact["block_route_rows"][0],
         )
         result = compact["out"].to(torch.bfloat16)
+        torch.cuda.synchronize(x.device)
+        physical_counters = compact["physical_counters"].cpu().tolist()
+        counter_receipt = {
+            "projection": projection,
+            "input_width": input_width,
+            "specialized_counter_index": specialized_counter_index,
+            "specialized_counter_value": int(
+                physical_counters[specialized_counter_index]
+            ),
+            "direct_family_launches": int(physical_counters[10]),
+            "direct_family_rows": int(physical_counters[18]),
+        }
+        if (
+            counter_receipt["specialized_counter_value"] <= 0
+            or counter_receipt["direct_family_launches"] <= 0
+            or counter_receipt["direct_family_rows"] <= 0
+        ):
+            raise RuntimeError("QTIP V7 physical direct counters did not advance")
+        self._direct_counter_receipts.append(counter_receipt)
         del controls, members, su, sv, wscale
         return result
 
@@ -237,6 +261,7 @@ class QtipV7DirectLayer:
             "persistent_dense_weight_bytes": self.persistent_dense_weight_bytes,
             "generic_fallback_calls": self.generic_fallback_calls,
             "direct_dispatch_calls": self._direct_dispatch_calls,
+            "direct_specialized_counters": self._direct_counter_receipts,
             "transient_workspace_peak_bytes": self.transient_workspace_peak_bytes,
         }
 
@@ -256,11 +281,11 @@ class QtipV7DirectLayer:
 
 def _linux_process_memory() -> tuple[int, int]:
     try:
-        rows = {
-            line.split(":", 1)[0]: int(line.split()[1]) * 1024
-            for line in Path("/proc/self/smaps_rollup").read_text().splitlines()
-            if ":" in line and len(line.split()) >= 2
-        }
+        rows: dict[str, int] = {}
+        for line in Path("/proc/self/smaps_rollup").read_text().splitlines():
+            key, separator, payload = line.partition(":")
+            if separator and key in {"Rss", "Pss"}:
+                rows[key] = int(payload.split()[0]) * 1024
         return rows["Rss"], rows["Pss"]
     except (OSError, KeyError, ValueError) as exc:
         raise RuntimeError("QTIP V7 hardware readback requires Linux RSS/PSS") from exc
@@ -395,6 +420,9 @@ def capture_qtip_v7_layer_smoke(
             "scope": "one_layer_w1_w2_w3_direct_smoke",
             "direct_kernel_dispatch": QTIP_V7_DIRECT_DISPATCH,
             "direct_dispatch_calls": layer._direct_dispatch_calls,
+            "direct_specialized_counters": layer.receipt()[
+                "direct_specialized_counters"
+            ],
             "mapped_layer_bytes": layer.mapping.path.stat().st_size,
             "resident_page_touch_count": pages,
             "resident_page_touch_checksum_u32": checksum,
