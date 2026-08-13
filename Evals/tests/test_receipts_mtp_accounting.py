@@ -112,6 +112,33 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         )
         self.assertEqual(qtip2_v7_pre["top1"]["rate"], "0.8626251220703125")
 
+        wire_ledger = json.loads(
+            (
+                evals_dir
+                / "results/deepseek-v4-flash-0731-qtip2-v7-exl-k2-wire-ledger-v1.json"
+            ).read_text()
+        )
+        self.assertEqual(wire_ledger["status"], "PASS")
+        self.assertEqual(
+            wire_ledger["published_historical_comparison"]["gap_bytes"],
+            11_264_934_912,
+        )
+        self.assertEqual(
+            wire_ledger["published_historical_comparison"]["gap_closure"],
+            {
+                "dense_l034_bfloat16_bytes": 12_884_901_888,
+                "minus_one_missing_compact_l034_member_payload_bytes": -1_620_052_992,
+                "plus_qtip_shared_luts_for_42_compact_layers_bytes": 86_016,
+                "total_bytes": 11_264_934_912,
+            },
+        )
+        self.assertEqual(
+            wire_ledger["routed_ledgers"]["qtip2_v7_current_repaired_all43"][
+                "routed_bytes"
+            ],
+            69_662_366_720,
+        )
+
         matrix_text = (evals_dir / "README.md").read_text()
         public_table = matrix_text.split("## EXL 2×3 scope/rate matrix", 1)[0]
         self.assertIn("| Comparison BPW | FP basis |", public_table)
@@ -150,7 +177,7 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         }
         self.assertEqual(scopes["UD-IQ4_XS"], "base-model-only")
         self.assertEqual(scopes["DwarfStar-Q2-0731"], "base-plus-separate-drafter")
-        self.assertEqual(scopes["EXL3-K2-routed-native-rest"], "base-plus-native-mtp")
+        self.assertEqual(scopes["EXL3-K2-routed-native-rest"], "base-plus-partial-native-mtp")
         self.assertEqual(
             scopes["EXL3-K2P5-greedy-routed-native-rest"],
             "base-plus-native-mtp",
@@ -193,7 +220,7 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         )
         self.assertEqual(
             routed_k2["wire"]["total_model_bpw"],
-            "2.4273220238013951186880076912235235955776634019794933505294131935834137741587886",
+            "2.427929528263193711335556163985502121908023370875038596632692371439083436170354851986850654175126914",
         )
         self.assertEqual(routed_k2["top1"]["matches"], 56_579)
         self.assertEqual(routed_k2["kld"]["mean"], "0.23428769710091882")

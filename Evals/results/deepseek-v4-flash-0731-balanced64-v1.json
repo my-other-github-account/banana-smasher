@@ -7,7 +7,7 @@
   "mtp_inclusive_parameter_denominator": 294550374339,
   "size_accounting": {
     "receipt_path": "deepseek-v4-flash-0731-mtp-size-accounting-v1.json",
-    "receipt_sha256": "cc8124857136c529c7d856199e054ea5da3b53717d84a03a95f652b806ccf087",
+    "receipt_sha256": "059a732ba0a024f707cbd11fb066aac29819751f4f742b93e211c18cbad4fb50",
     "comparison_bpw_kind": "base-equivalent: all shipped bytes divided by the fixed base-model parameter denominator",
     "matched_physical_bpw_kind": "all shipped bytes divided by parameters represented by the artifact payload"
   },
@@ -464,7 +464,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "cc8124857136c529c7d856199e054ea5da3b53717d84a03a95f652b806ccf087"
+          "accounting_receipt_sha256": "059a732ba0a024f707cbd11fb066aac29819751f4f742b93e211c18cbad4fb50"
         }
       },
       "measurement": {
@@ -663,7 +663,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "cc8124857136c529c7d856199e054ea5da3b53717d84a03a95f652b806ccf087"
+          "accounting_receipt_sha256": "059a732ba0a024f707cbd11fb066aac29819751f4f742b93e211c18cbad4fb50"
         }
       },
       "measurement": {
@@ -1228,15 +1228,15 @@
       "wire": {
         "bytes": 89371076344,
         "decimal_gb": "89.371076344",
-        "artifact_payload_scope": "base-plus-native-mtp",
+        "artifact_payload_scope": "base-plus-partial-native-mtp",
         "parameter_denominator": 284334567511,
         "normalized_bpw": "2.5145328512486971484262613667868966546438084310621785627887683259240843040121566",
-        "total_model_parameters": 294550374339,
+        "total_model_parameters": 294476673408,
         "total_model_parameter_components": {
           "base_model": 284334567511,
-          "auxiliary_models": 10215806828
+          "auxiliary_models": 10142105897
         },
-        "total_model_bpw": "2.4273220238013951186880076912235235955776634019794933505294131935834137741587886"
+        "total_model_bpw": "2.427929528263193711335556163985502121908023370875038596632692371439083436170354851986850654175126914"
       },
       "kld": {
         "direction": "KL(teacher||candidate)",
