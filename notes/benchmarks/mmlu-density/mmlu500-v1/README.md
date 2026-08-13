@@ -124,34 +124,46 @@ A maintained framework is preferable to benchmark-specific boundary executables,
 but no current framework preserves both the pinned GGUF artifacts and the
 one-Spark memory bound:
 
-- **vLLM is not a disk-streamed layer executor.** Current vLLM has Kimi-K3 model
-  code, an official GGUF plugin, and CPU-prefetch offloading. Its documented
+- **vLLM is not a disk-streamed layer executor.** vLLM v0.27.1 has native
+  Kimi-K3 model code, but the released official `vllm-gguf-plugin` v0.0.5 does
+  not include a Kimi-K3 GGUF adapter. The plugin has low-level IQ1_S kernels;
+  that alone is insufficient because the generic adapter cannot map Kimi-K3's
+  tensor layout. Kimi-K3 GGUF support exists only in open, unmerged, currently
+  dirty [plugin PR #92](https://github.com/vllm-project/vllm-gguf-plugin/pull/92),
+  whose reported end-to-end test used UD-Q2_K_XL on 8xH200, not either IQ1_S
+  artifact or one Spark. Even if that adapter lands, vLLM's documented
   "layerwise" API incrementally *reloads new weights into an already allocated
   model* for post-training; it does not execute a forward one layer range at a
   time. The GGUF loader materializes each mmap-backed tensor as a Torch tensor,
-  and the prefetch backend retains a complete CPU-side parameter image. That
-  cannot hold these 330,167,807,328-byte and 594,040,923,616-byte artifacts on a
-  128 GB unified-memory Spark. Disabling pinned memory changes the allocation
-  type, not the required capacity.
+  while UVA and prefetch offload retain a complete CPU-side parameter image.
+  That cannot hold these 330,167,807,328-byte and 594,040,923,616-byte artifacts
+  on a 128 GB unified-memory Spark. Disabling pinned memory changes allocation
+  type, not required capacity.
 - **AirLLM 3.1 and Colibri are genuine Kimi-K3 layer/expert streaming engines.**
   They currently consume the official safetensors/MXFP4 checkpoint, however,
   not the two pinned IQ1_S GGUF artifacts. Substituting either would evaluate
   different weights and would not reproduce the published rows.
-- **llama.cpp is the closest GGUF-native alternative.** The Unsloth Kimi-K3 fork
-  can mmap GGUF shards and expose final-position vocabulary logits. Upstream
-  Kimi-K3 support is still an open pull request, and mmap demand paging is not
-  equivalent to advancing the entire 500-prompt batch through one resident
-  layer range. No `412/500` or `342/500` parity receipt exists for that path;
-  replacing the sealed runtime with it would therefore be an unverified change.
+- **llama.cpp is the closest GGUF-native alternative.** A Kimi-K3-capable branch
+  can mmap both sharded GGUFs, and `libllama` can return the raw final-position
+  vocabulary row with `llama_get_logits_ith(ctx, -1)`. The public HTTP API's
+  `n_probs` response is not equivalent: it returns top-N normalized
+  probabilities for generated tokens, not arbitrary raw prompt-final logits.
+  Exact A/B/C/D scoring therefore needs a small C/C++ `libllama` harness.
+  Upstream Kimi-K3 support is still open in
+  [PR #26185](https://github.com/ggml-org/llama.cpp/pull/26185), and mmap demand
+  paging is not managed, bounded layer/expert streaming. It is not equivalent
+  to advancing the entire 500-prompt batch through one resident layer range.
+  No `412/500` or `342/500` parity receipt exists for that path; replacing the
+  sealed runtime with it would therefore be an unverified change.
 
 Assessment source pins:
 
-- vLLM `8eb35c5217ef98ab06c88f42ef4e41737dd2d1f3`
-- `vllm-gguf-plugin` `d358f564fc8f470cddd7c141a149b4ebafafa01f`
+- vLLM `v0.27.1`
+- `vllm-gguf-plugin` `v0.0.5`; Kimi-K3 PR #92 head
+  `f2ca46da133cf72c33242d9c0b569cc87269e390`
 - AirLLM `v3.1.0` / `64a4e4fc3749aa7dc9bba4788f560ed0d7e74bd2`
 - Colibri `72cd9f7709d6805443145b92d9d0494da685eae5`
-- `ggml-org/llama.cpp` Kimi-K3 PR
-  [#26185](https://github.com/ggml-org/llama.cpp/pull/26185), assessed at
+- `ggml-org/llama.cpp` Kimi-K3 PR #26185, assessed at
   `0d5346be5de5ceb98a8158d49c2819c64b236955`
 - Unsloth Kimi-K3 llama.cpp branch
   `23fac110127ba3ac56bd8b370eb0205a67564d55`
