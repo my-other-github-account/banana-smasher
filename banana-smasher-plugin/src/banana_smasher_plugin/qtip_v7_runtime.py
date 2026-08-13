@@ -54,7 +54,7 @@ class QtipV7DirectLayer:
         self._source_pointers: dict[tuple[str, str], Any] = {}
         self._codebook: Any | None = None
         self._direct_dispatch_calls = 0
-        self._direct_counter_receipts: list[dict[str, int | str]] = []
+        self._direct_counter_receipts: dict[str, dict[str, int | str]] = {}
 
     @property
     def transient_workspace_peak_bytes(self) -> int:
@@ -256,7 +256,7 @@ class QtipV7DirectLayer:
             or counter_receipt["direct_family_rows"] <= 0
         ):
             raise RuntimeError("QTIP V7 physical direct counters did not advance")
-        self._direct_counter_receipts.append(counter_receipt)
+        self._direct_counter_receipts[projection] = counter_receipt
         del controls, members, su, sv, wscale
         return result
 
@@ -269,7 +269,11 @@ class QtipV7DirectLayer:
             "persistent_dense_weight_bytes": self.persistent_dense_weight_bytes,
             "generic_fallback_calls": self.generic_fallback_calls,
             "direct_dispatch_calls": self._direct_dispatch_calls,
-            "direct_specialized_counters": self._direct_counter_receipts,
+            "direct_specialized_counters": [
+                self._direct_counter_receipts[name]
+                for name in ("w1", "w2", "w3")
+                if name in self._direct_counter_receipts
+            ],
             "transient_workspace_peak_bytes": self.transient_workspace_peak_bytes,
         }
 
@@ -277,6 +281,7 @@ class QtipV7DirectLayer:
         self._codebook = None
         self._source_pointers.clear()
         self._source_tensors.clear()
+        self._direct_counter_receipts.clear()
         self.lut.release()
         self.mapping.close()
 

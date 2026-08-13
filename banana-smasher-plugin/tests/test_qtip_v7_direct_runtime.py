@@ -58,3 +58,4 @@ def test_v7_counter_indices_cover_every_shape_variant() -> None:
     source = RUNTIME.read_text()
     assert "128 if variant == 8 else 32 + variant" in source
     assert "129 if variant == 8 else 40 + variant" in source
+    assert "self._direct_counter_receipts[projection] = counter_receipt" in source

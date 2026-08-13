@@ -133,7 +133,7 @@ def qtip_v7_resident_weight(
     transient_peak = (
         3 * 768 * 12_292
         if measured is None
-        else int(measured.get("transient_workspace_peak_bytes", 0))
+        else int(measured.get("transient_workspace_peak_bytes", -1))
     )
     routed = unique_wire_bytes + separate_lut_bytes
     full = _NATIVE_BASE_BYTES + routed
@@ -156,7 +156,7 @@ def qtip_v7_resident_weight(
     telemetry_values = {name: telemetry(name) for name in telemetry_fields}
     if measured is not None and (
         runtime_metadata < 0
-        or transient_peak < 0
+        or transient_peak <= 0
         or int(measured.get("resident_page_touch_count", 0)) <= 0
         or any(value is None for value in telemetry_values.values())
     ):
