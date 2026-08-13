@@ -246,7 +246,8 @@ def _parser() -> argparse.ArgumentParser:
     joint_train.add_argument(
         "--trainer",
         type=Path,
-        help="deprecated and refused; the complete trainer is packaged with smash",
+        required=True,
+        help="public trainer executable implementing the QTIP_V7_* environment contract",
     )
     joint_train.add_argument("--resume-from", type=Path)
     joint_verify = joint_commands.add_parser(

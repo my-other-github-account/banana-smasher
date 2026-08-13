@@ -86,6 +86,55 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     return manifest, bank, tmp_path / "run"
 
 
+def _external_trainer(tmp_path: Path) -> Path:
+    path = tmp_path / "external-trainer.py"
+    path.write_text("""#!/usr/bin/env python3
+import hashlib, json, os
+from pathlib import Path
+import numpy as np
+import torch
+freeze = Path(os.environ["QTIP_V7_FREEZE"])
+bank = json.loads(Path(os.environ["QTIP_V7_TEACHER_BANK"]).read_text())
+out = Path(os.environ["QTIP_V7_CHECKPOINT"])
+update = int(os.environ["QTIP_V7_TARGET_UPDATE"])
+resume = os.environ["QTIP_V7_RESUME_FROM"]
+surface = json.loads(freeze.read_text())["trainable_surface"]
+if resume:
+    parent = torch.load(resume, map_location="cpu", weights_only=True)
+    state = parent["state"]
+    parent_row = {"path": str(Path(resume).resolve()), "sha256": hashlib.sha256(Path(resume).read_bytes()).hexdigest(), "update": int(parent["update"])}
+else:
+    state = {group: {name: torch.full(shape, 0.1, dtype=torch.float32) for name, shape in rows.items()} for group, rows in surface.items()}
+    parent_row = None
+shift = 0.1 / (update + 1)
+predictions = [[float(value) + (shift if i == 0 else -shift) for i, value in enumerate(row["teacher_logits"])] for row in bank["windows"]]
+def softmax(values):
+    a = np.asarray(values, dtype=np.float64); a -= a.max(); a = np.exp(a); return a / a.sum()
+losses = []
+for row, prediction in zip(bank["windows"], predictions, strict=True):
+    teacher = softmax(row["teacher_logits"]); predicted = softmax(prediction)
+    losses.append(float(np.sum(teacher * (np.log(teacher) - np.log(predicted)))))
+continuity = {"optimizer": {"step": update}, "scheduler": {"update": update}, "rng_state": torch.Generator().manual_seed(update).get_state(), "trainer_identity": os.environ["QTIP_V7_TRAINER_SHA256"], "parent": parent_row}
+out.parent.mkdir(parents=True, exist_ok=True)
+torch.save({"format": "banana-smasher-qtip-v7-joint-checkpoint-v1", "update": update, "objective": "teacher_kld", "freeze_sha256": hashlib.sha256(freeze.read_bytes()).hexdigest(), "teacher_kld": sum(losses) / len(losses), "predictions": predictions, "state": state, "continuity": continuity}, out)
+""")
+    path.chmod(0o755)
+    return path
+
+
+def _external_scorer(tmp_path: Path) -> Path:
+    path = tmp_path / "external-scorer.py"
+    path.write_text("""#!/usr/bin/env python3
+import json, os
+from pathlib import Path
+start = int(os.environ["QTIP_V7_SHARD_START"]); end = int(os.environ["QTIP_V7_SHARD_END"])
+rows = [{"ordinal": n, "positions": 1024, "support": 8192, "kld_sum_binary64": float(n + 1), "top1_matches": 900, "fallback_calls": 0, "pass_through_bytes": 0, "hidden_fp32_control_bytes": 0} for n in range(start, end + 1)]
+Path(os.environ["QTIP_V7_SHARD_RECEIPT"]).write_text(json.dumps({"schema": "banana-smasher-qtip-v7-balanced64-shard-v1", "status": "PASS", "candidate_sha256": os.environ["QTIP_V7_CANDIDATE_SHA256"], "teacher_bank_sha256": os.environ["QTIP_V7_TEACHER_BANK_SHA256"], "ordinal_start": start, "ordinal_end": end, "rows": rows}, sort_keys=True) + "\\n")
+""")
+    path.chmod(0o755)
+    return path
+
+
 def test_inspect_rejects_malformed_teacher_digest_and_declaration_only_wire(tmp_path: Path) -> None:
     manifest, bank, run = _fixture(tmp_path)
     value = json.loads(bank.read_text())
@@ -112,7 +161,7 @@ def test_inspect_rejects_malformed_teacher_digest_and_declaration_only_wire(tmp_
         )
 
 
-def test_packaged_trainer_authenticates_kld_surface_and_resume(tmp_path: Path) -> None:
+def test_external_trainer_authenticates_kld_surface_and_resume(tmp_path: Path) -> None:
     manifest, bank, run = _fixture(tmp_path)
     frozen = inspect_joint_inputs(
         manifest=manifest,
@@ -121,9 +170,10 @@ def test_packaged_trainer_authenticates_kld_surface_and_resume(tmp_path: Path) -
         trainer_host="trainer",
     )
     freeze = Path(frozen["freeze"]["path"])
+    trainer = _external_trainer(tmp_path)
     u0 = run / "U0.pt"
-    first = train_joint(freeze=freeze, checkpoint=u0, target_update=0)
-    assert first["trainer"] == "packaged"
+    first = train_joint(freeze=freeze, checkpoint=u0, target_update=0, trainer=trainer)
+    assert first["trainer"] == "external"
     assert first["authenticated_kld_windows"] == 64
 
     u5 = run / "U5.pt"
@@ -131,6 +181,7 @@ def test_packaged_trainer_authenticates_kld_surface_and_resume(tmp_path: Path) -
         freeze=freeze,
         checkpoint=u5,
         target_update=5,
+        trainer=trainer,
         resume_from=u0,
     )
     assert resumed["resumed_from_update"] == 0
@@ -174,7 +225,7 @@ def test_packaged_trainer_authenticates_kld_surface_and_resume(tmp_path: Path) -
         verify_joint_checkpoint(freeze=freeze, checkpoint=bad_optimizer)
 
 
-def test_packaged_scorer_and_wire_accounting_distinguish_physical_from_referenced(tmp_path: Path) -> None:
+def test_external_scorer_and_wire_accounting_distinguish_physical_from_referenced(tmp_path: Path) -> None:
     manifest, bank, run = _fixture(tmp_path)
     frozen = inspect_joint_inputs(
         manifest=manifest,
@@ -184,13 +235,19 @@ def test_packaged_scorer_and_wire_accounting_distinguish_physical_from_reference
     )
     freeze = Path(frozen["freeze"]["path"])
     checkpoint = run / "U0.pt"
-    train_joint(freeze=freeze, checkpoint=checkpoint, target_update=0)
+    train_joint(
+        freeze=freeze,
+        checkpoint=checkpoint,
+        target_update=0,
+        trainer=_external_trainer(tmp_path),
+    )
+    scorer = _external_scorer(tmp_path)
     launched = launch_balanced64_shards(
         candidate=checkpoint,
         freeze=freeze,
         teacher_bank=bank,
         output=run / "scores",
-        workers=["local-a=builtin", "local-b=builtin"],
+        workers=[f"local-a={scorer}", f"local-b={scorer}"],
     )
     assert len(launched["shards"]) == 2
 
@@ -219,14 +276,19 @@ def test_trainer_alias_is_refused_and_failed_peer_cancels_other_workers(tmp_path
     )
     freeze = Path(frozen["freeze"]["path"])
     checkpoint = run / "U0.pt"
-    train_joint(freeze=freeze, checkpoint=checkpoint, target_update=0)
+    train_joint(
+        freeze=freeze,
+        checkpoint=checkpoint,
+        target_update=0,
+        trainer=_external_trainer(tmp_path),
+    )
     with pytest.raises(ValueError, match="live trainer host"):
         launch_balanced64_shards(
             candidate=checkpoint,
             freeze=freeze,
             teacher_bank=bank,
             output=run / "alias-refused",
-            workers=["side@127.0.0.9:/remote/builtin=builtin"],
+            workers=[f"side@127.0.0.9:/remote/scorer={_external_scorer(tmp_path)}"],
         )
 
     failing = tmp_path / "fail.py"
@@ -285,7 +347,12 @@ def test_authenticated_ssh_fixture_stages_hashes_and_scores(tmp_path: Path) -> N
     )
     freeze = Path(frozen["freeze"]["path"])
     checkpoint = run / "U0.pt"
-    train_joint(freeze=freeze, checkpoint=checkpoint, target_update=0)
+    train_joint(
+        freeze=freeze,
+        checkpoint=checkpoint,
+        target_update=0,
+        trainer=_external_trainer(tmp_path),
+    )
     result = launch_balanced64_shards(
         candidate=checkpoint,
         freeze=freeze,
@@ -293,7 +360,7 @@ def test_authenticated_ssh_fixture_stages_hashes_and_scores(tmp_path: Path) -> N
         output=run / "ssh-scores",
         workers=[
             f"{os.environ['QTIP_V7_SSH_EXPECTED']}@{os.environ['QTIP_V7_SSH_FIXTURE']}:"
-            f"{os.environ['QTIP_V7_SSH_ROOT']}=builtin"
+            f"{os.environ['QTIP_V7_SSH_ROOT']}={_external_scorer(tmp_path)}"
         ],
         remote_python=os.environ.get("QTIP_V7_SSH_PYTHON", "python3"),
     )

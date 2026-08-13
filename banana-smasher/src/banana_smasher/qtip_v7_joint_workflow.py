@@ -34,7 +34,7 @@ _INVENTORY = {
 _HOST_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$")
 _REMOTE_ROOT_PATTERN = re.compile(r"^/(?:[A-Za-z0-9._-]+/?)+$")
 _SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
-_PACKAGED_TRAINER = "banana_smasher.packaged_qtip_v7_joint_trainer.v1"
+
 
 
 def _require_sha256(value: object, label: str) -> str:
@@ -339,38 +339,6 @@ def _authenticated_kld(bank: dict[str, Any], predictions: object) -> tuple[float
     return math.fsum(losses) / 64, 64
 
 
-def _joint_loss_and_gradient(
-    bank: dict[str, Any], delta: float
-) -> tuple[float, list[list[float]], float]:
-    predictions: list[list[float]] = []
-    gradients = []
-    for window in bank["windows"]:
-        teacher = [float(value) for value in window["teacher_logits"]]
-        direction = [1.0, *([-1.0] * (len(teacher) - 1))]
-        predicted = [
-            value + delta * sign for value, sign in zip(teacher, direction, strict=True)
-        ]
-        teacher_array = np.asarray(teacher, dtype=np.float64)
-        predicted_array = np.asarray(predicted, dtype=np.float64)
-        teacher_probability = np.exp(teacher_array - teacher_array.max())
-        teacher_probability /= teacher_probability.sum()
-        predicted_probability = np.exp(predicted_array - predicted_array.max())
-        predicted_probability /= predicted_probability.sum()
-        gradients.append(float(np.dot(predicted_probability - teacher_probability, direction)))
-        predictions.append(predicted)
-    loss, _ = _authenticated_kld(bank, predictions)
-    return loss, predictions, math.fsum(gradients) / 64
-
-
-def _joint_state_delta(state: dict[str, dict[str, Any]]) -> float:
-    means = [
-        float(tensor.double().mean())
-        for entries in state.values()
-        for tensor in entries.values()
-    ]
-    return math.fsum(means) / len(means)
-
-
 def _validate_continuity(
     payload: dict[str, Any], checkpoint_path: Path, resume: dict[str, Any] | None = None
 ) -> None:
@@ -382,8 +350,7 @@ def _validate_continuity(
     required = ("optimizer", "scheduler", "rng_state", "trainer_identity")
     if any(name not in continuity for name in required):
         raise ValueError("joint checkpoint requires optimizer/scheduler/RNG/trainer continuity")
-    if continuity["trainer_identity"] != _PACKAGED_TRAINER:
-        raise ValueError("joint checkpoint trainer continuity drift")
+    _require_sha256(continuity["trainer_identity"], "joint checkpoint trainer identity")
     optimizer = continuity["optimizer"]
     scheduler = continuity["scheduler"]
     if not isinstance(optimizer, dict) or optimizer.get("step") != payload["update"]:
@@ -454,7 +421,7 @@ def verify_joint_checkpoint(
         "update": int(payload["update"]),
         "teacher_kld": float(payload["teacher_kld"]),
         "authenticated_kld_windows": authenticated_windows,
-        "trainer": "packaged",
+        "trainer": "external",
         "trainable_surface": counts,
         "checkpoint": str(checkpoint_path),
         "checkpoint_sha256": _sha256(checkpoint_path),
@@ -479,10 +446,10 @@ def train_joint(
     freeze: str | Path,
     checkpoint: str | Path,
     target_update: int,
-    trainer: str | Path | None = None,
+    trainer: str | Path,
     resume_from: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Run the packaged joint trainer and seal its authenticated teacher-KLD checkpoint."""
+    """Run the caller-supplied public trainer and seal its authenticated checkpoint."""
     if target_update < 0:
         raise ValueError("target update must be nonnegative")
     freeze_path, frozen = _load_freeze(freeze)
@@ -499,66 +466,43 @@ def train_joint(
     if checkpoint_path.exists():
         raise FileExistsError(checkpoint_path)
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-    if trainer is not None:
-        raise ValueError("external trainers are not accepted; use the packaged trainer")
-    import torch
-
-    state = {
-        group: {
-            name: torch.full(shape, 0.1, dtype=torch.float32)
-            for name, shape in entries.items()
-        }
-        for group, entries in frozen["trainable_surface"].items()
-    }
-    generator = torch.Generator().manual_seed(0)
-    learning_rate = 0.25
-    last_gradient = 0.0
-    if resume_path is not None:
-        parent_payload = torch.load(resume_path, map_location="cpu", weights_only=True)
-        state = parent_payload["state"]
-        generator.set_state(parent_payload["continuity"]["rng_state"])
-        learning_rate = float(parent_payload["continuity"]["optimizer"]["learning_rate"])
-        last_gradient = float(parent_payload["continuity"]["optimizer"]["last_gradient"])
-    _, bank = _load_json(frozen["teacher_bank"]["path"])
-    for _ in range((resumed_from_update or 0), target_update):
-        _, _, last_gradient = _joint_loss_and_gradient(bank, _joint_state_delta(state))
-        for entries in state.values():
-            for tensor in entries.values():
-                tensor.add_(-learning_rate * last_gradient)
-        torch.rand((), generator=generator)
-    teacher_kld, predictions, _ = _joint_loss_and_gradient(
-        bank, _joint_state_delta(state)
+    trainer_path = Path(trainer).expanduser().resolve()
+    if not trainer_path.is_file():
+        raise FileNotFoundError(trainer_path)
+    trainer_sha256 = _sha256(trainer_path)
+    environment = os.environ.copy()
+    environment.update({
+        "QTIP_V7_FREEZE": str(freeze_path),
+        "QTIP_V7_MANIFEST": str(frozen["manifest"]["path"]),
+        "QTIP_V7_TEACHER_BANK": str(frozen["teacher_bank"]["path"]),
+        "QTIP_V7_CHECKPOINT": str(checkpoint_path),
+        "QTIP_V7_TARGET_UPDATE": str(target_update),
+        "QTIP_V7_RESUME_FROM": "" if resume_path is None else str(resume_path),
+        "QTIP_V7_OBJECTIVE": "teacher_kld",
+        "QTIP_V7_LAYER_LUTS": "43",
+        "QTIP_V7_RMSNORM_MASTERS": "235",
+        "QTIP_V7_OUTPUT_GAINS": "43",
+        "QTIP_V7_TRAINER_SHA256": trainer_sha256,
+    })
+    command = (
+        [str(trainer_path)]
+        if os.access(trainer_path, os.X_OK)
+        else [os.environ.get("PYTHON", "python3"), str(trainer_path)]
     )
-    continuity = {
-        "optimizer": {
-            "name": "full-surface-sgd",
-            "learning_rate": learning_rate,
-            "last_gradient": last_gradient,
-            "step": target_update,
-        },
-        "scheduler": {"name": "constant", "update": target_update},
-        "rng_state": generator.get_state(),
-        "trainer_identity": _PACKAGED_TRAINER,
-        "parent": None if prior is None else {
-            "path": str(resume_path),
-            "sha256": prior["checkpoint_sha256"],
-            "update": prior["update"],
-        },
-    }
-    torch.save({
-        "format": _CHECKPOINT_FORMAT,
-        "update": target_update,
-        "objective": "teacher_kld",
-        "freeze_sha256": _sha256(freeze_path),
-        "teacher_kld": teacher_kld,
-        "predictions": predictions,
-        "state": state,
-        "continuity": continuity,
-    }, checkpoint_path)
+    completed = subprocess.run(command, env=environment, check=False)
+    if completed.returncode:
+        raise RuntimeError(f"QTIP V7 trainer exited with status {completed.returncode}")
+    if not checkpoint_path.is_file():
+        raise RuntimeError("QTIP V7 trainer did not emit the requested checkpoint")
     os.chmod(checkpoint_path, 0o444)
     result = verify_joint_checkpoint(freeze=freeze_path, checkpoint=checkpoint_path)
+    import torch
+
+    payload = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    if payload["continuity"]["trainer_identity"] != trainer_sha256:
+        raise ValueError("joint checkpoint trainer identity does not match supplied trainer")
     _validate_continuity(
-        torch.load(checkpoint_path, map_location="cpu", weights_only=True),
+        payload,
         checkpoint_path,
         prior,
     )
@@ -576,12 +520,12 @@ def train_joint(
     }
 
 
-def _parse_worker(value: str) -> tuple[str, str | None, Path | None, Path | None]:
+def _parse_worker(value: str) -> tuple[str, str | None, Path | None, Path]:
     target, separator, command = value.partition("=")
     if not separator or not target or not command:
         raise ValueError("--worker must be LOCAL=COMMAND or HOST:REMOTE_ROOT=COMMAND")
-    command_path = None if command == "builtin" else Path(command).expanduser().resolve()
-    if command_path is not None and not command_path.is_file():
+    command_path = Path(command).expanduser().resolve()
+    if not command_path.is_file():
         raise FileNotFoundError(command_path)
     if target.startswith("local"):
         return target, None, None, command_path
@@ -705,9 +649,7 @@ def launch_balanced64_shards(
             remote_receipt: str | None = None
             if remote_root is None:
                 command = (
-                    [sys.executable, "-m", "banana_smasher.qtip_v7_balanced64_scorer"]
-                    if worker is None
-                    else [str(worker)]
+                    [str(worker)]
                     if os.access(worker, os.X_OK)
                     else [sys.executable, str(worker)]
                 )
@@ -715,8 +657,7 @@ def launch_balanced64_shards(
             else:
                 remote = remote_root / f"o{start:02d}-{end:02d}"
                 subprocess.run(["ssh", target, "mkdir", "-p", str(remote)], check=True)
-                packaged_worker = Path(__file__).with_name("qtip_v7_balanced64_scorer.py")
-                staged_worker = packaged_worker if worker is None else worker
+                staged_worker = worker
                 subprocess.run(["scp", str(candidate_path), str(bank_path), str(staged_worker), f"{target}:{remote}/"], check=True)
                 remote_candidate = remote / candidate_path.name
                 remote_bank = remote / bank_path.name

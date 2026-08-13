@@ -92,21 +92,37 @@ def _teacher_bank(tmp_path: Path) -> Path:
 def _trainer(tmp_path: Path) -> Path:
     path = tmp_path / "trainer.py"
     path.write_text("""#!/usr/bin/env python3
-import os
+import hashlib, json, os
 from pathlib import Path
+import numpy as np
 import torch
-update = int(os.environ['QTIP_V7_TARGET_UPDATE'])
+freeze = Path(os.environ['QTIP_V7_FREEZE'])
+bank = json.loads(Path(os.environ['QTIP_V7_TEACHER_BANK']).read_text())
 out = Path(os.environ['QTIP_V7_CHECKPOINT'])
+update = int(os.environ['QTIP_V7_TARGET_UPDATE'])
+resume = os.environ['QTIP_V7_RESUME_FROM']
+surface = json.loads(freeze.read_text())['trainable_surface']
+if resume:
+    parent = torch.load(resume, map_location='cpu', weights_only=True)
+    state = parent['state']
+    parent_row = {'path': str(Path(resume).resolve()), 'sha256': hashlib.sha256(Path(resume).read_bytes()).hexdigest(), 'update': int(parent['update'])}
+else:
+    state = {group: {name: torch.full(shape, 0.1, dtype=torch.float32) for name, shape in rows.items()} for group, rows in surface.items()}
+    parent_row = None
+for entries in state.values():
+    for tensor in entries.values():
+        tensor.add_(-0.01 * (update - (0 if parent_row is None else parent_row["update"])))
+shift = 0.1 / (update + 1)
+predictions = [[float(value) + (shift if i == 0 else -shift) for i, value in enumerate(row['teacher_logits'])] for row in bank['windows']]
+def softmax(values):
+    a = np.asarray(values, dtype=np.float64); a -= a.max(); a = np.exp(a); return a / a.sum()
+losses = []
+for row, prediction in zip(bank['windows'], predictions, strict=True):
+    teacher = softmax(row['teacher_logits']); predicted = softmax(prediction)
+    losses.append(float(np.sum(teacher * (np.log(teacher) - np.log(predicted)))))
+continuity = {'optimizer': {'step': update}, 'scheduler': {'update': update}, 'rng_state': torch.Generator().manual_seed(update).get_state(), 'trainer_identity': os.environ['QTIP_V7_TRAINER_SHA256'], 'parent': parent_row}
 out.parent.mkdir(parents=True, exist_ok=True)
-state = {
-    'layer_luts': {f'L{i:03d}': torch.full((1024,), i + update / 100, dtype=torch.float32) for i in reversed(range(43))},
-    'norms': {f'norm_{i:03d}': torch.ones(2, dtype=torch.float32) for i in range(235)},
-    'outputs': {f'gain_{i:03d}': torch.tensor(0.0, dtype=torch.float32) for i in range(43)},
-}
-freeze_sha = __import__('hashlib').sha256(Path(os.environ['QTIP_V7_FREEZE']).read_bytes()).hexdigest()
-torch.save({'format': 'banana-smasher-qtip-v7-joint-checkpoint-v1', 'update': update,
-            'objective': 'teacher_kld', 'freeze_sha256': freeze_sha,
-            'teacher_kld': 0.25 / (update + 1), 'state': state}, out)
+torch.save({'format': 'banana-smasher-qtip-v7-joint-checkpoint-v1', 'update': update, 'objective': 'teacher_kld', 'freeze_sha256': hashlib.sha256(freeze.read_bytes()).hexdigest(), 'teacher_kld': sum(losses) / len(losses), 'predictions': predictions, 'state': state, 'continuity': continuity}, out)
 """)
     path.chmod(0o755)
     return path
@@ -170,7 +186,12 @@ def _joint_checkpoint(
     assert freeze is not None
     from banana_smasher.qtip_v7_joint_workflow import train_joint
 
-    train_joint(freeze=freeze, checkpoint=path, target_update=update)
+    train_joint(
+        freeze=freeze,
+        checkpoint=path,
+        target_update=update,
+        trainer=_trainer(path.parent),
+    )
     return path
 
 
@@ -191,7 +212,8 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
 
     checkpoint5 = run / "checkpoints" / "UPDATE_005.pt"
     assert main(["qtip-v7-joint-repair", "train", "--freeze", str(run / "FROZEN_INPUTS.json"),
-                 "--checkpoint", str(checkpoint5), "--target-update", "5"]) == 0
+                 "--checkpoint", str(checkpoint5), "--target-update", "5",
+                 "--trainer", str(_trainer(tmp_path))]) == 0
     trained = json.loads(capsys.readouterr().out)
     assert trained["status"] == "PASS"
     assert trained["update"] == 5
@@ -208,14 +230,15 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
     checkpoint8 = run / "checkpoints" / "UPDATE_008.pt"
     assert main(["qtip-v7-joint-repair", "train", "--freeze", str(run / "FROZEN_INPUTS.json"),
                  "--checkpoint", str(checkpoint8), "--resume-from", str(checkpoint5),
-                 "--target-update", "8"]) == 0
+                 "--target-update", "8", "--trainer", str(_trainer(tmp_path))]) == 0
     assert json.loads(capsys.readouterr().out)["resumed_from_update"] == 5
 
     shard_root = run / "balanced64"
     assert main(["qtip-v7-joint-repair", "shard-launch", "--candidate", str(checkpoint5),
                  "--freeze", str(run / "FROZEN_INPUTS.json"),
                  "--teacher-bank", str(bank), "--output", str(shard_root),
-                 "--worker", "local-a=builtin", "--worker", "local-b=builtin"]) == 0
+                 "--worker", f"local-a={_shard_worker(tmp_path)}",
+                 "--worker", f"local-b={_shard_worker(tmp_path)}"]) == 0
     launched = json.loads(capsys.readouterr().out)
     assert launched["status"] == "PASS"
     assert [(row["ordinal_start"], row["ordinal_end"]) for row in launched["shards"]] == [(0, 31), (32, 63)]
