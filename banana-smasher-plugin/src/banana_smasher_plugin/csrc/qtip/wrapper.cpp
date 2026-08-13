@@ -46,7 +46,16 @@ DECLARE_QTIP_SPECIALIZATION(qtip3_k2048_prefill_large_8192)
 
 #undef DECLARE_QTIP_SPECIALIZATION
 
+void qtip2_v7_direct(
+    torch::Tensor& out, const torch::Tensor& sources,
+    const torch::Tensor& family_block_count, const torch::Tensor& block_experts,
+    const torch::Tensor& block_valid_m, const torch::Tensor& block_route_rows,
+    const torch::Tensor& x, const torch::Tensor& embedded_codebook,
+    const torch::Tensor& physical_counters, int64_t variant,
+    int64_t specialized_counter_index);
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("qtip2_v7_direct", &qtip2_v7_direct, "direct packed QTIP2 V7 projection");
   m.def("qtip2_k4096_decode_c1", &qtip2_k4096_decode_c1, "qtip2_k4096_decode_c1");
   m.def("qtip2_k4096_decode_c2", &qtip2_k4096_decode_c2, "qtip2_k4096_decode_c2");
   m.def("qtip2_k4096_decode_c4", &qtip2_k4096_decode_c4, "qtip2_k4096_decode_c4");

@@ -171,7 +171,8 @@ at::Tensor qtip_post_transform(
               "invalid QTIP post-transform shapes");
   const c10::cuda::CUDAGuard guard(out.device());
   const int width = static_cast<int>(out.size(1));
-  TORCH_CHECK(width == 4096, "QTIP post-transform width must be 4096");
+  TORCH_CHECK(width == 2048 || width == 4096,
+              "QTIP post-transform width must be 2048 or 4096");
   const int stride = static_cast<int>(block_route_rows.size(1));
   const dim3 grid(block_experts.numel(), stride, 1);
   const auto stream = at::cuda::getCurrentCUDAStream(out.get_device()).stream();

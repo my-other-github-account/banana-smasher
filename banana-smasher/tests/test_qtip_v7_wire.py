@@ -9,6 +9,7 @@ import pytest
 import banana_smasher.qtip_v7_wire as wire_module
 from banana_smasher.cli import main
 from banana_smasher.qtip_v7_wire import (
+    QtipV7LayerMapping,
     WireGeometry,
     account_qtip_v7_model,
     pack_qtip_v7_layer,
@@ -74,6 +75,22 @@ def test_fixed_envelope_round_trip_reconstructs_exact_order(tmp_path: Path) -> N
     assert sorted(path.name for path in reconstructed.iterdir()) == sorted(originals)
     assert all((reconstructed / name).read_bytes() == payload for name, payload in originals.items())
 
+    with QtipV7LayerMapping(wire, _geometry=geometry) as mapping:
+        packed_view = mapping.packed_view(1, "w2")
+        lut_view = mapping.lut_view()
+        assert packed_view.obj is mapping.buffer
+        assert lut_view.obj is mapping.buffer
+        assert bytes(packed_view) == originals["E001_w2.q2v7wire"][: geometry.packed_bytes]
+        assert bytes(lut_view) == lut.read_bytes()
+        assert mapping.transient_controls() == b"".join(
+            payload[geometry.packed_bytes :] for payload in originals.values()
+        )
+        assert mapping.transient_workspace_peak_bytes == (
+            geometry.member_count * geometry.control_bytes
+        )
+        packed_view.release()
+        lut_view.release()
+
 
 def test_public_cli_exposes_wire_one_liners(capsys) -> None:
     with pytest.raises(SystemExit) as raised:
@@ -82,6 +99,14 @@ def test_public_cli_exposes_wire_one_liners(capsys) -> None:
     parent_help = capsys.readouterr().out
     for command in ("pack-layer", "verify-layer", "account-model"):
         assert command in parent_help
+
+    with pytest.raises(SystemExit) as raised:
+        main(["qtip-v7-residency", "--help"])
+    assert raised.value.code == 0
+    residency_help = capsys.readouterr().out
+    assert "--accounting" in residency_help
+    assert "--hardware-readback" in residency_help
+    assert "--capture-hardware" in residency_help
 
     # Parser coverage stays cheap; the physical implementation is exercised above.
     with pytest.raises(SystemExit) as raised:
@@ -152,6 +177,7 @@ def test_public_wire_surface_contains_no_obsolete_stale_total() -> None:
         root / "src/banana_smasher/qtip_v7_wire.py",
         root / "src/banana_smasher/qtip_v7_repair.py",
         root / "src/banana_smasher/qtip_v7_joint_workflow.py",
+        root / "src/banana_smasher/qtip_v7_residency.py",
         root / "src/banana_smasher/cli.py",
         root.parent / "notes/qtip-v7-joint-repair-one-line-workflow.md",
     ]

@@ -23,7 +23,7 @@ _REQUIRED_QTIP_EXPORTS = tuple(
     for family in (2, 3)
     for width in (4096, 2048)
     for variant in _VARIANTS
-)
+) + ("qtip2_v7_direct",)
 _REQUIRED_TORCH_OPERATORS = (
     "compact_routes",
     "qtip_pre_transform",

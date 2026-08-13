@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from decimal import Decimal, localcontext
 import hashlib
 import json
+import mmap
 import os
 from pathlib import Path
 import re
@@ -43,6 +44,75 @@ class WireGeometry:
 
 
 _DEFAULT_GEOMETRY = WireGeometry()
+
+
+class QtipV7LayerMapping:
+    """Read-only views over one fixed envelope; packed bytes and LUT are never copied."""
+
+    def __init__(
+        self,
+        wire: str | Path,
+        *,
+        _geometry: WireGeometry = _DEFAULT_GEOMETRY,
+    ) -> None:
+        self.geometry = _geometry
+        self.path = Path(wire).expanduser().resolve()
+        if self.path.stat().st_size != self.geometry.envelope_bytes:
+            raise ValueError("QTIP V7 layer wire physical byte count drift")
+        self._handle = self.path.open("rb")
+        try:
+            self.buffer = mmap.mmap(self._handle.fileno(), 0, access=mmap.ACCESS_READ)
+            metadata = _read_header(self.buffer, self.geometry)
+            _validate_metadata(metadata, self.geometry)
+            self.metadata = metadata
+            self._roster_index = {
+                name: index for index, name in enumerate(metadata["roster"])
+            }
+        except Exception:
+            self._handle.close()
+            raise
+
+    def packed_view(self, expert: int, projection: str) -> memoryview:
+        """Alias one direct-kernel trellis member inside the mapped envelope."""
+        try:
+            index = self._roster_index[_member_name(expert, projection)]
+        except (KeyError, TypeError) as exc:
+            raise ValueError(
+                f"unknown QTIP V7 member expert={expert!r} projection={projection!r}"
+            ) from exc
+        start = self.metadata["layout"]["packed_offset"] + index * self.geometry.packed_bytes
+        return memoryview(self.buffer)[start : start + self.geometry.packed_bytes]
+
+    def lut_view(self) -> memoryview:
+        """Alias the embedded layer-shared FP16[1024] LUT."""
+        start = self.metadata["layout"]["lut_offset"]
+        return memoryview(self.buffer)[start : start + self.geometry.lut_bytes]
+
+    def transient_controls(self) -> bytearray:
+        """Expand controls into caller-owned bounded workspace, never resident state."""
+        layout = self.metadata["layout"]
+        start = layout["control_offset"]
+        compressed = self.buffer[start : start + layout["compressed_control_bytes"]]
+        controls = bytearray(zlib.decompress(compressed))
+        if len(controls) != layout["uncompressed_control_bytes"]:
+            raise ValueError("QTIP V7 control reconstruction byte count drift")
+        if hashlib.sha256(controls).hexdigest() != self.metadata["control_sha256"]:
+            raise ValueError("QTIP V7 control reconstruction mismatch")
+        return controls
+
+    @property
+    def transient_workspace_peak_bytes(self) -> int:
+        return int(self.metadata["layout"]["uncompressed_control_bytes"])
+
+    def close(self) -> None:
+        self.buffer.close()
+        self._handle.close()
+
+    def __enter__(self) -> "QtipV7LayerMapping":
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self.close()
 
 
 def _sha256(path: Path) -> str:
@@ -479,6 +549,7 @@ def account_qtip_v7_model(
 
 
 __all__ = [
+    "QtipV7LayerMapping",
     "WireGeometry",
     "account_qtip_v7_model",
     "pack_qtip_v7_layer",
