@@ -86,90 +86,31 @@ python tools/mmlu_density/build_mmlu500_manifest.py \
 
 A valid rebuild must reproduce both frozen file hashes above byte-for-byte.
 
-## Kimi-K3 IQ1S one-file layerwise reproductions
+## Kimi-K3 GGUF top-N reproduction
 
-The two pinned standalone runners reproduce the published Kimi rows in
-`kimi-iq1s-results.json`:
+Use a Kimi-K3-capable `llama-server`, such as the pinned Unsloth branch commit
+`23fac110127ba3ac56bd8b370eb0205a67564d55`:
 
 ```bash
-python reproduce_unsloth_layerwise.py \
-  --model-dir /models/Kimi-K3-GGUF/UD-IQ1_S \
-  --binary-dir /path/to/sparkinfer-k3-mmlu-bin \
-  --output-dir ./mmlu500-unsloth
+./llama-server -m /models/Kimi-K3-UD-IQ1_S-00001-of-00014.gguf
+python reproduce_kimi_topn.py
 
-python reproduce_neuron_layerwise.py \
-  --model-dir /models/Kimi-K3-Neuron-IQ1S-GGUF \
-  --binary-dir /path/to/sparkinfer-k3-mmlu-bin \
-  --output-dir ./mmlu500-neuron
+# Or restart the server with the Neuron-named artifact:
+./llama-server -m /models/k3-neuron-iq1s-00001-of-00009.gguf
+python reproduce_kimi_topn.py
 ```
 
-Run them in an environment containing exactly `tiktoken==0.12.0`. Each file
-fetches and authenticates this frozen 500-row bank and the pinned Kimi tokenizer,
-checks every local GGUF member against its pinned size and SHA-256, carries the
-hidden state plus residual-checkpoint bank through layers 0–92 one resident
-range at a time, scores only token IDs 32–35, and independently aggregates the
-result. Full runs pass only at the published `412/500` (Unsloth) or `342/500`
-(Neuron) score. Use `--prepare-only` for a weight-free basis/tokenizer check and
-`--limit N` for a compute smoke prefix.
+The same dependency-free 50-line script scores either model. It authenticates the
+frozen item file, obtains exact prompt token IDs from `/tokenize`, then asks
+`/completion` for one token with pre-sampling top-N logprobs. The generated token
+is ignored; only logprob differences for token IDs `32`, `33`, `34`, and `35`
+are used. Those differences preserve both the A/B/C/D argmax and four-way cross
+entropy, so no raw-logit C/C++ harness is needed. The run fails instead of
+silently scoring if any candidate falls outside `--top-n` (default: 100).
 
-`--binary-dir` must contain the three CUDA executables used by the sealed runs:
-`kimi_k3_prefix_dump`, `kimi_k3_boundary_advance`, and
-`kimi_k3_boundary_score`, built against the K3 SparkInfer runtime. They are kept
-external because embedding the native CUDA/C++ runtime would turn each small
-runner into a cosmetic single-file archive rather than a readable script.
-
-### Standard-framework assessment
-
-A maintained framework is preferable to benchmark-specific boundary executables,
-but no current framework preserves both the pinned GGUF artifacts and the
-one-Spark memory bound:
-
-- **vLLM is not a disk-streamed layer executor.** vLLM v0.27.1 has native
-  Kimi-K3 model code, but the released official `vllm-gguf-plugin` v0.0.5 does
-  not include a Kimi-K3 GGUF adapter. The plugin has low-level IQ1_S kernels;
-  that alone is insufficient because the generic adapter cannot map Kimi-K3's
-  tensor layout. Kimi-K3 GGUF support exists only in open, unmerged, currently
-  dirty [plugin PR #92](https://github.com/vllm-project/vllm-gguf-plugin/pull/92),
-  whose reported end-to-end test used UD-Q2_K_XL on 8xH200, not either IQ1_S
-  artifact or one Spark. Even if that adapter lands, vLLM's documented
-  "layerwise" API incrementally *reloads new weights into an already allocated
-  model* for post-training; it does not execute a forward one layer range at a
-  time. The GGUF loader materializes each mmap-backed tensor as a Torch tensor,
-  while UVA and prefetch offload retain a complete CPU-side parameter image.
-  That cannot hold these 330,167,807,328-byte and 594,040,923,616-byte artifacts
-  on a 128 GB unified-memory Spark. Disabling pinned memory changes allocation
-  type, not required capacity.
-- **AirLLM 3.1 and Colibri are genuine Kimi-K3 layer/expert streaming engines.**
-  They currently consume the official safetensors/MXFP4 checkpoint, however,
-  not the two pinned IQ1_S GGUF artifacts. Substituting either would evaluate
-  different weights and would not reproduce the published rows.
-- **llama.cpp is the closest GGUF-native alternative.** A Kimi-K3-capable branch
-  can mmap both sharded GGUFs, and `libllama` can return the raw final-position
-  vocabulary row with `llama_get_logits_ith(ctx, -1)`. The public HTTP API's
-  `n_probs` response is not equivalent: it returns top-N normalized
-  probabilities for generated tokens, not arbitrary raw prompt-final logits.
-  Exact A/B/C/D scoring therefore needs a small C/C++ `libllama` harness.
-  Upstream Kimi-K3 support is still open in
-  [PR #26185](https://github.com/ggml-org/llama.cpp/pull/26185), and mmap demand
-  paging is not managed, bounded layer/expert streaming. It is not equivalent
-  to advancing the entire 500-prompt batch through one resident layer range.
-  No `412/500` or `342/500` parity receipt exists for that path; replacing the
-  sealed runtime with it would therefore be an unverified change.
-
-Assessment source pins:
-
-- vLLM `v0.27.1`
-- `vllm-gguf-plugin` `v0.0.5`; Kimi-K3 PR #92 head
-  `f2ca46da133cf72c33242d9c0b569cc87269e390`
-- AirLLM `v3.1.0` / `64a4e4fc3749aa7dc9bba4788f560ed0d7e74bd2`
-- Colibri `72cd9f7709d6805443145b92d9d0494da685eae5`
-- `ggml-org/llama.cpp` Kimi-K3 PR #26185, assessed at
-  `0d5346be5de5ceb98a8158d49c2819c64b236955`
-- Unsloth Kimi-K3 llama.cpp branch
-  `23fac110127ba3ac56bd8b370eb0205a67564d55`
-
-Therefore the exact published-row runners retain the smallest known compatible
-SparkInfer boundary interface. AirLLM is the preferred standardized starting
-point for a future safetensors/MXFP4 benchmark, while a replacement for these
-GGUF rows requires candidate-logit parity on all 500 frozen prompts before it
-can become the default.
+Published targets are `412/500` for `unsloth/Kimi-K3-GGUF` UD-IQ1_S revision
+`a0836360ce58dfec088d966a97f2ddc8a606279b` and `342/500` for the Neuron-named
+`vcruz305/Kimi-K3-Neuron-IQ1S-GGUF` revision
+`a2d6283870dd97d2f177c69d94fb18120e79fe65`. Upstream Kimi-K3 llama.cpp support
+is still open in [PR #26185](https://github.com/ggml-org/llama.cpp/pull/26185),
+so use a Kimi-K3-capable build rather than current upstream master.
