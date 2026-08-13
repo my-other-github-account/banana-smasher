@@ -277,8 +277,8 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
                  "--checkpoint", str(checkpoint5), "--output", str(materialized)]) == 0
     wire = json.loads(capsys.readouterr().out)
     assert wire["status"] == "PASS"
-    assert wire["physical_stored_bytes"] == wire["physical_qtip_bytes"] + wire["dense_repair_bytes"]
-    assert wire["wire_size_delta"] == 0
+    assert wire["physical_accounting"] == "requires qtip-v7-wire verified layer receipts"
+    assert "stored_wire_bytes" not in wire
     layer0 = np.fromfile(materialized / "L000.tlut.f16", dtype="<f2")
     layer42 = np.fromfile(materialized / "L042.tlut.f16", dtype="<f2")
     assert np.all(layer0 < np.float16(0.1))

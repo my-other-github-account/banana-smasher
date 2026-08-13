@@ -235,8 +235,8 @@ def inspect_joint_inputs(
         "manifest": {
             "path": str(manifest_path),
             "sha256": _sha256(manifest_path),
-            "complete_wire_bytes": source.complete_wire_bytes,
             "members": len(source.member_paths) + source.external_member_count,
+            "physical_accounting": "requires qtip-v7-wire verified layer receipts",
         },
         "teacher_bank": {
             "path": str(bank_path),
@@ -992,13 +992,7 @@ def materialize_joint(
             "checkpoint_sha256": _sha256(checkpoint_path),
             "objective": "teacher_kld",
         })
-        referenced_wire_bytes = sum(
-            path.stat().st_size
-            for path in (*source.member_paths, *source.external_paths)
-        )
-        physical_qtip_bytes = len(readback.layer_luts) * 2048
-        logical_wire_bytes = readback.complete_wire_bytes
-        dense_bytes = repair_path.stat().st_size
+
         result = {
             "schema": "banana-smasher-qtip-v7-joint-materialization-v1",
             "status": "PASS",
@@ -1010,16 +1004,13 @@ def materialize_joint(
                 readback.member_wire_sha256 == source.member_wire_sha256
                 and readback.external_wire_sha256 == source.external_wire_sha256
             ),
-            "wire_size_delta": logical_wire_bytes - source.complete_wire_bytes,
-            "logical_wire_bytes": logical_wire_bytes,
-            "referenced_wire_bytes": referenced_wire_bytes,
-            "physical_qtip_bytes": physical_qtip_bytes,
-            "dense_repair_bytes": dense_bytes,
-            "physical_stored_bytes": physical_qtip_bytes + dense_bytes,
+
             "repair_state_sha256": _sha256(repair_path),
+            "repair_state_bytes": repair_path.stat().st_size,
+            "physical_accounting": "requires qtip-v7-wire verified layer receipts",
         }
-        if not result["packed_identity"] or result["wire_size_delta"] != 0:
-            raise RuntimeError("joint materialization changed fixed QTIP wire identity/accounting")
+        if not result["packed_identity"]:
+            raise RuntimeError("joint materialization changed fixed QTIP member identity")
         _write_json(output_path / "QTIP_V7_JOINT_MATERIALIZATION.json", result, exclusive=True)
         return result
     except Exception:

@@ -257,12 +257,12 @@ def test_external_scorer_and_wire_accounting_distinguish_physical_from_reference
         checkpoint=checkpoint,
         output=run / "materialized",
     )
-    assert result["referenced_wire_bytes"] == 43
-    assert result["physical_qtip_bytes"] == 43 * 2048
-    assert result["physical_stored_bytes"] == (
-        result["physical_qtip_bytes"] + result["dense_repair_bytes"]
+    assert result["physical_accounting"] == (
+        "requires qtip-v7-wire verified layer receipts"
     )
-    assert result["logical_wire_bytes"] == result["referenced_wire_bytes"] + 43 * 2048
+    assert "referenced_wire_bytes" not in result
+    assert "logical_wire_bytes" not in result
+    assert "physical_stored_bytes" not in result
 
 
 def test_trainer_alias_is_refused_and_failed_peer_cancels_other_workers(tmp_path: Path) -> None:

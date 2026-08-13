@@ -131,7 +131,8 @@ def test_update0_export_preserves_complete_v7_wire(tmp_path: Path) -> None:
     read0 = load_qtip_v7_artifact(update0 / "QTIP_V7_MANIFEST.json")
 
     assert receipt0["update"] == 0
-    assert receipt0["complete_wire_bytes"] == MEMBER_BYTES + 2048
+    assert receipt0["physical_accounting"] == "requires qtip-v7-wire verified layer receipts"
+    assert "complete_wire_bytes" not in receipt0
     assert read0.member_wire_sha256 == source.member_wire_sha256
     assert read0.layer_luts[33].tobytes() == source.layer_luts[33].tobytes()
 
@@ -171,7 +172,7 @@ def test_public_cli_composes_layer_bound_updates_and_rejects_bad_rosters(
     composed = load_qtip_v7_artifact(output / "QTIP_V7_MANIFEST.json")
     assert receipt["updated_layers"] == [33, 34]
     assert receipt["packed_identity"] is True
-    assert receipt["wire_size_delta"] == 0
+    assert "wire_size_delta" not in receipt
     assert composed.member_wire_sha256 == source.member_wire_sha256
     assert composed.complete_wire_bytes == source.complete_wire_bytes
     assert composed.layer_luts[33].tobytes() != source.layer_luts[33].tobytes()
@@ -209,7 +210,7 @@ def test_external_runtime_layer_is_billed_without_fabricating_members(tmp_path: 
     assert receipt["updated_layers"] == [33, 34]
     assert receipt["members"] == 769
     assert receipt["external_layers"] == [34]
-    assert receipt["wire_size_delta"] == 0
+    assert "wire_size_delta" not in receipt
     assert composed.member_wire_sha256 == source.member_wire_sha256
     assert composed.complete_wire_bytes == source.complete_wire_bytes
 
@@ -226,7 +227,6 @@ def test_all_external_layers_export_without_fabricating_members(tmp_path: Path) 
         "provider": "census-bound-existing-artifact",
     }]
     manifest.write_text(json.dumps(document, sort_keys=True))
-    source = load_qtip_v7_artifact(manifest)
     update = _update_artifact(tmp_path / "update33.pt", 3.0)
 
     receipt = export_qtip_v7_artifact(
@@ -238,8 +238,8 @@ def test_all_external_layers_export_without_fabricating_members(tmp_path: Path) 
     assert receipt["members"] == 768
     assert receipt["external_layers"] == [33]
     assert receipt["packed_identity"] is True
-    assert receipt["wire_size_delta"] == 0
-    assert receipt["complete_wire_bytes"] == source.complete_wire_bytes
+    assert "wire_size_delta" not in receipt
+    assert "complete_wire_bytes" not in receipt
 
 
 def test_real_update1_trains_shared_lut_and_exports_same_complete_wire(
@@ -329,7 +329,7 @@ def test_real_update1_trains_shared_lut_and_exports_same_complete_wire(
     )
     read1 = load_qtip_v7_artifact(update1 / "QTIP_V7_MANIFEST.json")
     assert receipt1["packed_identity"] is True
-    assert receipt1["wire_size_delta"] == 0
+    assert "wire_size_delta" not in receipt1
     assert read1.member_wire_sha256 == source.member_wire_sha256
     assert read1.layer_luts[33].tobytes() != source.layer_luts[33].tobytes()
     assert read1.complete_wire_bytes == source.complete_wire_bytes
