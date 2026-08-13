@@ -231,13 +231,23 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
         help="trainer hostname or direct-fabric address sealed into the freeze receipt",
     )
+    joint_inspect.add_argument(
+        "--trainer-alias",
+        action="append",
+        default=[],
+        help="repeat for every trainer hostname/address alias that side workers must exclude",
+    )
     joint_train = joint_commands.add_parser(
         "train", help="launch or resume full joint training to an explicit update horizon"
     )
     joint_train.add_argument("--freeze", type=Path, required=True)
     joint_train.add_argument("--checkpoint", type=Path, required=True)
     joint_train.add_argument("--target-update", type=int, required=True)
-    joint_train.add_argument("--trainer", type=Path, required=True)
+    joint_train.add_argument(
+        "--trainer",
+        type=Path,
+        help="deprecated and refused; the complete trainer is packaged with smash",
+    )
     joint_train.add_argument("--resume-from", type=Path)
     joint_verify = joint_commands.add_parser(
         "verify", help="rehash and validate immutable checkpoint/PASS receipt"
@@ -253,6 +263,11 @@ def _parser() -> argparse.ArgumentParser:
     joint_shard.add_argument("--freeze", type=Path, required=True)
     joint_shard.add_argument("--teacher-bank", type=Path, required=True)
     joint_shard.add_argument("--output", type=Path, required=True)
+    joint_shard.add_argument(
+        "--remote-python",
+        default="python3",
+        help="Python executable available on every SSH worker (default: python3)",
+    )
     joint_shard.add_argument(
         "--worker",
         action="append",
@@ -278,6 +293,7 @@ def _parser() -> argparse.ArgumentParser:
     joint_materialize.add_argument("--manifest", type=Path, required=True)
     joint_materialize.add_argument("--checkpoint", type=Path, required=True)
     joint_materialize.add_argument("--output", type=Path, required=True)
+
 
     enqueue = subparsers.add_parser(
         "update-enqueue", help="durably enqueue an exactly-once update request"
@@ -1271,6 +1287,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     teacher_bank=args.teacher_bank,
                     run_root=args.run_root,
                     trainer_host=args.trainer_host,
+                    trainer_aliases=args.trainer_alias,
                 )
             elif args.joint_command == "train":
                 result = train_joint(
@@ -1293,6 +1310,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     teacher_bank=args.teacher_bank,
                     output=args.output,
                     workers=args.worker,
+                    remote_python=args.remote_python,
                 )
             elif args.joint_command == "aggregate":
                 result = aggregate_balanced64(

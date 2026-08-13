@@ -56,6 +56,7 @@ class QtipV7Artifact:
     member_paths: tuple[Path, ...]
     member_wire_sha256: tuple[str, ...]
     external_layers: tuple[int, ...]
+    external_paths: tuple[Path, ...]
     external_member_count: int
     external_wire_sha256: tuple[str, ...]
     layer_luts: dict[int, np.ndarray]
@@ -104,6 +105,13 @@ def load_qtip_v7_artifact(manifest: str | Path) -> QtipV7Artifact:
     if not isinstance(external, list):
         raise ValueError("QTIP V7 external_layers must be a list")
     external_layers: set[int] = set()
+    external_root_value = document.get("external_root")
+    external_root = (
+        root
+        if external_root_value is None
+        else Path(str(external_root_value)).expanduser().resolve()
+    )
+    external_paths: list[Path] = []
     external_member_count = 0
     external_wire_bytes = 0
     external_shas: list[str] = []
@@ -135,7 +143,28 @@ def load_qtip_v7_artifact(manifest: str | Path) -> QtipV7Artifact:
             raise ValueError(f"QTIP V7 external layer {layer} requires lowercase SHA-256 identity")
         if not isinstance(provider, str) or not provider:
             raise ValueError(f"QTIP V7 external layer {layer} requires provider identity")
+        path = None
+        if isinstance(row.get("path"), str):
+            path = _bound_file(external_root, row, expected_bytes=complete_wire_bytes)
+            if row.get("sha256") != identity_sha256:
+                raise ValueError(
+                    f"QTIP V7 external layer {layer} identity must match its physical readback"
+                )
+        roster = row.get("members")
+        expected_roster = [
+            {"expert": expert, "projection": projection}
+            for expert in range(256)
+            for projection in ("w1", "w2", "w3")
+        ]
+        if roster is not None and (
+            roster != expected_roster or member_count != len(expected_roster)
+        ):
+            raise ValueError(
+                f"QTIP V7 external layer {layer} requires an exact physical member roster"
+            )
         external_layers.add(layer)
+        if path is not None:
+            external_paths.append(path)
         external_member_count += member_count
         external_wire_bytes += complete_wire_bytes
         external_shas.append(identity_sha256)
@@ -165,6 +194,7 @@ def load_qtip_v7_artifact(manifest: str | Path) -> QtipV7Artifact:
         member_paths=tuple(member_paths),
         member_wire_sha256=tuple(member_shas),
         external_layers=tuple(sorted(external_layers)),
+        external_paths=tuple(external_paths),
         external_member_count=external_member_count,
         external_wire_sha256=tuple(external_shas),
         layer_luts=layer_luts,

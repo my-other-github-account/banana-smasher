@@ -41,25 +41,51 @@ def _v7_manifest(tmp_path: Path) -> Path:
         external.append({
             "layer": layer,
             "member_count": 768,
-            "complete_wire_bytes": 768 * 2_109_444,
-            "identity_sha256": f"{layer + 1:064x}",
+            "complete_wire_bytes": 1,
+            "identity_sha256": "",
             "provider": "fixture-external-wire",
+            "path": f"L{layer:03d}.wire",
+            "bytes": 1,
+            "sha256": "",
+            "members": [
+                {"expert": expert, "projection": projection}
+                for expert in range(256)
+                for projection in ("w1", "w2", "w3")
+            ],
         })
+        wire = root / external[-1]["path"]
+        wire.write_bytes(bytes([layer]))
+        external[-1]["identity_sha256"] = _sha(wire)
+        external[-1]["sha256"] = _sha(wire)
     return _json(root / "QTIP_V7_MANIFEST.json", {
         "schema": "banana-smasher-qtip-v7-artifact-v1",
         "rate": 2,
         "members": [],
         "external_layers": external,
         "layer_luts": layers,
+        "joint_trainable_surface": {
+            "layer_luts": {f"L{i:03d}": [1024] for i in range(43)},
+            "norms": {f"rmsnorm_{i:03d}": [2] for i in range(235)},
+            "outputs": {f"output_gain_L{i:03d}": [] for i in range(43)},
+        },
     })
 
 
 def _teacher_bank(tmp_path: Path) -> Path:
+    windows = [
+        {"ordinal": ordinal, "teacher_logits": [0.25 + ordinal / 1000, -0.25]}
+        for ordinal in range(64)
+    ]
     return _json(tmp_path / "teacher-bank.json", {
         "schema": "banana-smasher-qtip-v7-teacher-bank-v1",
         "bank_id": "BALANCED64_V1",
         "teacher_sha256": "f" * 64,
-        "windows": list(range(64)),
+        "positions_per_window": 1024,
+        "support": 8192,
+        "teacher_logits_sha256": hashlib.sha256(
+            (json.dumps(windows, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        ).hexdigest(),
+        "windows": windows,
     })
 
 
@@ -95,7 +121,11 @@ start = int(os.environ['QTIP_V7_SHARD_START'])
 end = int(os.environ['QTIP_V7_SHARD_END'])
 out = Path(os.environ['QTIP_V7_SHARD_RECEIPT'])
 out.parent.mkdir(parents=True, exist_ok=True)
-rows = [{'ordinal': n, 'mean_kld': 0.01 + n / 100000, 'top1_match': 1} for n in range(start, end + 1)]
+rows = [{'ordinal': n, 'positions': 1024, 'support': 8192,
+         'kld_sum_binary64': (0.01 + n / 100000) * 1024,
+         'top1_matches': 1024, 'fallback_calls': 0,
+         'pass_through_bytes': 0, 'hidden_fp32_control_bytes': 0}
+        for n in range(start, end + 1)]
 out.write_text(json.dumps({'schema': 'banana-smasher-qtip-v7-balanced64-shard-v1',
     'status': 'PASS', 'candidate_sha256': os.environ['QTIP_V7_CANDIDATE_SHA256'],
     'teacher_bank_sha256': os.environ['QTIP_V7_TEACHER_BANK_SHA256'],
@@ -105,35 +135,42 @@ out.write_text(json.dumps({'schema': 'banana-smasher-qtip-v7-balanced64-shard-v1
     return path
 
 
+def _pair_worker(tmp_path: Path) -> Path:
+    path = tmp_path / "pair-worker.py"
+    path.write_text("""#!/usr/bin/env python3
+import hashlib, json, os
+from pathlib import Path
+start = int(os.environ['QTIP_V7_PAIR_ORDINAL_START'])
+end = int(os.environ['QTIP_V7_PAIR_ORDINAL_END'])
+out = Path(os.environ['QTIP_V7_PAIR_RECEIPT'])
+out.parent.mkdir(parents=True, exist_ok=True)
+rows = [{'ordinal': n, 'positions': 1024, 'support': 8192,
+         'kld_sum_binary64': (0.02 + n / 100000) * 1024,
+         'top1_matches': 900 + n % 100, 'fallback_calls': 0,
+         'pass_through_bytes': 0, 'hidden_fp32_control_bytes': 0}
+        for n in range(start, end + 1)]
+out.write_text(json.dumps({
+    'schema': 'banana-smasher-qtip-v7-balanced64-shard-v1',
+    'status': 'PASS', 'execution_mode': 'two-node-layer-major',
+    'candidate_sha256': os.environ['QTIP_V7_CANDIDATE_SHA256'],
+    'teacher_bank_sha256': os.environ['QTIP_V7_TEACHER_BANK_SHA256'],
+    'ordinal_start': start, 'ordinal_end': end,
+    'stage_a_layers': [0, 21], 'stage_b_layers': [22, 42],
+    'frontier_sha256': hashlib.sha256(f'{start}:{end}'.encode()).hexdigest(),
+    'rows': rows,
+}, sort_keys=True) + '\\n')
+""")
+    path.chmod(0o755)
+    return path
+
+
 def _joint_checkpoint(
     path: Path, update: int = 5, *, freeze: Path | None = None
 ) -> Path:
-    state = {
-        "layer_luts": {
-            f"L{i:03d}": torch.full((1024,), i + update / 100, dtype=torch.float32)
-            for i in range(43)
-        },
-        "norms": {
-            f"norm_{i:03d}": torch.ones(2, dtype=torch.float32) for i in range(235)
-        },
-        "outputs": {
-            f"gain_{i:03d}": torch.tensor(0.0, dtype=torch.float32)
-            for i in range(43)
-        },
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(
-        {
-            "format": "banana-smasher-qtip-v7-joint-checkpoint-v1",
-            "update": update,
-            "objective": "teacher_kld",
-            "freeze_sha256": _sha(freeze) if freeze is not None else "0" * 64,
-            "teacher_kld": 1.0 / (update + 1),
-            "state": state,
-        },
-        path,
-    )
-    path.chmod(0o444)
+    assert freeze is not None
+    from banana_smasher.qtip_v7_joint_workflow import train_joint
+
+    train_joint(freeze=freeze, checkpoint=path, target_update=update)
     return path
 
 
@@ -152,10 +189,9 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
     }
     assert frozen["teacher_bank"]["windows"] == 64
 
-    trainer = _trainer(tmp_path)
     checkpoint5 = run / "checkpoints" / "UPDATE_005.pt"
     assert main(["qtip-v7-joint-repair", "train", "--freeze", str(run / "FROZEN_INPUTS.json"),
-                 "--checkpoint", str(checkpoint5), "--target-update", "5", "--trainer", str(trainer)]) == 0
+                 "--checkpoint", str(checkpoint5), "--target-update", "5"]) == 0
     trained = json.loads(capsys.readouterr().out)
     assert trained["status"] == "PASS"
     assert trained["update"] == 5
@@ -172,15 +208,14 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
     checkpoint8 = run / "checkpoints" / "UPDATE_008.pt"
     assert main(["qtip-v7-joint-repair", "train", "--freeze", str(run / "FROZEN_INPUTS.json"),
                  "--checkpoint", str(checkpoint8), "--resume-from", str(checkpoint5),
-                 "--target-update", "8", "--trainer", str(trainer)]) == 0
+                 "--target-update", "8"]) == 0
     assert json.loads(capsys.readouterr().out)["resumed_from_update"] == 5
 
-    worker = _shard_worker(tmp_path)
     shard_root = run / "balanced64"
     assert main(["qtip-v7-joint-repair", "shard-launch", "--candidate", str(checkpoint5),
                  "--freeze", str(run / "FROZEN_INPUTS.json"),
                  "--teacher-bank", str(bank), "--output", str(shard_root),
-                 "--worker", f"local-a={worker}", "--worker", f"local-b={worker}"]) == 0
+                 "--worker", "local-a=builtin", "--worker", "local-b=builtin"]) == 0
     launched = json.loads(capsys.readouterr().out)
     assert launched["status"] == "PASS"
     assert [(row["ordinal_start"], row["ordinal_end"]) for row in launched["shards"]] == [(0, 31), (32, 63)]
@@ -190,7 +225,9 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
                  "--output", str(aggregate)]) == 0
     measured = json.loads(capsys.readouterr().out)
     assert measured["windows"] == 64
-    assert measured["top1_matches"] == 64
+    assert measured["positions"] == 65_536
+    assert measured["support"] == 8192
+    assert measured["top1_matches"] == 65_536
 
     baseline = _json(run / "baseline.aggregate.json", {
         **measured,
@@ -198,13 +235,13 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
         "rows": [
             {
                 **row,
-                "mean_kld": row["mean_kld"] + 0.1,
-                "top1_match": int(row["ordinal"] != 0),
+                "kld_sum_binary64": row["kld_sum_binary64"] + 102.4,
+                "top1_matches": 1023,
             }
             for row in measured["rows"]
         ],
         "mean_kld": measured["mean_kld"] + 0.1,
-        "top1_matches": 63,
+        "top1_matches": 65_472,
     })
     champion = run / "champion.json"
     assert main(["qtip-v7-joint-repair", "compare", "--baseline", str(baseline),
@@ -217,12 +254,12 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
                  "--checkpoint", str(checkpoint5), "--output", str(materialized)]) == 0
     wire = json.loads(capsys.readouterr().out)
     assert wire["status"] == "PASS"
-    assert wire["stored_wire_bytes"] == wire["qtip_wire_bytes"] + wire["dense_repair_bytes"]
+    assert wire["physical_stored_bytes"] == wire["physical_qtip_bytes"] + wire["dense_repair_bytes"]
     assert wire["wire_size_delta"] == 0
     layer0 = np.fromfile(materialized / "L000.tlut.f16", dtype="<f2")
     layer42 = np.fromfile(materialized / "L042.tlut.f16", dtype="<f2")
-    assert np.all(layer0 == np.float16(0.05))
-    assert np.all(layer42 == np.float16(42.05))
+    assert np.all(layer0 < np.float16(0.1))
+    assert np.array_equal(layer0, layer42)
     assert (materialized / "repair_state.safetensors").is_file()
 
 

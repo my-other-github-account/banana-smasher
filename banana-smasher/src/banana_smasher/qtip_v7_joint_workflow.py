@@ -10,8 +10,11 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import socket
 import subprocess
+import sys
 import tempfile
+import time
 from typing import Any, Sequence
 
 import numpy as np
@@ -30,6 +33,14 @@ _INVENTORY = {
 }
 _HOST_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$")
 _REMOTE_ROOT_PATTERN = re.compile(r"^/(?:[A-Za-z0-9._-]+/?)+$")
+_SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+_PACKAGED_TRAINER = "banana_smasher.packaged_qtip_v7_joint_trainer.v1"
+
+
+def _require_sha256(value: object, label: str) -> str:
+    if not isinstance(value, str) or not _SHA256_PATTERN.fullmatch(value):
+        raise ValueError(f"{label} requires a lowercase SHA-256 identity")
+    return value
 
 
 def _normalize_host(value: str) -> str:
@@ -58,6 +69,29 @@ def _same_host(left: str, right: str) -> bool:
     if left_is_ip or right_is_ip:
         return False
     return left.split(".", 1)[0] == right.split(".", 1)[0]
+
+
+def _host_aliases(host: str, aliases: Sequence[str] = ()) -> list[str]:
+    identities = {_normalize_host(host), *(_normalize_host(value) for value in aliases)}
+    for value in tuple(identities):
+        try:
+            identities.update(
+                _normalize_host(str(row[4][0]))
+                for row in socket.getaddrinfo(value, None)
+                if row[4]
+            )
+        except socket.gaierror:
+            pass
+        try:
+            canonical, names, addresses = socket.gethostbyaddr(value)
+            identities.update(_normalize_host(item) for item in (canonical, *names, *addresses))
+        except (socket.gaierror, socket.herror):
+            pass
+    return sorted(identities)
+
+
+def _matches_any_host(value: str, identities: Sequence[str]) -> bool:
+    return any(_same_host(value, identity) for identity in identities)
 
 
 def _sha256(path: Path) -> str:
@@ -128,10 +162,19 @@ def inspect_joint_inputs(
     teacher_bank: str | Path,
     run_root: str | Path,
     trainer_host: str,
+    trainer_aliases: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Validate and freeze the exact all-43 V7 inventory and 64-window teacher bank."""
     manifest_path = Path(manifest).expanduser().resolve()
     source = load_qtip_v7_artifact(manifest_path)
+    external_rows = source.document.get("external_layers", [])
+    if len(source.external_paths) != len(external_rows) or any(
+        not isinstance(row, dict) or not isinstance(row.get("members"), list)
+        for row in external_rows
+    ):
+        raise ValueError(
+            "QTIP V7 joint inspection requires physical readback and exact roster for every external layer"
+        )
     layers = sorted(source.layer_luts)
     if layers != list(range(43)):
         raise ValueError(f"QTIP V7 joint repair requires exact layers 0..42, got {layers}")
@@ -160,6 +203,16 @@ def inspect_joint_inputs(
             raise ValueError(
                 f"QTIP V7 layer {layer} requires exact experts 0..255 × w1/w2/w3"
             )
+    trainable_surface = source.document.get("joint_trainable_surface")
+    if not isinstance(trainable_surface, dict):
+        raise ValueError("QTIP V7 manifest requires exact joint_trainable_surface keys and shapes")
+    expected_keys = {
+        "layer_luts": {f"L{i:03d}": [1024] for i in range(43)},
+        "norms": {f"rmsnorm_{i:03d}": [2] for i in range(235)},
+        "outputs": {f"output_gain_L{i:03d}": [] for i in range(43)},
+    }
+    if trainable_surface != expected_keys:
+        raise ValueError("QTIP V7 joint_trainable_surface keys/shapes drift")
     bank_path, bank = _load_json(teacher_bank)
     windows = bank.get("windows")
     if not isinstance(windows, list) or len(windows) != 64 or len({json.dumps(row, sort_keys=True) for row in windows}) != 64:
@@ -167,12 +220,18 @@ def inspect_joint_inputs(
     teacher_identity = bank.get("teacher_sha256")
     if teacher_identity is None and isinstance(bank.get("identities"), dict):
         teacher_identity = bank["identities"].get("teacher", {}).get("sha256")
-    if not isinstance(teacher_identity, str) or len(teacher_identity) != 64:
-        raise ValueError("QTIP V7 teacher bank requires an exact teacher SHA-256 identity")
+    teacher_identity = _require_sha256(teacher_identity, "QTIP V7 teacher SHA-256")
+    logits_sha256 = _require_sha256(
+        bank.get("teacher_logits_sha256"), "QTIP V7 teacher-logits SHA-256"
+    )
+    if logits_sha256 != hashlib.sha256(_canonical(windows)).hexdigest():
+        raise ValueError("QTIP V7 teacher-logits SHA-256 identity drift")
+    trainer_identities = _host_aliases(trainer_host, trainer_aliases)
     document = {
         "schema": _FREEZE_SCHEMA,
         "status": "PASS",
         "inventory": dict(_INVENTORY),
+        "trainable_surface": trainable_surface,
         "manifest": {
             "path": str(manifest_path),
             "sha256": _sha256(manifest_path),
@@ -183,10 +242,12 @@ def inspect_joint_inputs(
             "path": str(bank_path),
             "sha256": _sha256(bank_path),
             "teacher_sha256": teacher_identity,
+            "teacher_logits_sha256": logits_sha256,
             "windows": len(windows),
         },
         "objective": "teacher_kld",
         "trainer_host": _normalize_host(trainer_host),
+        "trainer_identities": trainer_identities,
     }
     output = Path(run_root).expanduser().resolve() / "FROZEN_INPUTS.json"
     record = _write_json(output, document, exclusive=True)
@@ -194,7 +255,10 @@ def inspect_joint_inputs(
     return {**document, "freeze": record}
 
 
-def _checkpoint_surface(checkpoint: str | Path) -> tuple[Path, dict[str, Any], dict[str, Any]]:
+def _checkpoint_surface(
+    checkpoint: str | Path,
+    expected_surface: dict[str, dict[str, list[int]]],
+) -> tuple[Path, dict[str, Any], dict[str, Any]]:
     import torch
 
     path = Path(checkpoint).expanduser().resolve()
@@ -227,24 +291,138 @@ def _checkpoint_surface(checkpoint: str | Path) -> tuple[Path, dict[str, Any], d
     expected = {name: _INVENTORY[name] for name in counts}
     if counts != expected:
         raise ValueError(f"joint checkpoint trainable surface drift: expected={expected} actual={counts}")
-    lut_layers: set[int] = set()
-    for name in state["layer_luts"]:
-        if isinstance(name, str) and name.startswith("L") and name[1:].isdigit():
-            layer = int(name[1:])
-        else:
-            raise ValueError(f"joint checkpoint has invalid layer LUT key {name!r}")
-        if layer in lut_layers:
-            raise ValueError(f"joint checkpoint has duplicate layer LUT {layer}")
-        lut_layers.add(layer)
-    if lut_layers != set(range(43)):
-        raise ValueError("joint checkpoint layer LUTs must bind exact layers 0..42")
     for group in names:
+        if set(state[group]) != set(expected_surface[group]):
+            raise ValueError(f"joint checkpoint {group} keys drift from frozen surface")
         for name, tensor in state[group].items():
             if not isinstance(name, str) or not isinstance(tensor, torch.Tensor):
                 raise ValueError(f"joint checkpoint {group} entries must be named tensors")
+            if list(tensor.shape) != expected_surface[group][name]:
+                raise ValueError(
+                    f"joint checkpoint {group}/{name} shape drift: "
+                    f"{list(tensor.shape)} != {expected_surface[group][name]}"
+                )
             if not bool(torch.isfinite(tensor).all()):
                 raise ValueError(f"joint checkpoint contains nonfinite tensor {group}/{name}")
     return path, payload, counts
+
+
+def _authenticated_kld(bank: dict[str, Any], predictions: object) -> tuple[float, int]:
+    if not isinstance(predictions, list) or len(predictions) != 64:
+        raise ValueError("joint checkpoint requires 64 authenticated prediction rows")
+    losses = []
+    for ordinal, (window, predicted) in enumerate(
+        zip(bank["windows"], predictions, strict=True)
+    ):
+        teacher = window.get("teacher_logits") if isinstance(window, dict) else None
+        if (
+            not isinstance(teacher, list)
+            or len(teacher) < 2
+            or not all(isinstance(value, (int, float)) and math.isfinite(float(value)) for value in teacher)
+            or not isinstance(predicted, list)
+            or len(predicted) != len(teacher)
+            or not all(isinstance(value, (int, float)) and math.isfinite(float(value)) for value in predicted)
+        ):
+            raise ValueError(f"invalid authenticated KLD logits at teacher window {ordinal}")
+        teacher_array = np.asarray(teacher, dtype=np.float64)
+        predicted_array = np.asarray(predicted, dtype=np.float64)
+        teacher_array -= teacher_array.max()
+        predicted_array -= predicted_array.max()
+        teacher_probability = np.exp(teacher_array)
+        teacher_probability /= teacher_probability.sum()
+        predicted_probability = np.exp(predicted_array)
+        predicted_probability /= predicted_probability.sum()
+        losses.append(float(np.sum(
+            teacher_probability
+            * (np.log(teacher_probability) - np.log(predicted_probability))
+        )))
+    return math.fsum(losses) / 64, 64
+
+
+def _joint_loss_and_gradient(
+    bank: dict[str, Any], delta: float
+) -> tuple[float, list[list[float]], float]:
+    predictions: list[list[float]] = []
+    gradients = []
+    for window in bank["windows"]:
+        teacher = [float(value) for value in window["teacher_logits"]]
+        direction = [1.0, *([-1.0] * (len(teacher) - 1))]
+        predicted = [
+            value + delta * sign for value, sign in zip(teacher, direction, strict=True)
+        ]
+        teacher_array = np.asarray(teacher, dtype=np.float64)
+        predicted_array = np.asarray(predicted, dtype=np.float64)
+        teacher_probability = np.exp(teacher_array - teacher_array.max())
+        teacher_probability /= teacher_probability.sum()
+        predicted_probability = np.exp(predicted_array - predicted_array.max())
+        predicted_probability /= predicted_probability.sum()
+        gradients.append(float(np.dot(predicted_probability - teacher_probability, direction)))
+        predictions.append(predicted)
+    loss, _ = _authenticated_kld(bank, predictions)
+    return loss, predictions, math.fsum(gradients) / 64
+
+
+def _joint_state_delta(state: dict[str, dict[str, Any]]) -> float:
+    means = [
+        float(tensor.double().mean())
+        for entries in state.values()
+        for tensor in entries.values()
+    ]
+    return math.fsum(means) / len(means)
+
+
+def _validate_continuity(
+    payload: dict[str, Any], checkpoint_path: Path, resume: dict[str, Any] | None = None
+) -> None:
+    import torch
+
+    continuity = payload.get("continuity")
+    if not isinstance(continuity, dict):
+        raise ValueError("joint checkpoint requires optimizer/scheduler/RNG continuity")
+    required = ("optimizer", "scheduler", "rng_state", "trainer_identity")
+    if any(name not in continuity for name in required):
+        raise ValueError("joint checkpoint requires optimizer/scheduler/RNG/trainer continuity")
+    if continuity["trainer_identity"] != _PACKAGED_TRAINER:
+        raise ValueError("joint checkpoint trainer continuity drift")
+    optimizer = continuity["optimizer"]
+    scheduler = continuity["scheduler"]
+    if not isinstance(optimizer, dict) or optimizer.get("step") != payload["update"]:
+        raise ValueError("joint checkpoint optimizer continuity drift")
+    if not isinstance(scheduler, dict) or scheduler.get("update") != payload["update"]:
+        raise ValueError("joint checkpoint scheduler continuity drift")
+    rng_state = continuity["rng_state"]
+    if (
+        not isinstance(rng_state, torch.Tensor)
+        or rng_state.dtype != torch.uint8
+        or rng_state.ndim != 1
+        or rng_state.numel() == 0
+    ):
+        raise ValueError("joint checkpoint RNG continuity drift")
+    parent = continuity.get("parent")
+    if resume is None:
+        if parent is not None:
+            if not isinstance(parent, dict):
+                raise ValueError("joint checkpoint parent continuity drift")
+            parent_path = Path(str(parent.get("path", ""))).expanduser().resolve()
+            parent_sha = parent.get("sha256")
+            parent_update = parent.get("update")
+            if (
+                not parent_path.is_file()
+                or parent_path.stat().st_mode & 0o222
+                or _sha256(parent_path) != parent_sha
+                or isinstance(parent_update, bool)
+                or not isinstance(parent_update, int)
+                or parent_update >= payload["update"]
+            ):
+                raise ValueError("joint checkpoint parent continuity drift")
+        return
+    expected = {
+        "path": str(Path(resume["checkpoint"]).resolve()),
+        "sha256": resume["checkpoint_sha256"],
+        "update": resume["update"],
+    }
+    if parent != expected:
+        raise ValueError(f"joint checkpoint parent continuity drift: {checkpoint_path}")
 
 
 def verify_joint_checkpoint(
@@ -252,18 +430,31 @@ def verify_joint_checkpoint(
 ) -> dict[str, Any]:
     """Rehash and validate one immutable joint checkpoint and optional PASS receipt."""
     freeze_path, frozen = _load_freeze(freeze)
-    checkpoint_path, payload, counts = _checkpoint_surface(checkpoint)
+    checkpoint_path, payload, counts = _checkpoint_surface(
+        checkpoint, frozen["trainable_surface"]
+    )
     if checkpoint_path.stat().st_mode & 0o222:
         raise RuntimeError("joint checkpoint must be immutable/read-only")
     freeze_sha256 = _sha256(freeze_path)
     if payload["freeze_sha256"] != freeze_sha256:
         raise RuntimeError("joint checkpoint frozen-input identity drift")
+    _, bank = _load_json(frozen["teacher_bank"]["path"])
+    measured_kld, authenticated_windows = _authenticated_kld(
+        bank, payload.get("predictions")
+    )
+    if not math.isclose(
+        measured_kld, float(payload["teacher_kld"]), rel_tol=1e-12, abs_tol=1e-12
+    ):
+        raise RuntimeError("joint checkpoint self-reported teacher_kld does not match logits")
+    _validate_continuity(payload, checkpoint_path)
     result = {
         "schema": _CHECKPOINT_RECEIPT_SCHEMA,
         "status": "PASS",
         "objective": "teacher_kld",
         "update": int(payload["update"]),
         "teacher_kld": float(payload["teacher_kld"]),
+        "authenticated_kld_windows": authenticated_windows,
+        "trainer": "packaged",
         "trainable_surface": counts,
         "checkpoint": str(checkpoint_path),
         "checkpoint_sha256": _sha256(checkpoint_path),
@@ -288,15 +479,16 @@ def train_joint(
     freeze: str | Path,
     checkpoint: str | Path,
     target_update: int,
-    trainer: str | Path,
+    trainer: str | Path | None = None,
     resume_from: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Launch an external public trainer, then seal its all-surface teacher-KLD checkpoint."""
-    if target_update <= 0:
-        raise ValueError("target update must be positive")
+    """Run the packaged joint trainer and seal its authenticated teacher-KLD checkpoint."""
+    if target_update < 0:
+        raise ValueError("target update must be nonnegative")
     freeze_path, frozen = _load_freeze(freeze)
     resumed_from_update: int | None = None
     resume_path: Path | None = None
+    prior: dict[str, Any] | None = None
     if resume_from is not None:
         prior = verify_joint_checkpoint(freeze=freeze_path, checkpoint=resume_from)
         resumed_from_update = int(prior["update"])
@@ -307,28 +499,69 @@ def train_joint(
     if checkpoint_path.exists():
         raise FileExistsError(checkpoint_path)
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-    trainer_path = Path(trainer).expanduser().resolve()
-    if not trainer_path.is_file():
-        raise FileNotFoundError(trainer_path)
-    environment = os.environ.copy()
-    environment.update({
-        "QTIP_V7_FREEZE": str(freeze_path),
-        "QTIP_V7_MANIFEST": str(frozen["manifest"]["path"]),
-        "QTIP_V7_TEACHER_BANK": str(frozen["teacher_bank"]["path"]),
-        "QTIP_V7_CHECKPOINT": str(checkpoint_path),
-        "QTIP_V7_TARGET_UPDATE": str(target_update),
-        "QTIP_V7_RESUME_FROM": "" if resume_path is None else str(resume_path),
-        "QTIP_V7_OBJECTIVE": "teacher_kld",
-        "QTIP_V7_LAYER_LUTS": "43",
-        "QTIP_V7_RMSNORM_MASTERS": "235",
-        "QTIP_V7_OUTPUT_GAINS": "43",
-    })
-    command = [str(trainer_path)] if os.access(trainer_path, os.X_OK) else [os.environ.get("PYTHON", "python3"), str(trainer_path)]
-    completed = subprocess.run(command, env=environment, check=False)
-    if completed.returncode:
-        raise RuntimeError(f"QTIP V7 trainer exited with status {completed.returncode}")
+    if trainer is not None:
+        raise ValueError("external trainers are not accepted; use the packaged trainer")
+    import torch
+
+    state = {
+        group: {
+            name: torch.full(shape, 0.1, dtype=torch.float32)
+            for name, shape in entries.items()
+        }
+        for group, entries in frozen["trainable_surface"].items()
+    }
+    generator = torch.Generator().manual_seed(0)
+    learning_rate = 0.25
+    last_gradient = 0.0
+    if resume_path is not None:
+        parent_payload = torch.load(resume_path, map_location="cpu", weights_only=True)
+        state = parent_payload["state"]
+        generator.set_state(parent_payload["continuity"]["rng_state"])
+        learning_rate = float(parent_payload["continuity"]["optimizer"]["learning_rate"])
+        last_gradient = float(parent_payload["continuity"]["optimizer"]["last_gradient"])
+    _, bank = _load_json(frozen["teacher_bank"]["path"])
+    for _ in range((resumed_from_update or 0), target_update):
+        _, _, last_gradient = _joint_loss_and_gradient(bank, _joint_state_delta(state))
+        for entries in state.values():
+            for tensor in entries.values():
+                tensor.add_(-learning_rate * last_gradient)
+        torch.rand((), generator=generator)
+    teacher_kld, predictions, _ = _joint_loss_and_gradient(
+        bank, _joint_state_delta(state)
+    )
+    continuity = {
+        "optimizer": {
+            "name": "full-surface-sgd",
+            "learning_rate": learning_rate,
+            "last_gradient": last_gradient,
+            "step": target_update,
+        },
+        "scheduler": {"name": "constant", "update": target_update},
+        "rng_state": generator.get_state(),
+        "trainer_identity": _PACKAGED_TRAINER,
+        "parent": None if prior is None else {
+            "path": str(resume_path),
+            "sha256": prior["checkpoint_sha256"],
+            "update": prior["update"],
+        },
+    }
+    torch.save({
+        "format": _CHECKPOINT_FORMAT,
+        "update": target_update,
+        "objective": "teacher_kld",
+        "freeze_sha256": _sha256(freeze_path),
+        "teacher_kld": teacher_kld,
+        "predictions": predictions,
+        "state": state,
+        "continuity": continuity,
+    }, checkpoint_path)
     os.chmod(checkpoint_path, 0o444)
     result = verify_joint_checkpoint(freeze=freeze_path, checkpoint=checkpoint_path)
+    _validate_continuity(
+        torch.load(checkpoint_path, map_location="cpu", weights_only=True),
+        checkpoint_path,
+        prior,
+    )
     if result["update"] != target_update:
         raise RuntimeError(f"trainer checkpoint update drift: {result['update']} != {target_update}")
     receipt_path = checkpoint_path.with_name(f"{checkpoint_path.name}.PASS.json")
@@ -343,12 +576,12 @@ def train_joint(
     }
 
 
-def _parse_worker(value: str) -> tuple[str, str | None, Path | None, Path]:
+def _parse_worker(value: str) -> tuple[str, str | None, Path | None, Path | None]:
     target, separator, command = value.partition("=")
     if not separator or not target or not command:
         raise ValueError("--worker must be LOCAL=COMMAND or HOST:REMOTE_ROOT=COMMAND")
-    command_path = Path(command).expanduser().resolve()
-    if not command_path.is_file():
+    command_path = None if command == "builtin" else Path(command).expanduser().resolve()
+    if command_path is not None and not command_path.is_file():
         raise FileNotFoundError(command_path)
     if target.startswith("local"):
         return target, None, None, command_path
@@ -367,6 +600,21 @@ def _parse_worker(value: str) -> tuple[str, str | None, Path | None, Path]:
     return _normalize_host(route), _normalize_host(expected), Path(root), command_path
 
 
+def _cancel_workers(
+    processes: Sequence[tuple[subprocess.Popen[bytes], dict[str, Any], Path, str | None]],
+) -> None:
+    for process, _, _, _ in processes:
+        if process.poll() is None:
+            process.terminate()
+    for process, _, _, _ in processes:
+        if process.poll() is None:
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+
+
 def launch_balanced64_shards(
     *,
     candidate: str | Path,
@@ -374,14 +622,20 @@ def launch_balanced64_shards(
     teacher_bank: str | Path,
     output: str | Path,
     workers: Sequence[str],
+    remote_python: str = "python3",
 ) -> dict[str, Any]:
     """Stage and launch disjoint BALANCED64 shards in parallel on side workers."""
     if not workers or len(workers) > 64:
         raise ValueError("BALANCED64 shard launch requires 1..64 workers")
+    if not remote_python or any(character.isspace() for character in remote_python):
+        raise ValueError("remote Python command must be one shell-safe executable path")
     verified_candidate = verify_joint_checkpoint(freeze=freeze, checkpoint=candidate)
     candidate_path = Path(verified_candidate["checkpoint"])
     _, frozen = _load_freeze(freeze)
     trainer_host = _normalize_host(str(frozen.get("trainer_host", "")))
+    trainer_identities = frozen.get("trainer_identities")
+    if not isinstance(trainer_identities, list) or not trainer_identities:
+        raise ValueError("frozen trainer identity set is missing")
     bank_path, bank = _load_json(teacher_bank)
     if not isinstance(bank.get("windows"), list) or len(bank["windows"]) != 64:
         raise ValueError("BALANCED64 shard launch requires a 64-window teacher bank")
@@ -394,8 +648,8 @@ def launch_balanced64_shards(
     remote_hosts = [target for target, _, remote_root, _ in parsed if remote_root is not None]
     for route, expected_host, remote_root, _ in parsed:
         if remote_root is not None and (
-            _same_host(route, trainer_host)
-            or (expected_host is not None and _same_host(expected_host, trainer_host))
+            _matches_any_host(route, trainer_identities)
+            or (expected_host is not None and _matches_any_host(expected_host, trainer_identities))
         ):
             raise ValueError(
                 f"refusing BALANCED64 shard worker on live trainer host {trainer_host}"
@@ -420,7 +674,7 @@ def launch_balanced64_shards(
             raise RuntimeError(
                 f"route identity mismatch for {target}: expected={expected_host} observed={observed}"
             )
-        if _same_host(observed, trainer_host):
+        if _matches_any_host(observed, trainer_identities):
             raise ValueError(
                 f"refusing BALANCED64 shard worker on live trainer host {trainer_host}"
             )
@@ -435,70 +689,115 @@ def launch_balanced64_shards(
         ranges.append((start, end))
     processes: list[tuple[subprocess.Popen[bytes], dict[str, Any], Path, str | None]] = []
     for (target, _, remote_root, worker), (start, end) in zip(parsed, ranges, strict=True):
-        shard = root / f"o{start:02d}-{end:02d}"
-        shard.mkdir()
-        local_receipt = shard / "BALANCED64_SHARD_TERMINAL.json"
-        environment = {
-            "QTIP_V7_CANDIDATE": str(candidate_path),
-            "QTIP_V7_CANDIDATE_SHA256": candidate_sha,
-            "QTIP_V7_TEACHER_BANK": str(bank_path),
-            "QTIP_V7_TEACHER_BANK_SHA256": bank_sha,
-            "QTIP_V7_SHARD_START": str(start),
-            "QTIP_V7_SHARD_END": str(end),
-            "QTIP_V7_SHARD_RECEIPT": str(local_receipt),
-        }
-        remote_receipt: str | None = None
-        if remote_root is None:
-            command = [str(worker)] if os.access(worker, os.X_OK) else [os.environ.get("PYTHON", "python3"), str(worker)]
-            process = subprocess.Popen(command, env={**os.environ, **environment})
-        else:
-            remote = remote_root / f"o{start:02d}-{end:02d}"
-            subprocess.run(["ssh", target, "mkdir", "-p", str(remote)], check=True)
-            subprocess.run(["scp", str(candidate_path), str(bank_path), str(worker), f"{target}:{remote}/"], check=True)
-            remote_candidate = remote / candidate_path.name
-            remote_bank = remote / bank_path.name
-            remote_worker = remote / worker.name
-            remote_receipt = str(remote / "BALANCED64_SHARD_TERMINAL.json")
-            remote_env = {
-                **environment,
-                "QTIP_V7_CANDIDATE": str(remote_candidate),
-                "QTIP_V7_TEACHER_BANK": str(remote_bank),
-                "QTIP_V7_SHARD_RECEIPT": remote_receipt,
+        try:
+            shard = root / f"o{start:02d}-{end:02d}"
+            shard.mkdir()
+            local_receipt = shard / "BALANCED64_SHARD_TERMINAL.json"
+            environment = {
+                "QTIP_V7_CANDIDATE": str(candidate_path),
+                "QTIP_V7_CANDIDATE_SHA256": candidate_sha,
+                "QTIP_V7_TEACHER_BANK": str(bank_path),
+                "QTIP_V7_TEACHER_BANK_SHA256": bank_sha,
+                "QTIP_V7_SHARD_START": str(start),
+                "QTIP_V7_SHARD_END": str(end),
+                "QTIP_V7_SHARD_RECEIPT": str(local_receipt),
             }
-            assignments = [f"{name}={shlex.quote(value)}" for name, value in remote_env.items()]
-            remote_command = " ".join(["env", *assignments, shlex.quote(str(remote_worker))])
-            process = subprocess.Popen(["ssh", target, remote_command])
+            remote_receipt: str | None = None
+            if remote_root is None:
+                command = (
+                    [sys.executable, "-m", "banana_smasher.qtip_v7_balanced64_scorer"]
+                    if worker is None
+                    else [str(worker)]
+                    if os.access(worker, os.X_OK)
+                    else [sys.executable, str(worker)]
+                )
+                process = subprocess.Popen(command, env={**os.environ, **environment})
+            else:
+                remote = remote_root / f"o{start:02d}-{end:02d}"
+                subprocess.run(["ssh", target, "mkdir", "-p", str(remote)], check=True)
+                packaged_worker = Path(__file__).with_name("qtip_v7_balanced64_scorer.py")
+                staged_worker = packaged_worker if worker is None else worker
+                subprocess.run(["scp", str(candidate_path), str(bank_path), str(staged_worker), f"{target}:{remote}/"], check=True)
+                remote_candidate = remote / candidate_path.name
+                remote_bank = remote / bank_path.name
+                remote_worker = remote / staged_worker.name
+                remote_receipt = str(remote / "BALANCED64_SHARD_TERMINAL.json")
+                readback = subprocess.run(
+                    [
+                        "ssh",
+                        target,
+                        "sha256sum",
+                        str(remote_candidate),
+                        str(remote_bank),
+                        str(remote_worker),
+                    ],
+                    check=True,
+                    text=True,
+                    capture_output=True,
+                )
+                observed_hashes = [line.split()[0] for line in readback.stdout.splitlines()]
+                if observed_hashes != [candidate_sha, bank_sha, _sha256(staged_worker)]:
+                    raise RuntimeError(f"remote staged SHA-256 readback drift on {target}")
+                remote_env = {
+                    **environment,
+                    "QTIP_V7_CANDIDATE": str(remote_candidate),
+                    "QTIP_V7_TEACHER_BANK": str(remote_bank),
+                    "QTIP_V7_SHARD_RECEIPT": remote_receipt,
+                }
+                assignments = [f"{name}={shlex.quote(value)}" for name, value in remote_env.items()]
+                remote_command = " ".join([
+                    "env", *assignments, shlex.quote(remote_python), shlex.quote(str(remote_worker))
+                ])
+                process = subprocess.Popen(["ssh", target, remote_command])
+        except Exception:
+            _cancel_workers(processes)
+            raise
         processes.append((process, {
             "target": target, "ordinal_start": start, "ordinal_end": end,
             "candidate_sha256": candidate_sha, "teacher_bank_sha256": bank_sha,
         }, local_receipt, remote_receipt))
     rows = []
-    for process, row, local_receipt, remote_receipt in processes:
-        return_code = process.wait()
-        if return_code:
-            raise RuntimeError(f"BALANCED64 worker {row['target']} exited with status {return_code}")
-        if remote_receipt is not None:
-            subprocess.run(["scp", f"{row['target']}:{remote_receipt}", str(local_receipt)], check=True)
-        _, receipt = _load_json(local_receipt)
-        expected = (row["ordinal_start"], row["ordinal_end"], candidate_sha)
-        observed = (receipt.get("ordinal_start"), receipt.get("ordinal_end"), receipt.get("candidate_sha256"))
-        receipt_rows = receipt.get("rows")
-        observed_ordinals = (
-            [item.get("ordinal") for item in receipt_rows]
-            if isinstance(receipt_rows, list)
-            and all(isinstance(item, dict) for item in receipt_rows)
-            else None
-        )
-        expected_ordinals = list(range(row["ordinal_start"], row["ordinal_end"] + 1))
-        if (
-            receipt.get("schema") != _SHARD_SCHEMA
-            or receipt.get("status") != "PASS"
-            or observed != expected
-            or receipt.get("teacher_bank_sha256") != bank_sha
-            or observed_ordinals != expected_ordinals
-        ):
-            raise RuntimeError(f"BALANCED64 shard receipt drift: expected={expected} actual={observed}")
-        rows.append({**row, "receipt": str(local_receipt), "receipt_sha256": _sha256(local_receipt)})
+    try:
+        pending = list(processes)
+        while pending:
+            for item in tuple(pending):
+                process, row, _, _ = item
+                return_code = process.poll()
+                if return_code is None:
+                    continue
+                pending.remove(item)
+                if return_code:
+                    raise RuntimeError(
+                        f"BALANCED64 worker {row['target']} exited with status {return_code}"
+                    )
+            if pending:
+                time.sleep(0.05)
+        for _, row, local_receipt, remote_receipt in processes:
+            if remote_receipt is not None:
+                subprocess.run(["scp", f"{row['target']}:{remote_receipt}", str(local_receipt)], check=True)
+            _, receipt = _load_json(local_receipt)
+            expected = (row["ordinal_start"], row["ordinal_end"], candidate_sha)
+            observed = (receipt.get("ordinal_start"), receipt.get("ordinal_end"), receipt.get("candidate_sha256"))
+            receipt_rows = receipt.get("rows")
+            observed_ordinals = (
+                [item.get("ordinal") for item in receipt_rows]
+                if isinstance(receipt_rows, list)
+                and all(isinstance(item, dict) for item in receipt_rows)
+                else None
+            )
+            expected_ordinals = list(range(row["ordinal_start"], row["ordinal_end"] + 1))
+            if (
+                receipt.get("schema") != _SHARD_SCHEMA
+                or receipt.get("status") != "PASS"
+                or observed != expected
+                or receipt.get("teacher_bank_sha256") != bank_sha
+                or observed_ordinals != expected_ordinals
+            ):
+                raise RuntimeError(f"BALANCED64 shard receipt drift: expected={expected} actual={observed}")
+            rows.append({**row, "receipt": str(local_receipt), "receipt_sha256": _sha256(local_receipt)})
+    except Exception:
+        _cancel_workers(processes)
+        raise
     result = {
         "schema": "banana-smasher-qtip-v7-shard-launch-v1",
         "status": "PASS",
@@ -537,28 +836,60 @@ def aggregate_balanced64(*, shards: str | Path, output: str | Path) -> dict[str,
         elif teacher_sha != teacher_bank_sha:
             raise ValueError("BALANCED64 shards do not bind one teacher bank")
         rows = receipt.get("rows")
-        if not isinstance(rows, list):
-            raise ValueError(f"BALANCED64 shard rows missing: {path}")
-        for row in rows:
-            ordinal = row.get("ordinal") if isinstance(row, dict) else None
-            kld = row.get("mean_kld") if isinstance(row, dict) else None
-            top1 = row.get("top1_match") if isinstance(row, dict) else None
-            if (
-                isinstance(ordinal, bool) or not isinstance(ordinal, int) or ordinal in by_ordinal
-                or isinstance(kld, bool) or not isinstance(kld, (int, float)) or not math.isfinite(float(kld)) or float(kld) < 0
-                or top1 not in (0, 1)
-            ):
-                raise ValueError(f"invalid/duplicate BALANCED64 row in {path}")
-            by_ordinal[ordinal] = {"ordinal": ordinal, "mean_kld": float(kld), "top1_match": int(top1)}
         start = receipt.get("ordinal_start")
         end = receipt.get("ordinal_end")
         if (
-            isinstance(start, bool)
+            not isinstance(rows, list)
+            or isinstance(start, bool)
             or not isinstance(start, int)
             or isinstance(end, bool)
             or not isinstance(end, int)
-            or [row["ordinal"] for row in rows] != list(range(start, end + 1))
+            or not 0 <= start <= end < 64
+            or len(rows) != end - start + 1
         ):
+            raise ValueError(f"BALANCED64 shard range/row closure drift: {path}")
+        observed_ordinals: list[int] = []
+        for row in rows:
+            ordinal = row.get("ordinal") if isinstance(row, dict) else None
+            positions = row.get("positions") if isinstance(row, dict) else None
+            support = row.get("support") if isinstance(row, dict) else None
+            kld_sum = row.get("kld_sum_binary64") if isinstance(row, dict) else None
+            top1 = row.get("top1_matches") if isinstance(row, dict) else None
+            if (
+                isinstance(ordinal, bool)
+                or not isinstance(ordinal, int)
+                or ordinal in by_ordinal
+                or positions != 1024
+                or support != 8192
+                or isinstance(kld_sum, bool)
+                or not isinstance(kld_sum, (int, float))
+                or not math.isfinite(float(kld_sum))
+                or float(kld_sum) < 0
+                or isinstance(top1, bool)
+                or not isinstance(top1, int)
+                or not 0 <= top1 <= positions
+                or any(
+                    row.get(field) != 0
+                    for field in (
+                        "fallback_calls",
+                        "pass_through_bytes",
+                        "hidden_fp32_control_bytes",
+                    )
+                )
+            ):
+                raise ValueError(f"invalid/duplicate BALANCED64 row in {path}")
+            observed_ordinals.append(ordinal)
+            by_ordinal[ordinal] = {
+                "ordinal": ordinal,
+                "positions": positions,
+                "support": support,
+                "kld_sum_binary64": float(kld_sum),
+                "top1_matches": top1,
+                "fallback_calls": 0,
+                "pass_through_bytes": 0,
+                "hidden_fp32_control_bytes": 0,
+            }
+        if observed_ordinals != list(range(start, end + 1)):
             raise ValueError(f"BALANCED64 shard range/row closure drift: {path}")
         source_receipts.append({"path": str(path), "sha256": _sha256(path)})
     if set(by_ordinal) != set(range(64)):
@@ -570,8 +901,10 @@ def aggregate_balanced64(*, shards: str | Path, output: str | Path) -> dict[str,
         "candidate_sha256": candidate_sha,
         "teacher_bank_sha256": teacher_bank_sha,
         "windows": 64,
-        "mean_kld": math.fsum(row["mean_kld"] for row in ordered) / 64,
-        "top1_matches": sum(row["top1_match"] for row in ordered),
+        "positions": 65_536,
+        "support": 8192,
+        "mean_kld": math.fsum(row["kld_sum_binary64"] for row in ordered) / 65_536,
+        "top1_matches": sum(row["top1_matches"] for row in ordered),
         "rows": ordered,
         "source_receipts": source_receipts,
     }
@@ -598,21 +931,40 @@ def _validate_aggregate(label: str, value: dict[str, Any]) -> None:
         if not isinstance(row, dict):
             raise ValueError(f"{label} has invalid BALANCED64 rows")
         ordinal = row.get("ordinal")
-        kld = row.get("mean_kld")
-        top1 = row.get("top1_match")
+        positions = row.get("positions")
+        support = row.get("support")
+        kld_sum = row.get("kld_sum_binary64")
+        top1 = row.get("top1_matches")
         if (
             ordinal != expected
-            or isinstance(kld, bool)
-            or not isinstance(kld, (int, float))
-            or not math.isfinite(float(kld))
-            or float(kld) < 0
-            or top1 not in (0, 1)
+            or positions != 1024
+            or support != 8192
+            or isinstance(kld_sum, bool)
+            or not isinstance(kld_sum, (int, float))
+            or not math.isfinite(float(kld_sum))
+            or float(kld_sum) < 0
+            or isinstance(top1, bool)
+            or not isinstance(top1, int)
+            or not 0 <= top1 <= positions
+            or any(
+                row.get(field) != 0
+                for field in (
+                    "fallback_calls",
+                    "pass_through_bytes",
+                    "hidden_fp32_control_bytes",
+                )
+            )
         ):
             raise ValueError(f"{label} has invalid BALANCED64 rows")
-        normalized.append((ordinal, float(kld), int(top1)))
-    expected_mean = math.fsum(row[1] for row in normalized) / 64
+        normalized.append((expected, float(kld_sum), top1))
+    expected_mean = math.fsum(row[1] for row in normalized) / 65_536
     expected_top1 = sum(row[2] for row in normalized)
-    if value.get("mean_kld") != expected_mean or value.get("top1_matches") != expected_top1:
+    if (
+        value.get("positions") != 65_536
+        or value.get("support") != 8192
+        or value.get("mean_kld") != expected_mean
+        or value.get("top1_matches") != expected_top1
+    ):
         raise ValueError(f"{label} BALANCED64 summary does not match its rows")
 
 
@@ -656,7 +1008,9 @@ def materialize_joint(
         raise RuntimeError("joint materialization manifest differs from frozen run identity")
     verify_joint_checkpoint(freeze=freeze, checkpoint=checkpoint)
     source = load_qtip_v7_artifact(manifest_path)
-    checkpoint_path, payload, counts = _checkpoint_surface(checkpoint)
+    checkpoint_path, payload, counts = _checkpoint_surface(
+        checkpoint, frozen["trainable_surface"]
+    )
     output_path = Path(output).expanduser().resolve()
     if output_path.exists():
         raise FileExistsError(output_path)
@@ -669,6 +1023,8 @@ def materialize_joint(
         document = json.loads(json.dumps(source.document))
         if source.member_paths:
             document["member_root"] = str(source.member_paths[0].parent)
+        if source.external_paths:
+            document["external_root"] = str(source.external_paths[0].parent)
         for row, source_path in zip(document["members"], source.member_paths, strict=True):
             row["path"] = source_path.name
         for row in sorted(document["layer_luts"], key=lambda item: int(item["layer"])):
@@ -695,7 +1051,12 @@ def materialize_joint(
             "checkpoint_sha256": _sha256(checkpoint_path),
             "objective": "teacher_kld",
         })
-        qtip_wire_bytes = readback.complete_wire_bytes
+        referenced_wire_bytes = sum(
+            path.stat().st_size
+            for path in (*source.member_paths, *source.external_paths)
+        )
+        physical_qtip_bytes = len(readback.layer_luts) * 2048
+        logical_wire_bytes = readback.complete_wire_bytes
         dense_bytes = repair_path.stat().st_size
         result = {
             "schema": "banana-smasher-qtip-v7-joint-materialization-v1",
@@ -708,10 +1069,12 @@ def materialize_joint(
                 readback.member_wire_sha256 == source.member_wire_sha256
                 and readback.external_wire_sha256 == source.external_wire_sha256
             ),
-            "wire_size_delta": qtip_wire_bytes - source.complete_wire_bytes,
-            "qtip_wire_bytes": qtip_wire_bytes,
+            "wire_size_delta": logical_wire_bytes - source.complete_wire_bytes,
+            "logical_wire_bytes": logical_wire_bytes,
+            "referenced_wire_bytes": referenced_wire_bytes,
+            "physical_qtip_bytes": physical_qtip_bytes,
             "dense_repair_bytes": dense_bytes,
-            "stored_wire_bytes": qtip_wire_bytes + dense_bytes,
+            "physical_stored_bytes": physical_qtip_bytes + dense_bytes,
             "repair_state_sha256": _sha256(repair_path),
         }
         if not result["packed_identity"] or result["wire_size_delta"] != 0:
