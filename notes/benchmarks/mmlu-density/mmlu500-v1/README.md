@@ -85,3 +85,35 @@ python tools/mmlu_density/build_mmlu500_manifest.py \
 ```
 
 A valid rebuild must reproduce both frozen file hashes above byte-for-byte.
+
+## Kimi-K3 IQ1S one-file layerwise reproductions
+
+The two pinned standalone runners reproduce the published Kimi rows in
+`kimi-iq1s-results.json`:
+
+```bash
+python reproduce_unsloth_layerwise.py \
+  --model-dir /models/Kimi-K3-GGUF/UD-IQ1_S \
+  --binary-dir /path/to/sparkinfer-k3-mmlu-bin \
+  --output-dir ./mmlu500-unsloth
+
+python reproduce_neuron_layerwise.py \
+  --model-dir /models/Kimi-K3-Neuron-IQ1S-GGUF \
+  --binary-dir /path/to/sparkinfer-k3-mmlu-bin \
+  --output-dir ./mmlu500-neuron
+```
+
+Run them in an environment containing exactly `tiktoken==0.12.0`. Each file
+fetches and authenticates this frozen 500-row bank and the pinned Kimi tokenizer,
+checks every local GGUF member against its pinned size and SHA-256, carries the
+hidden state plus residual-checkpoint bank through layers 0–92 one resident
+range at a time, scores only token IDs 32–35, and independently aggregates the
+result. Full runs pass only at the published `412/500` (Unsloth) or `342/500`
+(Neuron) score. Use `--prepare-only` for a weight-free basis/tokenizer check and
+`--limit N` for a compute smoke prefix.
+
+`--binary-dir` must contain the three CUDA executables used by the sealed runs:
+`kimi_k3_prefix_dump`, `kimi_k3_boundary_advance`, and
+`kimi_k3_boundary_score`, built against the K3 SparkInfer runtime. They are kept
+external because embedding the native CUDA/C++ runtime would turn each small
+runner into a cosmetic single-file archive rather than a readable script.
