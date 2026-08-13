@@ -1,0 +1,111 @@
+{
+  "schema": "banana-smasher.qtip2-v7-exl-k2-wire-ledger.v1",
+  "status": "PASS",
+  "basis_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "base_model_parameter_denominator": 284334567511,
+  "scope_policy": {
+    "routed_scope": "43 routed-expert layers, 256 experts per layer, three expert projections per expert",
+    "historical_native_rest_policy": "19,708,797,688 exact source payload bytes; this is a historical partial-native-MTP payload missing ten later-identified MTP tensors totaling 33,843,220 bytes",
+    "complete_native_rest_payload_bytes": 19742640908,
+    "container_index_policy": "payload bytes only; JSON/container index bytes are excluded consistently from both routed ledgers"
+  },
+  "qtip_member_geometry": {
+    "members_per_layer": 768,
+    "member_bytes": 2109444,
+    "per_member": {
+      "packed_indices_and_codes_bytes": 2097152,
+      "fp16_suh_svh_scale_control_bytes": 12288,
+      "billed_scalar_bytes": 4
+    },
+    "shared_parent_lut_bytes_per_layer": 2048
+  },
+  "routed_ledgers": {
+    "exl3_k2_routed_payload": {
+      "layers": 43,
+      "payload_bytes": 69662278656,
+      "public_row_id": "EXL3-K2-routed-native-rest",
+      "physical_evidence": {
+        "candidate_tree_sha256": "4c6c834e7c65907cb8c5fee6ba1edf8888deb3485ec2be1682c6edc199ca6e52",
+        "candidate_index_sha256": "0bc64482f21c3cb76b078e0ecf3835b5e7294a28dba01080a69403bf85d13533",
+        "mmlu500_terminal_sha256": "1027d6cbdab731d457d2b5f2c2184d900e6a7fd4094d5c5d605891c233daf6da",
+        "load_receipt_sha256": "d4d527ec7b1c3962c4a43903de1f1047ef9497a5bec3147d3b695e2049ee9859"
+      }
+    },
+    "qtip2_v7_pre_repair": {
+      "compact_layers": 42,
+      "dense_layers": [34],
+      "compact_members": 32256,
+      "packed_indices_and_codes_bytes": 67645734912,
+      "fp16_suh_svh_scale_control_bytes": 396361728,
+      "billed_scalar_bytes": 129024,
+      "shared_parent_lut_bytes": 86016,
+      "dense_l034_bfloat16_bytes": 12884901888,
+      "routed_bytes": 80927213568,
+      "route_census_sha256": "2dcc28497deb834164be26e267fdf4c30cc951342c73f47ce78b207354275fc9"
+    },
+    "qtip2_v7_current_repaired_all43": {
+      "materialization": "public qtip-v7-export API",
+      "layers": 43,
+      "members": 33024,
+      "packed_indices_and_codes_bytes": 69256347648,
+      "fp16_suh_svh_scale_control_bytes": 405798912,
+      "billed_scalar_bytes": 132096,
+      "shared_parent_lut_bytes": 88064,
+      "routed_bytes": 69662366720,
+      "base_equivalent_routed_bpw": "1.960011189066696496268489544596249680438314112177649820105133196577808059998347233457705350693827409",
+      "fallback_calls": 0,
+      "hidden_bytes": 0,
+      "packed_identity": true,
+      "frozen_terminal_sha256": "2843ac5abcfee92e05ffc63a7e7460fdfa3c80e5372f72943766a681e360ac40",
+      "manifest_sha256": "a9e1e57a573daac6e37c195db22935ee3a0fe16c0fa65cc2c48ab2e045bb71e5"
+    }
+  },
+  "published_historical_comparison": {
+    "exl3_k2": {
+      "routed_bytes": 69662278656,
+      "historical_partial_native_rest_bytes": 19708797688,
+      "shipping_bytes": 89371076344,
+      "base_equivalent_bpw": "2.5145328512486971484262613667868966546438084310621785627887683259240843040121566",
+      "partial_native_mtp_parameter_denominator": 294476673408,
+      "matched_physical_bpw": "2.427929528263193711335556163985502121908023370875038596632692371439083436170354851986850654175126914"
+    },
+    "qtip2_v7_pre_repair": {
+      "routed_bytes": 80927213568,
+      "historical_partial_native_rest_bytes": 19708797688,
+      "shipping_bytes": 100636011256,
+      "base_equivalent_bpw": "2.831481578534603263235376275888125565194357238266015863087325200113206153869260839371695918636102327",
+      "partial_native_mtp_parameter_denominator": 294476673408,
+      "matched_physical_bpw": "2.733962186989743081307444759220580226529533181651880663179160168733985428980087482094462223516969077"
+    },
+    "gap_bytes": 11264934912,
+    "gap_closure": {
+      "dense_l034_bfloat16_bytes": 12884901888,
+      "minus_one_missing_compact_l034_member_payload_bytes": -1620052992,
+      "plus_qtip_shared_luts_for_42_compact_layers_bytes": 86016,
+      "total_bytes": 11264934912
+    },
+    "excluded_causes": {
+      "native_rest_or_mtp_scope_difference_bytes": 0,
+      "container_index_or_metadata_difference_bytes": 0,
+      "duplicate_member_bytes": 0,
+      "index_width_or_padding_difference_bytes": 0,
+      "scale_representation_difference_bytes": 0
+    }
+  },
+  "same_scope_current_repaired_comparison": {
+    "historical_partial_native_mtp_policy": {
+      "qtip2_shipping_bytes": 89371164408,
+      "qtip2_base_equivalent_bpw": "2.514535329005820269745907616501096076608722374768252734087807385308626320159278946898526263726678998",
+      "exl3_k2_shipping_bytes": 89371076344,
+      "difference_bytes": 88064
+    },
+    "complete_native_mtp_policy": {
+      "qtip2_shipping_bytes": 89405007628,
+      "qtip2_base_equivalent_bpw": "2.515487537393179030504882353653487081235072278387024486348262001770745366655152827898047671931839507",
+      "exl3_k2_shipping_bytes": 89404919564,
+      "difference_bytes": 88064,
+      "difference_explanation": "the QTIP public wire includes 43 shared 2,048-byte parent LUTs; the EXL selected-payload convention has no QTIP LUT component"
+    }
+  },
+  "causal_answer": "The published 11,264,934,912-byte gap is not a QTIP-vs-EXL rate gap: historical QTIP2 V7 shipped L034 as a 12,884,901,888-byte dense BF16 layer instead of a 1,620,052,992-byte compact member payload, and its other 42 compact layers carry 86,016 bytes of shared parent LUTs. Native-rest bytes are identical in both published numerators, duplication and index/metadata are zero, and the EXL row's native-MTP label is corrected to historical partial native MTP without changing its measured bytes."
+}

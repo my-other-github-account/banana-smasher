@@ -1336,7 +1336,7 @@ def verify_result_receipt(
                 raise ReceiptError(f"{model_id}: native-MTP parameter scope drift")
         elif payload_scope == "base-plus-partial-native-mtp":
             if (
-                model_id != "QTIP2-V7-pre-repair"
+                model_id not in {"QTIP2-V7-pre-repair", "EXL3-K2-routed-native-rest"}
                 or auxiliary_parameters != 10_142_105_897
                 or total_parameters != 294_476_673_408
                 or has_drafter
