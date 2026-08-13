@@ -81,17 +81,46 @@ smash qtip-v7-joint-repair train --freeze "$RUN/FROZEN_INPUTS.json" --resume-fro
 
 Score U256 with the same shard-launch → aggregate → compare sequence, using a fresh output namespace.
 
-## 7. Materialize and account exact stored wire
+## 7. Materialize trained state
 
 ```bash
 smash qtip-v7-joint-repair materialize --freeze "$RUN/FROZEN_INPUTS.json" --manifest "$V7_MANIFEST" --checkpoint "$RUN/checkpoints/UPDATE_005.pt" --output "$RUN/materialized/UPDATE_005"
 ```
 
-The receipt separates `logical_wire_bytes` and `referenced_wire_bytes` from the materialized payload fields `physical_qtip_bytes`, `dense_repair_bytes`, and their exact sum `physical_stored_bytes`. Packed member wires remain hash-bound references and are not duplicated; all 43 FP16 LUTs and `repair_state.safetensors` are physically materialized.
+Packed member wires remain hash-bound and are not duplicated; all 43 FP16 LUTs and `repair_state.safetensors` are physically materialized. This command deliberately does not claim a logical/referenced byte total. Physical accounting comes only from readback of fixed-envelope `qtip-v7-wire` layer receipts.
+
+## 8. Pack and verify each physical QTIP V7 layer
+
+For each layer, point `WIRE_ROOT` at the exact directory containing 768 files named `E000_w1.q2v7wire` through `E255_w3.q2v7wire`, in expert-major `w1,w2,w3` order, and point `LUT` at the exact learned FP16 `[1024]` LUT:
+
+```bash
+smash qtip-v7-wire pack-layer --source-root "$WIRE_ROOT" --lut "$LUT" --layer 37 --output "$RUN/wire/L037.qtip-v7-wire"
+```
+
+```bash
+smash qtip-v7-wire verify-layer --wire "$RUN/wire/L037.qtip-v7-wire" --receipt "$RUN/wire/L037.qtip-v7-wire.receipt.json"
+```
+
+The encoder streams all 768 unchanged 2,097,152-byte trellis/index planes, losslessly compresses the 9,440,256-byte concatenated control plane, embeds the exact 2,048-byte LUT, and pads the stored file to exactly 1,620,052,992 bytes. Verification authenticates the physical file, exact roster, embedded LUT, and the byte-for-byte reconstructed member stream without buffering the 1.62 GB wire.
+
+After all exact layers `L000..L042` verify, derive the canonical full-model comparison directly from their immutable receipts (repeat `--receipt` exactly 43 times):
+
+```bash
+smash qtip-v7-wire account-model \
+  --receipt "$RUN/wire/L000.qtip-v7-wire.receipt.json" \
+  ... \
+  --receipt "$RUN/wire/L042.qtip-v7-wire.receipt.json" \
+  --weight-denominator 671000000000 \
+  --weight-denominator-label "declared total model weight parameters" \
+  --output "$RUN/wire/QTIP_V7_MODEL_ACCOUNTING.json"
+```
+
+The receipt-derived result is QTIP routed stored bytes 69,662,278,656, EXL K2 routed stored bytes 69,662,278,656, routed gap 0, native/base bytes 19,708,797,688 included once per full model, QTIP and EXL full stored bytes 89,371,076,344 each, and full gap 0. Stored-wire BPW is emitted as an exact fraction and decimal against the explicitly declared weight denominator; it is not a decoded-dtype claim.
 
 ## Discoverability
 
 ```bash
 smash qtip-v7-joint-repair --help
 smash qtip-v7-joint-repair shard-launch --help
+smash qtip-v7-wire --help
 ```

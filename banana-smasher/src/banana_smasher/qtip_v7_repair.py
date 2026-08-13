@@ -352,7 +352,7 @@ def build_qtip_v7_repair_bundle(
         "fixed_members": len(rows),
         "trainable_layer_luts": len(bundle["layer_luts"]),
         "trainable_bytes": len(bundle["layer_luts"]) * _LUT_BYTES,
-        "packed_member_bytes": sum(path.stat().st_size for path in source.member_paths),
+        "physical_accounting": "requires qtip-v7-wire verified layer receipts",
         "bundle_sha256": _sha256(output_path),
     }
     _write_json(output_path.with_name(f"{output_path.name}.receipt.json"), receipt)
@@ -459,12 +459,10 @@ def export_qtip_v7_artifact(
                 readback.member_wire_sha256 == source.member_wire_sha256
                 and readback.external_wire_sha256 == source.external_wire_sha256
             ),
-            "complete_wire_bytes": readback.complete_wire_bytes,
-            "wire_size_delta": readback.complete_wire_bytes - source.complete_wire_bytes,
-            "layer_lut_bytes": len(source.layer_luts) * _LUT_BYTES,
+            "physical_accounting": "requires qtip-v7-wire verified layer receipts",
         }
-        if not receipt["packed_identity"] or receipt["wire_size_delta"] != 0:
-            raise RuntimeError("QTIP V7 fixed-wire export identity failed")
+        if not receipt["packed_identity"]:
+            raise RuntimeError("QTIP V7 fixed-member export identity failed")
         _write_json(output_path / "QTIP_V7_EXPORT_RECEIPT.json", receipt)
         return receipt
     except Exception:

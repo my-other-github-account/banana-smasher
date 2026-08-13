@@ -296,6 +296,38 @@ def _parser() -> argparse.ArgumentParser:
     joint_materialize.add_argument("--output", type=Path, required=True)
 
 
+    v7_wire = subparsers.add_parser(
+        "qtip-v7-wire",
+        help="pack, verify, and account physical fixed-envelope QTIP V7 wire",
+    )
+    v7_wire_commands = v7_wire.add_subparsers(
+        dest="v7_wire_command", required=True
+    )
+    v7_wire_pack = v7_wire_commands.add_parser(
+        "pack-layer", help="pack one exact 768-member layer and embedded FP16 LUT"
+    )
+    v7_wire_pack.add_argument("--source-root", type=Path, required=True)
+    v7_wire_pack.add_argument("--lut", type=Path, required=True)
+    v7_wire_pack.add_argument("--layer", type=int, required=True)
+    v7_wire_pack.add_argument("--output", type=Path, required=True)
+    v7_wire_pack.add_argument("--receipt", type=Path)
+    v7_wire_verify = v7_wire_commands.add_parser(
+        "verify-layer", help="stream-authenticate and optionally reconstruct one layer"
+    )
+    v7_wire_verify.add_argument("--wire", type=Path, required=True)
+    v7_wire_verify.add_argument("--receipt", type=Path, required=True)
+    v7_wire_verify.add_argument("--reconstructed-output", type=Path)
+    v7_wire_account = v7_wire_commands.add_parser(
+        "account-model", help="derive zero-gap model accounting from 43 verified receipts"
+    )
+    v7_wire_account.add_argument(
+        "--receipt", type=Path, action="append", required=True
+    )
+    v7_wire_account.add_argument("--output", type=Path, required=True)
+    v7_wire_account.add_argument("--weight-denominator", type=int, required=True)
+    v7_wire_account.add_argument("--weight-denominator-label", required=True)
+
+
     enqueue = subparsers.add_parser(
         "update-enqueue", help="durably enqueue an exactly-once update request"
     )
@@ -1338,6 +1370,42 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = {
                 **result,
                 "command": f"qtip-v7-joint-repair {args.joint_command}",
+            }
+        elif args.command == "qtip-v7-wire":
+            from .qtip_v7_wire import (
+                account_qtip_v7_model,
+                pack_qtip_v7_layer,
+                verify_qtip_v7_layer,
+            )
+
+            if args.v7_wire_command == "pack-layer":
+                result = pack_qtip_v7_layer(
+                    source_root=args.source_root,
+                    lut=args.lut,
+                    layer=args.layer,
+                    output=args.output,
+                    receipt=args.receipt,
+                )
+            elif args.v7_wire_command == "verify-layer":
+                result = verify_qtip_v7_layer(
+                    wire=args.wire,
+                    receipt=args.receipt,
+                    reconstructed_output=args.reconstructed_output,
+                )
+            elif args.v7_wire_command == "account-model":
+                result = account_qtip_v7_model(
+                    receipts=args.receipt,
+                    output=args.output,
+                    weight_denominator=args.weight_denominator,
+                    weight_denominator_label=args.weight_denominator_label,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported QTIP V7 wire command {args.v7_wire_command!r}"
+                )
+            result = {
+                **result,
+                "command": f"qtip-v7-wire {args.v7_wire_command}",
             }
         elif args.command == "bank":
             from .bank import build_bank
