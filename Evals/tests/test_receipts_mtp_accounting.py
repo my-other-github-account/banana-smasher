@@ -24,12 +24,13 @@ class PublishedMtpAccountingTest(unittest.TestCase):
 
         summary = verify_result_receipt(result, suite_lock)
 
-        self.assertEqual(summary["models"], 13)
+        self.assertEqual(summary["models"], 14)
         model_ids = {row["model_id"] for row in result["results"]}
         self.assertIn("EXL3-K2P5-greedy-full", model_ids)
         self.assertIn("EXL3-K2P5-greedy-routed-native-rest", model_ids)
         self.assertIn("EXL3-K3-routed-native-rest", model_ids)
         self.assertIn("Physical-K2K3-2P5-alternating-comparator", model_ids)
+        self.assertIn("QTIP2-V7-pre-repair", model_ids)
         self.assertNotIn("QTIP2-corrected-all43", model_ids)
         self.assertNotIn("EXL3-K2P5-physical-alternating", model_ids)
 
@@ -97,6 +98,19 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         )
         self.assertEqual(alternating["top1"]["matches"], 54_585)
         self.assertEqual(alternating["kld"]["mean"], "0.29960352599248635")
+
+        qtip2_v7_pre = next(
+            row for row in result["results"] if row["model_id"] == "QTIP2-V7-pre-repair"
+        )
+        self.assertEqual(qtip2_v7_pre["display_name"], "QTIP2 V7 pre-repair")
+        self.assertEqual(qtip2_v7_pre["top1"]["matches"], 56_533)
+        self.assertEqual(qtip2_v7_pre["kld"]["mean"], "0.22939197531977115")
+        self.assertEqual(qtip2_v7_pre["wire"]["bytes"], 100_636_011_256)
+        self.assertEqual(
+            qtip2_v7_pre["wire"]["artifact_payload_scope"],
+            "base-plus-partial-native-mtp",
+        )
+        self.assertEqual(qtip2_v7_pre["top1"]["rate"], "0.8626251220703125")
 
         matrix_text = (evals_dir / "README.md").read_text()
         public_table = matrix_text.split("## EXL 2×3 scope/rate matrix", 1)[0]
