@@ -185,6 +185,100 @@ def _parser() -> argparse.ArgumentParser:
         "--no-resume", dest="resume", action="store_false", default=True
     )
 
+    v7_export = subparsers.add_parser(
+        "qtip-v7-export",
+        help="export fixed QTIP V7 members plus repaired layer-shared LUTs",
+    )
+    v7_export.add_argument("--manifest", type=Path, required=True)
+    v7_export.add_argument("--output", type=Path, required=True)
+    v7_export.add_argument(
+        "--update-artifact",
+        action="append",
+        default=[],
+        metavar="LAYER=PATH",
+        help="one explicit source-layer binding per repaired update artifact; repeat for every layer",
+    )
+    v7_bundle = subparsers.add_parser(
+        "qtip-v7-bundle",
+        help="build a causal physical-repair bundle from fixed QTIP V7 members",
+    )
+    v7_bundle.add_argument("--manifest", type=Path, required=True)
+    v7_bundle.add_argument("--training", type=Path, required=True)
+    v7_bundle.add_argument("--output", type=Path, required=True)
+    v7_bundle.add_argument("--learning-rate", type=float, required=True)
+    v7_bundle.add_argument(
+        "--member", action="append", required=True, metavar="LAYER:EXPERT:PROJECTION"
+    )
+
+    joint = subparsers.add_parser(
+        "qtip-v7-joint-repair",
+        description=(
+            "Freeze, train/resume, verify, shard-score, select, and materialize "
+            "the exact all-43 QTIP V7 repair surface: 43 LUTs, 235 RMSNorm "
+            "masters, and 43 output gains. Every checkpoint requires teacher KLD."
+        ),
+        help="one-line all-43 QTIP V7 joint train/checkpoint/score workflow",
+    )
+    joint_commands = joint.add_subparsers(dest="joint_command", required=True)
+    joint_inspect = joint_commands.add_parser(
+        "inspect", help="validate and freeze exact 43-layer inventory plus teacher bank"
+    )
+    joint_inspect.add_argument("--manifest", type=Path, required=True)
+    joint_inspect.add_argument("--teacher-bank", type=Path, required=True)
+    joint_inspect.add_argument("--run-root", type=Path, required=True)
+    joint_inspect.add_argument(
+        "--trainer-host",
+        required=True,
+        help="trainer hostname or direct-fabric address sealed into the freeze receipt",
+    )
+    joint_train = joint_commands.add_parser(
+        "train", help="launch or resume full joint training to an explicit update horizon"
+    )
+    joint_train.add_argument("--freeze", type=Path, required=True)
+    joint_train.add_argument("--checkpoint", type=Path, required=True)
+    joint_train.add_argument("--target-update", type=int, required=True)
+    joint_train.add_argument("--trainer", type=Path, required=True)
+    joint_train.add_argument("--resume-from", type=Path)
+    joint_verify = joint_commands.add_parser(
+        "verify", help="rehash and validate immutable checkpoint/PASS receipt"
+    )
+    joint_verify.add_argument("--freeze", type=Path, required=True)
+    joint_verify.add_argument("--checkpoint", type=Path, required=True)
+    joint_verify.add_argument("--receipt", type=Path)
+    joint_shard = joint_commands.add_parser(
+        "shard-launch",
+        help="copy/launch disjoint BALANCED64 shards on local or SSH side workers",
+    )
+    joint_shard.add_argument("--candidate", type=Path, required=True)
+    joint_shard.add_argument("--freeze", type=Path, required=True)
+    joint_shard.add_argument("--teacher-bank", type=Path, required=True)
+    joint_shard.add_argument("--output", type=Path, required=True)
+    joint_shard.add_argument(
+        "--worker",
+        action="append",
+        required=True,
+        metavar="LOCAL=COMMAND|EXPECTED_HOST@ROUTE:/REMOTE_ROOT=COMMAND",
+        help="repeat once per disjoint side worker; all workers launch before collection",
+    )
+    joint_aggregate = joint_commands.add_parser(
+        "aggregate", help="verify exact 0..63 shard closure and aggregate BALANCED64"
+    )
+    joint_aggregate.add_argument("--shards", type=Path, required=True)
+    joint_aggregate.add_argument("--output", type=Path, required=True)
+    joint_compare = joint_commands.add_parser(
+        "compare", help="compare two complete aggregates and select the non-worse champion"
+    )
+    joint_compare.add_argument("--baseline", type=Path, required=True)
+    joint_compare.add_argument("--candidate", type=Path, required=True)
+    joint_compare.add_argument("--output", type=Path, required=True)
+    joint_materialize = joint_commands.add_parser(
+        "materialize", help="materialize trained state and exact stored-wire accounting"
+    )
+    joint_materialize.add_argument("--freeze", type=Path, required=True)
+    joint_materialize.add_argument("--manifest", type=Path, required=True)
+    joint_materialize.add_argument("--checkpoint", type=Path, required=True)
+    joint_materialize.add_argument("--output", type=Path, required=True)
+
     enqueue = subparsers.add_parser(
         "update-enqueue", help="durably enqueue an exactly-once update request"
     )
@@ -1133,6 +1227,98 @@ def main(argv: Sequence[str] | None = None) -> int:
                     restart=args.restart,
                 ),
                 "command": "update",
+            }
+        elif args.command == "qtip-v7-export":
+            from .qtip_v7_repair import export_qtip_v7_artifact
+
+            result = {
+                **export_qtip_v7_artifact(
+                    manifest=args.manifest,
+                    output=args.output,
+                    update_artifact=args.update_artifact,
+                ),
+                "command": "qtip-v7-export",
+                "output": str(args.output.resolve()),
+            }
+        elif args.command == "qtip-v7-bundle":
+            from .qtip_v7_repair import build_qtip_v7_repair_bundle
+
+            result = {
+                **build_qtip_v7_repair_bundle(
+                    manifest=args.manifest,
+                    training=args.training,
+                    output=args.output,
+                    learning_rate=args.learning_rate,
+                    members=args.member,
+                ),
+                "command": "qtip-v7-bundle",
+                "output": str(args.output.resolve()),
+            }
+        elif args.command == "qtip-v7-joint-repair":
+            from .qtip_v7_joint_workflow import (
+                aggregate_balanced64,
+                compare_aggregates,
+                inspect_joint_inputs,
+                launch_balanced64_shards,
+                materialize_joint,
+                train_joint,
+                verify_joint_checkpoint,
+            )
+
+            if args.joint_command == "inspect":
+                result = inspect_joint_inputs(
+                    manifest=args.manifest,
+                    teacher_bank=args.teacher_bank,
+                    run_root=args.run_root,
+                    trainer_host=args.trainer_host,
+                )
+            elif args.joint_command == "train":
+                result = train_joint(
+                    freeze=args.freeze,
+                    checkpoint=args.checkpoint,
+                    target_update=args.target_update,
+                    trainer=args.trainer,
+                    resume_from=args.resume_from,
+                )
+            elif args.joint_command == "verify":
+                result = verify_joint_checkpoint(
+                    freeze=args.freeze,
+                    checkpoint=args.checkpoint,
+                    receipt=args.receipt,
+                )
+            elif args.joint_command == "shard-launch":
+                result = launch_balanced64_shards(
+                    candidate=args.candidate,
+                    freeze=args.freeze,
+                    teacher_bank=args.teacher_bank,
+                    output=args.output,
+                    workers=args.worker,
+                )
+            elif args.joint_command == "aggregate":
+                result = aggregate_balanced64(
+                    shards=args.shards,
+                    output=args.output,
+                )
+            elif args.joint_command == "compare":
+                result = compare_aggregates(
+                    baseline=args.baseline,
+                    candidate=args.candidate,
+                    output=args.output,
+                )
+            elif args.joint_command == "materialize":
+                result = materialize_joint(
+                    freeze=args.freeze,
+                    manifest=args.manifest,
+                    checkpoint=args.checkpoint,
+                    output=args.output,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported QTIP V7 joint command {args.joint_command!r}"
+                )
+            result = {
+                **result,
+                "command": f"qtip-v7-joint-repair {args.joint_command}",
             }
         elif args.command == "bank":
             from .bank import build_bank

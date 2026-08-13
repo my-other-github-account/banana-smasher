@@ -384,6 +384,12 @@ def run_segmented_update(
             "update produced invalid required trainable gradients: "
             f"missing={missing}, non_finite={non_finite}"
         )
+    gradient_max_abs = max(float(parameter.grad.detach().abs().max()) for parameter in values)
+    gradient_l2 = math.sqrt(
+        sum(float(parameter.grad.detach().float().square().sum()) for parameter in values)
+    )
+    if gradient_max_abs <= 0 or gradient_l2 <= 0:
+        raise RuntimeError("update produced zero required trainable gradients")
 
     if optimizer_steps == 0:
         optimizer_started_unix = time.time()
@@ -482,6 +488,11 @@ def run_segmented_update(
         },
         "gradient_tensors": len(values),
         "finite_required_trainable_gradients": True,
+        "gradient": {
+            "max_abs": gradient_max_abs,
+            "l2": gradient_l2,
+            "nonzero": True,
+        },
         "parameter": {
             "sha256_before": before_sha,
             "sha256_after": after_sha,
