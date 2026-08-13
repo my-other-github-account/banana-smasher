@@ -23,7 +23,7 @@ _REQUIRED_QTIP_EXPORTS = tuple(
     for family in (2, 3)
     for width in (4096, 2048)
     for variant in _VARIANTS
-)
+) + ("qtip2_v7_direct",)
 _REQUIRED_TORCH_OPERATORS = (
     "compact_routes",
     "qtip_pre_transform",
@@ -37,11 +37,18 @@ _REQUIRED_TORCH_OPERATORS = (
 @functools.cache
 def _module() -> ModuleType:
     try:
-        return importlib.import_module("banana_smasher_plugin._v4_moe")
+        module = importlib.import_module("banana_smasher_plugin._v4_moe")
     except ImportError as exc:
         raise RuntimeError(
             "required banana-smasher specialized CUDA extension is unavailable"
         ) from exc
+    # A Python extension import exposes the pybind symbols but does not add the
+    # TORCH_LIBRARY fragments to torch.ops on every supported loader.  Loading
+    # the same object through PyTorch is idempotent and guarantees registration.
+    import torch
+
+    torch.ops.load_library(module.__file__)
+    return module
 
 
 def preflight_native_extensions() -> None:

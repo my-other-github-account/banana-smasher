@@ -327,6 +327,28 @@ def _parser() -> argparse.ArgumentParser:
     v7_wire_account.add_argument("--weight-denominator", type=int, required=True)
     v7_wire_account.add_argument("--weight-denominator-label", required=True)
 
+    v7_residency = subparsers.add_parser(
+        "qtip-v7-residency",
+        help="report projected or hardware-read QTIP V7 resident-weight bytes",
+    )
+    v7_residency.add_argument("--accounting", type=Path, required=True)
+    v7_residency.add_argument("--output", type=Path)
+    v7_residency.add_argument(
+        "--hardware-readback",
+        type=Path,
+        help="physical runtime telemetry; without it status is PROJECTED",
+    )
+    v7_residency.add_argument(
+        "--capture-hardware",
+        action="store_true",
+        help="map all layers and execute every direct projection before reporting PROVEN",
+    )
+    v7_layer_smoke = subparsers.add_parser(
+        "qtip-v7-layer-smoke",
+        help="execute one bounded fixed-envelope w1/w2/w3 direct hardware smoke",
+    )
+    v7_layer_smoke.add_argument("--wire", type=Path, required=True)
+    v7_layer_smoke.add_argument("--output", type=Path, required=True)
 
     enqueue = subparsers.add_parser(
         "update-enqueue", help="durably enqueue an exactly-once update request"
@@ -1407,6 +1429,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                 **result,
                 "command": f"qtip-v7-wire {args.v7_wire_command}",
             }
+        elif args.command == "qtip-v7-residency":
+            from .qtip_v7_residency import qtip_v7_resident_weight
+
+            if args.capture_hardware:
+                if args.hardware_readback is None:
+                    raise ValueError("--capture-hardware requires --hardware-readback output")
+                from importlib import import_module
+
+                runtime = import_module("banana_smasher_plugin.qtip_v7_runtime")
+                runtime.capture_qtip_v7_hardware_readback(
+                    args.accounting, args.hardware_readback
+                )
+            result = qtip_v7_resident_weight(
+                accounting=args.accounting,
+                output=args.output,
+                hardware_readback=args.hardware_readback,
+            )
+            result = {**result, "command": "qtip-v7-residency"}
+        elif args.command == "qtip-v7-layer-smoke":
+            from importlib import import_module
+
+            runtime = import_module("banana_smasher_plugin.qtip_v7_runtime")
+            result = runtime.capture_qtip_v7_layer_smoke(args.wire, args.output)
+            result = {**result, "command": "qtip-v7-layer-smoke"}
         elif args.command == "bank":
             from .bank import build_bank
 
