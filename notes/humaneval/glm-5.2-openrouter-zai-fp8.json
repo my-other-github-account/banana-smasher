@@ -27,6 +27,15 @@
     "dataset_hash": "fe585eb4df8c88d844eeb463ea4d0302",
     "sanitizer": "evalplus.sanitize(content, entrypoint=...)"
   },
+  "reproducer": {
+    "path": "Evals/tools/openrouter_humaneval_glm52.py",
+    "sha256": "d5d7afdc510a96d3e478dcfeac28d2d7a0d25c5c574b890b79bcb1a1e42a27ab",
+    "default_openrouter_requests": 0,
+    "paid_generation_requires_flag": "--run",
+    "credential_environment_variable": "OPENROUTER_API_KEY",
+    "frozen_task_messages_sha256": "e1a420e057d9e44f4dcde770334d67d33e4c44cf70daa20edbf69f163ac4bd96",
+    "generated_prompt_file_sha256": "77cffd9992988d0c52545607a28f7953c22f766b01539607e9f27f3fc81116d1"
+  },
   "primary_row": {
     "requested_model": "z-ai/glm-5.2",
     "returned_model_counts": {
