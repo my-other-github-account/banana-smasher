@@ -128,6 +128,21 @@ def _memory_budget(context: dict[str, Any]) -> MemoryBudget:
     )
 
 
+def _training_objective(bundle: dict[str, Any], staged: dict[str, Any]) -> float:
+    import torch
+
+    segment = {
+        name: staged[name]
+        for name in ("input_ids", "teacher_targets", "teacher_mask", "positions")
+    }
+    with torch.no_grad():
+        hidden = bundle["encode"](segment)
+        for layer in bundle["layers"]:
+            hidden = layer(hidden)
+        loss = bundle["loss_sum"](hidden, segment)
+    return float(loss.detach()) / int(staged["teacher_mask"].sum().item())
+
+
 class PhysicalRepairBackend:
     """One-initialization physical repair backend for the public update API.
 
@@ -263,6 +278,7 @@ class PhysicalRepairBackend:
         bundle = worker_state["bundle"]
         staged = worker_state["staged"]
         context = self.context
+        objective_before = _training_objective(bundle, staged)
         _callable(
             bundle.get("reset_backend_sentinels"), "reset_backend_sentinels"
         )()
@@ -312,6 +328,17 @@ class PhysicalRepairBackend:
             raise RuntimeError(
                 "physical repair optimizer did not update every trainable codebook"
             )
+        objective_after = _training_objective(bundle, staged)
+        qtip_v7 = any(
+            getattr(layer, "source_schema", None)
+            == "banana-smasher-qtip-v7-public-unit-v1"
+            for layer in bundle["layers"]
+        )
+        if qtip_v7 and not objective_after < objective_before:
+            raise RuntimeError(
+                "physical repair TRAIN objective did not improve: "
+                f"before={objective_before} after={objective_after}"
+            )
         worker_state["cycles"] = 1
         physical = {
             "schema": "banana-smasher-physical-repair-cycle-v1",
@@ -323,6 +350,9 @@ class PhysicalRepairBackend:
             "packed_indices_frozen": True,
             "codebooks_changed": True,
             "codebook_tensors": len(changed),
+            "train_objective_before": objective_before,
+            "train_objective_after": objective_after,
+            "train_objective_improved": objective_after < objective_before,
             "fallback_used": False,
         }
         result = {**result, "physical_repair": physical}

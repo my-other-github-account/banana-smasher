@@ -127,6 +127,16 @@ from .qtip25_native_v4_api import (
     anchor_qtip25_native_v4_cell,
     build_qtip25_native_v4_cell,
 )
+from .qtip_v7_batch import produce_qtip2_v7_batch10
+from .qtip_v7_joint_workflow import (
+    aggregate_balanced64,
+    compare_aggregates,
+    inspect_joint_inputs,
+    launch_balanced64_shards,
+    materialize_joint,
+    train_joint,
+    verify_joint_checkpoint,
+)
 from .update_service import serve_persistent_updates
 
 
@@ -194,6 +204,7 @@ __all__ = [
     "QtipWireConsumer",
     "UpdateQueue",
     "aggregate_scores",
+    "aggregate_balanced64",
     "anchor_backpack",
     "anchor_backpack_candidates",
     "anchor_qtip25_native_v4_cell",
@@ -211,6 +222,7 @@ __all__ = [
     "builtin_backpack_family_providers",
     "candidate_artifact_root",
     "compare_training_rails",
+    "compare_aggregates",
     "create_balanced_subset",
     "decode_qtip",
     "emit_solver_row",
@@ -225,7 +237,9 @@ __all__ = [
     "generate_vector_vq_backpack_candidate",
     "gaussian_tlut",
     "import_producer",
+    "inspect_joint_inputs",
     "inspect_backpack",
+    "launch_balanced64_shards",
     "load_manifest",
     "materialize_backpack_assignment",
     "materialize_backpack_source",
@@ -234,6 +248,7 @@ __all__ = [
     "materialize_bank",
     "materialize_candidate_producer",
     "materialize_fixed_d4",
+    "materialize_joint",
     "native_mxfp4_backpack_provider",
     "pack_qtip_states",
     "persist_fixed_d4_solve",
@@ -244,6 +259,7 @@ __all__ = [
     "prepare_contextual_iteration",
     "produce_fixed_d4_layerwise_logits",
     "produce_fixed_d4_logits",
+    "produce_qtip2_v7_batch10",
     "qtip1_5_provider_declaration",
     "qtip1_provider_declaration",
     "qtip_provider_counts",
@@ -270,6 +286,7 @@ __all__ = [
     "status_backpack",
     "status_report",
     "stage_qsfp_manifest",
+    "train_joint",
     "select_measured_nonworse",
     "unpack_qtip_states",
     "validate_bank_manifest",
@@ -280,6 +297,7 @@ __all__ = [
     "verify_backpack_candidate",
     "verify_virtual_backpack",
     "verify_fixed_d4_model",
+    "verify_joint_checkpoint",
     "verify_pack",
     "verify_qtip_wire",
     "write_encoded_qtip_wire",
