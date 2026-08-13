@@ -88,29 +88,31 @@ A valid rebuild must reproduce both frozen file hashes above byte-for-byte.
 
 ## Kimi-K3 GGUF top-N reproduction
 
-Use a Kimi-K3-capable `llama-server`, such as the pinned Unsloth branch commit
-`23fac110127ba3ac56bd8b370eb0205a67564d55`:
+A model four times larger than RAM is fine: let the OS page a read-only mmap of
+all GGUF shards. Use a Kimi-K3-capable `llama-server`, such as Unsloth branch
+commit `23fac110127ba3ac56bd8b370eb0205a67564d55`:
 
 ```bash
-./llama-server -m /models/Kimi-K3-UD-IQ1_S-00001-of-00014.gguf
-python reproduce_kimi_topn.py
-
-# Or restart the server with the Neuron-named artifact:
-./llama-server -m /models/k3-neuron-iq1s-00001-of-00009.gguf
+./llama-server -m /models/Kimi-K3-UD-IQ1_S-00001-of-00014.gguf \
+  -lm mmap --no-repack -ngl 0 --fit off -c 1024 -np 1 -cram 0 --no-warmup
 python reproduce_kimi_topn.py
 ```
 
-The same dependency-free 50-line script scores either model. It authenticates the
-frozen item file, obtains exact prompt token IDs from `/tokenize`, then asks
-`/completion` for one token with pre-sampling top-N logprobs. The generated token
-is ignored; only logprob differences for token IDs `32`, `33`, `34`, and `35`
-are used. Those differences preserve both the A/B/C/D argmax and four-way cross
-entropy, so no raw-logit C/C++ harness is needed. The run fails instead of
-silently scoring if any candidate falls outside `--top-n` (default: 100).
+For the Neuron-named artifact, change only `-m` to
+`/models/k3-neuron-iq1s-00001-of-00009.gguf` and rerun the same script. The first
+shard discovers the remaining shards. `mmap` is the default but is explicit
+above; do not use `mlock`. `--no-repack`, `-ngl 0`, and `--fit off` prevent a
+second repacked or GPU-resident weight image. `-np 1` reuses one small context,
+and `-cram 0` disables the default 8 GiB prompt cache.
 
-Published targets are `412/500` for `unsloth/Kimi-K3-GGUF` UD-IQ1_S revision
+The dependency-free 18-line script sends the frozen 500 prompts as one queued
+batch and scores token IDs `32`–`35` from each response's top-N logprobs. The
+one generated token is ignored. Published targets are `412/500` for
+`unsloth/Kimi-K3-GGUF` UD-IQ1_S revision
 `a0836360ce58dfec088d966a97f2ddc8a606279b` and `342/500` for the Neuron-named
 `vcruz305/Kimi-K3-Neuron-IQ1S-GGUF` revision
-`a2d6283870dd97d2f177c69d94fb18120e79fe65`. Upstream Kimi-K3 llama.cpp support
-is still open in [PR #26185](https://github.com/ggml-org/llama.cpp/pull/26185),
-so use a Kimi-K3-capable build rather than current upstream master.
+`a2d6283870dd97d2f177c69d94fb18120e79fe65`.
+
+Upstream Kimi-K3 support is still open in
+[PR #26185](https://github.com/ggml-org/llama.cpp/pull/26185), so use a
+Kimi-K3-capable build rather than current upstream master.
