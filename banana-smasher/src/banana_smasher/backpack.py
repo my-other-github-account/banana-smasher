@@ -41,9 +41,13 @@ STAGES = (
     "repair",
     "final_score",
 )
-QTIP_BACKENDS = frozenset({"packaged_qtip", "fixture_reference"})
+QTIP_BACKENDS = frozenset({"native_v7", "packaged_qtip", "fixture_reference"})
 QTIP_PROJECTIONS = ("fused13", "down")
-_PROJECTION_ORDER = {name: index for index, name in enumerate(QTIP_PROJECTIONS)}
+QTIP_V7_PROJECTIONS = ("w1", "w2", "w3")
+_PROJECTION_ORDER = {
+    name: index
+    for index, name in enumerate((*QTIP_PROJECTIONS, *QTIP_V7_PROJECTIONS))
+}
 REPAIR_FIXTURE_METHODS = frozenset({"residual", "fixture_residual"})
 REPAIR_BUNDLE_METHOD = "repair_bundle"
 REUSABLE_STAGE_IMPORTS = frozenset({"candidates", "candidate_anchor"})
@@ -325,6 +329,7 @@ class BackpackPlan:
                         "runtime_family",
                         "bpw",
                         "backend",
+                        "calibration",
                         "source_root",
                         "fixed_assignment",
                         "activation_artifacts",
@@ -344,13 +349,39 @@ class BackpackPlan:
                     raise BackpackPlanError(
                         "QTIP descriptors cannot declare vector-VQ geometry"
                     )
-                backend = tier.get("backend", "packaged_qtip")
+                backend = tier.get(
+                    "backend", "native_v7" if bpw == Decimal("2.00") else "packaged_qtip"
+                )
                 if backend not in QTIP_BACKENDS:
                     raise BackpackPlanError(
-                        "QTIP backend must be packaged_qtip or fixture_reference"
+                        "QTIP backend must be native_v7, packaged_qtip, or fixture_reference"
+                    )
+                if bpw == Decimal("2.00") and backend == "packaged_qtip":
+                    raise BackpackPlanError(
+                        "ordinary QTIP2 cannot select legacy packaged_qtip; use the explicit legacy importer API"
+                    )
+                public_v7_provider = tier.get("provider")
+                if (
+                    public_v7_provider in {"qtip2", "qtip2-v7", "qtip@2.00"}
+                    and backend != "native_v7"
+                ):
+                    raise BackpackPlanError(
+                        f"tiers[{index}].provider {public_v7_provider} requires backend native_v7"
                     )
                 tier["backend"] = backend
-                if backend == "packaged_qtip":
+                if backend == "native_v7":
+                    if bpw != Decimal("2.00"):
+                        raise BackpackPlanError("native QTIP V7 requires bpw=2.0")
+                    tier["calibration"] = _path(
+                        tier.get("calibration"),
+                        f"tiers[{index}].calibration",
+                        base_dir=base,
+                    )
+                    if any(name in tier for name in ("source_root", "fixed_assignment")):
+                        raise BackpackPlanError(
+                            f"tiers[{index}] native_v7 consumes fresh model/calibration inputs, not legacy packaged units"
+                        )
+                elif backend == "packaged_qtip":
                     fixed_assignment = tier.get("fixed_assignment")
                     if fixed_assignment is not None:
                         fixed = _object(
@@ -407,18 +438,24 @@ class BackpackPlan:
                         f"tiers[{index}].fixed_assignment requires packaged_qtip"
                     )
                 runtime_family = tier.get(
-                    "runtime_family", "qtip2" if bpw < Decimal("3.00") else "qtip3"
+                    "runtime_family",
+                    "qtip2_v7"
+                    if backend == "native_v7"
+                    else ("qtip2" if bpw < Decimal("3.00") else "qtip3"),
                 )
-                if runtime_family not in {"qtip2", "qtip3"}:
+                if runtime_family not in {"qtip2_v7", "qtip2", "qtip3"}:
                     raise BackpackPlanError(
-                        f"tiers[{index}].runtime_family must be qtip2 or qtip3"
+                        f"tiers[{index}].runtime_family must be qtip2_v7, qtip2, or qtip3"
                     )
+                if backend == "native_v7" and runtime_family != "qtip2_v7":
+                    raise BackpackPlanError("native QTIP V7 runtime_family must be qtip2_v7")
                 tier["runtime_family"] = runtime_family
                 provider = tier.get("provider")
                 if provider is not None:
                     provider = _nonempty(provider, f"tiers[{index}].provider")
                     expected = {
                         "qtip2": Decimal("2.00"),
+                        "qtip2-v7": Decimal("2.00"),
                         "qtip@2.00": Decimal("2.00"),
                         "qtip2.5": Decimal("2.50"),
                         "qtip@2.50": Decimal("2.50"),
@@ -467,6 +504,11 @@ class BackpackPlan:
                         )
             tiers.append(tier)
 
+        native_v7_tiers = [tier for tier in tiers if tier.get("backend") == "native_v7"]
+        if native_v7_tiers and len(tiers) != 1:
+            raise BackpackPlanError(
+                "a native QTIP2-V7 Backpack plan must declare exactly one V7 tier"
+            )
         fixed_tiers = [tier for tier in tiers if "fixed_assignment" in tier]
         if fixed_tiers and len(tiers) != 1:
             raise BackpackPlanError(
@@ -891,6 +933,17 @@ def _fixed_artifacts(
 def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     _manifest_path, manifest = _model_manifest(plan)
     root = Path(plan.model["root"])
+    native_v7_requested = any(
+        tier.get("backend") == "native_v7" for tier in plan.tiers
+    )
+    projections = QTIP_V7_PROJECTIONS if native_v7_requested else QTIP_PROJECTIONS
+    expert_count = manifest.get("expert_count", 256)
+    if (
+        isinstance(expert_count, bool)
+        or not isinstance(expert_count, int)
+        or not 1 <= expert_count <= 256
+    ):
+        raise BackpackPlanError("model expert_count must be an integer in 1..256")
     fixed_d4_requested = any(
         tier.get("provider") in {"d4_k2048", "d4-k2048", "d4_k4096", "d4-k4096"}
         for tier in plan.tiers
@@ -946,12 +999,14 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
             raise BackpackPlanError(f"model cell {cell_id} feature_slice/weight shape mismatch")
         layer = raw.get("layer")
         expert_ids = raw.get("expert_ids")
-        projection = raw.get("projection", "down")
         if isinstance(layer, bool) or not isinstance(layer, int) or layer < 0:
-            raise BackpackPlanError(f"model cell {cell_id} layer must be a non-negative integer")
-        if projection not in QTIP_PROJECTIONS:
             raise BackpackPlanError(
-                f"model cell {cell_id} projection must be one of {', '.join(QTIP_PROJECTIONS)}"
+                f"model cell {cell_id} layer must be a non-negative integer"
+            )
+        projection = raw.get("projection", projections[-1])
+        if projection not in projections:
+            raise BackpackPlanError(
+                f"model cell {cell_id} projection must be one of {', '.join(projections)}"
             )
         if (
             not isinstance(expert_ids, list)
@@ -960,13 +1015,13 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
                 isinstance(expert, bool)
                 or not isinstance(expert, int)
                 or expert < 0
-                or expert >= 256
+                or expert >= expert_count
                 for expert in expert_ids
             )
             or len(expert_ids) != len(set(expert_ids))
         ):
             raise BackpackPlanError(
-                f"model cell {cell_id} expert_ids must be unique integers in 0..255"
+                f"model cell {cell_id} expert_ids must be unique integers in 0..{expert_count - 1}"
             )
         native_payload: dict[str, Any] | None = None
         if any(tier["family"] == "native_mxfp4" for tier in plan.tiers):
@@ -1012,6 +1067,11 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
                 "layer": layer,
                 "projection": projection,
                 "expert_ids": expert_ids,
+                **(
+                    {"matrix_shape": list(raw["matrix_shape"])}
+                    if native_v7_requested and "matrix_shape" in raw
+                    else {}
+                ),
                 "weights": np.ascontiguousarray(array.reshape(-1)),
                 **(
                     {
@@ -1030,28 +1090,28 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
         )
     for layer in sorted({int(cell["layer"]) for cell in cells}):
         partitions_by_projection: dict[str, set[tuple[int, ...]]] = {}
-        for projection in QTIP_PROJECTIONS:
+        for projection in projections:
             routed = [
                 int(expert)
                 for cell in cells
                 if int(cell["layer"]) == layer and cell["projection"] == projection
                 for expert in cell["expert_ids"]
             ]
-            if len(routed) != 256 or set(routed) != set(range(256)):
+            if len(routed) != expert_count or set(routed) != set(range(expert_count)):
                 raise BackpackPlanError(
                     f"model cells for layer {layer} projection {projection} "
-                    "must partition expert IDs 0..255 exactly"
+                    f"must partition expert IDs 0..{expert_count - 1} exactly"
                 )
             partitions_by_projection[projection] = {
                 tuple(int(expert) for expert in cell["expert_ids"])
                 for cell in cells
                 if int(cell["layer"]) == layer and cell["projection"] == projection
             }
-        reference = partitions_by_projection[QTIP_PROJECTIONS[0]]
-        if any(partitions_by_projection[projection] != reference for projection in QTIP_PROJECTIONS[1:]):
+        reference = partitions_by_projection[projections[0]]
+        if any(partitions_by_projection[projection] != reference for projection in projections[1:]):
             raise BackpackPlanError(
                 f"model cells for layer {layer} must use identical expert partitions "
-                "across fused13 and down"
+                f"across {'/'.join(projections)}"
             )
         for group_index, expert_partition in enumerate(sorted(reference)):
             for cell in cells:
@@ -1957,9 +2017,78 @@ def generate_qtip_backpack_candidate(
 def _stage_candidates(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[str, Any]:
     from .backpack_providers import generate_backpack_candidate, price_backpack_candidate
 
-    _manifest, cells = _load_cells(plan)
+    model_manifest, cells = _load_cells(plan)
     tiers: list[dict[str, Any]] = []
     for tier in plan.tiers:
+        from .backpack_providers import backpack_provider_from_declaration
+
+        provider = backpack_provider_from_declaration(tier)
+        if provider.kind == "qtip_v7":
+            index_path = Path(plan.model["root"]) / "model.safetensors.index.json"
+            if index_path.is_symlink() or not index_path.is_file():
+                raise BackpackPlanError(
+                    "native QTIP2-V7 requires model.root/model.safetensors.index.json"
+                )
+            basis_sha256 = _sha_file(index_path)
+            if plan.model["revision"] != basis_sha256:
+                raise BackpackPlanError(
+                    "native QTIP2-V7 model revision must equal the source index SHA-256"
+                )
+            generated = provider.generate(
+                root,
+                tier=tier,
+                cells=cells,
+                model_basis_sha256=basis_sha256,
+                weight_denominator=int(model_manifest["weight_count"]),
+                materialize=provider.materialize,
+            )
+            cell_rows = []
+            for receipt in generated["cells"]:
+                price = price_backpack_candidate(receipt)
+                cell_rows.append(
+                    {
+                        "cell_id": receipt["cell_id"],
+                        "cell_payload_bytes": price.cell_payload_bytes,
+                        "physical_bytes": price.cell_payload_bytes,
+                        "activation_artifacts": list(price.activation_artifacts),
+                        "projection": next(
+                            cell["projection"]
+                            for cell in cells
+                            if cell["cell_id"] == receipt["cell_id"]
+                        ),
+                        "receipt": receipt["receipt"],
+                        "algorithm": generated["method"],
+                    }
+                )
+            tiers.append(
+                {
+                    "tier": tier["id"],
+                    "family": "qtip",
+                    "bpw": 2.0,
+                    "method": generated["method"],
+                    "runtime_family": generated["runtime_family"],
+                    "producer_calls": generated["producer_calls"],
+                    "wire_calls": generated["wire_calls"],
+                    "qfn_calls": generated["qfn_calls"],
+                    "extension_calls": generated["extension_calls"],
+                    "cuda_tiles": generated["cuda_tiles"],
+                    "legacy_packaged_loader_calls": 0,
+                    "generic_fallback_calls": generated["generic_fallback_calls"],
+                    "input_bindings": [
+                        {
+                            "role": "model_index",
+                            "path": str(index_path),
+                            "bytes": index_path.stat().st_size,
+                            "sha256": basis_sha256,
+                        },
+                        *generated["input_bindings"],
+                    ],
+                    "model_accounting": generated["model_accounting"],
+                    "v7_layers": generated["layers"],
+                    "cells": cell_rows,
+                }
+            )
+            continue
         qtip_geometries = (
             _exact_qtip_geometries(tier, cells)
             if tier["family"] == "qtip"
@@ -2707,11 +2836,144 @@ def _export_verified_pack(
     return verification
 
 
+def _materialize_native_v7_pre_repair(
+    plan: BackpackPlan,
+    root: Path,
+    prior: dict[str, Any],
+    assignment: Sequence[Mapping[str, Any]],
+    solved: Mapping[str, Any],
+    *,
+    fixed_bytes: int,
+) -> dict[str, Any]:
+    """Bind selected complete V7 wires without translating them to legacy QTIP arrays."""
+    tier_row = prior["candidates"]["candidate_tiers"][0]
+    if tier_row.get("method") != "qtip2-v7-native":
+        raise BackpackPlanError("native V7 materialization requires same-run V7 candidates")
+    pre_pack = root / "pre-repair-pack"
+    if pre_pack.exists():
+        shutil.rmtree(pre_pack)
+    wire_root = pre_pack / "qtip2-v7"
+    wire_root.mkdir(parents=True)
+    layer_rows = []
+    activated = {
+        str(row.get("id")): row
+        for row in solved.get("activated_artifacts", ())
+        if isinstance(row, Mapping)
+    }
+    candidate_wire_root = (root / "qtip-v7" / str(tier_row["tier"])).resolve()
+    for row in tier_row.get("v7_layers", ()):
+        source = Path(str(row["wire"]))
+        activation = activated.get(f"qtip2-v7-layer-{int(row['layer'])}")
+        try:
+            source.resolve().relative_to(candidate_wire_root)
+        except (OSError, ValueError) as exc:
+            raise BackpackPlanError("native V7 selected wire escaped the lifecycle root") from exc
+        if (
+            source.is_symlink()
+            or not source.is_file()
+            or source.stat().st_size != row["wire_bytes"]
+            or _sha_file(source) != row["wire_sha256"]
+            or not isinstance(activation, Mapping)
+            or Path(str(activation.get("path", ""))).resolve() != source.resolve()
+            or activation.get("bytes") != row["wire_bytes"]
+            or activation.get("sha256") != row["wire_sha256"]
+        ):
+            raise BackpackPlanError("native V7 selected wire identity drift")
+        destination = wire_root / f"layer_{int(row['layer']):03d}.q2v7layer"
+        shutil.copyfile(source, destination)
+        destination_sha256 = _sha_file(destination)
+        if destination.stat().st_size != row["wire_bytes"] or destination_sha256 != row["wire_sha256"]:
+            raise BackpackPlanError("native V7 selected wire copy identity drift")
+        layer_rows.append(
+            {
+                "layer": int(row["layer"]),
+                "source_path": str(source),
+                "source_sha256": row["wire_sha256"],
+                "path": str(destination),
+                "bytes": destination.stat().st_size,
+                "sha256": destination_sha256,
+                "runtime_dispatch": "banana_smasher_plugin._v4_moe.qtip2_v7_direct",
+            }
+        )
+    if not layer_rows:
+        raise BackpackPlanError("native V7 materialization selected no complete layer wires")
+    manifest = {
+        "schema": "banana-smasher-qtip2-v7-pre-repair-pack-v1",
+        "status": "PASS",
+        "model_id": plan.output["model_id"],
+        "instance_id": f"{plan.output['instance_id']}-pre-repair",
+        "method": "qtip2-v7-native",
+        "runtime_family": "qtip2_v7",
+        "layers": layer_rows,
+        "producer_calls": int(tier_row["producer_calls"]),
+        "wire_calls": int(tier_row["wire_calls"]),
+        "qfn_calls": int(tier_row["qfn_calls"]),
+        "extension_calls": int(tier_row["extension_calls"]),
+        "cuda_tiles": int(tier_row["cuda_tiles"]),
+        "legacy_packaged_loader_calls": 0,
+        "generic_fallback_calls": 0,
+    }
+    manifest_path = pre_pack / "BANANA_PACK_MANIFEST.json"
+    _atomic_json(manifest_path, manifest)
+    assignment_path = root / "materialized" / "ASSIGNMENT.json"
+    whole = fixed_bytes + int(solved["assigned_bytes"])
+    byte_accounting = {
+        "cell_payload_bytes": solved["cell_payload_bytes"],
+        "activated_family_bytes": solved["activation_bytes"],
+        "candidate_payload_bytes": solved["assigned_bytes"],
+        "fixed_bytes": fixed_bytes,
+        "whole_model_bytes": whole,
+        "target_whole_model_bytes": prior["inspect"]["target_whole_model_bytes"],
+        "slack_bytes": prior["inspect"]["target_whole_model_bytes"] - whole,
+    }
+    _atomic_json(
+        assignment_path,
+        {
+            "schema": "banana-smasher-backpack-assignment-v1",
+            "status": "PASS",
+            "method": "qtip2-v7-native",
+            "assignments": list(assignment),
+            "activated_artifacts": solved["activated_artifacts"],
+            "byte_accounting": byte_accounting,
+            "legacy_packaged_loader_calls": 0,
+            "generic_fallback_calls": 0,
+        },
+    )
+    return {
+        "method": "qtip2-v7-native",
+        "runtime_family": "qtip2_v7",
+        "assignment": list(assignment),
+        "activated_artifacts": solved["activated_artifacts"],
+        "assignment_receipt": str(assignment_path),
+        "assignment_receipt_sha256": _sha_file(assignment_path),
+        "byte_accounting": byte_accounting,
+        "pre_repair_pack": str(pre_pack),
+        "pre_repair_pack_manifest_sha256": _sha_file(manifest_path),
+        "pack_verification": {
+            "status": "PASS",
+            "method": "qtip2-v7-native",
+            "runtime_dispatch": "banana_smasher_plugin._v4_moe.qtip2_v7_direct",
+            "complete_wire_layers": len(layer_rows),
+            "legacy_packaged_loader_calls": 0,
+            "generic_fallback_calls": 0,
+        },
+        "producer_calls": int(tier_row["producer_calls"]),
+        "wire_calls": int(tier_row["wire_calls"]),
+        "qfn_calls": int(tier_row["qfn_calls"]),
+        "extension_calls": int(tier_row["extension_calls"]),
+        "cuda_tiles": int(tier_row["cuda_tiles"]),
+        "legacy_packaged_loader_calls": 0,
+        "generic_fallback_calls": 0,
+        "solver": solved["solver"],
+    }
+
+
 def _stage_solve_materialize(
     plan: BackpackPlan, root: Path, prior: dict[str, Any]
 ) -> dict[str, Any]:
     from .backpack_providers import (
         activation_artifacts_for_options,
+        backpack_provider_from_declaration,
         materialize_backpack_assignment,
     )
 
@@ -2793,6 +3055,21 @@ def _stage_solve_materialize(
         solved["cell_payload_bytes"]
     ):
         raise RuntimeError("coupled assignment byte accounting drift")
+    selected_providers = {
+        backpack_provider_from_declaration(
+            next(tier for tier in plan.tiers if str(tier["id"]) == str(row["tier"]))
+        ).kind
+        for row in assignment
+    }
+    if selected_providers == {"qtip_v7"}:
+        return _materialize_native_v7_pre_repair(
+            plan,
+            root,
+            prior,
+            assignment,
+            solved,
+            fixed_bytes=int(inspect["fixed_total_bytes"]),
+        )
     artifact_roots = {
         str(row["cell_id"]): candidate_artifact_root(
             prior["candidates"],
@@ -3179,18 +3456,73 @@ def _stage_pre_repair_anchor(
 ) -> dict[str, Any]:
     manifest, cells = _load_cells(plan)
     features, classes = _load_anchor(plan, weight_count=int(manifest["weight_count"]))
-    _selected, weights = _selected_weights(
-        prior["candidates"], prior["solve_materialize"]["assignment"], cells
-    )
+    solved = prior["solve_materialize"]
+    pack_manifest_path: Path | None = None
+    selected_wires: list[dict[str, Any]] = []
+    if solved.get("method") == "qtip2-v7-native":
+        from .backpack_qtip_v7 import decode_selected_qtip_v7_backpack_weights
+
+        pack_manifest_path = Path(solved["pre_repair_pack"]) / "BANANA_PACK_MANIFEST.json"
+        pack_manifest = json.loads(pack_manifest_path.read_text())
+        selected_wires = list(pack_manifest["layers"])
+        weights = decode_selected_qtip_v7_backpack_weights(
+            selected_layers=selected_wires,
+            cells=cells,
+        )
+    else:
+        _selected, weights = _selected_weights(
+            prior["candidates"], solved["assignment"], cells
+        )
     metrics = _anchor_metrics(features, classes, _teacher_weights(plan, cells), weights)
     path = root / "anchors" / "pre-repair-backpack.json"
     _atomic_json(path, metrics)
-    return {
+    result = {
         "metrics": metrics,
         "receipt": str(path),
         "receipt_bytes": path.stat().st_size,
         "receipt_sha256": _sha_file(path),
     }
+    if solved.get("method") == "qtip2-v7-native":
+        assert pack_manifest_path is not None
+        assignment_receipt = Path(solved["assignment_receipt"])
+        anchor_input = {
+            "schema": "banana-smasher-qtip2-v7-selected-anchor-input-v1",
+            "method": solved["method"],
+            "selected_assignment_receipt": str(assignment_receipt),
+            "selected_assignment_sha256": solved["assignment_receipt_sha256"],
+            "selected_pack_manifest_sha256": _sha_file(pack_manifest_path),
+            "selected_wires": selected_wires,
+            "runtime_wire_decode_calls": 1,
+        }
+        result.update(
+            {
+                "method": "qtip2-v7-native",
+                "runtime_family": "qtip2_v7",
+                "completed_stage": "pre_repair_anchor",
+                "repair_executed": False,
+                "model_revision": prior["inspect"]["model_manifest"]["revision"],
+                "anchor_bank": prior["inspect"]["anchor_bank"],
+                "teacher": prior["inspect"]["teacher"],
+                "selected_assignment_receipt": str(assignment_receipt),
+                "selected_assignment_sha256": solved["assignment_receipt_sha256"],
+                "selected_pack_manifest": str(pack_manifest_path),
+                "selected_pack_manifest_sha256": _sha_file(pack_manifest_path),
+                "selected_wires": selected_wires,
+                "anchor_input": anchor_input,
+                "runtime_wire_decode_calls": 1,
+                "stored_wire_bytes": sum(int(row["bytes"]) for row in selected_wires),
+                "weight_denominator": int(prior["inspect"]["weight_count"]),
+                "byte_accounting": solved["byte_accounting"],
+                "producer_calls": solved["producer_calls"],
+                "wire_calls": solved["wire_calls"],
+                "qfn_calls": solved["qfn_calls"],
+                "extension_calls": solved["extension_calls"],
+                "cuda_tiles": solved["cuda_tiles"],
+                "legacy_packaged_loader_calls": 0,
+                "generic_fallback_calls": 0,
+            }
+        )
+    return result
 
 
 def _stage_repair(plan: BackpackPlan, root: Path, prior: dict[str, Any]) -> dict[str, Any]:
@@ -3468,7 +3800,7 @@ def _validate_stage_artifacts(
         if not isinstance(tier_rows, list):
             return False
         try:
-            _manifest, cells = _load_cells(plan)
+            manifest, cells = _load_cells(plan)
         except Exception:
             return False
         tiers_by_id = {str(tier["id"]): tier for tier in plan.tiers}
@@ -3494,9 +3826,103 @@ def _validate_stage_artifacts(
             qtip_geometries = (
                 _exact_qtip_geometries(expected_tier, cells)
                 if expected_tier["family"] == "qtip"
+                and expected_tier.get("backend") != "native_v7"
                 else None
             )
             cell_rows = tier_row["cells"]
+            if tier_row.get("method") == "qtip2-v7-native":
+                bindings = tier_row.get("input_bindings")
+                layers = tier_row.get("v7_layers")
+                accounting = tier_row.get("model_accounting")
+                if (
+                    tier_row.get("runtime_family") != "qtip2_v7"
+                    or int(tier_row.get("producer_calls", 0)) <= 0
+                    or int(tier_row.get("wire_calls", 0)) <= 0
+                    or int(tier_row.get("qfn_calls", 0)) <= 0
+                    or int(tier_row.get("extension_calls", 0)) <= 0
+                    or int(tier_row.get("cuda_tiles", 0)) <= 0
+                    or tier_row.get("legacy_packaged_loader_calls") != 0
+                    or tier_row.get("generic_fallback_calls") != 0
+                    or not isinstance(bindings, list)
+                    or not bindings
+                    or not all(_validate_bound_file(row) for row in bindings)
+                    or not _validate_bound_file(
+                        accounting,
+                        path_field="receipt",
+                        sha_field="receipt_sha256",
+                        bytes_field="receipt_bytes",
+                    )
+                    or accounting.get("status") != "PASS"
+                    or accounting.get("stored_wire_bpw", {}).get("weight_denominator")
+                    != int(manifest["weight_count"])
+                    or not isinstance(layers, list)
+                    or not layers
+                ):
+                    return False
+                expected_layers = {int(cell["layer"]) for cell in cells}
+                if {row.get("layer") for row in layers if isinstance(row, Mapping)} != expected_layers:
+                    return False
+                activation_rows = {
+                    (
+                        artifact.get("id"), artifact.get("path"),
+                        artifact.get("bytes"), artifact.get("sha256"),
+                    )
+                    for cell_row in cell_rows
+                    if isinstance(cell_row, Mapping)
+                    for artifact in cell_row.get("activation_artifacts", ())
+                    if isinstance(artifact, Mapping)
+                }
+                expected_activation_rows = set()
+                layer_root = (run_root / "qtip-v7" / tier_id).resolve()
+                for layer_row in layers:
+                    if not isinstance(layer_row, Mapping):
+                        return False
+                    wire = Path(str(layer_row.get("wire", "")))
+                    receipt = Path(str(layer_row.get("receipt", "")))
+                    try:
+                        wire.resolve().relative_to(layer_root)
+                        receipt.resolve().relative_to(layer_root)
+                    except (OSError, ValueError):
+                        return False
+                    if (
+                        not _validate_bound_file(
+                            layer_row,
+                            path_field="wire",
+                            sha_field="wire_sha256",
+                            bytes_field="wire_bytes",
+                        )
+                        or not _validate_bound_file(
+                            layer_row,
+                            path_field="receipt",
+                            sha_field="receipt_sha256",
+                            bytes_field="receipt_bytes",
+                        )
+                    ):
+                        return False
+                    try:
+                        wire_receipt = json.loads(receipt.read_text())
+                    except (OSError, json.JSONDecodeError):
+                        return False
+                    wire_sha = layer_row["wire_sha256"]
+                    if (
+                        not isinstance(wire_receipt, Mapping)
+                        or wire_receipt.get("status") != "PASS"
+                        or wire_receipt.get("layer") != layer_row["layer"]
+                        or Path(str(wire_receipt.get("wire", ""))).resolve() != wire.resolve()
+                        or wire_receipt.get(
+                            "wire_sha256", wire_receipt.get("complete_wire_sha256")
+                        ) != wire_sha
+                        or int(wire_receipt.get("generic_fallback_calls", 0)) != 0
+                    ):
+                        return False
+                    expected_activation_rows.add(
+                        (
+                            f"qtip2-v7-layer-{layer_row['layer']}",
+                            str(wire), layer_row["wire_bytes"], wire_sha,
+                        )
+                    )
+                if activation_rows != expected_activation_rows:
+                    return False
             if len(cell_rows) != len(cells_by_id):
                 return False
             seen_cells: set[str] = set()
@@ -3543,14 +3969,128 @@ def _validate_stage_artifacts(
             bytes_field="receipt_bytes",
         ) and _validate_status_json_receipt(result.get("receipt"))
     if stage == "pre_repair_anchor":
-        return _validate_bound_file(
-            result,
-            path_field="receipt",
-            sha_field="receipt_sha256",
-            bytes_field="receipt_bytes",
-        ) and _validate_status_json_receipt(result.get("receipt"))
+        if not (
+            _validate_bound_file(
+                result,
+                path_field="receipt",
+                sha_field="receipt_sha256",
+                bytes_field="receipt_bytes",
+            )
+            and _validate_status_json_receipt(result.get("receipt"))
+        ):
+            return False
+        if result.get("method") != "qtip2-v7-native":
+            return True
+        solve_stage = run_root / "stages" / "05-solve-materialize.json"
+        try:
+            solved = json.loads(solve_stage.read_text())["result"]
+        except (OSError, KeyError, TypeError, json.JSONDecodeError):
+            return False
+        if not isinstance(solved, Mapping) or not _validate_stage_artifacts(
+            "solve_materialize", solved, plan=plan, run_root=run_root
+        ):
+            return False
+        expected_fields = {
+            "method": solved.get("method"),
+            "runtime_family": solved.get("runtime_family"),
+            "producer_calls": solved.get("producer_calls"),
+            "wire_calls": solved.get("wire_calls"),
+            "qfn_calls": solved.get("qfn_calls"),
+            "extension_calls": solved.get("extension_calls"),
+            "cuda_tiles": solved.get("cuda_tiles"),
+            "legacy_packaged_loader_calls": solved.get("legacy_packaged_loader_calls"),
+            "generic_fallback_calls": solved.get("generic_fallback_calls"),
+            "runtime_wire_decode_calls": 1,
+            "selected_assignment_receipt": solved.get("assignment_receipt"),
+            "selected_assignment_sha256": solved.get("assignment_receipt_sha256"),
+            "selected_pack_manifest_sha256": solved.get("pre_repair_pack_manifest_sha256"),
+        }
+        if any(result.get(field) != value for field, value in expected_fields.items()):
+            return False
+        anchor_input = result.get("anchor_input")
+        wires = result.get("selected_wires")
+        if (
+            not isinstance(anchor_input, Mapping)
+            or anchor_input.get("schema")
+            != "banana-smasher-qtip2-v7-selected-anchor-input-v1"
+            or any(anchor_input.get(field) != result.get(field) for field in (
+                "method", "selected_assignment_receipt", "selected_assignment_sha256",
+                "selected_pack_manifest_sha256", "selected_wires",
+            ))
+            or anchor_input.get("runtime_wire_decode_calls") != 1
+            or not isinstance(wires, list)
+            or not wires
+            or not all(_validate_bound_file(row) for row in wires)
+        ):
+            return False
+        return True
     if stage not in {"solve_materialize", "repair", "final_score"}:
         return True
+    if stage == "solve_materialize" and result.get("method") == "qtip2-v7-native":
+        pack_value = result.get("pre_repair_pack")
+        manifest_sha = result.get("pre_repair_pack_manifest_sha256")
+        if not isinstance(pack_value, str) or not isinstance(manifest_sha, str):
+            return False
+        pack = Path(pack_value)
+        manifest_path = pack / "BANANA_PACK_MANIFEST.json"
+        assignment_path = Path(str(result.get("assignment_receipt", "")))
+        if (
+            pack.is_symlink()
+            or not pack.is_dir()
+            or manifest_path.is_symlink()
+            or not manifest_path.is_file()
+            or _sha_file(manifest_path) != manifest_sha
+            or assignment_path.is_symlink()
+            or not assignment_path.is_file()
+            or _sha_file(assignment_path) != result.get("assignment_receipt_sha256")
+            or result.get("runtime_family") != "qtip2_v7"
+            or int(result.get("producer_calls", 0)) <= 0
+            or int(result.get("wire_calls", 0)) <= 0
+            or int(result.get("qfn_calls", 0)) <= 0
+            or int(result.get("extension_calls", 0)) <= 0
+            or int(result.get("cuda_tiles", 0)) <= 0
+            or result.get("legacy_packaged_loader_calls") != 0
+            or result.get("generic_fallback_calls") != 0
+        ):
+            return False
+        try:
+            manifest = json.loads(manifest_path.read_text())
+            assignment_receipt = json.loads(assignment_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            return False
+        layers = manifest.get("layers")
+        if (
+            manifest.get("schema") != "banana-smasher-qtip2-v7-pre-repair-pack-v1"
+            or manifest.get("status") != "PASS"
+            or manifest.get("method") != "qtip2-v7-native"
+            or manifest.get("runtime_family") != "qtip2_v7"
+            or manifest.get("instance_id") != f"{plan.output['instance_id']}-pre-repair"
+            or manifest.get("legacy_packaged_loader_calls") != 0
+            or manifest.get("generic_fallback_calls") != 0
+            or not isinstance(layers, list)
+            or not layers
+            or assignment_receipt.get("method") != "qtip2-v7-native"
+        ):
+            return False
+        for row in layers:
+            if not isinstance(row, Mapping) or not isinstance(row.get("path"), str):
+                return False
+            wire = Path(row["path"])
+            try:
+                wire.resolve().relative_to((pack / "qtip2-v7").resolve())
+            except (OSError, ValueError):
+                return False
+            if (
+                wire.is_symlink()
+                or not wire.is_file()
+                or wire.stat().st_size != row.get("bytes")
+                or _sha_file(wire) != row.get("sha256")
+                or row.get("runtime_dispatch")
+                != "banana_smasher_plugin._v4_moe.qtip2_v7_direct"
+            ):
+                return False
+        return True
+
     from .contract import load_manifest, verify_pack
 
     if stage == "solve_materialize":
@@ -3723,6 +4263,64 @@ def _validate_candidate_receipt(
         or receipt.get("cell_id") != cell["cell_id"]
     ):
         return False
+    if tier.get("backend") == "native_v7":
+        decoded_row = receipt.get("decoded")
+        wire_row = receipt.get("v7_wire")
+        activations = receipt.get("activation_artifacts")
+        if (
+            receipt.get("algorithm") != "qtip2-v7-native"
+            or receipt.get("method") != "qtip2-v7-native"
+            or receipt.get("runtime_family") != "qtip2_v7"
+            or receipt.get("backend") != "native_v7"
+            or receipt.get("producer_calls") != 1
+            or int(receipt.get("qfn_calls", 0)) <= 0
+            or int(receipt.get("extension_calls", 0)) <= 0
+            or int(receipt.get("cuda_tiles", 0)) <= 0
+            or receipt.get("legacy_packaged_loader_calls") != 0
+            or receipt.get("generic_fallback_calls") != 0
+            or receipt.get("cell_payload_bytes") != 0
+            or receipt.get("physical_bytes") != 0
+            or not isinstance(decoded_row, Mapping)
+            or not isinstance(wire_row, Mapping)
+            or not isinstance(activations, list)
+            or len(activations) != 1
+        ):
+            return False
+        decoded_path = Path(str(decoded_row.get("path", "")))
+        wire_path = Path(str(wire_row.get("path", "")))
+        activation = activations[0]
+        run_root = path.parents[3]
+        try:
+            decoded_path.resolve().relative_to(path.parent.resolve())
+            wire_path.resolve().relative_to(
+                (run_root / "qtip-v7" / str(tier["id"])).resolve()
+            )
+        except (OSError, ValueError):
+            return False
+        if (
+            decoded_path.is_symlink()
+            or not decoded_path.is_file()
+            or wire_path.is_symlink()
+            or not wire_path.is_file()
+            or decoded_row.get("sha256") != _sha_file(decoded_path)
+            or wire_row.get("sha256") != _sha_file(wire_path)
+            or wire_row.get("sha256") != activation.get("sha256")
+            or str(wire_path) != activation.get("path")
+            or wire_path.stat().st_size != activation.get("bytes")
+            or activation.get("id") != f"qtip2-v7-layer-{int(cell['layer'])}"
+            or int(wire_row.get("layer", -1)) != int(cell["layer"])
+        ):
+            return False
+        try:
+            decoded = np.load(decoded_path, allow_pickle=False)
+        except Exception:
+            return False
+        return (
+            decoded.dtype == np.float32
+            and decoded.size == np.asarray(cell["weights"]).size
+            and receipt.get("weight_count") == int(decoded.size)
+        )
+
     arrays = receipt.get("arrays", [])
     if not isinstance(arrays, list):
         return False
@@ -4485,9 +5083,15 @@ def _build_fixed_assignment_backpack(
 
 
 def build_backpack(
-    plan: BackpackPlan | Mapping[str, Any], *, run_root: str | Path
+    plan: BackpackPlan | Mapping[str, Any],
+    *,
+    run_root: str | Path,
+    through: str = "final_score",
 ) -> dict[str, Any]:
-    """Execute or resume the complete eight-stage Backpack construction DAG."""
+    """Execute or resume the Backpack DAG through one stable public boundary."""
+
+    if through not in STAGES:
+        raise BackpackPlanError(f"through must be one of {', '.join(STAGES)}")
 
     parsed, root, plan_sha256 = _bind_run(plan, run_root)
     fixed_assignment = _fixed_assignment_admission(parsed)
@@ -4511,7 +5115,8 @@ def build_backpack(
         ("repair", repair_backpack),
         ("final_score", score_backpack),
     )
-    for index, (stage, stage_api) in enumerate(public_stages, 1):
+    selected_stages = public_stages[: STAGES.index(through) + 1]
+    for index, (stage, stage_api) in enumerate(selected_stages, 1):
         path = _stage_path(root, index, stage)
         existing = _load_verified_stage(
             path,
@@ -4528,13 +5133,25 @@ def build_backpack(
     assert final_result is not None
     final = dict(final_result)
     final_path = root / "FINAL_RECEIPT.json"
+    if through == "final_score" and not final_path.is_file():
+        raise BackpackPlanError("final score did not emit FINAL_RECEIPT.json")
     final.update(
         {
-            "stages": list(STAGES),
+            "through": through,
+            "completed_stage": through,
+            "repair_executed": STAGES.index(through) >= STAGES.index("repair"),
+            "plan_sha256": plan_sha256,
+            "stages": list(STAGES[: STAGES.index(through) + 1]),
             "resumed_stages": resumed,
             "run_root": str(root),
-            "final_receipt": str(final_path),
-            "final_receipt_sha256": _sha_file(final_path),
+            **(
+                {
+                    "final_receipt": str(final_path),
+                    "final_receipt_sha256": _sha_file(final_path),
+                }
+                if through == "final_score"
+                else {}
+            ),
         }
     )
     return final

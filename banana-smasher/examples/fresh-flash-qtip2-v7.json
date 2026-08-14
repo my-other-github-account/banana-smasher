@@ -1,0 +1,41 @@
+{
+  "schema": "banana-smasher-backpack-plan-v1",
+  "model": {
+    "root": "inputs/DeepSeek-V4-Flash-0731",
+    "manifest": "inputs/DeepSeek-V4-Flash-0731/BACKPACK_MODEL.json",
+    "revision": "REPLACE_WITH_MODEL_INDEX_SHA256"
+  },
+  "target": {
+    "whole_model_bpw": 2.0
+  },
+  "tiers": [
+    {
+      "id": "qtip2",
+      "family": "qtip",
+      "bpw": 2.0,
+      "calibration": "inputs/qtip-v7-calibration.json"
+    }
+  ],
+  "anchor": {
+    "bank": "inputs/anchor64.npz",
+    "teacher": "model"
+  },
+  "prediction": {
+    "class_caps": {
+      "agentic": 1,
+      "chat": 1,
+      "code": 1,
+      "multilingual": 1,
+      "prose": 1,
+      "reasoning": 1
+    }
+  },
+  "repair": {
+    "method": "none"
+  },
+  "output": {
+    "pack": "outputs/DeepSeek-V4-Flash-0731-qtip2-v7",
+    "model_id": "DeepSeek-V4-Flash-0731",
+    "instance_id": "deepseek-v4-flash-0731-qtip2-v7"
+  }
+}

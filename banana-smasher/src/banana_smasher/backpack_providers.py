@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
@@ -371,6 +372,26 @@ def native_mxfp4_backpack_provider() -> BackpackFamilyProvider:
     )
 
 
+def qtip_v7_backpack_provider() -> BackpackFamilyProvider:
+    """Return the ordinary fresh-input QTIP2 provider (native V7 only)."""
+
+    from .backpack_qtip_v7 import (
+        generate_qtip_v7_backpack_candidates,
+        materialize_qtip_v7_backpack_layer,
+    )
+
+    return BackpackFamilyProvider(
+        provider_id="qtip2-v7",
+        kind="qtip_v7",
+        runtime_family="qtip2_v7",
+        generate=generate_qtip_v7_backpack_candidates,
+        materialize=materialize_qtip_v7_backpack_layer,
+        price=price_backpack_candidate,
+        predict=predict_backpack_candidate,
+        verify=verify_backpack_candidate,
+    )
+
+
 def qtip_ring_backpack_provider(bpw: object) -> BackpackFamilyProvider:
     from .backpack import generate_qtip_backpack_candidate
     from .qtip_rings import resolve_qtip_ring
@@ -511,7 +532,7 @@ def builtin_backpack_family_providers() -> dict[str, BackpackFamilyProvider]:
 
     providers = (
         native_mxfp4_backpack_provider(),
-        qtip_ring_backpack_provider(2.0),
+        qtip_v7_backpack_provider(),
         qtip_ring_backpack_provider(2.5),
         qtip_ring_backpack_provider(3.0),
         fixed_d4_backpack_provider(2048),
@@ -522,7 +543,7 @@ def builtin_backpack_family_providers() -> dict[str, BackpackFamilyProvider]:
 
 BQ23_PROVIDER_IDS = (
     "native-mxfp4",
-    "qtip@2.00",
+    "qtip2-v7",
     "qtip@3.00",
     "d4-k2048",
     "d4-k4096",
@@ -546,7 +567,8 @@ def backpack_provider_from_declaration(
             "native_mxfp4": "native-mxfp4",
             "d4_k2048": "d4-k2048",
             "d4_k4096": "d4-k4096",
-            "qtip2": "qtip@2.00",
+            "qtip2": "qtip2-v7",
+            "qtip@2.00": "qtip2-v7",
             "qtip2.5": "qtip@2.50",
             "qtip3": "qtip@3.00",
         }
@@ -564,15 +586,26 @@ def backpack_provider_from_declaration(
         return fixed_d4_backpack_provider(2048)
     if explicit in {"d4_k4096", "d4-k4096"}:
         return fixed_d4_backpack_provider(4096)
-    if explicit in {"qtip2", "qtip@2.00"}:
-        return qtip_ring_backpack_provider(2.0)
+    if explicit in {"qtip2", "qtip2-v7", "qtip@2.00"}:
+        if declaration.get("backend", "native_v7") != "native_v7":
+            raise ValueError(f"provider {explicit} requires backend native_v7")
+        return qtip_v7_backpack_provider()
     if explicit in {"qtip2.5", "qtip@2.50"}:
         return qtip_ring_backpack_provider(2.5)
     if explicit in {"qtip3", "qtip@3.00"}:
         return qtip_ring_backpack_provider(3.0)
     kind = declaration.get("kind", declaration.get("family"))
     if kind in {"qtip", "qtip_ring"}:
-        return qtip_ring_backpack_provider(declaration.get("bpw"))
+        bpw = Decimal(str(declaration.get("bpw")))
+        backend = declaration.get("backend", "native_v7")
+        if bpw == Decimal("2.0"):
+            if backend == "packaged_qtip":
+                raise ValueError(
+                    "ordinary QTIP2 cannot select legacy packaged_qtip; use the explicit legacy importer API"
+                )
+            if backend == "native_v7":
+                return qtip_v7_backpack_provider()
+        return qtip_ring_backpack_provider(bpw)
     if kind == "native_mxfp4":
         return native_mxfp4_backpack_provider()
     if kind == "fixed_d4":

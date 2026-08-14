@@ -465,6 +465,21 @@ def _parser() -> argparse.ArgumentParser:
     )
     backpack_build.add_argument("--plan", type=Path, required=True)
     backpack_build.add_argument("--run-root", type=Path, required=True)
+    backpack_build.add_argument(
+        "--through",
+        choices=(
+            "inspect",
+            "candidates",
+            "candidate-anchor",
+            "pred",
+            "solve-materialize",
+            "pre-repair-anchor",
+            "repair",
+            "final-score",
+        ),
+        default="final-score",
+        help="stop after this resumable public lifecycle boundary",
+    )
     backpack_status = backpack_commands.add_parser(
         "status", help="show completed stages and the first incomplete boundary"
     )
@@ -1554,7 +1569,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 plan = BackpackPlan.from_mapping(
                     _load_json_object(args.plan), base_dir=args.plan.parent
                 )
-                result = build_backpack(plan, run_root=args.run_root)
+                result = build_backpack(
+                    plan,
+                    run_root=args.run_root,
+                    through=args.through.replace("-", "_"),
+                )
             elif args.backpack_command == "status":
                 result = status_backpack(args.run_root)
             elif args.backpack_command == "providers":

@@ -465,10 +465,119 @@ def produce_qtip2_v7_batch10(
     }
 
 
+def group_v7_batch(
+    units: Sequence[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+    """Return one deterministic one-to-ten expert group for each V7 projection."""
+    if not units or len(units) % len(_V7_PROJECTIONS):
+        raise ValueError("QTIP2 V7 batch requires complete w1/w2/w3 members")
+    groups = {
+        projection: sorted(
+            (unit for unit in units if unit.get("projection") == projection),
+            key=lambda unit: int(unit["expert"]),
+        )
+        for projection in _V7_PROJECTIONS
+    }
+    expected_experts = [int(unit["expert"]) for unit in groups["w1"]]
+    if not 1 <= len(expected_experts) <= _V7_EXPERTS_PER_BATCH:
+        raise ValueError("QTIP2 V7 batch requires one to ten distinct experts")
+    if len(set(expected_experts)) != len(expected_experts):
+        raise ValueError("QTIP2 V7 batch expert roster is not unique")
+    for projection, group in groups.items():
+        if [int(unit["expert"]) for unit in group] != expected_experts:
+            raise ValueError(f"QTIP2 V7 projection {projection} does not match the expert roster")
+    return groups
+
+
+def produce_qtip2_v7_batch(
+    units: Sequence[dict[str, Any]],
+    parent_lut: Any,
+    *,
+    q2: Any | None = None,
+    chunk_tiles: int = 4096,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Produce one complete V7 roster chunk of up to ten experts."""
+    if q2 is None:
+        from . import qtip_k2 as q2
+    group_v7_batch(units)
+    hessian_cache: dict[tuple[str, int, int], tuple[Any, str, Any, str]] = {}
+    prepared = []
+    for unit in units:
+        item = prepare_v7_unit(q2, unit, parent_lut, hessian_cache)
+        if "proxy_hessian" not in item:
+            cache_key = (
+                str(unit["input_identity"]["raw_hessian_data_sha256"]),
+                int(unit["raw_h_count"]),
+                int(unit["source"].shape[1]),
+            )
+            item["proxy_hessian"] = hessian_cache[cache_key][0].detach().cpu()
+        prepared.append(item)
+    groups = group_v7_batch(prepared)
+    counters = {
+        "qfn_calls": 0,
+        "extension_calls": 0,
+        "cuda_tiles": 0,
+        "fallback_calls": 0,
+        "chunk_tiles": chunk_tiles,
+    }
+    results = []
+    for projection in _V7_PROJECTIONS:
+        group = groups[projection]
+        quantized, states, group_counters = buffered_ldlq_cross_unit(
+            q2, group, parent_lut, chunk_tiles=chunk_tiles
+        )
+        for name in ("qfn_calls", "extension_calls", "cuda_tiles", "fallback_calls"):
+            counters[name] += int(group_counters[name])
+        results.extend(
+            finalize_batch_unit(q2, item, quantized_inner, state)
+            for item, quantized_inner, state in zip(group, quantized, states, strict=True)
+        )
+    prepare_fallbacks = sum(
+        int(item["prepare_counters"]["fallback_calls"])
+        for item in prepared
+        if "prepare_counters" in item
+    )
+    result_fallbacks = sum(
+        int(result["solver_counters"]["fallback_calls"]) for result in results
+    )
+    total_fallbacks = counters["fallback_calls"] + prepare_fallbacks + result_fallbacks
+    if total_fallbacks:
+        raise RuntimeError(f"QTIP2 V7 batch fallback is forbidden: {total_fallbacks}")
+    counters.update(
+        {
+            "factor_cache_hits": sum(int(item.get("hessian_cache_hit", False)) for item in prepared),
+            "factor_cache_misses": len(hessian_cache),
+            "factor_cache_entries": len(hessian_cache),
+        }
+    )
+    return results, {
+        "schema": "banana-smasher-qtip2-v7-batch-producer-v1",
+        "status": "PASS",
+        "implementation": "qtip2-v7-dp4a-half2-per-geometry-batch",
+        "batch_units": len(results),
+        "group_sizes": {projection: len(groups[projection]) for projection in _V7_PROJECTIONS},
+        "invocation": [
+            "prepare_v7_unit",
+            "group_v7_batch",
+            "buffered_ldlq_cross_unit",
+            "finalize_batch_unit",
+        ],
+        "factor_cache_entries": len(hessian_cache),
+        "counters": counters,
+        "source_only": True,
+        "fallback_calls": 0,
+        "generic_fallback_calls": 0,
+        "one_member_per_call": False,
+        "deterministic_pack": True,
+    }
+
+
 __all__ = [
     "buffered_ldlq_cross_unit",
     "finalize_batch_unit",
+    "group_v7_batch",
     "group_v7_batch10",
     "prepare_v7_unit",
+    "produce_qtip2_v7_batch",
     "produce_qtip2_v7_batch10",
 ]

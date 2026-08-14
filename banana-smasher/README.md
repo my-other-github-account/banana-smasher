@@ -6,6 +6,13 @@
 
 ### Five-minute quickstart
 
+The native default is governed by the
+[Native QTIP2-V7 default API specification](QTIP_V7_DEFAULT_API_SPEC.md). Start
+from the schema-valid
+[fresh Flash QTIP2-V7 example plan](examples/fresh-flash-qtip2-v7.json), replace
+its model-index revision placeholder, and populate its relative `inputs/` model,
+calibration, and Anchor64 files before running the commands below.
+
 The public surface has two layers. Family providers expose independently
 callable generation, materialization, receipt pricing, prediction, and
 verification bindings; `build_backpack` and `smash backpack build` compose the
@@ -21,29 +28,32 @@ from banana_smasher import (
 
 providers = builtin_backpack_family_providers()
 assert set(providers) == {
-    "native-mxfp4", "qtip@2.00", "qtip@2.50", "qtip@3.00",
+    "native-mxfp4", "qtip2-v7", "qtip@2.50", "qtip@3.00",
     "d4-k2048", "d4-k4096",
 }
 qtip15 = qtip1_5_provider_declaration()
 assert qtip15.tier == "qtip@1.50"
 assert [(row.geometry.K, row.geometry.V) for row in qtip15.components] == [(1, 1), (2, 2)]
 plan = BackpackPlan.from_mapping(plan_mapping, base_dir=".")
-result = build_backpack(plan, run_root="./backpack-run")
+result = build_backpack(
+    plan, run_root="./backpack-run", through="pre_repair_anchor"
+)
 ```
 
-The provider menu is declaration-driven: QTIP rates use the packaged ring
-table, D4K2048/K4096 bind the production fixed-D4 prepare/materialize/logit
-APIs, and `vector_vq_backpack_provider(...)` covers independently callable D4
-or D8 vector-VQ fixtures. Prices are read from candidate receipts as per-cell
+The provider menu is declaration-driven: ordinary `family: "qtip", bpw: 2.0`
+selects the native QTIP2-V7 producer and complete wire path. Packaged QTIP rings
+are legacy-only compatibility inputs, never the QTIP2 default. D4K2048/K4096
+bind the production fixed-D4 prepare/materialize/logit APIs, and
+`vector_vq_backpack_provider(...)` covers independently callable D4 or D8
+vector-VQ fixtures. Prices are read from candidate receipts as per-cell
 payload bytes plus shared activation artifacts; the exact solver charges each
 activation identity once.
 
 The equivalent CLI path is:
 
 ```console
-smash backpack build --plan plan.json --run-root ./backpack-run
+smash backpack build --plan examples/fresh-flash-qtip2-v7.json --run-root ./backpack-run --through pre-repair-anchor
 smash backpack status --run-root ./backpack-run
-smash verify ./backpack-run/pre-repair-pack
 ```
 
 Migration: callers using `generate_vector_vq_backpack_candidate`,
@@ -66,9 +76,7 @@ repair, and final score/pack. The JSON schema is shipped in the source tree at
   "model": {"root": "/models/M", "revision": "MODEL_REVISION"},
   "target": {"whole_model_bpw": 2.7},
   "tiers": [
-    {"id": "d4-k2048", "family": "vector_vq", "dimension": 4, "codebook_size": 2048},
-    {"id": "d8-2bpw", "family": "vector_vq", "dimension": 8, "bpw": 2.0},
-    {"id": "qtip-2.0", "family": "qtip", "bpw": 2.0, "source_root": "/qtip/configs"}
+    {"id": "qtip2", "family": "qtip", "bpw": 2.0, "calibration": "inputs/qtip-v7-calibration.json"}
   ],
   "anchor": {"bank": "/banks/anchor64.npz", "teacher": "model"},
   "prediction": {"class_caps": {"agentic": 1, "chat": 1, "code": 1, "multilingual": 1, "prose": 1, "reasoning": 1}},
@@ -82,15 +90,16 @@ The v1 direct adapter infers cells and fixed dense/metadata/repair bytes from
 `features: float32[64, weight_count]` and six-class `classes: str[64]`.
 Impossible grouping, geometry, QTIP increments, class caps, or byte envelopes
 fail explicitly; no family is substituted. D4 and D8 use true 4- and 8-weight
-vector grouping with packed code indices. Production QTIP tiers require a
-canonical ring-bound `source_root` and fail closed rather than falling back to
-the CPU fixture backend. Synthetic tests must opt in explicitly with
-`"backend": "fixture_reference"`.
+vector grouping with packed code indices. Ordinary QTIP2 tiers require a
+model-basis-bound native V7 calibration manifest and fail closed rather than
+loading legacy packaged units or a reference
+fallback. The native lifecycle emits positive producer/wire counters and zero
+legacy/fallback counters.
 
 Run every stage or inspect the first incomplete boundary:
 
 ```console
-smash backpack build --plan plan.json --run-root ./backpack-run
+smash backpack build --plan examples/fresh-flash-qtip2-v7.json --run-root ./backpack-run --through pre-repair-anchor
 smash backpack status --run-root ./backpack-run
 smash backpack export --run-root ./backpack-run --lifecycle uniform-anchor --tier d4-k2048 --serving-model-root /models/M --output ./uniform-model
 smash backpack export --run-root ./backpack-run --lifecycle pre-repair --serving-model-root /models/M --output ./pre-repair-model

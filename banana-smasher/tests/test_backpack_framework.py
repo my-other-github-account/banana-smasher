@@ -250,8 +250,19 @@ def test_plan_rejects_impossible_or_ambiguous_tiers(tmp_path: Path) -> None:
 
     plan = _fixture_plan(tmp_path / "packaged-qtip")
     plan["tiers"][2] = {"id": "qtip-2.0", "family": "qtip", "bpw": 2.0}  # type: ignore[index]
-    with pytest.raises(BackpackPlanError, match="source_root"):
+    with pytest.raises(BackpackPlanError, match="calibration"):
         BackpackPlan.from_mapping(plan)
+
+
+def test_inspect_rejects_unknown_model_projection(tmp_path: Path) -> None:
+    document = _fixture_plan(tmp_path)
+    manifest_path = tmp_path / "model" / "BACKPACK_MODEL.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["cells"][0]["projection"] = "not-a-projection"
+    manifest_path.write_text(json.dumps(manifest) + "\n")
+
+    with pytest.raises(BackpackPlanError, match="projection must be one of"):
+        inspect_backpack(document, run_root=tmp_path / "run")
 
 
 def test_plan_schema_matches_parser_surface(tmp_path: Path) -> None:
