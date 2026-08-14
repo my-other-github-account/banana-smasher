@@ -3732,6 +3732,89 @@ def _validate_bound_file(
     return path.stat().st_size == expected_bytes
 
 
+def _validate_native_v7_model_index_binding(
+    bindings: object, *, plan: BackpackPlan
+) -> bool:
+    """Require candidate resume to bind the plan's current model index exactly once."""
+    if not isinstance(bindings, list):
+        return False
+    rows = [
+        row
+        for row in bindings
+        if isinstance(row, Mapping) and row.get("role") == "model_index"
+    ]
+    if len(rows) != 1 or not _validate_bound_file(rows[0]):
+        return False
+    expected = Path(plan.model["root"]) / "model.safetensors.index.json"
+    return (
+        Path(str(rows[0]["path"])).resolve() == expected.resolve()
+        and rows[0].get("sha256") == plan.model["revision"]
+    )
+
+
+def _validate_native_v7_materialization_identity(
+    result: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+    assignment_receipt: Mapping[str, Any],
+) -> bool:
+    """Bind selected source identities, copied wires, and assignment accounting."""
+    layers = manifest.get("layers")
+    activations = result.get("activated_artifacts")
+    accounting = result.get("byte_accounting")
+    if (
+        not isinstance(layers, list)
+        or not layers
+        or not isinstance(activations, list)
+        or len(activations) != len(layers)
+        or not isinstance(accounting, Mapping)
+        or assignment_receipt.get("schema")
+        != "banana-smasher-backpack-assignment-v1"
+        or assignment_receipt.get("status") != "PASS"
+        or assignment_receipt.get("method") != "qtip2-v7-native"
+        or assignment_receipt.get("assignments") != result.get("assignment")
+        or assignment_receipt.get("activated_artifacts") != activations
+        or assignment_receipt.get("byte_accounting") != accounting
+        or assignment_receipt.get("legacy_packaged_loader_calls") != 0
+        or assignment_receipt.get("generic_fallback_calls") != 0
+    ):
+        return False
+    activation_by_id: dict[str, Mapping[str, Any]] = {}
+    for activation in activations:
+        if not isinstance(activation, Mapping) or not isinstance(activation.get("id"), str):
+            return False
+        if activation["id"] in activation_by_id:
+            return False
+        activation_by_id[activation["id"]] = activation
+    stored_bytes = 0
+    for row in layers:
+        if not isinstance(row, Mapping) or isinstance(row.get("layer"), bool):
+            return False
+        try:
+            layer = int(row["layer"])
+            stored_bytes += int(row["bytes"])
+        except (KeyError, TypeError, ValueError):
+            return False
+        activation = activation_by_id.get(f"qtip2-v7-layer-{layer}")
+        source = Path(str(row.get("source_path", "")))
+        if (
+            activation is None
+            or row.get("source_path") != activation.get("path")
+            or row.get("source_sha256") != activation.get("sha256")
+            or row.get("sha256") != activation.get("sha256")
+            or row.get("bytes") != activation.get("bytes")
+            or source.is_symlink()
+            or not source.is_file()
+            or source.stat().st_size != activation.get("bytes")
+            or _sha_file(source) != activation.get("sha256")
+        ):
+            return False
+    return (
+        len(activation_by_id) == len(layers)
+        and accounting.get("activated_family_bytes") == stored_bytes
+        and accounting.get("candidate_payload_bytes") == stored_bytes
+    )
+
+
 def _validate_status_json_receipt(value: object) -> bool:
     if not isinstance(value, str):
         return False
@@ -3846,6 +3929,7 @@ def _validate_stage_artifacts(
                     or not isinstance(bindings, list)
                     or not bindings
                     or not all(_validate_bound_file(row) for row in bindings)
+                    or not _validate_native_v7_model_index_binding(bindings, plan=plan)
                     or not _validate_bound_file(
                         accounting,
                         path_field="receipt",
@@ -4009,6 +4093,11 @@ def _validate_stage_artifacts(
             return False
         anchor_input = result.get("anchor_input")
         wires = result.get("selected_wires")
+        pack_manifest_path = Path(str(result.get("selected_pack_manifest", "")))
+        try:
+            pack_manifest = json.loads(pack_manifest_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            return False
         if (
             not isinstance(anchor_input, Mapping)
             or anchor_input.get("schema")
@@ -4021,6 +4110,10 @@ def _validate_stage_artifacts(
             or not isinstance(wires, list)
             or not wires
             or not all(_validate_bound_file(row) for row in wires)
+            or wires != pack_manifest.get("layers")
+            or pack_manifest_path
+            != Path(str(solved.get("pre_repair_pack", "")))
+            / "BANANA_PACK_MANIFEST.json"
         ):
             return False
         return True
@@ -4058,7 +4151,6 @@ def _validate_stage_artifacts(
             assignment_receipt = json.loads(assignment_path.read_text())
         except (OSError, json.JSONDecodeError):
             return False
-        layers = manifest.get("layers")
         if (
             manifest.get("schema") != "banana-smasher-qtip2-v7-pre-repair-pack-v1"
             or manifest.get("status") != "PASS"
@@ -4067,11 +4159,12 @@ def _validate_stage_artifacts(
             or manifest.get("instance_id") != f"{plan.output['instance_id']}-pre-repair"
             or manifest.get("legacy_packaged_loader_calls") != 0
             or manifest.get("generic_fallback_calls") != 0
-            or not isinstance(layers, list)
-            or not layers
-            or assignment_receipt.get("method") != "qtip2-v7-native"
+            or not _validate_native_v7_materialization_identity(
+                result, manifest, assignment_receipt
+            )
         ):
             return False
+        layers = manifest["layers"]
         for row in layers:
             if not isinstance(row, Mapping) or not isinstance(row.get("path"), str):
                 return False

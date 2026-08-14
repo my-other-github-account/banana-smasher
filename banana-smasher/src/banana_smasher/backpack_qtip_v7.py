@@ -123,6 +123,31 @@ def _tensor_numpy(value: Any, *, dtype: np.dtype[Any] | None = None) -> np.ndarr
     return np.ascontiguousarray(array if dtype is None else array.astype(dtype, copy=False))
 
 
+def _cpu_v7_result(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Detach one producer result so no chunk CUDA tensors survive the transfer."""
+    packed = result["packed_codes"]
+    decoded = result.get(
+        "decoded", result.get("physical_fp32", result.get("physical_bfloat16"))
+    )
+    if decoded is None:
+        raise RuntimeError("native QTIP2-V7 producer omitted decoded physical weights")
+    return {
+        key: result[key]
+        for key in ("layer", "expert", "projection", "member")
+        if key in result
+    } | {
+        "packed_codes": (
+            bytes(packed)
+            if isinstance(packed, (bytes, bytearray, memoryview))
+            else _tensor_numpy(packed)
+        ),
+        "suh": _tensor_numpy(result["suh"], dtype=np.dtype("<f2")),
+        "svh": _tensor_numpy(result["svh"], dtype=np.dtype("<f2")),
+        "global_scale": float(result["global_scale"]),
+        "decoded": _tensor_numpy(decoded, dtype=np.dtype("<f4")),
+    }
+
+
 def _produce_native_v7_batch(
     units: Sequence[dict[str, Any]], parent_lut: np.ndarray, *, output_root: Path
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -154,32 +179,9 @@ def _produce_native_v7_batch(
             if int(unit["expert"]) in roster
         ]
         chunk_results, chunk_receipt = produce_qtip2_v7_batch(chunk, torch_lut)
-        for result in chunk_results:
-            packed = result["packed_codes"]
-            decoded = result.get(
-                "decoded", result.get("physical_fp32", result.get("physical_bfloat16"))
-            )
-            if decoded is None:
-                raise RuntimeError("native QTIP2-V7 producer omitted decoded physical weights")
-            results.append(
-                {
-                    key: result[key]
-                    for key in ("layer", "expert", "projection", "member")
-                    if key in result
-                }
-                | {
-                    "packed_codes": (
-                        bytes(packed)
-                        if isinstance(packed, (bytes, bytearray, memoryview))
-                        else _tensor_numpy(packed)
-                    ),
-                    "suh": _tensor_numpy(result["suh"], dtype=np.dtype("<f2")),
-                    "svh": _tensor_numpy(result["svh"], dtype=np.dtype("<f2")),
-                    "global_scale": float(result["global_scale"]),
-                    "decoded": _tensor_numpy(decoded, dtype=np.dtype("<f4")),
-                }
-            )
+        results.extend(_cpu_v7_result(result) for result in chunk_results)
         receipts.append(chunk_receipt)
+        chunk_results.clear()
         del chunk_results, chunk
     counters = {
         name: sum(int(receipt.get("counters", {}).get(name, 0)) for receipt in receipts)

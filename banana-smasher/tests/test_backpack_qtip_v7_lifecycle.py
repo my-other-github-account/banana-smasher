@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tomllib
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
@@ -76,6 +77,56 @@ def test_explicit_qtip2_v7_provider_matches_schema_and_parser(tmp_path: Path) ->
 
     assert parsed.tiers[0]["provider"] == "qtip2-v7"
     assert backpack_provider_from_declaration(parsed.tiers[0]).provider_id == "qtip2-v7"
+
+
+def test_qtip_200_alias_matches_schema_and_native_v7_parser(tmp_path: Path) -> None:
+    document = _plan(tmp_path)
+    tiers = document["tiers"]
+    assert isinstance(tiers, list) and isinstance(tiers[0], dict)
+    tiers[0]["provider"] = "qtip@2.00"
+    schema = json.loads(
+        (
+            Path(__file__).parents[1]
+            / "schema"
+            / "banana-smasher-backpack-plan-v1.schema.json"
+        ).read_text()
+    )
+    jsonschema = pytest.importorskip("jsonschema")
+
+    jsonschema.validate(document, schema)
+    parsed = BackpackPlan.from_mapping(document, base_dir=tmp_path)
+
+    assert parsed.tiers[0]["backend"] == "native_v7"
+    assert backpack_provider_from_declaration(parsed.tiers[0]).provider_id == "qtip2-v7"
+
+
+def test_native_v7_candidate_resume_requires_current_model_index_binding(
+    tmp_path: Path,
+) -> None:
+    import banana_smasher.backpack as backpack
+
+    model = tmp_path / "model"
+    model.mkdir()
+    index = model / "model.safetensors.index.json"
+    index.write_text("{}\n")
+    identity = hashlib.sha256(index.read_bytes()).hexdigest()
+    plan = cast(
+        BackpackPlan,
+        SimpleNamespace(model={"root": str(model), "revision": identity}),
+    )
+    binding = {
+        "role": "model_index",
+        "path": str(index),
+        "bytes": index.stat().st_size,
+        "sha256": identity,
+    }
+
+    assert backpack._validate_native_v7_model_index_binding([binding], plan=plan)
+    assert not backpack._validate_native_v7_model_index_binding(
+        [{**binding, "role": "calibration_manifest"}], plan=plan
+    )
+    index.write_text('{"drift": true}\n')
+    assert not backpack._validate_native_v7_model_index_binding([binding], plan=plan)
 
 
 def test_ordinary_qtip2_cannot_select_legacy_packaged_backend(tmp_path: Path) -> None:
@@ -394,7 +445,20 @@ def test_native_v7_batch_transfers_only_one_ten_expert_chunk_at_a_time(
     import banana_smasher.backpack_qtip_v7 as v7
     import banana_smasher.qtip_v7_batch as batch
 
-    tracker = {"cuda_moves": 0, "moves_at_call": [], "sizes": []}
+    tracker = {
+        "cuda_moves": 0,
+        "moves_at_call": [],
+        "sizes": [],
+        "live_results": 0,
+        "live_at_call": [],
+    }
+
+    class ResultToken:
+        def __init__(self):
+            tracker["live_results"] += 1
+
+        def __del__(self):
+            tracker["live_results"] -= 1
 
     class FakeTensor:
         def __init__(self, value):
@@ -414,7 +478,20 @@ def test_native_v7_batch_transfers_only_one_ten_expert_chunk_at_a_time(
     def producer(units, _lut):
         tracker["moves_at_call"].append(tracker["cuda_moves"])
         tracker["sizes"].append(len(units))
-        return [], {
+        tracker["live_at_call"].append(tracker["live_results"])
+        return [
+            {
+                "expert": unit["expert"],
+                "projection": unit["projection"],
+                "packed_codes": b"wire",
+                "suh": np.ones(2, dtype=np.float16),
+                "svh": np.ones(2, dtype=np.float16),
+                "global_scale": 1.0,
+                "decoded": np.ones(4, dtype=np.float32),
+                "_cuda_lifetime_token": ResultToken(),
+            }
+            for unit in units
+        ], {
             "counters": {"qfn_calls": 1, "extension_calls": 1, "cuda_tiles": 1}
         }
 
@@ -439,6 +516,79 @@ def test_native_v7_batch_transfers_only_one_ten_expert_chunk_at_a_time(
 
     assert tracker["sizes"] == [30, 6]
     assert tracker["moves_at_call"] == [31, 37]
+    assert tracker["live_at_call"] == [0, 0]
+    assert tracker["live_results"] == 0
+
+
+def test_native_v7_materialization_rejects_corrupt_post_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import banana_smasher.backpack as backpack
+
+    root = tmp_path / "run"
+    source = root / "qtip-v7" / "qtip2" / "L000" / "L000.q2v7layer"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"authenticated-wire")
+    wire_sha = hashlib.sha256(source.read_bytes()).hexdigest()
+    plan = cast(
+        BackpackPlan,
+        SimpleNamespace(
+            output={"model_id": "flash", "instance_id": "selected-v7"}
+        ),
+    )
+    prior = {
+        "inspect": {"target_whole_model_bytes": source.stat().st_size},
+        "candidates": {
+            "candidate_tiers": [
+                {
+                    "tier": "qtip2",
+                    "method": "qtip2-v7-native",
+                    "producer_calls": 1,
+                    "wire_calls": 1,
+                    "qfn_calls": 1,
+                    "extension_calls": 1,
+                    "cuda_tiles": 1,
+                    "v7_layers": [
+                        {
+                            "layer": 0,
+                            "wire": str(source),
+                            "wire_bytes": source.stat().st_size,
+                            "wire_sha256": wire_sha,
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+    solved = {
+        "activated_artifacts": [
+            {
+                "id": "qtip2-v7-layer-0",
+                "path": str(source),
+                "bytes": source.stat().st_size,
+                "sha256": wire_sha,
+            }
+        ],
+        "assigned_bytes": source.stat().st_size,
+        "cell_payload_bytes": 0,
+        "activation_bytes": source.stat().st_size,
+        "solver": {},
+    }
+
+    def corrupt_copy(_source: Path, destination: Path) -> None:
+        destination.write_bytes(source.read_bytes() + b"-corrupt")
+
+    monkeypatch.setattr(backpack.shutil, "copyfile", corrupt_copy)
+
+    with pytest.raises(BackpackPlanError, match="copy identity drift"):
+        backpack._materialize_native_v7_pre_repair(
+            plan,
+            root,
+            prior,
+            assignment=[],
+            solved=solved,
+            fixed_bytes=0,
+        )
 
 
 def test_normative_spec_and_schema_valid_fresh_plan_are_linked_and_shipped() -> None:
@@ -760,6 +910,49 @@ def test_fresh_fixture_python_and_cli_reach_same_v7_pre_repair_receipt(
     )
     assert "pre_repair_anchor" not in after_anchor_drift["resumed_stages"]
     assert after_anchor_drift["selected_assignment_sha256"] != "0" * 64
+
+    anchor_stage = json.loads(anchor_stage_path.read_text())
+    arbitrary_wire = tmp_path / "arbitrary-selected.q2v7layer"
+    arbitrary_wire.write_bytes(b"arbitrary-selected-wire")
+    arbitrary_row = {
+        **anchor_stage["result"]["selected_wires"][0],
+        "path": str(arbitrary_wire),
+        "bytes": arbitrary_wire.stat().st_size,
+        "sha256": hashlib.sha256(arbitrary_wire.read_bytes()).hexdigest(),
+    }
+    anchor_stage["result"]["selected_wires"] = [arbitrary_row]
+    anchor_stage["result"]["anchor_input"]["selected_wires"] = [arbitrary_row]
+    anchor_stage_path.write_text(json.dumps(anchor_stage) + "\n")
+    after_selected_wire_drift = build_backpack(
+        parsed, run_root=python_root, through="pre_repair_anchor"
+    )
+    assert "pre_repair_anchor" not in after_selected_wire_drift["resumed_stages"]
+    assert after_selected_wire_drift["selected_wires"][0]["path"] != str(arbitrary_wire)
+
+    solve_stage_path = python_root / "stages" / "05-solve-materialize.json"
+    solve_stage = json.loads(solve_stage_path.read_text())
+    assignment_receipt = json.loads(assignment_path.read_text())
+    extra_wire = tmp_path / "extra-activated.q2v7layer"
+    extra_wire.write_bytes(b"extra-activated-wire")
+    extra_activation = {
+        "id": "qtip2-v7-layer-999",
+        "path": str(extra_wire),
+        "bytes": extra_wire.stat().st_size,
+        "sha256": hashlib.sha256(extra_wire.read_bytes()).hexdigest(),
+    }
+    solve_stage["result"]["activated_artifacts"].append(extra_activation)
+    assignment_receipt["activated_artifacts"].append(extra_activation)
+    assignment_path.write_text(json.dumps(assignment_receipt) + "\n")
+    solve_stage["result"]["assignment_receipt_sha256"] = hashlib.sha256(
+        assignment_path.read_bytes()
+    ).hexdigest()
+    solve_stage_path.write_text(json.dumps(solve_stage) + "\n")
+    after_activation_drift = build_backpack(
+        parsed, run_root=python_root, through="pre_repair_anchor"
+    )
+    assert "solve_materialize" not in after_activation_drift["resumed_stages"]
+    regenerated_solve = json.loads(solve_stage_path.read_text())["result"]
+    assert extra_activation not in regenerated_solve["activated_artifacts"]
 
     index.write_text('{"drift": true}\n')
     with pytest.raises(BackpackPlanError, match="model revision must equal the source index"):

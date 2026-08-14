@@ -127,7 +127,7 @@
       "properties": {
         "id": {"$ref": "#/$defs/safe_id"},
         "family": {"const": "qtip"},
-        "provider": {"enum": ["qtip2", "qtip2-v7"]},
+        "provider": {"enum": ["qtip2", "qtip2-v7", "qtip@2.00"]},
         "bpw": {"const": 2.0},
         "backend": {"const": "native_v7"},
         "calibration": {"$ref": "#/$defs/path"},
