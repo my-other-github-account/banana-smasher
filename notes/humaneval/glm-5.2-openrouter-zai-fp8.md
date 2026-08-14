@@ -30,7 +30,7 @@ This is a same frozen benchmark, request, and scorer comparison. Provider and wa
 
 ## Simple reproduction script
 
-The exact single-file producer is [`Evals/tools/openrouter_humaneval_glm52.py`](../../Evals/tools/openrouter_humaneval_glm52.py) (SHA-256 `d5d7afdc510a96d3e478dcfeac28d2d7a0d25c5c574b890b79bcb1a1e42a27ab`). It regenerates the frozen 164 prompts from the pinned EvalPlus dataset, refuses a prompt-hash mismatch, preflights the current Z.AI endpoint, runs serially, atomically checkpoints each response, resumes only fully validated checkpoints, and writes `canonical.jsonl`, `request-audit.jsonl`, and `GENERATION_HANDOFF.json`.
+The exact single-file producer is [`Evals/tools/openrouter_humaneval_glm52.py`](../../Evals/tools/openrouter_humaneval_glm52.py) (SHA-256 `1af7e6933c4aa4d695a552eb89cac68375379a4a0f97564b27c5fcd8b9a1e9a2`). It regenerates the frozen 164 prompts from the pinned EvalPlus dataset, refuses a prompt-hash mismatch, preflights the current Z.AI endpoint, runs serially, atomically checkpoints each response, reconstructs scorer/audit fields from raw provider JSON during strict resume, and writes `canonical.jsonl`, `request-audit.jsonl`, and `GENERATION_HANDOFF.json`.
 
 ```bash
 python3 -m venv .venv-humaneval
