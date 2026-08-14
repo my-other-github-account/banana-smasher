@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import math
 import os
 import random
 import sys
@@ -43,6 +44,9 @@ EVALPLUS_COMMIT = "26d6d00bb1fd0fa37f39c99d5290da67891d1c5e"
 HUMANEVALPLUS_RELEASE = "v0.1.10"
 HUMANEVALPLUS_HASH = "fe585eb4df8c88d844eeb463ea4d0302"
 MEASURED_PROMPT_LEDGER_SHA256 = "6b4f5f30169054a7505f6704c246984f53671c6f4f168c9ee05fdfbd8444b598"
+RESUMABLE_PREDECESSOR_SCRIPT_SHA256 = {
+    "d5d7afdc510a96d3e478dcfeac28d2d7a0d25c5c574b890b79bcb1a1e42a27ab"
+}
 FROZEN_TASK_MESSAGES_SHA256 = "e1a420e057d9e44f4dcde770334d67d33e4c44cf70daa20edbf69f163ac4bd96"
 REQUEST_PARAMS = {
     "temperature": 0.0,
@@ -247,6 +251,11 @@ def prepare_identity(
         identity_bytes = identity_path.read_bytes()
         identity = json.loads(identity_bytes)
         for field, wanted in required.items():
+            if (
+                field == "script_sha256"
+                and identity.get(field) in RESUMABLE_PREDECESSOR_SCRIPT_SHA256
+            ):
+                continue
             if identity.get(field) != wanted:
                 raise RunnerError(
                     f"existing run identity mismatch at {field}: {identity.get(field)!r} != {wanted!r}"
@@ -276,15 +285,9 @@ def request_payload(prompt: dict[str, Any]) -> dict[str, Any]:
     return {"model": MODEL, "messages": prompt["messages"], **REQUEST_PARAMS}
 
 
-def checkpoint_from_response(
-    prompt: dict[str, Any],
-    identity_sha: str,
-    entrypoint: str,
+def response_fields(
     raw: bytes,
-    status: int,
-    elapsed_seconds: float,
-    attempt: int,
-    *,
+    entrypoint: str,
     sanitizer: Callable[..., str],
 ) -> dict[str, Any]:
     try:
@@ -312,29 +315,10 @@ def checkpoint_from_response(
     completion_tokens = usage.get("completion_tokens")
     if not isinstance(completion_tokens, int) or not 0 <= completion_tokens <= MAX_COMPLETION_TOKENS:
         raise RunnerError(f"invalid completion_tokens={completion_tokens!r}")
-    body = json.dumps(
-        request_payload(prompt), ensure_ascii=False, separators=(",", ":")
-    ).encode()
-    record = {
-        "schema": SCHEMA,
-        "task_id": prompt["task_id"],
-        "task_number": int(prompt["task_id"].split("/")[-1]),
-        "model_requested": MODEL,
+    return {
         "model_returned": response.get("model"),
-        "canonical_slug": CANONICAL_SLUG,
-        "provider_requested": PROVIDER,
         "provider_returned": response.get("provider"),
-        "provider_quantization": PROVIDER_QUANTIZATION,
-        "provider_tag": PROVIDER_TAG,
-        "run_identity_sha256": identity_sha,
-        "messages": prompt["messages"],
-        "messages_sha256": prompt["messages_sha256"],
-        "request_params": REQUEST_PARAMS,
-        "request_body_sha256": sha(body),
-        "http_status": status,
         "response_id": response.get("id"),
-        "raw_response_json": raw.decode(),
-        "raw_response_sha256": sha(raw),
         "reasoning": reasoning,
         "reasoning_chars": len(reasoning),
         "message_content": content,
@@ -344,9 +328,51 @@ def checkpoint_from_response(
         "entry_point": entrypoint,
         "finish_reason": choice.get("finish_reason"),
         "usage": usage,
-        "elapsed_seconds": elapsed_seconds,
-        "attempt": attempt,
-        "committed_unix": time.time(),
+    }
+
+
+def checkpoint_from_response(
+    prompt: dict[str, Any],
+    identity_sha: str,
+    entrypoint: str,
+    raw: bytes,
+    status: int,
+    elapsed_seconds: float,
+    attempt: int,
+    *,
+    sanitizer: Callable[..., str],
+) -> dict[str, Any]:
+    if status != 200:
+        raise RunnerError(f"invalid successful HTTP status {status!r}")
+    if not isinstance(attempt, int) or not 1 <= attempt <= 8:
+        raise RunnerError(f"invalid attempt {attempt!r}")
+    if (
+        not isinstance(elapsed_seconds, (int, float))
+        or not math.isfinite(elapsed_seconds)
+        or elapsed_seconds < 0
+    ):
+        raise RunnerError(f"invalid elapsed seconds {elapsed_seconds!r}")
+    derived = response_fields(raw, entrypoint, sanitizer)
+    body = json.dumps(
+        request_payload(prompt), ensure_ascii=False, separators=(",", ":")
+    ).encode()
+    record = {
+        "schema": SCHEMA,
+        "task_id": prompt["task_id"],
+        "task_number": int(prompt["task_id"].split("/")[-1]),
+        "model_requested": MODEL,
+        "canonical_slug": CANONICAL_SLUG,
+        "provider_requested": PROVIDER,
+        "provider_quantization": PROVIDER_QUANTIZATION,
+        "provider_tag": PROVIDER_TAG,
+        "run_identity_sha256": identity_sha,
+        "messages": prompt["messages"],
+        "messages_sha256": prompt["messages_sha256"],
+        "request_params": REQUEST_PARAMS,
+        "request_body_sha256": sha(body),
+        "raw_response_json": raw.decode(),
+        "raw_response_sha256": sha(raw),
+        **derived,
     }
     record["checkpoint_sha256"] = record_digest(record)
     return record
@@ -404,60 +430,82 @@ def validate_checkpoint(
     path: Path,
     prompt: dict[str, Any],
     identity_sha: str,
+    entrypoint: str,
+    sanitizer: Callable[..., str],
 ) -> dict[str, Any]:
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RunnerError(f"cannot load checkpoint {path}: {exc}") from exc
-    required = {
-        "schema": SCHEMA,
-        "task_id": prompt["task_id"],
-        "task_number": int(prompt["task_id"].split("/")[-1]),
-        "model_requested": MODEL,
-        "model_returned": MODEL,
-        "provider_requested": PROVIDER,
-        "provider_returned": PROVIDER,
-        "provider_quantization": PROVIDER_QUANTIZATION,
-        "provider_tag": PROVIDER_TAG,
-        "run_identity_sha256": identity_sha,
-        "messages_sha256": prompt["messages_sha256"],
-        "request_params": REQUEST_PARAMS,
-    }
-    for field, wanted in required.items():
-        if record.get(field) != wanted:
-            raise RunnerError(
-                f"{path.name} mismatch {field}: {record.get(field)!r} != {wanted!r}"
-            )
-    messages = record.get("messages")
-    if messages != prompt["messages"] or sha(compact(messages)) != record.get("messages_sha256"):
-        raise RunnerError(f"{path.name} messages binding mismatch")
-    expected_request_sha = sha(
-        json.dumps(
-            request_payload(prompt), ensure_ascii=False, separators=(",", ":")
-        ).encode()
-    )
-    if record.get("request_body_sha256") != expected_request_sha:
-        raise RunnerError(f"{path.name} request body binding mismatch")
     raw = record.get("raw_response_json")
-    if not isinstance(raw, str) or sha(raw.encode()) != record.get("raw_response_sha256"):
-        raise RunnerError(f"{path.name} raw response hash mismatch")
-    if not isinstance(record.get("message_content"), str):
-        raise RunnerError(f"{path.name} message content is not a string")
-    reasoning = record.get("reasoning")
-    if not isinstance(reasoning, str) or not reasoning.strip():
-        raise RunnerError(f"{path.name} has no reasoning")
-    usage = record.get("usage") or {}
-    completion_tokens = usage.get("completion_tokens")
-    if not isinstance(completion_tokens, int) or not 0 <= completion_tokens <= MAX_COMPLETION_TOKENS:
-        raise RunnerError(f"{path.name} invalid completion token count {completion_tokens!r}")
-    if record_digest(record) != record.get("checkpoint_sha256"):
-        raise RunnerError(f"{path.name} checkpoint digest mismatch")
-    return record
+    if not isinstance(raw, str):
+        raise RunnerError(f"{path.name} raw response is not a string")
+    expected = checkpoint_from_response(
+        prompt,
+        identity_sha,
+        entrypoint,
+        raw.encode(),
+        200,
+        0.0,
+        1,
+        sanitizer=sanitizer,
+    )
+    if record == expected:
+        return record
+    legacy_transport_fields = {
+        "http_status",
+        "elapsed_seconds",
+        "attempt",
+        "committed_unix",
+    }
+    if set(record) == set(expected) | legacy_transport_fields:
+        for field, wanted in expected.items():
+            if field != "checkpoint_sha256" and record.get(field) != wanted:
+                raise RunnerError(
+                    f"{path.name} legacy raw response binding mismatch at {field}"
+                )
+        if record.get("http_status") != 200:
+            raise RunnerError(f"{path.name} legacy HTTP status is not 200")
+        attempt = record.get("attempt")
+        elapsed = record.get("elapsed_seconds")
+        committed = record.get("committed_unix")
+        if not isinstance(attempt, int) or not 1 <= attempt <= 8:
+            raise RunnerError(f"{path.name} invalid legacy attempt")
+        if not isinstance(elapsed, (int, float)) or not math.isfinite(elapsed) or elapsed < 0:
+            raise RunnerError(f"{path.name} invalid legacy elapsed seconds")
+        if not isinstance(committed, (int, float)) or not math.isfinite(committed):
+            raise RunnerError(f"{path.name} invalid legacy commit time")
+        if record_digest(record) != record.get("checkpoint_sha256"):
+            raise RunnerError(f"{path.name} legacy checkpoint digest mismatch")
+        fsync_replace(path, compact(expected))
+        return expected
+    if record != expected:
+        differing = sorted(
+            field
+            for field in set(record) | set(expected)
+            if record.get(field) != expected.get(field)
+        )
+        raise RunnerError(
+            f"{path.name} is not an exact reconstruction from its raw response: {differing}"
+        )
+    return expected
 
 
-def merge(root: Path, prompts: list[dict[str, Any]], identity_sha: str) -> dict[str, Any]:
+def merge(
+    root: Path,
+    prompts: list[dict[str, Any]],
+    identity_sha: str,
+    dataset: Any,
+    sanitizer: Callable[..., str],
+) -> dict[str, Any]:
     records = [
-        validate_checkpoint(root / "checkpoints" / f"task-{number:03d}.json", prompts[number], identity_sha)
+        validate_checkpoint(
+            root / "checkpoints" / f"task-{number:03d}.json",
+            prompts[number],
+            identity_sha,
+            dataset[prompts[number]["task_id"]]["entry_point"],
+            sanitizer,
+        )
         for number in range(TASK_COUNT)
     ]
     canonical = b"".join(
@@ -481,7 +529,6 @@ def merge(root: Path, prompts: list[dict[str, Any]], identity_sha: str) -> dict[
                 "usage": row["usage"],
                 "reasoning_chars": row["reasoning_chars"],
                 "message_content_chars": row["message_content_chars"],
-                "elapsed_seconds": row["elapsed_seconds"],
             }
         )
         for row in records
@@ -562,7 +609,13 @@ def run(root: Path, prompts: list[dict[str, Any]], dataset: Any, sanitizer: Call
         path = root / "checkpoints" / f"task-{number:03d}.json"
         if path.exists():
             try:
-                validate_checkpoint(path, prompt, identity_sha)
+                validate_checkpoint(
+                    path,
+                    prompt,
+                    identity_sha,
+                    dataset[prompt["task_id"]]["entry_point"],
+                    sanitizer,
+                )
                 with _PRINT_LOCK:
                     print(f"SKIP_VALID {number:03d} accepted={number + 1}/{TASK_COUNT}", flush=True)
                 continue
@@ -578,7 +631,13 @@ def run(root: Path, prompts: list[dict[str, Any]], dataset: Any, sanitizer: Call
             sanitizer=sanitizer,
         )
         fsync_replace(path, compact(record))
-        validate_checkpoint(path, prompt, identity_sha)
+        validate_checkpoint(
+            path,
+            prompt,
+            identity_sha,
+            dataset[prompt["task_id"]]["entry_point"],
+            sanitizer,
+        )
         usage = record["usage"]
         print(
             f"COMMIT {number:03d} accepted={number + 1}/{TASK_COUNT} "
@@ -588,7 +647,7 @@ def run(root: Path, prompts: list[dict[str, Any]], dataset: Any, sanitizer: Call
             f"cost={usage.get('cost')}",
             flush=True,
         )
-    return merge(root, prompts, identity_sha)
+    return merge(root, prompts, identity_sha, dataset, sanitizer)
 
 
 def parser() -> argparse.ArgumentParser:
