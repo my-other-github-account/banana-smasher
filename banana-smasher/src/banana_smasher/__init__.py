@@ -92,6 +92,18 @@ from .backpack_virtual import materialize_virtual_backpack, verify_virtual_backp
 from .locality import require_local_backpack_inputs, require_local_path
 from .staging import stage_qsfp_manifest
 from .evaluate import evaluate_paired, verify_evaluation
+from .experiments import (
+    ArtifactRef,
+    DataSpec,
+    EvaluationSpec,
+    ExecutionSpec,
+    ExperimentSpec,
+    OptimizerSpec,
+    ParentSpec,
+    ScientificSpec,
+    WindowSchedule,
+    validate_runtime_contract,
+)
 from .fixed_d4 import (
     materialize_fixed_d4,
     persist_fixed_d4_solve,
@@ -194,6 +206,15 @@ __all__ = [
     "BackpackWireArtifact",
     "BackpackWirePrice",
     "ContextualValuationError",
+    "ArtifactRef",
+    "DataSpec",
+    "EvaluationSpec",
+    "ExecutionSpec",
+    "ExperimentSpec",
+    "OptimizerSpec",
+    "ParentSpec",
+    "ScientificSpec",
+    "WindowSchedule",
     "EXACT64_TERMINAL_SCHEMA",
     "EncodedQtip",
     "QTIP1_GEOMETRY",
@@ -290,6 +311,7 @@ __all__ = [
     "select_measured_nonworse",
     "unpack_qtip_states",
     "validate_bank_manifest",
+    "validate_runtime_contract",
     "vector_vq_backpack_provider",
     "verify_bank",
     "verify_bpw_accounting",

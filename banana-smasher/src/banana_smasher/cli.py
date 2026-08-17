@@ -250,6 +250,16 @@ def _parser() -> argparse.ArgumentParser:
         help="public trainer executable implementing the QTIP_V7_* environment contract",
     )
     joint_train.add_argument("--resume-from", type=Path)
+    joint_train.add_argument(
+        "--experiment-lock",
+        type=Path,
+        help="fail-fast scientific/runtime lock validated before trainer or model work",
+    )
+    joint_train.add_argument(
+        "--experiment-observed",
+        type=Path,
+        help="observed parent/update/windows/LR/data/scorer JSON for the experiment lock",
+    )
     joint_verify = joint_commands.add_parser(
         "verify", help="rehash and validate immutable checkpoint/PASS receipt"
     )
@@ -727,6 +737,39 @@ def _parser() -> argparse.ArgumentParser:
     exact64.add_argument("--output-root", type=Path, required=True)
     exact64.add_argument("--basis-sha256", required=True)
 
+    experiment = subparsers.add_parser(
+        "experiment", help="explain, diff, lock, document, and validate typed experiments"
+    )
+    experiment_commands = experiment.add_subparsers(
+        dest="experiment_command", required=True
+    )
+    experiment_explain = experiment_commands.add_parser(
+        "explain", help="summarize the scientific contract on one screen"
+    )
+    experiment_explain.add_argument("spec", type=Path)
+    experiment_explain.add_argument("--json", action="store_true", dest="json_output")
+    experiment_diff = experiment_commands.add_parser(
+        "diff", help="classify scientific versus execution-only drift"
+    )
+    experiment_diff.add_argument("reference", type=Path)
+    experiment_diff.add_argument("candidate", type=Path)
+    experiment_diff.add_argument("--json", action="store_true", dest="json_output")
+    experiment_lock = experiment_commands.add_parser(
+        "lock", help="seal normalized science and the next runtime contract"
+    )
+    experiment_lock.add_argument("spec", type=Path)
+    experiment_lock.add_argument("--output", type=Path, required=True)
+    experiment_document = experiment_commands.add_parser(
+        "document", help="generate a compact Markdown experiment document"
+    )
+    experiment_document.add_argument("spec", type=Path)
+    experiment_document.add_argument("--output", type=Path, required=True)
+    experiment_runtime = experiment_commands.add_parser(
+        "validate-runtime", help="fail before compute when observed semantics drift"
+    )
+    experiment_runtime.add_argument("lock", type=Path)
+    experiment_runtime.add_argument("observed", type=Path)
+
     return parser
 
 
@@ -947,8 +990,57 @@ def main(argv: Sequence[str] | None = None) -> int:
         # established lifecycle verbs and their help surface stable.
         tokens[0] = "verify"
     args = parser.parse_args(tokens)
+    exit_status = 0
     try:
-        if args.command == "export":
+        if args.command == "experiment":
+            from .experiments import (
+                diff_experiments,
+                document_experiment,
+                explain_experiment,
+                format_experiment_diff,
+                load_experiment,
+                validate_runtime_contract,
+                write_experiment_lock,
+            )
+
+            if args.experiment_command == "explain":
+                spec = load_experiment(args.spec)
+                result = (
+                    {
+                        "mode": spec.mode,
+                        "scientific_identity_sha256": spec.scientific_identity_sha256,
+                        "spec": spec.to_dict(),
+                    }
+                    if args.json_output
+                    else explain_experiment(spec)
+                )
+            elif args.experiment_command == "diff":
+                difference = diff_experiments(
+                    load_experiment(args.reference),
+                    load_experiment(args.candidate),
+                )
+                exit_status = 1 if difference["scientific_drift"] else 0
+                result = difference if args.json_output else format_experiment_diff(difference)
+            elif args.experiment_command == "lock":
+                result = {
+                    **write_experiment_lock(load_experiment(args.spec), args.output),
+                    "output": str(args.output.resolve()),
+                }
+            elif args.experiment_command == "document":
+                rendered = document_experiment(load_experiment(args.spec))
+                args.output.write_text(rendered, encoding="utf-8")
+                result = {
+                    "status": "PASS",
+                    "output": str(args.output.resolve()),
+                    "bytes": len(rendered.encode("utf-8")),
+                }
+            elif args.experiment_command == "validate-runtime":
+                result = validate_runtime_contract(args.lock, args.observed)
+            else:  # pragma: no cover - argparse guarantees choices
+                raise ValueError(
+                    f"unsupported experiment command {args.experiment_command!r}"
+                )
+        elif args.command == "export":
             if args.refresh_metadata:
                 if args.serving_model_root is None:
                     raise ValueError("--refresh-metadata requires --serving-model-root")
@@ -1326,6 +1418,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "output": str(args.output.resolve()),
             }
         elif args.command == "qtip-v7-joint-repair":
+            if args.joint_command == "train":
+                supplied_contract = (
+                    args.experiment_lock is not None,
+                    args.experiment_observed is not None,
+                )
+                if any(supplied_contract) and not all(supplied_contract):
+                    raise ValueError(
+                        "QTIP V7 train requires --experiment-lock and "
+                        "--experiment-observed together"
+                    )
+                if all(supplied_contract):
+                    from .experiments import validate_runtime_contract
+
+                    validate_runtime_contract(
+                        args.experiment_lock,
+                        args.experiment_observed,
+                    )
             from .qtip_v7_joint_workflow import (
                 aggregate_balanced64,
                 compare_aggregates,
@@ -1780,7 +1889,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.write(result)
     else:
         _emit(result)
-    return 0
+    return exit_status
 
 
 if __name__ == "__main__":
