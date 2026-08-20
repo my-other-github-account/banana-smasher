@@ -18,7 +18,7 @@
       "source": ["banana-smasher-plugin/pyproject.toml", "banana-smasher-plugin/src/banana_smasher_plugin/__init__.py"],
       "build_dependency_or_asset": ["banana-smasher-plugin wheel", "vllm.general_plugins entry point"],
       "runtime_activation": ["stock vLLM entry-point discovery calls banana_smasher_plugin:register"],
-      "tests": ["banana-smasher-plugin/tests/test_plugin_contract.py", "tests/test_extraction_contract.py"]
+      "tests": ["banana-smasher-plugin/tests/test_plugin_contract.py", "Evals/tests/test_extraction_contract.py"]
     },
     {
       "id": "native-plane-p1016",
@@ -88,21 +88,21 @@
       "source": ["banana-smasher/kernels/cubins-sm120"],
       "build_dependency_or_asset": ["26 checked-in SM120 cubins copied by Docker"],
       "runtime_activation": ["BANANA_SMASHER_AOT_ROOT", "VLLM_MOE_W2_CUBIT_DIR"],
-      "tests": ["tests/test_extraction_contract.py", "banana-smasher-plugin/tests/test_native_plane_runtime.py"]
+      "tests": ["Evals/tests/test_extraction_contract.py", "banana-smasher-plugin/tests/test_native_plane_runtime.py"]
     },
     {
       "id": "e43-aot-cubins",
       "source": ["banana-smasher/kernels/cubins-e43"],
       "build_dependency_or_asset": ["6 checked-in E43 cubins copied by Docker"],
       "runtime_activation": ["VLLM_MOE_W3_CUBIT_DIR"],
-      "tests": ["tests/test_extraction_contract.py"]
+      "tests": ["Evals/tests/test_extraction_contract.py"]
     },
     {
       "id": "flashinfer-autotune-cache",
-      "source": ["provenance/EXCLUDED_FLASHINFER_CACHE.json", "docker/scripts/validate_flashinfer_cache.py", "examples/capture_flashinfer_cache.sh"],
+      "source": ["provenance/EXCLUDED_FLASHINFER_CACHE.json", "docker/scripts/validate_flashinfer_cache.py", "docker/examples/capture_flashinfer_cache.sh"],
       "build_dependency_or_asset": ["runtime-generated FlashInfer 0.6.17 SM121 autotune cache on a persistent named volume"],
-      "runtime_activation": ["vLLM resolves /root/.cache/vllm/flashinfer_autotune_cache/0.6.17/121a", "examples/serve.sh optionally mounts a persistent named volume at the cache root"],
-      "tests": ["tests/test_corrected_acceptance.py", "docker/tests/test_public_source_dockerfile.py"],
+      "runtime_activation": ["vLLM resolves /root/.cache/vllm/flashinfer_autotune_cache/0.6.17/121a", "docker/examples/serve.sh optionally mounts a persistent named volume at the cache root"],
+      "tests": ["Evals/tests/test_corrected_acceptance.py", "docker/tests/test_public_source_dockerfile.py"],
       "status": "gpu-regeneration-outstanding",
       "active_cache_baked": false,
       "required_version": "0.6.17",
@@ -114,7 +114,7 @@
       "source": ["docker/patches/flashinfer-real-libcudart.patch", "docker/Dockerfile", "docker/scripts/verify_public_image.py"],
       "build_dependency_or_asset": ["CUDA 13 libcudart.so.13", "patched source-built FlashInfer"],
       "runtime_activation": ["image build replaces TileLang libcudart stub with a symlink to the real CUDA runtime", "verify_public_image.py validates the production import seam"],
-      "tests": ["docker/tests/test_public_source_dockerfile.py", "tests/test_extraction_contract.py"]
+      "tests": ["docker/tests/test_public_source_dockerfile.py", "Evals/tests/test_extraction_contract.py"]
     }
   ]
 }

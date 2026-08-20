@@ -6,14 +6,14 @@ from decimal import Decimal, getcontext
 from pathlib import Path
 
 
-REPO = Path(__file__).resolve().parents[1]
-RESULTS = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/results.json"
-SCHEMA = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/results.schema.json"
-REPORT = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md"
+REPO = Path(__file__).resolve().parents[2]
+RESULTS = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/results.json"
+SCHEMA = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/results.schema.json"
+REPORT = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md"
 EVALS = REPO / "Evals/README.md"
-FINISHED_EVIDENCE_MANIFEST = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/finished-evidence-manifest.json"
-EVIDENCE_MANIFEST = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/evidence-manifest.json"
-QTIP2_IDENTITY = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/model-identity.json"
+FINISHED_EVIDENCE_MANIFEST = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/finished-evidence-manifest.json"
+EVIDENCE_MANIFEST = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/evidence-manifest.json"
+QTIP2_IDENTITY = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/model-identity.json"
 
 
 class MMLUDensityPublicationTest(unittest.TestCase):
@@ -113,7 +113,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             ],
         )
         for entry in finished_manifest["entries"]:
-            evidence = REPO / entry["path"]
+            evidence = REPO / entry["path"].replace("notes/", "archive/notes/", 1)
             self.assertEqual(hashlib.sha256(evidence.read_bytes()).hexdigest(), entry["sha256"])
         self.assertEqual(
             [(entry["variant"], entry["status"]) for entry in result["dispositions"]],
@@ -172,7 +172,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
         self.assertNotIn("QTIP2-corrected-all43", [row["variant"] for row in rows])
         self.assertIn("METHOD_DIVERGENT_QUARANTINED", REPORT.read_text())
 
-        evidence_paths = [REPO / entry["path"] for entry in finished_manifest["entries"]]
+        evidence_paths = [REPO / entry["path"].replace("notes/", "archive/notes/", 1) for entry in finished_manifest["entries"]]
         public_text = "\n".join(path.read_text() for path in (RESULTS, SCHEMA, REPORT, FINISHED_EVIDENCE_MANIFEST, *evidence_paths))
         forbidden_fragments = (
             "/" + "home/",

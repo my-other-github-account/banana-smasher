@@ -216,13 +216,14 @@ def test_runtime_defaults_are_baked_and_parseable() -> None:
 
 def test_readme_uses_release_helpers_and_no_runtime_environment_flags() -> None:
     text = DEPLOY.read_text()
-    assert "examples/build_image.sh" in text
-    assert "examples/serve.sh" in text
-    build = (ROOT / "examples/build_image.sh").read_text()
-    serve = (ROOT / "examples/serve.sh").read_text()
+    assert "docker/examples/build_image.sh" in text
+    assert "docker/examples/serve.sh" in text
+    build = (ROOT / "docker/examples/build_image.sh").read_text()
+    serve = (ROOT / "docker/examples/serve.sh").read_text()
     assert "docker buildx build" in build
     assert "--platform linux/arm64" in build and "--no-cache" in build
     assert "docker run --rm --gpus all" in serve
     assert "8000:8000" in serve
     assert "/root/.cache/vllm/flashinfer_autotune_cache" in serve
-    assert "smash export" in text and "smash verify" in text
+    package_text = (ROOT / "banana-smasher/README.md").read_text()
+    assert "smash export" in package_text and "smash verify" in package_text

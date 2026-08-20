@@ -2,7 +2,7 @@
 
 This page compares quality and declared shipping-accounting size for fourteen measured quants on the frozen competitive `BALANCED64_V1` population. Every row states whether its byte numerator excludes MTP, includes the complete native MTP checkpoint, includes a sealed historical partial native-MTP payload, or includes a separate drafter. **QTIP2 V7 pre-repair** is now published under its own measured artifact identity. A different prior QTIP2 `412/500` MMLU result remains method-divergent and quarantined with accepted score 0 because it used layerwise LUT-only optimization rather than the required joint RMSNorm/output-gain whole-model training.
 
-The separate [MMLU-500 capability-density table](../notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md) scores thirteen accepted sealed rows on one immutable zero-shot question bank, including the distinct routed-native greedy K2.5 artifact and full physical alternating K2/K3 comparator. The original four per-question result sets remain unchanged. Every later accepted row carries compact public-safe measurement provenance; the completed full EXL3 K2.5 greedy-optimizer search is separately recorded as `ARTIFACT_UNAVAILABLE`, with no inferred score. The quarantined QTIP2 qrows are preserved as diagnostics, not rewritten as a joint result.
+The separate [MMLU-500 capability-density table](../archive/notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md) scores thirteen accepted sealed rows on one immutable zero-shot question bank, including the distinct routed-native greedy K2.5 artifact and full physical alternating K2/K3 comparator. The original four per-question result sets remain unchanged. Every later accepted row carries compact public-safe measurement provenance; the completed full EXL3 K2.5 greedy-optimizer search is separately recorded as `ARTIFACT_UNAVAILABLE`, with no inferred score. The quarantined QTIP2 qrows are preserved as diagnostics, not rewritten as a joint result.
 
 ## Results
 
@@ -144,7 +144,7 @@ Inspect the frozen config:
 python3 -m Evals.tools.humaneval show-config
 ```
 
-The CLI supports `generate`, `merge`, `audit`, and `score`. Generated code must be scored in the provided network-isolated Docker environment. See the [HumanEval 0731 protocol](protocols/humaneval-0731-v1.md) for the complete commands and the [published FF0731 result table](../notes/humaneval/deepseek-v4-flash-0731-results.md) for Official, IQ4, IQ3, and DwarfStar scores.
+The CLI supports `generate`, `merge`, `audit`, and `score`. Generated code must be scored in the provided network-isolated Docker environment. See the [HumanEval 0731 protocol](protocols/humaneval-0731-v1.md) for the complete commands and the [published FF0731 result table](../archive/notes/humaneval/deepseek-v4-flash-0731-results.md) for Official, IQ4, IQ3, and DwarfStar scores.
 
 ## Aggregate a new 64-window result
 

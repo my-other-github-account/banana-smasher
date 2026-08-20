@@ -9,10 +9,10 @@ import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parent
-ITEMS = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/items.jsonl"
-BASIS = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/four-row-mission-basis.json"
-AGGREGATOR = REPO / "tools/mmlu_density/aggregate_four_rows.py"
+REPO = HERE.parents[1]
+ITEMS = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/items.jsonl"
+BASIS = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/four-row-mission-basis.json"
+AGGREGATOR = REPO / "Evals/tools/mmlu_density/aggregate_four_rows.py"
 
 
 class FourRowAggregateTest(unittest.TestCase):
