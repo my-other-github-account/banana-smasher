@@ -31,6 +31,9 @@ def test_public_exact64_api_uses_single_host_full_layer_path() -> None:
     assert "mlp_chunk_stage" not in source
     assert "teacher_manifest_path, teacher = _revision_bind_teacher_manifest(" in source
     assert "_validate_whole_model_accounting(virtual_manifest)" in source
+    signature = inspect.signature(run_backpack_exact64)
+    assert "qtip2_v7_root_map_path" in signature.parameters
+    assert "qtip2_v7_dense_roster_path" in signature.parameters
 
 
 def test_exact64_rejects_unbound_historical_teacher_manifest(

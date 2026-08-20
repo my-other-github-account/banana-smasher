@@ -454,6 +454,33 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
 
+    train = subparsers.add_parser(
+        "train", help="run configurable fully resident training from a JSON plan"
+    )
+    train.add_argument("--config", type=Path, required=True)
+    train.add_argument("--model-source")
+    train.add_argument("--model-adapter")
+    train.add_argument("--model-root", type=Path)
+    train.add_argument("--payload-root", type=Path)
+    train.add_argument("--input-checkpoint", type=Path)
+    train.add_argument("--run-root", type=Path)
+    train.add_argument("--rank", type=int)
+    train.add_argument("--windows", help="comma-separated window indices")
+    train.add_argument("--microbatch", type=int)
+    train.add_argument("--gradient-accumulation", type=int)
+    train.add_argument("--updates", type=int)
+    train.add_argument("--resume", type=Path)
+
+    train_status = subparsers.add_parser(
+        "train-status", help="read the latest resident trainer status"
+    )
+    train_status.add_argument("run_root", type=Path)
+
+    checkpoint = subparsers.add_parser(
+        "checkpoint-info", help="inspect resident checkpoint metadata"
+    )
+    checkpoint.add_argument("checkpoint", type=Path)
+
     backpack = subparsers.add_parser(
         "backpack", help="build or inspect one declarative end-to-end Backpack plan"
     )
@@ -936,6 +963,34 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
         status = status_report(args.run_root)
         return format_status(status) if args.format == "human" else status
     raise ValueError(f"unsupported anchor command {command!r}")
+
+
+def _training_plan_from_args(args: argparse.Namespace):
+    from .resident_training import ResidentTrainingPlan
+
+    value = json.loads(args.config.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("training config JSON root must be an object")
+    for argument, key in (
+        (args.model_source, "model_source"),
+        (args.model_adapter, "model_adapter"),
+        (args.model_root, "model_root"),
+        (args.payload_root, "payload_root"),
+        (args.input_checkpoint, "input_checkpoint"),
+        (args.run_root, "run_root"),
+        (args.microbatch, "microbatch"),
+        (args.gradient_accumulation, "gradient_accumulation"),
+        (args.updates, "updates"),
+    ):
+        if argument is not None:
+            value[key] = str(argument) if isinstance(argument, Path) else argument
+    if args.windows is not None:
+        value["windows"] = [int(token) for token in args.windows.split(",") if token]
+    if args.rank is not None:
+        topology = dict(value.get("topology", {}))
+        topology["rank"] = args.rank
+        value["topology"] = topology
+    return ResidentTrainingPlan.from_dict(value)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1531,6 +1586,39 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=args.output,
                 receipt=args.receipt,
             )
+        elif args.command == "train":
+            from .resident_training import ResidentTrainer, load_resident_adapter
+
+            plan = _training_plan_from_args(args)
+            trainer = ResidentTrainer(plan, adapter=load_resident_adapter(plan))
+            residency = trainer.initialize()
+            if args.resume is not None:
+                trainer.load_checkpoint(args.resume)
+            steps = []
+            checkpoint = None
+            while trainer.update < plan.updates:
+                steps.append(trainer.train_step().to_dict())
+                checkpoint = trainer.save_checkpoint()
+            if checkpoint is None:
+                checkpoint = trainer.save_checkpoint()
+            result = {
+                "status": "PASS",
+                "command": "train",
+                "adapter": trainer.adapter.metadata(),
+                "run_root": str(plan.run_root.resolve()),
+                "updates_completed": trainer.update,
+                "checkpoint": str(checkpoint),
+                "residency": residency,
+                "steps": steps,
+            }
+        elif args.command == "train-status":
+            from .resident_training import read_train_status
+
+            result = read_train_status(args.run_root)
+        elif args.command == "checkpoint-info":
+            from .resident_training import checkpoint_info
+
+            result = checkpoint_info(args.checkpoint)
         elif args.command == "backpack-dimensions":
             from .backpack_dimensions import build_dynamic_dimensions
 
