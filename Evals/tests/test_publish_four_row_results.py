@@ -2,7 +2,7 @@
 import unittest
 from pathlib import Path
 
-from tools.mmlu_density.publish_four_row_results import render
+from Evals.tools.mmlu_density.publish_four_row_results import render
 
 
 class PublishFourRowResultsTest(unittest.TestCase):
@@ -51,9 +51,9 @@ class PublishFourRowResultsTest(unittest.TestCase):
             render(terminal)
 
     def test_live_evals_page_links_thirteen_row_table(self):
-        readme = (Path(__file__).resolve().parents[1] / "Evals/README.md").read_text()
+        readme = (Path(__file__).resolve().parents[2] / "Evals/README.md").read_text()
         self.assertIn("MMLU-500 capability-density table", readme)
-        self.assertIn("notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md", readme)
+        self.assertIn("archive/notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md", readme)
         self.assertIn("scores thirteen accepted sealed rows", readme)
         self.assertIn("Official native MMLU/accounting reference", readme)
         self.assertIn("routed K2 and K3 rows", readme)

@@ -7,8 +7,8 @@ import unittest
 from decimal import Decimal, getcontext, localcontext
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-SCRIPT = REPO / "tools/mmlu_density/aggregate_kimi_iq1s.py"
+REPO = Path(__file__).resolve().parents[2]
+SCRIPT = REPO / "Evals/tools/mmlu_density/aggregate_kimi_iq1s.py"
 spec = importlib.util.spec_from_file_location("aggregate_kimi_iq1s", SCRIPT)
 assert spec is not None
 module = importlib.util.module_from_spec(spec)
@@ -79,9 +79,9 @@ class KimiIQ1SAggregateTest(unittest.TestCase):
             module.validate_kimi_rows(rows, ledger, "qrow-{ordinal:03d}")
 
     def test_published_companion_is_public_safe_and_formula_exact(self):
-        result_path = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/kimi-iq1s-results.json"
-        report_path = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/kimi-iq1s-results.md"
-        evidence_path = REPO / "notes/benchmarks/mmlu-density/mmlu500-v1/kimi-iq1s-evidence-manifest.json"
+        result_path = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/kimi-iq1s-results.json"
+        report_path = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/kimi-iq1s-results.md"
+        evidence_path = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/kimi-iq1s-evidence-manifest.json"
         for path in (result_path, report_path, evidence_path):
             self.assertTrue(path.is_file(), path)
         result = json.loads(result_path.read_text())

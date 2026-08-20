@@ -326,7 +326,7 @@ def test_trainer_alias_is_refused_and_failed_peer_cancels_other_workers(tmp_path
 
 
 def test_recipe_has_public_u0_and_no_private_tmp_identifier() -> None:
-    recipe = Path(__file__).parents[2] / "notes" / "qtip-v7-joint-repair-one-line-workflow.md"
+    recipe = Path(__file__).parents[2] / "archive" / "notes" / "qtip-v7-joint-repair-one-line-workflow.md"
     text = recipe.read_text()
     assert "--target-update 0" in text
     assert "/tmp/" not in text

@@ -189,7 +189,7 @@ def test_public_wire_surface_contains_no_obsolete_stale_total() -> None:
         root / "src/banana_smasher/qtip_v7_joint_workflow.py",
         root / "src/banana_smasher/qtip_v7_residency.py",
         root / "src/banana_smasher/cli.py",
-        root.parent / "notes/qtip-v7-joint-repair-one-line-workflow.md",
+        root.parent / "archive/notes/qtip-v7-joint-repair-one-line-workflow.md",
     ]
     stale = "100" + ",636,011,256"
     assert all(stale not in path.read_text() for path in surfaces)

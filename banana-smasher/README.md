@@ -147,7 +147,7 @@ The homogeneous `L16/B10/V4` winner is available through
 binds physical source weights, a same-basis compact QTIP transform, and the
 shared Q9/V2 TLUT; it emits exact 2.5-BPW codes, a physical decoded cell, and
 hash-bound mechanics/anchor receipts. See
-[QTIP25_NATIVE_V4_API.md](../notes/QTIP25_NATIVE_V4_API.md) for the measured
+[QTIP25_NATIVE_V4_API.md](../archive/notes/QTIP25_NATIVE_V4_API.md) for the measured
 configuration and a pasteable agent brief.
 
 ## Three-command release path
@@ -253,7 +253,7 @@ The first sealed model instance has no special framework name. Reusable package,
 
 Members and checkpoints use relative paths, byte counts, SHA-256 identities, and chained completion markers. Verification rejects missing, extra, tampered, unsafe, or unpaired artifacts. The optional `real_axis` object in `bs-pack-v1` binds a pack to its numerical runtime descriptor without changing the required export or repair-pack contract.
 
-These metrics compare declared numerical artifacts. They do not assert causal-context equivalence or same-work language-model equivalence. See `notes/reports/paired-real-axis-api.md` for the portable schemas, durability rules, and interpretation boundary.
+These metrics compare declared numerical artifacts. They do not assert causal-context equivalence or same-work language-model equivalence. See `archive/notes/reports/paired-real-axis-api.md` for the portable schemas, durability rules, and interpretation boundary.
 
 ## Anchor evaluation
 

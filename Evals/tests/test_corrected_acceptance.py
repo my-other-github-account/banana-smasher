@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SOURCE_COMMIT = "c00714c6803f7e2de7a95d103dbe172236b22adf"
 
 EXPECTED_SM120 = {
@@ -167,25 +167,28 @@ def test_cache_lifecycle_is_honest_and_persistent() -> None:
     assert cache["active_cache_baked"] is False
     assert cache["required_version"] == "0.6.17"
     assert cache["architecture"] == "121a"
-    serve = (ROOT / "examples/serve.sh").read_text()
+    serve = (ROOT / "docker/examples/serve.sh").read_text()
     assert "docker volume create" in serve
     assert "/root/.cache/vllm/flashinfer_autotune_cache" in serve
-    capture = (ROOT / "examples/capture_flashinfer_cache.sh").read_text()
+    capture = (ROOT / "docker/examples/capture_flashinfer_cache.sh").read_text()
     assert "validate_flashinfer_cache.py" in capture
     assert "0.6.17" in capture and "121a" in capture
 
 
 def test_developer_and_release_interfaces_are_explicit() -> None:
     readme = (ROOT / "README.md").read_text()
-    assert "python -m build --wheel --outdir dist ./banana-smasher" in readme
-    assert "python -m build --wheel --outdir dist ./banana-smasher-plugin" in readme
-    assert "non-GPU static" in readme
-    assert "Linux ARM64" in readme
-    build = (ROOT / "examples/build_image.sh").read_text()
+    codebase_map = (ROOT / "CODEBASE_MAP.md").read_text()
+    assert len(readme.splitlines()) == 10
+    assert "banana-smasher/src/banana_smasher/" in readme
+    assert "ResidentRepairAPI.build_uniform" in readme
+    assert "ResidentRepairAPI.backpack_mix" in readme
+    assert "docker/examples/build_image.sh" in readme
+    assert "runtime/v7/" in codebase_map
+    build = (ROOT / "docker/examples/build_image.sh").read_text()
     assert "docker buildx build" in build
     assert "--platform linux/arm64" in build
     assert "--no-cache" in build
-    smoke = (ROOT / "examples/smoke_api.py").read_text()
+    smoke = (ROOT / "docker/examples/smoke_api.py").read_text()
     assert smoke.index("/health") < smoke.index("/models") < smoke.index("/chat/completions")
     assert "expected served model" in smoke
 
@@ -267,7 +270,7 @@ def test_kernel_producer_manifest_covers_every_active_cubin_exactly() -> None:
     all_assets = [item for producer in producers.values() for item in producer["assets"]]
     assert len(all_assets) == 32
     assert len({(item["name"], item["sha256"]) for item in all_assets}) == 32
-    development = (ROOT / "KERNEL_DEVELOPMENT.md").read_text()
+    development = (ROOT / "archive/KERNEL_DEVELOPMENT.md").read_text()
     assert "exact-source-rebuild seal" in development
     assert "5912400" in development
     assert "c139df8b34f1dcab607f8ccb685fdea948f3ae4d" in development

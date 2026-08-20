@@ -6,7 +6,7 @@ set -euo pipefail
 VERSION=0.6.17
 ARCH=121a
 CACHE_ROOT=/root/.cache/vllm/flashinfer_autotune_cache
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DESTINATION="$CACHE_CAPTURE_DIR/$VERSION/$ARCH"
 
 if [[ -e "$DESTINATION" ]]; then
