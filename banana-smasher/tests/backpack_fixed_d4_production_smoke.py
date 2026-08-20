@@ -10,7 +10,8 @@ from pathlib import Path
 import numpy as np
 
 import banana_smasher
-from banana_smasher import BackpackPlan, build_backpack, verify_pack
+from banana_smasher import BackpackPlan, verify_pack
+from banana_smasher.backpack import _build_backpack as build_backpack
 
 CLASSES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
 
@@ -158,22 +159,27 @@ def _run_tier(root: Path, codebook_size: int) -> dict[str, object]:
     result = build_backpack(plan, run_root=run_root)
     receipts = [
         json.loads(path.read_text())
-        for path in sorted((run_root / "candidates" / f"d4-k{codebook_size}").glob("*/RECEIPT.json"))
+        for path in sorted(
+            (run_root / "candidates" / f"d4-k{codebook_size}").glob("*/RECEIPT.json")
+        )
     ]
     if len(receipts) != 2:
-        raise RuntimeError(f"K{codebook_size} did not produce both projection candidates")
+        raise RuntimeError(
+            f"K{codebook_size} did not produce both projection candidates"
+        )
     basis = hashlib.sha256(
         (Path(plan.model["root"]) / "model.safetensors.index.json").read_bytes()
     ).hexdigest()
     for receipt in receipts:
         if (
             receipt.get("algorithm") != "exact-native-mxfp4-d4"
-            or receipt.get("source_dtype")
-            != "packed-mxfp4-e2m1-with-e8m0-scales"
+            or receipt.get("source_dtype") != "packed-mxfp4-e2m1-with-e8m0-scales"
             or receipt.get("basis_sha256") != basis
             or receipt.get("codebook_size") != codebook_size
         ):
-            raise RuntimeError(f"K{codebook_size} candidate lost production fixed-D4 identity")
+            raise RuntimeError(
+                f"K{codebook_size} candidate lost production fixed-D4 identity"
+            )
         decoded = np.load(Path(receipt["decoded"]["path"]), allow_pickle=False)
         source = np.load(
             Path(plan.model["root"])
@@ -183,7 +189,9 @@ def _run_tier(root: Path, codebook_size: int) -> dict[str, object]:
         if not np.array_equal(decoded, source.reshape(-1)):
             raise RuntimeError(f"K{codebook_size} candidate dropped its E8M0 scales")
     if result["pre_repair_anchor"] != result["final_anchor"]:
-        raise RuntimeError(f"K{codebook_size} exported-wire score drifted from its candidate")
+        raise RuntimeError(
+            f"K{codebook_size} exported-wire score drifted from its candidate"
+        )
     verified = verify_pack(Path(result["final_pack"]))
     return {
         "algorithm": receipts[0]["algorithm"],

@@ -12,7 +12,7 @@ import numpy as np
 from .d4_wire import decode_d4_expert
 from .hf_deepseek_v4_d4_adapter import DeepseekV4D4Runtime
 from .loader import PackLoader
-from .qtip_v7_routes import load_qtip2_v7_dense_roster, load_qtip2_v7_wire
+from .qtip_v7_routes import _load_qtip2_v7_member_roster, load_qtip2_v7_wire
 
 
 def _available_materialization_bytes(
@@ -115,7 +115,9 @@ def _decode_compressed(
         .expand(*blocked32.shape, 16)
         .view(torch.int32)
     )
-    shifts = torch.arange(0, 16, dtype=torch.int32, device=blocked.device).reshape(1, 1, -1)
+    shifts = torch.arange(0, 16, dtype=torch.int32, device=blocked.device).reshape(
+        1, 1, -1
+    )
     shifts = shifts.expand(expanded32.shape)
     shifted = expanded32 >> (16 - shifts)
     indices = torch.bitwise_and(
@@ -167,7 +169,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         v7_group = {
             "qtip2_v7_root_map",
             "qtip2_v7_shared_lut",
-            "qtip2_v7_dense_roster",
+            "qtip2_v7_member_roster",
         }
         allowed = required | v7_group | set().union(*qtip_groups.values())
         if (
@@ -180,14 +182,20 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             )
         self.basis_sha256 = str(binding["basis_sha256"])
         self.virtual_manifest_path = Path(str(binding["virtual_manifest"])).resolve()
-        self.materialization_index_path = Path(str(binding["materialization_index"])).resolve()
+        self.materialization_index_path = Path(
+            str(binding["materialization_index"])
+        ).resolve()
         manifest = json.loads(self.virtual_manifest_path.read_text())
         if manifest.get("basis_sha256") != self.basis_sha256:
             raise ValueError("virtual Backpack basis mismatch")
         index_binding = manifest.get("materialization_index")
         if not isinstance(index_binding, Mapping):
-            raise ValueError("virtual Backpack materialization index binding is missing")
-        index_sha = hashlib.sha256(self.materialization_index_path.read_bytes()).hexdigest()
+            raise ValueError(
+                "virtual Backpack materialization index binding is missing"
+            )
+        index_sha = hashlib.sha256(
+            self.materialization_index_path.read_bytes()
+        ).hexdigest()
         if index_sha != index_binding.get("sha256"):
             raise ValueError("virtual Backpack materialization index SHA-256 mismatch")
         self.rows_by_layer: dict[int, list[dict[str, Any]]] = {}
@@ -208,7 +216,9 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         }
         for source_key, fields in qtip_groups.items():
             if (source_key in selected_source_keys) != fields.issubset(binding):
-                raise ValueError(f"backpack_runtime {source_key} binding/selection mismatch")
+                raise ValueError(
+                    f"backpack_runtime {source_key} binding/selection mismatch"
+                )
         if ("qtip2_v7" in selected_source_keys) != v7_group.issubset(binding):
             raise ValueError("backpack_runtime qtip2_v7 binding/selection mismatch")
         source_bindings = manifest.get("source_bindings")
@@ -229,17 +239,17 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             if relative.is_absolute() or ".." in relative.parts:
                 raise ValueError(f"{source_key} source identity is unsafe")
             identity = root / relative
-            if (
-                not identity.is_file()
-                or hashlib.sha256(identity.read_bytes()).hexdigest()
-                != source.get("identity_sha256")
-            ):
+            if not identity.is_file() or hashlib.sha256(
+                identity.read_bytes()
+            ).hexdigest() != source.get("identity_sha256"):
                 raise ValueError(f"{source_key} source identity drift")
             # The immutable source binding above names the already-sealed pack
             # manifest.  Do not re-hash a ~100 GB pack at exact64 startup.
             loader = PackLoader(root, verify=False)
             expected_prefix = f"layers.0.truevq_d4.{source_key}."
-            if not any(name.startswith(expected_prefix) for name in loader.tensor_index):
+            if not any(
+                name.startswith(expected_prefix) for name in loader.tensor_index
+            ):
                 raise ValueError(f"{source_key} pack lacks its declared D4 tensors")
             self.d4_loaders[source_key] = loader
             self._record_path(identity)
@@ -265,7 +275,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             }
             self._record_path(path)
         self.qtip2_v7_shared_lut_path: Path | None = None
-        self.qtip2_v7_dense_members: dict[tuple[int, str], tuple[Path, str]] = {}
+        self.qtip2_v7_roster_members: dict[tuple[int, int, str], tuple[Path, str]] = {}
         if v7_group.issubset(binding):
             path = Path(str(binding["qtip2_v7_root_map"])).resolve()
             root_map = json.loads(path.read_text())
@@ -292,18 +302,20 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 str(layer): str(root) for layer, root in layer_roots.items()
             }
             self.qtip2_v7_shared_lut_path = lut
-            self.qtip2_v7_dense_members = load_qtip2_v7_dense_roster(
-                binding["qtip2_v7_dense_roster"],
+            self.qtip2_v7_roster_members = _load_qtip2_v7_member_roster(
+                binding["qtip2_v7_member_roster"],
                 expected_basis_sha256=self.basis_sha256,
                 expected_roster_sha256=str(root_map.get("selected_wire_roster_sha256")),
             )
             self._record_path(path)
             self._record_path(lut)
-            self._record_path(Path(str(binding["qtip2_v7_dense_roster"])).resolve())
+            self._record_path(Path(str(binding["qtip2_v7_member_roster"])).resolve())
         self._record_path(self.virtual_manifest_path)
         self._record_path(self.materialization_index_path)
 
-    def _decode_qtip(self, source_key: str, layer: int, expert: int, projection: str) -> Any:
+    def _decode_qtip(
+        self, source_key: str, layer: int, expert: int, projection: str
+    ) -> Any:
         torch = self.torch
         root = Path(self.root_maps[source_key][str(layer)])
         unit_root = root / f"L{layer:03d}" / f"E{expert:03d}_{projection}"
@@ -381,11 +393,9 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
 
         if self.qtip2_v7_shared_lut_path is None:
             raise ValueError("qtip2_v7 source selected without a shared LUT binding")
-        if layer == 34:
-            try:
-                member, _member_sha256 = self.qtip2_v7_dense_members[(expert, wire_projection)]
-            except KeyError as exc:
-                raise ValueError("qtip2_v7 L034 selected-wire roster is incomplete") from exc
+        roster_key = (layer, expert, wire_projection)
+        if roster_key in self.qtip2_v7_roster_members:
+            member, _member_sha256 = self.qtip2_v7_roster_members[roster_key]
         else:
             root = Path(self.root_maps["qtip2_v7"][str(layer)])
             candidates = (
@@ -404,10 +414,16 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         payload = load_qtip2_v7_wire(member, projection=wire_projection)
         torch = self.torch
         device = self.device
-        packed = torch.from_numpy(np.array(payload["packed"], copy=True)).to(device).reshape(-1)
+        packed = (
+            torch.from_numpy(np.array(payload["packed"], copy=True))
+            .to(device)
+            .reshape(-1)
+        )
         su = torch.from_numpy(np.array(payload["SU"], copy=True)).float().to(device)
         sv = torch.from_numpy(np.array(payload["SV"], copy=True)).float().to(device)
-        scale = torch.from_numpy(np.array(payload["Wscale"], copy=True)).float().to(device)
+        scale = (
+            torch.from_numpy(np.array(payload["Wscale"], copy=True)).float().to(device)
+        )
         lut_values = np.fromfile(self.qtip2_v7_shared_lut_path, dtype="<f2")
         if lut_values.shape != (1024,):
             raise ValueError("qtip2_v7 shared LUT must be float16[1024]")
@@ -419,17 +435,13 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         expanded = tlut[lut_index]
         expanded[:, 0] *= sign_flip
         rows, columns = payload["weight_shape"]
-        raw = _decode_compressed(
-            torch, 16, 9, 2, 1, rows, columns, packed, expanded
-        )
+        raw = _decode_compressed(torch, 16, 9, 2, 1, rows, columns, packed, expanded)
         decoded = raw * scale
         decoded = _fwht(torch, decoded.T).T * sv[:, None]
         decoded = _fwht(torch, decoded) * su
         return decoded.to(torch.bfloat16)
 
-    def _decode_qtip2_v7(
-        self, layer: int, expert: int, projection: str
-    ) -> Any:
+    def _decode_qtip2_v7(self, layer: int, expert: int, projection: str) -> Any:
         if projection == "down":
             return self._decode_qtip2_v7_part(layer, expert, "w2")
         if projection != "fused13":
@@ -442,6 +454,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
 
     def _native(self, layer: int, expert: int, projection: str) -> Any:
         prefix = f"layers.{layer}.ffn.experts.{expert}."
+
         def decode(name: str) -> Any:
             weight = self._get_tensor(prefix + name + ".weight").to(self.device)
             scale = self._get_tensor(prefix + name + ".scale").to(self.device)
@@ -469,7 +482,9 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         codebook_size = 1 << bits
         rows, columns = (4096, 2048) if projection == "down" else (4096, 4096)
         prefix = f"layers.{layer}.truevq_d4.{source_key}.{projection}."
-        expert_ids = np.asarray(layer_view.get(prefix + "expert_ids"), dtype=np.int64).reshape(-1)
+        expert_ids = np.asarray(
+            layer_view.get(prefix + "expert_ids"), dtype=np.int64
+        ).reshape(-1)
         positions = np.flatnonzero(expert_ids == expert)
         if positions.size != 1:
             raise ValueError(
@@ -541,7 +556,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         resources = [model.model.norm, model.model.hc_head, model.lm_head]
         self._resident_now()
 
-        def score(
+        def _score(
             activation: Any,
             support_token_ids: Any,
             *,
@@ -574,7 +589,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             }
 
         try:
-            yield score
+            yield _score
         finally:
             while resources:
                 self._dematerialize(resources.pop())
@@ -593,7 +608,8 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         gate_up = torch.empty(256, 4096, 4096, dtype=torch.bfloat16, device=self.device)
         down = torch.empty(256, 4096, 2048, dtype=torch.bfloat16, device=self.device)
         rows = sorted(
-            self.rows_by_layer[layer], key=lambda row: (int(row["expert"]), str(row["projection"]))
+            self.rows_by_layer[layer],
+            key=lambda row: (int(row["expert"]), str(row["projection"])),
         )
         seen: set[tuple[int, str]] = set()
         selected_d4_tiers = {

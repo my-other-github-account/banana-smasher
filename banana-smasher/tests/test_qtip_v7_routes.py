@@ -13,7 +13,7 @@ from banana_smasher.hf_deepseek_v4_backpack_adapter import DeepseekV4BackpackRun
 from banana_smasher.qtip_v7_routes import (
     QTIP_V7_MEMBER_BYTES,
     QtipV7RouteCensus,
-    load_qtip2_v7_dense_roster,
+    _load_qtip2_v7_member_roster,
     load_qtip2_v7_wire,
 )
 
@@ -38,7 +38,9 @@ def _sha(label: str) -> str:
 def _route(kind: str, layer: int) -> dict:
     base = {"kind": kind}
     if kind in {"nas_sftp", "ssh", "nas_shell", "local"}:
-        base.update({"source": f"/providers/L{layer:03d}", "layout": "flat", "ext": "q2v7wire"})
+        base.update(
+            {"source": f"/providers/L{layer:03d}", "layout": "flat", "ext": "q2v7wire"}
+        )
     elif kind in {"nas_shell_stream", "nas_sftp_tranches"}:
         base.update({"root": f"/providers/L{layer:03d}"})
     elif kind == "ssh_transfer_manifest_full_tree":
@@ -51,11 +53,21 @@ def _route(kind: str, layer: int) -> dict:
         )
     elif kind == "split":
         base["parts"] = [
-            {"root": f"/providers/L{layer:03d}/a", "files": 384, "bytes": 384 * 2_109_444},
-            {"root": f"/providers/L{layer:03d}/b", "files": 384, "bytes": 384 * 2_109_444},
+            {
+                "root": f"/providers/L{layer:03d}/a",
+                "files": 384,
+                "bytes": 384 * 2_109_444,
+            },
+            {
+                "root": f"/providers/L{layer:03d}/b",
+                "files": 384,
+                "bytes": 384 * 2_109_444,
+            },
         ]
     else:
-        base.update({"roster_sha256": _sha(f"roster-{layer}"), "hosts": {"spark-1": "local"}})
+        base.update(
+            {"roster_sha256": _sha(f"roster-{layer}"), "hosts": {"spark-1": "local"}}
+        )
     return base
 
 
@@ -92,7 +104,9 @@ def _document() -> dict:
     }
 
 
-def test_current_all43_route_census_loads_without_inventing_one_layout(tmp_path: Path) -> None:
+def test_current_all43_route_census_loads_without_inventing_one_layout(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "FINAL_43_ROUTE_CENSUS.json"
     path.write_text(json.dumps(_document()))
     census = QtipV7RouteCensus.load(path, expected_basis_sha256=BASIS)
@@ -104,7 +118,9 @@ def test_current_all43_route_census_loads_without_inventing_one_layout(tmp_path:
     assert census.sha256 == hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_current_route_census_fails_closed_on_basis_and_coverage(tmp_path: Path) -> None:
+def test_current_route_census_fails_closed_on_basis_and_coverage(
+    tmp_path: Path,
+) -> None:
     value = _document()
     value["layers"].pop()
     path = tmp_path / "FINAL_43_ROUTE_CENSUS.json"
@@ -161,15 +177,24 @@ def test_raw_v7_member_rejects_truncation(tmp_path: Path) -> None:
         load_qtip2_v7_wire(path, projection="w1")
 
 
-def test_dense_l034_roster_resolves_declared_selected_wire_paths(tmp_path: Path) -> None:
+def test_member_roster_resolves_declared_selected_wire_paths_for_any_layer(
+    tmp_path: Path,
+) -> None:
     members = []
     for expert in range(256):
         for projection in ("w1", "w2", "w3"):
-            path = tmp_path / "run" / "staged_wire" / f"E{expert:03d}" / f"{projection}.wire.bin"
+            path = (
+                tmp_path
+                / "run"
+                / "staged_wire"
+                / f"E{expert:03d}"
+                / f"{projection}.wire.bin"
+            )
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"x")
             members.append(
                 {
+                    "layer": 7,
                     "expert": expert,
                     "projection": projection,
                     "path": str(path.relative_to(tmp_path)),
@@ -177,42 +202,43 @@ def test_dense_l034_roster_resolves_declared_selected_wire_paths(tmp_path: Path)
                     "sha256": _sha(f"{expert}-{projection}"),
                 }
             )
-    roster = tmp_path / "L034_SELECTED_WIRE_PROVIDER_ROSTER.json"
+    roster = tmp_path / "SELECTED_WIRE_PROVIDER_ROSTER.json"
     roster.write_text(
         json.dumps(
             {
-                "schema": "banana-smasher-qtip2-v7-l034-selected-wire-roster-v1",
+                "schema": "banana-smasher-qtip2-v7-selected-wire-roster-v2",
                 "basis_sha256": BASIS,
-                "layer": 34,
                 "member_count": 768,
                 "members": members,
             }
         )
     )
-    resolved = load_qtip2_v7_dense_roster(
+    resolved = _load_qtip2_v7_member_roster(
         roster,
         expected_basis_sha256=BASIS,
         expected_roster_sha256=hashlib.sha256(roster.read_bytes()).hexdigest(),
         expected_member_bytes=1,
     )
-    assert resolved[(0, "w1")][0] == tmp_path / "run/staged_wire/E000/w1.wire.bin"
-    assert resolved[(255, "w3")][1] == _sha("255-w3")
+    assert resolved[(7, 0, "w1")][0] == tmp_path / "run/staged_wire/E000/w1.wire.bin"
+    assert resolved[(7, 255, "w3")][1] == _sha("255-w3")
 
 
-def test_dense_l034_roster_rejects_escaping_member_path(tmp_path: Path) -> None:
+def test_member_roster_rejects_escaping_member_path(tmp_path: Path) -> None:
     roster = tmp_path / "roster.json"
     roster.write_text(
         json.dumps(
             {
-                "schema": "banana-smasher-qtip2-v7-l034-selected-wire-roster-v1",
+                "schema": "banana-smasher-qtip2-v7-selected-wire-roster-v2",
                 "basis_sha256": BASIS,
-                "layer": 34,
                 "member_count": 768,
                 "members": [
                     {
+                        "layer": 7,
                         "expert": expert,
                         "projection": projection,
-                        "path": "../escape" if expert == 0 and projection == "w1" else f"E{expert}/{projection}",
+                        "path": "../escape"
+                        if expert == 0 and projection == "w1"
+                        else f"E{expert}/{projection}",
                         "bytes": QTIP_V7_MEMBER_BYTES,
                         "sha256": _sha(f"{expert}-{projection}"),
                     }
@@ -223,7 +249,7 @@ def test_dense_l034_roster_rejects_escaping_member_path(tmp_path: Path) -> None:
         )
     )
     with pytest.raises(PackValidationError, match="escapes"):
-        load_qtip2_v7_dense_roster(
+        _load_qtip2_v7_member_roster(
             roster,
             expected_basis_sha256=BASIS,
             expected_roster_sha256=hashlib.sha256(roster.read_bytes()).hexdigest(),

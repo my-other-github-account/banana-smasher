@@ -23,7 +23,7 @@ from .durability import (
     tree_identity,
     validate_portable_schema,
 )
-from .metrics import MetricsError, aggregate_windows, paired_summary, score_candidate
+from .metrics import MetricsError, _score_candidate, aggregate_windows, paired_summary
 from .real_axis import RealAxisRunner
 
 EVALUATION_SCHEMA = "bs-paired-real-axis-evaluation-v1"
@@ -42,7 +42,9 @@ class EvaluationSpecMismatch(EvaluationError):
 
 
 def _state_path(root: Path, layer: int, arm: str, ordinal: int) -> Path:
-    return root / "checkpoints" / f"layer_{layer:03d}" / arm / f"window_{ordinal:06d}.npz"
+    return (
+        root / "checkpoints" / f"layer_{layer:03d}" / arm / f"window_{ordinal:06d}.npz"
+    )
 
 
 def _checkpoint_manifest_path(root: Path, layer: int, arm: str) -> Path:
@@ -156,9 +158,7 @@ def _write_arm_checkpoint(
         "members": members,
         "member_count": len(members),
     }
-    path = atomic_json(
-        _checkpoint_manifest_path(root, layer, arm), manifest, root=root
-    )
+    path = atomic_json(_checkpoint_manifest_path(root, layer, arm), manifest, root=root)
     return {"manifest": manifest, "path": path, "sha256": sha256_file(path)}
 
 
@@ -212,19 +212,18 @@ def _verify_arm_checkpoint(
     for ordinal, (row, bank_member) in enumerate(zip(rows, bank_members, strict=True)):
         if (
             not isinstance(row, dict)
-            or set(row)
-            != {"ordinal", "window_id", "path", "bytes", "sha256", "tensor"}
+            or set(row) != {"ordinal", "window_id", "path", "bytes", "sha256", "tensor"}
             or row.get("ordinal") != ordinal
             or row.get("window_id") != bank_member["window_id"]
         ):
             raise EvaluationError("CHECKPOINT_POPULATION_MISMATCH")
-        expected_path = (
-            f"checkpoints/layer_{layer:03d}/{arm}/window_{ordinal:06d}.npz"
-        )
+        expected_path = f"checkpoints/layer_{layer:03d}/{arm}/window_{ordinal:06d}.npz"
         if row.get("path") != expected_path:
             raise EvaluationError("CHECKPOINT_MEMBER_PATH_MISMATCH")
         try:
-            path = safe_relative_path(root, str(row.get("path", "")), label="CHECKPOINT")
+            path = safe_relative_path(
+                root, str(row.get("path", "")), label="CHECKPOINT"
+            )
         except DurabilityError as exc:
             raise EvaluationError(str(exc)) from exc
         if path.stat().st_size != row.get("bytes") or sha256_file(path) != row.get(
@@ -252,7 +251,9 @@ def _verify_arm_checkpoint(
         for path in manifest_path.parent.iterdir()
         if path.is_file() and not path.name.startswith(".")
     }
-    expected = {"manifest.json"} | {f"window_{index:06d}.npz" for index in range(len(rows))}
+    expected = {"manifest.json"} | {
+        f"window_{index:06d}.npz" for index in range(len(rows))
+    }
     if actual != expected:
         raise EvaluationError("CHECKPOINT_FILE_SET_MISMATCH")
     return {
@@ -353,7 +354,11 @@ def _greatest_common_checkpoint(
             break
         previous_sha256 = checkpoint["marker_sha256"]
         last = checkpoint
-    return (0, None) if last is None else (int(last["marker"]["completed_layer"]) + 1, last)
+    return (
+        (0, None)
+        if last is None
+        else (int(last["marker"]["completed_layer"]) + 1, last)
+    )
 
 
 def _write_arm_artifacts(
@@ -374,7 +379,7 @@ def _write_arm_artifacts(
     ):
         teacher = bank_member["arrays"]
         try:
-            scored = score_candidate(
+            scored = _score_candidate(
                 logits,
                 teacher_indices=teacher["teacher_indices"],
                 teacher_logprob=teacher["teacher_logprob"],
@@ -478,7 +483,9 @@ def _verify_arm_artifacts(
         expected_path = f"arms/{expected_arm}/window_{ordinal:06d}.npz"
         if member.get("path") != expected_path:
             raise EvaluationError("ARM_MEMBER_PATH_MISMATCH")
-        artifact = safe_relative_path(root, str(member.get("path", "")), label="ARM_MEMBER")
+        artifact = safe_relative_path(
+            root, str(member.get("path", "")), label="ARM_MEMBER"
+        )
         if artifact.stat().st_size != member.get("bytes") or sha256_file(
             artifact
         ) != member.get("sha256"):
@@ -501,7 +508,9 @@ def _verify_arm_artifacts(
         except EvaluationError:
             raise
         except Exception as exc:
-            raise EvaluationError(f"ARM_MEMBER_ARCHIVE_INVALID: {artifact}: {exc}") from exc
+            raise EvaluationError(
+                f"ARM_MEMBER_ARCHIVE_INVALID: {artifact}: {exc}"
+            ) from exc
         if tensors != member.get("tensors"):
             raise EvaluationError("ARM_MEMBER_TENSOR_SCHEMA_MISMATCH")
         logprob = arrays["candidate_logprob"]
@@ -589,7 +598,9 @@ def verify_evaluation(
         root, "EVALUATION_COMPLETE", label="EVALUATION_MARKER"
     )
     marker = load_json_object(marker_path, label="EVALUATION_MARKER")
-    receipt_path = _confined_root_file(root, "evaluation.json", label="EVALUATION_RECEIPT")
+    receipt_path = _confined_root_file(
+        root, "evaluation.json", label="EVALUATION_RECEIPT"
+    )
     receipt = load_json_object(receipt_path, label="EVALUATION_RECEIPT")
     try:
         validate_portable_schema(
@@ -635,14 +646,14 @@ def verify_evaluation(
         or receipt.get("operation") != "evaluate"
         or receipt.get("mode") != "paired_real_axis"
         or marker.get("evaluation_id") != receipt.get("evaluation_id")
-        or marker.get("evaluation_spec_sha256")
-        != receipt.get("evaluation_spec_sha256")
+        or marker.get("evaluation_spec_sha256") != receipt.get("evaluation_spec_sha256")
         or marker.get("evaluation_sha256") != sha256_file(receipt_path)
     ):
         raise EvaluationError("EVALUATION_COMPLETION_INVALID")
-    if expected_spec_sha256 is not None and receipt.get(
-        "evaluation_spec_sha256"
-    ) != expected_spec_sha256:
+    if (
+        expected_spec_sha256 is not None
+        and receipt.get("evaluation_spec_sha256") != expected_spec_sha256
+    ):
         raise EvaluationSpecMismatch("EVALUATION_SPEC_MISMATCH")
     receipt_arms = receipt.get("arms")
     if not isinstance(receipt_arms, dict) or set(receipt_arms) != {
@@ -679,7 +690,8 @@ def verify_evaluation(
     if (
         candidate_ids != reference_ids
         or candidate_classes != reference_classes
-        or canonical_sha256(candidate_ids) != population.get("ordered_window_ids_sha256")
+        or canonical_sha256(candidate_ids)
+        != population.get("ordered_window_ids_sha256")
         or len(candidate_ids) != population.get("windows")
         or sum(int(row["positions"]) for row in candidate_members)
         != population.get("positions")
@@ -723,7 +735,9 @@ def verify_evaluation(
             for arm in verified_arms.values()
             for width in arm["support_widths"]
         )
-        or any(row["positions"] != instrument.get("cutoff") for row in candidate_members)
+        or any(
+            row["positions"] != instrument.get("cutoff") for row in candidate_members
+        )
     ):
         raise EvaluationError("EVALUATION_INSTRUMENT_MISMATCH")
     topology = receipt.get("topology")
@@ -804,12 +818,12 @@ def verify_evaluation(
     expected_evaluation_id = canonical_sha256(
         {
             "evaluation_spec_sha256": receipt["evaluation_spec_sha256"],
-            "candidate_manifest_sha256": receipt_arms["candidate"][
-                "logits_manifest"
-            ]["sha256"],
-            "reference_manifest_sha256": receipt_arms["reference"][
-                "logits_manifest"
-            ]["sha256"],
+            "candidate_manifest_sha256": receipt_arms["candidate"]["logits_manifest"][
+                "sha256"
+            ],
+            "reference_manifest_sha256": receipt_arms["reference"]["logits_manifest"][
+                "sha256"
+            ],
         }
     )
     if receipt.get("evaluation_id") != expected_evaluation_id:

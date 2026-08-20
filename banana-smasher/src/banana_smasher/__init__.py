@@ -30,7 +30,6 @@ from .anchor import (
     materialize_bank,
     register_bank,
     resolve_bank_identities,
-    score_bank,
     status_report,
     validate_bank_manifest,
 )
@@ -46,7 +45,6 @@ from .backpack import (
     BackpackPlan,
     anchor_backpack,
     anchor_backpack_candidates,
-    build_backpack,
     candidate_artifact_root,
     export_backpack_lifecycle,
     generate_backpack_candidates,
@@ -55,9 +53,7 @@ from .backpack import (
     inspect_backpack,
     materialize_backpack_source,
     predict_backpack,
-    repair_backpack,
     reuse_backpack_receipts,
-    score_backpack,
     solve_backpack,
     status_backpack,
 )
@@ -93,7 +89,7 @@ from .backpack_contextual_candidate import materialize_contextual_change
 from .backpack_contextual_measure import record_contextual_swap_measurement
 from .backpack_contextual_prepare import prepare_contextual_iteration
 from .backpack_exact64 import EXACT64_TERMINAL_SCHEMA, bind_backpack_exact64
-from .backpack_runtime_exact64 import run_backpack_exact64, run_backpack_train8
+
 from .backpack_selection import select_measured_nonworse
 from .measured_backpack_spsa import (
     build_hierarchical_groups,
@@ -159,7 +155,6 @@ from .qtip_v7_joint_workflow import (
     inspect_joint_inputs,
     launch_balanced64_shards,
     materialize_joint,
-    train_joint,
     verify_joint_checkpoint,
 )
 from .update_service import serve_persistent_updates
@@ -206,6 +201,7 @@ def solve_qtip_profiles(
         ),
     )
 
+
 __all__ = [
     "MANIFEST_NAME",
     "BQ23_PROVIDER_IDS",
@@ -246,7 +242,6 @@ __all__ = [
     "build_bank",
     "build_bank_manifest",
     "build_bpw_accounting",
-    "build_backpack",
     "build_qtip25_native_v4_cell",
     "build_contextual_delta_ledger",
     "build_full_wire_provenance_ledger",
@@ -305,7 +300,6 @@ __all__ = [
     "register_bank",
     "refine_influential_groups",
     "require_comparable_bpw",
-    "repair_backpack",
     "record_contextual_swap_measurement",
     "resolve_bank_identities",
     "resolve_backpack_family_provider",
@@ -316,10 +310,6 @@ __all__ = [
     "run_contextual_value_update",
     "run_full_wire_provenance_solve",
     "run_measured_spsa",
-    "run_backpack_exact64",
-    "run_backpack_train8",
-    "score_bank",
-    "score_backpack",
     "serve_persistent_updates",
     "solve_backpack",
     "solve_contextual_trust_region",
@@ -328,7 +318,6 @@ __all__ = [
     "status_backpack",
     "status_report",
     "stage_qsfp_manifest",
-    "train_joint",
     "select_measured_nonworse",
     "unpack_qtip_states",
     "validate_bank_manifest",

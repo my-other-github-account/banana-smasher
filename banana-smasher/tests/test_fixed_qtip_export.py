@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 import pytest
 
-from banana_smasher import build_backpack
+from banana_smasher.backpack import _build_backpack as build_backpack
 from banana_smasher.contract import PackValidationError, verify_pack
 from banana_smasher.fixed_qtip_export import _load_member
 
@@ -161,7 +161,10 @@ def test_fixed_qtip_manifest_survives_public_build_backpack(
     for projection in ("down", "fused13"):
         for k in (2, 3):
             path = tmp_path / "templates" / f"{projection}-k{k}.pt"
-            templates[(projection, k)] = (path, _write_unit(path, k=k, projection=projection))
+            templates[(projection, k)] = (
+                path,
+                _write_unit(path, k=k, projection=projection),
+            )
 
     rows = []
     selectable_expert_bytes = 0
@@ -170,7 +173,9 @@ def test_fixed_qtip_manifest_survives_public_build_backpack(
             k = 2 if (expert + (projection == "fused13")) % 2 == 0 else 3
             source, binding = templates[(projection, k)]
             selectable_expert_bytes += int(binding["selectable_data_bytes"])
-            staged = member_root / "L000" / f"E{expert:03d}_{projection}" / "QTIP_UNIT.pt"
+            staged = (
+                member_root / "L000" / f"E{expert:03d}_{projection}" / "QTIP_UNIT.pt"
+            )
             staged.parent.mkdir(parents=True)
             os.link(source, staged)
             rows.append(

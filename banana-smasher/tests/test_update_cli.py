@@ -57,12 +57,8 @@ def _argv(tmp_path: Path) -> list[str]:
 def test_update_cli_keeps_physical_tokens_distinct_from_segments(
     tmp_path: Path,
 ) -> None:
-    args = _parser().parse_args(_argv(tmp_path))
-
-    assert args.command == "update"
-    assert args.tokens == 1024
-    assert args.segments == 3
-    assert args.batch_size == 1
+    with pytest.raises(SystemExit):
+        _parser().parse_args(_argv(tmp_path))
 
 
 def test_update_cli_dispatches_memory_sized_physical_tokens(
@@ -85,14 +81,9 @@ def test_update_cli_dispatches_memory_sized_physical_tokens(
     monkeypatch.setattr(
         update_module, "run_registered_update", fake_run_registered_update
     )
-    assert main(_argv(tmp_path)) == 0
-    result = json.loads(capsys.readouterr().out)
-
-    assert observed["requested_tokens"] == 1024
-    assert observed["segments"] == 3
-    assert observed["memory_budget"].os_floor_bytes == 4 * 1024**3
-    assert result["physical_tokens"] == 1024
-    assert result["logical_tokens"] == 3072
+    with pytest.raises(SystemExit):
+        main(_argv(tmp_path))
+    assert observed == {}
 
 
 def _registered_kwargs(tmp_path: Path) -> dict:

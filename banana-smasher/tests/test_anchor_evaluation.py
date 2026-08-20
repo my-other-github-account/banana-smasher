@@ -19,7 +19,7 @@ from banana_smasher.anchor import (
     materialize_bank,
     register_bank,
     resolve_bank_identities,
-    score_bank,
+    _score_bank,
     status_report,
     validate_bank_manifest,
 )
@@ -53,8 +53,15 @@ def _parent(tmp_path: Path, *, role: str = "train512") -> tuple[Path, dict]:
     corpus = _identity(path.read_bytes(), path.name)
     identities = {
         "corpus": corpus,
-        "tokenizer": {"status": "resolved", "sha256": "1" * 64, "uri": "tokenizer://fixture"},
-        "teacher": {"status": "unresolved", "reason": "fixture producer supplied at score time"},
+        "tokenizer": {
+            "status": "resolved",
+            "sha256": "1" * 64,
+            "uri": "tokenizer://fixture",
+        },
+        "teacher": {
+            "status": "unresolved",
+            "reason": "fixture producer supplied at score time",
+        },
         "scorer": {"status": "resolved", "sha256": "2" * 64, "uri": "scorer://fixture"},
     }
     manifest = build_bank_manifest(
@@ -118,7 +125,9 @@ def test_balanced_selection_is_config_driven_and_deterministic(tmp_path: Path) -
     assert first["split_lineage"]["parent_bank_id"] == "train512"
 
 
-def test_materialize_verifies_parent_membership_labels_and_disjointness(tmp_path: Path) -> None:
+def test_materialize_verifies_parent_membership_labels_and_disjointness(
+    tmp_path: Path,
+) -> None:
     parent_path, parent = _parent(tmp_path)
     panel = create_balanced_subset(
         parent,
@@ -137,7 +146,9 @@ def test_materialize_verifies_parent_membership_labels_and_disjointness(tmp_path
 
     assert receipt["status"] == "PASS"
     assert receipt["expected_count"] == receipt["materialized_count"] == 2
-    assert [json.loads(line)["window_id"] for line in output.read_text().splitlines()] == [2, 3]
+    assert [
+        json.loads(line)["window_id"] for line in output.read_text().splitlines()
+    ] == [2, 3]
 
     overlapping = build_bank_manifest(
         bank_id="overlap",
@@ -172,10 +183,7 @@ def _score_fixture(tmp_path: Path) -> tuple[dict, Path, Path]:
     )
     teacher = _write_jsonl(
         tmp_path / "teacher.jsonl",
-        [
-            {"window_id": row["id"], "logits": [2.0, 0.0]}
-            for row in windows
-        ],
+        [{"window_id": row["id"], "logits": [2.0, 0.0]} for row in windows],
     )
     candidate = _write_jsonl(
         tmp_path / "candidate.jsonl",
@@ -190,10 +198,18 @@ def _score_fixture(tmp_path: Path) -> tuple[dict, Path, Path]:
 def test_scoring_is_exactly_bound_and_resumable(tmp_path: Path) -> None:
     manifest, teacher, candidate = _score_fixture(tmp_path)
     output = tmp_path / "raw.jsonl"
-    candidate_identity = {"status": "resolved", "sha256": "3" * 64, "uri": "candidate://tier-a"}
-    teacher_identity = {"status": "resolved", "sha256": "5" * 64, "uri": "teacher://fixture-model"}
+    candidate_identity = {
+        "status": "resolved",
+        "sha256": "3" * 64,
+        "uri": "candidate://tier-a",
+    }
+    teacher_identity = {
+        "status": "resolved",
+        "sha256": "5" * 64,
+        "uri": "teacher://fixture-model",
+    }
 
-    first = score_bank(
+    first = _score_bank(
         manifest,
         teacher,
         candidate,
@@ -203,7 +219,7 @@ def test_scoring_is_exactly_bound_and_resumable(tmp_path: Path) -> None:
         teacher_identity=teacher_identity,
         basis_sha256="4" * 64,
     )
-    second = score_bank(
+    second = _score_bank(
         manifest,
         teacher,
         candidate,
@@ -217,7 +233,10 @@ def test_scoring_is_exactly_bound_and_resumable(tmp_path: Path) -> None:
     assert first["coverage"] == "4/4"
     assert first["new_rows"] == 4
     assert first["bindings"]["teacher_sha256"] == "5" * 64
-    assert first["bindings"]["teacher_producer_sha256"] == hashlib.sha256(teacher.read_bytes()).hexdigest()
+    assert (
+        first["bindings"]["teacher_producer_sha256"]
+        == hashlib.sha256(teacher.read_bytes()).hexdigest()
+    )
     assert second["new_rows"] == 0
     assert second["resumed_rows"] == 4
     rows = [json.loads(line) for line in output.read_text().splitlines()]
@@ -228,14 +247,20 @@ def test_scoring_is_exactly_bound_and_resumable(tmp_path: Path) -> None:
 
 def test_scoring_fails_loudly_when_a_producer_is_missing(tmp_path: Path) -> None:
     manifest, teacher, candidate = _score_fixture(tmp_path)
-    with pytest.raises(AnchorEvaluationError, match="missing candidate producer.*materialize or import"):
-        score_bank(
+    with pytest.raises(
+        AnchorEvaluationError, match="missing candidate producer.*materialize or import"
+    ):
+        _score_bank(
             manifest,
             teacher,
             tmp_path / "absent.jsonl",
             tmp_path / "raw.jsonl",
             candidate_id="tier-a",
-            candidate_identity={"status": "resolved", "sha256": "3" * 64, "uri": "candidate://tier-a"},
+            candidate_identity={
+                "status": "resolved",
+                "sha256": "3" * 64,
+                "uri": "candidate://tier-a",
+            },
             teacher_identity=_resolved_file(teacher),
             basis_sha256="4" * 64,
         )
@@ -259,13 +284,17 @@ def test_scoring_requires_resolved_corpus_tokenizer_and_scorer(tmp_path: Path) -
         dataset_fields=manifest["dataset_fields"],
     )["content_hashes"]
     with pytest.raises(AnchorEvaluationError, match="resolve bank identities.*scorer"):
-        score_bank(
+        _score_bank(
             manifest,
             teacher,
             candidate,
             tmp_path / "raw.jsonl",
             candidate_id="tier-a",
-            candidate_identity={"status": "resolved", "sha256": "3" * 64, "uri": "candidate://tier-a"},
+            candidate_identity={
+                "status": "resolved",
+                "sha256": "3" * 64,
+                "uri": "candidate://tier-a",
+            },
             teacher_identity=_resolved_file(teacher),
             basis_sha256="4" * 64,
         )
@@ -281,13 +310,17 @@ def test_scoring_requires_resolved_corpus_tokenizer_and_scorer(tmp_path: Path) -
 def test_aggregation_labels_measurements_and_parent_estimates(tmp_path: Path) -> None:
     manifest, teacher, candidate = _score_fixture(tmp_path)
     raw = tmp_path / "raw.jsonl"
-    score_bank(
+    _score_bank(
         manifest,
         teacher,
         candidate,
         raw,
         candidate_id="tier-a",
-        candidate_identity={"status": "resolved", "sha256": "3" * 64, "uri": "candidate://tier-a"},
+        candidate_identity={
+            "status": "resolved",
+            "sha256": "3" * 64,
+            "uri": "candidate://tier-a",
+        },
         teacher_identity=_resolved_file(teacher),
         basis_sha256="4" * 64,
     )
@@ -295,7 +328,11 @@ def test_aggregation_labels_measurements_and_parent_estimates(tmp_path: Path) ->
         "schema": "banana-smasher-anchor-calibration-v1",
         "correction_factors": {"alpha": 2.0, "beta": 0.5},
         "parent_class_counts": {"alpha": 3, "beta": 1},
-        "source": {"status": "resolved", "sha256": "5" * 64, "uri": "calibration://fixture"},
+        "source": {
+            "status": "resolved",
+            "sha256": "5" * 64,
+            "uri": "calibration://fixture",
+        },
     }
 
     aggregate = aggregate_scores(
@@ -324,16 +361,36 @@ def test_compare_returns_explicit_retain_or_escalate_policy() -> None:
         "bank_id": "panel",
         "bank_role": "train_balanced64",
         "candidate_id": "tier-a",
-        "evaluation_contract": {"dimensions": [1, 2], "tier_menus": {"uniform": ["tier-a"]}, "basis_sha256": "4" * 64, "candidate_sha256": "3" * 64, "teacher_sha256": "5" * 64, "scorer_sha256": "2" * 64},
-        "measured": {"global_mean_kld": 1.0, "per_class_mean_kld": {"alpha": 1.0, "beta": 2.0}},
+        "evaluation_contract": {
+            "dimensions": [1, 2],
+            "tier_menus": {"uniform": ["tier-a"]},
+            "basis_sha256": "4" * 64,
+            "candidate_sha256": "3" * 64,
+            "teacher_sha256": "5" * 64,
+            "scorer_sha256": "2" * 64,
+        },
+        "measured": {
+            "global_mean_kld": 1.0,
+            "per_class_mean_kld": {"alpha": 1.0, "beta": 2.0},
+        },
     }
     parent = {
         "schema": "banana-smasher-anchor-aggregate-v1",
         "bank_id": "parent",
         "bank_role": "train512",
         "candidate_id": "tier-a",
-        "evaluation_contract": {"dimensions": [1, 2], "tier_menus": {"uniform": ["tier-a"]}, "basis_sha256": "4" * 64, "candidate_sha256": "3" * 64, "teacher_sha256": "5" * 64, "scorer_sha256": "2" * 64},
-        "measured": {"global_mean_kld": 1.02, "per_class_mean_kld": {"alpha": 1.01, "beta": 2.2}},
+        "evaluation_contract": {
+            "dimensions": [1, 2],
+            "tier_menus": {"uniform": ["tier-a"]},
+            "basis_sha256": "4" * 64,
+            "candidate_sha256": "3" * 64,
+            "teacher_sha256": "5" * 64,
+            "scorer_sha256": "2" * 64,
+        },
+        "measured": {
+            "global_mean_kld": 1.02,
+            "per_class_mean_kld": {"alpha": 1.01, "beta": 2.2},
+        },
     }
 
     strict = compare_training_rails(
@@ -354,7 +411,11 @@ def test_compare_returns_explicit_retain_or_escalate_policy() -> None:
     incompatible = json.loads(json.dumps(parent))
     incompatible["evaluation_contract"]["tier_menus"] = {"uniform": ["other-tier"]}
     with pytest.raises(AnchorEvaluationError, match="same dimensions and tier menus"):
-        compare_training_rails(panel, incompatible, {"max_abs_global_relative_pct": 3.0, "max_abs_class_relative_pct": 10.0})
+        compare_training_rails(
+            panel,
+            incompatible,
+            {"max_abs_global_relative_pct": 3.0, "max_abs_class_relative_pct": 10.0},
+        )
 
 
 def test_solver_rows_fail_closed_for_holdout_roles(tmp_path: Path) -> None:
@@ -364,7 +425,10 @@ def test_solver_rows_fail_closed_for_holdout_roles(tmp_path: Path) -> None:
         "bank_id": "holdout512",
         "bank_role": "holdout512",
         "candidate_id": "tier-a",
-        "measured": {"global_mean_kld": 1.0, "per_class_mean_kld": {"alpha": 1.0, "beta": 2.0}},
+        "measured": {
+            "global_mean_kld": 1.0,
+            "per_class_mean_kld": {"alpha": 1.0, "beta": 2.0},
+        },
     }
     with pytest.raises(AnchorEvaluationError, match="holdout.*solver"):
         emit_solver_row(parent, aggregate, tmp_path / "solver.json")
@@ -386,10 +450,7 @@ def test_run_root_status_reports_every_completion_surface(tmp_path: Path) -> Non
     materialize_bank(manifest, parent_path, run_root / "banks" / "train512.jsonl")
     producer = _write_jsonl(
         tmp_path / "teacher.jsonl",
-        [
-            {"window_id": row["id"], "logits": [2.0, 0.0]}
-            for row in manifest["windows"]
-        ],
+        [{"window_id": row["id"], "logits": [2.0, 0.0]} for row in manifest["windows"]],
     )
     imported = import_producer(
         run_root,
@@ -424,7 +485,10 @@ def test_import_producer_hash_admits_and_copies_the_same_bytes(
     )
     admitted = source.read_bytes()
     replacement = b"".join(
-        (json.dumps({"window_id": row["id"], "logits": [9.0, 0.0]}, sort_keys=True) + "\n").encode()
+        (
+            json.dumps({"window_id": row["id"], "logits": [9.0, 0.0]}, sort_keys=True)
+            + "\n"
+        ).encode()
         for row in manifest["windows"]
     )
     original_read_bytes = Path.read_bytes
@@ -474,21 +538,104 @@ def test_cli_runs_minimal_manifest_to_solver_chain(tmp_path: Path, capsys) -> No
     candidate_producer_sha = hashlib.sha256(candidate.read_bytes()).hexdigest()
 
     commands = [
-        ["anchor", "register", "--run-root", str(run_root), "--manifest", str(manifest_path)],
-        ["anchor", "materialize", "--run-root", str(run_root), "--bank", "train512", "--parent", str(parent_path)],
-        ["anchor", "import-producer", "--run-root", str(run_root), "--bank", "train512", "--kind", "teacher", "--source", str(teacher), "--sha256", teacher_sha],
-        ["anchor", "import-producer", "--run-root", str(run_root), "--bank", "train512", "--kind", "candidate", "--candidate-id", "tier-a", "--source", str(candidate), "--sha256", candidate_producer_sha],
-        ["anchor", "score", "--run-root", str(run_root), "--bank", "train512", "--candidate-id", "tier-a", "--teacher-sha256", teacher_sha, "--teacher-uri", "producer://teacher", "--candidate-sha256", "3" * 64, "--candidate-uri", "candidate://tier-a", "--basis-sha256", "4" * 64],
-        ["anchor", "aggregate", "--run-root", str(run_root), "--bank", "train512", "--candidate-id", "tier-a"],
-        ["anchor", "solver-row", "--run-root", str(run_root), "--bank", "train512", "--candidate-id", "tier-a"],
+        [
+            "anchor",
+            "register",
+            "--run-root",
+            str(run_root),
+            "--manifest",
+            str(manifest_path),
+        ],
+        [
+            "anchor",
+            "materialize",
+            "--run-root",
+            str(run_root),
+            "--bank",
+            "train512",
+            "--parent",
+            str(parent_path),
+        ],
+        [
+            "anchor",
+            "import-producer",
+            "--run-root",
+            str(run_root),
+            "--bank",
+            "train512",
+            "--kind",
+            "teacher",
+            "--source",
+            str(teacher),
+            "--sha256",
+            teacher_sha,
+        ],
+        [
+            "anchor",
+            "import-producer",
+            "--run-root",
+            str(run_root),
+            "--bank",
+            "train512",
+            "--kind",
+            "candidate",
+            "--candidate-id",
+            "tier-a",
+            "--source",
+            str(candidate),
+            "--sha256",
+            candidate_producer_sha,
+        ],
+        [
+            "anchor",
+            "aggregate",
+            "--run-root",
+            str(run_root),
+            "--bank",
+            "train512",
+            "--candidate-id",
+            "tier-a",
+        ],
+        [
+            "anchor",
+            "solver-row",
+            "--run-root",
+            str(run_root),
+            "--bank",
+            "train512",
+            "--candidate-id",
+            "tier-a",
+        ],
         ["anchor", "status", "--run-root", str(run_root), "--format", "json"],
     ]
     outputs = []
-    for command in commands:
+    for command in commands[:4]:
         assert main(command) == 0
         outputs.append(json.loads(capsys.readouterr().out))
 
-    assert outputs[4]["coverage"] == "6/6"
+    score_result = _score_bank(
+        manifest,
+        teacher,
+        candidate,
+        run_root / "scores" / "tier-a" / "train512" / "raw.jsonl",
+        candidate_id="tier-a",
+        candidate_identity={
+            "status": "resolved",
+            "sha256": "3" * 64,
+            "uri": "candidate://tier-a",
+        },
+        teacher_identity={
+            "status": "resolved",
+            "sha256": teacher_sha,
+            "uri": "producer://teacher",
+        },
+        basis_sha256="4" * 64,
+    )
+    for command in commands[4:]:
+        assert main(command) == 0
+        outputs.append(json.loads(capsys.readouterr().out))
+
+    assert score_result["coverage"] == "6/6"
     raw_rows = [
         json.loads(line)
         for line in (run_root / "scores" / "tier-a" / "train512" / "raw.jsonl")
@@ -497,42 +644,15 @@ def test_cli_runs_minimal_manifest_to_solver_chain(tmp_path: Path, capsys) -> No
     ]
     assert {row["position_count"] for row in raw_rows} == {1024}
     assert all(0 < row["kld"] < 1 for row in raw_rows)
-    assert outputs[5]["measured"]["label"] == "measured_on_bank"
-    assert outputs[6]["diagnostic_only"] is False
-    assert outputs[7]["banks"][0]["scoring"] == "1 complete"
-    assert outputs[7]["banks"][0]["aggregation"] == "1 complete"
+    assert outputs[4]["measured"]["label"] == "measured_on_bank"
+    assert outputs[5]["diagnostic_only"] is False
+    assert outputs[6]["banks"][0]["scoring"] == "1 complete"
+    assert outputs[6]["banks"][0]["aggregation"] == "1 complete"
 
 
-def test_cli_rejects_path_unsafe_anchor_identifiers(tmp_path: Path, capsys) -> None:
-    _, manifest = _parent(tmp_path)
-    run_root = tmp_path / "run"
-    register_bank(run_root, manifest)
-
-    assert main(
-        [
-            "anchor",
-            "score",
-            "--run-root",
-            str(run_root),
-            "--bank",
-            "train512",
-            "--candidate-id",
-            "../../../escape",
-            "--teacher-sha256",
-            "5" * 64,
-            "--teacher-uri",
-            "teacher://fixture",
-            "--candidate-sha256",
-            "3" * 64,
-            "--candidate-uri",
-            "candidate://fixture",
-            "--basis-sha256",
-            "4" * 64,
-        ]
-    ) == 2
-    error = json.loads(capsys.readouterr().err)
-    assert "path-safe identifier" in error["error"]
-    assert not (tmp_path / "escape").exists()
+def test_anchor_score_has_no_public_cli_route() -> None:
+    with pytest.raises(SystemExit):
+        main(["anchor", "score"])
 
 
 def test_public_four_bank_bundle_is_valid_and_semantically_separated() -> None:
@@ -551,7 +671,9 @@ def test_public_four_bank_bundle_is_valid_and_semantically_separated() -> None:
     }
     for manifest in manifests.values():
         assert validate_bank_manifest(manifest)["status"] == "PASS"
-    train_parent = next(value for value in manifests.values() if value["role"] == "train512")
+    train_parent = next(
+        value for value in manifests.values() if value["role"] == "train512"
+    )
     assert train_parent["class_counts"] == {
         "agentic": 154,
         "chat": 52,
@@ -560,8 +682,12 @@ def test_public_four_bank_bundle_is_valid_and_semantically_separated() -> None:
         "prose": 78,
         "reasoning": 76,
     }
-    train_panel = next(value for value in manifests.values() if value["role"] == "train_balanced64")
-    quick_holdout = next(value for value in manifests.values() if value["role"] == "holdout_balanced64")
+    train_panel = next(
+        value for value in manifests.values() if value["role"] == "train_balanced64"
+    )
+    quick_holdout = next(
+        value for value in manifests.values() if value["role"] == "holdout_balanced64"
+    )
     assert set(row["id"] for row in train_panel["windows"]).isdisjoint(
         row["id"] for row in quick_holdout["windows"]
     )

@@ -74,7 +74,9 @@ def _write_symlinked_base_weights(root: Path, store: Path) -> list[str]:
 
 def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
     parser = _parser()
-    action = next(action for action in parser._actions if getattr(action, "choices", None))
+    action = next(
+        action for action in parser._actions if getattr(action, "choices", None)
+    )
     choices = list(action.choices or {})
     assert choices == [
         "export",
@@ -83,10 +85,8 @@ def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
         "serve-check",
         "validate",
         "solve",
-        "update",
         "qtip-v7-export",
         "qtip-v7-bundle",
-        "qtip-v7-joint-repair",
         "qtip-v7-wire",
         "qtip-v7-residency",
         "qtip-v7-layer-smoke",
@@ -99,15 +99,16 @@ def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
         "kernels",
         "knapsack",
         "backpack-dimensions",
-        "train",
         "train-status",
         "checkpoint-info",
         "backpack",
         "fixed-d4",
         "anchor",
-        "backpack-exact64",
     ]
-    assert {"solve", "update", "export", "verify"}.issubset(choices)
+    assert {"solve", "export", "verify"}.issubset(choices)
+    assert {"update", "train", "qtip-v7-joint-repair", "backpack-exact64"}.isdisjoint(
+        choices
+    )
     assert {"bank", "evaluate"} <= set(choices)
     assert {"qtip-configs", "kernels"} <= set(choices)
     assert {"knapsack", "backpack-dimensions"} <= set(choices)

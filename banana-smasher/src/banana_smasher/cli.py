@@ -114,8 +114,12 @@ def _parser() -> argparse.ArgumentParser:
     solve.add_argument("--source-root", type=Path, required=True)
     solve.add_argument("--output", type=Path)
     solve.add_argument("--device", default="cuda")
-    solve.add_argument("--reference-search", action="store_true", help=argparse.SUPPRESS)
-    solve.add_argument("--verbose-receipts", action="store_true", help=argparse.SUPPRESS)
+    solve.add_argument(
+        "--reference-search", action="store_true", help=argparse.SUPPRESS
+    )
+    solve.add_argument(
+        "--verbose-receipts", action="store_true", help=argparse.SUPPRESS
+    )
     solve.add_argument(
         "--qtip-profile-config",
         type=Path,
@@ -162,29 +166,6 @@ def _parser() -> argparse.ArgumentParser:
         help="build this many same-shape K2 units per exact cross-unit batch",
     )
 
-    update = subparsers.add_parser(
-        "update", help="run one resumable memory-sized physical tensor update"
-    )
-    update.add_argument("--backend", required=True)
-    update.add_argument("--request", type=Path, required=True)
-    update.add_argument("--identity", type=Path, required=True)
-    update.add_argument("--output", type=Path, required=True)
-    update.add_argument("--receipt", type=Path)
-    update.add_argument("--tokens", type=int, default=1024)
-    update.add_argument("--segments", type=int, default=8)
-    update.add_argument("--batch-size", type=int, choices=(1,), default=1)
-    update.add_argument("--available-bytes", type=int, required=True)
-    update.add_argument("--resident-frozen-bytes", type=int, required=True)
-    update.add_argument("--trainable-bytes", type=int, required=True)
-    update.add_argument("--optimizer-bytes", type=int, required=True)
-    update.add_argument("--staging-bytes", type=int, required=True)
-    update.add_argument("--activation-bytes-per-token", type=int, required=True)
-    update.add_argument("--os-floor-bytes", type=int, default=4 * 1024**3)
-    update.add_argument("--restart", action="store_true")
-    update.add_argument(
-        "--no-resume", dest="resume", action="store_false", default=True
-    )
-
     v7_export = subparsers.add_parser(
         "qtip-v7-export",
         help="export fixed QTIP V7 members plus repaired layer-shared LUTs",
@@ -210,99 +191,11 @@ def _parser() -> argparse.ArgumentParser:
         "--member", action="append", required=True, metavar="LAYER:EXPERT:PROJECTION"
     )
 
-    joint = subparsers.add_parser(
-        "qtip-v7-joint-repair",
-        description=(
-            "Freeze, train/resume, verify, shard-score, select, and materialize "
-            "the exact all-43 QTIP V7 repair surface: 43 LUTs, 235 RMSNorm "
-            "masters, and 43 output gains. Every checkpoint requires teacher KLD."
-        ),
-        help="one-line all-43 QTIP V7 joint train/checkpoint/score workflow",
-    )
-    joint_commands = joint.add_subparsers(dest="joint_command", required=True)
-    joint_inspect = joint_commands.add_parser(
-        "inspect", help="validate and freeze exact 43-layer inventory plus teacher bank"
-    )
-    joint_inspect.add_argument("--manifest", type=Path, required=True)
-    joint_inspect.add_argument("--teacher-bank", type=Path, required=True)
-    joint_inspect.add_argument("--run-root", type=Path, required=True)
-    joint_inspect.add_argument(
-        "--trainer-host",
-        required=True,
-        help="trainer hostname or direct-fabric address sealed into the freeze receipt",
-    )
-    joint_inspect.add_argument(
-        "--trainer-alias",
-        action="append",
-        default=[],
-        help="repeat for every trainer hostname/address alias that side workers must exclude",
-    )
-    joint_train = joint_commands.add_parser(
-        "train", help="launch or resume full joint training to an explicit update horizon"
-    )
-    joint_train.add_argument("--freeze", type=Path, required=True)
-    joint_train.add_argument("--checkpoint", type=Path, required=True)
-    joint_train.add_argument("--target-update", type=int, required=True)
-    joint_train.add_argument(
-        "--trainer",
-        type=Path,
-        required=True,
-        help="public trainer executable implementing the QTIP_V7_* environment contract",
-    )
-    joint_train.add_argument("--resume-from", type=Path)
-    joint_verify = joint_commands.add_parser(
-        "verify", help="rehash and validate immutable checkpoint/PASS receipt"
-    )
-    joint_verify.add_argument("--freeze", type=Path, required=True)
-    joint_verify.add_argument("--checkpoint", type=Path, required=True)
-    joint_verify.add_argument("--receipt", type=Path)
-    joint_shard = joint_commands.add_parser(
-        "shard-launch",
-        help="copy/launch disjoint BALANCED64 shards on local or SSH side workers",
-    )
-    joint_shard.add_argument("--candidate", type=Path, required=True)
-    joint_shard.add_argument("--freeze", type=Path, required=True)
-    joint_shard.add_argument("--teacher-bank", type=Path, required=True)
-    joint_shard.add_argument("--output", type=Path, required=True)
-    joint_shard.add_argument(
-        "--remote-python",
-        default="python3",
-        help="Python executable available on every SSH worker (default: python3)",
-    )
-    joint_shard.add_argument(
-        "--worker",
-        action="append",
-        required=True,
-        metavar="LOCAL=COMMAND|EXPECTED_HOST@ROUTE:/REMOTE_ROOT=COMMAND",
-        help="repeat once per disjoint side worker; all workers launch before collection",
-    )
-    joint_aggregate = joint_commands.add_parser(
-        "aggregate", help="verify exact 0..63 shard closure and aggregate BALANCED64"
-    )
-    joint_aggregate.add_argument("--shards", type=Path, required=True)
-    joint_aggregate.add_argument("--output", type=Path, required=True)
-    joint_compare = joint_commands.add_parser(
-        "compare", help="compare two complete aggregates and select the non-worse champion"
-    )
-    joint_compare.add_argument("--baseline", type=Path, required=True)
-    joint_compare.add_argument("--candidate", type=Path, required=True)
-    joint_compare.add_argument("--output", type=Path, required=True)
-    joint_materialize = joint_commands.add_parser(
-        "materialize", help="materialize trained state and exact stored-wire accounting"
-    )
-    joint_materialize.add_argument("--freeze", type=Path, required=True)
-    joint_materialize.add_argument("--manifest", type=Path, required=True)
-    joint_materialize.add_argument("--checkpoint", type=Path, required=True)
-    joint_materialize.add_argument("--output", type=Path, required=True)
-
-
     v7_wire = subparsers.add_parser(
         "qtip-v7-wire",
         help="pack, verify, and account physical fixed-envelope QTIP V7 wire",
     )
-    v7_wire_commands = v7_wire.add_subparsers(
-        dest="v7_wire_command", required=True
-    )
+    v7_wire_commands = v7_wire.add_subparsers(dest="v7_wire_command", required=True)
     v7_wire_pack = v7_wire_commands.add_parser(
         "pack-layer", help="pack one exact 768-member layer and embedded FP16 LUT"
     )
@@ -318,11 +211,10 @@ def _parser() -> argparse.ArgumentParser:
     v7_wire_verify.add_argument("--receipt", type=Path, required=True)
     v7_wire_verify.add_argument("--reconstructed-output", type=Path)
     v7_wire_account = v7_wire_commands.add_parser(
-        "account-model", help="derive zero-gap model accounting from 43 verified receipts"
+        "account-model",
+        help="derive zero-gap model accounting from 43 verified receipts",
     )
-    v7_wire_account.add_argument(
-        "--receipt", type=Path, action="append", required=True
-    )
+    v7_wire_account.add_argument("--receipt", type=Path, action="append", required=True)
     v7_wire_account.add_argument("--output", type=Path, required=True)
     v7_wire_account.add_argument("--weight-denominator", type=int, required=True)
     v7_wire_account.add_argument("--weight-denominator-label", required=True)
@@ -399,7 +291,8 @@ def _parser() -> argparse.ArgumentParser:
         dest="native_v4_command", required=True
     )
     native_v4_build = native_v4_commands.add_parser(
-        "build-cell", help="build one physical native-V4 cell from a compact QTIP transform"
+        "build-cell",
+        help="build one physical native-V4 cell from a compact QTIP transform",
     )
     native_v4_build.add_argument("--source", type=Path, required=True)
     native_v4_build.add_argument("--control", type=Path, required=True)
@@ -414,7 +307,8 @@ def _parser() -> argparse.ArgumentParser:
     native_v4_build.add_argument("--decode-batch", type=int, default=2048)
     native_v4_build.add_argument("--decode-repeats", type=int, default=1)
     native_v4_anchor = native_v4_commands.add_parser(
-        "anchor-cell", help="measure one built native-V4 cell with the standard 64-window anchor"
+        "anchor-cell",
+        help="measure one built native-V4 cell with the standard 64-window anchor",
     )
     native_v4_anchor.add_argument("--candidate", type=Path, required=True)
     native_v4_anchor.add_argument("--anchor-bank", type=Path, required=True)
@@ -424,9 +318,7 @@ def _parser() -> argparse.ArgumentParser:
     kernels = subparsers.add_parser(
         "kernels", help="manage SHA-pinned compiled kernel caches"
     )
-    kernel_subparsers = kernels.add_subparsers(
-        dest="kernel_command", required=True
-    )
+    kernel_subparsers = kernels.add_subparsers(dest="kernel_command", required=True)
     kernel_build = kernel_subparsers.add_parser(
         "build", help="AOT-compile a packaged ring before solving"
     )
@@ -454,23 +346,6 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
 
-    train = subparsers.add_parser(
-        "train", help="run configurable fully resident training from a JSON plan"
-    )
-    train.add_argument("--config", type=Path, required=True)
-    train.add_argument("--model-source")
-    train.add_argument("--model-adapter")
-    train.add_argument("--model-root", type=Path)
-    train.add_argument("--payload-root", type=Path)
-    train.add_argument("--input-checkpoint", type=Path)
-    train.add_argument("--run-root", type=Path)
-    train.add_argument("--rank", type=int)
-    train.add_argument("--windows", help="comma-separated window indices")
-    train.add_argument("--microbatch", type=int)
-    train.add_argument("--gradient-accumulation", type=int)
-    train.add_argument("--updates", type=int)
-    train.add_argument("--resume", type=Path)
-
     train_status = subparsers.add_parser(
         "train-status", help="read the latest resident trainer status"
     )
@@ -484,14 +359,8 @@ def _parser() -> argparse.ArgumentParser:
     backpack = subparsers.add_parser(
         "backpack", help="build or inspect one declarative end-to-end Backpack plan"
     )
-    backpack_commands = backpack.add_subparsers(
-        dest="backpack_command", required=True
-    )
-    backpack_build = backpack_commands.add_parser(
-        "build", help="execute or resume the complete Backpack construction DAG"
-    )
-    backpack_build.add_argument("--plan", type=Path, required=True)
-    backpack_build.add_argument("--run-root", type=Path, required=True)
+    backpack_commands = backpack.add_subparsers(dest="backpack_command", required=True)
+
     backpack_status = backpack_commands.add_parser(
         "status", help="show completed stages and the first incomplete boundary"
     )
@@ -500,12 +369,14 @@ def _parser() -> argparse.ArgumentParser:
         "providers", help="list built-in family providers and their public operations"
     )
     backpack_virtual = backpack_commands.add_parser(
-        "virtualize", help="project a completed canonical solve into zero-copy contextual wire"
+        "virtualize",
+        help="project a completed canonical solve into zero-copy contextual wire",
     )
     backpack_virtual.add_argument("--run-root", type=Path, required=True)
     backpack_virtual.add_argument("--output", type=Path, required=True)
     backpack_exact64 = backpack_commands.add_parser(
-        "bind-exact64", help="bind a canonical 64-window Anchor score to a virtual Backpack"
+        "bind-exact64",
+        help="bind a canonical 64-window Anchor score to a virtual Backpack",
     )
     backpack_exact64.add_argument("--virtual-manifest", type=Path, required=True)
     backpack_exact64.add_argument("--score-receipt", type=Path, required=True)
@@ -517,7 +388,8 @@ def _parser() -> argparse.ArgumentParser:
     backpack_stage.add_argument("--output", type=Path, required=True)
     backpack_stage.add_argument("--parallelism", type=int, default=8)
     backpack_select = backpack_commands.add_parser(
-        "select-measured", help="retain baseline unless expanded exact64 scores are non-worse"
+        "select-measured",
+        help="retain baseline unless expanded exact64 scores are non-worse",
     )
     backpack_select.add_argument("--solve-receipt", type=Path, required=True)
     backpack_select.add_argument("--baseline-arm", required=True)
@@ -549,7 +421,8 @@ def _parser() -> argparse.ArgumentParser:
     backpack_record.add_argument("--measurements", type=Path, required=True)
     backpack_record.add_argument("--output", type=Path, required=True)
     backpack_value = backpack_commands.add_parser(
-        "value-contextual", help="build physical marginal values against a scored anchor"
+        "value-contextual",
+        help="build physical marginal values against a scored anchor",
     )
     backpack_value.add_argument("--anchor", type=Path, required=True)
     backpack_value.add_argument("--options", type=Path, required=True)
@@ -564,7 +437,9 @@ def _parser() -> argparse.ArgumentParser:
     backpack_contextual_solve.add_argument(
         "--uncertainty-multiplier", type=float, required=True
     )
-    backpack_contextual_solve.add_argument("--time-limit-seconds", type=float, required=True)
+    backpack_contextual_solve.add_argument(
+        "--time-limit-seconds", type=float, required=True
+    )
     backpack_contextual_solve.add_argument("--output", type=Path, required=True)
     backpack_export = backpack_commands.add_parser(
         "export", help="export one lifecycle model from a completed Backpack run"
@@ -693,20 +568,6 @@ def _parser() -> argparse.ArgumentParser:
     anchor_candidate.add_argument("--config", type=Path, required=True)
     anchor_candidate.add_argument("--basis-sha256", required=True)
 
-    anchor_score = anchor_commands.add_parser(
-        "score", help="score exact producer rows with resumable per-window KLD"
-    )
-    anchor_score.add_argument("--run-root", type=Path, required=True)
-    anchor_score.add_argument("--bank", required=True)
-    anchor_score.add_argument("--candidate-id", required=True)
-    anchor_score.add_argument("--teacher", type=Path)
-    anchor_score.add_argument("--candidate-producer", type=Path)
-    anchor_score.add_argument("--teacher-sha256", required=True)
-    anchor_score.add_argument("--teacher-uri", required=True)
-    anchor_score.add_argument("--candidate-sha256", required=True)
-    anchor_score.add_argument("--candidate-uri", required=True)
-    anchor_score.add_argument("--basis-sha256", required=True)
-
     anchor_aggregate = anchor_commands.add_parser(
         "aggregate", help="aggregate raw KLD and optionally estimate a declared parent"
     )
@@ -739,20 +600,6 @@ def _parser() -> argparse.ArgumentParser:
     )
     anchor_status.add_argument("--run-root", type=Path, required=True)
     anchor_status.add_argument("--format", choices=("human", "json"), default="human")
-
-    exact64 = subparsers.add_parser(
-        "backpack-exact64",
-        help="run the single-host full-layer Backpack exact64 evaluator",
-    )
-    exact64.add_argument("--model-root", type=Path, required=True)
-    exact64.add_argument("--bank", type=Path, required=True)
-    exact64.add_argument("--teacher-manifest", type=Path, required=True)
-    exact64.add_argument("--virtual-manifest", type=Path, required=True)
-    exact64.add_argument("--materialization-index", type=Path, required=True)
-    exact64.add_argument("--qtip2-root-map", type=Path, required=True)
-    exact64.add_argument("--qtip3-root-map", type=Path, required=True)
-    exact64.add_argument("--output-root", type=Path, required=True)
-    exact64.add_argument("--basis-sha256", required=True)
 
     return parser
 
@@ -814,7 +661,6 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
         materialize_bank,
         register_bank,
         resolve_bank_identities,
-        score_bank,
         status_report,
         validate_bank_manifest,
     )
@@ -871,40 +717,7 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
             producer_config=args.config,
             basis_sha256=args.basis_sha256,
         )
-    if command == "score":
-        manifest = load_registered_bank(args.run_root, args.bank)
-        candidate_id = _safe_component(args.candidate_id, "candidate_id")
-        teacher_path = args.teacher or (
-            args.run_root / "producers" / "teacher" / f"{manifest['bank_id']}.jsonl"
-        )
-        candidate_path = args.candidate_producer or (
-            args.run_root
-            / "producers"
-            / "candidate"
-            / candidate_id
-            / f"{manifest['bank_id']}.jsonl"
-        )
-        output = (
-            args.run_root / "scores" / candidate_id / manifest["bank_id"] / "raw.jsonl"
-        )
-        return score_bank(
-            manifest,
-            teacher_path,
-            candidate_path,
-            output,
-            candidate_id=candidate_id,
-            candidate_identity={
-                "status": "resolved",
-                "sha256": args.candidate_sha256,
-                "uri": args.candidate_uri,
-            },
-            teacher_identity={
-                "status": "resolved",
-                "sha256": args.teacher_sha256,
-                "uri": args.teacher_uri,
-            },
-            basis_sha256=args.basis_sha256,
-        )
+
     if command == "aggregate":
         manifest = load_registered_bank(args.run_root, args.bank)
         candidate_id = _safe_component(args.candidate_id, "candidate_id")
@@ -1118,7 +931,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "solve":
             if args.qtip_profile_configs is not None:
                 if args.root is None or args.layers is None:
-                    raise ValueError("--qtip-profile-configs requires --root and --layers")
+                    raise ValueError(
+                        "--qtip-profile-configs requires --root and --layers"
+                    )
                 if args.qtip_batch_size < 2:
                     raise ValueError(
                         "--qtip-profile-configs requires --qtip-batch-size greater than one"
@@ -1140,7 +955,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                 selected_layers = _parse_layers(args.layers)
                 if len(selected_layers) != 1:
-                    raise ValueError("--qtip-profile-configs requires exactly one layer")
+                    raise ValueError(
+                        "--qtip-profile-configs requires exactly one layer"
+                    )
                 from . import solve_qtip_profiles
 
                 result = solve_qtip_profiles(
@@ -1156,11 +973,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return 0
             if args.qtip_profile_config is not None:
                 if args.root is None or args.layers is None:
-                    raise ValueError("--qtip-profile-config requires --root and --layers")
-                if any(
-                    value is not None
-                    for value in (args.output, args.tier, args.bpw, args.kernel_cache_root)
-                ) or args.all_cells or args.reference_search or args.qtip_batch_size != 1:
+                    raise ValueError(
+                        "--qtip-profile-config requires --root and --layers"
+                    )
+                if (
+                    any(
+                        value is not None
+                        for value in (
+                            args.output,
+                            args.tier,
+                            args.bpw,
+                            args.kernel_cache_root,
+                        )
+                    )
+                    or args.all_cells
+                    or args.reference_search
+                    or args.qtip_batch_size != 1
+                ):
                     raise ValueError(
                         "--qtip-profile-config is a one-config solve and refuses "
                         "tier/all-cells/output options"
@@ -1178,16 +1007,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 return 0
 
-            qtip_requested = any(
-                value is not None
-                for value in (
-                    args.root,
-                    args.layers,
-                    args.tier,
-                    args.bpw,
-                    args.kernel_cache_root,
+            qtip_requested = (
+                any(
+                    value is not None
+                    for value in (
+                        args.root,
+                        args.layers,
+                        args.tier,
+                        args.bpw,
+                        args.kernel_cache_root,
+                    )
                 )
-            ) or args.all_cells or args.qtip_batch_size != 1
+                or args.all_cells
+                or args.qtip_batch_size != 1
+            )
             if not qtip_requested:
                 if args.output is None:
                     raise ValueError("exact solve requires --output")
@@ -1214,17 +1047,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if not args.all_cells:
                     missing.append("--all-cells")
                 if missing:
-                    raise ValueError(
-                        "QTIP solve requires " + ", ".join(missing)
-                    )
+                    raise ValueError("QTIP solve requires " + ", ".join(missing))
                 if args.output is not None or args.reference_search:
                     raise ValueError(
                         "QTIP solve cannot combine --output or --reference-search"
                     )
 
-                compatibility_bpw = {"qtip2": "2.00", "qtip3": "3.00"}.get(
-                    args.tier
-                )
+                compatibility_bpw = {"qtip2": "2.00", "qtip3": "3.00"}.get(args.tier)
                 if compatibility_bpw is not None:
                     if args.bpw is not None:
                         raise ValueError(
@@ -1387,7 +1216,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 inspect_joint_inputs,
                 launch_balanced64_shards,
                 materialize_joint,
-                train_joint,
+                _train_joint,
                 verify_joint_checkpoint,
             )
 
@@ -1400,7 +1229,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     trainer_aliases=args.trainer_alias,
                 )
             elif args.joint_command == "train":
-                result = train_joint(
+                result = _train_joint(
                     freeze=args.freeze,
                     checkpoint=args.checkpoint,
                     target_update=args.target_update,
@@ -1489,7 +1318,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             if args.capture_hardware:
                 if args.hardware_readback is None:
-                    raise ValueError("--capture-hardware requires --hardware-readback output")
+                    raise ValueError(
+                        "--capture-hardware requires --hardware-readback output"
+                    )
                 from importlib import import_module
 
                 runtime = import_module("banana_smasher_plugin.qtip_v7_runtime")
@@ -1633,7 +1464,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "backpack":
             from .backpack import (
                 BackpackPlan,
-                build_backpack,
+                _build_backpack,
                 export_backpack_lifecycle,
                 status_backpack,
             )
@@ -1642,7 +1473,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 plan = BackpackPlan.from_mapping(
                     _load_json_object(args.plan), base_dir=args.plan.parent
                 )
-                result = build_backpack(plan, run_root=args.run_root)
+                result = _build_backpack(plan, run_root=args.run_root)
             elif args.backpack_command == "status":
                 result = status_backpack(args.run_root)
             elif args.backpack_command == "providers":
@@ -1732,7 +1563,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "command": "backpack materialize-contextual",
                 }
             elif args.backpack_command == "record-contextual":
-                from .backpack_contextual_measure import record_contextual_swap_measurement
+                from .backpack_contextual_measure import (
+                    record_contextual_swap_measurement,
+                )
 
                 result = {
                     **record_contextual_swap_measurement(
@@ -1829,20 +1662,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
         elif args.command == "anchor":
             result = _run_anchor(args)
-        elif args.command == "backpack-exact64":
-            from .backpack_runtime_exact64 import run_backpack_exact64
-
-            result = run_backpack_exact64(
-                model_root=args.model_root,
-                bank_path=args.bank,
-                teacher_manifest_path=args.teacher_manifest,
-                virtual_manifest_path=args.virtual_manifest,
-                materialization_index_path=args.materialization_index,
-                qtip2_root_map_path=args.qtip2_root_map,
-                qtip3_root_map_path=args.qtip3_root_map,
-                output_root=args.output_root,
-                basis_sha256=args.basis_sha256,
-            )
         else:  # pragma: no cover - argparse guarantees the choices
             parser.error(f"unsupported command {args.command!r}")
             return 2

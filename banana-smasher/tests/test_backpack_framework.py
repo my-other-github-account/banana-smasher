@@ -15,7 +15,7 @@ from banana_smasher.backpack import (
     BackpackPlanError,
     anchor_backpack,
     anchor_backpack_candidates,
-    build_backpack,
+    _build_backpack as build_backpack,
     generate_backpack_candidates,
     export_backpack_lifecycle,
     generate_qtip_backpack_candidate,
@@ -25,9 +25,9 @@ from banana_smasher.backpack import (
     pack_indices,
     predict_backpack,
     quantize_vector_cell,
-    repair_backpack,
+    _repair_backpack as repair_backpack,
     reuse_backpack_receipts,
-    score_backpack,
+    _score_backpack as score_backpack,
     solve_backpack,
     status_backpack,
 )
@@ -90,7 +90,9 @@ def _fixture_plan(tmp_path: Path, *, exact_bytes: int = 53344) -> dict[str, obje
         )
         + "\n"
     )
-    features = rng.normal(size=(64, sum(value.size for value in weights))).astype(np.float32)
+    features = rng.normal(size=(64, sum(value.size for value in weights))).astype(
+        np.float32
+    )
     classes = np.asarray([CLASSES[index % len(CLASSES)] for index in range(64)])
     bank = tmp_path / "anchor64.npz"
     np.savez(bank, features=features, classes=classes)
@@ -124,7 +126,9 @@ def _decode_strings(array: np.ndarray) -> list[str]:
     if values.dtype == np.uint8 and values.ndim == 2:
         return [bytes(row).rstrip(b"\0").decode("utf-8") for row in values]
     return [
-        value.decode("utf-8") if isinstance(value, (bytes, bytearray, np.bytes_)) else str(value)
+        value.decode("utf-8")
+        if isinstance(value, (bytes, bytearray, np.bytes_))
+        else str(value)
         for value in values.reshape(-1)
     ]
 
@@ -143,7 +147,9 @@ def _serving_model(tmp_path: Path) -> Path:
     (root / "model.safetensors.index.json").write_text(
         json.dumps(
             {
-                "metadata": {"total_size": sum(value.nbytes for value in tensors.values())},
+                "metadata": {
+                    "total_size": sum(value.nbytes for value in tensors.values())
+                },
                 "weight_map": {name: shard for name in tensors},
             },
             sort_keys=True,
@@ -325,7 +331,9 @@ def test_plan_rejects_tier_ids_that_collide_on_case_insensitive_filesystems(
         BackpackPlan.from_mapping(plan)
 
 
-def test_inspect_rejects_cell_ids_that_are_not_safe_path_components(tmp_path: Path) -> None:
+def test_inspect_rejects_cell_ids_that_are_not_safe_path_components(
+    tmp_path: Path,
+) -> None:
     plan = _fixture_plan(tmp_path)
     manifest_path = Path(str(plan["model"]["root"])) / "BACKPACK_MODEL.json"  # type: ignore[index]
     manifest = json.loads(manifest_path.read_text())
@@ -361,7 +369,9 @@ def test_inspect_rejects_direct_symlink_model_cell(tmp_path: Path) -> None:
         inspect_backpack(plan, run_root=tmp_path / "run")
 
 
-def test_inspect_requires_complete_expert_partition_per_projection(tmp_path: Path) -> None:
+def test_inspect_requires_complete_expert_partition_per_projection(
+    tmp_path: Path,
+) -> None:
     plan = _fixture_plan(tmp_path)
     model_root = Path(str(plan["model"]["root"]))  # type: ignore[index]
     manifest_path = model_root / "BACKPACK_MODEL.json"
@@ -434,7 +444,9 @@ def test_candidate_generation_rejects_nested_run_output_symlink(tmp_path: Path) 
     tier_root.parent.mkdir()
     tier_root.symlink_to(outside, target_is_directory=True)
 
-    with pytest.raises(BackpackPlanError, match="candidate output path must not be a symlink"):
+    with pytest.raises(
+        BackpackPlanError, match="candidate output path must not be a symlink"
+    ):
         generate_backpack_candidates(plan, run_root=run_root)
 
     assert list(outside.iterdir()) == []
@@ -447,7 +459,9 @@ def test_build_rejects_direct_run_root_symlink(tmp_path: Path) -> None:
     run_root = tmp_path / "run-link"
     run_root.symlink_to(outside, target_is_directory=True)
 
-    with pytest.raises(BackpackPlanError, match="run root must not be a direct symlink"):
+    with pytest.raises(
+        BackpackPlanError, match="run root must not be a direct symlink"
+    ):
         build_backpack(plan, run_root=run_root)
 
     assert list(outside.iterdir()) == []
@@ -462,10 +476,7 @@ def test_materializer_rejects_symlinked_destination_parent_without_touching_targ
     inspect_backpack(parsed, run_root=run_root)
     candidates = generate_backpack_candidates(parsed, run_root=run_root)
     _manifest, cells = backpack_module._load_cells(parsed)
-    assignment = [
-        {"cell_id": cell["cell_id"], "tier": "d4-k4"}
-        for cell in cells
-    ]
+    assignment = [{"cell_id": cell["cell_id"], "tier": "d4-k4"} for cell in cells]
     artifact_roots = {
         str(cell["cell_id"]): backpack_module.candidate_artifact_root(
             candidates,
@@ -540,13 +551,18 @@ def test_direct_candidate_generation_materializes_expert_specific_weights(
             tmp_path,
             tier=tier,
             cell=cell,
-            geometry_by_identity={(0, 3, "down"): (16, 2, 2), (0, 9, "down"): (16, 2, 2)},
+            geometry_by_identity={
+                (0, 3, "down"): (16, 2, 2),
+                (0, 9, "down"): (16, 2, 2),
+            },
         )
 
     root = Path(receipt["wire"]["path"]).parent
     wire = (root / "wire.bin").read_bytes()
     offsets = np.load(root / "tensor_offsets.npy", allow_pickle=False)
-    codebooks = np.load(root / "codebooks.npy", allow_pickle=False).view(np.uint8).reshape(-1)
+    codebooks = (
+        np.load(root / "codebooks.npy", allow_pickle=False).view(np.uint8).reshape(-1)
+    )
     first_payload = (
         wire[int(offsets[0, 0]) : int(offsets[1, 0])],
         bytes(codebooks[int(offsets[0, 2]) : int(offsets[1, 2])]),
@@ -638,7 +654,9 @@ def test_packaged_qtip_candidate_consumes_hash_bound_unit_artifacts(
                     "projection": "down",
                     "config_sha256": hashlib.sha256(config.read_bytes()).hexdigest(),
                     "artifact": artifact.name,
-                    "artifact_sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+                    "artifact_sha256": hashlib.sha256(
+                        artifact.read_bytes()
+                    ).hexdigest(),
                     "assignment_sha256": hashlib.sha256(
                         trellis.numpy().tobytes(order="C")
                     ).hexdigest(),
@@ -701,10 +719,15 @@ def test_custom_teacher_is_hash_bound_and_used(tmp_path: Path) -> None:
     inspected = inspect_backpack(plan, run_root=tmp_path / "run")
 
     assert inspected["teacher"]["kind"] == "npy"
-    assert inspected["teacher"]["sha256"] == hashlib.sha256(teacher.read_bytes()).hexdigest()
+    assert (
+        inspected["teacher"]["sha256"]
+        == hashlib.sha256(teacher.read_bytes()).hexdigest()
+    )
 
 
-def test_qtip_fractional_tier_routes_through_explicit_fixture_ring(tmp_path: Path) -> None:
+def test_qtip_fractional_tier_routes_through_explicit_fixture_ring(
+    tmp_path: Path,
+) -> None:
     plan = _fixture_plan(tmp_path, exact_bytes=1000)
     plan["tiers"] = [
         {
@@ -734,7 +757,9 @@ def test_qtip_fractional_tier_routes_through_explicit_fixture_ring(tmp_path: Pat
     }
 
 
-def test_qtip_fractional_repair_preserves_global_ring_assignment(tmp_path: Path) -> None:
+def test_qtip_fractional_repair_preserves_global_ring_assignment(
+    tmp_path: Path,
+) -> None:
     plan = _fixture_plan(tmp_path, exact_bytes=49760)
     plan["tiers"] = [
         {
@@ -881,7 +906,9 @@ def test_qtip_materialization_preserves_offsets_and_exact_ring_geometry(
     tier_labels = _decode_strings(tiers)
     swap_index = next(
         index
-        for index, (tier_label, row) in enumerate(zip(tier_labels, geometry, strict=True))
+        for index, (tier_label, row) in enumerate(
+            zip(tier_labels, geometry, strict=True)
+        )
         if tier_label == "qtip@2.25" and int(row[1]) == 2
     )
     geometry[swap_index, 1] = 3
@@ -956,15 +983,24 @@ def test_synthetic_end_to_end_builds_mixed_verified_pack_and_resumes(
         "vector_vq",
         "qtip",
     }
-    assert {row["dimension"] for row in result["candidate_tiers"] if row["family"] == "vector_vq"} == {4, 8}
+    assert {
+        row["dimension"]
+        for row in result["candidate_tiers"]
+        if row["family"] == "vector_vq"
+    } == {4, 8}
     assert len({row["tier"] for row in result["assignment"]}) >= 2
     selected = {row["cell_id"]: row["tier"] for row in result["assignment"]}
     assert selected["cell0"] == selected["cell1"]
     assert selected["cell2"] == selected["cell3"]
-    assert result["byte_accounting"]["whole_model_bytes"] == plan["target"]["exact_bytes"]
+    assert (
+        result["byte_accounting"]["whole_model_bytes"] == plan["target"]["exact_bytes"]
+    )
     assert result["pre_repair_anchor"]["windows"] == 64
     assert set(result["pre_repair_anchor"]["by_class"]) == set(CLASSES)
-    assert result["final_anchor"]["overall"]["kld"] <= result["pre_repair_anchor"]["overall"]["kld"]
+    assert (
+        result["final_anchor"]["overall"]["kld"]
+        <= result["pre_repair_anchor"]["overall"]["kld"]
+    )
     assert verify_pack(tmp_path / "final-pack")["status"] == "PASS"
     pack_manifest = load_manifest(tmp_path / "final-pack")
     assert pack_manifest["layers"] == [0]
@@ -975,18 +1011,21 @@ def test_synthetic_end_to_end_builds_mixed_verified_pack_and_resumes(
         allow_pickle=False,
     )
     assigned_families = {
-        "truevq_d4" if row["tier"].startswith("d4-") else
-        "truevq_d8" if row["tier"].startswith("d8-") else
-        "qtip2"
+        "truevq_d4"
+        if row["tier"].startswith("d4-")
+        else "truevq_d8"
+        if row["tier"].startswith("d8-")
+        else "qtip2"
         for row in result["assignment"]
     }
     assert {pack_manifest["tier_codes"][family] for family in assigned_families} == {
         int(value) for value in np.unique(tier_map)
     }
     assert not any(name.endswith("_weights") for name in pack_manifest["tensor_index"])
-    assert sum(
-        row["data_bytes"] for row in pack_manifest["tensor_index"].values()
-    ) == result["byte_accounting"]["whole_model_bytes"]
+    assert (
+        sum(row["data_bytes"] for row in pack_manifest["tensor_index"].values())
+        == result["byte_accounting"]["whole_model_bytes"]
+    )
 
     status = status_backpack(run_root)
     assert status["status"] == "PASS"
@@ -1014,7 +1053,9 @@ def test_deleted_final_pack_invalidates_repair_and_final_resume(tmp_path: Path) 
     assert "repair" not in rebuilt["resumed_stages"]
 
 
-def test_tampered_final_pack_accounting_invalidates_repair_resume(tmp_path: Path) -> None:
+def test_tampered_final_pack_accounting_invalidates_repair_resume(
+    tmp_path: Path,
+) -> None:
     plan = _fixture_plan(tmp_path)
     run_root = tmp_path / "run"
     build_backpack(plan, run_root=run_root)
@@ -1070,7 +1111,9 @@ def test_deleted_final_receipt_invalidates_final_stage_resume(tmp_path: Path) ->
     assert "final_score" not in rebuilt["resumed_stages"]
 
 
-def test_tampered_candidate_artifact_invalidates_candidate_resume(tmp_path: Path) -> None:
+def test_tampered_candidate_artifact_invalidates_candidate_resume(
+    tmp_path: Path,
+) -> None:
     plan = _fixture_plan(tmp_path)
     run_root = tmp_path / "run"
     build_backpack(plan, run_root=run_root)
@@ -1097,7 +1140,9 @@ def test_tampered_candidate_anchor_invalidates_anchor_resume(tmp_path: Path) -> 
     assert status["first_incomplete_stage"] == "candidate_anchor"
 
 
-def test_tampered_pre_repair_anchor_invalidates_pre_repair_resume(tmp_path: Path) -> None:
+def test_tampered_pre_repair_anchor_invalidates_pre_repair_resume(
+    tmp_path: Path,
+) -> None:
     plan = _fixture_plan(tmp_path)
     run_root = tmp_path / "run"
     build_backpack(plan, run_root=run_root)
@@ -1127,7 +1172,9 @@ def test_tampered_prediction_rows_invalidate_prediction_resume(tmp_path: Path) -
     assert status["first_incomplete_stage"] == "pred"
 
 
-def test_relabelled_candidate_receipt_invalidates_candidate_resume(tmp_path: Path) -> None:
+def test_relabelled_candidate_receipt_invalidates_candidate_resume(
+    tmp_path: Path,
+) -> None:
     plan = _fixture_plan(tmp_path)
     run_root = tmp_path / "run"
     build_backpack(plan, run_root=run_root)
@@ -1252,9 +1299,7 @@ def test_fixed_model_artifacts_are_hash_bound_and_materialized(tmp_path: Path) -
     assert accounting["fixed_bytes"] == 5
     assert accounting["whole_model_bytes"] == 53349
     fixed_rows = [
-        row
-        for row in pack_manifest["files"]
-        if row["role"] == "backpack_fixed_dense"
+        row for row in pack_manifest["files"] if row["role"] == "backpack_fixed_dense"
     ]
     assert len(fixed_rows) == 1
     assert (Path(result["final_pack"]) / fixed_rows[0]["path"]).read_bytes() == b"dense"
@@ -1374,7 +1419,10 @@ def test_qtip15_is_a_declaration_only_end_to_end_extension(tmp_path: Path) -> No
             ]
         )
         values, counts = np.unique(geometry, return_counts=True)
-        assert dict(zip(values.tolist(), counts.tolist(), strict=True)) == {1: 128, 2: 128}
+        assert dict(zip(values.tolist(), counts.tolist(), strict=True)) == {
+            1: 128,
+            2: 128,
+        }
 
 
 def test_orchestrator_calls_public_stage_api(
@@ -1389,8 +1437,8 @@ def test_orchestrator_calls_public_stage_api(
         "predict_backpack",
         "solve_backpack",
         "anchor_backpack",
-        "repair_backpack",
-        "score_backpack",
+        "_repair_backpack",
+        "_score_backpack",
     )
 
     def observe(name: str, original):
@@ -1443,9 +1491,15 @@ def test_public_candidate_and_materializer_apis_are_importable_and_used(
         calls.append("materialize")
         return original_materialize(*args, **kwargs)
 
-    monkeypatch.setattr(backpack_module, "generate_vector_vq_backpack_candidate", observed_vq)
-    monkeypatch.setattr(backpack_module, "generate_qtip_backpack_candidate", observed_qtip)
-    monkeypatch.setattr(backpack_module, "materialize_backpack_source", observed_materialize)
+    monkeypatch.setattr(
+        backpack_module, "generate_vector_vq_backpack_candidate", observed_vq
+    )
+    monkeypatch.setattr(
+        backpack_module, "generate_qtip_backpack_candidate", observed_qtip
+    )
+    monkeypatch.setattr(
+        backpack_module, "materialize_backpack_source", observed_materialize
+    )
 
     candidates = generate_backpack_candidates(plan, run_root=run_root)
     assert candidates["status"] == "PASS"
@@ -1499,12 +1553,16 @@ def test_stage_reuse_resumes_candidate_and_anchor_without_replay(
     monkeypatch.setitem(
         backpack_module._STAGE_RUNNERS,
         "candidates",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("candidate replayed")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("candidate replayed")
+        ),
     )
     monkeypatch.setitem(
         backpack_module._STAGE_RUNNERS,
         "candidate_anchor",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("anchor replayed")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("anchor replayed")
+        ),
     )
 
     reused_run = tmp_path / "reused-run"
@@ -1572,8 +1630,13 @@ def test_repair_bundle_reaches_export_pack_contract(
     assert manifest["repair"]["checkpoint_sha256"] == bundle.checkpoint_sha256
     assert manifest["repair"]["active_overlay_sha256"] == bundle.active_overlay_sha256
     assert manifest["repair"]["assignment_sha256"] == bundle.assignment_sha256
-    assert manifest["backpack_byte_accounting"]["repair_state_bytes"] == repair_state_bytes
-    assert manifest["backpack_byte_accounting"]["whole_model_bytes"] == plan["target"]["exact_bytes"]
+    assert (
+        manifest["backpack_byte_accounting"]["repair_state_bytes"] == repair_state_bytes
+    )
+    assert (
+        manifest["backpack_byte_accounting"]["whole_model_bytes"]
+        == plan["target"]["exact_bytes"]
+    )
     assert verify_pack(Path(result["final_pack"]))["repair"]["norms"] == 1
 
 
@@ -1641,9 +1704,10 @@ def test_final_score_uses_repair_bundle_materialized_codebook(
     run_root = tmp_path / "repair-bundle-run"
     result = build_backpack(plan, run_root=run_root)
 
-    assert next(row for row in result["assignment"] if row["cell_id"] == "cell2")[
-        "tier"
-    ] == "d4-k4"
+    assert (
+        next(row for row in result["assignment"] if row["cell_id"] == "cell2")["tier"]
+        == "d4-k4"
+    )
     manifest = load_manifest(Path(result["final_pack"]))
     codebook_row = manifest["tensor_index"]["layers.0.truevq_d4.codebooks"]
     materialized = np.load(
@@ -1793,9 +1857,9 @@ def test_plan_integrates_sealed_receipt_reuse_into_build_dag(tmp_path: Path) -> 
     run_root = tmp_path / "run"
 
     result = build_backpack(plan, run_root=run_root)
-    inspect_receipt = json.loads(
-        (run_root / "stages" / "01-inspect.json").read_text()
-    )["result"]
+    inspect_receipt = json.loads((run_root / "stages" / "01-inspect.json").read_text())[
+        "result"
+    ]
 
     assert result["status"] == "PASS"
     assert inspect_receipt["receipt_reuse"]["execution"] == {
@@ -1855,21 +1919,26 @@ def test_receipt_reuse_rejects_direct_output_symlink(tmp_path: Path) -> None:
     assert outside.read_text() == "ORIGINAL\n"
 
 
-def test_backpack_cli_build_and_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_backpack_build_is_private_but_status_remains_public(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     plan = _fixture_plan(tmp_path)
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(json.dumps(plan) + "\n")
     parser = _parser()
-    parsed = parser.parse_args(
-        ["backpack", "build", "--plan", str(plan_path), "--run-root", str(tmp_path / "run")]
-    )
-    assert parsed.command == "backpack"
-    assert parsed.backpack_command == "build"
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "backpack",
+                "build",
+                "--plan",
+                str(plan_path),
+                "--run-root",
+                str(tmp_path / "run"),
+            ]
+        )
 
-    assert main(
-        ["backpack", "build", "--plan", str(plan_path), "--run-root", str(tmp_path / "run")]
-    ) == 0
-    built = json.loads(capsys.readouterr().out)
+    built = build_backpack(plan, run_root=tmp_path / "run")
     assert built["status"] == "PASS"
 
     assert main(["backpack", "status", "--run-root", str(tmp_path / "run")]) == 0
@@ -1899,8 +1968,7 @@ def test_lifecycle_exports_use_one_pack_abi_and_preserve_pre_post_geometry(
     }
 
     manifests = {
-        stage: load_manifest(result["model"])
-        for stage, result in exports.items()
+        stage: load_manifest(result["model"]) for stage, result in exports.items()
     }
     assert {manifest["quant_method"] for manifest in manifests.values()} == {
         "banana_smasher"
@@ -1911,28 +1979,29 @@ def test_lifecycle_exports_use_one_pack_abi_and_preserve_pre_post_geometry(
         ]["quant_method"]
         for result in exports.values()
     } == {"banana_smasher"}
-    assert exports["pre-repair"]["assignment_sha256"] == exports["post-repair"][
-        "assignment_sha256"
-    ]
-    assert exports["pre-repair"]["expert_wire_layout_sha256"] == exports[
-        "post-repair"
-    ]["expert_wire_layout_sha256"]
-    assert exports["pre-repair"]["whole_model_shape_sha256"] == exports[
-        "post-repair"
-    ]["whole_model_shape_sha256"]
+    assert (
+        exports["pre-repair"]["assignment_sha256"]
+        == exports["post-repair"]["assignment_sha256"]
+    )
+    assert (
+        exports["pre-repair"]["expert_wire_layout_sha256"]
+        == exports["post-repair"]["expert_wire_layout_sha256"]
+    )
+    assert (
+        exports["pre-repair"]["whole_model_shape_sha256"]
+        == exports["post-repair"]["whole_model_shape_sha256"]
+    )
     assert exports["uniform-anchor"]["assignment"] == {
-        row["cell_id"]: "d4-k4"
-        for row in exports["uniform-anchor"]["assignment_rows"]
+        row["cell_id"]: "d4-k4" for row in exports["uniform-anchor"]["assignment_rows"]
     }
-    assert exports["uniform-anchor"]["expert_plane_bytes"] != exports["pre-repair"][
-        "expert_plane_bytes"
-    ]
-    assert exports["post-repair"]["repair"]["dense_application"][
-        "norms_materialized"
-    ] == 1
-    assert exports["post-repair"]["repair"]["dense_application"][
-        "outputs_folded"
-    ] == 1
+    assert (
+        exports["uniform-anchor"]["expert_plane_bytes"]
+        != exports["pre-repair"]["expert_plane_bytes"]
+    )
+    assert (
+        exports["post-repair"]["repair"]["dense_application"]["norms_materialized"] == 1
+    )
+    assert exports["post-repair"]["repair"]["dense_application"]["outputs_folded"] == 1
     codebook_name = "layers.0.truevq_d4.codebooks"
     pre_codebook = np.load(
         Path(exports["pre-repair"]["model"])
@@ -1951,7 +2020,9 @@ def test_lifecycle_exports_use_one_pack_abi_and_preserve_pre_post_geometry(
     shard = "model-00001-of-00001.safetensors"
     pre_dense = load_file(Path(exports["pre-repair"]["model"]) / shard)
     post_dense = load_file(Path(exports["post-repair"]["model"]) / shard)
-    assert np.allclose(post_dense["model.norm.weight"], pre_dense["model.norm.weight"] * 1.5)
+    assert np.allclose(
+        post_dense["model.norm.weight"], pre_dense["model.norm.weight"] * 1.5
+    )
     assert np.allclose(
         post_dense["model.layers.0.self_attn.o_b_proj.weight"],
         pre_dense["model.layers.0.self_attn.o_b_proj.weight"] * 1.5,
@@ -1976,11 +2047,14 @@ def test_lifecycle_exports_use_one_pack_abi_and_preserve_pre_post_geometry(
 
     moved = tmp_path / "moved-post-repair-model"
     shutil.copytree(exports["post-repair"]["model"], moved)
-    assert PackLoader(
-        moved,
-        kernel_cache_root=moved / "kernel-cache",
-        architecture="sm_120",
-    ).serve_receipt["status"] == "PASS"
+    assert (
+        PackLoader(
+            moved,
+            kernel_cache_root=moved / "kernel-cache",
+            architecture="sm_120",
+        ).serve_receipt["status"]
+        == "PASS"
+    )
 
 
 def test_backpack_cli_exports_lifecycle_from_run_root(
@@ -1993,28 +2067,34 @@ def test_backpack_cli_exports_lifecycle_from_run_root(
     kernel_cache = _kernel_cache(tmp_path)
     output = tmp_path / "pre-model"
 
-    assert main(
-        [
-            "backpack",
-            "export",
-            "--run-root",
-            str(run_root),
-            "--lifecycle",
-            "pre-repair",
-            "--output",
-            str(output),
-            "--serving-model-root",
-            str(serving_model),
-            "--kernel-cache-root",
-            str(kernel_cache),
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "backpack",
+                "export",
+                "--run-root",
+                str(run_root),
+                "--lifecycle",
+                "pre-repair",
+                "--output",
+                str(output),
+                "--serving-model-root",
+                str(serving_model),
+                "--kernel-cache-root",
+                str(kernel_cache),
+            ]
+        )
+        == 0
+    )
     receipt = json.loads(capsys.readouterr().out)
     assert receipt["lifecycle"] == "pre-repair"
     assert receipt["model"] == str(output.resolve())
     assert verify_pack(output)["status"] == "PASS"
-    assert PackLoader(
-        output,
-        kernel_cache_root=output / "kernel-cache",
-        architecture="sm_120",
-    ).serve_receipt["status"] == "PASS"
+    assert (
+        PackLoader(
+            output,
+            kernel_cache_root=output / "kernel-cache",
+            architecture="sm_120",
+        ).serve_receipt["status"]
+        == "PASS"
+    )

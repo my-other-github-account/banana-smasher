@@ -5,6 +5,7 @@ provider uses one path layout.  This module validates and normalizes all route
 kinds observed in the sealed all-43 artifact without performing transport or
 scoring.  Materialization remains a separate, explicit runtime phase.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,7 +25,7 @@ EXPERTS = 256
 PROJECTIONS = ("w1", "w2", "w3")
 MEMBERS_PER_LAYER = EXPERTS * len(PROJECTIONS)
 QTIP_V7_MEMBER_BYTES = 2_109_444
-DENSE_ROSTER_SCHEMA = "banana-smasher-qtip2-v7-l034-selected-wire-roster-v1"
+MEMBER_ROSTER_SCHEMA = "banana-smasher-qtip2-v7-selected-wire-roster-v2"
 ROUTE_KINDS = frozenset(
     {
         "nas_sftp",
@@ -57,7 +58,9 @@ def load_qtip2_v7_wire(path: str | Path, *, projection: str) -> dict[str, Any]:
     try:
         size = member.stat().st_size
     except OSError as exc:
-        raise PackValidationError(f"cannot read QTIP V7 member {member}: {exc}") from exc
+        raise PackValidationError(
+            f"cannot read QTIP V7 member {member}: {exc}"
+        ) from exc
     if size != QTIP_V7_MEMBER_BYTES:
         raise PackValidationError(
             f"QTIP V7 member byte geometry mismatch: {size} != {QTIP_V7_MEMBER_BYTES}"
@@ -78,74 +81,106 @@ def load_qtip2_v7_wire(path: str | Path, *, projection: str) -> dict[str, Any]:
     }
 
 
-def load_qtip2_v7_dense_roster(
+def _load_qtip2_v7_member_roster(
     path: str | Path,
     *,
     expected_basis_sha256: str,
     expected_roster_sha256: str,
     expected_member_bytes: int = QTIP_V7_MEMBER_BYTES,
-) -> dict[tuple[int, str], tuple[Path, str]]:
-    """Resolve the exceptional L034 selected-wire roster without path guesses."""
+) -> dict[tuple[int, int, str], tuple[Path, str]]:
+    """Resolve artifact-declared selected-wire members without layer exceptions."""
 
     roster_path = Path(path).expanduser().resolve()
     try:
         raw = roster_path.read_bytes()
         document = json.loads(raw)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise PackValidationError(f"cannot read QTIP V7 dense roster {roster_path}: {exc}") from exc
-    if hashlib.sha256(raw).hexdigest() != _sha(expected_roster_sha256, "dense roster"):
-        raise PackValidationError("QTIP V7 dense roster SHA-256 mismatch")
-    if not isinstance(document, Mapping) or document.get("schema") != DENSE_ROSTER_SCHEMA:
-        raise PackValidationError(f"QTIP V7 dense roster schema must be {DENSE_ROSTER_SCHEMA}")
+        raise PackValidationError(
+            f"cannot read QTIP V7 member roster {roster_path}: {exc}"
+        ) from exc
+    if hashlib.sha256(raw).hexdigest() != _sha(expected_roster_sha256, "member roster"):
+        raise PackValidationError("QTIP V7 member roster SHA-256 mismatch")
+    if (
+        not isinstance(document, Mapping)
+        or document.get("schema") != MEMBER_ROSTER_SCHEMA
+    ):
+        raise PackValidationError(
+            f"QTIP V7 member roster schema must be {MEMBER_ROSTER_SCHEMA}"
+        )
     if document.get("basis_sha256") != _sha(expected_basis_sha256, "expected basis"):
-        raise PackValidationError("QTIP V7 dense roster basis mismatch")
+        raise PackValidationError("QTIP V7 member roster basis mismatch")
     rows = document.get("members")
-    if document.get("layer") != 34 or document.get("member_count") != 768:
-        raise PackValidationError("QTIP V7 dense roster L034 coverage mismatch")
-    if not isinstance(rows, list) or len(rows) != 768:
-        raise PackValidationError("QTIP V7 dense roster must contain 768 members")
+    if (
+        not isinstance(rows, list)
+        or not rows
+        or document.get("member_count") != len(rows)
+    ):
+        raise PackValidationError("QTIP V7 member roster count mismatch")
     if (
         isinstance(expected_member_bytes, bool)
         or not isinstance(expected_member_bytes, int)
         or expected_member_bytes <= 0
     ):
-        raise PackValidationError("QTIP V7 dense roster expected member bytes are invalid")
+        raise PackValidationError(
+            "QTIP V7 member roster expected member bytes are invalid"
+        )
     root = roster_path.parent
-    members: dict[tuple[int, str], tuple[Path, str]] = {}
+    members: dict[tuple[int, int, str], tuple[Path, str]] = {}
+    layers: set[int] = set()
     for index, raw_row in enumerate(rows):
-        row = _mapping(raw_row, f"dense roster member {index}")
+        row = _mapping(raw_row, f"member roster row {index}")
+        layer = row.get("layer")
         expert, projection = row.get("expert"), row.get("projection")
         if (
-            isinstance(expert, bool)
+            isinstance(layer, bool)
+            or not isinstance(layer, int)
+            or layer not in LAYERS
+            or isinstance(expert, bool)
             or not isinstance(expert, int)
             or expert not in range(EXPERTS)
             or projection not in PROJECTIONS
         ):
-            raise PackValidationError(f"QTIP V7 dense roster member {index} coordinate is invalid")
+            raise PackValidationError(
+                f"QTIP V7 member roster row {index} coordinate is invalid"
+            )
         relative = Path(str(row.get("path", "")))
         if relative.is_absolute() or ".." in relative.parts:
-            raise PackValidationError(f"QTIP V7 dense roster member {index} escapes its root")
+            raise PackValidationError(
+                f"QTIP V7 member roster row {index} escapes its root"
+            )
         member = (root / relative).resolve()
         if root not in member.parents:
-            raise PackValidationError(f"QTIP V7 dense roster member {index} escapes its root")
+            raise PackValidationError(
+                f"QTIP V7 member roster row {index} escapes its root"
+            )
         if row.get("bytes") != expected_member_bytes:
-            raise PackValidationError(f"QTIP V7 dense roster member {index} byte declaration mismatch")
-        if not member.is_file() or member.is_symlink() or member.stat().st_size != expected_member_bytes:
-            raise PackValidationError(f"QTIP V7 dense roster member {index} physical file mismatch")
-        key = (expert, str(projection))
+            raise PackValidationError(
+                f"QTIP V7 member roster row {index} byte declaration mismatch"
+            )
+        if (
+            not member.is_file()
+            or member.is_symlink()
+            or member.stat().st_size != expected_member_bytes
+        ):
+            raise PackValidationError(
+                f"QTIP V7 member roster row {index} physical file mismatch"
+            )
+        key = (layer, expert, str(projection))
         if key in members:
-            raise PackValidationError(f"QTIP V7 dense roster duplicate member: {key}")
+            raise PackValidationError(f"QTIP V7 member roster duplicate member: {key}")
         members[key] = (
             member,
-            _sha(row.get("sha256"), f"dense roster member {index}"),
+            _sha(row.get("sha256"), f"member roster row {index}"),
         )
+        layers.add(layer)
     expected = {
-        (expert, projection)
+        (layer, expert, projection)
+        for layer in layers
         for expert in range(EXPERTS)
         for projection in PROJECTIONS
     }
     if set(members) != expected:
-        raise PackValidationError("QTIP V7 dense roster coordinate coverage mismatch")
+        raise PackValidationError("QTIP V7 member roster coordinate coverage mismatch")
     return members
 
 
@@ -240,12 +275,20 @@ class QtipV7RouteCensus:
             or document.get("duplicates") != 0
             or document.get("fallback_calls") != 0
         ):
-            raise PackValidationError("QTIP V7 route census all-43 closure gates failed")
+            raise PackValidationError(
+                "QTIP V7 route census all-43 closure gates failed"
+            )
         rows = document.get("layers")
         if not isinstance(rows, list) or len(rows) != len(LAYERS):
-            raise PackValidationError("QTIP V7 route census must contain exactly layers 0..42")
-        if [row.get("layer") if isinstance(row, Mapping) else None for row in rows] != list(LAYERS):
-            raise PackValidationError("QTIP V7 route census must contain exactly layers 0..42")
+            raise PackValidationError(
+                "QTIP V7 route census must contain exactly layers 0..42"
+            )
+        if [
+            row.get("layer") if isinstance(row, Mapping) else None for row in rows
+        ] != list(LAYERS):
+            raise PackValidationError(
+                "QTIP V7 route census must contain exactly layers 0..42"
+            )
 
         normalized: list[QtipV7LayerRoute] = []
         for expected_layer, raw_row in enumerate(rows):
@@ -274,7 +317,9 @@ class QtipV7RouteCensus:
                 )
             if kind == "dense_roster":
                 wire_format = "dense_bf16_roster"
-                wire_bytes_value = census.get("physical_bytes", census.get("wire_bytes"))
+                wire_bytes_value = census.get(
+                    "physical_bytes", census.get("wire_bytes")
+                )
                 _sha(route.get("roster_sha256"), f"layer {expected_layer} roster")
             else:
                 wire_format = "qtip2_v7_fixed_wire"
@@ -364,6 +409,5 @@ __all__ = [
     "QTIP_V7_MEMBER_BYTES",
     "QtipV7LayerRoute",
     "QtipV7RouteCensus",
-    "load_qtip2_v7_dense_roster",
     "load_qtip2_v7_wire",
 ]

@@ -37,7 +37,9 @@ class DeepseekV4D4Runtime:
             else self.model_root / "planes"
         )
         self.positions = int(parameters["positions"])
-        self.config = AutoConfig.from_pretrained(self.model_root, trust_remote_code=False)
+        self.config = AutoConfig.from_pretrained(
+            self.model_root, trust_remote_code=False
+        )
         index_path = self.model_root / "model.safetensors.index.json"
         self.weight_map = json.loads(index_path.read_text())["weight_map"]
         with torch.device("meta"):
@@ -88,7 +90,9 @@ class DeepseekV4D4Runtime:
         scale = self._get_tensor(scale_name).to(self.device)
         scale = torch.exp2(scale.view(torch.uint8).to(torch.float32) - 127.0)
         rows, columns = weight.shape
-        scale = scale.repeat_interleave(128, 0)[:rows].repeat_interleave(128, 1)[:, :columns]
+        scale = scale.repeat_interleave(128, 0)[:rows].repeat_interleave(128, 1)[
+            :, :columns
+        ]
         return (weight.to(torch.float32) * scale).to(torch.bfloat16)
 
     def _load_vq3u_experts(self, layer: int) -> tuple[Any, Any]:
@@ -111,12 +115,8 @@ class DeepseekV4D4Runtime:
                 f"layer {layer}: insufficient CUDA memory for D4 materialization: "
                 f"free={free}, required_plus_guard={required + (4 << 30)}"
             )
-        gate_up = torch.empty(
-            256, 4096, 4096, dtype=torch.bfloat16, device=self.device
-        )
-        down = torch.empty(
-            256, 4096, 2048, dtype=torch.bfloat16, device=self.device
-        )
+        gate_up = torch.empty(256, 4096, 4096, dtype=torch.bfloat16, device=self.device)
+        down = torch.empty(256, 4096, 2048, dtype=torch.bfloat16, device=self.device)
         cb13 = data["cb13"].to(self.device).float()
         cb2 = data["cb2"].to(self.device).float()
         for expert_id in range(256):
@@ -173,9 +173,7 @@ class DeepseekV4D4Runtime:
         state["post_attention_layernorm.weight"] = bf16("ffn_norm.weight")
 
         if has("attn.compressor.wkv.weight"):
-            state["self_attn.compressor.position_bias"] = float32(
-                "attn.compressor.ape"
-            )
+            state["self_attn.compressor.position_bias"] = float32("attn.compressor.ape")
             state["self_attn.compressor.kv_norm.weight"] = bf16(
                 "attn.compressor.norm.weight"
             )
@@ -187,9 +185,7 @@ class DeepseekV4D4Runtime:
             )
         if has("attn.indexer.wq_b.weight"):
             indexer = "self_attn.compressor.indexer."
-            state[indexer + "position_bias"] = float32(
-                "attn.indexer.compressor.ape"
-            )
+            state[indexer + "position_bias"] = float32("attn.indexer.compressor.ape")
             state[indexer + "kv_norm.weight"] = bf16(
                 "attn.indexer.compressor.norm.weight"
             )
@@ -206,9 +202,7 @@ class DeepseekV4D4Runtime:
 
         state["mlp.gate.weight"] = bf16("ffn.gate.weight")
         if has("ffn.gate.tid2eid"):
-            state["mlp.gate.tid2eid"] = tensor("ffn.gate.tid2eid").to(
-                self.device
-            )
+            state["mlp.gate.tid2eid"] = tensor("ffn.gate.tid2eid").to(self.device)
         if has("ffn.gate.bias"):
             state["mlp.gate.e_score_correction_bias"] = float32("ffn.gate.bias")
         state["attn_hc.fn"] = float32("hc_attn_fn")
@@ -217,15 +211,9 @@ class DeepseekV4D4Runtime:
         state["ffn_hc.fn"] = float32("hc_ffn_fn")
         state["ffn_hc.base"] = float32("hc_ffn_base")
         state["ffn_hc.scale"] = float32("hc_ffn_scale")
-        state["mlp.shared_experts.gate_proj.weight"] = fp8(
-            "ffn.shared_experts.w1"
-        )
-        state["mlp.shared_experts.up_proj.weight"] = fp8(
-            "ffn.shared_experts.w3"
-        )
-        state["mlp.shared_experts.down_proj.weight"] = fp8(
-            "ffn.shared_experts.w2"
-        )
+        state["mlp.shared_experts.gate_proj.weight"] = fp8("ffn.shared_experts.w1")
+        state["mlp.shared_experts.up_proj.weight"] = fp8("ffn.shared_experts.w3")
+        state["mlp.shared_experts.down_proj.weight"] = fp8("ffn.shared_experts.w2")
         gate_up, down = self._load_vq3u_experts(layer)
         state["mlp.experts.gate_up_proj"] = gate_up
         state["mlp.experts.down_proj"] = down
@@ -248,7 +236,11 @@ class DeepseekV4D4Runtime:
             raise RuntimeError(f"layer {layer}: unexpected state keys {unexpected[:8]}")
         for name, module in list(block.named_modules()):
             if isinstance(module, DeepseekV4RotaryEmbedding):
-                parent = block.get_submodule(name.rsplit(".", 1)[0]) if "." in name else block
+                parent = (
+                    block.get_submodule(name.rsplit(".", 1)[0])
+                    if "." in name
+                    else block
+                )
                 setattr(
                     parent,
                     name.rsplit(".", 1)[-1],
@@ -257,7 +249,9 @@ class DeepseekV4D4Runtime:
         meta = [name for name, value in block.named_parameters() if value.is_meta]
         meta += [name for name, value in block.named_buffers() if value.is_meta]
         if meta:
-            raise RuntimeError(f"layer {layer}: tensors remain on meta device: {meta[:8]}")
+            raise RuntimeError(
+                f"layer {layer}: tensors remain on meta device: {meta[:8]}"
+            )
         return block
 
     def _dematerialize(self, module: Any) -> None:
@@ -289,7 +283,9 @@ class DeepseekV4D4Runtime:
             del window_id
             ids = torch.tensor(token_ids, dtype=torch.long, device=self.device)
             hidden = torch.nn.functional.embedding(ids, resources[0])
-            hidden = hidden.unsqueeze(1).expand(-1, self.config.hc_mult, -1).contiguous()
+            hidden = (
+                hidden.unsqueeze(1).expand(-1, self.config.hc_mult, -1).contiguous()
+            )
             self._resident_now()
             return _Activation(hidden, ids)
 
@@ -323,9 +319,9 @@ class DeepseekV4D4Runtime:
             block, rotary = resources
             hidden = activation.hidden.unsqueeze(0)
             input_ids = activation.input_ids.unsqueeze(0)
-            position_ids = torch.arange(
-                hidden.shape[1], device=self.device
-            ).unsqueeze(0)
+            position_ids = torch.arange(hidden.shape[1], device=self.device).unsqueeze(
+                0
+            )
             base_hidden = hidden[:, :, 0, :]
             position_embeddings = {
                 "main": rotary(
@@ -391,7 +387,7 @@ class DeepseekV4D4Runtime:
         resources = [model.model.norm, model.model.hc_head, model.lm_head]
         self._resident_now()
 
-        def score(
+        def _score(
             activation: _Activation,
             support_token_ids: list[list[int]],
             *,
@@ -420,7 +416,7 @@ class DeepseekV4D4Runtime:
             return {"logits": pairs, "top1_token_ids": top1}
 
         try:
-            yield score
+            yield _score
         finally:
             while resources:
                 self._dematerialize(resources.pop())
@@ -433,16 +429,14 @@ class DeepseekV4D4Runtime:
         ids = activation.input_ids.detach().to("cpu").to(torch.int64)
         low = (ids & 0xFFFF).to(torch.uint16)
         high = ((ids >> 16) & 0xFFFF).to(torch.uint16)
-        return np.concatenate(
-            (hidden.numpy().reshape(-1), low.numpy(), high.numpy())
-        )
+        return np.concatenate((hidden.numpy().reshape(-1), low.numpy(), high.numpy()))
 
     def import_activation(self, activation: np.ndarray) -> _Activation:
         torch = self.torch
         packed = np.asarray(activation, dtype=np.uint16).reshape(-1)
         token_count = self.positions
-        hidden_count = token_count * int(self.config.hc_mult) * int(
-            self.config.hidden_size
+        hidden_count = (
+            token_count * int(self.config.hc_mult) * int(self.config.hidden_size)
         )
         if packed.size != hidden_count + 2 * token_count:
             raise ValueError(
@@ -455,9 +449,9 @@ class DeepseekV4D4Runtime:
             .reshape(token_count, self.config.hc_mult, self.config.hidden_size)
             .to(self.device)
         )
-        low = torch.from_numpy(packed[hidden_count : hidden_count + token_count].copy()).to(
-            torch.int64
-        )
+        low = torch.from_numpy(
+            packed[hidden_count : hidden_count + token_count].copy()
+        ).to(torch.int64)
         high = torch.from_numpy(packed[hidden_count + token_count :].copy()).to(
             torch.int64
         )

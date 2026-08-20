@@ -8,12 +8,12 @@ import pytest
 
 from banana_smasher import (
     bq23_backpack_family_providers,
-    build_backpack,
     build_contextual_delta_ledger,
     materialize_virtual_backpack,
     select_measured_nonworse,
     solve_contextual_trust_region,
 )
+from banana_smasher.backpack import _build_backpack as build_backpack
 from banana_smasher.cli import main
 from banana_smasher.locality import require_local_path
 from banana_smasher.staging import stage_qsfp_manifest
@@ -36,7 +36,9 @@ def test_bq23_taxonomy_uses_canonical_provider_objects() -> None:
     ]
     assert providers["qtip@2.00"].runtime_family == "qtip2"
     assert providers["qtip@3.00"].runtime_family == "qtip3"
-    assert all(provider.generate and provider.materialize for provider in providers.values())
+    assert all(
+        provider.generate and provider.materialize for provider in providers.values()
+    )
 
 
 def test_locality_rejects_remote_mount_and_explicit_stage_fan_in_is_collision_free(
@@ -316,18 +318,21 @@ def test_public_build_backpack_composes_with_cli_contextual_prepare(
         },
     )
     score_path = tmp_path / "exact64.json"
-    assert main(
-        [
-            "backpack",
-            "bind-exact64",
-            "--virtual-manifest",
-            str(manifest_path),
-            "--score-receipt",
-            str(anchor_score_path),
-            "--output",
-            str(score_path),
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "backpack",
+                "bind-exact64",
+                "--virtual-manifest",
+                str(manifest_path),
+                "--score-receipt",
+                str(anchor_score_path),
+                "--output",
+                str(score_path),
+            ]
+        )
+        == 0
+    )
     exact64_emitted = json.loads(capsys.readouterr().out)
     assert exact64_emitted["status"] == "PASS"
     assert exact64_emitted["command"] == "backpack bind-exact64"
@@ -354,15 +359,14 @@ def test_public_build_backpack_composes_with_cli_contextual_prepare(
     assert anchor["assignment_sha256"] == manifest["assignment_map_sha256"]
     assert len(anchor["cells"]) == 2
     assert len(inventory["options"]) == 6
-    assert hashlib.sha256(anchor_score_path.read_bytes()).hexdigest() == anchor[
-        "physical_score_receipt_sha256"
-    ]
+    assert (
+        hashlib.sha256(anchor_score_path.read_bytes()).hexdigest()
+        == anchor["physical_score_receipt_sha256"]
+    )
 
     incumbent = {row["cell"]: row["option"] for row in anchor["cells"]}
     target = next(
-        row
-        for row in inventory["options"]
-        if row["option"] != incumbent[row["cell"]]
+        row for row in inventory["options"] if row["option"] != incumbent[row["cell"]]
     )
     request_path = tmp_path / "change-request.json"
     _write_json(
@@ -379,35 +383,39 @@ def test_public_build_backpack_composes_with_cli_contextual_prepare(
         },
     )
     candidate_root = tmp_path / "contextual-candidate"
-    assert main(
-        [
-            "backpack",
-            "materialize-contextual",
-            "--virtual-manifest",
-            str(manifest_path),
-            "--inventory",
-            str(prepared / "OPTION_INVENTORY.json"),
-            "--request",
-            str(request_path),
-            "--output",
-            str(candidate_root),
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "backpack",
+                "materialize-contextual",
+                "--virtual-manifest",
+                str(manifest_path),
+                "--inventory",
+                str(prepared / "OPTION_INVENTORY.json"),
+                "--request",
+                str(request_path),
+                "--output",
+                str(candidate_root),
+            ]
+        )
+        == 0
+    )
     candidate_emitted = json.loads(capsys.readouterr().out)
     assert candidate_emitted["status"] == "PASS"
     candidate_index = [
         json.loads(line)
-        for line in (candidate_root / "MATERIALIZATION_INDEX.jsonl").read_text().splitlines()
+        for line in (candidate_root / "MATERIALIZATION_INDEX.jsonl")
+        .read_text()
+        .splitlines()
     ]
     target_members = {member["cell"]: member for member in target["members"]}
-    changed_index = [
-        row for row in candidate_index if row["cell_id"] in target_members
-    ]
+    changed_index = [row for row in candidate_index if row["cell_id"] in target_members]
     assert {row["cell_id"] for row in changed_index} == set(target_members)
     for row in changed_index:
-        assert row["physical_receipt_sha256"] == target_members[row["cell_id"]][
-            "physical_receipt_sha256"
-        ]
+        assert (
+            row["physical_receipt_sha256"]
+            == target_members[row["cell_id"]]["physical_receipt_sha256"]
+        )
     change_path = candidate_root / "CHANGE.json"
     change = json.loads(change_path.read_text())
 
@@ -434,62 +442,71 @@ def test_public_build_backpack_composes_with_cli_contextual_prepare(
     )
     _write_json(candidate_score_path, candidate_score)
     measurement_path = tmp_path / "measurement.json"
-    assert main(
-        [
-            "backpack",
-            "record-contextual",
-            "--anchor",
-            str(prepared / "ANCHOR.json"),
-            "--change",
-            str(change_path),
-            "--anchor-score",
-            str(anchor_score_path),
-            "--candidate-score",
-            str(candidate_score_path),
-            "--measurements",
-            str(prepared / "MEASUREMENTS.json"),
-            "--output",
-            str(measurement_path),
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "backpack",
+                "record-contextual",
+                "--anchor",
+                str(prepared / "ANCHOR.json"),
+                "--change",
+                str(change_path),
+                "--anchor-score",
+                str(anchor_score_path),
+                "--candidate-score",
+                str(candidate_score_path),
+                "--measurements",
+                str(prepared / "MEASUREMENTS.json"),
+                "--output",
+                str(measurement_path),
+            ]
+        )
+        == 0
+    )
     measured = json.loads(capsys.readouterr().out)
     assert measured["status"] == "PASS"
     assert measured["delta_mean_kld"] < 0
 
     ledger_path = tmp_path / "contextual-ledger.json"
-    assert main(
-        [
-            "backpack",
-            "value-contextual",
-            "--anchor",
-            str(prepared / "ANCHOR.json"),
-            "--options",
-            str(prepared / "OPTION_INVENTORY.json"),
-            "--measurements",
-            str(prepared / "MEASUREMENTS.json"),
-            "--output",
-            str(ledger_path),
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "backpack",
+                "value-contextual",
+                "--anchor",
+                str(prepared / "ANCHOR.json"),
+                "--options",
+                str(prepared / "OPTION_INVENTORY.json"),
+                "--measurements",
+                str(prepared / "MEASUREMENTS.json"),
+                "--output",
+                str(ledger_path),
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["status"] == "PASS"
 
     contextual_solve = tmp_path / "contextual-solve.json"
-    assert main(
-        [
-            "backpack",
-            "solve-contextual",
-            "--anchor",
-            str(prepared / "ANCHOR.json"),
-            "--ledger",
-            str(ledger_path),
-            "--max-changes",
-            "1",
-            "--uncertainty-multiplier",
-            "0",
-            "--time-limit-seconds",
-            "5",
-            "--output",
-            str(contextual_solve),
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "backpack",
+                "solve-contextual",
+                "--anchor",
+                str(prepared / "ANCHOR.json"),
+                "--ledger",
+                str(ledger_path),
+                "--max-changes",
+                "1",
+                "--uncertainty-multiplier",
+                "0",
+                "--time-limit-seconds",
+                "5",
+                "--output",
+                str(contextual_solve),
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["status"] == "PASS"

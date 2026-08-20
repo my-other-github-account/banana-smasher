@@ -12,13 +12,15 @@ from banana_smasher.qtip_v7_joint_workflow import (
     inspect_joint_inputs,
     launch_balanced64_shards,
     materialize_joint,
-    train_joint,
+    _train_joint as train_joint,
     verify_joint_checkpoint,
 )
 
 
 def _canonical(value: object) -> bytes:
-    return (json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n").encode()
+    return (
+        json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+    ).encode()
 
 
 def _sha(path: Path) -> str:
@@ -33,56 +35,70 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     for layer in range(43):
         lut = root / f"L{layer:03d}.tlut.f16"
         np.zeros(1024, dtype="<f2").tofile(lut)
-        layers.append({
-            "layer": layer,
-            "path": lut.name,
-            "bytes": lut.stat().st_size,
-            "sha256": _sha(lut),
-            "dtype": "float16",
-            "shape": [1024],
-        })
+        layers.append(
+            {
+                "layer": layer,
+                "path": lut.name,
+                "bytes": lut.stat().st_size,
+                "sha256": _sha(lut),
+                "dtype": "float16",
+                "shape": [1024],
+            }
+        )
         wire = root / f"L{layer:03d}.wire"
         wire.write_bytes(bytes([layer]))
-        external.append({
-            "layer": layer,
-            "member_count": 768,
-            "complete_wire_bytes": 1,
-            "identity_sha256": _sha(wire),
-            "provider": "review-fixture",
-            "path": wire.name,
-            "bytes": 1,
-            "sha256": _sha(wire),
-            "members": [
-                {"expert": expert, "projection": projection}
-                for expert in range(256)
-                for projection in ("w1", "w2", "w3")
-            ],
-        })
+        external.append(
+            {
+                "layer": layer,
+                "member_count": 768,
+                "complete_wire_bytes": 1,
+                "identity_sha256": _sha(wire),
+                "provider": "review-fixture",
+                "path": wire.name,
+                "bytes": 1,
+                "sha256": _sha(wire),
+                "members": [
+                    {"expert": expert, "projection": projection}
+                    for expert in range(256)
+                    for projection in ("w1", "w2", "w3")
+                ],
+            }
+        )
     manifest = root / "QTIP_V7_MANIFEST.json"
-    manifest.write_bytes(_canonical({
-        "schema": "banana-smasher-qtip-v7-artifact-v1",
-        "rate": 2,
-        "members": [],
-        "external_layers": external,
-        "layer_luts": layers,
-        "joint_trainable_surface": {
-            "layer_luts": {f"L{i:03d}": [1024] for i in range(43)},
-            "norms": {f"rmsnorm_{i:03d}": [2] for i in range(235)},
-            "outputs": {f"output_gain_L{i:03d}": [] for i in range(43)},
-        },
-    }))
+    manifest.write_bytes(
+        _canonical(
+            {
+                "schema": "banana-smasher-qtip-v7-artifact-v1",
+                "rate": 2,
+                "members": [],
+                "external_layers": external,
+                "layer_luts": layers,
+                "joint_trainable_surface": {
+                    "layer_luts": {f"L{i:03d}": [1024] for i in range(43)},
+                    "norms": {f"rmsnorm_{i:03d}": [2] for i in range(235)},
+                    "outputs": {f"output_gain_L{i:03d}": [] for i in range(43)},
+                },
+            }
+        )
+    )
     windows = [
         {"ordinal": ordinal, "teacher_logits": [0.25 + ordinal / 1000, -0.25]}
         for ordinal in range(64)
     ]
     bank = root / "teacher-bank.json"
-    bank.write_bytes(_canonical({
-        "schema": "banana-smasher-qtip-v7-teacher-bank-v1",
-        "bank_id": "BALANCED64_V1",
-        "teacher_sha256": "f" * 64,
-        "teacher_logits_sha256": hashlib.sha256(_canonical(windows)).hexdigest(),
-        "windows": windows,
-    }))
+    bank.write_bytes(
+        _canonical(
+            {
+                "schema": "banana-smasher-qtip-v7-teacher-bank-v1",
+                "bank_id": "BALANCED64_V1",
+                "teacher_sha256": "f" * 64,
+                "teacher_logits_sha256": hashlib.sha256(
+                    _canonical(windows)
+                ).hexdigest(),
+                "windows": windows,
+            }
+        )
+    )
     return manifest, bank, tmp_path / "run"
 
 
@@ -118,7 +134,7 @@ continuity = {"optimizer": {"step": update}, "scheduler": {"update": update}, "r
 out.parent.mkdir(parents=True, exist_ok=True)
 torch.save({"format": "banana-smasher-qtip-v7-joint-checkpoint-v1", "update": update, "objective": "teacher_kld", "freeze_sha256": hashlib.sha256(freeze.read_bytes()).hexdigest(), "teacher_kld": sum(losses) / len(losses), "predictions": predictions, "state": state, "continuity": continuity}, out)
 """)
-    path.chmod(0o755)
+    path.chmod(0o644)
     return path
 
 
@@ -135,7 +151,9 @@ Path(os.environ["QTIP_V7_SHARD_RECEIPT"]).write_text(json.dumps({"schema": "bana
     return path
 
 
-def test_inspect_rejects_malformed_teacher_digest_and_declaration_only_wire(tmp_path: Path) -> None:
+def test_inspect_rejects_malformed_teacher_digest_and_declaration_only_wire(
+    tmp_path: Path,
+) -> None:
     manifest, bank, run = _fixture(tmp_path)
     value = json.loads(bank.read_text())
     value["teacher_sha256"] = "g" * 64
@@ -225,7 +243,9 @@ def test_external_trainer_authenticates_kld_surface_and_resume(tmp_path: Path) -
         verify_joint_checkpoint(freeze=freeze, checkpoint=bad_optimizer)
 
 
-def test_external_scorer_and_wire_accounting_distinguish_physical_from_referenced(tmp_path: Path) -> None:
+def test_external_scorer_and_wire_accounting_distinguish_physical_from_referenced(
+    tmp_path: Path,
+) -> None:
     manifest, bank, run = _fixture(tmp_path)
     frozen = inspect_joint_inputs(
         manifest=manifest,
@@ -265,7 +285,9 @@ def test_external_scorer_and_wire_accounting_distinguish_physical_from_reference
     assert "physical_stored_bytes" not in result
 
 
-def test_trainer_alias_is_refused_and_failed_peer_cancels_other_workers(tmp_path: Path) -> None:
+def test_trainer_alias_is_refused_and_failed_peer_cancels_other_workers(
+    tmp_path: Path,
+) -> None:
     manifest, bank, run = _fixture(tmp_path)
     frozen = inspect_joint_inputs(
         manifest=manifest,
@@ -326,7 +348,12 @@ def test_trainer_alias_is_refused_and_failed_peer_cancels_other_workers(tmp_path
 
 
 def test_recipe_has_public_u0_and_no_private_tmp_identifier() -> None:
-    recipe = Path(__file__).parents[2] / "archive" / "notes" / "qtip-v7-joint-repair-one-line-workflow.md"
+    recipe = (
+        Path(__file__).parents[2]
+        / "archive"
+        / "notes"
+        / "qtip-v7-joint-repair-one-line-workflow.md"
+    )
     text = recipe.read_text()
     assert "--target-update 0" in text
     assert "/tmp/" not in text
@@ -364,8 +391,9 @@ def test_authenticated_ssh_fixture_stages_hashes_and_scores(tmp_path: Path) -> N
         ],
         remote_python=os.environ.get("QTIP_V7_SSH_PYTHON", "python3"),
     )
-    assert result["route_identities"][os.environ["QTIP_V7_SSH_FIXTURE"]].split(".")[0] == (
-        os.environ["QTIP_V7_SSH_EXPECTED"].split(".")[0]
+    assert (
+        result["route_identities"][os.environ["QTIP_V7_SSH_FIXTURE"]].split(".")[0]
+        == (os.environ["QTIP_V7_SSH_EXPECTED"].split(".")[0])
     )
     assert result["shards"][0]["ordinal_start"] == 0
     assert result["shards"][0]["ordinal_end"] == 63

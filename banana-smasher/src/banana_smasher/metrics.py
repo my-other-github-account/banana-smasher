@@ -58,8 +58,7 @@ def _student_t_critical_975(degrees_of_freedom: int) -> float:
         z
         + (z**3 + z) / (4.0 * df)
         + (5.0 * z**5 + 16.0 * z**3 + 3.0 * z) / (96.0 * df**2)
-        + (3.0 * z**7 + 19.0 * z**5 + 17.0 * z**3 - 15.0 * z)
-        / (384.0 * df**3)
+        + (3.0 * z**7 + 19.0 * z**5 + 17.0 * z**3 - 15.0 * z) / (384.0 * df**3)
     )
 
 
@@ -106,7 +105,7 @@ def teacher_support(
     return indices, selected, argmax
 
 
-def score_candidate(
+def _score_candidate(
     logits: np.ndarray[Any, Any],
     *,
     teacher_indices: np.ndarray[Any, Any],
@@ -139,9 +138,7 @@ def score_candidate(
         np.sum(np.exp(gathered), axis=1, keepdims=True)
     )
     probability = np.exp(teacher_support_lp)
-    kld = np.sum(
-        probability * (teacher_support_lp - candidate_support_lp), axis=1
-    )
+    kld = np.sum(probability * (teacher_support_lp - candidate_support_lp), axis=1)
     kld = np.maximum(kld, 0.0)
     if not np.isfinite(kld).all():
         raise MetricsError("KLD_NONFINITE")
