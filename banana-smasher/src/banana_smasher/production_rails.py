@@ -24,6 +24,18 @@ from .resident_repair_api import BackpackArtifact, UniformBuild
 PRODUCTION_RAILS_SCHEMA = "banana-smasher-production-resident-rails-v1"
 PIPELINE_MICROBATCH = 4
 ALL_LAYERS = tuple(range(43))
+FORBIDDEN_SLOW_CONTROL_FIELDS = frozenset(
+    {
+        "fallback",
+        "slow_path",
+        "notification_source",
+        "rate_low",
+        "offline_path",
+        "replay_path",
+        "staged_file_path",
+        "reload_path",
+    }
+)
 
 
 class ProductionRailsError(RuntimeError):
@@ -71,6 +83,23 @@ def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
             os.unlink(temporary_name)
         except FileNotFoundError:
             pass
+
+
+def _forbidden_slow_control(value: object) -> str | None:
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            normalized = str(key).lower()
+            if normalized in FORBIDDEN_SLOW_CONTROL_FIELDS:
+                return normalized
+            nested = _forbidden_slow_control(item)
+            if nested is not None:
+                return nested
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            nested = _forbidden_slow_control(item)
+            if nested is not None:
+                return nested
+    return None
 
 
 @dataclass(frozen=True)
@@ -265,6 +294,11 @@ class ProductionRails:
         return cls(config, run_root=run_root, clock=clock)
 
     def _validate_config(self) -> None:
+        forbidden = _forbidden_slow_control(self.config)
+        if forbidden is not None:
+            raise ProductionRailsError(
+                f"production resident rail forbids slowness control {forbidden}"
+            )
         if self.config.get("schema") != PRODUCTION_RAILS_SCHEMA:
             raise ProductionRailsError(f"production rails schema must be {PRODUCTION_RAILS_SCHEMA}")
         if self.config.get("pipeline_microbatch") != PIPELINE_MICROBATCH:

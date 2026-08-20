@@ -12,6 +12,17 @@ smash resident arm \
 
 Do not split these phases across separate CLI processes. `RESIDENT_LIFECYCLE.json` must finish with exactly one `model_constructions` and one `resident_loads`, two scores/canary passes, one training call, four updates, and in-memory checkpoint swaps between phases.
 
+The arm has three explicit deadline phases: `zero_update_score` (300 seconds,
+including the initial resident load), `four_resident_updates` (2,100 seconds,
+including the in-memory swap), and `post_update_score` (300 seconds, including
+its in-memory swap). The complete arm has one 2,700-second (45-minute) wall
+budget measured from the start of the first phase. After every phase the facade
+atomically updates `facade/RESIDENT_ARM_TIMING.json` with the named phase,
+phase budget, phase elapsed time, and total elapsed time. A phase or total
+overrun raises `ResidentPhaseTimeout`, identifies the active phase, and leaves a
+`FAILED` timing receipt. It never reports `RATE_LOW` or selects an alternate
+execution route.
+
 ## Provider config contract
 
 The config schema is `banana-smasher-production-resident-rails-v1`. It must declare:
@@ -20,6 +31,7 @@ The config schema is `banana-smasher-production-resident-rails-v1`. It must decl
 - `layers: [0, ..., 42]` in exact order; no per-layer exceptions;
 - `uniform_builder` and `backpack_mixer` as `module:callable` package hooks;
 - no production `session_factory` hook (the config rejects it); production constructs one `ModernGreenResidentEngine`/`ShardStudent` for the entire arm;
+- no notification, fallback, slow-path, offline, replay, staged-file, or reload control; those config fields are rejected recursively rather than interpreted;
 - `allowed_artifacts`, keyed by the exact SHA-256 of `identity.json`, with `basis_sha256`, `checkpoint`, `artifact_manifest_sha256`, and `checkpoint_sha256`; both the manifest and selected checkpoint bytes are verified before model construction;
 - the official continuation configuration when using the proven two-Spark engine.
 
@@ -46,6 +58,7 @@ Before publishing a result:
 1. Verify the exact config and artifact identities.
 2. Run `smash resident arm` in one process.
 3. Require `RESIDENT_LIFECYCLE.json` to prove one construction and all phase events.
-4. Require both scores to finish within the facade's 300-second phase budget.
-5. Require each score receipt to report `execution_mode: resident_model_in_memory`, 64 windows, zero checkpoint loads during score, and no candidate-file reads during score.
-6. Compare the full64 score to the sealed fixture oracle; do not substitute precomputed or synthetic benchmark output.
+4. Require `facade/RESIDENT_ARM_TIMING.json` to be `PASS`, contain exactly the three named phases in order, and report total wall time at or below 2,700 seconds.
+5. Require both score phases to finish within 300 seconds and the four-update phase within 2,100 seconds.
+6. Require each score receipt to report `execution_mode: resident_model_in_memory`, 64 windows, zero checkpoint loads during score, and no candidate-file reads during score.
+7. Compare the full64 score to the sealed fixture oracle; do not substitute precomputed or synthetic benchmark output.
