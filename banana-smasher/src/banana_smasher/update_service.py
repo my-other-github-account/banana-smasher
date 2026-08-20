@@ -6,7 +6,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from .persistent import UpdateQueue, serve_queue
+from .persistent import _UpdateQueue, _serve_queue
 
 
 def _sha256(path: Path) -> str:
@@ -26,11 +26,13 @@ def _load_adapter(name: str) -> ModuleType:
             raise RuntimeError(f"update adapter {name!r} omits callable {member}()")
     recover = getattr(module, "recover", None)
     if recover is not None and not callable(recover):
-        raise RuntimeError(f"update adapter {name!r} has a non-callable recover attribute")
+        raise RuntimeError(
+            f"update adapter {name!r} has a non-callable recover attribute"
+        )
     return module
 
 
-def serve_persistent_updates(
+def _serve_persistent_updates(
     *,
     queue_root: str | Path,
     checkpoint: str | Path,
@@ -85,8 +87,8 @@ def serve_persistent_updates(
         return worker
 
     recover = getattr(implementation, "recover", None)
-    return serve_queue(
-        UpdateQueue(queue_root),
+    return _serve_queue(
+        _UpdateQueue(queue_root),
         expected_config_sha256=config_sha,
         expected_aot_sha256=aot_sha,
         initialize=initialize,

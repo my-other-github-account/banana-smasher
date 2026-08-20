@@ -11,7 +11,7 @@ The reusable Python distribution is intentionally under `banana-smasher/`; its p
 - `artifact_identity.py`: fail-closed identity loaded from each artifact's `identity.json`; no artifact-specific module constants.
 - `loader.py`, `hf_deepseek_v4_backpack_adapter.py`, `qtip_v7_routes.py`: canonical mixed-backpack loading and V7 route adaptation, including dense L034.
 - `knapsack.py`, `backpack_dimensions.py`, `backpack_exact64.py`, `backpack_contextual_prepare.py`: measured tier selection and exact64 evaluation; mixing consumes uniform packs and never re-solves.
-- `repair.py`, `resident_training.py`: canonical repair and resident training implementations.
+- `repair.py`, `resident_training.py`: canonical repair internals and the sole public `ResidentTrainingSession` in-memory continuation API; `training_configs/resident_api.json` is its SSOT.
 - `contract.py`, `validation.py`: fail-closed public contracts.
 - `cli.py`: the single `smash` command surface.
 

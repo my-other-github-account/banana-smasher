@@ -10,14 +10,13 @@ import threading
 import pytest
 
 import banana_smasher.persistent as persistent_module
-from banana_smasher.cli import main as cli_main
 from banana_smasher.persistent import (
     DuplicateSegment,
-    UpdateQueue,
+    _UpdateQueue as UpdateQueue,
     _atomic_json,
+    _serve_queue as serve_queue,
     recover_committed_cycle,
     request_identity,
-    serve_queue,
 )
 
 
@@ -492,93 +491,6 @@ def test_worker_exit_after_ledger_seal_cannot_reopen_completed_segment(
         restarted.enqueue(request)
     entry = restarted.ledger()["segments"]["sealed-before-receipt"]
     assert len(entry["attempts"]) == 1
-
-
-def test_public_submit_command_refuses_duplicate_segment_id(
-    tmp_path: Path, capsys,
-) -> None:
-    request = _request(
-        "public-duplicate",
-        _sha("checkpoint-0"),
-        config_sha=_sha("config"),
-        aot_sha=_sha("aot"),
-    )
-    request_path = tmp_path / "request.json"
-    request_path.write_text(json.dumps(request) + "\n")
-    queue_root = tmp_path / "run"
-
-    assert cli_main(
-        [
-            "update-enqueue",
-            "--queue-root",
-            str(queue_root),
-            "--request",
-            str(request_path),
-        ]
-    ) == 0
-    first = capsys.readouterr()
-    assert '"state": "QUEUED"' in first.out
-
-    assert cli_main(
-        [
-            "update-enqueue",
-            "--queue-root",
-            str(queue_root),
-            "--request",
-            str(request_path),
-        ]
-    ) == 2
-    second = capsys.readouterr()
-    assert "duplicate segment_id refused" in second.err
-    assert len(UpdateQueue(queue_root).ledger()["segments"]) == 1
-
-
-def test_public_status_command_reports_queue_and_request(tmp_path: Path, capsys) -> None:
-    queue_root = tmp_path / "run"
-    request = _request(
-        "public-status",
-        _sha("checkpoint-0"),
-        config_sha=_sha("config"),
-        aot_sha=_sha("aot"),
-    )
-    UpdateQueue(queue_root).enqueue(request)
-
-    assert cli_main(["update-status", "--queue-root", str(queue_root)]) == 0
-    summary = json.loads(capsys.readouterr().out)
-    assert summary["status"] == "PASS"
-    assert [row["segment_id"] for row in summary["requests"]] == ["public-status"]
-
-    assert cli_main(
-        [
-            "update-status",
-            "--queue-root",
-            str(queue_root),
-            "--request-id",
-            "public-status",
-        ]
-    ) == 0
-    status = json.loads(capsys.readouterr().out)
-    assert status["state"] == "QUEUED"
-
-
-def test_public_status_refuses_missing_queue_without_creating_it(
-    tmp_path: Path, capsys,
-) -> None:
-    queue_root = tmp_path / "missing"
-
-    assert cli_main(["update-status", "--queue-root", str(queue_root)]) == 2
-
-    failure = json.loads(capsys.readouterr().err)
-    assert failure["error_type"] == "FileNotFoundError"
-    assert "segment queue does not exist" in failure["error"]
-    assert not queue_root.exists()
-
-
-def test_package_exports_persistent_update_api() -> None:
-    import banana_smasher
-
-    assert banana_smasher.UpdateQueue is UpdateQueue
-    assert callable(banana_smasher.serve_persistent_updates)
 
 
 def test_legacy_projection_queue_migrates_without_orphan_or_replay(

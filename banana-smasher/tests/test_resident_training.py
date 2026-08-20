@@ -6,15 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from banana_smasher.cli import main as cli_main
 from banana_smasher.grouped_k2 import block_hadamard_128, direct_decode_matrix
 from banana_smasher.official_k2_resident import OfficialK2PackedResidentAdapter
 from banana_smasher.resident_training import (
     ParameterDescriptor,
     ResidentModelAdapter,
-    ResidentTrainer,
     ResidentTrainingPlan,
-    checkpoint_info,
+    ResidentTrainingSession,
+    _checkpoint_info as checkpoint_info,
+    _ResidentTrainer as ResidentTrainer,
     require_local_compute_path,
     select_parameter_groups,
 )
@@ -26,7 +26,6 @@ def _config(tmp_path: Path) -> dict[str, object]:
         "model_adapter": "fixtures:ToyResidentAdapter",
         "model_root": str(tmp_path / "model"),
         "payload_root": str(tmp_path / "payload"),
-        "input_checkpoint": str(tmp_path / "parent.safetensors"),
         "run_root": str(tmp_path / "run"),
         "topology": {
             "world_size": 2,
@@ -106,6 +105,27 @@ def test_parameter_group_overlap_is_rejected(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("execution_rail", "offline"),
+        ("input_checkpoint", "/tmp/staged.safetensors"),
+        ("execution_mode", "subprocess"),
+        ("training_mode", "replay"),
+        ("staged_files", True),
+        ("reload_per_step", True),
+    ],
+)
+def test_legacy_training_modes_are_rejected(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    config = _config(tmp_path)
+    config[field] = value
+
+    with pytest.raises(ValueError, match="resident-in-memory|not public"):
+        ResidentTrainingPlan.from_dict(config)
+
+
 def test_parameter_group_options_cannot_override_optimizer_identity(
     tmp_path: Path,
 ) -> None:
@@ -130,7 +150,6 @@ def test_remote_compute_inputs_are_rejected_before_staging(tmp_path: Path) -> No
 
 def test_resume_checkpoint_must_be_local(tmp_path: Path) -> None:
     config = _config(tmp_path)
-    config["input_checkpoint"] = None
     for name in ("model", "payload"):
         (tmp_path / name).mkdir()
     trainer = ResidentTrainer(
@@ -146,7 +165,6 @@ def test_adapter_stages_resolved_local_paths_not_replaceable_symlinks(
     tmp_path: Path,
 ) -> None:
     config = _config(tmp_path)
-    config["input_checkpoint"] = None
     for name in ("real-model", "real-payload"):
         (tmp_path / name).mkdir()
     (tmp_path / "model").symlink_to(tmp_path / "real-model")
@@ -287,7 +305,6 @@ def test_resident_trainer_stages_once_and_reports_repeated_step_timings(
     tmp_path: Path,
 ) -> None:
     config = _config(tmp_path)
-    config["input_checkpoint"] = None
     for name in ("model", "payload"):
         (tmp_path / name).mkdir()
     plan = ResidentTrainingPlan.from_dict(config)
@@ -319,9 +336,45 @@ def test_resident_trainer_stages_once_and_reports_repeated_step_timings(
     assert (tmp_path / "run" / "TRAIN_STATUS.json").is_file()
 
 
+def test_public_session_reuses_model_and_hot_swaps_checkpoint_state(
+    tmp_path: Path,
+) -> None:
+    config = _config(tmp_path)
+    for name in ("model", "payload"):
+        (tmp_path / name).mkdir()
+    adapter = ToyResidentAdapter()
+    phases: list[tuple[str, dict[str, object]]] = []
+    session = ResidentTrainingSession.open(
+        ResidentTrainingPlan.from_dict(config),
+        adapter=adapter,
+        phase_observer=lambda phase, event: phases.append((phase, dict(event))),
+    )
+    resident_model = session.model_instance
+
+    first = session.continue_updates(2, checkpoint_every=1)
+    first_checkpoint = Path(first["checkpoints"][0])
+    session.continue_updates(1)
+    loaded = session.hot_swap_checkpoint(first_checkpoint)
+    resumed = session.continue_updates(1)
+
+    assert loaded["next_update"] == 1
+    assert resumed["next_update"] == 2
+    assert session.model_instance is resident_model is adapter
+    assert adapter.stage_calls == 1
+    assert {name for name, _event in phases} >= {
+        "resident_load",
+        "forward",
+        "backward",
+        "communication",
+        "optimizer",
+        "update_total",
+        "checkpoint_save",
+        "checkpoint_hot_swap",
+    }
+
+
 def test_checkpoint_roundtrip_resume_and_deploy_hook(tmp_path: Path) -> None:
     config = _config(tmp_path)
-    config["input_checkpoint"] = None
     for name in ("model", "payload"):
         (tmp_path / name).mkdir()
     plan = ResidentTrainingPlan.from_dict(config)
@@ -379,7 +432,6 @@ def test_checkpoint_roundtrip_resume_and_deploy_hook(tmp_path: Path) -> None:
 
 def test_checkpoint_resume_rejects_optimizer_config_drift(tmp_path: Path) -> None:
     config = _config(tmp_path)
-    config["input_checkpoint"] = None
     for name in ("model", "payload"):
         (tmp_path / name).mkdir()
     original = ResidentTrainer(
@@ -416,7 +468,6 @@ def test_official_k2_adapter_uses_stable_ids_and_sparse_adam_state(
     config = _config(tmp_path)
     config["model_source"] = "fixture:official_k2_backend"
     config["model_adapter"] = "official-k2-packed"
-    config["input_checkpoint"] = None
     config["topology"] = {"world_size": 1, "rank": 0, "layer_split": [[0, 0]]}
     config["windows"] = [20, 21]
     config["microbatch"] = 2
@@ -503,53 +554,3 @@ def test_official_k2_adapter_uses_stable_ids_and_sparse_adam_state(
         "layer:0/norm:input",
     ]
     assert set(resumed_optimizer["state"]) == {"layer:0/norm:input"}
-
-
-@pytest.mark.skip(reason="retired public plan-file training route")
-def test_smash_train_status_and_checkpoint_info_with_json_overrides(
-    tmp_path: Path, capsys
-) -> None:
-    config = _config(tmp_path)
-    config["model_source"] = None
-    config["model_adapter"] = f"{__name__}:ToyResidentAdapter"
-    config["input_checkpoint"] = None
-    config["updates"] = 1
-    for name in ("model", "payload"):
-        (tmp_path / name).mkdir()
-    config_path = tmp_path / "train.json"
-    config_path.write_text(json.dumps(config), encoding="utf-8")
-
-    assert (
-        cli_main(
-            [
-                "train",
-                "--config",
-                str(config_path),
-                "--updates",
-                "2",
-                "--windows",
-                "20,21",
-                "--microbatch",
-                "1",
-                "--gradient-accumulation",
-                "2",
-            ]
-        )
-        == 0
-    )
-    trained = json.loads(capsys.readouterr().out)
-    checkpoint = Path(trained["checkpoint"])
-    assert trained["status"] == "PASS"
-    assert trained["updates_completed"] == 2
-    assert checkpoint.name == "UPDATE_00000002.safetensors"
-
-    assert cli_main(["train-status", str(tmp_path / "run")]) == 0
-    status = json.loads(capsys.readouterr().out)
-    assert status["phase"] == "checkpoint_saved"
-    assert status["update"] == 2
-
-    assert cli_main(["checkpoint-info", str(checkpoint)]) == 0
-    info = json.loads(capsys.readouterr().out)
-    assert info["format"] == "banana-smasher-resident-checkpoint-v1"
-    assert info["next_update"] == 2
-    assert info["config"]["windows"] == [20, 21]

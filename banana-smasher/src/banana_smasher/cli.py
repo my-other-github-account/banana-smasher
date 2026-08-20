@@ -242,17 +242,6 @@ def _parser() -> argparse.ArgumentParser:
     v7_layer_smoke.add_argument("--wire", type=Path, required=True)
     v7_layer_smoke.add_argument("--output", type=Path, required=True)
 
-    enqueue = subparsers.add_parser(
-        "update-enqueue", help="durably enqueue an exactly-once update request"
-    )
-    enqueue.add_argument("--queue-root", type=Path, required=True)
-    enqueue.add_argument("--request", type=Path, required=True)
-
-    update_status = subparsers.add_parser(
-        "update-status", help="read persistent-update queue status"
-    )
-    update_status.add_argument("--queue-root", type=Path, required=True)
-    update_status.add_argument("--request-id")
 
     bank = subparsers.add_parser(
         "bank", help="build or resume a complete manifest-bound teacher bank"
@@ -346,15 +335,6 @@ def _parser() -> argparse.ArgumentParser:
     backpack_dimensions.add_argument("--output", type=Path, required=True)
     backpack_dimensions.add_argument("--receipt", type=Path, required=True)
 
-    train_status = subparsers.add_parser(
-        "train-status", help="read the latest resident trainer status"
-    )
-    train_status.add_argument("run_root", type=Path)
-
-    checkpoint = subparsers.add_parser(
-        "checkpoint-info", help="inspect resident checkpoint metadata"
-    )
-    checkpoint.add_argument("checkpoint", type=Path)
 
     backpack = subparsers.add_parser(
         "backpack", help="build or inspect one declarative end-to-end Backpack plan"
@@ -778,33 +758,6 @@ def _run_anchor(args: argparse.Namespace) -> dict[str, Any] | str:
     raise ValueError(f"unsupported anchor command {command!r}")
 
 
-def _training_plan_from_args(args: argparse.Namespace):
-    from .resident_training import ResidentTrainingPlan
-
-    value = json.loads(args.config.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError("training config JSON root must be an object")
-    for argument, key in (
-        (args.model_source, "model_source"),
-        (args.model_adapter, "model_adapter"),
-        (args.model_root, "model_root"),
-        (args.payload_root, "payload_root"),
-        (args.input_checkpoint, "input_checkpoint"),
-        (args.run_root, "run_root"),
-        (args.microbatch, "microbatch"),
-        (args.gradient_accumulation, "gradient_accumulation"),
-        (args.updates, "updates"),
-    ):
-        if argument is not None:
-            value[key] = str(argument) if isinstance(argument, Path) else argument
-    if args.windows is not None:
-        value["windows"] = [int(token) for token in args.windows.split(",") if token]
-    if args.rank is not None:
-        topology = dict(value.get("topology", {}))
-        topology["rank"] = args.rank
-        value["topology"] = topology
-    return ResidentTrainingPlan.from_dict(value)
-
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
@@ -1122,67 +1075,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "layer_receipts": layer_receipts,
                     "config_materialization": materialization,
                 }
-        elif args.command == "update-enqueue":
-            from .persistent import UpdateQueue
-
-            result = UpdateQueue(args.queue_root).enqueue(
-                json.loads(args.request.read_text())
-            )
-        elif args.command == "update-status":
-            from .persistent import UpdateQueue
-
-            queue_location = args.queue_root.resolve()
-            ledger_path = (
-                queue_location
-                if queue_location.name == "SEGMENT_QUEUE.json"
-                else queue_location / "SEGMENT_QUEUE.json"
-            )
-            if not ledger_path.is_file():
-                raise FileNotFoundError(f"segment queue does not exist: {ledger_path}")
-            queue = UpdateQueue(args.queue_root)
-            if args.request_id is not None:
-                result = queue.status(args.request_id)
-            else:
-                ledger = queue.ledger()
-                result = {
-                    "status": "PASS",
-                    "segment_queue": str(queue.ledger_path),
-                    "requests": [
-                        queue.status(segment_id)
-                        for segment_id in sorted(ledger["segments"])
-                    ],
-                }
-        elif args.command == "update":
-            from . import update as update_module
-            from .token_sizing import MemoryBudget
-
-            identity = json.loads(args.identity.read_text())
-            result = {
-                **update_module.run_registered_update(
-                    backend_name=args.backend,
-                    request=args.request,
-                    output=args.output,
-                    receipt=args.receipt,
-                    identity=identity,
-                    requested_tokens=args.tokens,
-                    segments=args.segments,
-                    batch_size=args.batch_size,
-                    memory_budget=MemoryBudget(
-                        available_bytes=args.available_bytes,
-                        resident_frozen_bytes=args.resident_frozen_bytes,
-                        trainable_bytes=args.trainable_bytes,
-                        optimizer_bytes=args.optimizer_bytes,
-                        staging_bytes=args.staging_bytes,
-                        calibrated_activation_bytes_per_token=(
-                            args.activation_bytes_per_token
-                        ),
-                        os_floor_bytes=args.os_floor_bytes,
-                    ),
-                    resume=args.resume,
-                    restart=args.restart,
-                ),
-                "command": "update",
-            }
         elif args.command == "qtip-v7-export":
             from .qtip_v7_repair import export_qtip_v7_artifact
 
@@ -1208,74 +1100,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "command": "qtip-v7-bundle",
                 "output": str(args.output.resolve()),
-            }
-        elif args.command == "qtip-v7-joint-repair":
-            from .qtip_v7_joint_workflow import (
-                aggregate_balanced64,
-                compare_aggregates,
-                inspect_joint_inputs,
-                launch_balanced64_shards,
-                materialize_joint,
-                _train_joint,
-                verify_joint_checkpoint,
-            )
-
-            if args.joint_command == "inspect":
-                result = inspect_joint_inputs(
-                    manifest=args.manifest,
-                    teacher_bank=args.teacher_bank,
-                    run_root=args.run_root,
-                    trainer_host=args.trainer_host,
-                    trainer_aliases=args.trainer_alias,
-                )
-            elif args.joint_command == "train":
-                result = _train_joint(
-                    freeze=args.freeze,
-                    checkpoint=args.checkpoint,
-                    target_update=args.target_update,
-                    trainer=args.trainer,
-                    resume_from=args.resume_from,
-                )
-            elif args.joint_command == "verify":
-                result = verify_joint_checkpoint(
-                    freeze=args.freeze,
-                    checkpoint=args.checkpoint,
-                    receipt=args.receipt,
-                )
-            elif args.joint_command == "shard-launch":
-                result = launch_balanced64_shards(
-                    candidate=args.candidate,
-                    freeze=args.freeze,
-                    teacher_bank=args.teacher_bank,
-                    output=args.output,
-                    workers=args.worker,
-                    remote_python=args.remote_python,
-                )
-            elif args.joint_command == "aggregate":
-                result = aggregate_balanced64(
-                    shards=args.shards,
-                    output=args.output,
-                )
-            elif args.joint_command == "compare":
-                result = compare_aggregates(
-                    baseline=args.baseline,
-                    candidate=args.candidate,
-                    output=args.output,
-                )
-            elif args.joint_command == "materialize":
-                result = materialize_joint(
-                    freeze=args.freeze,
-                    manifest=args.manifest,
-                    checkpoint=args.checkpoint,
-                    output=args.output,
-                )
-            else:  # pragma: no cover - argparse guarantees the choices
-                raise ValueError(
-                    f"unsupported QTIP V7 joint command {args.joint_command!r}"
-                )
-            result = {
-                **result,
-                "command": f"qtip-v7-joint-repair {args.joint_command}",
             }
         elif args.command == "qtip-v7-wire":
             from .qtip_v7_wire import (
@@ -1417,39 +1241,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=args.output,
                 receipt=args.receipt,
             )
-        elif args.command == "train":
-            from .resident_training import ResidentTrainer, load_resident_adapter
-
-            plan = _training_plan_from_args(args)
-            trainer = ResidentTrainer(plan, adapter=load_resident_adapter(plan))
-            residency = trainer.initialize()
-            if args.resume is not None:
-                trainer.load_checkpoint(args.resume)
-            steps = []
-            checkpoint = None
-            while trainer.update < plan.updates:
-                steps.append(trainer.train_step().to_dict())
-                checkpoint = trainer.save_checkpoint()
-            if checkpoint is None:
-                checkpoint = trainer.save_checkpoint()
-            result = {
-                "status": "PASS",
-                "command": "train",
-                "adapter": trainer.adapter.metadata(),
-                "run_root": str(plan.run_root.resolve()),
-                "updates_completed": trainer.update,
-                "checkpoint": str(checkpoint),
-                "residency": residency,
-                "steps": steps,
-            }
-        elif args.command == "train-status":
-            from .resident_training import read_train_status
-
-            result = read_train_status(args.run_root)
-        elif args.command == "checkpoint-info":
-            from .resident_training import checkpoint_info
-
-            result = checkpoint_info(args.checkpoint)
         elif args.command == "backpack-dimensions":
             from .backpack_dimensions import build_dynamic_dimensions
 

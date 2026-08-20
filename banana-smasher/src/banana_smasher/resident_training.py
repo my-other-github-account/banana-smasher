@@ -12,7 +12,23 @@ import time
 from abc import ABC
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
+
+
+RESIDENT_TRAINING_SCHEMA = "banana-smasher-resident-training-v1"
+RESIDENT_EXECUTION_RAIL = "resident-in-memory"
+LEGACY_TRAINING_CONFIG_FIELDS = frozenset(
+    {
+        "execution_mode",
+        "input_checkpoint",
+        "training_mode",
+        "offline",
+        "replay",
+        "staged_files",
+        "subprocess",
+        "reload_per_step",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -60,8 +76,12 @@ class ParameterGroupPlan:
 
     def matches(self, parameter: ParameterDescriptor) -> bool:
         family_matches = not self.families or parameter.family in self.families
-        included = any(fnmatch.fnmatchcase(parameter.name, pattern) for pattern in self.include)
-        excluded = any(fnmatch.fnmatchcase(parameter.name, pattern) for pattern in self.exclude)
+        included = any(
+            fnmatch.fnmatchcase(parameter.name, pattern) for pattern in self.include
+        )
+        excluded = any(
+            fnmatch.fnmatchcase(parameter.name, pattern) for pattern in self.exclude
+        )
         return family_matches and included and not excluded
 
 
@@ -83,8 +103,12 @@ class TrainingTopology:
             world_size=world_size,
             rank=int(raw.get("rank", 0)),
             layer_split=split,
-            master_addr=(None if raw.get("master_addr") is None else str(raw["master_addr"])),
-            master_port=(None if raw.get("master_port") is None else int(raw["master_port"])),
+            master_addr=(
+                None if raw.get("master_addr") is None else str(raw["master_addr"])
+            ),
+            master_port=(
+                None if raw.get("master_port") is None else int(raw["master_port"])
+            ),
         )
         if result.world_size < 1 or not 0 <= result.rank < result.world_size:
             raise ValueError("topology rank must be within world_size")
@@ -107,7 +131,6 @@ class ResidentTrainingPlan:
     model_adapter: str | None
     model_root: Path
     payload_root: Path
-    input_checkpoint: Path | None
     run_root: Path
     topology: TrainingTopology
     windows: tuple[int, ...]
@@ -122,16 +145,34 @@ class ResidentTrainingPlan:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "ResidentTrainingPlan":
+        schema = value.get("schema", RESIDENT_TRAINING_SCHEMA)
+        if schema != RESIDENT_TRAINING_SCHEMA:
+            raise ValueError(
+                f"training schema must be {RESIDENT_TRAINING_SCHEMA!r}, got {schema!r}"
+            )
+        execution_rail = value.get("execution_rail", RESIDENT_EXECUTION_RAIL)
+        if execution_rail != RESIDENT_EXECUTION_RAIL:
+            raise ValueError(
+                "training execution_rail must be resident-in-memory; offline, replay, "
+                "staged-file, subprocess, and reload-per-step modes are not public"
+            )
+        forbidden = sorted(LEGACY_TRAINING_CONFIG_FIELDS & set(value))
+        if forbidden:
+            raise ValueError(
+                "legacy training configuration fields are not public: "
+                + ", ".join(forbidden)
+            )
         model_source = value.get("model_source")
         model_adapter = value.get("model_adapter")
         if model_source is None and model_adapter is None:
             raise ValueError("training plan requires model_source or model_adapter")
-        for path_key in ("model_root", "payload_root", "input_checkpoint"):
+        for path_key in ("model_root", "payload_root"):
             raw_path = value.get(path_key)
             if raw_path is not None and "://" in str(raw_path):
                 raise ValueError(f"{path_key} must be a local filesystem path")
         groups = tuple(
-            ParameterGroupPlan.from_dict(row) for row in value.get("parameter_groups", ())
+            ParameterGroupPlan.from_dict(row)
+            for row in value.get("parameter_groups", ())
         )
         if not groups:
             raise ValueError("training plan requires at least one parameter group")
@@ -140,11 +181,6 @@ class ResidentTrainingPlan:
             model_adapter=None if model_adapter is None else str(model_adapter),
             model_root=Path(value["model_root"]),
             payload_root=Path(value["payload_root"]),
-            input_checkpoint=(
-                None
-                if value.get("input_checkpoint") is None
-                else Path(str(value["input_checkpoint"]))
-            ),
             run_root=Path(value["run_root"]),
             topology=TrainingTopology.from_dict(value.get("topology")),
             windows=tuple(map(int, value.get("windows", ()))),
@@ -159,11 +195,18 @@ class ResidentTrainingPlan:
         )
         if not result.windows or any(window < 0 for window in result.windows):
             raise ValueError("training windows must contain nonnegative indices")
-        for name in ("tokens_per_window", "microbatch", "gradient_accumulation", "updates"):
+        for name in (
+            "tokens_per_window",
+            "microbatch",
+            "gradient_accumulation",
+            "updates",
+        ):
             if getattr(result, name) < 1:
                 raise ValueError(f"{name} must be positive")
         if any(group.lr <= 0 or group.warmup_updates < 0 for group in groups):
-            raise ValueError("parameter-group lr must be positive and warmup nonnegative")
+            raise ValueError(
+                "parameter-group lr must be positive and warmup nonnegative"
+            )
         names = [group.name for group in groups]
         if len(set(names)) != len(names):
             raise ValueError("parameter-group names must be unique")
@@ -178,13 +221,12 @@ class ResidentTrainingPlan:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema": RESIDENT_TRAINING_SCHEMA,
+            "execution_rail": RESIDENT_EXECUTION_RAIL,
             "model_source": self.model_source,
             "model_adapter": self.model_adapter,
             "model_root": str(self.model_root),
             "payload_root": str(self.payload_root),
-            "input_checkpoint": (
-                None if self.input_checkpoint is None else str(self.input_checkpoint)
-            ),
             "run_root": str(self.run_root),
             "topology": {
                 "world_size": self.topology.world_size,
@@ -280,7 +322,9 @@ def require_local_compute_path(path: str | Path, label: str) -> dict[str, str]:
                 resolved.relative_to(mountpoint)
             except ValueError:
                 continue
-            candidates.append((len(mountpoint), fields[separator + 1], fields[separator + 2]))
+            candidates.append(
+                (len(mountpoint), fields[separator + 1], fields[separator + 2])
+            )
         if not candidates:
             raise ValueError(f"{label} has no local mount identity: {resolved}")
         _length, fstype, source = max(candidates)
@@ -295,7 +339,9 @@ def require_local_compute_path(path: str | Path, label: str) -> dict[str, str]:
 
 def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent
+    )
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             json.dump(value, handle, indent=2, sort_keys=True)
@@ -322,25 +368,36 @@ def _encode_state(value: Any, tensors: dict[str, Any], path: str = "state") -> A
         return {
             "kind": "mapping",
             "items": [
-                [_encode_state(key, tensors, f"{path}.key"), _encode_state(item, tensors, f"{path}.{key}")]
+                [
+                    _encode_state(key, tensors, f"{path}.key"),
+                    _encode_state(item, tensors, f"{path}.{key}"),
+                ]
                 for key, item in value.items()
             ],
         }
     if isinstance(value, tuple):
         return {
             "kind": "tuple",
-            "items": [_encode_state(item, tensors, f"{path}.{index}") for index, item in enumerate(value)],
+            "items": [
+                _encode_state(item, tensors, f"{path}.{index}")
+                for index, item in enumerate(value)
+            ],
         }
     if isinstance(value, list):
         return {
             "kind": "list",
-            "items": [_encode_state(item, tensors, f"{path}.{index}") for index, item in enumerate(value)],
+            "items": [
+                _encode_state(item, tensors, f"{path}.{index}")
+                for index, item in enumerate(value)
+            ],
         }
     if isinstance(value, Path):
         return {"kind": "path", "value": str(value)}
     if value is None or isinstance(value, (bool, int, float, str)):
         return {"kind": "scalar", "value": value}
-    raise TypeError(f"checkpoint state at {path} has unsupported type {type(value).__name__}")
+    raise TypeError(
+        f"checkpoint state at {path} has unsupported type {type(value).__name__}"
+    )
 
 
 def _decode_state(node: Mapping[str, Any], tensors: Mapping[str, Any]) -> Any:
@@ -379,15 +436,18 @@ def _checkpoint_document(path: str | Path) -> tuple[dict[str, Any], dict[str, An
     return document, tensors
 
 
-def checkpoint_info(path: str | Path) -> dict[str, Any]:
+def _checkpoint_info(path: str | Path) -> dict[str, Any]:
     document, _tensors = _checkpoint_document(path)
     return {key: value for key, value in document.items() if key != "state_structure"}
 
 
-def read_train_status(run_root: str | Path) -> dict[str, Any]:
+def _read_train_status(run_root: str | Path) -> dict[str, Any]:
     path = Path(run_root) / "TRAIN_STATUS.json"
     value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict) or value.get("schema") != "banana-smasher-resident-training-status-v1":
+    if (
+        not isinstance(value, dict)
+        or value.get("schema") != "banana-smasher-resident-training-status-v1"
+    ):
         raise ValueError(f"not a resident training status file: {path}")
     return value
 
@@ -404,7 +464,9 @@ def load_resident_adapter(plan: ResidentTrainingPlan) -> "ResidentModelAdapter":
         )
     module_name, separator, attribute = specification.partition(":")
     if not separator:
-        raise ValueError("model_adapter must be 'official-k2-packed' or 'module:object'")
+        raise ValueError(
+            "model_adapter must be 'official-k2-packed' or 'module:object'"
+        )
     candidate = getattr(importlib.import_module(module_name), attribute)
     signature = inspect.signature(candidate)
     accepts_kwargs = any(
@@ -418,7 +480,9 @@ def load_resident_adapter(plan: ResidentTrainingPlan) -> "ResidentModelAdapter":
         supplied["plan"] = plan
     adapter = candidate(**supplied)
     if not isinstance(adapter, ResidentModelAdapter):
-        raise TypeError(f"model adapter {specification!r} did not return ResidentModelAdapter")
+        raise TypeError(
+            f"model adapter {specification!r} did not return ResidentModelAdapter"
+        )
     return adapter
 
 
@@ -488,11 +552,21 @@ class TrainStepTiming:
     optimizer_seconds: float
     total_seconds: float
 
+    @property
+    def phase_seconds(self) -> dict[str, float]:
+        return {
+            "forward": self.forward_seconds,
+            "backward": self.backward_seconds,
+            "communication": self.comm_seconds,
+            "optimizer": self.optimizer_seconds,
+            "update_total": self.total_seconds,
+        }
+
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {**asdict(self), "phase_seconds": self.phase_seconds}
 
 
-class ResidentTrainer:
+class _ResidentTrainer:
     """Stages an adapter once, then executes repeated in-memory training updates."""
 
     def __init__(
@@ -500,6 +574,7 @@ class ResidentTrainer:
         plan: ResidentTrainingPlan,
         *,
         adapter: ResidentModelAdapter,
+        phase_observer: Callable[[str, Mapping[str, Any]], None] | None = None,
     ) -> None:
         self.plan = plan
         self.adapter = adapter
@@ -508,41 +583,57 @@ class ResidentTrainer:
         self.residency: dict[str, Any] = {}
         self.parameter_groups: dict[str, tuple[ParameterDescriptor, ...]] = {}
         self.status_path = self.plan.run_root / "TRAIN_STATUS.json"
+        self._phase_observer = phase_observer
+
+    @property
+    def model_instance(self) -> ResidentModelAdapter:
+        """The one adapter/model object retained for this process lifetime."""
+
+        return self.adapter
+
+    def _emit_phase(self, phase: str, **fields: Any) -> None:
+        if self._phase_observer is not None:
+            self._phase_observer(
+                phase,
+                {
+                    "phase": phase,
+                    "update": self.update,
+                    "resident": self.is_resident,
+                    **fields,
+                },
+            )
 
     def initialize(self) -> dict[str, Any]:
         if self.is_resident:
             return dict(self.residency)
         locality = {
-            "model_root": require_local_compute_path(self.plan.model_root, "model root"),
+            "model_root": require_local_compute_path(
+                self.plan.model_root, "model root"
+            ),
             "payload_root": require_local_compute_path(
                 self.plan.payload_root, "payload root"
             ),
         }
-        if self.plan.input_checkpoint is not None:
-            locality["input_checkpoint"] = require_local_compute_path(
-                self.plan.input_checkpoint, "input checkpoint"
-            )
         self.plan.run_root.mkdir(parents=True, exist_ok=True)
         staged_plan = replace(
             self.plan,
             model_root=Path(locality["model_root"]["path"]),
             payload_root=Path(locality["payload_root"]["path"]),
-            input_checkpoint=(
-                None
-                if self.plan.input_checkpoint is None
-                else Path(locality["input_checkpoint"]["path"])
-            ),
         )
+        started = time.perf_counter()
         staged = dict(self.adapter.stage(staged_plan))
         self.parameter_groups = select_parameter_groups(
             self.adapter.parameters(), self.plan.parameter_groups
         )
         if not any(self.parameter_groups.values()):
-            raise ValueError("parameter selectors did not select any trainable parameters")
+            raise ValueError(
+                "parameter selectors did not select any trainable parameters"
+            )
         self.adapter.configure_parameter_groups(self.parameter_groups)
         self.residency = {**staged, "locality": locality}
         self.is_resident = True
         self._write_status("resident_ready")
+        self._emit_phase("resident_load", elapsed_seconds=time.perf_counter() - started)
         return dict(self.residency)
 
     def _learning_rates(self) -> dict[str, float]:
@@ -596,18 +687,19 @@ class ResidentTrainer:
         )
         self.update += 1
         self._write_status("training", last_step=result.to_dict())
+        for phase, elapsed in result.phase_seconds.items():
+            self._emit_phase(phase, elapsed_seconds=elapsed)
         return result
 
     def save_checkpoint(self, path: str | Path | None = None) -> Path:
         if not self.is_resident:
             self.initialize()
+        started = time.perf_counter()
         from safetensors.numpy import save_file
         import numpy as np
 
         checkpoint = (
-            self.plan.run_root
-            / "checkpoints"
-            / f"UPDATE_{self.update:08d}.safetensors"
+            self.plan.run_root / "checkpoints" / f"UPDATE_{self.update:08d}.safetensors"
             if path is None
             else Path(path)
         )
@@ -670,11 +762,18 @@ class ResidentTrainer:
         self._write_status(
             "checkpoint_saved", checkpoint=str(checkpoint), checkpoint_sha256=digest
         )
+        self._emit_phase(
+            "checkpoint_save",
+            elapsed_seconds=time.perf_counter() - started,
+            checkpoint=str(checkpoint),
+        )
         return checkpoint
 
     def load_checkpoint(self, path: str | Path) -> dict[str, Any]:
         if not self.is_resident:
             self.initialize()
+        started = time.perf_counter()
+        resident_model = self.model_instance
         local_checkpoint = Path(
             require_local_compute_path(path, "resume checkpoint")["path"]
         )
@@ -688,7 +787,6 @@ class ResidentTrainer:
             "model_adapter",
             "model_root",
             "payload_root",
-            "input_checkpoint",
             "topology",
             "windows",
             "tokens_per_window",
@@ -719,19 +817,32 @@ class ResidentTrainer:
             for name, parameters in self.parameter_groups.items()
         }
         if document.get("parameter_groups") != current_groups:
-            raise ValueError("checkpoint stable parameter IDs do not match this adapter")
+            raise ValueError(
+                "checkpoint stable parameter IDs do not match this adapter"
+            )
         state = _decode_state(document["state_structure"], tensors)
         self.adapter.load_trainable_state_dict(state["trainables"])
         self.adapter.load_optimizer_state_dict(state["optimizer"])
         self.adapter.load_scheduler_state_dict(state["scheduler"])
         self.update = int(document["next_update"])
+        if self.model_instance is not resident_model:  # pragma: no cover
+            raise RuntimeError("checkpoint hot-swap reconstructed the resident model")
         self._write_status("checkpoint_loaded", checkpoint=str(local_checkpoint))
-        return {key: value for key, value in document.items() if key != "state_structure"}
+        self._emit_phase(
+            "checkpoint_hot_swap",
+            elapsed_seconds=time.perf_counter() - started,
+            checkpoint=str(local_checkpoint),
+        )
+        return {
+            key: value for key, value in document.items() if key != "state_structure"
+        }
 
     def deploy_export(
         self, destination: str | Path, *, checkpoint: str | Path | None = None
     ) -> dict[str, Any]:
-        checkpoint_path = self.save_checkpoint() if checkpoint is None else Path(checkpoint)
+        checkpoint_path = (
+            self.save_checkpoint() if checkpoint is None else Path(checkpoint)
+        )
         output = Path(destination).resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
         return dict(self.adapter.deploy_export(checkpoint_path.resolve(), output))
@@ -751,17 +862,90 @@ class ResidentTrainer:
         )
 
 
+class ResidentTrainingSession:
+    """Sole public training path: API continuation on one resident model.
+
+    Checkpoints are recovery/output artifacts. Loading one hot-swaps state into
+    the existing adapter; it never constructs a replacement model or starts a
+    subprocess.
+    """
+
+    def __init__(self, trainer: _ResidentTrainer) -> None:
+        self._trainer = trainer
+
+    @classmethod
+    def open(
+        cls,
+        plan: ResidentTrainingPlan,
+        *,
+        adapter: ResidentModelAdapter | None = None,
+        phase_observer: Callable[[str, Mapping[str, Any]], None] | None = None,
+    ) -> "ResidentTrainingSession":
+        selected = load_resident_adapter(plan) if adapter is None else adapter
+        trainer = _ResidentTrainer(
+            plan, adapter=selected, phase_observer=phase_observer
+        )
+        trainer.initialize()
+        return cls(trainer)
+
+    @property
+    def model_instance(self) -> ResidentModelAdapter:
+        return self._trainer.model_instance
+
+    @property
+    def update(self) -> int:
+        return self._trainer.update
+
+    def hot_swap_checkpoint(self, checkpoint: str | Path) -> dict[str, Any]:
+        return self._trainer.load_checkpoint(checkpoint)
+
+    def continue_updates(
+        self,
+        count: int,
+        *,
+        checkpoint_every: int | None = None,
+    ) -> dict[str, Any]:
+        if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+            raise ValueError("resident continuation count must be a positive integer")
+        if checkpoint_every is not None and (
+            isinstance(checkpoint_every, bool)
+            or not isinstance(checkpoint_every, int)
+            or checkpoint_every < 1
+        ):
+            raise ValueError("checkpoint_every must be a positive integer")
+        model = self.model_instance
+        steps: list[dict[str, Any]] = []
+        checkpoints: list[str] = []
+        for index in range(count):
+            steps.append(self._trainer.train_step().to_dict())
+            if checkpoint_every is not None and (index + 1) % checkpoint_every == 0:
+                checkpoints.append(str(self._trainer.save_checkpoint()))
+        if self.model_instance is not model:  # pragma: no cover
+            raise RuntimeError("resident continuation reconstructed the model")
+        return {
+            "schema": RESIDENT_TRAINING_SCHEMA,
+            "execution_rail": RESIDENT_EXECUTION_RAIL,
+            "updates_completed": count,
+            "next_update": self.update,
+            "steps": steps,
+            "checkpoints": checkpoints,
+        }
+
+    def save_checkpoint(self, path: str | Path | None = None) -> Path:
+        return self._trainer.save_checkpoint(path)
+
+
 __all__ = [
+    "RESIDENT_EXECUTION_RAIL",
+    "RESIDENT_TRAINING_SCHEMA",
     "ParameterDescriptor",
     "ParameterGroupPlan",
     "ResidentModelAdapter",
-    "ResidentTrainer",
+    "ResidentTrainingSession",
     "ResidentTrainingPlan",
     "TrainStepTiming",
     "TrainingTopology",
-    "checkpoint_info",
     "load_resident_adapter",
-    "read_train_status",
     "require_local_compute_path",
     "select_parameter_groups",
 ]
