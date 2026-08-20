@@ -5,9 +5,16 @@ import json
 from pathlib import Path
 
 import pytest
+import torch
+from unittest.mock import Mock
 
 from banana_smasher.contract import PackValidationError
-from banana_smasher.qtip_v7_routes import QtipV7RouteCensus
+from banana_smasher.hf_deepseek_v4_backpack_adapter import DeepseekV4BackpackRuntime
+from banana_smasher.qtip_v7_routes import (
+    QTIP_V7_MEMBER_BYTES,
+    QtipV7RouteCensus,
+    load_qtip2_v7_wire,
+)
 
 BASIS = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 KINDS = (
@@ -118,3 +125,52 @@ def test_dense_roster_is_explicitly_not_relabelled_as_qtip_wire(tmp_path: Path) 
     assert dense.member_count == 768
     ordinary = next(row for row in census.routes if row.kind == "nas_sftp")
     assert ordinary.wire_format == "qtip2_v7_fixed_wire"
+
+
+@pytest.mark.parametrize(
+    ("projection", "packed_shape", "su_shape", "sv_shape", "weight_shape"),
+    [
+        ("w1", (256, 128, 32), (4096,), (2048,), (2048, 4096)),
+        ("w2", (128, 256, 32), (2048,), (4096,), (4096, 2048)),
+        ("w3", (256, 128, 32), (4096,), (2048,), (2048, 4096)),
+    ],
+)
+def test_raw_v7_member_uses_current_full_row_geometry(
+    tmp_path: Path,
+    projection: str,
+    packed_shape: tuple[int, ...],
+    su_shape: tuple[int, ...],
+    sv_shape: tuple[int, ...],
+    weight_shape: tuple[int, ...],
+) -> None:
+    path = tmp_path / f"E000_{projection}.q2v7wire"
+    path.write_bytes(bytes(QTIP_V7_MEMBER_BYTES))
+    member = load_qtip2_v7_wire(path, projection=projection)
+    assert member["packed"].shape == packed_shape
+    assert member["SU"].shape == su_shape
+    assert member["SV"].shape == sv_shape
+    assert member["weight_shape"] == weight_shape
+    assert member["Wscale"].shape == ()
+
+
+def test_raw_v7_member_rejects_truncation(tmp_path: Path) -> None:
+    path = tmp_path / "E000_w1.q2v7wire"
+    path.write_bytes(bytes(QTIP_V7_MEMBER_BYTES - 1))
+    with pytest.raises(PackValidationError, match="byte geometry"):
+        load_qtip2_v7_wire(path, projection="w1")
+
+
+def test_backpack_adapter_maps_v7_wires_to_existing_logical_projections() -> None:
+    runtime = object.__new__(DeepseekV4BackpackRuntime)
+    runtime.torch = torch
+    runtime._decode_qtip2_v7_part = Mock(
+        side_effect=[torch.ones(2, 3), torch.full((2, 3), 2.0)]
+    )
+    fused = runtime._decode_qtip2_v7(4, 7, "fused13")
+    assert fused.shape == (4, 3)
+    assert fused[:2].eq(1).all() and fused[2:].eq(2).all()
+    assert runtime._decode_qtip2_v7_part.call_args_list[0].args == (4, 7, "w1")
+    assert runtime._decode_qtip2_v7_part.call_args_list[1].args == (4, 7, "w3")
+    runtime._decode_qtip2_v7_part = Mock(return_value=torch.ones(3, 2))
+    assert runtime._decode_qtip2_v7(4, 7, "down").shape == (3, 2)
+    runtime._decode_qtip2_v7_part.assert_called_once_with(4, 7, "w2")

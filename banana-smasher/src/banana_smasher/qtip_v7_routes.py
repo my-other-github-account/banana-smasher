@@ -13,6 +13,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+import numpy as np
+
 from .contract import PackValidationError
 
 ROUTE_CENSUS_SCHEMA = "banana-smasher.qtip2_v7.final_43_route_census.v1"
@@ -35,6 +37,44 @@ ROUTE_KINDS = frozenset(
         "split",
     }
 )
+
+
+def load_qtip2_v7_wire(path: str | Path, *, projection: str) -> dict[str, Any]:
+    """Read one current V7 member using its complete packed/SU/SV geometry."""
+
+    member = Path(path).expanduser().resolve()
+    if projection in {"w1", "w3"}:
+        packed_shape = (256, 128, 32)
+        su_count, sv_count = 4096, 2048
+        weight_shape = (2048, 4096)
+    elif projection == "w2":
+        packed_shape = (128, 256, 32)
+        su_count, sv_count = 2048, 4096
+        weight_shape = (4096, 2048)
+    else:
+        raise PackValidationError(f"unsupported QTIP V7 projection: {projection!r}")
+    try:
+        size = member.stat().st_size
+    except OSError as exc:
+        raise PackValidationError(f"cannot read QTIP V7 member {member}: {exc}") from exc
+    if size != QTIP_V7_MEMBER_BYTES:
+        raise PackValidationError(
+            f"QTIP V7 member byte geometry mismatch: {size} != {QTIP_V7_MEMBER_BYTES}"
+        )
+    packed_bytes = 2_097_152
+    su_end = packed_bytes + su_count * 2
+    sv_end = su_end + sv_count * 2
+    if sv_end + 4 != QTIP_V7_MEMBER_BYTES:
+        raise AssertionError("internal QTIP V7 geometry accounting drift")
+    raw = np.memmap(member, mode="r", dtype=np.uint8, shape=(size,))
+    return {
+        "packed": raw[:packed_bytes].view("<i2").reshape(packed_shape),
+        "SU": raw[packed_bytes:su_end].view("<f2"),
+        "SV": raw[su_end:sv_end].view("<f2"),
+        "Wscale": raw[sv_end:].view("<f4").reshape(()),
+        "weight_shape": weight_shape,
+        "path": member,
+    }
 
 
 def _sha(value: object, field: str) -> str:
@@ -252,4 +292,5 @@ __all__ = [
     "QTIP_V7_MEMBER_BYTES",
     "QtipV7LayerRoute",
     "QtipV7RouteCensus",
+    "load_qtip2_v7_wire",
 ]

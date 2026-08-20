@@ -12,6 +12,7 @@ import numpy as np
 from .d4_wire import decode_d4_expert
 from .hf_deepseek_v4_d4_adapter import DeepseekV4D4Runtime
 from .loader import PackLoader
+from .qtip_v7_routes import load_qtip2_v7_wire
 
 
 def _available_materialization_bytes(
@@ -161,8 +162,16 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             "qtip2_root_map",
             "qtip3_root_map",
         }
-        if not isinstance(binding, Mapping) or set(binding) != required:
-            raise ValueError(f"backpack_runtime requires {sorted(required)}")
+        optional = {"qtip2_v7_root_map", "qtip2_v7_shared_lut"}
+        if (
+            not isinstance(binding, Mapping)
+            or not required.issubset(binding)
+            or set(binding) - required != (optional if optional.issubset(binding) else set())
+        ):
+            raise ValueError(
+                f"backpack_runtime requires {sorted(required)} and either both or neither "
+                f"of {sorted(optional)}"
+            )
         self.basis_sha256 = str(binding["basis_sha256"])
         self.virtual_manifest_path = Path(str(binding["virtual_manifest"])).resolve()
         self.materialization_index_path = Path(str(binding["materialization_index"])).resolve()
@@ -242,6 +251,35 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 str(layer): str(root) for layer, root in layer_roots.items()
             }
             self._record_path(path)
+        self.qtip2_v7_shared_lut_path: Path | None = None
+        if optional.issubset(binding):
+            path = Path(str(binding["qtip2_v7_root_map"])).resolve()
+            root_map = json.loads(path.read_text())
+            if (
+                root_map.get("status") != "PASS"
+                or root_map.get("basis_sha256") != self.basis_sha256
+                or root_map.get("tier") != "qtip2_v7"
+            ):
+                raise ValueError("qtip2_v7 root-map identity mismatch")
+            layer_roots = root_map.get("layer_roots")
+            if not isinstance(layer_roots, Mapping) or set(layer_roots) != {
+                str(layer) for layer in range(43)
+            }:
+                raise ValueError("qtip2_v7 root-map layer coverage mismatch")
+            lut = Path(str(binding["qtip2_v7_shared_lut"])).resolve()
+            expected_lut_sha = root_map.get("shared_lut_sha256")
+            if (
+                not lut.is_file()
+                or lut.stat().st_size != 2048
+                or hashlib.sha256(lut.read_bytes()).hexdigest() != expected_lut_sha
+            ):
+                raise ValueError("qtip2_v7 shared LUT identity mismatch")
+            self.root_maps["qtip2_v7"] = {
+                str(layer): str(root) for layer, root in layer_roots.items()
+            }
+            self.qtip2_v7_shared_lut_path = lut
+            self._record_path(path)
+            self._record_path(lut)
         self._record_path(self.virtual_manifest_path)
         self._record_path(self.materialization_index_path)
 
@@ -315,6 +353,65 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         decoded = _fwht(torch, decoded.T).T * payload["SV"].float().to(device)[:, None]
         decoded = _fwht(torch, decoded) * payload["SU"].float().to(device)
         return decoded.to(torch.bfloat16)
+
+    def _decode_qtip2_v7_part(
+        self, layer: int, expert: int, wire_projection: str
+    ) -> Any:
+        """Decode one current raw V7 member through the established QTIP math."""
+
+        if self.qtip2_v7_shared_lut_path is None:
+            raise ValueError("qtip2_v7 source selected without a shared LUT binding")
+        root = Path(self.root_maps["qtip2_v7"][str(layer)])
+        candidates = (
+            root / f"E{expert:03d}_{wire_projection}.q2v7wire",
+            root / f"E{expert:03d}" / f"{wire_projection}.q2v7wire",
+            root / f"E{expert:03d}_{wire_projection}.k2wire",
+            root / f"E{expert:03d}" / f"{wire_projection}.k2wire",
+        )
+        present = [path for path in candidates if path.is_file()]
+        if len(present) != 1:
+            raise ValueError(
+                f"qtip2_v7 member path is missing or ambiguous: layer={layer} "
+                f"expert={expert} projection={wire_projection}"
+            )
+        payload = load_qtip2_v7_wire(present[0], projection=wire_projection)
+        torch = self.torch
+        device = self.device
+        packed = torch.from_numpy(np.array(payload["packed"], copy=True)).to(device).reshape(-1)
+        su = torch.from_numpy(np.array(payload["SU"], copy=True)).float().to(device)
+        sv = torch.from_numpy(np.array(payload["SV"], copy=True)).float().to(device)
+        scale = torch.from_numpy(np.array(payload["Wscale"], copy=True)).float().to(device)
+        lut_values = np.fromfile(self.qtip2_v7_shared_lut_path, dtype="<f2")
+        if lut_values.shape != (1024,):
+            raise ValueError("qtip2_v7 shared LUT must be float16[1024]")
+        tlut = torch.from_numpy(lut_values.copy()).reshape(512, 2).float().to(device)
+        index = torch.arange(1 << 16, device=device)
+        quadratic = (index + 1) * index
+        sign_flip = 1 - ((quadratic >> 15) & 1) * 2
+        lut_index = (quadratic >> 6) & ((1 << 9) - 1)
+        expanded = tlut[lut_index]
+        expanded[:, 0] *= sign_flip
+        rows, columns = payload["weight_shape"]
+        raw = _decode_compressed(
+            torch, 16, 9, 2, 1, rows, columns, packed, expanded
+        )
+        decoded = raw * scale
+        decoded = _fwht(torch, decoded.T).T * sv[:, None]
+        decoded = _fwht(torch, decoded) * su
+        return decoded.to(torch.bfloat16)
+
+    def _decode_qtip2_v7(
+        self, layer: int, expert: int, projection: str
+    ) -> Any:
+        if projection == "down":
+            return self._decode_qtip2_v7_part(layer, expert, "w2")
+        if projection != "fused13":
+            raise ValueError(f"unsupported qtip2_v7 logical projection: {projection}")
+        gate = self._decode_qtip2_v7_part(layer, expert, "w1")
+        up = self._decode_qtip2_v7_part(layer, expert, "w3")
+        result = self.torch.cat((gate, up), dim=0)
+        del gate, up
+        return result
 
     def _native(self, layer: int, expert: int, projection: str) -> Any:
         prefix = f"layers.{layer}.ffn.experts.{expert}."
@@ -493,6 +590,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                     "native_mxfp4",
                     "qtip2",
                     "qtip3",
+                    "qtip2_v7",
                     "d4_k2048",
                     "d4_k4096",
                 }:
@@ -502,6 +600,8 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                     value = self._native(layer, expert, projection)
                 elif source_key in {"qtip2", "qtip3"}:
                     value = self._decode_qtip(source_key, layer, expert, projection)
+                elif source_key == "qtip2_v7":
+                    value = self._decode_qtip2_v7(layer, expert, projection)
                 else:
                     value = self._decode_d4(
                         source_key,
