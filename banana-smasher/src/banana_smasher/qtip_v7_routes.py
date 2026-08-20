@@ -126,7 +126,6 @@ def _load_qtip2_v7_member_roster(
         )
     root = roster_path.parent
     members: dict[tuple[int, int, str], tuple[Path, str]] = {}
-    layers: set[int] = set()
     for index, raw_row in enumerate(rows):
         row = _mapping(raw_row, f"member roster row {index}")
         layer = row.get("layer")
@@ -172,15 +171,16 @@ def _load_qtip2_v7_member_roster(
             member,
             _sha(row.get("sha256"), f"member roster row {index}"),
         )
-        layers.add(layer)
     expected = {
         (layer, expert, projection)
-        for layer in layers
+        for layer in LAYERS
         for expert in range(EXPERTS)
         for projection in PROJECTIONS
     }
     if set(members) != expected:
-        raise PackValidationError("QTIP V7 member roster coordinate coverage mismatch")
+        raise PackValidationError(
+            "QTIP V7 member roster must resolve exactly layers 0..42 without gaps or duplicates"
+        )
     return members
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+from pathlib import Path
 
 import banana_smasher
 from banana_smasher import anchor, backpack, backpack_exact64, metrics
@@ -88,3 +89,52 @@ def test_qtip_v7_runtime_has_no_layer_number_special_case() -> None:
             }
             assert not (direct_layer_operand and integer_literals), ast.unparse(node)
     assert "L034" not in "\n".join(sources)
+
+
+def test_all_routing_implementations_reject_layer_number_conditionals() -> None:
+    repository = Path(__file__).resolve().parents[2]
+    implementations = (
+        repository
+        / "banana-smasher/src/banana_smasher/hf_deepseek_v4_backpack_adapter.py",
+        repository / "banana-smasher/src/banana_smasher/qtip_v7_routes.py",
+        repository / "runtime/v7/runner/fast_two_node_v7.py",
+        repository
+        / "runtime/v7/vendor/site/banana_smasher/update_backends/joint_v7_repair.py",
+    )
+    violations = []
+    exceptional_tokens = []
+    for path in implementations:
+        source = path.read_text()
+        tree = ast.parse(source, filename=str(path))
+        if "L034" in source or "l034" in source:
+            exceptional_tokens.append(str(path.relative_to(repository)))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Compare):
+                continue
+            operands = (node.left, *node.comparators)
+            layer_operands = {
+                operand.id
+                for operand in operands
+                if isinstance(operand, ast.Name)
+                and "layer" in operand.id.lower()
+                and operand.id != "split_layer"
+            }
+            layer_operands.update(
+                operand.attr
+                for operand in operands
+                if isinstance(operand, ast.Attribute)
+                and "layer" in operand.attr.lower()
+            )
+            integers = {
+                operand.value
+                for operand in operands
+                if isinstance(operand, ast.Constant)
+                and isinstance(operand.value, int)
+                and not isinstance(operand.value, bool)
+            }
+            if layer_operands and integers:
+                violations.append(
+                    f"{path.relative_to(repository)}: {ast.unparse(node)}"
+                )
+    assert violations == []
+    assert exceptional_tokens == []
