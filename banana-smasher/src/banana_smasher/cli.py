@@ -185,6 +185,171 @@ def _parser() -> argparse.ArgumentParser:
         "--no-resume", dest="resume", action="store_false", default=True
     )
 
+    v7_export = subparsers.add_parser(
+        "qtip-v7-export",
+        help="export fixed QTIP V7 members plus repaired layer-shared LUTs",
+    )
+    v7_export.add_argument("--manifest", type=Path, required=True)
+    v7_export.add_argument("--output", type=Path, required=True)
+    v7_export.add_argument(
+        "--update-artifact",
+        action="append",
+        default=[],
+        metavar="LAYER=PATH",
+        help="one explicit source-layer binding per repaired update artifact; repeat for every layer",
+    )
+    v7_bundle = subparsers.add_parser(
+        "qtip-v7-bundle",
+        help="build a causal physical-repair bundle from fixed QTIP V7 members",
+    )
+    v7_bundle.add_argument("--manifest", type=Path, required=True)
+    v7_bundle.add_argument("--training", type=Path, required=True)
+    v7_bundle.add_argument("--output", type=Path, required=True)
+    v7_bundle.add_argument("--learning-rate", type=float, required=True)
+    v7_bundle.add_argument(
+        "--member", action="append", required=True, metavar="LAYER:EXPERT:PROJECTION"
+    )
+
+    joint = subparsers.add_parser(
+        "qtip-v7-joint-repair",
+        description=(
+            "Freeze, train/resume, verify, shard-score, select, and materialize "
+            "the exact all-43 QTIP V7 repair surface: 43 LUTs, 235 RMSNorm "
+            "masters, and 43 output gains. Every checkpoint requires teacher KLD."
+        ),
+        help="one-line all-43 QTIP V7 joint train/checkpoint/score workflow",
+    )
+    joint_commands = joint.add_subparsers(dest="joint_command", required=True)
+    joint_inspect = joint_commands.add_parser(
+        "inspect", help="validate and freeze exact 43-layer inventory plus teacher bank"
+    )
+    joint_inspect.add_argument("--manifest", type=Path, required=True)
+    joint_inspect.add_argument("--teacher-bank", type=Path, required=True)
+    joint_inspect.add_argument("--run-root", type=Path, required=True)
+    joint_inspect.add_argument(
+        "--trainer-host",
+        required=True,
+        help="trainer hostname or direct-fabric address sealed into the freeze receipt",
+    )
+    joint_inspect.add_argument(
+        "--trainer-alias",
+        action="append",
+        default=[],
+        help="repeat for every trainer hostname/address alias that side workers must exclude",
+    )
+    joint_train = joint_commands.add_parser(
+        "train", help="launch or resume full joint training to an explicit update horizon"
+    )
+    joint_train.add_argument("--freeze", type=Path, required=True)
+    joint_train.add_argument("--checkpoint", type=Path, required=True)
+    joint_train.add_argument("--target-update", type=int, required=True)
+    joint_train.add_argument(
+        "--trainer",
+        type=Path,
+        required=True,
+        help="public trainer executable implementing the QTIP_V7_* environment contract",
+    )
+    joint_train.add_argument("--resume-from", type=Path)
+    joint_verify = joint_commands.add_parser(
+        "verify", help="rehash and validate immutable checkpoint/PASS receipt"
+    )
+    joint_verify.add_argument("--freeze", type=Path, required=True)
+    joint_verify.add_argument("--checkpoint", type=Path, required=True)
+    joint_verify.add_argument("--receipt", type=Path)
+    joint_shard = joint_commands.add_parser(
+        "shard-launch",
+        help="copy/launch disjoint BALANCED64 shards on local or SSH side workers",
+    )
+    joint_shard.add_argument("--candidate", type=Path, required=True)
+    joint_shard.add_argument("--freeze", type=Path, required=True)
+    joint_shard.add_argument("--teacher-bank", type=Path, required=True)
+    joint_shard.add_argument("--output", type=Path, required=True)
+    joint_shard.add_argument(
+        "--remote-python",
+        default="python3",
+        help="Python executable available on every SSH worker (default: python3)",
+    )
+    joint_shard.add_argument(
+        "--worker",
+        action="append",
+        required=True,
+        metavar="LOCAL=COMMAND|EXPECTED_HOST@ROUTE:/REMOTE_ROOT=COMMAND",
+        help="repeat once per disjoint side worker; all workers launch before collection",
+    )
+    joint_aggregate = joint_commands.add_parser(
+        "aggregate", help="verify exact 0..63 shard closure and aggregate BALANCED64"
+    )
+    joint_aggregate.add_argument("--shards", type=Path, required=True)
+    joint_aggregate.add_argument("--output", type=Path, required=True)
+    joint_compare = joint_commands.add_parser(
+        "compare", help="compare two complete aggregates and select the non-worse champion"
+    )
+    joint_compare.add_argument("--baseline", type=Path, required=True)
+    joint_compare.add_argument("--candidate", type=Path, required=True)
+    joint_compare.add_argument("--output", type=Path, required=True)
+    joint_materialize = joint_commands.add_parser(
+        "materialize", help="materialize trained state and exact stored-wire accounting"
+    )
+    joint_materialize.add_argument("--freeze", type=Path, required=True)
+    joint_materialize.add_argument("--manifest", type=Path, required=True)
+    joint_materialize.add_argument("--checkpoint", type=Path, required=True)
+    joint_materialize.add_argument("--output", type=Path, required=True)
+
+
+    v7_wire = subparsers.add_parser(
+        "qtip-v7-wire",
+        help="pack, verify, and account physical fixed-envelope QTIP V7 wire",
+    )
+    v7_wire_commands = v7_wire.add_subparsers(
+        dest="v7_wire_command", required=True
+    )
+    v7_wire_pack = v7_wire_commands.add_parser(
+        "pack-layer", help="pack one exact 768-member layer and embedded FP16 LUT"
+    )
+    v7_wire_pack.add_argument("--source-root", type=Path, required=True)
+    v7_wire_pack.add_argument("--lut", type=Path, required=True)
+    v7_wire_pack.add_argument("--layer", type=int, required=True)
+    v7_wire_pack.add_argument("--output", type=Path, required=True)
+    v7_wire_pack.add_argument("--receipt", type=Path)
+    v7_wire_verify = v7_wire_commands.add_parser(
+        "verify-layer", help="stream-authenticate and optionally reconstruct one layer"
+    )
+    v7_wire_verify.add_argument("--wire", type=Path, required=True)
+    v7_wire_verify.add_argument("--receipt", type=Path, required=True)
+    v7_wire_verify.add_argument("--reconstructed-output", type=Path)
+    v7_wire_account = v7_wire_commands.add_parser(
+        "account-model", help="derive zero-gap model accounting from 43 verified receipts"
+    )
+    v7_wire_account.add_argument(
+        "--receipt", type=Path, action="append", required=True
+    )
+    v7_wire_account.add_argument("--output", type=Path, required=True)
+    v7_wire_account.add_argument("--weight-denominator", type=int, required=True)
+    v7_wire_account.add_argument("--weight-denominator-label", required=True)
+
+    v7_residency = subparsers.add_parser(
+        "qtip-v7-residency",
+        help="report projected or hardware-read QTIP V7 resident-weight bytes",
+    )
+    v7_residency.add_argument("--accounting", type=Path, required=True)
+    v7_residency.add_argument("--output", type=Path)
+    v7_residency.add_argument(
+        "--hardware-readback",
+        type=Path,
+        help="physical runtime telemetry; without it status is PROJECTED",
+    )
+    v7_residency.add_argument(
+        "--capture-hardware",
+        action="store_true",
+        help="map all layers and execute every direct projection before reporting PROVEN",
+    )
+    v7_layer_smoke = subparsers.add_parser(
+        "qtip-v7-layer-smoke",
+        help="execute one bounded fixed-envelope w1/w2/w3 direct hardware smoke",
+    )
+    v7_layer_smoke.add_argument("--wire", type=Path, required=True)
+    v7_layer_smoke.add_argument("--output", type=Path, required=True)
+
     enqueue = subparsers.add_parser(
         "update-enqueue", help="durably enqueue an exactly-once update request"
     )
@@ -225,6 +390,36 @@ def _parser() -> argparse.ArgumentParser:
     qtip_configs.add_argument("--tier", required=True)
     qtip_configs.add_argument("--layers", required=True)
     qtip_configs.add_argument("--output", type=Path, required=True)
+
+    native_v4 = subparsers.add_parser(
+        "qtip-native-v4",
+        help="build and anchor homogeneous QTIP2.5 L16/B10/V4 candidate cells",
+    )
+    native_v4_commands = native_v4.add_subparsers(
+        dest="native_v4_command", required=True
+    )
+    native_v4_build = native_v4_commands.add_parser(
+        "build-cell", help="build one physical native-V4 cell from a compact QTIP transform"
+    )
+    native_v4_build.add_argument("--source", type=Path, required=True)
+    native_v4_build.add_argument("--control", type=Path, required=True)
+    native_v4_build.add_argument("--tlut", type=Path, required=True)
+    native_v4_build.add_argument("--output", type=Path, required=True)
+    native_v4_build.add_argument("--intended-basis-sha256", required=True)
+    native_v4_build.add_argument("--observed-basis-sha256", required=True)
+    native_v4_build.add_argument(
+        "--backend", choices=("cuda", "reference"), default="cuda"
+    )
+    native_v4_build.add_argument("--solve-batch", type=int, default=2048)
+    native_v4_build.add_argument("--decode-batch", type=int, default=2048)
+    native_v4_build.add_argument("--decode-repeats", type=int, default=1)
+    native_v4_anchor = native_v4_commands.add_parser(
+        "anchor-cell", help="measure one built native-V4 cell with the standard 64-window anchor"
+    )
+    native_v4_anchor.add_argument("--candidate", type=Path, required=True)
+    native_v4_anchor.add_argument("--anchor-bank", type=Path, required=True)
+    native_v4_anchor.add_argument("--teacher", type=Path, required=True)
+    native_v4_anchor.add_argument("--output", type=Path, required=True)
 
     kernels = subparsers.add_parser(
         "kernels", help="manage SHA-pinned compiled kernel caches"
@@ -1159,6 +1354,160 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 "command": "update",
             }
+        elif args.command == "qtip-v7-export":
+            from .qtip_v7_repair import export_qtip_v7_artifact
+
+            result = {
+                **export_qtip_v7_artifact(
+                    manifest=args.manifest,
+                    output=args.output,
+                    update_artifact=args.update_artifact,
+                ),
+                "command": "qtip-v7-export",
+                "output": str(args.output.resolve()),
+            }
+        elif args.command == "qtip-v7-bundle":
+            from .qtip_v7_repair import build_qtip_v7_repair_bundle
+
+            result = {
+                **build_qtip_v7_repair_bundle(
+                    manifest=args.manifest,
+                    training=args.training,
+                    output=args.output,
+                    learning_rate=args.learning_rate,
+                    members=args.member,
+                ),
+                "command": "qtip-v7-bundle",
+                "output": str(args.output.resolve()),
+            }
+        elif args.command == "qtip-v7-joint-repair":
+            from .qtip_v7_joint_workflow import (
+                aggregate_balanced64,
+                compare_aggregates,
+                inspect_joint_inputs,
+                launch_balanced64_shards,
+                materialize_joint,
+                train_joint,
+                verify_joint_checkpoint,
+            )
+
+            if args.joint_command == "inspect":
+                result = inspect_joint_inputs(
+                    manifest=args.manifest,
+                    teacher_bank=args.teacher_bank,
+                    run_root=args.run_root,
+                    trainer_host=args.trainer_host,
+                    trainer_aliases=args.trainer_alias,
+                )
+            elif args.joint_command == "train":
+                result = train_joint(
+                    freeze=args.freeze,
+                    checkpoint=args.checkpoint,
+                    target_update=args.target_update,
+                    trainer=args.trainer,
+                    resume_from=args.resume_from,
+                )
+            elif args.joint_command == "verify":
+                result = verify_joint_checkpoint(
+                    freeze=args.freeze,
+                    checkpoint=args.checkpoint,
+                    receipt=args.receipt,
+                )
+            elif args.joint_command == "shard-launch":
+                result = launch_balanced64_shards(
+                    candidate=args.candidate,
+                    freeze=args.freeze,
+                    teacher_bank=args.teacher_bank,
+                    output=args.output,
+                    workers=args.worker,
+                    remote_python=args.remote_python,
+                )
+            elif args.joint_command == "aggregate":
+                result = aggregate_balanced64(
+                    shards=args.shards,
+                    output=args.output,
+                )
+            elif args.joint_command == "compare":
+                result = compare_aggregates(
+                    baseline=args.baseline,
+                    candidate=args.candidate,
+                    output=args.output,
+                )
+            elif args.joint_command == "materialize":
+                result = materialize_joint(
+                    freeze=args.freeze,
+                    manifest=args.manifest,
+                    checkpoint=args.checkpoint,
+                    output=args.output,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported QTIP V7 joint command {args.joint_command!r}"
+                )
+            result = {
+                **result,
+                "command": f"qtip-v7-joint-repair {args.joint_command}",
+            }
+        elif args.command == "qtip-v7-wire":
+            from .qtip_v7_wire import (
+                account_qtip_v7_model,
+                pack_qtip_v7_layer,
+                verify_qtip_v7_layer,
+            )
+
+            if args.v7_wire_command == "pack-layer":
+                result = pack_qtip_v7_layer(
+                    source_root=args.source_root,
+                    lut=args.lut,
+                    layer=args.layer,
+                    output=args.output,
+                    receipt=args.receipt,
+                )
+            elif args.v7_wire_command == "verify-layer":
+                result = verify_qtip_v7_layer(
+                    wire=args.wire,
+                    receipt=args.receipt,
+                    reconstructed_output=args.reconstructed_output,
+                )
+            elif args.v7_wire_command == "account-model":
+                result = account_qtip_v7_model(
+                    receipts=args.receipt,
+                    output=args.output,
+                    weight_denominator=args.weight_denominator,
+                    weight_denominator_label=args.weight_denominator_label,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported QTIP V7 wire command {args.v7_wire_command!r}"
+                )
+            result = {
+                **result,
+                "command": f"qtip-v7-wire {args.v7_wire_command}",
+            }
+        elif args.command == "qtip-v7-residency":
+            from .qtip_v7_residency import qtip_v7_resident_weight
+
+            if args.capture_hardware:
+                if args.hardware_readback is None:
+                    raise ValueError("--capture-hardware requires --hardware-readback output")
+                from importlib import import_module
+
+                runtime = import_module("banana_smasher_plugin.qtip_v7_runtime")
+                runtime.capture_qtip_v7_hardware_readback(
+                    args.accounting, args.hardware_readback
+                )
+            result = qtip_v7_resident_weight(
+                accounting=args.accounting,
+                output=args.output,
+                hardware_readback=args.hardware_readback,
+            )
+            result = {**result, "command": "qtip-v7-residency"}
+        elif args.command == "qtip-v7-layer-smoke":
+            from importlib import import_module
+
+            runtime = import_module("banana_smasher_plugin.qtip_v7_runtime")
+            result = runtime.capture_qtip_v7_layer_smoke(args.wire, args.output)
+            result = {**result, "command": "qtip-v7-layer-smoke"}
         elif args.command == "bank":
             from .bank import build_bank
 
@@ -1190,6 +1539,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                 layers=_parse_layers(args.layers),
                 output_root=args.output,
             )
+        elif args.command == "qtip-native-v4":
+            from .qtip25_native_v4_api import (
+                anchor_qtip25_native_v4_cell,
+                build_qtip25_native_v4_cell,
+            )
+
+            if args.native_v4_command == "build-cell":
+                result = build_qtip25_native_v4_cell(
+                    args.source,
+                    args.control,
+                    args.tlut,
+                    args.output,
+                    intended_basis_sha256=args.intended_basis_sha256,
+                    observed_basis_sha256=args.observed_basis_sha256,
+                    backend=args.backend,
+                    solve_batch=args.solve_batch,
+                    decode_batch=args.decode_batch,
+                    decode_repeats=args.decode_repeats,
+                )
+            elif args.native_v4_command == "anchor-cell":
+                result = anchor_qtip25_native_v4_cell(
+                    args.candidate,
+                    anchor_bank=args.anchor_bank,
+                    teacher=args.teacher,
+                    output=args.output,
+                )
+            else:  # pragma: no cover - argparse guarantees the choices
+                raise ValueError(
+                    f"unsupported qtip-native-v4 command {args.native_v4_command!r}"
+                )
         elif args.command == "kernels":
             if args.kernel_command != "build":
                 raise ValueError(f"unsupported kernels command: {args.kernel_command}")

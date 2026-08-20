@@ -13,6 +13,12 @@ schemas, public-safe four-bank provenance bundle, and commands are documented in
 contracts and result tables live under [`Evals/`](Evals/); separate internal
 QTIP family-anchor calculations live under [`Backpack/`](Backpack/).
 
+The public Evals page includes a dedicated EXL 2×3 scope/rate matrix covering
+full/all-eligible and routed-experts-only + exact-native-rest K2, greedy K2.5,
+and K3 cells. All six BALANCED64 cells are measured, and the routed greedy K2.5
+artifact also has a fresh physical MMLU-500 result with independently verified
+FP32 answer-head logits.
+
 ## Clone
 
 ```bash

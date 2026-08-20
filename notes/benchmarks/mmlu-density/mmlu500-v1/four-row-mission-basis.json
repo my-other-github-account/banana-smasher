@@ -1,0 +1,51 @@
+{
+  "bank": {
+    "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+    "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+    "rows": 500
+  },
+  "public_copy_transform": "removed the internal task identifier and serialized the declared BPW values as exact decimal strings; bank, model, and scoring fields are unchanged",
+  "relative_density_reference": "UD-IQ4_XS",
+  "source_scoring_basis_sha256": "83ace3f25a4f77325479690a47e7b86f7dee5ef44513996b551f24145ff88f8e",
+  "rows": [
+    {
+      "base_equivalent_bpw": "3.8451166272834685",
+      "complete_bytes": 136662446656,
+      "label": "Unsloth IQ4",
+      "repository": "unsloth/DeepSeek-V4-Flash-0731-GGUF",
+      "revision": "fbbb5b93fb787c21338159b0af3318bb3f4d9768",
+      "variant": "UD-IQ4_XS"
+    },
+    {
+      "base_equivalent_bpw": "2.931978308348837",
+      "complete_bytes": 104207848032,
+      "label": "Unsloth IQ3",
+      "repository": "unsloth/DeepSeek-V4-Flash-0731-GGUF",
+      "revision": "fbbb5b93fb787c21338159b0af3318bb3f4d9768",
+      "variant": "UD-IQ3_XXS"
+    },
+    {
+      "base_equivalent_bpw": "2.556445745541928",
+      "complete_bytes": 90860736928,
+      "label": "Unsloth IQ2",
+      "repository": "unsloth/DeepSeek-V4-Flash-0731-GGUF",
+      "revision": "fbbb5b93fb787c21338159b0af3318bb3f4d9768",
+      "variant": "UD-IQ2_XXS"
+    },
+    {
+      "base_equivalent_bpw": "2.6360875868777476",
+      "base_repository": "antirez/deepseek-v4-gguf",
+      "base_revision": "1cd7b564460821938add0475a60b942c409295e0",
+      "base_sha256": "ca22ae2f838e14077c22bc1c1417b71b45b5e5a3687bd96c2ac6e17fdb6261c0",
+      "complete_bytes": 93691352992,
+      "drafter_repository": "bleysg/DeepSeek-V4-Flash-DSpark-drafter-GGUF",
+      "drafter_revision": "81c6fdd38f9582da45ba27f0ed7b63bcd3ea3b62",
+      "drafter_sha256": "8fa269560dc76fd73e4233ad9b1938b5f65dd363381fd9b1a5c6183f7d12d686",
+      "label": "DwarfStar Q2 0731",
+      "variant": "DwarfStar-Q2-0731"
+    }
+  ],
+  "schema": "banana-smasher.mmlu500-density-four-row-basis.v1",
+  "scoring": "zero-shot; literal prompts; no chat template; one prefill per question; final-position literal A/B/C/D logits; four-choice normalization; no generation",
+  "status": "FROZEN"
+}

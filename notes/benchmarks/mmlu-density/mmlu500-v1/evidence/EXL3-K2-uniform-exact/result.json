@@ -1,0 +1,45 @@
+{
+  "bank_items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+  "bank_manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+  "base_equivalent_bpw": "2.1907058696825606173737276358734996088908236748322939650200806709327704680850651",
+  "choice_token_ids": [
+    35,
+    36,
+    37,
+    38
+  ],
+  "closure": {
+    "duplicates": 0,
+    "errors": 0,
+    "gaps": 0,
+    "nonfinite": 0,
+    "ties": 0,
+    "unique_raw_logit_qrows": 500
+  },
+  "complete_artifact_bytes": 77861675750,
+  "complete_decimal_gb": "77.86167575",
+  "correct": 369,
+  "gold_cross_entropy_bits": "1.023952721443963",
+  "label": "EXL3 K2 uniform exact",
+  "mmlu_intelligence_density": "22.2759251597163319465289057819950657817687670304218953314782722230326515930399810618438699876324023710314001979897142511",
+  "mmlu_per_gb": "0.626752500892584501047037893992411279434863691589632913853642560473661524039315323880631993718681298738937043748380922819",
+  "mmlu_percent": "73.8",
+  "n": 500,
+  "provenance": {
+    "candidate_index_sha256": "0bc64482f21c3cb76b078e0ecf3835b5e7294a28dba01080a69403bf85d13533",
+    "candidate_tree_sha256": "4c6c834e7c65907cb8c5fee6ba1edf8888deb3485ec2be1682c6edc199ca6e52",
+    "independent_recomputation": "PASS",
+    "independent_recomputation_sha256": "fb8b8a57c2423cc826df5f061293ce022708925dee62016d6eabc81c0b022b14",
+    "load_receipt_sha256": "92b33b2bcea674dbd86b1beb72d067f44b4327f9b310c9c6abbdc999bd1673e9",
+    "mmlu_public_row_sha256": "9f3210cc7a1038b2df43815a9601c986612a58f0eeca95d756cc5e47fe9b8513",
+    "qrows_sha256": "50b614be30737a569fb0f17aaaa2741f23107df4ab2a32ee49908427747a99a4",
+    "terminal_sha256": "48bf64d08358449584f663c8e400c302c004d01aa93b216010119760017e0e94",
+    "upstream_exllamav3_revision": "791c83073f7f90c44f765a0ceeab7a05fa15b96b"
+  },
+  "raw_mmlu_per_bpw": "33.6877720653087151158572386621154888257076845664986859726044362717174116304580041468048689567063789955351912830254285191",
+  "raw_mmlu_per_gb": "0.947834724710506888878512224931146566030593041789239939393418462355660255616833420130955760992595898502736758783412133279",
+  "schema": "banana-smasher.mmlu500-public-result.v1",
+  "scoring": "one zero-shot literal prompt forward; genuine FP32 A/B/C/D accumulation at the final prompt position; no generation",
+  "status": "PASS",
+  "variant": "EXL3-K2-uniform-exact"
+}

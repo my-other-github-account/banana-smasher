@@ -1,0 +1,31 @@
+{
+  "complete_bytes": 136662446656,
+  "files": [
+    {
+      "bytes": 5257664,
+      "name": "DeepSeek-V4-Flash-0731-UD-IQ4_XS-00001-of-00004.gguf",
+      "sha256": "b68fd7fa0579916d7b91bacdbdabece42789b4716be7131f32f59b58642c9472"
+    },
+    {
+      "bytes": 49431060672,
+      "name": "DeepSeek-V4-Flash-0731-UD-IQ4_XS-00002-of-00004.gguf",
+      "sha256": "d8a00e31a38313ca122687a8d0bcb26da744b27d5aaf966c6a7256cae31fb03c"
+    },
+    {
+      "bytes": 49605340544,
+      "name": "DeepSeek-V4-Flash-0731-UD-IQ4_XS-00003-of-00004.gguf",
+      "sha256": "86b27d95a0e8b16be7cc2ad60e3840c3523b4061b8f92b940522e3cfa523059d"
+    },
+    {
+      "bytes": 37620787776,
+      "name": "DeepSeek-V4-Flash-0731-UD-IQ4_XS-00004-of-00004.gguf",
+      "sha256": "24e6c819db7df257c93acbbd0e1aec6c03fd9f04036b92be065bfbe5539ca9fc"
+    }
+  ],
+  "repository": "unsloth/DeepSeek-V4-Flash-0731-GGUF",
+  "revision": "fbbb5b93fb787c21338159b0af3318bb3f4d9768",
+  "schema": "banana-smasher.mmlu500-public-model-identity.v1",
+  "source_receipt_sha256": "01f3cf6294bfc9d9789c051b812de39f5885c1220c0936429b00c987fd46a54f",
+  "status": "PASS",
+  "variant": "UD-IQ4_XS"
+}

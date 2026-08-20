@@ -1,0 +1,22 @@
+{
+  "bank_manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+  "accepted_score": 0,
+  "candidate_artifact_sha256": "86e1a27915c4cd2afef945c349c4bfecc4978ad530cc5a1bf78cea8258c25121",
+  "complete_artifact_bytes": 89330008924,
+  "independent_reaggregation_sha256": "5f54e5be1a9fdb6f428e3552065272fad75b0d09e6161268dcc0557ce6a93a21",
+  "independent_recomputation": "PASS",
+  "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+  "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "primary_terminal_sha256": "79690779cf54e75119d5a8db82c5eb52d562b7e24fb4fd1c741dbd108e07d944",
+  "producer_manifest_sha256": "7dbdbeb1977388461e61a2a2899eec5b6853dd7f58d454f7e682bd953fbe90c2",
+  "qrows_sha256": "a2071096f9a8207f50b661aeddf5911586a5de7f50ae1e887d952855d2a110b2",
+  "runtime_sha256": "470adfd7aa4d4b5041a0a5020fa3df3cb491183267c94f5f63f7b9417a06dca7",
+  "method_divergence": "layerwise LUT-only optimization without joint RMSNorm/output-gain whole-model training",
+  "prior_publication_pr": 62,
+  "replacement_score_published": false,
+  "schema": "banana-smasher.mmlu500-qtip2-corrected-all43-public-model-identity.v2",
+  "source_map_sha256": "0c5290b89894c7f7e4348a1b8d2637391ee4d7961338f903e66be0dcf5559531",
+  "source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "status": "METHOD_DIVERGENT_QUARANTINED",
+  "variant": "QTIP2-corrected-all43"
+}

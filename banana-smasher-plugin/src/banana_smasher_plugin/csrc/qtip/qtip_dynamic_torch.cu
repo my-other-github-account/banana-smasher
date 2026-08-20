@@ -8,7 +8,7 @@
 
 namespace {
 
-template <uint32_t R, uint32_t K, int Variant>
+template <uint32_t R, uint32_t M, uint32_t K, int Variant, bool HostCodebook = false>
 void specialized_qtip(
     torch::Tensor& out, const torch::Tensor& sources,
     const torch::Tensor& family_block_count, const torch::Tensor& block_experts,
@@ -17,7 +17,7 @@ void specialized_qtip(
     const torch::Tensor& physical_counters, int64_t specialized_counter_index) {
   CHECK_INPUT(out); CHECK_INPUT(sources); CHECK_INPUT(family_block_count);
   CHECK_INPUT(block_experts); CHECK_INPUT(block_valid_m); CHECK_INPUT(block_route_rows);
-  CHECK_INPUT(x); CHECK_INPUT(codebook); CHECK_INPUT(physical_counters);
+  CHECK_INPUT(x); CHECK_CONTIGUOUS(codebook); CHECK_INPUT(physical_counters);
   TORCH_CHECK(out.scalar_type() == torch::kFloat32, "out must be CUDA float32");
   TORCH_CHECK(sources.scalar_type() == torch::kInt64 && sources.dim() == 1, "sources must be CUDA int64 pointers");
   TORCH_CHECK(family_block_count.scalar_type() == torch::kInt32 && family_block_count.numel() == 1, "family count must be int32[1]");
@@ -26,7 +26,8 @@ void specialized_qtip(
   TORCH_CHECK(block_route_rows.scalar_type() == torch::kInt32 && block_route_rows.dim() == 2 && block_route_rows.size(0) == block_experts.numel(), "route descriptors invalid");
   TORCH_CHECK(x.scalar_type() == torch::kFloat16 && x.dim() == 2, "x must be CUDA float16");
   TORCH_CHECK(codebook.scalar_type() == torch::kFloat16 && codebook.numel() == 1024, "QTIP TLUT must be float16[1024]");
-  constexpr int64_t N = 4096;
+  TORCH_CHECK(codebook.is_cuda() || HostCodebook, "QTIP TLUT must be CUDA unless it aliases a V7 coherent envelope");
+  constexpr int64_t N = M;
   const int64_t routes = x.size(0);
   TORCH_CHECK(routes >= 1 && routes <= 49152 && x.size(1) == K, "QTIP route/K shape invalid");
   TORCH_CHECK(out.dim() == 2 && out.size(0) == routes && out.size(1) == N, "QTIP output shape invalid");
@@ -34,7 +35,7 @@ void specialized_qtip(
   TORCH_CHECK(physical_counters.scalar_type() == torch::kInt64 && physical_counters.numel() >= 160, "physical_counters must be CUDA int64[160+]");
   TORCH_CHECK(specialized_counter_index >= 32 && specialized_counter_index < 160, "specialized counter is outside matrix layout");
   const c10::cuda::CUDAGuard guard(x.device());
-  decompress_matvec_specialized_ptr<16U, 9U, R, 1U, 4096U, 1U, K, Variant>(
+  decompress_matvec_specialized_ptr<16U, 9U, R, 1U, M, 1U, K, Variant>(
       out.data_ptr<float>(), sources.data_ptr<int64_t>(),
       reinterpret_cast<const half2*>(x.data_ptr<c10::Half>()),
       reinterpret_cast<const half2*>(codebook.data_ptr<c10::Half>()),
@@ -55,10 +56,44 @@ void specialized_qtip(
       const torch::Tensor& x, const torch::Tensor& codebook, \
       const torch::Tensor& physical_counters, int64_t specialized_counter_index) { \
     TORCH_CHECK(specialized_counter_index == COUNTER, "QTIP matrix counter mismatch"); \
-    specialized_qtip<R##U, K##U, VARIANT>(out, sources, family_block_count, \
+    specialized_qtip<R##U, 4096U, K##U, VARIANT>(out, sources, family_block_count, \
         block_experts, block_valid_m, block_route_rows, x, codebook, \
         physical_counters, specialized_counter_index); \
   }
+
+void qtip2_v7_direct(
+    torch::Tensor& out, const torch::Tensor& sources,
+    const torch::Tensor& family_block_count, const torch::Tensor& block_experts,
+    const torch::Tensor& block_valid_m, const torch::Tensor& block_route_rows,
+    const torch::Tensor& x, const torch::Tensor& embedded_codebook,
+    const torch::Tensor& physical_counters, int64_t variant,
+    int64_t specialized_counter_index) {
+  TORCH_CHECK(variant >= 0 && variant <= 8, "QTIP V7 variant must be in [0,8]");
+#define V7_LAUNCH(M, K, VARIANT) \
+  specialized_qtip<2U, M##U, K##U, VARIANT, true>( \
+      out, sources, family_block_count, block_experts, block_valid_m, \
+      block_route_rows, x, embedded_codebook, physical_counters, \
+      specialized_counter_index)
+#define V7_VARIANTS(M, K) \
+  if (variant == 0) V7_LAUNCH(M, K, 0); \
+  else if (variant == 1) V7_LAUNCH(M, K, 1); \
+  else if (variant == 2) V7_LAUNCH(M, K, 2); \
+  else if (variant == 3) V7_LAUNCH(M, K, 3); \
+  else if (variant == 4) V7_LAUNCH(M, K, 4); \
+  else if (variant == 5) V7_LAUNCH(M, K, 5); \
+  else if (variant == 6) V7_LAUNCH(M, K, 6); \
+  else if (variant == 7) V7_LAUNCH(M, K, 7); \
+  else V7_LAUNCH(M, K, 8)
+  if (x.size(1) == 4096 && out.size(1) == 2048) {
+    V7_VARIANTS(2048, 4096);
+  } else if (x.size(1) == 2048 && out.size(1) == 4096) {
+    V7_VARIANTS(4096, 2048);
+  } else {
+    TORCH_CHECK(false, "QTIP V7 direct shape must be 4096->2048 or 2048->4096");
+  }
+#undef V7_VARIANTS
+#undef V7_LAUNCH
+}
 
 DEFINE_QTIP_SPECIALIZATION(qtip2_k4096_decode_c1, 2, 4096, 0, 32)
 DEFINE_QTIP_SPECIALIZATION(qtip2_k4096_decode_c2, 2, 4096, 1, 33)

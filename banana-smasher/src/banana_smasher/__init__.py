@@ -148,6 +148,20 @@ from .qtip1 import (
     write_encoded_qtip_wire,
     write_qtip_wire,
 )
+from .qtip25_native_v4_api import (
+    anchor_qtip25_native_v4_cell,
+    build_qtip25_native_v4_cell,
+)
+from .qtip_v7_batch import produce_qtip2_v7_batch10
+from .qtip_v7_joint_workflow import (
+    aggregate_balanced64,
+    compare_aggregates,
+    inspect_joint_inputs,
+    launch_balanced64_shards,
+    materialize_joint,
+    train_joint,
+    verify_joint_checkpoint,
+)
 from .update_service import serve_persistent_updates
 
 
@@ -220,8 +234,10 @@ __all__ = [
     "V7_UNIFORM_TIERS",
     "UpdateQueue",
     "aggregate_scores",
+    "aggregate_balanced64",
     "anchor_backpack",
     "anchor_backpack_candidates",
+    "anchor_qtip25_native_v4_cell",
     "assign_qtip_provider_components",
     "backpack_provider_from_declaration",
     "bq23_backpack_family_providers",
@@ -231,6 +247,7 @@ __all__ = [
     "build_bank_manifest",
     "build_bpw_accounting",
     "build_backpack",
+    "build_qtip25_native_v4_cell",
     "build_contextual_delta_ledger",
     "build_full_wire_provenance_ledger",
     "build_hierarchical_groups",
@@ -238,6 +255,7 @@ __all__ = [
     "candidate_artifact_root",
     "compare_training_rails",
     "command_evaluator",
+    "compare_aggregates",
     "create_balanced_subset",
     "decode_qtip",
     "emit_solver_row",
@@ -252,7 +270,9 @@ __all__ = [
     "generate_vector_vq_backpack_candidate",
     "gaussian_tlut",
     "import_producer",
+    "inspect_joint_inputs",
     "inspect_backpack",
+    "launch_balanced64_shards",
     "load_manifest",
     "load_full_wire_menu",
     "load_routing_usage",
@@ -265,6 +285,7 @@ __all__ = [
     "materialize_bank",
     "materialize_candidate_producer",
     "materialize_fixed_d4",
+    "materialize_joint",
     "native_mxfp4_backpack_provider",
     "pack_qtip_states",
     "persist_fixed_d4_solve",
@@ -276,6 +297,7 @@ __all__ = [
     "project_group_logits",
     "produce_fixed_d4_layerwise_logits",
     "produce_fixed_d4_logits",
+    "produce_qtip2_v7_batch10",
     "qtip1_5_provider_declaration",
     "qtip1_provider_declaration",
     "qtip_provider_counts",
@@ -306,6 +328,7 @@ __all__ = [
     "status_backpack",
     "status_report",
     "stage_qsfp_manifest",
+    "train_joint",
     "select_measured_nonworse",
     "unpack_qtip_states",
     "validate_bank_manifest",
@@ -316,6 +339,7 @@ __all__ = [
     "verify_backpack_candidate",
     "verify_virtual_backpack",
     "verify_fixed_d4_model",
+    "verify_joint_checkpoint",
     "verify_pack",
     "verify_qtip_wire",
     "write_encoded_qtip_wire",
