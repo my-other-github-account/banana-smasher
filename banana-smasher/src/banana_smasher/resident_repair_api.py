@@ -118,6 +118,7 @@ class ResidentRepairAPI:
         self._uniforms: dict[str, UniformBuild] = {}
         self._mixed: BackpackArtifact | None = None
         self._resident_loaded = False
+        self._phase_state = "initialized"
 
     def _timed(self, phase: str, budget_seconds: float, call: Callable[[], _T]) -> _T:
         started = self._clock()
@@ -231,7 +232,11 @@ class ResidentRepairAPI:
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("score_pre requires a mixed Backpack")
-        return self._score(selected, "pre")
+        if self._phase_state != "initialized":
+            raise ValueError("score_pre must be the first resident arm phase")
+        result = self._score(selected, "pre")
+        self._phase_state = "pre_scored"
+        return result
 
     def repair_train(
         self, artifact: BackpackArtifact | None = None, *, updates: int
@@ -239,20 +244,28 @@ class ResidentRepairAPI:
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("repair_train requires a mixed Backpack")
-        if isinstance(updates, bool) or not isinstance(updates, int) or updates < 0:
-            raise ValueError("repair updates must be a nonnegative integer")
+        if isinstance(updates, bool) or updates != 4:
+            raise ValueError("production resident arm requires exactly four updates")
+        if self._phase_state != "pre_scored":
+            raise ValueError("repair_train requires one completed pre-score")
         self._activate(selected)
-        return self._timed(
+        result = self._timed(
             "repair_train",
             TRAIN_BUDGET_SECONDS,
             lambda: dict(self.rails.train(selected, updates)),
         )
+        self._phase_state = "trained"
+        return result
 
     def score_post(self, artifact: BackpackArtifact | None = None) -> Mapping[str, Any]:
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("score_post requires a mixed Backpack")
-        return self._score(selected, "post")
+        if self._phase_state != "trained":
+            raise ValueError("score_post requires completed resident training")
+        result = self._score(selected, "post")
+        self._phase_state = "completed"
+        return result
 
     def run(
         self,

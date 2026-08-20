@@ -18,6 +18,7 @@ from .resident_repair_api import (
     UniformBuild,
     V7_UNIFORM_TIERS,
 )
+from .production_rails import ProductionRails, ProductionRailsError
 from .anchor import (
     AnchorEvaluationError,
     aggregate_scores,
@@ -219,6 +220,8 @@ __all__ = [
     "EXACT64_TERMINAL_SCHEMA",
     "EncodedQtip",
     "PipelineResult",
+    "ProductionRails",
+    "ProductionRailsError",
     "QTIP1_GEOMETRY",
     "QTIP2_GEOMETRY",
     "QtipGeometry",

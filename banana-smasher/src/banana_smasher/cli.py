@@ -506,6 +506,20 @@ def _parser() -> argparse.ArgumentParser:
     fixed_d4_produce.add_argument("--output", type=Path, required=True)
     fixed_d4_produce.add_argument("--basis-sha256", required=True)
 
+    resident = subparsers.add_parser(
+        "resident", help="run the pinned one-process resident score/train rail"
+    )
+    resident_commands = resident.add_subparsers(
+        dest="resident_command", required=True
+    )
+    resident_arm = resident_commands.add_parser(
+        "arm", help="score pre, continue in memory, and score post without reconstructing"
+    )
+    resident_arm.add_argument("--artifact-root", type=Path, required=True)
+    resident_arm.add_argument("--rails-config", type=Path, required=True)
+    resident_arm.add_argument("--run-root", type=Path, required=True)
+    resident_arm.add_argument("--updates", type=int, choices=(4,), default=4)
+
     anchor = subparsers.add_parser(
         "anchor", help="reproducible four-bank anchor evaluation workflow"
     )
@@ -1660,6 +1674,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ValueError(
                     f"unsupported fixed D4 command {args.fixed_d4_command!r}"
                 )
+        elif args.command == "resident":
+            from .artifact_identity import ArtifactIdentity
+            from .production_rails import ProductionRails
+            from .resident_repair_api import BackpackArtifact, ResidentRepairAPI
+
+            artifact_root = args.artifact_root.expanduser().resolve()
+            artifact = BackpackArtifact(
+                root=artifact_root,
+                identity=ArtifactIdentity.load(artifact_root),
+            )
+            resident_run_root = args.run_root.expanduser().resolve()
+            rails = ProductionRails.from_file(
+                args.rails_config, run_root=resident_run_root
+            )
+            facade = ResidentRepairAPI(
+                rails=rails, run_root=resident_run_root / "facade"
+            )
+            pre = facade.score_pre(artifact)
+            training = facade.repair_train(artifact, updates=args.updates)
+            post = facade.score_post(artifact)
+            result = {
+                "status": "PASS",
+                "command": "resident arm",
+                "artifact_identity_sha256": artifact.identity.sha256,
+                "provider_binding_sha256": rails.provider_binding_sha256,
+                "pre": dict(pre),
+                "training": dict(training),
+                "post": dict(post),
+                "lifecycle": str(rails.lifecycle_path),
+            }
         elif args.command == "anchor":
             result = _run_anchor(args)
         else:  # pragma: no cover - argparse guarantees the choices

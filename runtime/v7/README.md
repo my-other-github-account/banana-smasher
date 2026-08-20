@@ -48,3 +48,12 @@ The launcher hard-binds the Green derivative to:
 - no PRE, U23, or lower-LR continuation.
 
 The launcher does not contain a fallback host, one-node mode, continuation checkpoint, or alternate geometry.
+
+## Canonical resident arm
+
+Production score/train/score publication is owned by the package provider documented in
+[`banana-smasher/RESIDENT_RAIL.md`](../../banana-smasher/RESIDENT_RAIL.md). Run
+`smash resident arm` at one pinned package/config/artifact identity; do not launch this
+trainer and a separate mission-local scorer as two public rails. The resulting
+`RESIDENT_LIFECYCLE.json` is the SSOT receipt for one construction, in-memory swaps,
+canary admission, four updates, and both score phases.
