@@ -9,7 +9,9 @@ from banana_smasher import anchor, backpack, backpack_exact64, metrics
 from banana_smasher.cli import _parser
 from banana_smasher.hf_deepseek_v4_backpack_adapter import DeepseekV4BackpackRuntime
 from banana_smasher import qtip_v7_joint_workflow
+from banana_smasher.production_rails import ProductionRails
 from banana_smasher.qtip_v7_routes import _load_qtip2_v7_member_roster
+from banana_smasher.resident_repair_api import ResidentRepairAPI
 
 
 def _command_names(parser) -> set[str]:
@@ -64,6 +66,40 @@ def test_resident_api_is_the_only_public_score_and_train_surface() -> None:
         if isinstance(getattr(action, "choices", None), dict)
     )
     assert "build" not in backpack_commands
+
+
+def test_resident_public_api_and_cli_have_no_callable_slow_path_fallback() -> None:
+    forbidden = {"fallback", "offline", "replay", "staged", "reload", "rate_low", "slow"}
+    public_callables = {
+        name.lower()
+        for cls in (ResidentRepairAPI, ProductionRails)
+        for name, value in vars(cls).items()
+        if not name.startswith("_") and callable(value)
+    }
+    assert all(token not in name for name in public_callables for token in forbidden)
+
+    resident_parser = next(
+        action.choices["resident"]
+        for action in _parser()._actions
+        if isinstance(getattr(action, "choices", None), dict)
+    )
+    arm_parser = next(
+        action.choices["arm"]
+        for action in resident_parser._actions
+        if isinstance(getattr(action, "choices", None), dict)
+    )
+    option_names = {
+        option.lower()
+        for action in arm_parser._actions
+        for option in action.option_strings
+    }
+    assert all(token not in option for option in option_names for token in forbidden)
+
+    resident_sources = "\n".join(
+        Path(inspect.getsourcefile(cls)).read_text()
+        for cls in (ResidentRepairAPI, ProductionRails)
+    )
+    assert "RATE_LOW" not in resident_sources
 
 
 def test_qtip_v7_runtime_has_no_layer_number_special_case() -> None:

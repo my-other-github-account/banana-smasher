@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from banana_smasher.resident_repair_api import ResidentPhaseTimeout, ResidentRepairAPI
+from banana_smasher.resident_repair_api import (
+    ARM_BUDGET_SECONDS,
+    PHASE_BUDGET_SECONDS,
+    ResidentPhaseTimeout,
+    ResidentRepairAPI,
+)
 
 
 def sha(label: str) -> str:
@@ -190,3 +195,115 @@ def test_model_loads_once_and_every_later_phase_hot_swaps_in_memory(
         row[0] for row in rails.calls if row[0] in {"load_resident", "hot_swap"}
     ]
     assert resident_calls == ["load_resident", "hot_swap", "hot_swap"]
+
+
+class FaultClock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+class TimedRails(Rails):
+    def __init__(self, root: Path, clock: FaultClock, durations: dict[str, float]) -> None:
+        super().__init__(root)
+        self.clock = clock
+        self.durations = durations
+
+    def load_resident(self, artifact):
+        self.clock.advance(self.durations.get("resident_load", 0.0))
+        return super().load_resident(artifact)
+
+    def hot_swap(self, artifact):
+        self.clock.advance(self.durations.get("hot_swap", 0.0))
+        return super().hot_swap(artifact)
+
+    def score(self, artifact, phase: str):
+        self.clock.advance(self.durations.get(f"score_{phase}", 0.0))
+        return super().score(artifact, phase)
+
+    def train(self, artifact, updates: int):
+        self.clock.advance(self.durations.get("train", 0.0))
+        return super().train(artifact, updates)
+
+
+@pytest.mark.parametrize(
+    ("durations", "expected_phase"),
+    [
+        ({"score_pre": PHASE_BUDGET_SECONDS["zero_update_score"] + 1}, "zero_update_score"),
+        ({"train": PHASE_BUDGET_SECONDS["four_resident_updates"] + 1}, "four_resident_updates"),
+        ({"score_post": PHASE_BUDGET_SECONDS["post_update_score"] + 1}, "post_update_score"),
+    ],
+)
+def test_each_named_arm_phase_fails_hard_and_records_fault_timing(
+    tmp_path: Path, durations: dict[str, float], expected_phase: str
+) -> None:
+    clock = FaultClock()
+    api = ResidentRepairAPI(
+        rails=TimedRails(tmp_path, clock, durations),
+        run_root=tmp_path / "run",
+        clock=clock,
+    )
+    build = api.build_uniform(tmp_path / "model", "qtip1_v7")
+
+    with pytest.raises(ResidentPhaseTimeout, match=expected_phase):
+        api.run_arm(build, updates=4)
+
+    receipt = json.loads((tmp_path / "run" / "RESIDENT_ARM_TIMING.json").read_text())
+    assert receipt["status"] == "FAILED"
+    assert receipt["failed_phase"] == expected_phase
+    assert receipt["phases"][-1]["phase"] == expected_phase
+    assert receipt["phases"][-1]["status"] == "TIMEOUT"
+
+
+def test_total_arm_budget_fails_hard_and_identifies_current_phase(tmp_path: Path) -> None:
+    clock = FaultClock()
+    durations = {
+        "score_pre": PHASE_BUDGET_SECONDS["zero_update_score"],
+        "train": PHASE_BUDGET_SECONDS["four_resident_updates"],
+    }
+    api = ResidentRepairAPI(
+        rails=TimedRails(tmp_path, clock, durations),
+        run_root=tmp_path / "run",
+        clock=clock,
+    )
+    build = api.build_uniform(tmp_path / "model", "qtip1_v7")
+    api.score_pre(build)
+    clock.advance(301.0)
+
+    with pytest.raises(
+        ResidentPhaseTimeout,
+        match=rf"four_resident_updates.*arm_cycle.*{ARM_BUDGET_SECONDS:g}",
+    ):
+        api.repair_train(build, updates=4)
+
+    receipt = json.loads((tmp_path / "run" / "RESIDENT_ARM_TIMING.json").read_text())
+    assert receipt["status"] == "FAILED"
+    assert receipt["failed_phase"] == "four_resident_updates"
+    assert receipt["total_elapsed_seconds"] == ARM_BUDGET_SECONDS + 1.0
+
+
+def test_successful_arm_records_all_named_phases_and_exact_cycle(tmp_path: Path) -> None:
+    clock = FaultClock()
+    durations = {"resident_load": 2.0, "score_pre": 3.0, "hot_swap": 1.0, "train": 7.0, "score_post": 5.0}
+    rails = TimedRails(tmp_path, clock, durations)
+    api = ResidentRepairAPI(rails=rails, run_root=tmp_path / "run", clock=clock)
+    build = api.build_uniform(tmp_path / "model", "qtip1_v7")
+
+    result = api.run_arm(build, updates=4)
+
+    assert result["training"]["updates"] == 4
+    assert [row[0] for row in rails.calls] == [
+        "build_uniform", "load_resident", "score", "hot_swap", "train", "hot_swap", "score"
+    ]
+    timing = result["timing"]
+    assert timing["status"] == "PASS"
+    assert [row["phase"] for row in timing["phases"]] == [
+        "zero_update_score", "four_resident_updates", "post_update_score"
+    ]
+    assert [row["elapsed_seconds"] for row in timing["phases"]] == [5.0, 8.0, 6.0]
+    assert timing["total_elapsed_seconds"] == 19.0

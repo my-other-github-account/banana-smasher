@@ -9,7 +9,10 @@ boundary.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import os
 from pathlib import Path
+import tempfile
 import time
 from typing import Any, Callable, Mapping, Protocol, Sequence, TypeVar
 
@@ -21,6 +24,16 @@ _NATIVE_TIERS = frozenset({"native", "native_mxfp4"})
 SCORE_BUDGET_SECONDS = 300.0
 TRAIN_BUDGET_SECONDS = 2_100.0
 ARM_BUDGET_SECONDS = 2_700.0
+PHASE_BUDGET_SECONDS = {
+    "zero_update_score": SCORE_BUDGET_SECONDS,
+    "four_resident_updates": TRAIN_BUDGET_SECONDS,
+    "post_update_score": SCORE_BUDGET_SECONDS,
+}
+_PHASE_PUBLIC_NAMES = {
+    "zero_update_score": "score_pre",
+    "four_resident_updates": "repair_train",
+    "post_update_score": "score_post",
+}
 _T = TypeVar("_T")
 
 
@@ -114,20 +127,107 @@ class ResidentRepairAPI:
     ) -> None:
         self.rails = rails
         self.run_root = Path(run_root).expanduser().resolve()
+        self.run_root.mkdir(parents=True, exist_ok=True)
         self._clock = clock
         self._uniforms: dict[str, UniformBuild] = {}
         self._mixed: BackpackArtifact | None = None
         self._resident_loaded = False
         self._phase_state = "initialized"
+        self._arm_started: float | None = None
+        self._phase_timings: list[dict[str, Any]] = []
 
-    def _timed(self, phase: str, budget_seconds: float, call: Callable[[], _T]) -> _T:
+    @property
+    def timing_path(self) -> Path:
+        return self.run_root / "RESIDENT_ARM_TIMING.json"
+
+    def _timing_receipt(
+        self, *, status: str, failed_phase: str | None = None
+    ) -> dict[str, Any]:
+        total_elapsed = (
+            0.0
+            if self._arm_started is None
+            else self._clock() - self._arm_started
+        )
+        return {
+            "schema": "banana-smasher-resident-arm-timing-v1",
+            "status": status,
+            "failed_phase": failed_phase,
+            "total_budget_seconds": ARM_BUDGET_SECONDS,
+            "total_elapsed_seconds": total_elapsed,
+            "phases": [dict(row) for row in self._phase_timings],
+        }
+
+    def _publish_timing(self, *, status: str, failed_phase: str | None = None) -> dict[str, Any]:
+        receipt = self._timing_receipt(status=status, failed_phase=failed_phase)
+        payload = (json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
+        fd, temporary_name = tempfile.mkstemp(
+            prefix=f".{self.timing_path.name}.", dir=self.run_root
+        )
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary_name, self.timing_path)
+        finally:
+            try:
+                os.unlink(temporary_name)
+            except FileNotFoundError:
+                pass
+        return receipt
+
+    def _timed(self, phase: str, call: Callable[[], _T]) -> _T:
+        if phase not in PHASE_BUDGET_SECONDS:
+            raise ValueError(f"unknown resident arm phase: {phase}")
+        if self._arm_started is None:
+            self._arm_started = self._clock()
         started = self._clock()
-        result = call()
-        elapsed = self._clock() - started
-        if elapsed > budget_seconds:
-            raise ResidentPhaseTimeout(
-                f"{phase} exceeded {budget_seconds:g}s fast-path budget: {elapsed:.3f}s"
+        try:
+            result = call()
+        except Exception as exc:
+            elapsed = self._clock() - started
+            self._phase_timings.append(
+                {
+                    "phase": phase,
+                    "public_operation": _PHASE_PUBLIC_NAMES[phase],
+                    "budget_seconds": PHASE_BUDGET_SECONDS[phase],
+                    "elapsed_seconds": elapsed,
+                    "status": "FAILED",
+                    "error_type": type(exc).__name__,
+                }
             )
+            self._publish_timing(status="FAILED", failed_phase=phase)
+            raise
+        elapsed = self._clock() - started
+        total_elapsed = self._clock() - self._arm_started
+        phase_exceeded = elapsed > PHASE_BUDGET_SECONDS[phase]
+        total_exceeded = total_elapsed > ARM_BUDGET_SECONDS
+        self._phase_timings.append(
+            {
+                "phase": phase,
+                "public_operation": _PHASE_PUBLIC_NAMES[phase],
+                "budget_seconds": PHASE_BUDGET_SECONDS[phase],
+                "elapsed_seconds": elapsed,
+                "status": "TIMEOUT" if phase_exceeded or total_exceeded else "PASS",
+            }
+        )
+        if phase_exceeded or total_exceeded:
+            self._publish_timing(status="FAILED", failed_phase=phase)
+            public_name = _PHASE_PUBLIC_NAMES[phase]
+            if phase_exceeded and total_exceeded:
+                detail = (
+                    f"phase budget {PHASE_BUDGET_SECONDS[phase]:g}s and arm_cycle total "
+                    f"budget {ARM_BUDGET_SECONDS:g}s"
+                )
+            elif phase_exceeded:
+                detail = f"phase budget {PHASE_BUDGET_SECONDS[phase]:g}s"
+            else:
+                detail = f"arm_cycle total budget {ARM_BUDGET_SECONDS:g}s"
+            raise ResidentPhaseTimeout(
+                f"{phase} ({public_name}) exceeded {detail}: "
+                f"phase={elapsed:.3f}s total={total_elapsed:.3f}s"
+            )
+        self._publish_timing(status="IN_PROGRESS")
         return result
 
     def _activate(self, artifact: BackpackArtifact) -> None:
@@ -212,21 +312,25 @@ class ResidentRepairAPI:
         return self._mixed
 
     def _score(self, artifact: BackpackArtifact, phase: str) -> Mapping[str, Any]:
-        self._activate(artifact)
-        result = self._timed(
-            f"score_{phase}",
-            SCORE_BUDGET_SECONDS,
-            lambda: dict(self.rails.score(artifact, phase)),
+        phase_name = "zero_update_score" if phase == "pre" else "post_update_score"
+
+        def execute() -> dict[str, Any]:
+            self._activate(artifact)
+            result = dict(self.rails.score(artifact, phase))
+            try:
+                kld = float(result["mean_kld"])
+                top1 = int(result["top1_matches"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(
+                    "canonical scorer result lacks mean_kld/top1_matches"
+                ) from exc
+            artifact.identity.require_canary(kld=kld, top1=top1)
+            return result
+
+        return self._timed(
+            phase_name,
+            execute,
         )
-        try:
-            kld = float(result["mean_kld"])
-            top1 = int(result["top1_matches"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(
-                "canonical scorer result lacks mean_kld/top1_matches"
-            ) from exc
-        artifact.identity.require_canary(kld=kld, top1=top1)
-        return result
 
     def score_pre(self, artifact: BackpackArtifact | None = None) -> Mapping[str, Any]:
         selected = artifact or self._mixed
@@ -248,11 +352,13 @@ class ResidentRepairAPI:
             raise ValueError("production resident arm requires exactly four updates")
         if self._phase_state != "pre_scored":
             raise ValueError("repair_train requires one completed pre-score")
-        self._activate(selected)
+        def execute() -> dict[str, Any]:
+            self._activate(selected)
+            return dict(self.rails.train(selected, updates))
+
         result = self._timed(
-            "repair_train",
-            TRAIN_BUDGET_SECONDS,
-            lambda: dict(self.rails.train(selected, updates)),
+            "four_resident_updates",
+            execute,
         )
         self._phase_state = "trained"
         return result
@@ -265,7 +371,25 @@ class ResidentRepairAPI:
             raise ValueError("score_post requires completed resident training")
         result = self._score(selected, "post")
         self._phase_state = "completed"
+        self._publish_timing(status="PASS")
         return result
+
+    def run_arm(
+        self, artifact: BackpackArtifact | None = None, *, updates: int = 4
+    ) -> dict[str, Any]:
+        """Execute exactly zero-update score -> four updates -> post-update score."""
+        selected = artifact or self._mixed
+        if selected is None:
+            raise ValueError("run_arm requires a mixed Backpack")
+        pre = self.score_pre(selected)
+        training = self.repair_train(selected, updates=updates)
+        post = self.score_post(selected)
+        return {
+            "pre": pre,
+            "training": training,
+            "post": post,
+            "timing": self._timing_receipt(status="PASS"),
+        }
 
     def run(
         self,
@@ -277,23 +401,16 @@ class ResidentRepairAPI:
     ) -> dict[str, Any]:
         uniforms = tuple(self.build_uniform(model, tier) for tier in uniform_tiers)
         mixed = self.backpack_mix(uniforms, bpw_target)
-        arm_started = self._clock()
-        pre = self.score_pre(mixed)
-        training = self.repair_train(mixed, updates=repair_updates)
-        post = self.score_post(mixed)
-        arm_elapsed = self._clock() - arm_started
-        if arm_elapsed > ARM_BUDGET_SECONDS:
-            raise ResidentPhaseTimeout(
-                f"arm_cycle exceeded {ARM_BUDGET_SECONDS:g}s fast-path budget: "
-                f"{arm_elapsed:.3f}s"
-            )
-        return PipelineResult(
+        arm = self.run_arm(mixed, updates=repair_updates)
+        result = PipelineResult(
             uniforms=uniforms,
             mixed=mixed,
-            pre=pre,
-            training=training,
-            post=post,
+            pre=arm["pre"],
+            training=arm["training"],
+            post=arm["post"],
         ).as_dict()
+        result["timing"] = arm["timing"]
+        return result
 
 
 __all__ = [
@@ -305,6 +422,7 @@ __all__ = [
     "SCORE_BUDGET_SECONDS",
     "TRAIN_BUDGET_SECONDS",
     "ARM_BUDGET_SECONDS",
+    "PHASE_BUDGET_SECONDS",
     "UniformBuild",
     "V7_UNIFORM_TIERS",
 ]

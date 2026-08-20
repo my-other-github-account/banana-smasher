@@ -423,6 +423,28 @@ def test_production_config_rejects_session_factory_bypass(tmp_path):
         )
 
 
+@pytest.mark.parametrize(
+    "field",
+    (
+        "fallback",
+        "slow_path",
+        "notification_source",
+        "rate_low",
+        "offline_path",
+        "replay_path",
+        "staged_file_path",
+        "reload_path",
+    ),
+)
+def test_production_config_rejects_notification_and_slow_path_controls(
+    tmp_path, field
+):
+    config = _base_config()
+    config[field] = "callable-or-path"
+    with pytest.raises(ProductionRailsError, match=field):
+        ProductionRails(config, run_root=tmp_path / field)
+
+
 def test_lifecycle_is_not_pass_before_complete_and_training_is_exactly_four(
     tmp_path, monkeypatch
 ):

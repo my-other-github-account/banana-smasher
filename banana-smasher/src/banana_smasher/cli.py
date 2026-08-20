@@ -1691,17 +1691,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             facade = ResidentRepairAPI(
                 rails=rails, run_root=resident_run_root / "facade"
             )
-            pre = facade.score_pre(artifact)
-            training = facade.repair_train(artifact, updates=args.updates)
-            post = facade.score_post(artifact)
+            arm = facade.run_arm(artifact, updates=args.updates)
             result = {
                 "status": "PASS",
                 "command": "resident arm",
                 "artifact_identity_sha256": artifact.identity.sha256,
                 "provider_binding_sha256": rails.provider_binding_sha256,
-                "pre": dict(pre),
-                "training": dict(training),
-                "post": dict(post),
+                "pre": dict(arm["pre"]),
+                "training": dict(arm["training"]),
+                "post": dict(arm["post"]),
+                "timing": dict(arm["timing"]),
+                "timing_receipt": str(facade.timing_path),
                 "lifecycle": str(rails.lifecycle_path),
             }
         elif args.command == "anchor":
