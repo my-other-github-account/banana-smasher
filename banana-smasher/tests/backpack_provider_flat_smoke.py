@@ -13,7 +13,6 @@ from banana_smasher import (
     BackpackPlan,
     anchor_backpack_candidates,
     bind_native_mxfp4_backpack_candidate,
-    build_backpack,
     builtin_backpack_family_providers,
     generate_backpack_candidates,
     inspect_backpack,
@@ -23,6 +22,7 @@ from banana_smasher import (
     solve_backpack,
     verify_pack,
 )
+from banana_smasher.backpack import _build_backpack as build_backpack
 
 CLASSES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
 

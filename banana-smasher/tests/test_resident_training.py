@@ -64,7 +64,10 @@ def test_plan_roundtrip_and_explicit_parameter_selectors(tmp_path: Path) -> None
 
     assert plan.topology.layers_for_rank == (0, 20)
     assert plan.windows == (20, 21, 22, 23)
-    assert ResidentTrainingPlan.from_dict(json.loads(plan.to_json())).to_dict() == plan.to_dict()
+    assert (
+        ResidentTrainingPlan.from_dict(json.loads(plan.to_json())).to_dict()
+        == plan.to_dict()
+    )
 
     parameters = [
         ParameterDescriptor("model.layers.0.qtip.lut", "luts"),
@@ -103,7 +106,9 @@ def test_parameter_group_overlap_is_rejected(tmp_path: Path) -> None:
         )
 
 
-def test_parameter_group_options_cannot_override_optimizer_identity(tmp_path: Path) -> None:
+def test_parameter_group_options_cannot_override_optimizer_identity(
+    tmp_path: Path,
+) -> None:
     config = _config(tmp_path)
     config["parameter_groups"] = [
         {"name": "norms", "lr": 0.1, "options": {"params": []}}
@@ -137,7 +142,9 @@ def test_resume_checkpoint_must_be_local(tmp_path: Path) -> None:
         trainer.load_checkpoint("sshfs://host/checkpoint.safetensors")
 
 
-def test_adapter_stages_resolved_local_paths_not_replaceable_symlinks(tmp_path: Path) -> None:
+def test_adapter_stages_resolved_local_paths_not_replaceable_symlinks(
+    tmp_path: Path,
+) -> None:
     config = _config(tmp_path)
     config["input_checkpoint"] = None
     for name in ("real-model", "real-payload"):
@@ -153,7 +160,9 @@ def test_adapter_stages_resolved_local_paths_not_replaceable_symlinks(tmp_path: 
             return super().stage(plan)
 
     adapter = PlanCapturingAdapter()
-    ResidentTrainer(ResidentTrainingPlan.from_dict(config), adapter=adapter).initialize()
+    ResidentTrainer(
+        ResidentTrainingPlan.from_dict(config), adapter=adapter
+    ).initialize()
 
     assert adapter.staged_plan is not None
     assert adapter.staged_plan.model_root == (tmp_path / "real-model").resolve()
@@ -195,7 +204,9 @@ class ToyResidentAdapter(ResidentModelAdapter):
             "dormant_norm": "norms",
         }
         return [
-            ParameterDescriptor(name, family_by_suffix.get(name.rsplit(".", 1)[-1], "weights"))
+            ParameterDescriptor(
+                name, family_by_suffix.get(name.rsplit(".", 1)[-1], "weights")
+            )
             for name in self.values
         ]
 
@@ -227,7 +238,11 @@ class ToyResidentAdapter(ResidentModelAdapter):
         return 0.004
 
     def trainable_state_dict(self):
-        return {name: self.values[name] for names in self.selected.values() for name in names}
+        return {
+            name: self.values[name]
+            for names in self.selected.values()
+            for name in names
+        }
 
     def load_trainable_state_dict(self, state) -> None:
         self.values.update({name: float(value) for name, value in state.items()})
@@ -238,7 +253,10 @@ class ToyResidentAdapter(ResidentModelAdapter):
             "steps": len(self.optimizer_lrs),
             # Deliberately sparse: selected parameters with no gradient have no Adam row.
             "state": {
-                "model.layers.0.qtip.lut": {"exp_avg": 0.125, "step": len(self.optimizer_lrs)}
+                "model.layers.0.qtip.lut": {
+                    "exp_avg": 0.125,
+                    "step": len(self.optimizer_lrs),
+                }
             },
             "param_groups": [
                 {"name": name, "params": list(names)}
@@ -265,7 +283,9 @@ class ToyResidentAdapter(ResidentModelAdapter):
         return {"status": "EXPORTED", "path": str(destination)}
 
 
-def test_resident_trainer_stages_once_and_reports_repeated_step_timings(tmp_path: Path) -> None:
+def test_resident_trainer_stages_once_and_reports_repeated_step_timings(
+    tmp_path: Path,
+) -> None:
     config = _config(tmp_path)
     config["input_checkpoint"] = None
     for name in ("model", "payload"):
@@ -340,10 +360,13 @@ def test_checkpoint_roundtrip_resume_and_deploy_hook(tmp_path: Path) -> None:
     assert set(resumed_adapter.loaded_optimizer_state["state"]) == {
         "model.layers.0.qtip.lut"
     }
-    assert sum(
-        len(group["params"])
-        for group in resumed_adapter.loaded_optimizer_state["param_groups"]
-    ) == 6
+    assert (
+        sum(
+            len(group["params"])
+            for group in resumed_adapter.loaded_optimizer_state["param_groups"]
+        )
+        == 6
+    )
     advanced = resumed.train_step()
     assert advanced.update == 1
     assert resumed.update == 2
@@ -386,7 +409,9 @@ def test_packaged_k2_reference_math_has_no_external_private_module_dependency() 
     assert decoded.shape == (16, 16)
 
 
-def test_official_k2_adapter_uses_stable_ids_and_sparse_adam_state(tmp_path: Path) -> None:
+def test_official_k2_adapter_uses_stable_ids_and_sparse_adam_state(
+    tmp_path: Path,
+) -> None:
     torch = pytest.importorskip("torch")
     config = _config(tmp_path)
     config["model_source"] = "fixture:official_k2_backend"
@@ -417,7 +442,9 @@ def test_official_k2_adapter_uses_stable_ids_and_sparse_adam_state(tmp_path: Pat
             return [
                 (
                     ParameterDescriptor(
-                        "model.layers.0.input_norm.weight", "norms", "layer:0/norm:input"
+                        "model.layers.0.input_norm.weight",
+                        "norms",
+                        "layer:0/norm:input",
                     ),
                     self.active,
                 ),
@@ -478,6 +505,7 @@ def test_official_k2_adapter_uses_stable_ids_and_sparse_adam_state(tmp_path: Pat
     assert set(resumed_optimizer["state"]) == {"layer:0/norm:input"}
 
 
+@pytest.mark.skip(reason="retired public plan-file training route")
 def test_smash_train_status_and_checkpoint_info_with_json_overrides(
     tmp_path: Path, capsys
 ) -> None:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import argparse
+
 import hashlib
 import json
 import os
@@ -36,7 +36,9 @@ def _canonical(value: object) -> bytes:
 
 def _atomic_bytes(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent
+    )
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as handle:
@@ -62,7 +64,9 @@ def _atomic_npy(path: Path, value: object) -> str:
     if array.dtype.hasobject or not array.size:
         raise ValueError("exact64 activation must be one non-empty numeric array")
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent
+    )
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as handle:
@@ -123,10 +127,14 @@ def _validate_whole_model_accounting(document: Mapping[str, Any]) -> Mapping[str
     for field in integer_fields:
         value = accounting.get(field)
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise ValueError(f"exact64 whole-model accounting field is invalid: {field}")
+            raise ValueError(
+                f"exact64 whole-model accounting field is invalid: {field}"
+            )
         values[field] = value
     if values["shipping_bytes_cap"] == 0 or values["logical_base_parameters"] == 0:
-        raise ValueError("exact64 whole-model target and logical denominator must be positive")
+        raise ValueError(
+            "exact64 whole-model target and logical denominator must be positive"
+        )
 
     fixed = (
         values["dense_nonrouted_bytes"]
@@ -182,7 +190,7 @@ def _revision_bind_teacher_manifest(
     return source_path, source
 
 
-def run_backpack_exact64(
+def _run_backpack_exact64(
     *,
     model_root: str | Path,
     bank_path: str | Path,
@@ -193,7 +201,7 @@ def run_backpack_exact64(
     qtip3_root_map_path: str | Path | None = None,
     qtip2_v7_root_map_path: str | Path | None = None,
     qtip2_v7_shared_lut_path: str | Path | None = None,
-    qtip2_v7_dense_roster_path: str | Path | None = None,
+    qtip2_v7_member_roster_path: str | Path | None = None,
     output_root: str | Path,
     basis_sha256: str,
     expected_windows: int = 64,
@@ -220,20 +228,26 @@ def run_backpack_exact64(
     v7_values = (
         qtip2_v7_root_map_path,
         qtip2_v7_shared_lut_path,
-        qtip2_v7_dense_roster_path,
+        qtip2_v7_member_roster_path,
     )
     if any(value is not None for value in v7_values) != all(
         value is not None for value in v7_values
     ):
         raise ValueError("exact64 QTIP2 V7 bindings must be supplied together")
     qtip2_v7_root_map_path = (
-        None if qtip2_v7_root_map_path is None else Path(qtip2_v7_root_map_path).resolve()
+        None
+        if qtip2_v7_root_map_path is None
+        else Path(qtip2_v7_root_map_path).resolve()
     )
     qtip2_v7_shared_lut_path = (
-        None if qtip2_v7_shared_lut_path is None else Path(qtip2_v7_shared_lut_path).resolve()
+        None
+        if qtip2_v7_shared_lut_path is None
+        else Path(qtip2_v7_shared_lut_path).resolve()
     )
-    qtip2_v7_dense_roster_path = (
-        None if qtip2_v7_dense_roster_path is None else Path(qtip2_v7_dense_roster_path).resolve()
+    qtip2_v7_member_roster_path = (
+        None
+        if qtip2_v7_member_roster_path is None
+        else Path(qtip2_v7_member_roster_path).resolve()
     )
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -269,7 +283,8 @@ def run_backpack_exact64(
         if (
             not isinstance(class_by_window, Mapping)
             or set(class_by_window) != {str(value) for value in window_ids}
-            or set(class_by_window.values()) != {
+            or set(class_by_window.values())
+            != {
                 "agentic",
                 "chat",
                 "code",
@@ -278,13 +293,18 @@ def run_backpack_exact64(
                 "reasoning",
             }
         ):
-            raise ValueError("measured TRAIN8 requires complete six-class window metadata")
+            raise ValueError(
+                "measured TRAIN8 requires complete six-class window metadata"
+            )
     for row in bank_rows:
         tokens = row.get("token_ids")
         if (
             not isinstance(tokens, list)
             or len(tokens) < 1024
-            or any(isinstance(token, bool) or not isinstance(token, int) or token < 0 for token in tokens)
+            or any(
+                isinstance(token, bool) or not isinstance(token, int) or token < 0
+                for token in tokens
+            )
         ):
             raise ValueError("exact64 bank token row is invalid")
 
@@ -311,7 +331,9 @@ def run_backpack_exact64(
         )
     virtual_files.sort(key=lambda row: row["file"])
     pack_sha256 = hashlib.sha256(
-        (json.dumps(virtual_files, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        (
+            json.dumps(virtual_files, sort_keys=True, separators=(",", ":")) + "\n"
+        ).encode()
     ).hexdigest()
     parameters = {
         "positions": 1024,
@@ -329,13 +351,15 @@ def run_backpack_exact64(
     ):
         if root_map_path is not None:
             binding_inputs[f"{source_key}_root_map"] = str(root_map_path)
-            root_map_hashes[f"{source_key}_root_map_sha256"] = _sha256_file(root_map_path)
+            root_map_hashes[f"{source_key}_root_map_sha256"] = _sha256_file(
+                root_map_path
+            )
     if qtip2_v7_root_map_path is not None:
         binding_inputs.update(
             {
                 "qtip2_v7_root_map": str(qtip2_v7_root_map_path),
                 "qtip2_v7_shared_lut": str(qtip2_v7_shared_lut_path),
-                "qtip2_v7_dense_roster": str(qtip2_v7_dense_roster_path),
+                "qtip2_v7_member_roster": str(qtip2_v7_member_roster_path),
             }
         )
     v7_hashes = (
@@ -344,7 +368,7 @@ def run_backpack_exact64(
         else {
             "qtip2_v7_root_map_sha256": _sha256_file(qtip2_v7_root_map_path),
             "qtip2_v7_shared_lut_sha256": _sha256_file(qtip2_v7_shared_lut_path),
-            "qtip2_v7_dense_roster_sha256": _sha256_file(qtip2_v7_dense_roster_path),
+            "qtip2_v7_member_roster_sha256": _sha256_file(qtip2_v7_member_roster_path),
         }
     )
     binding = hashlib.sha256(
@@ -354,7 +378,9 @@ def run_backpack_exact64(
                 "bank_sha256": bank_sha256,
                 "teacher_manifest_sha256": _sha256_file(teacher_manifest_path),
                 "pack_sha256": pack_sha256,
-                "materialization_index_sha256": _sha256_file(materialization_index_path),
+                "materialization_index_sha256": _sha256_file(
+                    materialization_index_path
+                ),
                 **root_map_hashes,
                 **v7_hashes,
             },
@@ -383,7 +409,9 @@ def run_backpack_exact64(
     started = time.monotonic()
     forwards = 0
 
-    def progress(stage: str, *, layer: int | None = None, slot: int | None = None) -> None:
+    def progress(
+        stage: str, *, layer: int | None = None, slot: int | None = None
+    ) -> None:
         _atomic_json(
             progress_path,
             {
@@ -395,7 +423,9 @@ def run_backpack_exact64(
                 "window_slot": slot,
                 "completed_layers": list(state["completed_layers"]),
                 "window_layer_forwards": forwards,
-                "candidate_windows": len(writer.completed_window_ids) if "writer" in locals() else 0,
+                "candidate_windows": len(writer.completed_window_ids)
+                if "writer" in locals()
+                else 0,
                 "elapsed_seconds": time.monotonic() - started,
                 "resident_bytes": runtime.resident_bytes(),
                 "peak_resident_bytes": runtime.peak_resident_bytes(),
@@ -522,15 +552,9 @@ def run_backpack_exact64(
         class_matches: dict[str, int] = {}
         for row in score_result["per_window"]:
             name = class_by_window[str(row["window_id"])]
-            class_kld_sum[name] = class_kld_sum.get(name, 0.0) + float(
-                row["kld_sum"]
-            )
-            class_positions[name] = class_positions.get(name, 0) + int(
-                row["positions"]
-            )
-            class_matches[name] = class_matches.get(name, 0) + int(
-                row["top1_matches"]
-            )
+            class_kld_sum[name] = class_kld_sum.get(name, 0.0) + float(row["kld_sum"])
+            class_positions[name] = class_positions.get(name, 0) + int(row["positions"])
+            class_matches[name] = class_matches.get(name, 0) + int(row["top1_matches"])
         class_kld = {
             name: class_kld_sum[name] / class_positions[name]
             for name in sorted(class_positions)
@@ -603,38 +627,7 @@ def run_backpack_exact64(
     return result
 
 
-def run_backpack_train8(**kwargs: Any) -> dict[str, Any]:
+def _run_backpack_train8(**kwargs: Any) -> dict[str, Any]:
     """Run one balanced eight-window TRAIN SPSA measurement."""
 
-    return run_backpack_exact64(expected_windows=8, **kwargs)
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run virtual Backpack exact64 scoring")
-    parser.add_argument("--model-root", required=True)
-    parser.add_argument("--bank", required=True)
-    parser.add_argument("--teacher-manifest", required=True)
-    parser.add_argument("--virtual-manifest", required=True)
-    parser.add_argument("--materialization-index", required=True)
-    parser.add_argument("--qtip2-root-map", required=True)
-    parser.add_argument("--qtip3-root-map", required=True)
-    parser.add_argument("--output-root", required=True)
-    parser.add_argument("--basis-sha256", required=True)
-    args = parser.parse_args(argv)
-    result = run_backpack_exact64(
-        model_root=args.model_root,
-        bank_path=args.bank,
-        teacher_manifest_path=args.teacher_manifest,
-        virtual_manifest_path=args.virtual_manifest,
-        materialization_index_path=args.materialization_index,
-        qtip2_root_map_path=args.qtip2_root_map,
-        qtip3_root_map_path=args.qtip3_root_map,
-        output_root=args.output_root,
-        basis_sha256=args.basis_sha256,
-    )
-    print(json.dumps(result, sort_keys=True))
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+    return _run_backpack_exact64(expected_windows=8, **kwargs)

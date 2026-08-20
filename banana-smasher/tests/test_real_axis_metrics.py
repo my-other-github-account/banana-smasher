@@ -5,12 +5,12 @@ import math
 import numpy as np
 import pytest
 
-from banana_smasher.metrics import paired_summary, score_candidate, teacher_support
+from banana_smasher.metrics import _score_candidate, paired_summary, teacher_support
 
 
 def test_known_support_kld_direction_and_top1_parity() -> None:
     teacher_logprob = np.log(np.asarray([[0.75, 0.25]], dtype=np.float64))
-    scored = score_candidate(
+    scored = _score_candidate(
         np.asarray([[0.0, 0.0]], dtype=np.float32),
         teacher_indices=np.asarray([[0, 1]], dtype=np.int32),
         teacher_logprob=teacher_logprob,

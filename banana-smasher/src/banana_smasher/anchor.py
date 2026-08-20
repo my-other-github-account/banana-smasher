@@ -259,7 +259,9 @@ def validate_bank_manifest(manifest: Mapping[str, Any]) -> dict[str, Any]:
             f"{expected_hashes}, got {manifest.get('content_hashes')}"
         )
     unresolved = sorted(
-        name for name, value in identities.items() if value.get("status") == "unresolved"
+        name
+        for name, value in identities.items()
+        if value.get("status") == "unresolved"
     )
     if manifest["parent_corpus"].get("status") == "unresolved":
         unresolved.insert(0, "parent_corpus")
@@ -323,7 +325,9 @@ def _parse_jsonl(payload: bytes, path: Path) -> list[dict[str, Any]]:
             value = json.loads(text)
         except json.JSONDecodeError as exc:
             raise AnchorEvaluationError(f"{path}: invalid JSON array: {exc}") from exc
-        if not isinstance(value, list) or any(not isinstance(row, dict) for row in value):
+        if not isinstance(value, list) or any(
+            not isinstance(row, dict) for row in value
+        ):
             raise AnchorEvaluationError(f"{path}: JSON array must contain only objects")
         return value
     rows: list[dict[str, Any]] = []
@@ -333,7 +337,9 @@ def _parse_jsonl(payload: bytes, path: Path) -> list[dict[str, Any]]:
         try:
             value = json.loads(line)
         except json.JSONDecodeError as exc:
-            raise AnchorEvaluationError(f"{path}:{line_number}: invalid JSON: {exc}") from exc
+            raise AnchorEvaluationError(
+                f"{path}:{line_number}: invalid JSON: {exc}"
+            ) from exc
         if not isinstance(value, dict):
             raise AnchorEvaluationError(f"{path}:{line_number}: row must be an object")
         rows.append(value)
@@ -362,7 +368,9 @@ def _index_parent(
     try:
         payload = parent_path.read_bytes()
     except FileNotFoundError as exc:
-        raise AnchorEvaluationError(f"missing declared parent dataset {parent_path}") from exc
+        raise AnchorEvaluationError(
+            f"missing declared parent dataset {parent_path}"
+        ) from exc
     actual = _sha256_bytes(payload)
     if actual != identity["sha256"]:
         raise AnchorEvaluationError(
@@ -389,7 +397,9 @@ def create_balanced_subset(
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
     if parent_manifest.get("role") != "train512":
-        raise AnchorEvaluationError("balanced training subsets require a train512 parent")
+        raise AnchorEvaluationError(
+            "balanced training subsets require a train512 parent"
+        )
     parent_path = Path(parent_path)
     rows, _ = _index_parent(parent_manifest, parent_path)
     if config.get("role") != "train_balanced64":
@@ -431,7 +441,11 @@ def create_balanced_subset(
             if ranking_field is None:
                 return (0, tie)
             rank = row.get(ranking_field)
-            if not isinstance(rank, (int, float)) or isinstance(rank, bool) or not math.isfinite(rank):
+            if (
+                not isinstance(rank, (int, float))
+                or isinstance(rank, bool)
+                or not math.isfinite(rank)
+            ):
                 raise AnchorEvaluationError(
                     f"ranking field {ranking_field!r} must be finite numeric for every row"
                 )
@@ -500,7 +514,11 @@ def materialize_bank(
     for other in disjoint_manifests:
         validate_bank_manifest(other)
         overlap = sorted(
-            (window["id"] for window in other["windows"] if _window_key(window["id"]) in requested),
+            (
+                window["id"]
+                for window in other["windows"]
+                if _window_key(window["id"]) in requested
+            ),
             key=str,
         )
         if overlap:
@@ -648,7 +666,9 @@ def _kld(teacher: Sequence[float], candidate: Sequence[float], window_id: Any) -
             f"teacher={len(teacher)}, candidate={len(candidate)}"
         )
     terms: list[float] = []
-    for teacher_probability, candidate_probability in zip(teacher, candidate, strict=True):
+    for teacher_probability, candidate_probability in zip(
+        teacher, candidate, strict=True
+    ):
         if teacher_probability == 0:
             continue
         if candidate_probability <= 0:
@@ -656,8 +676,7 @@ def _kld(teacher: Sequence[float], candidate: Sequence[float], window_id: Any) -
                 f"candidate probability is zero where teacher is positive for window {window_id!r}"
             )
         terms.append(
-            teacher_probability
-            * math.log(teacher_probability / candidate_probability)
+            teacher_probability * math.log(teacher_probability / candidate_probability)
         )
     value = math.fsum(terms)
     if value < -1e-12 or not math.isfinite(value):
@@ -693,7 +712,7 @@ def _top1_matches(
     )
 
 
-def score_bank(
+def _score_bank(
     manifest: Mapping[str, Any],
     teacher_path: Path | str,
     candidate_path: Path | str,
@@ -716,15 +735,16 @@ def score_bank(
         unresolved_required.append("parent_corpus")
     if unresolved_required:
         raise AnchorEvaluationError(
-            "resolve bank identities before scoring: "
-            + ", ".join(unresolved_required)
+            "resolve bank identities before scoring: " + ", ".join(unresolved_required)
         )
     if not isinstance(candidate_id, str) or not candidate_id:
         raise AnchorEvaluationError("candidate_id must be a non-empty string")
     _validate_identity("candidate", candidate_identity)
     _validate_identity("teacher_producer", teacher_identity)
     if candidate_identity["status"] != "resolved":
-        raise AnchorEvaluationError("candidate identity must be resolved before scoring")
+        raise AnchorEvaluationError(
+            "candidate identity must be resolved before scoring"
+        )
     if teacher_identity["status"] != "resolved":
         raise AnchorEvaluationError("teacher identity must be resolved before scoring")
     if not _is_sha256(basis_sha256):
@@ -785,13 +805,18 @@ def score_bank(
     if output_path.exists():
         for row in _read_jsonl(output_path):
             if row.get("schema") != "banana-smasher-anchor-window-score-v1":
-                raise AnchorEvaluationError("resume output has an unsupported score schema")
+                raise AnchorEvaluationError(
+                    "resume output has an unsupported score schema"
+                )
             key = _window_key(row.get("window_id"))
             if key in existing:
                 raise AnchorEvaluationError(
                     f"resume output has duplicate window id {row.get('window_id')!r}"
                 )
-            if row.get("bindings") != bindings or row.get("candidate_id") != candidate_id:
+            if (
+                row.get("bindings") != bindings
+                or row.get("candidate_id") != candidate_id
+            ):
                 raise AnchorEvaluationError(
                     "resume output bindings differ from the requested same-work score"
                 )
@@ -807,7 +832,11 @@ def score_bank(
                     f"resume class mismatch for window {window['id']!r}"
                 )
             value = row.get("kld")
-            if not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+            if (
+                not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+            ):
                 raise AnchorEvaluationError(
                     f"resume KLD is invalid for window {window['id']!r}"
                 )
@@ -825,9 +854,7 @@ def score_bank(
                 )
             rows.append(row)
             continue
-        teacher_probabilities = _probabilities(
-            teacher[key], "teacher", window["id"]
-        )
+        teacher_probabilities = _probabilities(teacher[key], "teacher", window["id"])
         candidate_probabilities = _probabilities(
             candidate[key], "candidate", window["id"]
         )
@@ -913,7 +940,10 @@ def aggregate_scores(
         raise AnchorEvaluationError(
             f"raw score coverage incomplete; missing window ids: {missing}"
         )
-    ordered_values = [float(by_key[_window_key(window["id"])]["kld"]) for window in manifest["windows"]]
+    ordered_values = [
+        float(by_key[_window_key(window["id"])]["kld"])
+        for window in manifest["windows"]
+    ]
     per_class = {
         label: math.fsum(values) / len(values)
         for label, values in sorted(by_class.items())
@@ -963,7 +993,9 @@ def aggregate_scores(
             or value <= 0
             for value in factors.values()
         ):
-            raise AnchorEvaluationError("calibration factors must be positive and finite")
+            raise AnchorEvaluationError(
+                "calibration factors must be positive and finite"
+            )
         if any(
             not isinstance(value, int) or isinstance(value, bool) or value <= 0
             for value in parent_counts.values()
@@ -992,7 +1024,9 @@ def _relative_error_pct(measured: float, reference: float) -> float:
     if reference == 0:
         if measured == 0:
             return 0.0
-        raise AnchorEvaluationError("relative error is undefined for a zero parent value")
+        raise AnchorEvaluationError(
+            "relative error is undefined for a zero parent value"
+        )
     return (measured - reference) / reference * 100.0
 
 
@@ -1024,7 +1058,9 @@ def compare_training_rails(
         or value < 0
         for value in (global_threshold, class_threshold)
     ):
-        raise AnchorEvaluationError("comparison thresholds must be finite and non-negative")
+        raise AnchorEvaluationError(
+            "comparison thresholds must be finite and non-negative"
+        )
     panel_classes = panel["measured"]["per_class_mean_kld"]
     parent_classes = parent["measured"]["per_class_mean_kld"]
     if set(panel_classes) != set(parent_classes):
@@ -1107,7 +1143,9 @@ def emit_solver_row(
 
 
 def _safe_component(value: str, label: str) -> str:
-    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", value):
+    if not isinstance(value, str) or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._-]*", value
+    ):
         raise AnchorEvaluationError(
             f"{label} must be a path-safe identifier containing letters, digits, '.', '_' or '-'"
         )
@@ -1129,9 +1167,7 @@ def _initialize_run_root(run_root: Path) -> None:
         (run_root / relative).mkdir(parents=True, exist_ok=True)
 
 
-def register_bank(
-    run_root: Path | str, manifest: Mapping[str, Any]
-) -> dict[str, Any]:
+def register_bank(run_root: Path | str, manifest: Mapping[str, Any]) -> dict[str, Any]:
     validation = validate_bank_manifest(manifest)
     run_root = Path(run_root)
     _initialize_run_root(run_root)
@@ -1170,7 +1206,9 @@ def load_registered_bank(run_root: Path | str, bank_id: str) -> dict[str, Any]:
             f"bank {bank_id!r} is not registered under {run_root}; run anchor register"
         ) from exc
     except json.JSONDecodeError as exc:
-        raise AnchorEvaluationError(f"registered manifest {path} is invalid JSON: {exc}") from exc
+        raise AnchorEvaluationError(
+            f"registered manifest {path} is invalid JSON: {exc}"
+        ) from exc
     validate_bank_manifest(manifest)
     return manifest
 
@@ -1212,7 +1250,9 @@ def import_producer(
         bound_candidate = None
     else:
         if candidate_id is None:
-            raise AnchorEvaluationError("candidate producer import requires candidate_id")
+            raise AnchorEvaluationError(
+                "candidate producer import requires candidate_id"
+            )
         bound_candidate = _safe_component(candidate_id, "candidate_id")
         destination = (
             run_root / "producers" / "candidate" / bound_candidate / f"{bank_id}.jsonl"
@@ -1273,7 +1313,11 @@ def materialize_candidate_producer(
         raise AnchorEvaluationError(
             "execution_mode must be auto, vllm, or offline-layerwise"
         )
-    if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0:
+    if (
+        isinstance(chunk_size, bool)
+        or not isinstance(chunk_size, int)
+        or chunk_size <= 0
+    ):
         raise AnchorEvaluationError("chunk_size must be a positive integer")
     run_root = Path(run_root).resolve()
     candidate_id = _safe_component(candidate_id, "candidate_id")
@@ -1296,8 +1340,13 @@ def materialize_candidate_producer(
         raise AnchorEvaluationError(
             f"candidate model pack verification failed: {exc}"
         ) from exc
-    if not isinstance(pack_verification, Mapping) or pack_verification.get("status") != "PASS":
-        raise AnchorEvaluationError("candidate model pack verification did not return PASS")
+    if (
+        not isinstance(pack_verification, Mapping)
+        or pack_verification.get("status") != "PASS"
+    ):
+        raise AnchorEvaluationError(
+            "candidate model pack verification did not return PASS"
+        )
     reusable_pack_verification = {
         "schema": "banana-smasher-pack-verification-receipt-v1",
         "status": "PASS",
@@ -1312,7 +1361,9 @@ def materialize_candidate_producer(
         for layer in declared_layers
     ):
         raise AnchorEvaluationError("candidate model pack has invalid layers")
-    layer_receipts = sorted((model_root / "provenance").glob("layer_*/LAYER_RECEIPT.json"))
+    layer_receipts = sorted(
+        (model_root / "provenance").glob("layer_*/LAYER_RECEIPT.json")
+    )
     if not layer_receipts:
         single = model_root / "provenance" / "LAYER_RECEIPT.json"
         if single.is_file():
@@ -1324,14 +1375,19 @@ def materialize_candidate_producer(
         try:
             receipt = json.loads(path.read_text())
         except (OSError, json.JSONDecodeError) as exc:
-            raise AnchorEvaluationError(f"invalid fixed-D4 layer receipt {path}: {exc}") from exc
+            raise AnchorEvaluationError(
+                f"invalid fixed-D4 layer receipt {path}: {exc}"
+            ) from exc
         receipt_layer = receipt.get("layer")
         if not isinstance(receipt_layer, int) or isinstance(receipt_layer, bool):
-            raise AnchorEvaluationError(f"candidate model has invalid layer receipt {path}")
+            raise AnchorEvaluationError(
+                f"candidate model has invalid layer receipt {path}"
+            )
         receipt_layers.add(receipt_layer)
-        if receipt.get("tier") not in {"d4_k2048", "d4_k4096"} or receipt.get(
-            "basis_sha256"
-        ) != basis_sha256:
+        if (
+            receipt.get("tier") not in {"d4_k2048", "d4_k4096"}
+            or receipt.get("basis_sha256") != basis_sha256
+        ):
             raise AnchorEvaluationError(
                 f"candidate model fixed-D4 basis mismatch in {path}"
             )
@@ -1344,10 +1400,14 @@ def materialize_candidate_producer(
         config_payload = producer_config.read_bytes()
         config = json.loads(config_payload)
     except (OSError, json.JSONDecodeError) as exc:
-        raise AnchorEvaluationError(f"invalid candidate producer config {producer_config}: {exc}") from exc
+        raise AnchorEvaluationError(
+            f"invalid candidate producer config {producer_config}: {exc}"
+        ) from exc
     command = config.get("command") if isinstance(config, Mapping) else None
     external_command = command if isinstance(command, list) else []
-    configured_producer = config.get("producer") if isinstance(config, Mapping) else None
+    configured_producer = (
+        config.get("producer") if isinstance(config, Mapping) else None
+    )
     builtin = (
         isinstance(config, Mapping)
         and config.get("schema") == "banana-smasher-candidate-producer-v1"
@@ -1468,7 +1528,9 @@ def materialize_candidate_producer(
         "relative_path": imported["relative_path"],
     }
     receipt_path = (
-        run_root / "imports" / f"candidate-materialization--{candidate_id}--{bank_id}.json"
+        run_root
+        / "imports"
+        / f"candidate-materialization--{candidate_id}--{bank_id}.json"
     )
     _atomic_write(receipt_path, _canonical_bytes(materialization_receipt))
     return materialization_receipt
@@ -1489,7 +1551,9 @@ def _coverage_for_path(
     except AnchorEvaluationError:
         return "INVALID", False
     complete = len(rows) == len(expected) and keys == expected
-    if score and any(row.get("schema") != "banana-smasher-anchor-window-score-v1" for row in rows):
+    if score and any(
+        row.get("schema") != "banana-smasher-anchor-window-score-v1" for row in rows
+    ):
         complete = False
     return f"{len(keys)}/{len(expected)}", complete
 
@@ -1523,7 +1587,9 @@ def status_report(run_root: Path | str) -> dict[str, Any]:
         for root_name in ("producers/candidate", "scores", "aggregates"):
             root = run_root / root_name
             if root.is_dir():
-                candidate_ids.update(path.name for path in root.iterdir() if path.is_dir())
+                candidate_ids.update(
+                    path.name for path in root.iterdir() if path.is_dir()
+                )
         candidate_details: list[dict[str, Any]] = []
         score_complete = 0
         aggregate_complete = 0
@@ -1618,10 +1684,16 @@ def format_status(status: Mapping[str, Any]) -> str:
         max(len(str(value)) for value in [header, *(row[index] for row in rows)])
         for index, header in enumerate(headers)
     ]
-    lines = [" | ".join(header.ljust(width) for header, width in zip(headers, widths, strict=True))]
+    lines = [
+        " | ".join(
+            header.ljust(width) for header, width in zip(headers, widths, strict=True)
+        )
+    ]
     lines.append("-+-".join("-" * width for width in widths))
     lines.extend(
-        " | ".join(str(value).ljust(width) for value, width in zip(row, widths, strict=True))
+        " | ".join(
+            str(value).ljust(width) for value, width in zip(row, widths, strict=True)
+        )
         for row in rows
     )
     return "\n".join(lines) + "\n"

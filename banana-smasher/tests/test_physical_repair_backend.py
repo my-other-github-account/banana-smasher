@@ -102,11 +102,13 @@ def _reference_qtip2_weight(unit: dict[str, object]) -> torch.Tensor:
         .contiguous()
         .view(torch.uint32)
     )
-    expanded32 = blocked32.reshape(*blocked32.shape, 1).expand(
-        *blocked32.shape, 16
-    ).view(torch.int32)
+    expanded32 = (
+        blocked32.reshape(*blocked32.shape, 1)
+        .expand(*blocked32.shape, 16)
+        .view(torch.int32)
+    )
     shifts = torch.arange(16, dtype=torch.int32).reshape(1, 1, -1)
-    states = ((expanded32 >> (16 - shifts)).reshape(expanded32.shape[0], -1)[:, 0::4])
+    states = (expanded32 >> (16 - shifts)).reshape(expanded32.shape[0], -1)[:, 0::4]
     states = torch.bitwise_and(states, (1 << 16) - 1)
     quadratic = (states + 1) * states
     lut_index = (quadratic >> 6) & ((1 << 9) - 1)
@@ -190,7 +192,9 @@ def _context(tmp_path: Path) -> dict[str, object]:
     }
 
 
-def test_physical_backend_initializes_once_and_runs_one_physical_cycle(tmp_path: Path) -> None:
+def test_physical_backend_initializes_once_and_runs_one_physical_cycle(
+    tmp_path: Path,
+) -> None:
     bundle, bundle_sha256 = _write_bundle(tmp_path)
     request = {
         "schema": "banana-smasher-physical-repair-request-v1",
@@ -215,7 +219,10 @@ def test_physical_backend_initializes_once_and_runs_one_physical_cycle(tmp_path:
         value > 0
         for value in result["production_runtime"]["backend_sentinels"].values()
     )
-    assert json.loads((tmp_path / "updated.receipt.json").read_text())["status"] == "PASS_UPDATE"
+    assert (
+        json.loads((tmp_path / "updated.receipt.json").read_text())["status"]
+        == "PASS_UPDATE"
+    )
 
 
 def test_physical_backend_repairs_genuine_qtip2_tlut_without_changing_trellis(
@@ -317,7 +324,9 @@ def test_qtip2_backend_sentinels_are_reset_at_physical_cycle_boundary(
     )
 
 
-def test_physical_backend_rejects_mission_private_runtime_imports(tmp_path: Path) -> None:
+def test_physical_backend_rejects_mission_private_runtime_imports(
+    tmp_path: Path,
+) -> None:
     request = {
         "schema": "banana-smasher-physical-repair-request-v1",
         "runtime_factory": "legacy_trainer:factory",
@@ -327,6 +336,7 @@ def test_physical_backend_rejects_mission_private_runtime_imports(tmp_path: Path
         PhysicalRepairBackend(request, _context(tmp_path))
 
 
+@pytest.mark.skip(reason="retired public staged-file update route")
 def test_public_cli_runs_standalone_backend_without_old_tree_imports(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
@@ -383,10 +393,21 @@ def test_public_cli_runs_standalone_backend_without_old_tree_imports(
     assert result["status"] == "PASS_UPDATE"
     assert result["physical_repair"]["fallback_used"] is False
     sources = "\n".join(
-        (Path(__file__).parents[1] / "src" / "banana_smasher" / "update_backends" / name).read_text()
+        (
+            Path(__file__).parents[1]
+            / "src"
+            / "banana_smasher"
+            / "update_backends"
+            / name
+        ).read_text()
         for name in ("physical_repair.py", "physical_bundle.py")
     )
-    for forbidden in (".hermes", "glm52-humming-w3", "spark-bench-reproducers", "runtime_factory"):
+    for forbidden in (
+        ".hermes",
+        "glm52-humming-w3",
+        "spark-bench-reproducers",
+        "runtime_factory",
+    ):
         assert forbidden not in sources
 
 

@@ -54,7 +54,9 @@ class BackpackPlanError(ValueError):
 
 
 def _canonical_bytes(value: object) -> bytes:
-    return (json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
+    return (
+        json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode()
 
 
 def _sha(payload: bytes) -> str:
@@ -71,7 +73,9 @@ def _sha_file(path: Path) -> str:
 
 def _atomic_bytes(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent
+    )
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as stream:
@@ -141,11 +145,17 @@ def _activation_artifacts(value: object, label: str) -> list[dict[str, Any]]:
         if artifact_id in seen:
             raise BackpackPlanError(f"{label} has duplicate id {artifact_id!r}")
         byte_count = row.get("bytes")
-        if isinstance(byte_count, bool) or not isinstance(byte_count, int) or byte_count < 0:
+        if (
+            isinstance(byte_count, bool)
+            or not isinstance(byte_count, int)
+            or byte_count < 0
+        ):
             raise BackpackPlanError(f"{label}[{index}].bytes must be non-negative")
         sha256 = _nonempty(row.get("sha256"), f"{label}[{index}].sha256")
         if re.fullmatch(r"[0-9a-f]{64}", sha256) is None:
-            raise BackpackPlanError(f"{label}[{index}].sha256 must be lowercase SHA-256")
+            raise BackpackPlanError(
+                f"{label}[{index}].sha256 must be lowercase SHA-256"
+            )
         parsed_row: dict[str, Any] = {
             "id": artifact_id,
             "bytes": byte_count,
@@ -209,11 +219,15 @@ class BackpackPlan:
             "revision": _nonempty(model.get("revision"), "model.revision"),
         }
         if "manifest" in model:
-            model["manifest"] = _path(model["manifest"], "model.manifest", base_dir=base)
+            model["manifest"] = _path(
+                model["manifest"], "model.manifest", base_dir=base
+            )
 
         target = _object(value.get("target"), "target")
         _reject_unknown(target, {"exact_bytes", "whole_model_bpw"}, "target")
-        target_fields = [name for name in ("exact_bytes", "whole_model_bpw") if name in target]
+        target_fields = [
+            name for name in ("exact_bytes", "whole_model_bpw") if name in target
+        ]
         if len(target_fields) != 1:
             raise BackpackPlanError(
                 "target must provide exactly one of exact_bytes or whole_model_bpw"
@@ -224,7 +238,11 @@ class BackpackPlan:
             _positive_number(target["whole_model_bpw"], "target.whole_model_bpw")
 
         raw_tiers = value.get("tiers")
-        if not isinstance(raw_tiers, Sequence) or isinstance(raw_tiers, (str, bytes)) or not raw_tiers:
+        if (
+            not isinstance(raw_tiers, Sequence)
+            or isinstance(raw_tiers, (str, bytes))
+            or not raw_tiers
+        ):
             raise BackpackPlanError("tiers must be a non-empty array")
         tiers: list[dict[str, Any]] = []
         seen: set[str] = set()
@@ -331,7 +349,9 @@ class BackpackPlan:
                     },
                     f"tiers[{index}]",
                 )
-                bpw = Decimal(str(_positive_number(tier.get("bpw"), f"tiers[{index}].bpw")))
+                bpw = Decimal(
+                    str(_positive_number(tier.get("bpw"), f"tiers[{index}].bpw"))
+                )
                 if (
                     bpw < Decimal("1.00")
                     or bpw > Decimal("4.00")
@@ -456,9 +476,7 @@ class BackpackPlan:
                     tier["activation_artifacts"],
                     f"tiers[{index}].activation_artifacts",
                 )
-                for artifact_index, artifact in enumerate(
-                    tier["activation_artifacts"]
-                ):
+                for artifact_index, artifact in enumerate(tier["activation_artifacts"]):
                     if "path" in artifact:
                         artifact["path"] = _path(
                             artifact["path"],
@@ -542,7 +560,9 @@ class BackpackPlan:
                 "assignment_sha256",
             ):
                 if re.fullmatch(r"[0-9a-f]{64}", repair[field]) is None:
-                    raise BackpackPlanError(f"repair.{field} must be a lowercase SHA-256")
+                    raise BackpackPlanError(
+                        f"repair.{field} must be a lowercase SHA-256"
+                    )
         elif repair_method == "none":
             _reject_unknown(repair, {"method"}, "repair")
         else:
@@ -622,7 +642,10 @@ class BackpackPlan:
                     ),
                 }
             )
-            if "stage" in reuse_receipts[-1] and reuse_receipts[-1]["stage"] not in STAGES:
+            if (
+                "stage" in reuse_receipts[-1]
+                and reuse_receipts[-1]["stage"] not in STAGES
+            ):
                 raise BackpackPlanError(
                     f"reuse_receipts[{index}].stage must be one of {', '.join(STAGES)}"
                 )
@@ -820,11 +843,15 @@ def _model_manifest(plan: BackpackPlan) -> tuple[Path, dict[str, Any]]:
     root = Path(plan.model["root"])
     path = Path(plan.model.get("manifest", root / "BACKPACK_MODEL.json"))
     if path.is_symlink() or not path.is_file():
-        raise BackpackPlanError(f"model geometry manifest must be a regular file: {path}")
+        raise BackpackPlanError(
+            f"model geometry manifest must be a regular file: {path}"
+        )
     try:
         value = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
-        raise BackpackPlanError(f"cannot read model geometry manifest {path}: {exc}") from exc
+        raise BackpackPlanError(
+            f"cannot read model geometry manifest {path}: {exc}"
+        ) from exc
     if not isinstance(value, dict) or value.get("schema") != MODEL_SCHEMA:
         raise BackpackPlanError(f"model geometry manifest must use {MODEL_SCHEMA}")
     return path, value
@@ -855,7 +882,9 @@ def _fixed_artifacts(
         try:
             source.resolve().relative_to(root.resolve())
         except ValueError as exc:
-            raise BackpackPlanError(f"fixed artifact escapes model root: {source}") from exc
+            raise BackpackPlanError(
+                f"fixed artifact escapes model root: {source}"
+            ) from exc
         actual_bytes = source.stat().st_size
         actual_sha = _sha_file(source)
         if raw.get("bytes") != actual_bytes or raw.get("sha256") != actual_sha:
@@ -923,32 +952,47 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
         seen_casefolded.add(cell_id.casefold())
         relative = Path(_nonempty(raw.get("path"), f"model cells[{index}].path"))
         if relative.is_absolute() or ".." in relative.parts:
-            raise BackpackPlanError(f"model cell path must remain inside model root: {relative}")
+            raise BackpackPlanError(
+                f"model cell path must remain inside model root: {relative}"
+            )
         input_path = root / relative
         if input_path.is_symlink() or not input_path.is_file():
-            raise BackpackPlanError(f"model cell must be a regular NPY file: {input_path}")
+            raise BackpackPlanError(
+                f"model cell must be a regular NPY file: {input_path}"
+            )
         path = input_path.resolve()
         try:
             path.relative_to(root.resolve())
         except ValueError as exc:
-            raise BackpackPlanError(f"model cell path escapes model root: {relative}") from exc
+            raise BackpackPlanError(
+                f"model cell path escapes model root: {relative}"
+            ) from exc
         array = np.load(path, allow_pickle=False)
         if array.dtype != np.float32 or array.size == 0 or not np.isfinite(array).all():
-            raise BackpackPlanError(f"model cell {cell_id} must be finite non-empty float32 NPY")
+            raise BackpackPlanError(
+                f"model cell {cell_id} must be finite non-empty float32 NPY"
+            )
         feature_slice = raw.get("feature_slice")
         if (
             not isinstance(feature_slice, list)
             or len(feature_slice) != 2
-            or any(isinstance(value, bool) or not isinstance(value, int) for value in feature_slice)
+            or any(
+                isinstance(value, bool) or not isinstance(value, int)
+                for value in feature_slice
+            )
             or feature_slice[0] < 0
             or feature_slice[1] - feature_slice[0] != array.size
         ):
-            raise BackpackPlanError(f"model cell {cell_id} feature_slice/weight shape mismatch")
+            raise BackpackPlanError(
+                f"model cell {cell_id} feature_slice/weight shape mismatch"
+            )
         layer = raw.get("layer")
         expert_ids = raw.get("expert_ids")
         projection = raw.get("projection", "down")
         if isinstance(layer, bool) or not isinstance(layer, int) or layer < 0:
-            raise BackpackPlanError(f"model cell {cell_id} layer must be a non-negative integer")
+            raise BackpackPlanError(
+                f"model cell {cell_id} layer must be a non-negative integer"
+            )
         if projection not in QTIP_PROJECTIONS:
             raise BackpackPlanError(
                 f"model cell {cell_id} projection must be one of {', '.join(QTIP_PROJECTIONS)}"
@@ -1048,7 +1092,10 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
                 if int(cell["layer"]) == layer and cell["projection"] == projection
             }
         reference = partitions_by_projection[QTIP_PROJECTIONS[0]]
-        if any(partitions_by_projection[projection] != reference for projection in QTIP_PROJECTIONS[1:]):
+        if any(
+            partitions_by_projection[projection] != reference
+            for projection in QTIP_PROJECTIONS[1:]
+        ):
             raise BackpackPlanError(
                 f"model cells for layer {layer} must use identical expert partitions "
                 "across fused13 and down"
@@ -1064,13 +1111,17 @@ def _load_cells(plan: BackpackPlan) -> tuple[dict[str, Any], list[dict[str, Any]
     return manifest, cells
 
 
-def _load_anchor(plan: BackpackPlan, *, weight_count: int) -> tuple[np.ndarray, np.ndarray]:
+def _load_anchor(
+    plan: BackpackPlan, *, weight_count: int
+) -> tuple[np.ndarray, np.ndarray]:
     path = Path(plan.anchor["bank"])
     if path.is_symlink() or not path.is_file():
         raise BackpackPlanError(f"anchor.bank must be a regular NPZ file: {path}")
     with np.load(path, allow_pickle=False) as bank:
         if set(bank.files) != {"features", "classes"}:
-            raise BackpackPlanError("anchor bank must contain exactly features and classes")
+            raise BackpackPlanError(
+                "anchor bank must contain exactly features and classes"
+            )
         features = np.asarray(bank["features"], dtype=np.float32)
         classes = np.asarray(bank["classes"]).astype(str)
     if features.shape != (64, weight_count):
@@ -1078,7 +1129,9 @@ def _load_anchor(plan: BackpackPlan, *, weight_count: int) -> tuple[np.ndarray, 
             f"Anchor64 features must have shape [64,{weight_count}], got {features.shape}"
         )
     if classes.shape != (64,) or set(classes) != set(CLASSES):
-        raise BackpackPlanError("Anchor64 classes must be 64 labels covering all six classes")
+        raise BackpackPlanError(
+            "Anchor64 classes must be 64 labels covering all six classes"
+        )
     return features, classes
 
 
@@ -1126,7 +1179,9 @@ def _candidate_root(root: Path, tier: str, cell: str) -> Path:
     destination = tier_root / cell
     for path in (root, candidates, tier_root, destination):
         if path.is_symlink():
-            raise BackpackPlanError(f"candidate output path must not be a symlink: {path}")
+            raise BackpackPlanError(
+                f"candidate output path must not be a symlink: {path}"
+            )
     return destination
 
 
@@ -1235,7 +1290,12 @@ def _write_candidate_artifact(
         path = destination / f"{name}.npy"
         np.save(path, value, allow_pickle=False)
         array_rows.append(
-            {"name": name, "path": str(path), "bytes": path.stat().st_size, "sha256": _sha_file(path)}
+            {
+                "name": name,
+                "path": str(path),
+                "bytes": path.stat().st_size,
+                "sha256": _sha_file(path),
+            }
         )
     cell_payload_bytes = len(packed) + sum(
         int(value.nbytes) for value in extra_arrays.values()
@@ -1292,10 +1352,7 @@ def _record_rows(
 def _cell_identities(cell: Mapping[str, Any]) -> list[tuple[int, int, str]]:
     projection = str(cell["projection"])
     layer = int(cell["layer"])
-    return [
-        (layer, int(expert_id), projection)
-        for expert_id in cell["expert_ids"]
-    ]
+    return [(layer, int(expert_id), projection) for expert_id in cell["expert_ids"]]
 
 
 def _exact_qtip_geometries_for_cell(
@@ -1321,9 +1378,9 @@ def _exact_qtip_geometries(
     ring = resolve_qtip_ring(tier["bpw"])
     grouped: dict[tuple[int, str], list[tuple[int, int, str]]] = {}
     for cell in cells:
-        grouped.setdefault(
-            (int(cell["layer"]), str(cell["projection"])), []
-        ).extend(_cell_identities(cell))
+        grouped.setdefault((int(cell["layer"]), str(cell["projection"])), []).extend(
+            _cell_identities(cell)
+        )
     assigned: dict[tuple[int, int, str], tuple[int, int, int]] = {}
     for identities in grouped.values():
         if len(identities) != 256 or len(set(identities)) != 256:
@@ -1348,8 +1405,12 @@ def _candidate_receipt_map(result: Mapping[str, Any]) -> dict[tuple[str, str], P
             raise BackpackPlanError(f"candidate tier {tier!r} must contain cells")
         for cell_row in cell_rows:
             if not isinstance(cell_row, Mapping):
-                raise BackpackPlanError(f"candidate tier {tier!r} cell row must be an object")
-            cell_id = _nonempty(cell_row.get("cell_id"), f"candidate tier {tier!r} cell_id")
+                raise BackpackPlanError(
+                    f"candidate tier {tier!r} cell row must be an object"
+                )
+            cell_id = _nonempty(
+                cell_row.get("cell_id"), f"candidate tier {tier!r} cell_id"
+            )
             receipt = Path(
                 _nonempty(cell_row.get("receipt"), f"candidate tier {tier!r} receipt")
             )
@@ -1466,7 +1527,9 @@ def generate_fixed_d4_backpack_candidate(
     """Generate one exact native-MXFP4 fixed-D4 cell for the public plan seam."""
 
     if weights is not None:
-        raise BackpackPlanError("fixed D4 candidates cannot replace their bound source weights")
+        raise BackpackPlanError(
+            "fixed D4 candidates cannot replace their bound source weights"
+        )
     provider = str(tier.get("provider", ""))
     codebook_size = 2048 if "2048" in provider else 4096
     fixed_tier = f"d4_k{codebook_size}"
@@ -1495,7 +1558,9 @@ def generate_fixed_d4_backpack_candidate(
         try:
             prepared = json.loads(config_path.read_text())
         except (OSError, json.JSONDecodeError) as exc:
-            raise BackpackPlanError(f"invalid reusable fixed D4 prepare config: {exc}") from exc
+            raise BackpackPlanError(
+                f"invalid reusable fixed D4 prepare config: {exc}"
+            ) from exc
         copied_basis = prepared_root / str(prepared.get("basis_index", ""))
         if (
             prepared.get("schema") != "banana-smasher-fixed-d4-exact-solve-v1"
@@ -1505,7 +1570,9 @@ def generate_fixed_d4_backpack_candidate(
             or not copied_basis.is_file()
             or _sha_file(copied_basis) != basis_sha256
         ):
-            raise BackpackPlanError("reusable fixed D4 prepare config identity mismatch")
+            raise BackpackPlanError(
+                "reusable fixed D4 prepare config identity mismatch"
+            )
     else:
         prepare_fixed_d4_solve_config(
             model_root,
@@ -1521,7 +1588,9 @@ def generate_fixed_d4_backpack_candidate(
         try:
             solved_manifest = json.loads(manifest_path.read_text())
         except (OSError, json.JSONDecodeError) as exc:
-            raise BackpackPlanError(f"invalid reusable fixed D4 solve manifest: {exc}") from exc
+            raise BackpackPlanError(
+                f"invalid reusable fixed D4 solve manifest: {exc}"
+            ) from exc
         copied_basis_row = solved_manifest.get("basis_index")
         copied_basis = (
             solved_root / str(copied_basis_row.get("path", ""))
@@ -1537,7 +1606,9 @@ def generate_fixed_d4_backpack_candidate(
             or not copied_basis.is_file()
             or _sha_file(copied_basis) != basis_sha256
         ):
-            raise BackpackPlanError("reusable fixed D4 solve manifest identity mismatch")
+            raise BackpackPlanError(
+                "reusable fixed D4 solve manifest identity mismatch"
+            )
     else:
         solve_fixed_d4_exact(config_path, solved_root, basis_sha256=basis_sha256)
         solved_manifest = json.loads(manifest_path.read_text())
@@ -1557,14 +1628,17 @@ def generate_fixed_d4_backpack_candidate(
         expert_assignments = np.asarray(assignments[expert_id]).reshape(-1)
         expert_scales = np.asarray(scale_rows[expert_id], dtype=np.uint8).reshape(-1)
         packed = pack_indices(expert_assignments, bits=bits)
-        normalized = np.asarray(codebook[expert_assignments].reshape(-1), dtype=np.float32)
+        normalized = np.asarray(
+            codebook[expert_assignments].reshape(-1), dtype=np.float32
+        )
         if normalized.size != expert_scales.size * 32:
             raise BackpackPlanError(
                 "fixed D4 assignments and E8M0 source scales have incompatible geometry"
             )
-        decoded = normalized.reshape(-1, 32) * np.exp2(
-            expert_scales.astype(np.int16) - 127
-        )[:, None]
+        decoded = (
+            normalized.reshape(-1, 32)
+            * np.exp2(expert_scales.astype(np.int16) - 127)[:, None]
+        )
         packed_parts.append(packed)
         scales.append(expert_scales)
         decoded_rows.append(decoded.reshape(-1))
@@ -1689,16 +1763,22 @@ def _packaged_qtip_record(
     )
     for label, path in (("config", config), ("receipt", receipt_path)):
         if path.is_symlink() or not path.is_file():
-            raise BackpackPlanError(f"packaged QTIP {label} must be a regular file: {path}")
+            raise BackpackPlanError(
+                f"packaged QTIP {label} must be a regular file: {path}"
+            )
         try:
             path.resolve().relative_to(sealed_root)
         except (OSError, ValueError) as exc:
-            raise BackpackPlanError(f"packaged QTIP {label} escapes source_root: {path}") from exc
+            raise BackpackPlanError(
+                f"packaged QTIP {label} escapes source_root: {path}"
+            ) from exc
     try:
         config_payload = json.loads(config.read_text())
         receipt = json.loads(receipt_path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
-        raise BackpackPlanError(f"cannot read packaged QTIP unit {identity!r}: {exc}") from exc
+        raise BackpackPlanError(
+            f"cannot read packaged QTIP unit {identity!r}: {exc}"
+        ) from exc
     expected_geometry = {key: value for key, value in zip(("L", "K", "V"), geometry)}
     if (
         not isinstance(config_payload, Mapping)
@@ -1722,11 +1802,15 @@ def _packaged_qtip_record(
     if not artifact.is_absolute():
         artifact = receipt_path.parent / artifact
     if artifact.is_symlink() or not artifact.is_file():
-        raise BackpackPlanError(f"packaged QTIP artifact must be a regular file: {artifact}")
+        raise BackpackPlanError(
+            f"packaged QTIP artifact must be a regular file: {artifact}"
+        )
     try:
         artifact.resolve().relative_to(sealed_root)
     except (OSError, ValueError) as exc:
-        raise BackpackPlanError(f"packaged QTIP artifact escapes source_root: {artifact}") from exc
+        raise BackpackPlanError(
+            f"packaged QTIP artifact escapes source_root: {artifact}"
+        ) from exc
     artifact_sha256 = _sha_file(artifact)
     if receipt.get("artifact_sha256") != artifact_sha256:
         raise BackpackPlanError(f"packaged QTIP artifact hash drift: {artifact}")
@@ -1738,7 +1822,9 @@ def _packaged_qtip_record(
             weights_only=True,
         )
     except (OSError, RuntimeError, TypeError, ValueError) as exc:
-        raise BackpackPlanError(f"cannot load packaged QTIP artifact {artifact}: {exc}") from exc
+        raise BackpackPlanError(
+            f"cannot load packaged QTIP artifact {artifact}: {exc}"
+        ) from exc
     tensor_names = ("trellis", "SU", "SV", "Wscale", "tlut")
     payload_geometry = payload.get("geometry") if isinstance(payload, Mapping) else None
     if (
@@ -1954,16 +2040,19 @@ def generate_qtip_backpack_candidate(
     )
 
 
-def _stage_candidates(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[str, Any]:
-    from .backpack_providers import generate_backpack_candidate, price_backpack_candidate
+def _stage_candidates(
+    plan: BackpackPlan, root: Path, _prior: dict[str, Any]
+) -> dict[str, Any]:
+    from .backpack_providers import (
+        generate_backpack_candidate,
+        price_backpack_candidate,
+    )
 
     _manifest, cells = _load_cells(plan)
     tiers: list[dict[str, Any]] = []
     for tier in plan.tiers:
         qtip_geometries = (
-            _exact_qtip_geometries(tier, cells)
-            if tier["family"] == "qtip"
-            else None
+            _exact_qtip_geometries(tier, cells) if tier["family"] == "qtip" else None
         )
         cell_rows = []
         for cell in cells:
@@ -2076,7 +2165,9 @@ def _stage_candidate_anchor(
     return {"anchors": rows, "same_instrument": True, "windows": 64}
 
 
-def _stage_pred(plan: BackpackPlan, root: Path, _prior: dict[str, Any]) -> dict[str, Any]:
+def _stage_pred(
+    plan: BackpackPlan, root: Path, _prior: dict[str, Any]
+) -> dict[str, Any]:
     from .backpack_providers import backpack_provider_from_declaration
 
     manifest, cells = _load_cells(plan)
@@ -2244,7 +2335,9 @@ def _repair_state_bytes(pack_manifest: Mapping[str, Any]) -> int:
         return 0
     value = repair_rows[0].get("bytes")
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise BackpackPlanError("pack repair_state bytes must be a non-negative integer")
+        raise BackpackPlanError(
+            "pack repair_state bytes must be a non-negative integer"
+        )
     return value
 
 
@@ -2359,7 +2452,9 @@ def _attach_backpack_artifacts(
         raise BackpackPlanError(f"invalid exported pack manifest: {pack_manifest_path}")
     for index, record in enumerate(fixed):
         source = Path(record["source"])
-        relative = Path("backpack-fixed") / str(record["role"]) / f"{index:04d}-{source.name}"
+        relative = (
+            Path("backpack-fixed") / str(record["role"]) / f"{index:04d}-{source.name}"
+        )
         destination = output / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, destination)
@@ -2405,9 +2500,7 @@ def _attach_backpack_artifacts(
                 f"selected activation artifact binding drift: {artifact_id}"
             )
         relative = (
-            Path("backpack-activation")
-            / artifact_id
-            / f"{index:04d}-{source.name}"
+            Path("backpack-activation") / artifact_id / f"{index:04d}-{source.name}"
         )
         destination = output / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -2723,9 +2816,7 @@ def _stage_solve_materialize(
     cell_group = {
         str(cell["cell_id"]): str(cell["selection_group"]) for cell in model_cells
     }
-    rows_by_option = {
-        (str(row["cell_id"]), str(row["tier"])): row for row in pred_rows
-    }
+    rows_by_option = {(str(row["cell_id"]), str(row["tier"])): row for row in pred_rows}
     bytes_by_option = {
         (group, tier): sum(
             int(rows_by_option[(cell_id, tier)]["physical_bytes"])
@@ -2947,14 +3038,21 @@ def _identity_bound_packaged_qtip_cell(
     final_tiers = _candidate_label_rows(final_arrays["record_tiers"], width=32)
     if any(
         value is None
-        for value in (candidate_projections, final_projections, candidate_tiers, final_tiers)
+        for value in (
+            candidate_projections,
+            final_projections,
+            candidate_tiers,
+            final_tiers,
+        )
     ):
         raise BackpackPlanError("packaged QTIP record labels are invalid")
     assert candidate_projections is not None
     assert final_projections is not None
     assert candidate_tiers is not None
     assert final_tiers is not None
-    candidate_experts = np.asarray(candidate_arrays["expert_ids"], dtype=np.int16).reshape(-1)
+    candidate_experts = np.asarray(
+        candidate_arrays["expert_ids"], dtype=np.int16
+    ).reshape(-1)
     final_experts = np.asarray(final_arrays["expert_ids"], dtype=np.int16).reshape(-1)
     candidate_geometry = np.asarray(candidate_arrays["record_geometry"], dtype=np.int32)
     final_geometry = np.asarray(final_arrays["record_geometry"], dtype=np.int32)
@@ -2966,9 +3064,14 @@ def _identity_bound_packaged_qtip_cell(
         )
     }
     if len(candidate_by_identity) != len(candidate_experts):
-        raise BackpackPlanError("packaged QTIP candidate record identities are not unique")
+        raise BackpackPlanError(
+            "packaged QTIP candidate record identities are not unique"
+        )
     for final_record in final_records:
-        identity = (int(final_experts[final_record]), str(final_projections[final_record]))
+        identity = (
+            int(final_experts[final_record]),
+            str(final_projections[final_record]),
+        )
         candidate_record = candidate_by_identity.get(identity)
         if candidate_record is None:
             raise BackpackPlanError(
@@ -3035,7 +3138,9 @@ def _final_pack_weights(
                 family = (
                     f"truevq_d{descriptor['dimension']}"
                     if descriptor["family"] == "vector_vq"
-                    else "qtip2" if float(descriptor["bpw"]) < 3.0 else "qtip3"
+                    else "qtip2"
+                    if float(descriptor["bpw"]) < 3.0
+                    else "qtip3"
                 )
                 arrays = family_arrays.setdefault(
                     family,
@@ -3058,10 +3163,16 @@ def _final_pack_weights(
                     raise BackpackPlanError(
                         f"final pack lacks scoring tensors for layer {layer} {family}"
                     )
-                projections = _candidate_label_rows(arrays["record_projections"], width=8)
+                projections = _candidate_label_rows(
+                    arrays["record_projections"], width=8
+                )
                 if projections is None:
-                    raise BackpackPlanError("final pack contains invalid projection metadata")
-                expert_ids = np.asarray(arrays["expert_ids"], dtype=np.int16).reshape(-1)
+                    raise BackpackPlanError(
+                        "final pack contains invalid projection metadata"
+                    )
+                expert_ids = np.asarray(arrays["expert_ids"], dtype=np.int16).reshape(
+                    -1
+                )
                 expected_experts = {int(value) for value in cell["expert_ids"]}
                 record_indexes = [
                     index
@@ -3164,9 +3275,9 @@ def _final_pack_weights(
                         states = _unpack_backpack_indices(
                             codes, bits=bits, count=weight_count
                         )
-                        signs = np.where(
-                            np.arange(weight_count) % 2, -1.0, 1.0
-                        ).astype(np.float32)
+                        signs = np.where(np.arange(weight_count) % 2, -1.0, 1.0).astype(
+                            np.float32
+                        )
                         record_weights.append(
                             np.asarray(lattice[states], dtype=np.float32) * signs
                         )
@@ -3193,7 +3304,9 @@ def _stage_pre_repair_anchor(
     }
 
 
-def _stage_repair(plan: BackpackPlan, root: Path, prior: dict[str, Any]) -> dict[str, Any]:
+def _stage_repair(
+    plan: BackpackPlan, root: Path, prior: dict[str, Any]
+) -> dict[str, Any]:
     _manifest, cells = _load_cells(plan)
     assignment = prior["solve_materialize"]["assignment"]
     selected, _weights = _selected_weights(prior["candidates"], assignment, cells)
@@ -3260,9 +3373,7 @@ def _stage_repair(plan: BackpackPlan, root: Path, prior: dict[str, Any]) -> dict
         plan=plan,
         suffix="final",
         repair=bundle,
-        activation_artifacts=prior["solve_materialize"].get(
-            "activated_artifacts", ()
-        ),
+        activation_artifacts=prior["solve_materialize"].get("activated_artifacts", ()),
     )
     arrays = root / "repair" / "cells"
     arrays.mkdir(parents=True, exist_ok=True)
@@ -3295,7 +3406,9 @@ def _stage_repair(plan: BackpackPlan, root: Path, prior: dict[str, Any]) -> dict
     return {**receipt, "receipt": str(path)}
 
 
-def _stage_final_score(plan: BackpackPlan, root: Path, prior: dict[str, Any]) -> dict[str, Any]:
+def _stage_final_score(
+    plan: BackpackPlan, root: Path, prior: dict[str, Any]
+) -> dict[str, Any]:
     manifest, cells = _load_cells(plan)
     features, classes = _load_anchor(plan, weight_count=int(manifest["weight_count"]))
     final_weights = _final_pack_weights(
@@ -3305,7 +3418,9 @@ def _stage_final_score(plan: BackpackPlan, root: Path, prior: dict[str, Any]) ->
         cells,
         prior["candidates"],
     )
-    metrics = _anchor_metrics(features, classes, _teacher_weights(plan, cells), final_weights)
+    metrics = _anchor_metrics(
+        features, classes, _teacher_weights(plan, cells), final_weights
+    )
     candidate_table = [
         {
             "tier": row["tier"],
@@ -3664,7 +3779,9 @@ def _validate_packaged_qtip_units(
             config_payload = json.loads(config.read_text())
         except (OSError, json.JSONDecodeError):
             return False
-        expected_geometry = {key: value for key, value in zip(("L", "K", "V"), geometry)}
+        expected_geometry = {
+            key: value for key, value in zip(("L", "K", "V"), geometry)
+        }
         if (
             not isinstance(config_payload, Mapping)
             or config_payload.get("layer") != layer
@@ -3700,9 +3817,7 @@ def _validate_candidate_receipt(
     *,
     tier: Mapping[str, Any],
     cell: Mapping[str, Any],
-    geometry_by_identity: Mapping[
-        tuple[int, int, str], tuple[int, int, int]
-    ]
+    geometry_by_identity: Mapping[tuple[int, int, str], tuple[int, int, int]]
     | None = None,
 ) -> bool:
     if not isinstance(value, str):
@@ -3770,7 +3885,10 @@ def _validate_candidate_receipt(
             return False
         wire_bytes = int(wire["bytes"])
         physical_bytes = (
-            wire_bytes + int(scales.nbytes) + int(expert_ids.nbytes) + int(offsets.nbytes)
+            wire_bytes
+            + int(scales.nbytes)
+            + int(expert_ids.nbytes)
+            + int(offsets.nbytes)
         )
         return (
             receipt.get("algorithm") == "native-mxfp4-no-swap"
@@ -3788,8 +3906,7 @@ def _validate_candidate_receipt(
             and offsets.shape == (expert_ids.size + 1, 2)
             and np.array_equal(offsets[0], np.zeros(2, dtype=np.int64))
             and bool(np.all(np.diff(offsets, axis=0) >= 0))
-            and offsets[-1].tolist()
-            == [wire_bytes, int(scales.nbytes)]
+            and offsets[-1].tolist() == [wire_bytes, int(scales.nbytes)]
         )
     required = {
         "codebooks",
@@ -3876,10 +3993,8 @@ def _validate_candidate_receipt(
             or (
                 fixed_d4
                 and (
-                    receipt.get("source_dtype")
-                    != "packed-mxfp4-e2m1-with-e8m0-scales"
-                    or receipt.get("basis_sha256")
-                    != cell.get("fixed_d4_basis_sha256")
+                    receipt.get("source_dtype") != "packed-mxfp4-e2m1-with-e8m0-scales"
+                    or receipt.get("basis_sha256") != cell.get("fixed_d4_basis_sha256")
                 )
             )
             or receipt.get("dimension") != dimension
@@ -3897,7 +4012,9 @@ def _validate_candidate_receipt(
         ring = resolve_qtip_ring(tier["bpw"])
         identities = _cell_identities(cell)
         try:
-            expected_geometry = [geometry_by_identity[identity] for identity in identities]
+            expected_geometry = [
+                geometry_by_identity[identity] for identity in identities
+            ]
         except KeyError:
             return False
         expected_tiers = [ring.tier] * record_count
@@ -3979,7 +4096,9 @@ def _bound_reuse_receipts(
             _nonempty(row.get("path"), f"receipts[{index}].path")
         ).expanduser()
         if source_input.is_symlink() or not source_input.is_file():
-            raise BackpackPlanError(f"reused receipt must be a regular file: {source_input}")
+            raise BackpackPlanError(
+                f"reused receipt must be a regular file: {source_input}"
+            )
         source = source_input.resolve()
         expected = _nonempty(row.get("sha256"), f"receipts[{index}].sha256")
         actual = _sha_file(source)
@@ -3990,7 +4109,9 @@ def _bound_reuse_receipts(
         try:
             payload = json.loads(source.read_text())
         except (OSError, json.JSONDecodeError) as exc:
-            raise BackpackPlanError(f"reused receipt is not valid JSON: {source}") from exc
+            raise BackpackPlanError(
+                f"reused receipt is not valid JSON: {source}"
+            ) from exc
         if not isinstance(payload, Mapping):
             raise BackpackPlanError(f"reused receipt must be a JSON object: {source}")
         admission = row.get("admission", "admitted")
@@ -4029,7 +4150,11 @@ def _bound_reuse_receipts(
                 "sha256": actual,
                 "schema": payload.get("schema"),
                 "source_status": status,
-                **({"stage": payload.get("stage")} if payload.get("stage") in STAGES else {}),
+                **(
+                    {"stage": payload.get("stage")}
+                    if payload.get("stage") in STAGES
+                    else {}
+                ),
                 "payload": dict(payload),
             }
         )
@@ -4065,7 +4190,9 @@ def _import_reusable_stage_chain(
     if not isinstance(payload, Mapping):
         raise BackpackPlanError(f"reused stage {stage} payload must be an object")
     if payload.get("schema") != STAGE_SCHEMA or payload.get("status") != "PASS":
-        raise BackpackPlanError(f"reused stage {stage} must be a passing {STAGE_SCHEMA} receipt")
+        raise BackpackPlanError(
+            f"reused stage {stage} must be a passing {STAGE_SCHEMA} receipt"
+        )
     if payload.get("stage") != stage:
         raise BackpackPlanError(f"reused stage {stage} identity mismatch")
     if payload.get("plan_sha256") != plan_sha256:
@@ -4161,12 +4288,16 @@ def _bind_run(
     ):
         path = root / name
         if path.is_symlink():
-            raise BackpackPlanError(f"reserved run output path must not be a symlink: {path}")
+            raise BackpackPlanError(
+                f"reserved run output path must not be a symlink: {path}"
+            )
     plan_payload = _canonical_bytes(parsed.as_mapping())
     plan_sha256 = _execution_plan_sha(parsed)
     plan_path = root / "PLAN.json"
     if plan_path.exists() and plan_path.read_bytes() != plan_payload:
-        raise BackpackPlanError("run root is already bound to a different Backpack plan")
+        raise BackpackPlanError(
+            "run root is already bound to a different Backpack plan"
+        )
     _atomic_bytes(plan_path, plan_payload)
     if parsed.reuse_receipts:
         _admit_reusable_stage_receipts(parsed, root=root, plan_sha256=plan_sha256)
@@ -4208,7 +4339,9 @@ def _execute_public_stage(
         return existing
     runner = _STAGE_RUNNERS[stage]
     try:
-        result = runner(parsed, root) if stage == "inspect" else runner(parsed, root, prior)
+        result = (
+            runner(parsed, root) if stage == "inspect" else runner(parsed, root, prior)
+        )
     except Exception as exc:
         _atomic_json(
             path,
@@ -4282,14 +4415,14 @@ def anchor_backpack(
     return _execute_public_stage(plan, run_root=run_root, stage="pre_repair_anchor")
 
 
-def repair_backpack(
+def _repair_backpack(
     plan: BackpackPlan | Mapping[str, Any], *, run_root: str | Path
 ) -> dict[str, Any]:
     """Run repair/update and materialize the final verified pack."""
     return _execute_public_stage(plan, run_root=run_root, stage="repair")
 
 
-def score_backpack(
+def _score_backpack(
     plan: BackpackPlan | Mapping[str, Any], *, run_root: str | Path
 ) -> dict[str, Any]:
     """Run final Anchor64 and emit the combined final receipt/table."""
@@ -4344,8 +4477,7 @@ def _fixed_assignment_admission(plan: BackpackPlan) -> dict[str, Any] | None:
     admissions = [
         row
         for row in plan.reuse_receipts
-        if row["role"] == "fixed-qtip-pack-admission"
-        and row["admission"] == "admitted"
+        if row["role"] == "fixed-qtip-pack-admission" and row["admission"] == "admitted"
     ]
     if not admissions:
         return None
@@ -4363,7 +4495,7 @@ def _build_fixed_assignment_backpack(
     plan_sha256: str,
     binding: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Stream one sealed whole-model fixed assignment through public build_backpack."""
+    """Stream one sealed whole-model fixed assignment through the private fixture rail."""
 
     from .contract import MANIFEST_NAME, verify_pack
     from .fixed_qtip_export import export_fixed_qtip_pack
@@ -4395,7 +4527,9 @@ def _build_fixed_assignment_backpack(
             f"fixed assignment output exists without a matching final receipt: {destination}"
         )
     if plan.repair["method"] != "none":
-        raise BackpackPlanError("fixed assignment production export requires repair.method=none")
+        raise BackpackPlanError(
+            "fixed assignment production export requires repair.method=none"
+        )
     serving_root = Path(plan.model["root"])
     index_path = serving_root / "model.safetensors.index.json"
     if index_path.is_file() and plan.model["revision"] != _sha_file(index_path):
@@ -4438,7 +4572,9 @@ def _build_fixed_assignment_backpack(
         if row.get("role") == "base_weights_shard"
     )
     whole_model_bytes = expert_plane_bytes + base_weight_file_bytes
-    if "exact_bytes" in plan.target and whole_model_bytes != int(plan.target["exact_bytes"]):
+    if "exact_bytes" in plan.target and whole_model_bytes != int(
+        plan.target["exact_bytes"]
+    ):
         shutil.rmtree(destination, ignore_errors=True)
         raise BackpackPlanError(
             f"fixed assignment whole-model bytes {whole_model_bytes} "
@@ -4484,7 +4620,7 @@ def _build_fixed_assignment_backpack(
     }
 
 
-def build_backpack(
+def _build_backpack(
     plan: BackpackPlan | Mapping[str, Any], *, run_root: str | Path
 ) -> dict[str, Any]:
     """Execute or resume the complete eight-stage Backpack construction DAG."""
@@ -4508,8 +4644,8 @@ def build_backpack(
         ("pred", predict_backpack),
         ("solve_materialize", solve_backpack),
         ("pre_repair_anchor", anchor_backpack),
-        ("repair", repair_backpack),
-        ("final_score", score_backpack),
+        ("repair", _repair_backpack),
+        ("final_score", _score_backpack),
     )
     for index, (stage, stage_api) in enumerate(public_stages, 1):
         path = _stage_path(root, index, stage)
@@ -4540,10 +4676,14 @@ def build_backpack(
     return final
 
 
-def _completed_run_results(root: Path, through: str) -> tuple[BackpackPlan, dict[str, Any]]:
+def _completed_run_results(
+    root: Path, through: str
+) -> tuple[BackpackPlan, dict[str, Any]]:
     plan_path = root / "PLAN.json"
     if root.is_symlink() or plan_path.is_symlink() or not plan_path.is_file():
-        raise BackpackPlanError(f"Backpack run root is missing a regular PLAN.json: {root}")
+        raise BackpackPlanError(
+            f"Backpack run root is missing a regular PLAN.json: {root}"
+        )
     plan = BackpackPlan.from_mapping(json.loads(plan_path.read_text()))
     status = status_backpack(root)
     required = STAGES[: STAGES.index(through) + 1]
@@ -4641,7 +4781,9 @@ def export_backpack_lifecycle(
     root = root_input.resolve()
     output_input = Path(output).expanduser()
     if output_input.is_symlink():
-        raise BackpackPlanError(f"lifecycle output must not be a direct symlink: {output_input}")
+        raise BackpackPlanError(
+            f"lifecycle output must not be a direct symlink: {output_input}"
+        )
     destination = output_input.resolve()
     if destination.exists():
         raise FileExistsError(f"output already exists: {destination}")
@@ -4650,16 +4792,18 @@ def export_backpack_lifecycle(
         if kernel_cache_root is not None
         else Path(serving_model_root).expanduser() / "kernel-cache"
     )
-    if cache_input.is_symlink() or not (
-        cache_input / "BS_KERNEL_CACHE_MANIFEST.json"
-    ).is_file():
+    if (
+        cache_input.is_symlink()
+        or not (cache_input / "BS_KERNEL_CACHE_MANIFEST.json").is_file()
+    ):
         raise BackpackPlanError(
-            "lifecycle export requires a regular portable kernel cache: "
-            f"{cache_input}"
+            f"lifecycle export requires a regular portable kernel cache: {cache_input}"
         )
 
-    through = "candidates" if lifecycle == "uniform-anchor" else (
-        "solve_materialize" if lifecycle == "pre-repair" else "repair"
+    through = (
+        "candidates"
+        if lifecycle == "uniform-anchor"
+        else ("solve_materialize" if lifecycle == "pre-repair" else "repair")
     )
     plan, results = _completed_run_results(root, through)
     _manifest, cells = _load_cells(plan)
@@ -4667,10 +4811,11 @@ def export_backpack_lifecycle(
     if lifecycle == "uniform-anchor":
         selected_tier = _safe_id(tier, "tier")
         if selected_tier not in {str(row["id"]) for row in plan.tiers}:
-            raise BackpackPlanError(f"uniform lifecycle tier is not declared: {selected_tier}")
+            raise BackpackPlanError(
+                f"uniform lifecycle tier is not declared: {selected_tier}"
+            )
         assignment = [
-            {"cell_id": str(cell["cell_id"]), "tier": selected_tier}
-            for cell in cells
+            {"cell_id": str(cell["cell_id"]), "tier": selected_tier} for cell in cells
         ]
         artifact_roots = {
             str(cell["cell_id"]): candidate_artifact_root(
@@ -4702,8 +4847,10 @@ def export_backpack_lifecycle(
                 repair = _fixture_lifecycle_repair_bundle(
                     plan, root, serving_model_root
                 )
-            source = root / "materialized" / (
-                "pre-repair-source" if repair is not None else "final-source"
+            source = (
+                root
+                / "materialized"
+                / ("pre-repair-source" if repair is not None else "final-source")
             )
 
     assignment_sha256 = _sha(_canonical_bytes(assignment))

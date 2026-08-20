@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 from typing import Any, Mapping
 
-from .anchor import score_bank, validate_bank_manifest
+from .anchor import _score_bank, validate_bank_manifest
 from .backpack_contextual import ContextualValuationError, _atomic_json
 from .backpack_virtual import _canonical, verify_virtual_backpack
 
@@ -18,7 +18,7 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def score_backpack_exact64(
+def _score_backpack_exact64(
     virtual_root: str | Path,
     bank_manifest: Mapping[str, Any] | str | Path,
     teacher_producer: str | Path,
@@ -39,7 +39,7 @@ def score_backpack_exact64(
         manifest = json.loads(Path(bank_manifest).expanduser().read_text())
     validate_bank_manifest(manifest)
     raw_path = Path(raw_output_path).expanduser()
-    anchor_receipt = score_bank(
+    anchor_receipt = _score_bank(
         manifest,
         teacher_producer,
         candidate_producer,
@@ -49,9 +49,13 @@ def score_backpack_exact64(
         teacher_identity=teacher_identity,
         basis_sha256=str(virtual["basis_sha256"]),
     )
-    rows = [json.loads(line) for line in raw_path.read_text().splitlines() if line.strip()]
+    rows = [
+        json.loads(line) for line in raw_path.read_text().splitlines() if line.strip()
+    ]
     if len(rows) != 64:
-        raise ContextualValuationError("canonical Anchor score must contain exactly 64 windows")
+        raise ContextualValuationError(
+            "canonical Anchor score must contain exactly 64 windows"
+        )
     per_window = [
         {
             "window_id": row["window_id"],
@@ -62,9 +66,10 @@ def score_backpack_exact64(
         for row in rows
     ]
     positions = sum(int(row["positions"]) for row in per_window)
-    mean_kld = math.fsum(
-        float(row["mean_kld"]) * int(row["positions"]) for row in per_window
-    ) / positions
+    mean_kld = (
+        math.fsum(float(row["mean_kld"]) * int(row["positions"]) for row in per_window)
+        / positions
+    )
     score = {
         "schema": "banana-smasher-anchor-sidecar-score-v1",
         "status": "PASS",
@@ -125,9 +130,13 @@ def bind_backpack_exact64(
         or score.get("status") != "PASS"
         or score.get("claimable") is not True
     ):
-        raise ContextualValuationError("exact64 score must be claimable Anchor sidecar PASS v1")
+        raise ContextualValuationError(
+            "exact64 score must be claimable Anchor sidecar PASS v1"
+        )
     if score.get("windows") != 64 or score.get("support_width") != 8192:
-        raise ContextualValuationError("exact64 score requires 64 windows at support width 8192")
+        raise ContextualValuationError(
+            "exact64 score requires 64 windows at support width 8192"
+        )
     per_window = score.get("per_window")
     if not isinstance(per_window, list) or len(per_window) != 64:
         raise ContextualValuationError("exact64 score must bind 64 per-window rows")
@@ -183,23 +192,33 @@ def bind_backpack_exact64(
     ):
         raise ContextualValuationError("exact64 score mean KLD is invalid")
     if sum(row.get("positions", -1) for row in per_window) != positions:
-        raise ContextualValuationError("exact64 per-window positions do not match total")
+        raise ContextualValuationError(
+            "exact64 per-window positions do not match total"
+        )
     if per_window_top1 != top1_matches:
-        raise ContextualValuationError("exact64 per-window Top-1 matches do not match total")
+        raise ContextualValuationError(
+            "exact64 per-window Top-1 matches do not match total"
+        )
     if not math.isclose(
         math.fsum(weighted_kld) / positions,
         float(mean_kld),
         rel_tol=0.0,
         abs_tol=1e-12,
     ):
-        raise ContextualValuationError("exact64 per-window KLD does not match aggregate")
+        raise ContextualValuationError(
+            "exact64 per-window KLD does not match aggregate"
+        )
     identities = score.get("identities")
     if not isinstance(identities, Mapping):
         raise ContextualValuationError("exact64 score identities are missing")
     if identities.get("basis_sha256") != virtual.get("basis_sha256"):
-        raise ContextualValuationError("exact64 score basis does not match virtual Backpack")
+        raise ContextualValuationError(
+            "exact64 score basis does not match virtual Backpack"
+        )
     if identities.get("pack_sha256") != verified.get("artifact_sha256"):
-        raise ContextualValuationError("exact64 score pack does not match virtual Backpack")
+        raise ContextualValuationError(
+            "exact64 score pack does not match virtual Backpack"
+        )
 
     terminal = {
         "schema": EXACT64_TERMINAL_SCHEMA,

@@ -30,45 +30,52 @@ def _v7_manifest(tmp_path: Path) -> Path:
     for layer in range(43):
         lut = root / f"L{layer:03d}.tlut.f16"
         np.linspace(-1, 1, 1024, dtype=np.float16).tofile(lut)
-        layers.append({
-            "layer": layer,
-            "path": lut.name,
-            "bytes": lut.stat().st_size,
-            "sha256": _sha(lut),
-            "dtype": "float16",
-            "shape": [1024],
-        })
-        external.append({
-            "layer": layer,
-            "member_count": 768,
-            "complete_wire_bytes": 1,
-            "identity_sha256": "",
-            "provider": "fixture-external-wire",
-            "path": f"L{layer:03d}.wire",
-            "bytes": 1,
-            "sha256": "",
-            "members": [
-                {"expert": expert, "projection": projection}
-                for expert in range(256)
-                for projection in ("w1", "w2", "w3")
-            ],
-        })
+        layers.append(
+            {
+                "layer": layer,
+                "path": lut.name,
+                "bytes": lut.stat().st_size,
+                "sha256": _sha(lut),
+                "dtype": "float16",
+                "shape": [1024],
+            }
+        )
+        external.append(
+            {
+                "layer": layer,
+                "member_count": 768,
+                "complete_wire_bytes": 1,
+                "identity_sha256": "",
+                "provider": "fixture-external-wire",
+                "path": f"L{layer:03d}.wire",
+                "bytes": 1,
+                "sha256": "",
+                "members": [
+                    {"expert": expert, "projection": projection}
+                    for expert in range(256)
+                    for projection in ("w1", "w2", "w3")
+                ],
+            }
+        )
         wire = root / external[-1]["path"]
         wire.write_bytes(bytes([layer]))
         external[-1]["identity_sha256"] = _sha(wire)
         external[-1]["sha256"] = _sha(wire)
-    return _json(root / "QTIP_V7_MANIFEST.json", {
-        "schema": "banana-smasher-qtip-v7-artifact-v1",
-        "rate": 2,
-        "members": [],
-        "external_layers": external,
-        "layer_luts": layers,
-        "joint_trainable_surface": {
-            "layer_luts": {f"L{i:03d}": [1024] for i in range(43)},
-            "norms": {f"rmsnorm_{i:03d}": [2] for i in range(235)},
-            "outputs": {f"output_gain_L{i:03d}": [] for i in range(43)},
+    return _json(
+        root / "QTIP_V7_MANIFEST.json",
+        {
+            "schema": "banana-smasher-qtip-v7-artifact-v1",
+            "rate": 2,
+            "members": [],
+            "external_layers": external,
+            "layer_luts": layers,
+            "joint_trainable_surface": {
+                "layer_luts": {f"L{i:03d}": [1024] for i in range(43)},
+                "norms": {f"rmsnorm_{i:03d}": [2] for i in range(235)},
+                "outputs": {f"output_gain_L{i:03d}": [] for i in range(43)},
+            },
         },
-    })
+    )
 
 
 def _teacher_bank(tmp_path: Path) -> Path:
@@ -76,17 +83,22 @@ def _teacher_bank(tmp_path: Path) -> Path:
         {"ordinal": ordinal, "teacher_logits": [0.25 + ordinal / 1000, -0.25]}
         for ordinal in range(64)
     ]
-    return _json(tmp_path / "teacher-bank.json", {
-        "schema": "banana-smasher-qtip-v7-teacher-bank-v1",
-        "bank_id": "BALANCED64_V1",
-        "teacher_sha256": "f" * 64,
-        "positions_per_window": 1024,
-        "support": 8192,
-        "teacher_logits_sha256": hashlib.sha256(
-            (json.dumps(windows, sort_keys=True, separators=(",", ":")) + "\n").encode()
-        ).hexdigest(),
-        "windows": windows,
-    })
+    return _json(
+        tmp_path / "teacher-bank.json",
+        {
+            "schema": "banana-smasher-qtip-v7-teacher-bank-v1",
+            "bank_id": "BALANCED64_V1",
+            "teacher_sha256": "f" * 64,
+            "positions_per_window": 1024,
+            "support": 8192,
+            "teacher_logits_sha256": hashlib.sha256(
+                (
+                    json.dumps(windows, sort_keys=True, separators=(",", ":")) + "\n"
+                ).encode()
+            ).hexdigest(),
+            "windows": windows,
+        },
+    )
 
 
 def _trainer(tmp_path: Path) -> Path:
@@ -184,7 +196,7 @@ def _joint_checkpoint(
     path: Path, update: int = 5, *, freeze: Path | None = None
 ) -> Path:
     assert freeze is not None
-    from banana_smasher.qtip_v7_joint_workflow import train_joint
+    from banana_smasher.qtip_v7_joint_workflow import _train_joint as train_joint
 
     train_joint(
         freeze=freeze,
@@ -195,25 +207,57 @@ def _joint_checkpoint(
     return path
 
 
+@pytest.mark.skip(reason="retired public staged training/scoring route")
 def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
     manifest = _v7_manifest(tmp_path)
     bank = _teacher_bank(tmp_path)
     run = tmp_path / "run"
 
-    assert main(["qtip-v7-joint-repair", "inspect", "--manifest", str(manifest),
-                 "--teacher-bank", str(bank), "--run-root", str(run),
-                 "--trainer-host", "192.168.200.9"]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "inspect",
+                "--manifest",
+                str(manifest),
+                "--teacher-bank",
+                str(bank),
+                "--run-root",
+                str(run),
+                "--trainer-host",
+                "192.168.200.9",
+            ]
+        )
+        == 0
+    )
     frozen = json.loads(capsys.readouterr().out)
     assert frozen["status"] == "PASS"
     assert frozen["inventory"] == {
-        "layers": 43, "layer_luts": 43, "rmsnorm_masters": 235, "output_gains": 43
+        "layers": 43,
+        "layer_luts": 43,
+        "rmsnorm_masters": 235,
+        "output_gains": 43,
     }
     assert frozen["teacher_bank"]["windows"] == 64
 
     checkpoint5 = run / "checkpoints" / "UPDATE_005.pt"
-    assert main(["qtip-v7-joint-repair", "train", "--freeze", str(run / "FROZEN_INPUTS.json"),
-                 "--checkpoint", str(checkpoint5), "--target-update", "5",
-                 "--trainer", str(_trainer(tmp_path))]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "train",
+                "--freeze",
+                str(run / "FROZEN_INPUTS.json"),
+                "--checkpoint",
+                str(checkpoint5),
+                "--target-update",
+                "5",
+                "--trainer",
+                str(_trainer(tmp_path)),
+            ]
+        )
+        == 0
+    )
     trained = json.loads(capsys.readouterr().out)
     assert trained["status"] == "PASS"
     assert trained["update"] == 5
@@ -223,61 +267,151 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
     assert checkpoint5.stat().st_mode & 0o222 == 0
     assert receipt5.stat().st_mode & 0o222 == 0
 
-    assert main(["qtip-v7-joint-repair", "verify", "--freeze", str(run / "FROZEN_INPUTS.json"),
-                 "--checkpoint", str(checkpoint5), "--receipt", str(receipt5)]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "verify",
+                "--freeze",
+                str(run / "FROZEN_INPUTS.json"),
+                "--checkpoint",
+                str(checkpoint5),
+                "--receipt",
+                str(receipt5),
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["checkpoint_sha256"] == _sha(checkpoint5)
 
     checkpoint8 = run / "checkpoints" / "UPDATE_008.pt"
-    assert main(["qtip-v7-joint-repair", "train", "--freeze", str(run / "FROZEN_INPUTS.json"),
-                 "--checkpoint", str(checkpoint8), "--resume-from", str(checkpoint5),
-                 "--target-update", "8", "--trainer", str(_trainer(tmp_path))]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "train",
+                "--freeze",
+                str(run / "FROZEN_INPUTS.json"),
+                "--checkpoint",
+                str(checkpoint8),
+                "--resume-from",
+                str(checkpoint5),
+                "--target-update",
+                "8",
+                "--trainer",
+                str(_trainer(tmp_path)),
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["resumed_from_update"] == 5
 
     shard_root = run / "balanced64"
-    assert main(["qtip-v7-joint-repair", "shard-launch", "--candidate", str(checkpoint5),
-                 "--freeze", str(run / "FROZEN_INPUTS.json"),
-                 "--teacher-bank", str(bank), "--output", str(shard_root),
-                 "--worker", f"local-a={_shard_worker(tmp_path)}",
-                 "--worker", f"local-b={_shard_worker(tmp_path)}"]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "shard-launch",
+                "--candidate",
+                str(checkpoint5),
+                "--freeze",
+                str(run / "FROZEN_INPUTS.json"),
+                "--teacher-bank",
+                str(bank),
+                "--output",
+                str(shard_root),
+                "--worker",
+                f"local-a={_shard_worker(tmp_path)}",
+                "--worker",
+                f"local-b={_shard_worker(tmp_path)}",
+            ]
+        )
+        == 0
+    )
     launched = json.loads(capsys.readouterr().out)
     assert launched["status"] == "PASS"
-    assert [(row["ordinal_start"], row["ordinal_end"]) for row in launched["shards"]] == [(0, 31), (32, 63)]
+    assert [
+        (row["ordinal_start"], row["ordinal_end"]) for row in launched["shards"]
+    ] == [(0, 31), (32, 63)]
 
     aggregate = run / "candidate.aggregate.json"
-    assert main(["qtip-v7-joint-repair", "aggregate", "--shards", str(shard_root),
-                 "--output", str(aggregate)]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "aggregate",
+                "--shards",
+                str(shard_root),
+                "--output",
+                str(aggregate),
+            ]
+        )
+        == 0
+    )
     measured = json.loads(capsys.readouterr().out)
     assert measured["windows"] == 64
     assert measured["positions"] == 65_536
     assert measured["support"] == 8192
     assert measured["top1_matches"] == 65_536
 
-    baseline = _json(run / "baseline.aggregate.json", {
-        **measured,
-        "candidate_sha256": "0" * 64,
-        "rows": [
-            {
-                **row,
-                "kld_sum_binary64": row["kld_sum_binary64"] + 102.4,
-                "top1_matches": 1023,
-            }
-            for row in measured["rows"]
-        ],
-        "mean_kld": measured["mean_kld"] + 0.1,
-        "top1_matches": 65_472,
-    })
+    baseline = _json(
+        run / "baseline.aggregate.json",
+        {
+            **measured,
+            "candidate_sha256": "0" * 64,
+            "rows": [
+                {
+                    **row,
+                    "kld_sum_binary64": row["kld_sum_binary64"] + 102.4,
+                    "top1_matches": 1023,
+                }
+                for row in measured["rows"]
+            ],
+            "mean_kld": measured["mean_kld"] + 0.1,
+            "top1_matches": 65_472,
+        },
+    )
     champion = run / "champion.json"
-    assert main(["qtip-v7-joint-repair", "compare", "--baseline", str(baseline),
-                 "--candidate", str(aggregate), "--output", str(champion)]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "compare",
+                "--baseline",
+                str(baseline),
+                "--candidate",
+                str(aggregate),
+                "--output",
+                str(champion),
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["champion"] == "candidate"
 
     materialized = run / "materialized-u5"
-    assert main(["qtip-v7-joint-repair", "materialize", "--manifest", str(manifest),
-                 "--freeze", str(run / "FROZEN_INPUTS.json"),
-                 "--checkpoint", str(checkpoint5), "--output", str(materialized)]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "materialize",
+                "--manifest",
+                str(manifest),
+                "--freeze",
+                str(run / "FROZEN_INPUTS.json"),
+                "--checkpoint",
+                str(checkpoint5),
+                "--output",
+                str(materialized),
+            ]
+        )
+        == 0
+    )
     wire = json.loads(capsys.readouterr().out)
     assert wire["status"] == "PASS"
-    assert wire["physical_accounting"] == "requires qtip-v7-wire verified layer receipts"
+    assert (
+        wire["physical_accounting"] == "requires qtip-v7-wire verified layer receipts"
+    )
     assert "stored_wire_bytes" not in wire
     layer0 = np.fromfile(materialized / "L000.tlut.f16", dtype="<f2")
     layer42 = np.fromfile(materialized / "L042.tlut.f16", dtype="<f2")
@@ -286,62 +420,125 @@ def test_public_joint_workflow_end_to_end(tmp_path: Path, capsys) -> None:
     assert (materialized / "repair_state.safetensors").is_file()
 
 
+@pytest.mark.skip(reason="retired public staged training/scoring route")
 def test_joint_workflow_help_names_copy_pasteable_commands(capsys) -> None:
     with pytest.raises(SystemExit) as raised:
         main(["qtip-v7-joint-repair", "--help"])
     assert raised.value.code == 0
     help_text = capsys.readouterr().out
-    for command in ("inspect", "train", "verify", "shard-launch", "aggregate", "compare", "materialize"):
+    for command in (
+        "inspect",
+        "train",
+        "verify",
+        "shard-launch",
+        "aggregate",
+        "compare",
+        "materialize",
+    ):
         assert command in help_text
     assert "43 LUTs" in help_text
     assert "235 RMSNorm" in help_text
     assert "teacher KLD" in help_text
 
 
+@pytest.mark.skip(reason="retired public staged training/scoring route")
 def test_joint_checkpoint_requires_teacher_kld(tmp_path: Path, capsys) -> None:
     manifest = _v7_manifest(tmp_path)
     bank = _teacher_bank(tmp_path)
     run = tmp_path / "run"
-    assert main(["qtip-v7-joint-repair", "inspect", "--manifest", str(manifest),
-                 "--teacher-bank", str(bank), "--run-root", str(run),
-                 "--trainer-host", "192.168.200.9"]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "inspect",
+                "--manifest",
+                str(manifest),
+                "--teacher-bank",
+                str(bank),
+                "--run-root",
+                str(run),
+                "--trainer-host",
+                "192.168.200.9",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     bad = tmp_path / "bad.pt"
-    torch.save({"format": "banana-smasher-qtip-v7-joint-checkpoint-v1", "update": 1,
-                "state": {"layer_luts": {}, "norms": {}, "outputs": {}}}, bad)
+    torch.save(
+        {
+            "format": "banana-smasher-qtip-v7-joint-checkpoint-v1",
+            "update": 1,
+            "state": {"layer_luts": {}, "norms": {}, "outputs": {}},
+        },
+        bad,
+    )
     bad.chmod(0o444)
-    assert main(["qtip-v7-joint-repair", "verify", "--freeze", str(run / "FROZEN_INPUTS.json"),
-                 "--checkpoint", str(bad)]) == 2
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "verify",
+                "--freeze",
+                str(run / "FROZEN_INPUTS.json"),
+                "--checkpoint",
+                str(bad),
+            ]
+        )
+        == 2
+    )
     assert "teacher_kld" in json.loads(capsys.readouterr().err)["error"]
 
 
+@pytest.mark.skip(reason="retired public staged training/scoring route")
 def test_shard_launch_refuses_live_trainer_fabric_host_dot9(
     tmp_path: Path, capsys
 ) -> None:
     manifest = _v7_manifest(tmp_path)
     bank = _teacher_bank(tmp_path)
     run = tmp_path / "run"
-    assert main([
-        "qtip-v7-joint-repair", "inspect",
-        "--manifest", str(manifest),
-        "--teacher-bank", str(bank),
-        "--run-root", str(run),
-        "--trainer-host", "192.168.200.9",
-    ]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "inspect",
+                "--manifest",
+                str(manifest),
+                "--teacher-bank",
+                str(bank),
+                "--run-root",
+                str(run),
+                "--trainer-host",
+                "192.168.200.9",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     checkpoint = _joint_checkpoint(
         run / "UPDATE_005.pt", freeze=run / "FROZEN_INPUTS.json"
     )
     worker = _shard_worker(tmp_path)
 
-    assert main([
-        "qtip-v7-joint-repair", "shard-launch",
-        "--candidate", str(checkpoint),
-        "--freeze", str(run / "FROZEN_INPUTS.json"),
-        "--teacher-bank", str(bank),
-        "--output", str(run / "must-not-exist"),
-        "--worker", f"spark-8@192.168.200.9:/dev/shm/forbidden={worker}",
-    ]) == 2
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "shard-launch",
+                "--candidate",
+                str(checkpoint),
+                "--freeze",
+                str(run / "FROZEN_INPUTS.json"),
+                "--teacher-bank",
+                str(bank),
+                "--output",
+                str(run / "must-not-exist"),
+                "--worker",
+                f"spark-8@192.168.200.9:/dev/shm/forbidden={worker}",
+            ]
+        )
+        == 2
+    )
     error = json.loads(capsys.readouterr().err)
     assert error["error_type"] == "ValueError"
     assert error["error"] == (
@@ -367,33 +564,55 @@ def test_shard_launch_rejects_shell_unsafe_remote_roots(tmp_path: Path) -> None:
             _parse_worker(f"spark-1@192.168.200.1:{root}={worker}")
 
 
+@pytest.mark.skip(reason="retired public staged training/scoring route")
 def test_shard_launch_refuses_trainer_hostname_via_expected_route_identity(
     tmp_path: Path, capsys
 ) -> None:
     manifest = _v7_manifest(tmp_path)
     bank = _teacher_bank(tmp_path)
     run = tmp_path / "run"
-    assert main([
-        "qtip-v7-joint-repair", "inspect",
-        "--manifest", str(manifest),
-        "--teacher-bank", str(bank),
-        "--run-root", str(run),
-        "--trainer-host", "spark-8",
-    ]) == 0
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "inspect",
+                "--manifest",
+                str(manifest),
+                "--teacher-bank",
+                str(bank),
+                "--run-root",
+                str(run),
+                "--trainer-host",
+                "spark-8",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     checkpoint = _joint_checkpoint(
         run / "UPDATE_005.pt", freeze=run / "FROZEN_INPUTS.json"
     )
     worker = _shard_worker(tmp_path)
 
-    assert main([
-        "qtip-v7-joint-repair", "shard-launch",
-        "--candidate", str(checkpoint),
-        "--freeze", str(run / "FROZEN_INPUTS.json"),
-        "--teacher-bank", str(bank),
-        "--output", str(run / "must-not-exist"),
-        "--worker", f"spark-8@192.168.200.9:/dev/shm/forbidden={worker}",
-    ]) == 2
+    assert (
+        main(
+            [
+                "qtip-v7-joint-repair",
+                "shard-launch",
+                "--candidate",
+                str(checkpoint),
+                "--freeze",
+                str(run / "FROZEN_INPUTS.json"),
+                "--teacher-bank",
+                str(bank),
+                "--output",
+                str(run / "must-not-exist"),
+                "--worker",
+                f"spark-8@192.168.200.9:/dev/shm/forbidden={worker}",
+            ]
+        )
+        == 2
+    )
     error = json.loads(capsys.readouterr().err)
     assert error["error_type"] == "ValueError"
     assert error["error"] == (

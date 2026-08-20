@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from banana_smasher import run_backpack_exact64
+import banana_smasher
 from banana_smasher import backpack_runtime_exact64 as exact64
 from banana_smasher.cli import _parser
 from banana_smasher.hf_deepseek_v4_backpack_adapter import (
@@ -15,32 +15,32 @@ from banana_smasher.hf_deepseek_v4_backpack_adapter import (
 )
 
 
-def test_public_exact64_api_uses_single_host_full_layer_path() -> None:
-    assert callable(run_backpack_exact64)
+def test_exact64_oracle_is_private_and_has_no_cli_route() -> None:
+    assert not hasattr(banana_smasher, "run_backpack_exact64")
 
     parser = _parser()
     commands = next(
-        action.choices
-        for action in parser._actions
-        if getattr(action, "choices", None)
+        action.choices for action in parser._actions if getattr(action, "choices", None)
     )
-    assert "backpack-exact64" in commands
+    assert "backpack-exact64" not in commands
 
-    source = inspect.getsource(run_backpack_exact64)
+    source = inspect.getsource(exact64._run_backpack_exact64)
     assert "with runtime.layer_stage(layer) as forward:" in source
     assert "mlp_chunk_stage" not in source
     assert "teacher_manifest_path, teacher = _revision_bind_teacher_manifest(" in source
     assert "_validate_whole_model_accounting(virtual_manifest)" in source
-    signature = inspect.signature(run_backpack_exact64)
+    signature = inspect.signature(exact64._run_backpack_exact64)
     assert "qtip2_v7_root_map_path" in signature.parameters
-    assert "qtip2_v7_dense_roster_path" in signature.parameters
+    assert "qtip2_v7_member_roster_path" in signature.parameters
 
 
 def test_exact64_rejects_unbound_historical_teacher_manifest(
     tmp_path, monkeypatch
 ) -> None:
     source_path = tmp_path / "teacher.v1.json"
-    source_path.write_text(json.dumps({"schema": "banana-smasher-anchor-teacher-sidecars-v1"}))
+    source_path.write_text(
+        json.dumps({"schema": "banana-smasher-anchor-teacher-sidecars-v1"})
+    )
     sidecar = tmp_path / "window.pt"
     sidecar.write_bytes(b"old")
     historical = {
@@ -103,9 +103,7 @@ def test_exact64_rejects_inconsistent_whole_model_byte_equations() -> None:
     }
 
     with pytest.raises(ValueError, match="whole_shipping_bytes"):
-        exact64._validate_whole_model_accounting(
-            {"whole_model_accounting": accounting}
-        )
+        exact64._validate_whole_model_accounting({"whole_model_accounting": accounting})
 
 
 def test_exact64_rejects_false_whole_model_bpw_decimal() -> None:
@@ -125,9 +123,7 @@ def test_exact64_rejects_false_whole_model_bpw_decimal() -> None:
     }
 
     with pytest.raises(ValueError, match="BPW decimal"):
-        exact64._validate_whole_model_accounting(
-            {"whole_model_accounting": accounting}
-        )
+        exact64._validate_whole_model_accounting({"whole_model_accounting": accounting})
 
 
 def test_gb10_materialization_uses_reclaimable_unified_memory(tmp_path) -> None:
@@ -146,6 +142,9 @@ def test_gb10_materialization_uses_reclaimable_unified_memory(tmp_path) -> None:
     meminfo = tmp_path / "meminfo"
     meminfo.write_text("MemAvailable:   118000000 kB\n")
 
-    assert _available_materialization_bytes(
-        SimpleNamespace(cuda=FakeCuda), "cuda", meminfo_path=meminfo
-    ) == 118000000 * 1024
+    assert (
+        _available_materialization_bytes(
+            SimpleNamespace(cuda=FakeCuda), "cuda", meminfo_path=meminfo
+        )
+        == 118000000 * 1024
+    )
