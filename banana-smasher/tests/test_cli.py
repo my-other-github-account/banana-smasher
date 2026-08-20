@@ -103,6 +103,7 @@ def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
         "checkpoint-info",
         "backpack",
         "fixed-d4",
+        "resident",
         "anchor",
     ]
     assert {"solve", "export", "verify"}.issubset(choices)

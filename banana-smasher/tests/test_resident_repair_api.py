@@ -98,7 +98,7 @@ def test_full_pipeline_builds_uniforms_then_mixes_without_resolving(
         model=tmp_path / "model",
         uniform_tiers=("qtip1_v7", "qtip2_v7"),
         bpw_target=1.5,
-        repair_updates=0,
+        repair_updates=4,
     )
     assert [row[0] for row in rails.calls] == [
         "build_uniform",
