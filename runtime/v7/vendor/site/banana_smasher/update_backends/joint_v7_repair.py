@@ -152,12 +152,14 @@ class CompleteV7MemberResolver:
                 or any(character not in "0123456789abcdef" for character in digest)
             ):
                 raise RuntimeError(f"selected-wire roster coordinate/path drift: {key}")
-            path = (root / relative).resolve()
+            candidate = root / relative
+            path = candidate.resolve()
             if (
                 root not in path.parents
-                or not path.is_file()
-                or path.is_symlink()
+                or not candidate.is_file()
+                or candidate.is_symlink()
                 or path.stat().st_size != int(row.get("bytes", -1))
+                or sha256_file(path) != digest
             ):
                 raise RuntimeError(f"selected-wire member drift: {path}")
             self.members[key] = path
@@ -1324,6 +1326,8 @@ def run_joint_v7_repair(
     admission: str | Path,
     inventory: str | Path,
     historical_roster: str | Path,
+    member_roster: str | Path,
+    member_roster_sha256: str,
     runtime_module: str | Path,
     run_root: str | Path,
     optimizer_steps: int = UPDATES,
@@ -1372,6 +1376,8 @@ def run_joint_v7_repair(
         "--admission", str(Path(admission).expanduser().resolve()),
         "--inventory", str(Path(inventory).expanduser().resolve()),
         "--historical-roster", str(Path(historical_roster).expanduser().resolve()),
+        "--member-roster", str(Path(member_roster).expanduser().resolve()),
+        "--member-roster-sha256", str(member_roster_sha256),
         "--runtime-module", str(Path(runtime_module).expanduser().resolve()),
         "--run-root", str(root),
         "--device", device,

@@ -147,7 +147,8 @@ def _load_qtip2_v7_member_roster(
             raise PackValidationError(
                 f"QTIP V7 member roster row {index} escapes its root"
             )
-        member = (root / relative).resolve()
+        candidate = root / relative
+        member = candidate.resolve()
         if root not in member.parents:
             raise PackValidationError(
                 f"QTIP V7 member roster row {index} escapes its root"
@@ -157,8 +158,8 @@ def _load_qtip2_v7_member_roster(
                 f"QTIP V7 member roster row {index} byte declaration mismatch"
             )
         if (
-            not member.is_file()
-            or member.is_symlink()
+            not candidate.is_file()
+            or candidate.is_symlink()
             or member.stat().st_size != expected_member_bytes
         ):
             raise PackValidationError(
@@ -167,10 +168,12 @@ def _load_qtip2_v7_member_roster(
         key = (layer, expert, str(projection))
         if key in members:
             raise PackValidationError(f"QTIP V7 member roster duplicate member: {key}")
-        members[key] = (
-            member,
-            _sha(row.get("sha256"), f"member roster row {index}"),
-        )
+        member_sha256 = _sha(row.get("sha256"), f"member roster row {index}")
+        if hashlib.sha256(member.read_bytes()).hexdigest() != member_sha256:
+            raise PackValidationError(
+                f"QTIP V7 member roster row {index} SHA-256 mismatch"
+            )
+        members[key] = (member, member_sha256)
     expected = {
         (layer, expert, projection)
         for layer in LAYERS

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -198,7 +199,7 @@ def test_member_roster_requires_exactly_one_artifact_for_every_routed_coordinate
                         "projection": projection,
                         "path": str(path.relative_to(tmp_path)),
                         "bytes": 1,
-                        "sha256": _sha(f"{layer}-{expert}-{projection}"),
+                        "sha256": _sha("x"),
                     }
                 )
     roster = tmp_path / "SELECTED_WIRE_PROVIDER_ROSTER.json"
@@ -221,7 +222,7 @@ def test_member_roster_requires_exactly_one_artifact_for_every_routed_coordinate
     assert set(layer for layer, _expert, _projection in resolved) == set(range(43))
     assert len(resolved) == 43 * 768
     assert resolved[(7, 0, "w1")][0] == tmp_path / "L007/E000_w1.wire"
-    assert resolved[(42, 255, "w3")][1] == _sha("42-255-w3")
+    assert resolved[(42, 255, "w3")][1] == _sha("x")
 
 
 def test_member_roster_rejects_partial_layer_composition(tmp_path: Path) -> None:
@@ -241,7 +242,7 @@ def test_member_roster_rejects_partial_layer_composition(tmp_path: Path) -> None
                         "projection": projection,
                         "path": "payload",
                         "bytes": 1,
-                        "sha256": _sha(f"{expert}-{projection}"),
+                        "sha256": _sha("x"),
                     }
                     for expert in range(256)
                     for projection in ("w1", "w2", "w3")
@@ -267,7 +268,7 @@ def test_member_roster_rejects_duplicate_coordinate_resolution(tmp_path: Path) -
         "projection": "w1",
         "path": "payload",
         "bytes": 1,
-        "sha256": _sha("duplicate"),
+        "sha256": _sha("x"),
     }
     roster = tmp_path / "SELECTED_WIRE_PROVIDER_ROSTER.json"
     roster.write_text(
@@ -295,6 +296,99 @@ def test_backpack_adapter_never_falls_back_outside_pinned_roster() -> None:
     runtime.qtip2_v7_roster_members = {}
     with pytest.raises(ValueError, match="artifact roster has no unique member"):
         runtime._decode_qtip2_v7_part(7, 3, "w2")
+
+
+def test_member_roster_rejects_same_size_member_identity_drift(tmp_path: Path) -> None:
+    payload = tmp_path / "payload"
+    payload.write_bytes(b"x")
+    roster = tmp_path / "SELECTED_WIRE_PROVIDER_ROSTER.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-qtip2-v7-selected-wire-roster-v2",
+                "basis_sha256": BASIS,
+                "member_count": 1,
+                "members": [
+                    {
+                        "layer": 0,
+                        "expert": 0,
+                        "projection": "w1",
+                        "path": "payload",
+                        "bytes": 1,
+                        "sha256": _sha("y"),
+                    }
+                ],
+            }
+        )
+    )
+    with pytest.raises(PackValidationError, match="SHA-256 mismatch"):
+        _load_qtip2_v7_member_roster(
+            roster,
+            expected_basis_sha256=BASIS,
+            expected_roster_sha256=hashlib.sha256(roster.read_bytes()).hexdigest(),
+            expected_member_bytes=1,
+        )
+
+
+def test_joint_runtime_resolver_rejects_same_size_member_identity_drift(
+    tmp_path: Path,
+) -> None:
+    repository = Path(__file__).resolve().parents[2]
+    module_path = (
+        repository
+        / "runtime/v7/vendor/site/banana_smasher/update_backends/joint_v7_repair.py"
+    )
+    spec = importlib.util.spec_from_file_location("joint_v7_repair_test", module_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    builtin_range = range
+
+    def reduced_range(*args: int) -> range:
+        if args == (43,) or args == (256,):
+            return builtin_range(1)
+        return builtin_range(*args)
+
+    module.range = reduced_range
+    rows = []
+    for projection in ("w1", "w2", "w3"):
+        member = tmp_path / f"E000_{projection}.wire"
+        member.write_bytes(b"x")
+        rows.append(
+            {
+                "layer": 0,
+                "expert": 0,
+                "projection": projection,
+                "path": member.name,
+                "bytes": 1,
+                "sha256": _sha("x"),
+            }
+        )
+    roster = tmp_path / "SELECTED_WIRE_PROVIDER_ROSTER.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-qtip2-v7-selected-wire-roster-v2",
+                "member_count": len(rows),
+                "members": rows,
+            }
+        )
+    )
+    roster_sha256 = hashlib.sha256(roster.read_bytes()).hexdigest()
+    resolver = module.CompleteV7MemberResolver(
+        member_roster=roster,
+        expected_roster_sha256=roster_sha256,
+    )
+    assert resolver.resolve(layer=0, expert=0, projection="w1") == (
+        tmp_path / "E000_w1.wire"
+    )
+
+    (tmp_path / "E000_w1.wire").write_bytes(b"y")
+    with pytest.raises(RuntimeError, match="member drift"):
+        module.CompleteV7MemberResolver(
+            member_roster=roster,
+            expected_roster_sha256=roster_sha256,
+        )
 
 
 def test_member_roster_rejects_escaping_member_path(tmp_path: Path) -> None:

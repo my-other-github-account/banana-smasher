@@ -229,12 +229,14 @@ def load_member_roster(
             or any(character not in "0123456789abcdef" for character in digest)
         ):
             raise RuntimeError(f"selected-wire roster coordinate/path drift: {key}")
-        member = (root / relative).resolve()
+        candidate = root / relative
+        member = candidate.resolve()
         if (
             root not in member.parents
-            or not member.is_file()
-            or member.is_symlink()
+            or not candidate.is_file()
+            or candidate.is_symlink()
             or member.stat().st_size != int(row["bytes"])
+            or sha256_file(member) != digest
         ):
             raise RuntimeError(f"selected-wire member drift: {member}")
         members[key] = member

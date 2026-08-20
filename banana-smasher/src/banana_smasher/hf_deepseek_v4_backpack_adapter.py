@@ -395,12 +395,17 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             raise ValueError("qtip2_v7 source selected without a shared LUT binding")
         roster_key = (layer, expert, wire_projection)
         try:
-            member, _member_sha256 = self.qtip2_v7_roster_members[roster_key]
+            member, member_sha256 = self.qtip2_v7_roster_members[roster_key]
         except KeyError as exc:
             raise ValueError(
                 "qtip2_v7 artifact roster has no unique member for "
                 f"layer={layer} expert={expert} projection={wire_projection}"
             ) from exc
+        if hashlib.sha256(member.read_bytes()).hexdigest() != member_sha256:
+            raise ValueError(
+                "qtip2_v7 artifact roster member SHA-256 drift for "
+                f"layer={layer} expert={expert} projection={wire_projection}"
+            )
         payload = load_qtip2_v7_wire(member, projection=wire_projection)
         torch = self.torch
         device = self.device
