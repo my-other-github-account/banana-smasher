@@ -191,6 +191,9 @@ def run_backpack_exact64(
     materialization_index_path: str | Path,
     qtip2_root_map_path: str | Path,
     qtip3_root_map_path: str | Path,
+    qtip2_v7_root_map_path: str | Path | None = None,
+    qtip2_v7_shared_lut_path: str | Path | None = None,
+    qtip2_v7_dense_roster_path: str | Path | None = None,
     output_root: str | Path,
     basis_sha256: str,
     expected_windows: int = 64,
@@ -210,6 +213,24 @@ def run_backpack_exact64(
     materialization_index_path = Path(materialization_index_path).resolve()
     qtip2_root_map_path = Path(qtip2_root_map_path).resolve()
     qtip3_root_map_path = Path(qtip3_root_map_path).resolve()
+    v7_values = (
+        qtip2_v7_root_map_path,
+        qtip2_v7_shared_lut_path,
+        qtip2_v7_dense_roster_path,
+    )
+    if any(value is not None for value in v7_values) != all(
+        value is not None for value in v7_values
+    ):
+        raise ValueError("exact64 QTIP2 V7 bindings must be supplied together")
+    qtip2_v7_root_map_path = (
+        None if qtip2_v7_root_map_path is None else Path(qtip2_v7_root_map_path).resolve()
+    )
+    qtip2_v7_shared_lut_path = (
+        None if qtip2_v7_shared_lut_path is None else Path(qtip2_v7_shared_lut_path).resolve()
+    )
+    qtip2_v7_dense_roster_path = (
+        None if qtip2_v7_dense_roster_path is None else Path(qtip2_v7_dense_roster_path).resolve()
+    )
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     receipts = output_root / "receipts"
@@ -298,6 +319,24 @@ def run_backpack_exact64(
             "qtip3_root_map": str(qtip3_root_map_path),
         },
     }
+    binding_inputs = parameters["backpack_runtime"]
+    if qtip2_v7_root_map_path is not None:
+        binding_inputs.update(
+            {
+                "qtip2_v7_root_map": str(qtip2_v7_root_map_path),
+                "qtip2_v7_shared_lut": str(qtip2_v7_shared_lut_path),
+                "qtip2_v7_dense_roster": str(qtip2_v7_dense_roster_path),
+            }
+        )
+    v7_hashes = (
+        {}
+        if qtip2_v7_root_map_path is None
+        else {
+            "qtip2_v7_root_map_sha256": _sha256_file(qtip2_v7_root_map_path),
+            "qtip2_v7_shared_lut_sha256": _sha256_file(qtip2_v7_shared_lut_path),
+            "qtip2_v7_dense_roster_sha256": _sha256_file(qtip2_v7_dense_roster_path),
+        }
+    )
     binding = hashlib.sha256(
         json.dumps(
             {
@@ -308,6 +347,7 @@ def run_backpack_exact64(
                 "materialization_index_sha256": _sha256_file(materialization_index_path),
                 "qtip2_root_map_sha256": _sha256_file(qtip2_root_map_path),
                 "qtip3_root_map_sha256": _sha256_file(qtip3_root_map_path),
+                **v7_hashes,
             },
             sort_keys=True,
             separators=(",", ":"),

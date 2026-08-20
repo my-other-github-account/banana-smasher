@@ -12,7 +12,7 @@ import numpy as np
 from .d4_wire import decode_d4_expert
 from .hf_deepseek_v4_d4_adapter import DeepseekV4D4Runtime
 from .loader import PackLoader
-from .qtip_v7_routes import load_qtip2_v7_wire
+from .qtip_v7_routes import load_qtip2_v7_dense_roster, load_qtip2_v7_wire
 
 
 def _available_materialization_bytes(
@@ -162,7 +162,11 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             "qtip2_root_map",
             "qtip3_root_map",
         }
-        optional = {"qtip2_v7_root_map", "qtip2_v7_shared_lut"}
+        optional = {
+            "qtip2_v7_root_map",
+            "qtip2_v7_shared_lut",
+            "qtip2_v7_dense_roster",
+        }
         if (
             not isinstance(binding, Mapping)
             or not required.issubset(binding)
@@ -252,6 +256,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             }
             self._record_path(path)
         self.qtip2_v7_shared_lut_path: Path | None = None
+        self.qtip2_v7_dense_members: dict[tuple[int, str], tuple[Path, str]] = {}
         if optional.issubset(binding):
             path = Path(str(binding["qtip2_v7_root_map"])).resolve()
             root_map = json.loads(path.read_text())
@@ -278,8 +283,14 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 str(layer): str(root) for layer, root in layer_roots.items()
             }
             self.qtip2_v7_shared_lut_path = lut
+            self.qtip2_v7_dense_members = load_qtip2_v7_dense_roster(
+                binding["qtip2_v7_dense_roster"],
+                expected_basis_sha256=self.basis_sha256,
+                expected_roster_sha256=str(root_map.get("selected_wire_roster_sha256")),
+            )
             self._record_path(path)
             self._record_path(lut)
+            self._record_path(Path(str(binding["qtip2_v7_dense_roster"])).resolve())
         self._record_path(self.virtual_manifest_path)
         self._record_path(self.materialization_index_path)
 
@@ -361,20 +372,27 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
 
         if self.qtip2_v7_shared_lut_path is None:
             raise ValueError("qtip2_v7 source selected without a shared LUT binding")
-        root = Path(self.root_maps["qtip2_v7"][str(layer)])
-        candidates = (
-            root / f"E{expert:03d}_{wire_projection}.q2v7wire",
-            root / f"E{expert:03d}" / f"{wire_projection}.q2v7wire",
-            root / f"E{expert:03d}_{wire_projection}.k2wire",
-            root / f"E{expert:03d}" / f"{wire_projection}.k2wire",
-        )
-        present = [path for path in candidates if path.is_file()]
-        if len(present) != 1:
-            raise ValueError(
-                f"qtip2_v7 member path is missing or ambiguous: layer={layer} "
-                f"expert={expert} projection={wire_projection}"
+        if layer == 34:
+            try:
+                member, _member_sha256 = self.qtip2_v7_dense_members[(expert, wire_projection)]
+            except KeyError as exc:
+                raise ValueError("qtip2_v7 L034 selected-wire roster is incomplete") from exc
+        else:
+            root = Path(self.root_maps["qtip2_v7"][str(layer)])
+            candidates = (
+                root / f"E{expert:03d}_{wire_projection}.q2v7wire",
+                root / f"E{expert:03d}" / f"{wire_projection}.q2v7wire",
+                root / f"E{expert:03d}_{wire_projection}.k2wire",
+                root / f"E{expert:03d}" / f"{wire_projection}.k2wire",
             )
-        payload = load_qtip2_v7_wire(present[0], projection=wire_projection)
+            present = [path for path in candidates if path.is_file()]
+            if len(present) != 1:
+                raise ValueError(
+                    f"qtip2_v7 member path is missing or ambiguous: layer={layer} "
+                    f"expert={expert} projection={wire_projection}"
+                )
+            member = present[0]
+        payload = load_qtip2_v7_wire(member, projection=wire_projection)
         torch = self.torch
         device = self.device
         packed = torch.from_numpy(np.array(payload["packed"], copy=True)).to(device).reshape(-1)

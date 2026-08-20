@@ -13,6 +13,7 @@ from banana_smasher.hf_deepseek_v4_backpack_adapter import DeepseekV4BackpackRun
 from banana_smasher.qtip_v7_routes import (
     QTIP_V7_MEMBER_BYTES,
     QtipV7RouteCensus,
+    load_qtip2_v7_dense_roster,
     load_qtip2_v7_wire,
 )
 
@@ -158,6 +159,75 @@ def test_raw_v7_member_rejects_truncation(tmp_path: Path) -> None:
     path.write_bytes(bytes(QTIP_V7_MEMBER_BYTES - 1))
     with pytest.raises(PackValidationError, match="byte geometry"):
         load_qtip2_v7_wire(path, projection="w1")
+
+
+def test_dense_l034_roster_resolves_declared_selected_wire_paths(tmp_path: Path) -> None:
+    members = []
+    for expert in range(256):
+        for projection in ("w1", "w2", "w3"):
+            path = tmp_path / "run" / "staged_wire" / f"E{expert:03d}" / f"{projection}.wire.bin"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"x")
+            members.append(
+                {
+                    "expert": expert,
+                    "projection": projection,
+                    "path": str(path.relative_to(tmp_path)),
+                    "bytes": 1,
+                    "sha256": _sha(f"{expert}-{projection}"),
+                }
+            )
+    roster = tmp_path / "L034_SELECTED_WIRE_PROVIDER_ROSTER.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-qtip2-v7-l034-selected-wire-roster-v1",
+                "basis_sha256": BASIS,
+                "layer": 34,
+                "member_count": 768,
+                "members": members,
+            }
+        )
+    )
+    resolved = load_qtip2_v7_dense_roster(
+        roster,
+        expected_basis_sha256=BASIS,
+        expected_roster_sha256=hashlib.sha256(roster.read_bytes()).hexdigest(),
+        expected_member_bytes=1,
+    )
+    assert resolved[(0, "w1")][0] == tmp_path / "run/staged_wire/E000/w1.wire.bin"
+    assert resolved[(255, "w3")][1] == _sha("255-w3")
+
+
+def test_dense_l034_roster_rejects_escaping_member_path(tmp_path: Path) -> None:
+    roster = tmp_path / "roster.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-qtip2-v7-l034-selected-wire-roster-v1",
+                "basis_sha256": BASIS,
+                "layer": 34,
+                "member_count": 768,
+                "members": [
+                    {
+                        "expert": expert,
+                        "projection": projection,
+                        "path": "../escape" if expert == 0 and projection == "w1" else f"E{expert}/{projection}",
+                        "bytes": QTIP_V7_MEMBER_BYTES,
+                        "sha256": _sha(f"{expert}-{projection}"),
+                    }
+                    for expert in range(256)
+                    for projection in ("w1", "w2", "w3")
+                ],
+            }
+        )
+    )
+    with pytest.raises(PackValidationError, match="escapes"):
+        load_qtip2_v7_dense_roster(
+            roster,
+            expected_basis_sha256=BASIS,
+            expected_roster_sha256=hashlib.sha256(roster.read_bytes()).hexdigest(),
+        )
 
 
 def test_backpack_adapter_maps_v7_wires_to_existing_logical_projections() -> None:
