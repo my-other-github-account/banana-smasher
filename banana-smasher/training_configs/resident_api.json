@@ -1,0 +1,27 @@
+{
+  "schema": "banana-smasher-resident-training-v1",
+  "public_api": "banana_smasher.ResidentTrainingSession",
+  "execution_rail": "resident-in-memory",
+  "continuation_method": "continue_updates",
+  "model_lifetime": "one-process-one-instance",
+  "active_state": "in-memory",
+  "checkpoint": {
+    "role": "output-and-hot-swap-recovery",
+    "execution_input": false,
+    "reconstruct_model": false
+  },
+  "performance": {
+    "spark_step_seconds": {
+      "minimum": 360.0,
+      "maximum": 420.0
+    },
+    "required_phases": [
+      "forward",
+      "backward",
+      "communication",
+      "optimizer",
+      "update_total"
+    ]
+  },
+  "legacy_public_modes": []
+}

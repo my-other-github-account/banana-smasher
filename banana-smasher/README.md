@@ -2,6 +2,34 @@
 
 `banana-smasher` is the reusable, fail-closed `bs-pack v1` build and validation toolchain. `PACK_FORMAT.md` is the versioned pack contract: plane layout, per-layer metadata, `config.json` auto-detection keys, complete byte-count/SHA-256 manifest, and rejection rules.
 
+## Resident training API
+
+`ResidentTrainingSession` is the only public training entry point. It loads the
+model and optimizer once, keeps both resident, and applies every subsequent
+update to that same in-memory instance. There is no public training CLI,
+plan-file runner, offline/replay mode, staged-file rail, subprocess launcher, or
+reload-per-step option.
+
+```python
+from banana_smasher import ResidentTrainingSession
+from banana_smasher.resident_training import ResidentTrainingPlan
+
+plan = ResidentTrainingPlan.from_dict(config)
+session = ResidentTrainingSession.open(plan)
+first = session.continue_updates(2)
+checkpoint = session.save_checkpoint()       # persistence/output only
+session.hot_swap_checkpoint(checkpoint)      # same resident model instance
+second = session.continue_updates(2)
+```
+
+Each returned step has named `phase_seconds` for `forward`, `backward`,
+`communication`, `optimizer`, and `update_total`. Spark integration receipts
+must keep `update_total` between 360 and 420 seconds (the established 6–7
+minute step envelope) and show one model-instance identity across all updates.
+The shipped SSOT is `training_configs/resident_api.json`; it names only the
+resident API. Checkpoints remain supported for durable output and in-process
+recovery hot-swap, never as a staged execution rail.
+
 ## End-to-end Backpack plans
 
 ### Five-minute quickstart

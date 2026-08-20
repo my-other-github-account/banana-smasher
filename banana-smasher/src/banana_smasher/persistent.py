@@ -133,10 +133,10 @@ def request_identity(request: dict[str, Any]) -> str:
     return _sha256_bytes(_canonical_json(bound))
 
 
-class UpdateQueue:
-    """A single-worker queue backed by a durable exactly-once segment ledger.
+class _UpdateQueue:
+    """Private compatibility queue retained for historical tests and fixtures.
 
-    ``SEGMENT_QUEUE.json`` is the canonical public control-plane artifact.  Its
+    ``SEGMENT_QUEUE.json`` is the legacy control-plane artifact. Its
     segment identifiers are immutable tombstones: submitting an identifier a
     second time is refused in every state, including after completion and after
     the worker process exits.  Per-state receipt files are projections for
@@ -625,7 +625,7 @@ def recover_committed_cycle(
 
 
 def _serve_queue_unlocked(
-    queue: UpdateQueue,
+    queue: _UpdateQueue,
     *,
     expected_config_sha256: str,
     expected_aot_sha256: str,
@@ -843,8 +843,8 @@ def _serve_queue_unlocked(
     }
 
 
-def serve_queue(
-    queue: UpdateQueue,
+def _serve_queue(
+    queue: _UpdateQueue,
     *,
     expected_config_sha256: str,
     expected_aot_sha256: str,

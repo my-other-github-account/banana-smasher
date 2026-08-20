@@ -18,6 +18,7 @@ from .resident_repair_api import (
     UniformBuild,
     V7_UNIFORM_TIERS,
 )
+from .resident_training import ResidentTrainingSession
 from .anchor import (
     AnchorEvaluationError,
     aggregate_scores,
@@ -118,7 +119,7 @@ from .fixed_d4 import (
     solve_fixed_d4_exact,
     verify_fixed_d4_model,
 )
-from .persistent import UpdateQueue
+
 from .provenance_wire import (
     build_full_wire_provenance_ledger,
     run_full_wire_provenance_solve,
@@ -157,7 +158,7 @@ from .qtip_v7_joint_workflow import (
     materialize_joint,
     verify_joint_checkpoint,
 )
-from .update_service import serve_persistent_updates
+
 
 
 def solve_qtip_profiles(
@@ -226,9 +227,10 @@ __all__ = [
     "QtipProviderDeclaration",
     "QtipWireConsumer",
     "ResidentRepairAPI",
+    "ResidentTrainingSession",
     "UniformBuild",
     "V7_UNIFORM_TIERS",
-    "UpdateQueue",
+
     "aggregate_scores",
     "aggregate_balanced64",
     "anchor_backpack",
@@ -310,7 +312,7 @@ __all__ = [
     "run_contextual_value_update",
     "run_full_wire_provenance_solve",
     "run_measured_spsa",
-    "serve_persistent_updates",
+
     "solve_backpack",
     "solve_contextual_trust_region",
     "solve_fixed_d4_exact",
