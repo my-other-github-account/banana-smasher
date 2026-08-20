@@ -30,11 +30,7 @@ PUBLISHED_PRE_METRICS_SHA256 = "6088ebe3545cdef387f4586532964cb4b02606f3aef7e38c
 PUBLISHED_PRE_SCORER_INPUTS_SHA256 = "a3814092c1a2dab253b348a444e5a9c5bdc426c0b85a05965c404e5bae954091"
 PUBLISHED_PRE_PHYSICAL_SCORING_SHA256 = "d1c4a4d9c9b88c9acae375283dcd53778228fcfb740a220eba35a4f5ebf698eb"
 EXACT_PRE_BINDING_SHA256 = "c8597091144761efd21dcb6070cc495544e816821c1d66f1ff892a9a7c5fb5fb"
-DENSE_L034_ROSTER_SHA256 = "13aaa61931aa362a355854aad7bfdb78db328833dfcb83f2444435d058ad2140"
-PARENT_SHARED_LUT_SHA256 = "1fcb3546038bc65ab7847ef4473a2d1a8c66631315655c1b3d9f989325572a3c"
-DENSE_L034_PHYSICAL_BYTES = 12_884_901_888
 COMPACT_LAYERS = tuple(range(43))
-L034_ROSTER_SHA256 = "cea2d8aa9cf8ba8dde0d4b699acc24295a03d0ab0dddae1950e20f4b0e8e269e"
 LAYERS = 43
 NORMS = 235
 OUTPUTS = 43
@@ -203,6 +199,58 @@ def require_local_path(path: Path, label: str) -> dict[str, str]:
     return {"path": str(resolved), "fstype": fstype, "source": source}
 
 
+def load_member_roster(
+    path: Path, expected_sha256: str
+) -> dict[tuple[int, int, str], Path]:
+    """Load the pinned all-layer composition without filesystem path guessing."""
+
+    roster_path = path.resolve()
+    require_file(roster_path, expected_sha256, "all-layer selected-wire roster")
+    document = load_json(roster_path)
+    rows = document.get("members")
+    if (
+        document.get("schema") != "banana-smasher-qtip2-v7-selected-wire-roster-v2"
+        or not isinstance(rows, list)
+        or document.get("member_count") != len(rows)
+    ):
+        raise RuntimeError("all-layer selected-wire roster identity drift")
+    root = roster_path.parent
+    members: dict[tuple[int, int, str], Path] = {}
+    for row in rows:
+        key = (int(row["layer"]), int(row["expert"]), str(row["projection"]))
+        digest = row.get("sha256")
+        relative = Path(str(row["path"]))
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or key in members
+            or not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise RuntimeError(f"selected-wire roster coordinate/path drift: {key}")
+        candidate = root / relative
+        member = candidate.resolve()
+        if (
+            root not in member.parents
+            or not candidate.is_file()
+            or candidate.is_symlink()
+            or member.stat().st_size != int(row["bytes"])
+            or sha256_file(member) != digest
+        ):
+            raise RuntimeError(f"selected-wire member drift: {member}")
+        members[key] = member
+    expected = {
+        (layer, expert, projection)
+        for layer in COMPACT_LAYERS
+        for expert in range(256)
+        for projection in PROJECTIONS
+    }
+    if set(members) != expected:
+        raise RuntimeError("selected-wire roster must cover every all-layer coordinate once")
+    return members
+
+
 class PlaneSource:
     def __init__(
         self,
@@ -210,8 +258,7 @@ class PlaneSource:
         torch: Any,
         np: Any,
         row: Mapping[str, Any],
-        parent_root: Path,
-        l034_roster: Path,
+        member_roster: Mapping[tuple[int, int, str], Path],
         device: Any,
     ) -> None:
         self.torch = torch
@@ -228,30 +275,11 @@ class PlaneSource:
         self._uses = 0
         self.disk_read_calls = 2
         self.disk_read_bytes = manifest.stat().st_size + lut_path.stat().st_size
-        self.member_paths: dict[tuple[int, str], Path] = {}
-        if self.layer == 34:
-            roster_doc = json.loads(Path(l034_roster).read_text())
-            if roster_doc.get("schema") != "banana-smasher-qtip2-v7-l034-selected-wire-roster-v1" or int(roster_doc.get("layer", -1)) != 34 or int(roster_doc.get("member_count", -1)) != 768:
-                raise RuntimeError("L034 selected-wire roster identity drift")
-            root = Path(l034_roster).resolve().parent
-            for row in roster_doc["members"]:
-                expert, projection = int(row["expert"]), str(row["projection"])
-                path = (root / str(row["path"])).resolve()
-                if not path.is_file() or path.is_symlink() or path.stat().st_size != int(row["bytes"]):
-                    raise RuntimeError(f"L034 selected-wire member drift: {path}")
-                self.member_paths[(expert, projection)] = path
-        else:
-            root = parent_root.resolve() / f"L{self.layer:03d}"
-            for expert in range(256):
-                for projection in PROJECTIONS:
-                    candidates = [
-                        root / f"E{expert:03d}_{projection}.q2v7wire",
-                        root / f"E{expert:03d}_{projection}.k2wire",
-                    ]
-                    present = [p.resolve() for p in candidates if p.is_file()]
-                    if len(present) != 1:
-                        raise RuntimeError(f"L{self.layer:03d} member ambiguity E{expert:03d}/{projection}")
-                    self.member_paths[(expert, projection)] = present[0]
+        self.member_paths = {
+            (expert, projection): member_roster[(self.layer, expert, projection)]
+            for expert in range(256)
+            for projection in PROJECTIONS
+        }
         expected = {(e, p) for e in range(256) for p in PROJECTIONS}
         if set(self.member_paths) != expected:
             raise RuntimeError(f"L{self.layer:03d} member coverage drift")
@@ -354,74 +382,6 @@ class ResidentOfficialExperts:
         self.module.forward = forward.__get__(self.module, type(self.module))
 
 
-class ResidentDenseL034:
-    """Frozen, checkpoint-bound dense QTIP reconstruction for published PRE L034."""
-
-    def __init__(self, *, torch: Any, dense_state: Mapping[str, Any], device: Any) -> None:
-        from torch import nn
-        import torch.nn.functional as F
-        from torch.utils.checkpoint import checkpoint as checkpoint_fn
-
-        if dense_state.get("roster_sha256") != DENSE_L034_ROSTER_SHA256:
-            raise RuntimeError("dense L034 roster identity refused")
-        if dense_state.get("parent_lut_sha256") != PARENT_SHARED_LUT_SHA256:
-            raise RuntimeError("dense L034 parent LUT identity refused")
-        gate_up_cpu = dense_state.get("gate_up")
-        down_cpu = dense_state.get("down")
-        if not isinstance(gate_up_cpu, torch.Tensor) or not isinstance(down_cpu, torch.Tensor):
-            raise RuntimeError("dense L034 tensors missing from exact PRE checkpoint")
-        if gate_up_cpu.dtype != torch.bfloat16 or tuple(gate_up_cpu.shape) != (256, 4096, 4096):
-            raise RuntimeError(f"dense L034 gate_up contract refused: {getattr(gate_up_cpu, 'dtype', None)} {getattr(gate_up_cpu, 'shape', None)}")
-        if down_cpu.dtype != torch.bfloat16 or tuple(down_cpu.shape) != (256, 4096, 2048):
-            raise RuntimeError(f"dense L034 down contract refused: {getattr(down_cpu, 'dtype', None)} {getattr(down_cpu, 'shape', None)}")
-        physical_bytes = gate_up_cpu.numel() * gate_up_cpu.element_size() + down_cpu.numel() * down_cpu.element_size()
-        if physical_bytes != DENSE_L034_PHYSICAL_BYTES:
-            raise RuntimeError(f"dense L034 physical-byte accounting refused: {physical_bytes}")
-
-        class Module(nn.Module):
-            def __init__(self):
-                super().__init__()
-                # Frozen Candidate5 L034 is resident in host RAM, not tmpfs and
-                # not reloaded from disk.  Only the selected expert slices cross
-                # to CUDA for each microbatch; this avoids the failed rank1's
-                # 12.9-GB extra unified-memory residency while preserving bytes.
-                self.register_buffer("gate_up", gate_up_cpu.contiguous(), persistent=False)
-                self.register_buffer("down", down_cpu.contiguous(), persistent=False)
-                self.resident_bytes = physical_bytes
-                self.residency = "cpu-resident-selected-expert-cuda-relay"
-                self.disk_read_calls = 0
-                self.act = F.silu
-
-            def forward(self, hidden_states, top_k_index, top_k_weights):
-                final = torch.zeros_like(hidden_states)
-                with torch.no_grad():
-                    mask = F.one_hot(top_k_index, num_classes=256).permute(2, 1, 0)
-                    hit = torch.greater(mask.sum(dim=(-1, -2)), 0).nonzero().flatten().tolist()
-                for expert in hit:
-                    top_k_pos, token_idx = torch.where(mask[expert])
-                    hidden = hidden_states[token_idx]
-
-                    def dense_expert(current_hidden):
-                        gate_up_weight = self.gate_up[expert].to(current_hidden.device, non_blocking=False)
-                        down_weight = self.down[expert].to(current_hidden.device, non_blocking=False)
-                        gate_up = F.linear(current_hidden.to(torch.bfloat16), gate_up_weight).float()
-                        gate, up = gate_up.chunk(2, dim=-1)
-                        activated = self.act(gate) * up
-                        result = F.linear(activated.to(torch.bfloat16), down_weight).float()
-                        del gate_up_weight, down_weight
-                        return result
-
-                    if torch.is_grad_enabled():
-                        current = checkpoint_fn(dense_expert, hidden, use_reentrant=False)
-                    else:
-                        current = dense_expert(hidden)
-                    current = current * top_k_weights[token_idx, top_k_pos, None]
-                    final.index_add_(0, token_idx, current.to(final.dtype))
-                return final
-
-        self.module = Module()
-
-
 class ShardStudent:
     def __init__(
         self,
@@ -432,14 +392,12 @@ class ShardStudent:
         official_k2: Any,
         model_root: Path,
         admission: Mapping[str, Any],
-        parent_root: Path,
-        l034_roster: Path,
+        member_roster: Mapping[tuple[int, int, str], Path],
         input_state: Mapping[str, Any],
         rank: int,
         first: int,
         last: int,
         status_cb: Any,
-        defer_dense_l034: bool = False,
     ) -> None:
         from safetensors import safe_open
         from torch import nn
@@ -494,8 +452,7 @@ class ShardStudent:
                 torch=torch,
                 np=np,
                 row=rows[layer],
-                parent_root=parent_root,
-                l034_roster=l034_roster,
+                member_roster=member_roster,
                 device=self.device,
             )
             resident = FullyResidentGroupedV7Experts(
@@ -768,8 +725,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run-root", type=Path)
     parser.add_argument("--asset-root", type=Path)
     parser.add_argument("--model-root", type=Path)
-    parser.add_argument("--parent-root", type=Path)
-    parser.add_argument("--l034-roster", type=Path)
+    parser.add_argument("--member-roster", type=Path)
+    parser.add_argument("--expected-member-roster-sha256")
     parser.add_argument("--input-checkpoint", type=Path)
     parser.add_argument("--expected-input-checkpoint-sha256")
     parser.add_argument("--serialized-pre-receipt", type=Path)
@@ -825,12 +782,12 @@ def main(argv: list[str] | None = None) -> int:
         args.run_root,
         args.asset_root,
         args.model_root,
-        args.parent_root,
-        args.l034_roster,
+        args.member_roster,
+        args.expected_member_roster_sha256,
         args.expected_claim_owner,
     )
     if any(value is None for value in required):
-        parser.error("compute mode requires rank, run root, asset root, model root, parent root, and expected claim owner")
+        parser.error("compute mode requires rank, run root, asset root, model root, member roster identity, and expected claim owner")
     if not args.fresh_u0 and any(value is None for value in (args.input_checkpoint, args.expected_input_checkpoint_sha256, args.serialized_pre_receipt)):
         parser.error("non-fresh mode requires checkpoint, checkpoint SHA, and serialized PRE receipt")
     if args.exact_pre_gate is not None:
@@ -912,7 +869,7 @@ def main(argv: list[str] | None = None) -> int:
 
     locality = {
         "model_root": require_local_path(args.model_root, "model root"),
-        "parent_root": require_local_path(args.parent_root, "routed parent root"),
+        "member_roster": require_local_path(args.member_roster, "all-layer member roster"),
         "asset_root": require_local_path(args.asset_root, "asset root"),
         "corpus": require_local_path(Path(os.environ["BR_CORPUS"]), "training corpus"),
         "teachers": require_local_path(Path(os.environ["BR_TEACH"]), "teacher bank"),
@@ -980,6 +937,9 @@ def main(argv: list[str] | None = None) -> int:
         if input_checkpoint.get("format") != CHECKPOINT_FORMAT:
             raise RuntimeError("input checkpoint format drift")
     load_started = time.time()
+    member_roster = load_member_roster(
+        args.member_roster, args.expected_member_roster_sha256
+    )
     student = ShardStudent(
         torch=torch,
         np=np,
@@ -987,14 +947,12 @@ def main(argv: list[str] | None = None) -> int:
         official_k2=official_k2,
         model_root=args.model_root,
         admission=admission,
-        parent_root=args.parent_root,
-        l034_roster=args.l034_roster,
+        member_roster=member_roster,
         input_state=input_checkpoint,
         rank=rank,
         first=first,
         last=last,
         status_cb=status_cb,
-        defer_dense_l034=False,
     )
 
     luts, norms, outputs = expose_local_dense(torch, student, admission)
@@ -1389,7 +1347,6 @@ def main(argv: list[str] | None = None) -> int:
     gate_errors = gather_object(dist, gate_error)
     if any(gate_errors):
         raise RuntimeError(f"update gate failed: {gate_errors}")
-    objective_after = None
     after_timing = {
         "wall_seconds": 0.0,
         "comm_seconds": 0.0,

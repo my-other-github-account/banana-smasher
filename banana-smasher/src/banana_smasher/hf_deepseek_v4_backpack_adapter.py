@@ -394,23 +394,18 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         if self.qtip2_v7_shared_lut_path is None:
             raise ValueError("qtip2_v7 source selected without a shared LUT binding")
         roster_key = (layer, expert, wire_projection)
-        if roster_key in self.qtip2_v7_roster_members:
-            member, _member_sha256 = self.qtip2_v7_roster_members[roster_key]
-        else:
-            root = Path(self.root_maps["qtip2_v7"][str(layer)])
-            candidates = (
-                root / f"E{expert:03d}_{wire_projection}.q2v7wire",
-                root / f"E{expert:03d}" / f"{wire_projection}.q2v7wire",
-                root / f"E{expert:03d}_{wire_projection}.k2wire",
-                root / f"E{expert:03d}" / f"{wire_projection}.k2wire",
+        try:
+            member, member_sha256 = self.qtip2_v7_roster_members[roster_key]
+        except KeyError as exc:
+            raise ValueError(
+                "qtip2_v7 artifact roster has no unique member for "
+                f"layer={layer} expert={expert} projection={wire_projection}"
+            ) from exc
+        if hashlib.sha256(member.read_bytes()).hexdigest() != member_sha256:
+            raise ValueError(
+                "qtip2_v7 artifact roster member SHA-256 drift for "
+                f"layer={layer} expert={expert} projection={wire_projection}"
             )
-            present = [path for path in candidates if path.is_file()]
-            if len(present) != 1:
-                raise ValueError(
-                    f"qtip2_v7 member path is missing or ambiguous: layer={layer} "
-                    f"expert={expert} projection={wire_projection}"
-                )
-            member = present[0]
         payload = load_qtip2_v7_wire(member, projection=wire_projection)
         torch = self.torch
         device = self.device

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Fast V7 runtime-closure check; never loads the model."""
+
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -23,13 +25,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", type=Path, required=True)
     ap.add_argument("--model-root", type=Path, required=True)
-    ap.add_argument("--parent-root", type=Path, required=True)
+    ap.add_argument("--member-roster", type=Path, required=True)
+    ap.add_argument("--expected-member-roster-sha256", required=True)
     ap.add_argument("--manifest", type=Path, required=True)
     ap.add_argument("--delta-dir", type=Path, required=True)
     ap.add_argument("--vq3b-dir", type=Path, required=True)
     ap.add_argument("--corpus", type=Path, required=True)
     ap.add_argument("--teacher", type=Path, required=True)
-    ap.add_argument("--l034-roster", type=Path, required=True)
+
     ap.add_argument("--lp4-pack", type=Path, required=True)
     ap.add_argument("--lp4-selection", type=Path)
     ap.add_argument("--compile-native", action="store_true")
@@ -55,10 +58,9 @@ def main() -> int:
         "code/JOINT_REPAIR_ADMISSION.json",
     ):
         require_file(root / rel, rel)
-    require_file(root / "code/L034_SELECTED_WIRE_PROVIDER_ROSTER.json", "L034 roster")
+
     for path, label in (
         (args.model_root, "model root"),
-        (args.parent_root, "parent root"),
         (args.vq3b_dir, "VQ3B compatibility root"),
         (args.lp4_pack, "LP4 pack"),
         (args.teacher, "teacher root"),
@@ -68,9 +70,37 @@ def main() -> int:
         (args.manifest, "LP4 manifest"),
         (args.delta_dir / "DELTA_PACK.COMPLETE", "delta completion marker"),
         (args.corpus, "TRAIN corpus"),
-        (args.l034_roster, "L034 roster"),
+        (args.member_roster, "all-layer member roster"),
     ):
         require_file(path.resolve(), label)
+    if (
+        hashlib.sha256(args.member_roster.read_bytes()).hexdigest()
+        != args.expected_member_roster_sha256
+    ):
+        raise RuntimeError("all-layer member roster SHA-256 drift")
+    roster = json.loads(args.member_roster.read_text())
+    rows = roster.get("members")
+    expected_coordinates = {
+        (layer, expert, projection)
+        for layer in range(43)
+        for expert in range(256)
+        for projection in ("w1", "w2", "w3")
+    }
+    observed_coordinates = (
+        {
+            (int(row["layer"]), int(row["expert"]), str(row["projection"]))
+            for row in rows
+        }
+        if isinstance(rows, list)
+        else set()
+    )
+    if (
+        roster.get("schema") != "banana-smasher-qtip2-v7-selected-wire-roster-v2"
+        or roster.get("member_count") != len(expected_coordinates)
+        or len(rows or ()) != len(expected_coordinates)
+        or observed_coordinates != expected_coordinates
+    ):
+        raise RuntimeError("all-layer member roster composition drift")
     if args.lp4_selection is not None:
         require_file(args.lp4_selection.resolve(), "LP4 selection")
 
@@ -91,7 +121,12 @@ def main() -> int:
     os.environ.setdefault("BR_TEACH", str(args.teacher.resolve()))
     os.environ.setdefault("BR_TRAIN", ",".join(str(x) for x in range(20, 84)))
     os.environ.setdefault("BR_PROBE", "20")
-    sys.path[:0] = [str(runner.resolve()), str(vendor / "src_lp4"), str(vendor / "src"), str(vendor / "site")]
+    sys.path[:0] = [
+        str(runner.resolve()),
+        str(vendor / "src_lp4"),
+        str(vendor / "src"),
+        str(vendor / "site"),
+    ]
 
     import fast_k2_grouped  # noqa: PLC0415
     import banana_smasher.qtip_k2  # noqa: PLC0415,F401
@@ -102,16 +137,21 @@ def main() -> int:
     if args.compile_native:
         fast_k2_grouped._cuda_extension()
 
-    print(json.dumps({
-        "schema": "banana-smasher-v7-runtime-closure-v1",
-        "status": "PASS_NO_MODEL_LOAD",
-        "root": str(root),
-        "runner": str(runner / "fast_two_node_v7.py"),
-        "native_sources": ["fast_k2_grouped.cpp", "fast_k2_grouped_kernel.cu"],
-        "model_shards": len(shards),
-        "vendored_modules": True,
-        "native_extension": bool(args.compile_native),
-    }, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "schema": "banana-smasher-v7-runtime-closure-v1",
+                "status": "PASS_NO_MODEL_LOAD",
+                "root": str(root),
+                "runner": str(runner / "fast_two_node_v7.py"),
+                "native_sources": ["fast_k2_grouped.cpp", "fast_k2_grouped_kernel.cu"],
+                "model_shards": len(shards),
+                "vendored_modules": True,
+                "native_extension": bool(args.compile_native),
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

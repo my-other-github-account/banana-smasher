@@ -14,7 +14,8 @@ V7_RANK=1 V7_MODEL_ROOT=/local/model_rank1 ./run.sh   # Spark-3, L021-L042
 The code, native sources, decoder package, LP4 helpers, admission, and output layout live here. Large immutable inputs remain external and are passed explicitly:
 
 - `V7_MODEL_ROOT`: local regular model directory for that rank; no SSHFS/JIT path.
-- `V7_PARENT_ROOT`: full-parent V7 wire root.
+- `V7_MEMBER_ROSTER`: immutable schema-v2 roster resolving all 43×256×3 wire members.
+- `V7_MEMBER_ROSTER_SHA256`: pinned identity of that exact roster.
 - `V7_LP4_PACK`: LP4 pack directory.
 - `V7_LP4_MANIFEST`: LP4 manifest JSON.
 - `V7_DELTA_DIR`: directory containing `DELTA_PACK.COMPLETE`.

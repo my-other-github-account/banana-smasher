@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+from pathlib import Path
 
 import banana_smasher
 from banana_smasher import anchor, backpack, backpack_exact64, metrics
@@ -88,3 +89,105 @@ def test_qtip_v7_runtime_has_no_layer_number_special_case() -> None:
             }
             assert not (direct_layer_operand and integer_literals), ast.unparse(node)
     assert "L034" not in "\n".join(sources)
+
+
+def test_all_routing_implementations_reject_layer_number_conditionals() -> None:
+    repository = Path(__file__).resolve().parents[2]
+    implementations = (
+        repository
+        / "banana-smasher/src/banana_smasher/hf_deepseek_v4_backpack_adapter.py",
+        repository / "banana-smasher/src/banana_smasher/qtip_v7_routes.py",
+        repository / "runtime/v7/runner/fast_two_node_v7.py",
+        repository
+        / "runtime/v7/vendor/site/banana_smasher/update_backends/joint_v7_repair.py",
+    )
+    violations = []
+    exceptional_tokens = []
+    for path in implementations:
+        source = path.read_text()
+        tree = ast.parse(source, filename=str(path))
+        if "L034" in source or "l034" in source:
+            exceptional_tokens.append(str(path.relative_to(repository)))
+        for node in ast.walk(tree):
+            condition = None
+            if isinstance(node, (ast.If, ast.IfExp, ast.While)):
+                condition = node.test
+            elif isinstance(node, ast.Match):
+                condition = node
+            elif (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Dict)
+            ):
+                condition = node
+            if condition is None:
+                continue
+            comprehension_bound_names = {
+                target.id
+                for child in ast.walk(condition)
+                if isinstance(child, ast.comprehension)
+                for target in ast.walk(child.target)
+                if isinstance(target, ast.Name)
+            }
+            layer_operands = {
+                child.id
+                for child in ast.walk(condition)
+                if isinstance(child, ast.Name)
+                and child.id.lower() == "layer"
+                and child.id not in comprehension_bound_names
+            }
+            layer_operands.update(
+                child.attr
+                for child in ast.walk(condition)
+                if isinstance(child, ast.Attribute)
+                and child.attr.lower() == "layer"
+            )
+            integers = {
+                child.value
+                for child in ast.walk(condition)
+                if isinstance(child, ast.Constant)
+                and isinstance(child.value, int)
+                and not isinstance(child.value, bool)
+            }
+            if layer_operands and integers:
+                violations.append(
+                    f"{path.relative_to(repository)}: {ast.unparse(condition)}"
+                )
+    assert violations == []
+    assert exceptional_tokens == []
+
+
+def test_joint_runtime_public_interface_forwards_pinned_member_roster() -> None:
+    repository = Path(__file__).resolve().parents[2]
+    backend_path = (
+        repository
+        / "runtime/v7/vendor/site/banana_smasher/update_backends/joint_v7_repair.py"
+    )
+    cli_path = repository / "runtime/v7/vendor/site/banana_smasher/cli.py"
+    backend_tree = ast.parse(backend_path.read_text(), filename=str(backend_path))
+    cli_tree = ast.parse(cli_path.read_text(), filename=str(cli_path))
+
+    wrapper = next(
+        node
+        for node in ast.walk(backend_tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "run_joint_v7_repair"
+    )
+    wrapper_arguments = {argument.arg for argument in wrapper.args.kwonlyargs}
+    assert {"member_roster", "member_roster_sha256"} <= wrapper_arguments
+
+    cli_literals = {
+        node.value
+        for node in ast.walk(cli_tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+    assert {"--member-roster", "--member-roster-sha256"} <= cli_literals
+    wrapper_calls = [
+        node
+        for node in ast.walk(cli_tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "run_joint_v7_repair"
+    ]
+    assert len(wrapper_calls) == 1
+    forwarded = {keyword.arg for keyword in wrapper_calls[0].keywords}
+    assert {"member_roster", "member_roster_sha256"} <= forwarded

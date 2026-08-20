@@ -106,6 +106,8 @@ def _parser() -> argparse.ArgumentParser:
     v7_joint.add_argument("--admission", type=Path, required=True)
     v7_joint.add_argument("--inventory", type=Path, required=True)
     v7_joint.add_argument("--historical-roster", type=Path, required=True)
+    v7_joint.add_argument("--member-roster", type=Path, required=True)
+    v7_joint.add_argument("--member-roster-sha256", required=True)
     v7_joint.add_argument("--runtime-module", type=Path, required=True)
     v7_joint.add_argument("--run-root", type=Path, required=True)
     v7_joint.add_argument("--optimizer-steps", type=int, default=64)
@@ -299,6 +301,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     admission=args.admission,
                     inventory=args.inventory,
                     historical_roster=args.historical_roster,
+                    member_roster=args.member_roster,
+                    member_roster_sha256=args.member_roster_sha256,
                     runtime_module=args.runtime_module,
                     run_root=args.run_root,
                     optimizer_steps=args.optimizer_steps,

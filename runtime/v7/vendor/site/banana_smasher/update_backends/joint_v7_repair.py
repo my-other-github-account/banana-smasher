@@ -113,76 +113,79 @@ def require_sha(path: Path, expected: str, label: str) -> str:
 
 
 class CompleteV7MemberResolver:
-    """Resolve one member from the complete staged 42-layer V7 parent."""
+    """Resolve every member solely from one pinned all-layer artifact roster."""
 
     def __init__(
         self,
         *,
-        full_parent_root: str | Path,
-        l034_roster: str | Path | None = None,
+        member_roster: str | Path,
+        expected_roster_sha256: str,
     ) -> None:
-        self.full_parent_root = Path(full_parent_root).expanduser().resolve()
-        self.l034_roster = (
-            None if l034_roster is None else Path(l034_roster).expanduser().resolve()
+        self.roster_path = Path(member_roster).expanduser().resolve()
+        require_sha(
+            self.roster_path,
+            expected_roster_sha256,
+            "all-layer selected-wire roster",
         )
+        roster = load_json(self.roster_path)
+        rows = roster.get("members")
+        if (
+            roster.get("schema")
+            != "banana-smasher-qtip2-v7-selected-wire-roster-v2"
+            or not isinstance(rows, list)
+            or roster.get("member_count") != len(rows)
+        ):
+            raise RuntimeError("all-layer selected-wire roster identity drift")
+        root = self.roster_path.parent
+        self.members: dict[tuple[int, int, str], Path] = {}
+        self.member_sha256: dict[tuple[int, int, str], str] = {}
+        for row in rows:
+            key = (int(row["layer"]), int(row["expert"]), str(row["projection"]))
+            digest = row.get("sha256")
+            relative = Path(str(row["path"]))
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or key in self.members
+                or not isinstance(digest, str)
+                or len(digest) != 64
+                or any(character not in "0123456789abcdef" for character in digest)
+            ):
+                raise RuntimeError(f"selected-wire roster coordinate/path drift: {key}")
+            candidate = root / relative
+            path = candidate.resolve()
+            if (
+                root not in path.parents
+                or not candidate.is_file()
+                or candidate.is_symlink()
+                or path.stat().st_size != int(row.get("bytes", -1))
+                or sha256_file(path) != digest
+            ):
+                raise RuntimeError(f"selected-wire member drift: {path}")
+            self.members[key] = path
+            self.member_sha256[key] = digest
+        expected = {
+            (layer, expert, projection)
+            for layer in range(43)
+            for expert in range(256)
+            for projection in ("w1", "w2", "w3")
+        }
+        if set(self.members) != expected:
+            raise RuntimeError("selected-wire roster must cover every all-layer coordinate once")
 
     def resolve(self, *, layer: int, expert: int, projection: str) -> Path:
         if projection not in {"w1", "w2", "w3"}:
             raise ValueError(f"unsupported QTIP V7 projection {projection!r}")
-        if int(layer) == 34:
-            if self.l034_roster is None:
-                raise RuntimeError("L034 resolution requires the selected-wire roster")
-            roster = load_json(self.l034_roster)
-            rows = roster.get("members")
-            if not isinstance(rows, list):
-                raise RuntimeError("L034 selected-wire roster coverage drift")
-            identities = [
-                (int(row["expert"]), str(row["projection"]))
-                for row in rows
-            ]
-            expected = [
-                (selected_expert, selected_projection)
-                for selected_expert in range(256)
-                for selected_projection in ("w1", "w2", "w3")
-            ]
-            if (
-                roster.get("schema")
-                != "banana-smasher-qtip2-v7-l034-selected-wire-roster-v1"
-                or int(roster.get("layer", -1)) != 34
-                or identities != expected
-                or len(set(identities)) != 768
-            ):
-                raise RuntimeError("L034 selected-wire roster coverage drift")
-            row = rows[expected.index((int(expert), projection))]
-            relative = Path(str(row["path"]))
-            if relative.is_absolute() or ".." in relative.parts:
-                raise RuntimeError("L034 selected-wire path escapes roster root")
-            path = (self.l034_roster.parent / relative).resolve()
-            if (
-                self.l034_roster.parent not in path.parents
-                or not path.is_file()
-                or path.is_symlink()
-                or path.stat().st_size != int(row.get("bytes", -1))
-                or sha256_file(path) != str(row.get("sha256"))
-            ):
-                raise RuntimeError(f"L034 selected-wire member drift: {path}")
-            return path
-        layer_root = self.full_parent_root / f"L{int(layer):03d}"
-        candidates = [
-            layer_root / f"E{int(expert):03d}_{projection}.q2v7wire",
-            layer_root / f"E{int(expert):03d}_{projection}.k2wire",
-        ]
-        present = [path.resolve() for path in candidates if path.is_file()]
-        if (
-            len(present) != 1
-            or present[0].is_symlink()
-            or present[0].stat().st_size <= 0
-        ):
+        try:
+            return self.members[(int(layer), int(expert), projection)]
+        except KeyError as exc:
             raise RuntimeError(
-                f"L{int(layer):03d} complete-parent member drift: "
-                f"E{int(expert):03d}/{projection}"
-            )
-        return present[0]
+                f"selected-wire roster has no unique L{int(layer):03d} "
+                f"E{int(expert):03d}/{projection} member"
+            ) from exc
+
+    def sha256(self, *, layer: int, expert: int, projection: str) -> str:
+        return self.member_sha256[(int(layer), int(expert), projection)]
 
 
 def _atomic_torch_save(torch: Any, path: Path, payload: object) -> None:
@@ -372,6 +375,7 @@ class PlaneSource:
         torch: Any,
         layer: int,
         roster: Mapping[str, Any],
+        member_resolver: CompleteV7MemberResolver,
         device: Any,
         full_wire_hash: bool,
     ) -> None:
@@ -398,75 +402,35 @@ class PlaneSource:
         if not local_members:
             raise RuntimeError(f"L{self.layer:03d} compact wire has no local members")
 
-        # The diagnostic parent manifests authenticate the per-layer LUT slots but
-        # contain only E000. Bind routed members to the separately sealed local
-        # complete-parent transport. L034 uses its independently sealed selected-
-        # wire roster; all other layers use the exact 42-layer staging terminal.
+        # The diagnostic parent manifests authenticate per-layer LUT slots. Member
+        # transport is resolved uniformly from one separately pinned all-layer roster.
         expected_identities = [
             (self.layer, expert, projection)
             for expert in range(256)
             for projection in ("w1", "w2", "w3")
         ]
-        if self.layer == 34:
-            roster_path = Path(os.environ["JOINT_V7_L034_ROSTER"]).resolve()
-            roster_sha = os.environ["JOINT_V7_L034_ROSTER_SHA256"]
-            require_sha(roster_path, roster_sha, "L034 selected-wire roster")
-            selected = load_json(roster_path)
-            if (
-                selected.get("schema")
-                != "banana-smasher-qtip2-v7-l034-selected-wire-roster-v1"
-                or int(selected.get("layer", -1)) != 34
-                or int(selected.get("member_count", -1)) != 768
-                or int(selected.get("selected_payload_bytes", -1)) != 1_620_052_992
-            ):
-                raise RuntimeError("L034 selected-wire roster contract drift")
-            selected_rows = selected.get("members")
-            if not isinstance(selected_rows, list) or len(selected_rows) != 768:
-                raise RuntimeError("L034 selected-wire roster coverage drift")
-            selected_root = roster_path.parent
-            local_members = []
-            member_paths = []
-            for row in selected_rows:
-                relative = Path(str(row["path"]))
-                if relative.is_absolute() or ".." in relative.parts:
-                    raise RuntimeError("L034 selected-wire path escapes roster root")
-                path = (selected_root / relative).resolve()
-                if (
-                    selected_root not in path.parents
-                    or not path.is_file()
-                    or path.is_symlink()
-                    or path.stat().st_size != 2_109_444
-                    or int(row.get("bytes", -1)) != 2_109_444
-                ):
-                    raise RuntimeError(f"L034 selected-wire member drift: {path}")
-                local_members.append({
-                    "layer": 34,
-                    "expert": int(row["expert"]),
-                    "projection": str(row["projection"]),
-                    "bytes": int(row["bytes"]),
-                    "sha256": str(row["sha256"]),
-                })
-                member_paths.append(path)
-        else:
-            staged_root = Path(os.environ["JOINT_V7_FULL_PARENT_ROOT"]).resolve()
-            resolver = CompleteV7MemberResolver(full_parent_root=staged_root)
-            local_members = []
-            member_paths = []
-            for _layer, expert, projection in expected_identities:
-                path = resolver.resolve(
-                    layer=self.layer, expert=expert, projection=projection
+        local_members = []
+        member_paths = []
+        for _layer, expert, projection in expected_identities:
+            path = member_resolver.resolve(
+                layer=self.layer, expert=expert, projection=projection
+            )
+            if path.stat().st_size != 2_109_444:
+                raise RuntimeError(
+                    f"L{self.layer:03d} roster member drift: E{expert:03d}/{projection}"
                 )
-                if path.stat().st_size != 2_109_444:
-                    raise RuntimeError(
-                        f"L{self.layer:03d} complete-parent member drift: E{expert:03d}/{projection}"
-                    )
-                local_members.append({
+            local_members.append(
+                {
                     "layer": self.layer,
                     "expert": expert,
                     "projection": projection,
                     "bytes": 2_109_444,
-                })
-                member_paths.append(path)
+                    "sha256": member_resolver.sha256(
+                        layer=self.layer, expert=expert, projection=projection
+                    ),
+                }
+            )
+            member_paths.append(path)
 
         identities = [
             (int(row["layer"]), int(row["expert"]), str(row["projection"]))
@@ -867,6 +831,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--admission", type=Path)
     parser.add_argument("--inventory", type=Path)
     parser.add_argument("--historical-roster", type=Path)
+    parser.add_argument("--member-roster", type=Path)
+    parser.add_argument("--member-roster-sha256")
     parser.add_argument("--runtime-module", type=Path)
     parser.add_argument("--run-root", type=Path)
     parser.add_argument("--device", default="cuda")
@@ -892,6 +858,8 @@ def main(argv: list[str] | None = None) -> int:
         "admission": args.admission,
         "inventory": args.inventory,
         "historical_roster": args.historical_roster,
+        "member_roster": args.member_roster,
+        "member_roster_sha256": args.member_roster_sha256,
         "runtime_module": args.runtime_module,
         "run_root": args.run_root,
     }
@@ -982,11 +950,17 @@ def main(argv: list[str] | None = None) -> int:
     if device.type == "cuda":
         torch.cuda.manual_seed_all(1701)
 
+    member_resolver = CompleteV7MemberResolver(
+        member_roster=args.member_roster,
+        expected_roster_sha256=args.member_roster_sha256,
+    )
+
     sources = {
         int(row["layer"]): PlaneSource(
             torch=torch,
             layer=int(row["layer"]),
             roster=row,
+            member_resolver=member_resolver,
             device=device,
             full_wire_hash=args.full_wire_hash,
         )
@@ -1352,6 +1326,8 @@ def run_joint_v7_repair(
     admission: str | Path,
     inventory: str | Path,
     historical_roster: str | Path,
+    member_roster: str | Path,
+    member_roster_sha256: str,
     runtime_module: str | Path,
     run_root: str | Path,
     optimizer_steps: int = UPDATES,
@@ -1400,6 +1376,8 @@ def run_joint_v7_repair(
         "--admission", str(Path(admission).expanduser().resolve()),
         "--inventory", str(Path(inventory).expanduser().resolve()),
         "--historical-roster", str(Path(historical_roster).expanduser().resolve()),
+        "--member-roster", str(Path(member_roster).expanduser().resolve()),
+        "--member-roster-sha256", str(member_roster_sha256),
         "--runtime-module", str(Path(runtime_module).expanduser().resolve()),
         "--run-root", str(root),
         "--device", device,

@@ -6,7 +6,8 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 RANK=${V7_RANK:?Set V7_RANK=0 on Spark-1 or V7_RANK=1 on Spark-3}
 PYTHON=${V7_PYTHON:-/home/dnola/humming_env/bin/python}
 MODEL_ROOT=${V7_MODEL_ROOT:?Set V7_MODEL_ROOT to the local regular model directory}
-PARENT_ROOT=${V7_PARENT_ROOT:-/home/dnola/missions/V7_CODEBOOK_FULLPARENT_t_0c44dcc6_s6}
+MEMBER_ROSTER=${V7_MEMBER_ROSTER:?Set V7_MEMBER_ROSTER to the all-43 selected-wire roster}
+MEMBER_ROSTER_SHA256=${V7_MEMBER_ROSTER_SHA256:?Set V7_MEMBER_ROSTER_SHA256 to its pinned SHA-256}
 LP4_ROOT=${V7_LP4_ROOT:-$ROOT/vendor}
 LP4_PACK=${V7_LP4_PACK:?Set V7_LP4_PACK to the local LP4 pack directory}
 LP4_MANIFEST=${V7_LP4_MANIFEST:?Set V7_LP4_MANIFEST to the LP4 manifest JSON}
@@ -15,7 +16,6 @@ DELTA_DIR=${V7_DELTA_DIR:?Set V7_DELTA_DIR to a directory containing DELTA_PACK.
 VQ3B_DIR=${V7_VQ3B_DIR:-$MODEL_ROOT}
 CORPUS=${V7_CORPUS:?Set V7_CORPUS to windows_ds4_TRAIN.json}
 TEACH=${V7_TEACH:?Set V7_TEACH to the published teacher bank}
-L034_ROSTER=${V7_L034_ROSTER:-$ROOT/code/L034_SELECTED_WIRE_PROVIDER_ROSTER.json}
 OUTPUT=${V7_OUTPUT:-$ROOT/output}
 RUN_ROOT=${V7_RUN_ROOT:-$OUTPUT/rank${RANK}}
 MASTER_ADDR=${V7_MASTER_ADDR:-192.168.200.1}
@@ -43,13 +43,13 @@ export TORCH_EXTENSIONS_DIR="$OUTPUT/extensions"
 "$PYTHON" "$ROOT/contract_smoke.py" \
   --root "$ROOT" \
   --model-root "$MODEL_ROOT" \
-  --parent-root "$PARENT_ROOT" \
+  --member-roster "$MEMBER_ROSTER" \
+  --expected-member-roster-sha256 "$MEMBER_ROSTER_SHA256" \
   --manifest "$LP4_MANIFEST" \
   --delta-dir "$DELTA_DIR" \
   --vq3b-dir "$VQ3B_DIR" \
   --corpus "$CORPUS" \
   --teacher "$TEACH" \
-  --l034-roster "$L034_ROSTER" \
   --lp4-pack "$LP4_PACK" \
   ${LP4_SELECTION:+--lp4-selection "$LP4_SELECTION"} \
   --compile-native | tee "$OUTPUT/closure-rank${RANK}.json"
@@ -59,8 +59,8 @@ exec "$PYTHON" -u "$ROOT/runner/fast_two_node_v7.py" \
   --run-root "$RUN_ROOT" \
   --asset-root "$ROOT" \
   --model-root "$MODEL_ROOT" \
-  --parent-root "$PARENT_ROOT" \
-  --l034-roster "$L034_ROSTER" \
+  --member-roster "$MEMBER_ROSTER" \
+  --expected-member-roster-sha256 "$MEMBER_ROSTER_SHA256" \
   --fresh-u0 \
   --expected-claim-owner "$CLAIM_OWNER" \
   --task-id "$TASK_ID" \
