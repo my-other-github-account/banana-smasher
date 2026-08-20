@@ -189,8 +189,8 @@ def run_backpack_exact64(
     teacher_manifest_path: str | Path,
     virtual_manifest_path: str | Path,
     materialization_index_path: str | Path,
-    qtip2_root_map_path: str | Path,
-    qtip3_root_map_path: str | Path,
+    qtip2_root_map_path: str | Path | None = None,
+    qtip3_root_map_path: str | Path | None = None,
     qtip2_v7_root_map_path: str | Path | None = None,
     qtip2_v7_shared_lut_path: str | Path | None = None,
     qtip2_v7_dense_roster_path: str | Path | None = None,
@@ -211,8 +211,12 @@ def run_backpack_exact64(
     teacher_manifest_path = Path(teacher_manifest_path).resolve()
     virtual_manifest_path = Path(virtual_manifest_path).resolve()
     materialization_index_path = Path(materialization_index_path).resolve()
-    qtip2_root_map_path = Path(qtip2_root_map_path).resolve()
-    qtip3_root_map_path = Path(qtip3_root_map_path).resolve()
+    qtip2_root_map_path = (
+        None if qtip2_root_map_path is None else Path(qtip2_root_map_path).resolve()
+    )
+    qtip3_root_map_path = (
+        None if qtip3_root_map_path is None else Path(qtip3_root_map_path).resolve()
+    )
     v7_values = (
         qtip2_v7_root_map_path,
         qtip2_v7_shared_lut_path,
@@ -315,11 +319,17 @@ def run_backpack_exact64(
             "basis_sha256": basis_sha256,
             "virtual_manifest": str(virtual_manifest_path),
             "materialization_index": str(materialization_index_path),
-            "qtip2_root_map": str(qtip2_root_map_path),
-            "qtip3_root_map": str(qtip3_root_map_path),
         },
     }
     binding_inputs = parameters["backpack_runtime"]
+    root_map_hashes = {}
+    for source_key, root_map_path in (
+        ("qtip2", qtip2_root_map_path),
+        ("qtip3", qtip3_root_map_path),
+    ):
+        if root_map_path is not None:
+            binding_inputs[f"{source_key}_root_map"] = str(root_map_path)
+            root_map_hashes[f"{source_key}_root_map_sha256"] = _sha256_file(root_map_path)
     if qtip2_v7_root_map_path is not None:
         binding_inputs.update(
             {
@@ -345,8 +355,7 @@ def run_backpack_exact64(
                 "teacher_manifest_sha256": _sha256_file(teacher_manifest_path),
                 "pack_sha256": pack_sha256,
                 "materialization_index_sha256": _sha256_file(materialization_index_path),
-                "qtip2_root_map_sha256": _sha256_file(qtip2_root_map_path),
-                "qtip3_root_map_sha256": _sha256_file(qtip3_root_map_path),
+                **root_map_hashes,
                 **v7_hashes,
             },
             sort_keys=True,

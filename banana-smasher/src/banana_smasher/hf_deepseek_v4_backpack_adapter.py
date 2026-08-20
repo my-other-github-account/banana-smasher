@@ -159,22 +159,24 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             "basis_sha256",
             "virtual_manifest",
             "materialization_index",
-            "qtip2_root_map",
-            "qtip3_root_map",
         }
-        optional = {
+        qtip_groups = {
+            "qtip2": {"qtip2_root_map"},
+            "qtip3": {"qtip3_root_map"},
+        }
+        v7_group = {
             "qtip2_v7_root_map",
             "qtip2_v7_shared_lut",
             "qtip2_v7_dense_roster",
         }
+        allowed = required | v7_group | set().union(*qtip_groups.values())
         if (
             not isinstance(binding, Mapping)
             or not required.issubset(binding)
-            or set(binding) - required != (optional if optional.issubset(binding) else set())
+            or set(binding) - allowed
         ):
             raise ValueError(
-                f"backpack_runtime requires {sorted(required)} and either both or neither "
-                f"of {sorted(optional)}"
+                f"backpack_runtime requires {sorted(required)} and only declared source groups"
             )
         self.basis_sha256 = str(binding["basis_sha256"])
         self.virtual_manifest_path = Path(str(binding["virtual_manifest"])).resolve()
@@ -204,6 +206,11 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             for rows in self.rows_by_layer.values()
             for row in rows
         }
+        for source_key, fields in qtip_groups.items():
+            if (source_key in selected_source_keys) != fields.issubset(binding):
+                raise ValueError(f"backpack_runtime {source_key} binding/selection mismatch")
+        if ("qtip2_v7" in selected_source_keys) != v7_group.issubset(binding):
+            raise ValueError("backpack_runtime qtip2_v7 binding/selection mismatch")
         source_bindings = manifest.get("source_bindings")
         if not isinstance(source_bindings, Mapping):
             raise ValueError("virtual Backpack source bindings are missing")
@@ -238,6 +245,8 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             self._record_path(identity)
         self.root_maps: dict[str, dict[str, str]] = {}
         for source_key in ("qtip2", "qtip3"):
+            if source_key not in selected_source_keys:
+                continue
             path = Path(str(binding[f"{source_key}_root_map"])).resolve()
             root_map = json.loads(path.read_text())
             if (
@@ -257,7 +266,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             self._record_path(path)
         self.qtip2_v7_shared_lut_path: Path | None = None
         self.qtip2_v7_dense_members: dict[tuple[int, str], tuple[Path, str]] = {}
-        if optional.issubset(binding):
+        if v7_group.issubset(binding):
             path = Path(str(binding["qtip2_v7_root_map"])).resolve()
             root_map = json.loads(path.read_text())
             if (
