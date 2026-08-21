@@ -27,6 +27,17 @@ def _inverse_permutation(device: torch.device) -> torch.Tensor:
     return torch.argsort(permutation)
 
 
+def _invert_stable_order(order: torch.Tensor) -> torch.Tensor:
+    """Invert a routing permutation in linear work without changing row order."""
+    inverse = torch.empty_like(order)
+    inverse.scatter_(
+        0,
+        order,
+        torch.arange(order.numel(), device=order.device, dtype=order.dtype),
+    )
+    return inverse
+
+
 def _unpack_codes(packed: torch.Tensor) -> torch.Tensor:
     if packed.ndim != 3 or packed.shape[-1] != 32 or packed.dtype != torch.int16:
         raise ValueError("packed must be int16[tiles_k, tiles_m, 32]")
@@ -249,7 +260,7 @@ def grouped_packed_projection(
         return x.new_empty((0, sv.shape[1]), dtype=torch.float32)
 
     order = torch.argsort(assignments, stable=True)
-    inverse_order = torch.argsort(order)
+    inverse_order = _invert_stable_order(order)
     sorted_assignments = assignments[order]
     sorted_x = x[order].contiguous()
     counts = torch.bincount(sorted_assignments, minlength=experts).to(torch.int32)

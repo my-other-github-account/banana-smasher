@@ -3,10 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 import hashlib
+import importlib.util
 import os
 import sys
 
 import pytest
+import torch
 
 import banana_smasher.resident_continuation as continuation_module
 from banana_smasher.resident_balanced64 import ArtifactError
@@ -510,6 +512,20 @@ def test_score_configuration_forces_a1_eager_attention(monkeypatch):
 def test_physical_score_uses_two_ordered_thirty_two_window_groups():
     groups = _score_window_groups(tuple(range(64)))
     assert groups == [list(range(32)), list(range(32, 64))]
+
+
+def test_grouped_k2_inverts_stable_routing_order_without_a_second_sort():
+    path = Path(__file__).resolve().parents[2] / "runtime" / "v7" / "runner" / "fast_k2_grouped.py"
+    spec = importlib.util.spec_from_file_location("fast_k2_grouped_inverse_test", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    order = torch.tensor([3, 1, 4, 0, 2], dtype=torch.int64)
+
+    inverse = module._invert_stable_order(order)
+
+    assert torch.equal(order[inverse], torch.arange(order.numel()))
+    assert torch.equal(inverse, torch.argsort(order))
 
 
 def test_rank_receive_uses_batched_p2p_and_waits():
