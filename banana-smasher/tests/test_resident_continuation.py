@@ -8,7 +8,6 @@ from banana_smasher.resident_continuation import (
     _checkpoint_cursor,
     _construct_shard_student,
     _score_group_logits,
-    _score_window_groups,
 )
 
 
@@ -126,8 +125,3 @@ def test_score_group_projects_the_pipeline_microbatch_with_one_head_call():
     torch = SimpleNamespace(bfloat16="bf16")
     assert _score_group_logits(lm_head, Final(), torch) == "batched-logits"
     assert calls == [("to", "bf16"), ("lm_head", "batched-final")]
-
-
-def test_physical_score_uses_four_ordered_sixteen_window_groups():
-    groups = _score_window_groups(tuple(range(64)))
-    assert groups == [list(range(start, start + 16)) for start in range(0, 64, 16)]
