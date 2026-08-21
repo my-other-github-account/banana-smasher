@@ -41,6 +41,7 @@ def _call(trainer):
         official_k2="k2",
         model_root=Path("model"),
         admission={"framework": "banana-smasher"},
+        parent_root=Path("parent"),
         member_roster_path=Path("roster.json"),
         member_roster_sha256="a" * 64,
         payload={"state": {}},
@@ -51,9 +52,27 @@ def _call(trainer):
     )
 
 
-def test_construct_shard_student_refuses_legacy_l034_roster_abi():
-    with pytest.raises(RuntimeError, match="all-layer member roster"):
-        _call(SimpleNamespace(ShardStudent=_Student))
+def test_construct_shard_student_omits_l034_for_parent_only_rank0_abi():
+    class ParentOnlyStudent:
+        def __init__(self, *, parent_root, **kwargs):
+            self.parent_root = parent_root
+            self.kwargs = kwargs
+
+    student = _call(SimpleNamespace(ShardStudent=ParentOnlyStudent))
+    assert student.parent_root == Path("parent")
+    assert "l034_roster" not in student.kwargs
+
+
+def test_construct_shard_student_passes_l034_for_rank1_legacy_abi():
+    class L034Student:
+        def __init__(self, *, parent_root, l034_roster, **kwargs):
+            self.parent_root = parent_root
+            self.l034_roster = l034_roster
+            self.kwargs = kwargs
+
+    student = _call(SimpleNamespace(ShardStudent=L034Student))
+    assert student.parent_root == Path("parent")
+    assert student.l034_roster == Path("roster.json")
 
 
 def test_construct_shard_student_uses_all_layer_roster_abi_when_available():
@@ -101,6 +120,32 @@ def test_checkpoint_derived_lut_is_admitted_only_when_wire_matches_loaded_state(
         "sha256": observed,
     }]
     assert admission["trainable_roster"]["luts"][0]["wire"]["sha256"] != observed
+
+
+def test_original_provider_lut_remains_admitted_when_checkpoint_lut_differs(tmp_path):
+    import numpy as np
+
+    original = np.zeros(1024, dtype="<f2")
+    checkpoint = np.ones(1024, dtype=np.float32)
+    wire = tmp_path / "L021.tlut.f16"
+    wire.write_bytes(original.tobytes())
+    digest = hashlib.sha256(wire.read_bytes()).hexdigest()
+    admission = {
+        "trainable_roster": {
+            "luts": [{
+                "layer": 21,
+                "name": "layers.21.experts.tlut",
+                "wire": {"source_path": str(wire), "sha256": digest},
+            }]
+        }
+    }
+
+    rebound, rows = _checkpoint_lut_admission(
+        admission, {"luts": {"layers.21.experts.tlut": checkpoint}}
+    )
+
+    assert rebound == admission
+    assert rows == []
 
 
 def test_checkpoint_derived_lut_rebinding_rejects_bytes_not_in_loaded_state(tmp_path):

@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import importlib.util
+import inspect
 import json
 import math
 import os
@@ -45,6 +46,7 @@ def _construct_shard_student(
     official_k2: Any,
     model_root: Path,
     admission: Mapping[str, Any],
+    parent_root: Path,
     member_roster_path: Path,
     member_roster_sha256: str,
     payload: Mapping[str, Any],
@@ -53,7 +55,7 @@ def _construct_shard_student(
     last: int,
     status_cb: Any,
 ) -> Any:
-    """Construct the authenticated all-layer public trainer ABI."""
+    """Construct the authenticated trainer using its declared roster ABI."""
     loader = getattr(trainer, "load_member_roster", None)
     common = {
         "torch": torch,
@@ -68,10 +70,16 @@ def _construct_shard_student(
         "last": last,
         "status_cb": status_cb,
     }
-    if not callable(loader):
-        raise RuntimeError("resident trainer lacks the all-layer member roster ABI")
-    members = loader(member_roster_path, member_roster_sha256)
-    return trainer.ShardStudent(member_roster=members, **common)
+    if callable(loader):
+        members = loader(member_roster_path, member_roster_sha256)
+        return trainer.ShardStudent(member_roster=members, **common)
+    parameters = inspect.signature(trainer.ShardStudent.__init__).parameters
+    if "parent_root" not in parameters:
+        raise RuntimeError("resident trainer lacks a recognized provider roster ABI")
+    legacy = {"parent_root": parent_root}
+    if "l034_roster" in parameters:
+        legacy["l034_roster"] = member_roster_path
+    return trainer.ShardStudent(**legacy, **common)
 
 
 def _select_trainer_fwht(trainer: Any) -> None:
@@ -504,6 +512,9 @@ class ModernGreenResidentEngine:
         )
         self._configure_base()
         self.status: dict[str, Any] = {}
+        parent_root = Path(str(config.get("parent_root", ""))).expanduser().resolve()
+        if not parent_root.is_dir():
+            raise ArtifactError(f"official resident parent root is missing: {parent_root}")
         self.student = _construct_shard_student(
             self.trainer,
             torch=torch,
@@ -512,6 +523,7 @@ class ModernGreenResidentEngine:
             official_k2=official_k2,
             model_root=self.model_root,
             admission=admission,
+            parent_root=parent_root,
             member_roster_path=self.member_roster,
             member_roster_sha256=self.member_roster_sha256,
             payload=payload,
