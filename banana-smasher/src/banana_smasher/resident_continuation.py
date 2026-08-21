@@ -29,7 +29,9 @@ TRAINER_SHA256 = "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf9420
 OFFICIAL_PHYSICAL_LAYER_SHA256 = "5d4ca4ac7d25e96fd428e55b2a7e18e074bac9d8aa23004bddbb6bde15d020d5"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
-SCORE_MICROBATCH = 32
+# Keep score-only attention at the proven per-step memory envelope. Balanced64
+# still covers all 64 ordered 1024-token windows; only the transient batch changes.
+SCORE_MICROBATCH = 4
 SCORE_LOGIT_MICROBATCH = 4
 BASE_LRS = {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2}
 HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
