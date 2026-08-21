@@ -361,6 +361,20 @@ def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
     ]
 
 
+def _enqueue_rank_send(dist: Any, pending: list[tuple[Any, Any]], tensor: Any) -> None:
+    """Keep one activation send in flight while rank0 computes its successor."""
+    pending.append((dist.isend(tensor, dst=1), tensor))
+    if len(pending) >= 2:
+        work, _keepalive = pending.pop(0)
+        work.wait()
+
+
+def _flush_rank_sends(pending: list[tuple[Any, Any]]) -> None:
+    for work, _keepalive in pending:
+        work.wait()
+    pending.clear()
+
+
 class ModernGreenResidentEngine:
     """One rank of the accepted two-Spark resident grouped-K2 trainer."""
 
@@ -688,8 +702,11 @@ class ModernGreenResidentEngine:
             raise ArtifactError(f"resident physical score windows were not preloaded: {missing}")
         started = time.perf_counter()
         local_rows: list[dict[str, Any]] = []
+        pending_sends: list[tuple[Any, Any]] = []
+        pipeline_compute_seconds = 0.0
+        pipeline_wait_seconds = 0.0
         torch = self.torch
-        with torch.no_grad():
+        with torch.inference_mode():
             for group in _score_window_groups(selected):
                 ids = torch.cat(
                     [self.score_ids_cache[window] for window in group], dim=0
@@ -701,6 +718,7 @@ class ModernGreenResidentEngine:
                     int(self.student.config.hidden_size),
                 )
                 if self.rank == 0:
+                    compute_started = time.perf_counter()
                     embeds = self.student.model.model.embed_tokens(ids)
                     hidden = embeds.unsqueeze(2).expand(
                         -1, -1, self.student.config.hc_mult, -1
@@ -710,12 +728,18 @@ class ModernGreenResidentEngine:
                         raise ArtifactError(
                             f"official score activation geometry drift: {tuple(hidden.shape)} {hidden.dtype}"
                         )
-                    self.dist.send(hidden.contiguous(), dst=1)
+                    pipeline_compute_seconds += time.perf_counter() - compute_started
+                    wait_started = time.perf_counter()
+                    _enqueue_rank_send(self.dist, pending_sends, hidden.contiguous())
+                    pipeline_wait_seconds += time.perf_counter() - wait_started
                 else:
                     activation = torch.empty(
                         shape, dtype=torch.bfloat16, device=self.student.device
                     )
+                    wait_started = time.perf_counter()
                     self.dist.recv(activation, src=0)
+                    pipeline_wait_seconds += time.perf_counter() - wait_started
+                    compute_started = time.perf_counter()
                     hidden = self._run_layers(activation, ids, False)
                     final = self.student.model.model.norm(
                         self.student.model.model.hc_head(hidden)
@@ -725,9 +749,6 @@ class ModernGreenResidentEngine:
                         raise ArtifactError(
                             f"resident Balanced64 group has non-1024 lengths: {lengths}"
                         )
-                    # Preserve exact rows and reduction order while projecting the
-                    # fixed microbatch with one M=4096 vocabulary GEMM rather than
-                    # four independent M=1024 launches.
                     group_logits = _score_group_logits(
                         self.student.model.lm_head, final[:, :1024], torch
                     )
@@ -750,6 +771,11 @@ class ModernGreenResidentEngine:
                                 ),
                             }
                         )
+                    pipeline_compute_seconds += time.perf_counter() - compute_started
+            if self.rank == 0:
+                wait_started = time.perf_counter()
+                _flush_rank_sends(pending_sends)
+                pipeline_wait_seconds += time.perf_counter() - wait_started
         gathered: list[Any] = [None, None]
         self.dist.all_gather_object(
             gathered, local_rows if self.rank == 1 else None
@@ -774,6 +800,8 @@ class ModernGreenResidentEngine:
                 "checkpoint_loads_during_score": 0,
                 "candidate_file_reads_during_score": 0,
                 "windows": 64,
+                "pipeline_compute_seconds": pipeline_compute_seconds,
+                "pipeline_wait_seconds": pipeline_wait_seconds,
             },
         }
 
