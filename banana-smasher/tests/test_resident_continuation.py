@@ -27,6 +27,7 @@ def _call(trainer):
         official_k2="k2",
         model_root=Path("model"),
         admission={"framework": "banana-smasher"},
+        parent_root=Path("parent"),
         member_roster_path=Path("roster.json"),
         member_roster_sha256="a" * 64,
         payload={"state": {}},
@@ -37,9 +38,10 @@ def _call(trainer):
     )
 
 
-def test_construct_shard_student_refuses_legacy_single_layer_roster_abi():
-    with pytest.raises(RuntimeError, match="all-layer member roster"):
-        _call(SimpleNamespace(ShardStudent=_Student))
+def test_construct_shard_student_uses_authenticated_legacy_parent_abi():
+    student = _call(SimpleNamespace(ShardStudent=_Student))
+    assert student.kwargs["parent_root"] == Path("parent")
+    assert student.kwargs["l034_roster"] == Path("roster.json")
 
 
 def test_construct_shard_student_uses_all_layer_roster_abi_when_available():
