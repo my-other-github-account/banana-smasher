@@ -360,6 +360,15 @@ def test_canonical_u0_checkpoint_cursor_is_admitted():
     assert _checkpoint_cursor({"next_update": 0}) == 0
 
 
+def test_u24_checkpoint_cursor_is_admitted_from_sealed_identity():
+    assert _checkpoint_cursor({"identity": {"next_update": 24}}) == 24
+
+
+def test_checkpoint_cursor_refuses_top_level_identity_drift():
+    with pytest.raises(ArtifactError, match="cursor identity drift"):
+        _checkpoint_cursor({"next_update": 23, "identity": {"next_update": 24}})
+
+
 def test_score_group_bounds_vocabulary_projection_to_four_windows():
     calls = []
     final = torch.zeros((32, 8, 16), dtype=torch.float32)

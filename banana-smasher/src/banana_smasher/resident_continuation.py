@@ -293,7 +293,18 @@ def _scheduler_state_action(config: Mapping[str, Any], next_update: int) -> str:
 
 
 def _checkpoint_cursor(payload: Mapping[str, Any]) -> int:
-    cursor = int(payload.get("next_update", 0))
+    top_level = payload.get("next_update")
+    identity = payload.get("identity")
+    identity_value = identity.get("next_update") if isinstance(identity, Mapping) else None
+    if top_level is None and identity_value is None:
+        raise ArtifactError("official resident checkpoint cursor is missing")
+    if (
+        top_level is not None
+        and identity_value is not None
+        and int(top_level) != int(identity_value)
+    ):
+        raise ArtifactError("official resident checkpoint cursor identity drift")
+    cursor = int(top_level if top_level is not None else identity_value)
     if not 0 <= cursor < 64:
         raise ArtifactError("official resident checkpoint cursor must be within U0..U63")
     return cursor
