@@ -374,6 +374,8 @@ def _official_expert_source_path() -> Path:
 
 def _bind_official_expert_source() -> Any:
     """Bind the accepted clamp-free, ordered-reduction expert implementation."""
+    runner = _official_expert_source_path().parent
+    _load_source_module("fast_k2_grouped", runner / "fast_k2_grouped.py")
     return _load_source_module("fast_v7_expert_base", _official_expert_source_path())
 
 
