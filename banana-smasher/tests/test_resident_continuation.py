@@ -507,9 +507,9 @@ def test_score_configuration_forces_a1_eager_attention(monkeypatch):
     assert os.environ["BR_ATTN_IMPL"] == "eager"
 
 
-def test_physical_score_uses_sixteen_ordered_four_window_groups():
+def test_physical_score_uses_two_ordered_thirty_two_window_groups():
     groups = _score_window_groups(tuple(range(64)))
-    assert groups == [list(range(offset, offset + 4)) for offset in range(0, 64, 4)]
+    assert groups == [list(range(32)), list(range(32, 64))]
 
 
 def test_rank_receive_uses_batched_p2p_and_waits():
