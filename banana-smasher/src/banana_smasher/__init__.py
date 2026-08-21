@@ -92,16 +92,31 @@ from .backpack_contextual_prepare import prepare_contextual_iteration
 from .backpack_exact64 import EXACT64_TERMINAL_SCHEMA, bind_backpack_exact64
 
 from .backpack_selection import select_measured_nonworse
-from .measured_backpack_spsa import (
-    build_hierarchical_groups,
-    command_evaluator,
-    load_full_wire_menu,
-    load_routing_usage,
-    measured_objective,
-    project_group_logits,
-    refine_influential_groups,
-    run_measured_spsa,
-)
+try:
+    from .measured_backpack_spsa import (
+        build_hierarchical_groups,
+        command_evaluator,
+        load_full_wire_menu,
+        load_routing_usage,
+        measured_objective,
+        project_group_logits,
+        refine_influential_groups,
+        run_measured_spsa,
+    )
+except ModuleNotFoundError as exc:
+    # The QTIP producer/runtime surface does not require the optional SciPy
+    # optimizer stack. Keep lightweight accelerator environments importable;
+    # calling measured Backpack APIs still requires installing SciPy.
+    if exc.name != "scipy" and not str(exc.name).startswith("scipy."):
+        raise
+    build_hierarchical_groups = None
+    command_evaluator = None
+    load_full_wire_menu = None
+    load_routing_usage = None
+    measured_objective = None
+    project_group_logits = None
+    refine_influential_groups = None
+    run_measured_spsa = None
 from .backpack_virtual import (
     materialize_provenance_virtual_backpack,
     materialize_virtual_backpack,

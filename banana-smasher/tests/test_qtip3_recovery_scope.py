@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -74,3 +77,21 @@ def test_basis_and_exact_allocation_are_fail_closed(tmp_path: Path) -> None:
     authority.write_text("prose mentioning t_test and spark-6 is not authority\n")
     with pytest.raises(RuntimeError, match="DRIVER_GOALS_SHA_REFUSED"):
         verify_driver_authority(plan)
+
+
+def test_public_qtip_import_does_not_require_scipy() -> None:
+    script = r'''
+import importlib.abc
+import sys
+class BlockScipy(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "scipy" or fullname.startswith("scipy."):
+            raise ModuleNotFoundError("blocked optional scipy", name=fullname)
+        return None
+sys.meta_path.insert(0, BlockScipy())
+from banana_smasher.qtip3_api_producer import LAYERS
+assert LAYERS == tuple(range(34, 43))
+'''
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(Path(__file__).parents[1] / "src")
+    subprocess.run([sys.executable, "-c", script], env=env, check=True)
