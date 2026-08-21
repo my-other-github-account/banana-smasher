@@ -460,13 +460,63 @@ def _score_group_logits(
 
 
 def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
-    """Use bounded score-only groups without changing training microbatches."""
-    if len(windows) != 64:
-        raise ArtifactError("resident physical score requires exactly 64 windows")
+    """Use one 4-window canary or bounded groups for the full64 score."""
+    if len(windows) not in {SCORE_MICROBATCH, 64}:
+        raise ArtifactError(
+            "resident physical score requires one 4-window canary or exactly 64 windows"
+        )
     return [
         list(windows[offset : offset + SCORE_MICROBATCH])
         for offset in range(0, len(windows), SCORE_MICROBATCH)
     ]
+
+
+def _require_sealed_batch1_parity(
+    observed: Mapping[str, Any], reference: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Gate the two-rank canary against the sealed batch-one receipt."""
+    observed_windows = [int(value) for value in observed.get("windows", ())]
+    reference_windows = [int(value) for value in reference.get("windows", ())]
+    if (
+        observed_windows != reference_windows
+        or len(observed_windows) != SCORE_MICROBATCH
+    ):
+        raise ArtifactError("sealed batch1 window identity mismatch")
+    expected_positions = SCORE_MICROBATCH * 1024
+    if (
+        int(observed.get("positions", -1)) != expected_positions
+        or int(reference.get("positions", -1)) != expected_positions
+    ):
+        raise ArtifactError("sealed batch1 position identity mismatch")
+    tolerance = reference.get("tolerance", {})
+    if not isinstance(tolerance, Mapping):
+        raise ArtifactError("sealed batch1 tolerance must be a mapping")
+    kld_abs = float(tolerance.get("kld_abs", 0.0))
+    top1_abs = int(tolerance.get("top1_abs", 0))
+    observed_kld = float(observed["mean_kld"])
+    reference_kld = float(reference["mean_kld"])
+    observed_top1 = int(observed["top1_matches"])
+    reference_top1 = int(reference["top1_matches"])
+    if (
+        not math.isfinite(observed_kld)
+        or not math.isfinite(reference_kld)
+        or kld_abs < 0.0
+        or top1_abs < 0
+        or abs(observed_kld - reference_kld) > kld_abs
+        or abs(observed_top1 - reference_top1) > top1_abs
+    ):
+        raise ArtifactError("sealed batch1 functional parity mismatch")
+    return {
+        "status": "PASS",
+        "windows": observed_windows,
+        "positions": expected_positions,
+        "observed": {"mean_kld": observed_kld, "top1_matches": observed_top1},
+        "reference": {
+            "mean_kld": reference_kld,
+            "top1_matches": reference_top1,
+        },
+        "tolerance": {"kld_abs": kld_abs, "top1_abs": top1_abs},
+    }
 
 
 def _enqueue_rank_send(dist: Any, pending: list[tuple[Any, Any]], tensor: Any) -> None:
@@ -851,11 +901,13 @@ class ModernGreenResidentEngine:
             )
         return idx, lp_n, p_n
 
-    def score_balanced64(self, windows: Any) -> dict[str, Any]:
-        """Score the live ShardStudent without loading checkpoint/candidate files."""
+    def _score_live_windows(self, windows: Any) -> dict[str, Any]:
+        """Score one canary batch or full64 without checkpoint/candidate reads."""
         selected = tuple(int(value) for value in windows)
-        if len(selected) != 64 or len(set(selected)) != 64:
-            raise ArtifactError("resident physical score requires 64 unique ordered windows")
+        if len(selected) not in {SCORE_MICROBATCH, 64} or len(set(selected)) != len(selected):
+            raise ArtifactError(
+                "resident physical score requires one unique 4-window batch or 64 unique ordered windows"
+            )
         missing = [window for window in selected if window not in self.score_ids_cache]
         if missing:
             raise ArtifactError(f"resident physical score windows were not preloaded: {missing}")
@@ -948,14 +1000,17 @@ class ModernGreenResidentEngine:
             gathered, local_rows if self.rank == 1 else None
         )
         rows = gathered[1]
-        if not isinstance(rows, list) or len(rows) != 64:
-            raise ArtifactError("rank1 resident score did not publish 64 complete rows")
+        if not isinstance(rows, list) or len(rows) != len(selected):
+            raise ArtifactError(
+                f"rank1 resident score did not publish {len(selected)} complete rows"
+            )
         positions = sum(int(row["positions"]) for row in rows)
-        if positions != 64 * 1024:
+        if positions != len(selected) * 1024:
             raise ArtifactError("resident physical score position count drift")
         _cuda_sync(torch)
         elapsed = time.perf_counter() - started
         return {
+            "windows": list(selected),
             "mean_kld": math.fsum(float(row["kld_sum"]) for row in rows) / positions,
             "top1_matches": sum(int(row["top1"]) for row in rows),
             "positions": positions,
@@ -966,10 +1021,64 @@ class ModernGreenResidentEngine:
                 "model_constructions": 1,
                 "checkpoint_loads_during_score": 0,
                 "candidate_file_reads_during_score": 0,
-                "windows": 64,
+                "timed_file_reads": 0,
+                "windows": len(selected),
+                "score_batches": len(_score_window_groups(selected)),
+                "activation_handoffs": len(_score_window_groups(selected)),
                 "pipeline_compute_seconds": pipeline_compute_seconds,
                 "pipeline_wait_seconds": pipeline_wait_seconds,
             },
+        }
+
+    def score_balanced64(self, windows: Any) -> dict[str, Any]:
+        """Run one sealed-paired canary, then the promoted full64 resident score."""
+        selected = tuple(int(value) for value in windows)
+        if len(selected) != 64 or len(set(selected)) != 64:
+            raise ArtifactError("resident physical score requires 64 unique ordered windows")
+        reference = self.config.get("sealed_batch1_reference")
+        if not isinstance(reference, Mapping):
+            raise ArtifactError("resident physical score requires a sealed_batch1_reference")
+        canary_windows = tuple(int(value) for value in reference.get("windows", ()))
+        if len(canary_windows) != SCORE_MICROBATCH or not set(canary_windows) <= set(selected):
+            raise ArtifactError("sealed batch1 windows must be one full64 4-window subset")
+        canary = self._score_live_windows(canary_windows)
+        gate = _require_sealed_batch1_parity(canary, reference)
+        projected = float(canary["timed_wall_seconds"]) * (
+            len(selected) / len(canary_windows)
+        )
+        try:
+            single_host = float(reference["best_single_host_wall_seconds"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ArtifactError(
+                "sealed batch1 reference requires best_single_host_wall_seconds"
+            ) from exc
+        if (
+            not math.isfinite(projected)
+            or not math.isfinite(single_host)
+            or projected > 300.0
+            or projected >= single_host
+        ):
+            raise ArtifactError(
+                "two-rank score projection is not promotable: "
+                f"projected_full64={projected:.3f}s single_host={single_host:.3f}s"
+            )
+        result = self._score_live_windows(selected)
+        counters = dict(result.get("runtime_counters", {}))
+        counters.update(
+            {
+                "activation_handoffs": len(_score_window_groups(selected)),
+                "timed_file_reads": 0,
+                "canary_activation_handoffs": 1,
+                "canary_timed_file_reads": 0,
+            }
+        )
+        return {
+            **result,
+            "runtime_counters": counters,
+            "sealed_batch1_gate": gate,
+            "projected_full64_seconds": projected,
+            "best_single_host_wall_seconds": single_host,
+            "promotion_gate": "PASS",
         }
 
     def _init_distributed(self) -> None:

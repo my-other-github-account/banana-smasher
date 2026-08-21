@@ -526,6 +526,79 @@ def test_physical_score_uses_ordered_four_window_memory_bounded_groups():
     ]
 
 
+def test_physical_score_admits_exactly_one_four_window_canary_batch():
+    assert _score_window_groups((28, 29, 30, 31)) == [[28, 29, 30, 31]]
+
+
+def test_sealed_batch1_gate_binds_same_windows_and_values():
+    observed = {
+        "windows": [28, 29, 30, 31],
+        "positions": 4 * 1024,
+        "mean_kld": 0.229392,
+        "top1_matches": 3533,
+    }
+    reference = {
+        "windows": [28, 29, 30, 31],
+        "positions": 4 * 1024,
+        "mean_kld": 0.2293919,
+        "top1_matches": 3533,
+        "tolerance": {"kld_abs": 1.0e-6, "top1_abs": 0},
+    }
+
+    gate = continuation_module._require_sealed_batch1_parity(observed, reference)
+
+    assert gate["status"] == "PASS"
+    assert gate["windows"] == [28, 29, 30, 31]
+    with pytest.raises(ArtifactError, match="window identity"):
+        continuation_module._require_sealed_batch1_parity(
+            observed, {**reference, "windows": [29, 30, 31, 32]}
+        )
+
+
+def test_balanced64_runs_paired_canary_before_full_and_promotes_only_when_faster():
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.config = {
+        "sealed_batch1_reference": {
+            "windows": [28, 29, 30, 31],
+            "positions": 4 * 1024,
+            "mean_kld": 0.2,
+            "top1_matches": 3000,
+            "tolerance": {"kld_abs": 0.0, "top1_abs": 0},
+            "best_single_host_wall_seconds": 290.0,
+        }
+    }
+    calls = []
+
+    def score_live(windows):
+        selected = tuple(windows)
+        calls.append(selected)
+        if len(selected) == 4:
+            return {
+                "windows": list(selected),
+                "positions": 4 * 1024,
+                "mean_kld": 0.2,
+                "top1_matches": 3000,
+                "timed_wall_seconds": 10.0,
+            }
+        return {
+            "windows": list(selected),
+            "positions": 64 * 1024,
+            "mean_kld": 0.21,
+            "top1_matches": 48000,
+            "timed_wall_seconds": 150.0,
+            "runtime_counters": {},
+        }
+
+    engine._score_live_windows = score_live
+    result = engine.score_balanced64(tuple(range(20, 84)))
+
+    assert calls == [(28, 29, 30, 31), tuple(range(20, 84))]
+    assert result["sealed_batch1_gate"]["status"] == "PASS"
+    assert result["projected_full64_seconds"] == 160.0
+    assert result["runtime_counters"]["activation_handoffs"] == 16
+    assert result["runtime_counters"]["timed_file_reads"] == 0
+
+
 def test_grouped_k2_inverts_stable_routing_order_without_a_second_sort():
     path = Path(__file__).resolve().parents[2] / "runtime" / "v7" / "runner" / "fast_k2_grouped.py"
     spec = importlib.util.spec_from_file_location("fast_k2_grouped_inverse_test", path)
