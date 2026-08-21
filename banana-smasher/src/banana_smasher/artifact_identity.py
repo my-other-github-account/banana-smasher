@@ -167,8 +167,16 @@ class ArtifactIdentity:
         )
 
     def require_canary(self, *, kld: float, top1: int) -> None:
-        if abs(float(kld) - self.canary.reference_kld) > self.canary.kld_abs_tolerance:
-            raise PackValidationError("artifact canary KLD is outside declared tolerance")
+        actual_kld = float(kld)
+        kld_delta = abs(actual_kld - self.canary.reference_kld)
+        if kld_delta > self.canary.kld_abs_tolerance:
+            raise PackValidationError(
+                "artifact canary KLD is outside declared tolerance: "
+                f"actual={actual_kld:.17g} "
+                f"reference={self.canary.reference_kld:.17g} "
+                f"abs_delta={kld_delta:.17g} "
+                f"abs_tolerance={self.canary.kld_abs_tolerance:.17g}"
+            )
         if abs(int(top1) - self.canary.reference_top1) > self.canary.top1_abs_tolerance:
             raise PackValidationError("artifact canary Top-1 is outside declared tolerance")
 

@@ -562,6 +562,27 @@ class ProductionRails:
             or scored_checkpoint != binding.checkpoint
         ):
             raise ProductionRailsError("resident scorer did not prove physical full64 execution")
+        score_attempt = {
+            "schema": "banana-smasher-resident-score-attempt-v1",
+            "status": "MEASURED_UNACCEPTED",
+            "phase": phase,
+            "rank": self._rank,
+            "artifact_identity_sha256": artifact.identity.sha256,
+            "provider_binding_sha256": self.provider_binding_sha256,
+            "checkpoint": binding.checkpoint,
+            "checkpoint_sha256": binding.checkpoint_sha256,
+            "mean_kld": kld,
+            "top1_matches": top1,
+            "positions": positions,
+            "timed_wall_seconds": float(result.get("timed_wall_seconds", 0.0)),
+            "execution_mode": result.get("execution_mode"),
+            "runtime_counters": dict(counters),
+        }
+        suffix = f".rank{self._rank}" if self._rank is not None else ""
+        _atomic_json(
+            self.run_root / f"RESIDENT_SCORE_ATTEMPT.{phase}{suffix}.json",
+            score_attempt,
+        )
         # The canary is selected by the exact identity admitted above.  Publish
         # no score event until the artifact-declared values pass.
         ArtifactIdentity.load(artifact.root).require_canary(kld=kld, top1=top1)

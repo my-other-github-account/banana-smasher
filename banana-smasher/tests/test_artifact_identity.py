@@ -75,3 +75,17 @@ def test_identity_fails_closed_instead_of_defaulting_artifact_constants(tmp_path
     (tmp_path / "identity.json").write_text(json.dumps(value))
     with pytest.raises(PackValidationError, match="canary.tolerance.kld_abs"):
         ArtifactIdentity.load(tmp_path)
+
+
+def test_canary_kld_failure_reports_actual_reference_delta_and_tolerance(tmp_path: Path) -> None:
+    (tmp_path / "identity.json").write_text(json.dumps(document()))
+    value = ArtifactIdentity.load(tmp_path)
+
+    with pytest.raises(PackValidationError) as failure:
+        value.require_canary(kld=0.5, top1=56533)
+
+    message = str(failure.value)
+    assert "actual=0.5" in message
+    assert "reference=0.22939197531977115" in message
+    assert "abs_delta=0.27060802468022882" in message
+    assert "abs_tolerance=0.0045878395063954228" in message

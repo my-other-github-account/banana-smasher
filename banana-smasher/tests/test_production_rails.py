@@ -207,6 +207,14 @@ def test_production_rails_one_construction_across_score_updates_swap_and_post(
     assert FixtureSession.constructions == 1
     assert pre["phase"] == "pre" and post["phase"] == "post"
     assert trained["updates"] == 4
+    for phase in ("pre", "post"):
+        attempt = json.loads(
+            (tmp_path / "run" / f"RESIDENT_SCORE_ATTEMPT.{phase}.json").read_text()
+        )
+        assert attempt["status"] == "MEASURED_UNACCEPTED"
+        assert attempt["mean_kld"] == 0.25
+        assert attempt["positions"] == 64 * 1024
+        assert attempt["runtime_counters"]["candidate_file_reads_during_score"] == 0
     assert lifecycle["counts"] == {
         "model_constructions": 1,
         "resident_loads": 1,
