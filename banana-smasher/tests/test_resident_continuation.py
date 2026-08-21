@@ -6,13 +6,17 @@ import hashlib
 import os
 import sys
 
+import pytest
+
 import banana_smasher.resident_continuation as continuation_module
+from banana_smasher.resident_balanced64 import ArtifactError
 from banana_smasher.resident_proven_api import ResidentRepairAPI as ProvenResidentRepairAPI
 
 from banana_smasher.resident_continuation import (
     OFFICIAL_PHYSICAL_LAYER_SHA256,
     ModernGreenResidentEngine,
     _checkpoint_cursor,
+    _checkpoint_lut_admission,
     _construct_shard_student,
     _enqueue_rank_send,
     _flush_rank_sends,
@@ -48,10 +52,27 @@ def _call(trainer):
     )
 
 
-def test_construct_shard_student_uses_authenticated_legacy_parent_abi():
-    student = _call(SimpleNamespace(ShardStudent=_Student))
-    assert student.kwargs["parent_root"] == Path("parent")
-    assert student.kwargs["l034_roster"] == Path("roster.json")
+def test_construct_shard_student_omits_l034_for_parent_only_rank0_abi():
+    class ParentOnlyStudent:
+        def __init__(self, *, parent_root, **kwargs):
+            self.parent_root = parent_root
+            self.kwargs = kwargs
+
+    student = _call(SimpleNamespace(ShardStudent=ParentOnlyStudent))
+    assert student.parent_root == Path("parent")
+    assert "l034_roster" not in student.kwargs
+
+
+def test_construct_shard_student_passes_l034_for_rank1_legacy_abi():
+    class L034Student:
+        def __init__(self, *, parent_root, l034_roster, **kwargs):
+            self.parent_root = parent_root
+            self.l034_roster = l034_roster
+            self.kwargs = kwargs
+
+    student = _call(SimpleNamespace(ShardStudent=L034Student))
+    assert student.parent_root == Path("parent")
+    assert student.l034_roster == Path("roster.json")
 
 
 def test_construct_shard_student_uses_all_layer_roster_abi_when_available():
@@ -64,6 +85,92 @@ def test_construct_shard_student_uses_all_layer_roster_abi_when_available():
         "path": Path("roster.json"),
         "sha": "a" * 64,
     }
+
+
+def test_checkpoint_derived_lut_is_admitted_only_when_wire_matches_loaded_state(tmp_path):
+    import numpy as np
+
+    original = np.zeros(1024, dtype="<f2")
+    checkpoint = np.linspace(-1.0, 1.0, 1024, dtype=np.float32)
+    wire = tmp_path / "L021.tlut.f16"
+    wire.write_bytes(checkpoint.astype("<f2").tobytes())
+    admission = {
+        "trainable_roster": {
+            "luts": [{
+                "layer": 21,
+                "name": "layers.21.experts.tlut",
+                "wire": {
+                    "source_path": str(wire),
+                    "sha256": hashlib.sha256(original.tobytes()).hexdigest(),
+                },
+            }]
+        }
+    }
+
+    rebound, rows = _checkpoint_lut_admission(
+        admission, {"luts": {"layers.21.experts.tlut": checkpoint}}
+    )
+
+    observed = hashlib.sha256(wire.read_bytes()).hexdigest()
+    assert rebound["trainable_roster"]["luts"][0]["wire"]["sha256"] == observed
+    assert rows == [{
+        "layer": 21,
+        "name": "layers.21.experts.tlut",
+        "source": "checkpoint_state_float16_wire",
+        "sha256": observed,
+    }]
+    assert admission["trainable_roster"]["luts"][0]["wire"]["sha256"] != observed
+
+
+def test_original_provider_lut_remains_admitted_when_checkpoint_lut_differs(tmp_path):
+    import numpy as np
+
+    original = np.zeros(1024, dtype="<f2")
+    checkpoint = np.ones(1024, dtype=np.float32)
+    wire = tmp_path / "L021.tlut.f16"
+    wire.write_bytes(original.tobytes())
+    digest = hashlib.sha256(wire.read_bytes()).hexdigest()
+    admission = {
+        "trainable_roster": {
+            "luts": [{
+                "layer": 21,
+                "name": "layers.21.experts.tlut",
+                "wire": {"source_path": str(wire), "sha256": digest},
+            }]
+        }
+    }
+
+    rebound, rows = _checkpoint_lut_admission(
+        admission, {"luts": {"layers.21.experts.tlut": checkpoint}}
+    )
+
+    assert rebound == admission
+    assert rows == []
+
+
+def test_checkpoint_derived_lut_rebinding_rejects_bytes_not_in_loaded_state(tmp_path):
+    import numpy as np
+
+    wire = tmp_path / "L021.tlut.f16"
+    wire.write_bytes(np.ones(1024, dtype="<f2").tobytes())
+    admission = {
+        "trainable_roster": {
+            "luts": [{
+                "layer": 21,
+                "name": "layers.21.experts.tlut",
+                "wire": {
+                    "source_path": str(wire),
+                    "sha256": hashlib.sha256(np.zeros(1024, dtype="<f2").tobytes()).hexdigest(),
+                },
+            }]
+        }
+    }
+
+    with pytest.raises(ArtifactError, match="L021 checkpoint-derived LUT SHA mismatch"):
+        _checkpoint_lut_admission(
+            admission,
+            {"luts": {"layers.21.experts.tlut": np.full(1024, 2.0, dtype=np.float32)}},
+        )
 
 
 

@@ -8,8 +8,10 @@ through Adam and LambdaLR.
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import importlib.util
+import inspect
 import json
 import math
 import os
@@ -53,7 +55,7 @@ def _construct_shard_student(
     last: int,
     status_cb: Any,
 ) -> Any:
-    """Construct either accepted public trainer ABI without changing its wire."""
+    """Construct the authenticated trainer using its declared roster ABI."""
     loader = getattr(trainer, "load_member_roster", None)
     common = {
         "torch": torch,
@@ -71,11 +73,13 @@ def _construct_shard_student(
     if callable(loader):
         members = loader(member_roster_path, member_roster_sha256)
         return trainer.ShardStudent(member_roster=members, **common)
-    return trainer.ShardStudent(
-        parent_root=parent_root,
-        l034_roster=member_roster_path,
-        **common,
-    )
+    parameters = inspect.signature(trainer.ShardStudent.__init__).parameters
+    if "parent_root" not in parameters:
+        raise RuntimeError("resident trainer lacks a recognized provider roster ABI")
+    legacy = {"parent_root": parent_root}
+    if "l034_roster" in parameters:
+        legacy["l034_roster"] = member_roster_path
+    return trainer.ShardStudent(**legacy, **common)
 
 
 def _select_trainer_fwht(trainer: Any) -> None:
@@ -300,6 +304,46 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _checkpoint_lut_admission(
+    admission: Mapping[str, Any], state: Mapping[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Admit only original or exact loaded-checkpoint float16 LUT wire bytes."""
+    import numpy as np
+
+    document = copy.deepcopy(dict(admission))
+    roster = document.get("trainable_roster", {}).get("luts", [])
+    checkpoint_luts = state.get("luts")
+    rebound: list[dict[str, Any]] = []
+    for row in roster:
+        layer = int(row["layer"])
+        name = str(row["name"])
+        wire = row["wire"]
+        path = Path(str(wire["source_path"])).expanduser().resolve()
+        observed = _sha256_file(path)
+        if observed == str(wire["sha256"]):
+            continue
+        value = checkpoint_luts.get(name) if isinstance(checkpoint_luts, Mapping) else None
+        if value is None:
+            raise ArtifactError(f"L{layer:03d} checkpoint-derived LUT has no loaded state")
+        if hasattr(value, "detach"):
+            value = value.detach().cpu()
+        array = np.asarray(value, dtype=np.float32).reshape(-1)
+        expected_bytes = array.astype("<f2").tobytes()
+        expected = hashlib.sha256(expected_bytes).hexdigest()
+        if array.shape != (1024,) or len(expected_bytes) != 2048 or observed != expected:
+            raise ArtifactError(f"L{layer:03d} checkpoint-derived LUT SHA mismatch")
+        wire["sha256"] = observed
+        rebound.append(
+            {
+                "layer": layer,
+                "name": name,
+                "source": "checkpoint_state_float16_wire",
+                "sha256": observed,
+            }
+        )
+    return document, rebound
+
+
 def _cpu_tree(torch: Any, value: Any) -> Any:
     if isinstance(value, torch.Tensor):
         return value.detach().cpu().clone()
@@ -476,6 +520,9 @@ class ModernGreenResidentEngine:
             raise ArtifactError("official resident admission framework drift")
         if len(admission.get("trainable_roster", {}).get("luts", [])) != 43:
             raise ArtifactError("official resident LUT roster drift")
+        admission, self.checkpoint_lut_provider_bindings = _checkpoint_lut_admission(
+            admission, self.state
+        )
         self._configure_base()
         self.status: dict[str, Any] = {}
         parent_root = Path(str(config.get("parent_root", ""))).expanduser().resolve()
