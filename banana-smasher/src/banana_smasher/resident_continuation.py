@@ -396,7 +396,6 @@ class ModernGreenResidentEngine:
         self.trainer = _load_source_module(
             f"banana_smasher_modern_green_api_{os.getpid()}_{rank}", self.trainer_path
         )
-        _select_trainer_fwht(self.trainer)
         if getattr(self.trainer, "MODEL_INDEX_SHA256", None) != MODEL_INDEX_SHA256:
             raise ArtifactError("official trainer model-index identity drift")
         self._prepare_import_paths()
@@ -447,6 +446,10 @@ class ModernGreenResidentEngine:
         )
         self.luts, self.norms, self.outputs = self.trainer.expose_local_dense(torch, self.student, admission)
         self._load_local_trainable_state()
+        # Construction has its own immutable admission path and can transiently
+        # exceed the 112 GiB rail if the score backend is activated early. Select
+        # Quack only after the resident payload is complete, before any forward.
+        _select_trainer_fwht(self.trainer)
         self.optimizer = torch.optim.Adam(
             [
                 {"params": [p for _name, p in self.luts], "lr": self.base_lrs["luts"], "group_name": "luts"},
