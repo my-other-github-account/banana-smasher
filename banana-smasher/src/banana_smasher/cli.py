@@ -519,6 +519,13 @@ def _parser() -> argparse.ArgumentParser:
     resident_arm.add_argument("--rails-config", type=Path, required=True)
     resident_arm.add_argument("--run-root", type=Path, required=True)
     resident_arm.add_argument("--updates", type=int, choices=(4,), default=4)
+    resident_admit = resident_commands.add_parser(
+        "admit", help="generate and verify one physical resident artifact plus rank configs"
+    )
+    resident_admit.add_argument("--spec", type=Path, required=True)
+    resident_admit.add_argument("--output", type=Path, required=True)
+    resident_admit.add_argument("--checkpoint", type=Path, required=True)
+    resident_admit.add_argument("--checkpoint-sha", required=True)
 
     anchor = subparsers.add_parser(
         "anchor", help="reproducible four-bank anchor evaluation workflow"
@@ -1675,35 +1682,48 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"unsupported fixed D4 command {args.fixed_d4_command!r}"
                 )
         elif args.command == "resident":
-            from .artifact_identity import ArtifactIdentity
-            from .production_rails import ProductionRails
-            from .resident_repair_api import BackpackArtifact, ResidentRepairAPI
+            if args.resident_command == "admit":
+                from .resident_admission import admit_resident_artifact
 
-            artifact_root = args.artifact_root.expanduser().resolve()
-            artifact = BackpackArtifact(
-                root=artifact_root,
-                identity=ArtifactIdentity.load(artifact_root),
-            )
-            resident_run_root = args.run_root.expanduser().resolve()
-            rails = ProductionRails.from_file(
-                args.rails_config, run_root=resident_run_root
-            )
-            facade = ResidentRepairAPI(
-                rails=rails, run_root=resident_run_root / "facade"
-            )
-            arm = facade.run_arm(artifact, updates=args.updates)
-            result = {
-                "status": "PASS",
-                "command": "resident arm",
-                "artifact_identity_sha256": artifact.identity.sha256,
-                "provider_binding_sha256": rails.provider_binding_sha256,
-                "pre": dict(arm["pre"]),
-                "training": dict(arm["training"]),
-                "post": dict(arm["post"]),
-                "timing": dict(arm["timing"]),
-                "timing_receipt": str(facade.timing_path),
-                "lifecycle": str(rails.lifecycle_path),
-            }
+                result = {
+                    **admit_resident_artifact(
+                        args.spec,
+                        args.output,
+                        checkpoint=args.checkpoint,
+                        checkpoint_sha256=args.checkpoint_sha,
+                    ),
+                    "command": "resident admit",
+                }
+            else:
+                from .artifact_identity import ArtifactIdentity
+                from .production_rails import ProductionRails
+                from .resident_repair_api import BackpackArtifact, ResidentRepairAPI
+
+                artifact_root = args.artifact_root.expanduser().resolve()
+                artifact = BackpackArtifact(
+                    root=artifact_root,
+                    identity=ArtifactIdentity.load(artifact_root),
+                )
+                resident_run_root = args.run_root.expanduser().resolve()
+                rails = ProductionRails.from_file(
+                    args.rails_config, run_root=resident_run_root
+                )
+                facade = ResidentRepairAPI(
+                    rails=rails, run_root=resident_run_root / "facade"
+                )
+                arm = facade.run_arm(artifact, updates=args.updates)
+                result = {
+                    "status": "PASS",
+                    "command": "resident arm",
+                    "artifact_identity_sha256": artifact.identity.sha256,
+                    "provider_binding_sha256": rails.provider_binding_sha256,
+                    "pre": dict(arm["pre"]),
+                    "training": dict(arm["training"]),
+                    "post": dict(arm["post"]),
+                    "timing": dict(arm["timing"]),
+                    "timing_receipt": str(facade.timing_path),
+                    "lifecycle": str(rails.lifecycle_path),
+                }
         elif args.command == "anchor":
             result = _run_anchor(args)
         else:  # pragma: no cover - argparse guarantees the choices
