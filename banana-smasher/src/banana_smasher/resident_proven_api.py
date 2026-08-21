@@ -1309,6 +1309,78 @@ class ResidentRepairAPI:
             start, milestones, config=config, receipt_path=receipt_path
         )
 
+    def construct_resident_score_engine(
+        self,
+        checkpoint_path: str | Path,
+        checkpoint_sha256: str,
+        *,
+        config: Mapping[str, Any],
+    ) -> Any:
+        """Construct the public two-Spark scorer from an exact state-only checkpoint."""
+        options = dict(config)
+        if options.get("authorized_api") is not True or options.get("world_size") != 2:
+            raise ArtifactError("resident score requires authorized_api=True and world_size=2")
+        rank = options.get("rank")
+        if isinstance(rank, bool) or rank not in (0, 1):
+            raise ArtifactError("resident score rank must be 0 or 1")
+        if options.get("local_only") is not True:
+            raise ArtifactError("resident score requires local_only=True")
+        forbidden = {
+            "advance_fn", "resident_state", "resident_model", "model_factory",
+            "optimizer_factory", "scheduler_factory", "update_fn", "state_loader",
+            "command", "launcher", "script", "remote", "subprocess",
+        }
+        present = sorted(key for key in forbidden if key in options)
+        if present:
+            raise ArtifactError(f"fixture callbacks/state and raw launcher fields are forbidden: {present}")
+        required_inputs = (
+            "trainer_source", "base_source_sha256", "model_root", "asset_root",
+            "member_roster", "member_roster_sha256", "teacher_root", "corpus",
+            "master_addr", "master_port", "manifest", "delta_dir", "vq3b_dir",
+        )
+        missing = [key for key in required_inputs if not options.get(key)]
+        if missing:
+            raise ArtifactError("official resident student inputs are required: " + ", ".join(missing))
+        from .resident_continuation import MODEL_INDEX_SHA256, ModernGreenResidentEngine
+        if options.get("basis_sha256") != MODEL_INDEX_SHA256:
+            raise ArtifactError("resident score basis SHA does not match the source model index")
+        path = Path(checkpoint_path).expanduser().resolve(strict=True)
+        loaded_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+        if loaded_sha != checkpoint_sha256:
+            raise ArtifactError(
+                f"resident score checkpoint SHA mismatch: {loaded_sha} != {checkpoint_sha256}"
+            )
+        configured_sha = options.get("checkpoint_sha256")
+        if configured_sha not in (None, checkpoint_sha256):
+            raise ArtifactError("resident score config checkpoint SHA does not match loaded bytes")
+        payload = self.loader(path)
+        if not isinstance(payload, Mapping) or set((payload.get("state") or {})) != {
+            "luts", "norms", "outputs"
+        }:
+            raise ArtifactError("resident score checkpoint must contain exact trainable state")
+        assignment = options.get("layer_split")
+        if not isinstance(assignment, Mapping):
+            raise ArtifactError("resident score requires an explicit layer_split")
+        try:
+            ranges = {int(key): tuple(int(item) for item in value) for key, value in assignment.items()}
+        except (TypeError, ValueError) as exc:
+            raise ArtifactError("layer_split must explicitly assign both ranks") from exc
+        if set(ranges) != {0, 1} or any(len(value) != 2 for value in ranges.values()):
+            raise ArtifactError("layer_split must explicitly assign both ranks")
+        covered = [set(range(lo, hi + 1)) for lo, hi in ranges.values()]
+        if (
+            any(lo < 0 or hi > 42 or lo > hi for lo, hi in ranges.values())
+            or covered[0] & covered[1]
+            or covered[0] | covered[1] != set(range(43))
+        ):
+            raise ArtifactError("layer_split must cover disjoint generic layers 0..42")
+        options["checkpoint_sha256"] = checkpoint_sha256
+        options["score_only"] = True
+        options["score_windows"] = list(self.windows)
+        return ModernGreenResidentEngine(
+            payload=payload, config=options, rank=int(rank), layer_ranges=ranges
+        )
+
     def construct_resident_engine(
         self,
         start_checkpoint: int | str,

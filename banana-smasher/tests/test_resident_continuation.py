@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+import hashlib
 
-import pytest
+import banana_smasher.resident_continuation as continuation_module
+from banana_smasher.resident_proven_api import ResidentRepairAPI as ProvenResidentRepairAPI
 
 from banana_smasher.resident_continuation import (
     ModernGreenResidentEngine,
@@ -126,3 +128,46 @@ def test_score_group_projects_the_pipeline_microbatch_with_one_head_call():
     torch = SimpleNamespace(bfloat16="bf16")
     assert _score_group_logits(lm_head, Final(), torch) == "batched-logits"
     assert calls == [("to", "bf16"), ("lm_head", "batched-final")]
+
+
+def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.score_only = True
+    engine.payload = {"state": {"luts": {}, "norms": {}, "outputs": {}}}
+
+    engine._load_optimizer_scheduler_state()
+
+
+def test_public_resident_score_engine_loads_exact_state_without_training_lineage(tmp_path, monkeypatch):
+    checkpoint = tmp_path / "SERIALIZED_PRE.pt"
+    checkpoint.write_bytes(b"exact-pre")
+    payload = {"state": {"luts": {}, "norms": {}, "outputs": {}}}
+    artifact = SimpleNamespace(windows=tuple(range(64)))
+    api = ProvenResidentRepairAPI(artifact, loader=lambda path: payload)
+    captured = {}
+
+    class FakeEngine:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(continuation_module, "ModernGreenResidentEngine", FakeEngine)
+    config = {
+        "authorized_api": True, "world_size": 2, "rank": 0, "local_only": True,
+        "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "layer_split": {"0": [0, 20], "1": [21, 42]},
+        "trainer_source": "trainer.py", "base_source_sha256": "a" * 64,
+        "model_root": "model", "asset_root": "assets", "member_roster": "roster",
+        "member_roster_sha256": "b" * 64, "teacher_root": "teachers",
+        "corpus": "corpus", "master_addr": "127.0.0.1", "master_port": 1234,
+        "manifest": "manifest", "delta_dir": "delta", "vq3b_dir": "vq",
+    }
+
+    engine = api.construct_resident_score_engine(
+        checkpoint, hashlib.sha256(b"exact-pre").hexdigest(), config=config
+    )
+
+    assert isinstance(engine, FakeEngine)
+    assert captured["payload"] is payload
+    assert captured["config"]["score_only"] is True
+    assert captured["config"]["score_windows"] == list(range(64))
+    assert captured["layer_ranges"] == {0: (0, 20), 1: (21, 42)}
