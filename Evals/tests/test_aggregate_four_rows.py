@@ -130,7 +130,6 @@ class FourRowAggregateTest(unittest.TestCase):
         self.assertIn("DeepSeek-V4-Flash-DSpark-drafter-GGUF", text)
 
     def test_rejects_identity_complete_byte_mismatch(self):
-        variants = [row["variant"] for row in self.basis["rows"]]
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             entries = []

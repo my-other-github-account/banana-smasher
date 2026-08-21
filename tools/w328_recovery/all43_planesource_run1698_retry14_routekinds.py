@@ -12,7 +12,6 @@ from __future__ import annotations
 import gc
 import hashlib
 import importlib.util
-import io
 import json
 import os
 from pathlib import Path
@@ -20,7 +19,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 import time
 from typing import Any

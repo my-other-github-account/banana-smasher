@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-MODULE_PATH = Path(__file__).parents[1] / "tools/w328_recovery/reconstruct_w328_exact.py"
+MODULE_PATH = Path(__file__).parents[2] / "tools/w328_recovery/reconstruct_w328_exact.py"
 
 
 def load_module():

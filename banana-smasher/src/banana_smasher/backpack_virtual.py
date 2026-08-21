@@ -683,7 +683,7 @@ def materialize_provenance_virtual_backpack(
     ledger_raw = ledger_path.read_bytes()
     assignment_sha = _sha256(assignment_raw)
     receipt_sha = _sha256(receipt_raw)
-    ledger_sha = _sha256(ledger_raw)
+
     if assignment_sha != expected_assignment_sha256:
         raise ValueError("provenance assignment SHA-256 mismatch")
     if receipt_sha != expected_solve_receipt_sha256:

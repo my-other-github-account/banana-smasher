@@ -6,7 +6,7 @@ from pathlib import Path
 import torch
 
 
-MODULE_PATH = Path(__file__).parents[1] / "tools/w328_recovery/t8192_ds4_build_v3.py"
+MODULE_PATH = Path(__file__).parents[2] / "tools/w328_recovery/t8192_ds4_build_v3.py"
 
 
 def load_builder():

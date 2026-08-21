@@ -833,7 +833,7 @@ def aggregate_historical_anchor_ledger(
     }
 
 
-def score_anchor_sidecars(
+def _score_anchor_sidecars(
     teacher_manifest_path: str | Path,
     candidate_manifest_path: str | Path,
     *,

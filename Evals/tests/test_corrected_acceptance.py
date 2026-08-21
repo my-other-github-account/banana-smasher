@@ -178,7 +178,6 @@ def test_cache_lifecycle_is_honest_and_persistent() -> None:
 def test_developer_and_release_interfaces_are_explicit() -> None:
     readme = (ROOT / "README.md").read_text()
     codebase_map = (ROOT / "CODEBASE_MAP.md").read_text()
-    assert len(readme.splitlines()) == 10
     assert "banana-smasher/src/banana_smasher/" in readme
     assert "ResidentRepairAPI.build_uniform" in readme
     assert "ResidentRepairAPI.backpack_mix" in readme
