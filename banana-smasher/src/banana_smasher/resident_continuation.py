@@ -305,7 +305,10 @@ def _sha256_file(path: Path) -> str:
 
 
 def _checkpoint_lut_admission(
-    admission: Mapping[str, Any], state: Mapping[str, Any]
+    admission: Mapping[str, Any],
+    state: Mapping[str, Any],
+    *,
+    materialization_root: Path | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Admit only original or exact loaded-checkpoint float16 LUT wire bytes."""
     import numpy as np
@@ -319,7 +322,7 @@ def _checkpoint_lut_admission(
         name = str(row["name"])
         wire = row["wire"]
         path = Path(str(wire["source_path"])).expanduser().resolve()
-        observed = _sha256_file(path)
+        observed = _sha256_file(path) if path.is_file() else None
         if observed == str(wire["sha256"]):
             continue
         value = checkpoint_luts.get(name) if isinstance(checkpoint_luts, Mapping) else None
@@ -330,7 +333,34 @@ def _checkpoint_lut_admission(
         array = np.asarray(value, dtype=np.float32).reshape(-1)
         expected_bytes = array.astype("<f2").tobytes()
         expected = hashlib.sha256(expected_bytes).hexdigest()
-        if array.shape != (1024,) or len(expected_bytes) != 2048 or observed != expected:
+        if array.shape != (1024,) or len(expected_bytes) != 2048:
+            raise ArtifactError(f"L{layer:03d} checkpoint-derived LUT SHA mismatch")
+        if observed is None:
+            if materialization_root is None:
+                raise ArtifactError(f"L{layer:03d} provider LUT is missing and no checkpoint materialization root was declared")
+            materialization_root.mkdir(parents=True, exist_ok=True)
+            path = (materialization_root / f"L{layer:03d}.{expected}.tlut.f16").resolve()
+            if path.exists():
+                if not path.is_file() or _sha256_file(path) != expected:
+                    raise ArtifactError(f"L{layer:03d} checkpoint LUT materialization collision")
+            else:
+                temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+                try:
+                    with temporary.open("xb") as stream:
+                        stream.write(expected_bytes)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    os.replace(temporary, path)
+                    directory = os.open(path.parent, os.O_RDONLY)
+                    try:
+                        os.fsync(directory)
+                    finally:
+                        os.close(directory)
+                finally:
+                    temporary.unlink(missing_ok=True)
+            observed = expected
+            wire["source_path"] = str(path)
+        if observed != expected:
             raise ArtifactError(f"L{layer:03d} checkpoint-derived LUT SHA mismatch")
         wire["sha256"] = observed
         rebound.append(
@@ -530,7 +560,13 @@ class ModernGreenResidentEngine:
         if len(admission.get("trainable_roster", {}).get("luts", [])) != 43:
             raise ArtifactError("official resident LUT roster drift")
         admission, self.checkpoint_lut_provider_bindings = _checkpoint_lut_admission(
-            admission, self.state
+            admission,
+            self.state,
+            materialization_root=(
+                Path(str(config["checkpoint_lut_root"])).expanduser().resolve()
+                if config.get("checkpoint_lut_root")
+                else None
+            ),
         )
         self._configure_base()
         self.status: dict[str, Any] = {}

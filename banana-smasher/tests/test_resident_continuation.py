@@ -123,6 +123,60 @@ def test_checkpoint_derived_lut_is_admitted_only_when_wire_matches_loaded_state(
     assert admission["trainable_roster"]["luts"][0]["wire"]["sha256"] != observed
 
 
+def test_missing_provider_lut_is_materialized_from_exact_loaded_checkpoint_state(tmp_path):
+    import numpy as np
+
+    checkpoint = np.linspace(-1.0, 1.0, 1024, dtype=np.float32)
+    missing = tmp_path / "reclaimed" / "L021.tlut.f16"
+    admission = {
+        "trainable_roster": {
+            "luts": [{
+                "layer": 21,
+                "name": "layers.21.experts.tlut",
+                "wire": {"source_path": str(missing), "sha256": "0" * 64},
+            }]
+        }
+    }
+
+    rebound, rows = _checkpoint_lut_admission(
+        admission,
+        {"luts": {"layers.21.experts.tlut": checkpoint}},
+        materialization_root=tmp_path / "checkpoint-luts",
+    )
+
+    wire = rebound["trainable_roster"]["luts"][0]["wire"]
+    materialized = Path(wire["source_path"])
+    expected = hashlib.sha256(checkpoint.astype("<f2").tobytes()).hexdigest()
+    assert materialized.is_file()
+    assert materialized.read_bytes() == checkpoint.astype("<f2").tobytes()
+    assert wire["sha256"] == expected
+    assert rows == [{
+        "layer": 21,
+        "name": "layers.21.experts.tlut",
+        "source": "checkpoint_state_float16_wire",
+        "sha256": expected,
+    }]
+
+
+def test_missing_provider_lut_refuses_undeclared_materialization_root(tmp_path):
+    import numpy as np
+
+    admission = {
+        "trainable_roster": {
+            "luts": [{
+                "layer": 21,
+                "name": "layers.21.experts.tlut",
+                "wire": {"source_path": str(tmp_path / "missing"), "sha256": "0" * 64},
+            }]
+        }
+    }
+    with pytest.raises(ArtifactError, match="no checkpoint materialization root was declared"):
+        _checkpoint_lut_admission(
+            admission,
+            {"luts": {"layers.21.experts.tlut": np.zeros(1024, dtype=np.float32)}},
+        )
+
+
 def test_original_provider_lut_remains_admitted_when_checkpoint_lut_differs(tmp_path):
     import numpy as np
 
