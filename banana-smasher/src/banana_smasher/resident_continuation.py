@@ -33,6 +33,52 @@ HISTORICAL_TRAIN_BANK_SHA256 = "3553fce00efdb6d452171e6d5c429adc31580dedbf63eb82
 HISTORICAL_CATEGORIES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
 
 
+def _construct_shard_student(
+    trainer: Any,
+    *,
+    torch: Any,
+    np: Any,
+    base: Any,
+    official_k2: Any,
+    model_root: Path,
+    admission: Mapping[str, Any],
+    parent_root: Path,
+    member_roster_path: Path,
+    member_roster_sha256: str,
+    payload: Mapping[str, Any],
+    rank: int,
+    first: int,
+    last: int,
+    status_cb: Any,
+) -> Any:
+    """Construct either accepted public trainer ABI without changing its wire."""
+    loader = getattr(trainer, "load_member_roster", None)
+    common = {
+        "torch": torch,
+        "np": np,
+        "base": base,
+        "official_k2": official_k2,
+        "model_root": model_root,
+        "admission": admission,
+        "input_state": payload,
+        "rank": rank,
+        "first": first,
+        "last": last,
+        "status_cb": status_cb,
+    }
+    if callable(loader):
+        members = loader(member_roster_path, member_roster_sha256)
+        return trainer.ShardStudent(member_roster=members, **common)
+    # The immutable Modern Green source predates the all-layer roster ABI and
+    # authenticates the exact ordinary parent plus the selected L034 roster.
+    # Keep that accepted physical path explicit rather than inventing a roster.
+    return trainer.ShardStudent(
+        parent_root=parent_root,
+        l034_roster=member_roster_path,
+        **common,
+    )
+
+
 def _historical_mode(config: Mapping[str, Any]) -> bool:
     return (
         config.get("sampling_mode") == HISTORICAL_SAMPLING_MODE
@@ -360,18 +406,21 @@ class ModernGreenResidentEngine:
             raise ArtifactError("official resident LUT roster drift")
         self._configure_base()
         self.status: dict[str, Any] = {}
-        member_roster = self.trainer.load_member_roster(
-            self.member_roster, self.member_roster_sha256
-        )
-        self.student = self.trainer.ShardStudent(
+        parent_root = Path(str(config.get("parent_root", ""))).expanduser().resolve()
+        if not parent_root.is_dir():
+            raise ArtifactError(f"official resident parent root is missing: {parent_root}")
+        self.student = _construct_shard_student(
+            self.trainer,
             torch=torch,
             np=__import__("numpy"),
             base=self.base,
             official_k2=official_k2,
             model_root=self.model_root,
             admission=admission,
-            member_roster=member_roster,
-            input_state=payload,
+            parent_root=parent_root,
+            member_roster_path=self.member_roster,
+            member_roster_sha256=self.member_roster_sha256,
+            payload=payload,
             rank=rank,
             first=self.first,
             last=self.last,
