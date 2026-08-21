@@ -328,6 +328,11 @@ def _cuda_sync(torch: Any) -> None:
     torch.cuda.synchronize()
 
 
+def _score_group_logits(lm_head: Any, final: Any, torch: Any) -> Any:
+    """Project one pipeline microbatch through the vocabulary head in one GEMM."""
+    return lm_head(final.to(torch.bfloat16))
+
+
 class ModernGreenResidentEngine:
     """One rank of the accepted two-Spark resident grouped-K2 trainer."""
 
@@ -676,18 +681,23 @@ class ModernGreenResidentEngine:
                     final = self.student.model.model.norm(
                         self.student.model.model.hc_head(hidden)
                     )
+                    lengths = [int(self.score_real_lengths[window]) for window in group]
+                    if any(length != 1024 for length in lengths):
+                        raise ArtifactError(
+                            f"resident Balanced64 group has non-1024 lengths: {lengths}"
+                        )
+                    # Preserve exact rows and reduction order while projecting the
+                    # fixed microbatch with one M=4096 vocabulary GEMM rather than
+                    # four independent M=1024 launches.
+                    group_logits = _score_group_logits(
+                        self.student.model.lm_head, final[:, :1024], torch
+                    )
                     for row, window in enumerate(group):
                         length = int(self.score_real_lengths[window])
-                        if length != 1024:
-                            raise ArtifactError(
-                                f"resident Balanced64 window {window} has {length} positions"
-                            )
                         idx, lp_n, p_n = self._teacher_support(
                             window, length, exact_rows=True, score=True
                         )
-                        logits = self.student.model.lm_head(
-                            final[row, :length].to(torch.bfloat16)
-                        )
+                        logits = group_logits[row, :length]
                         q = logits.gather(1, idx[:length]).float()
                         qn = q - q.logsumexp(-1, keepdim=True)
                         terms = (p_n[:length] * (lp_n[:length] - qn)).sum(-1)

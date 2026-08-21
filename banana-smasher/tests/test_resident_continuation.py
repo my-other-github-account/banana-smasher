@@ -7,6 +7,7 @@ from banana_smasher.resident_continuation import (
     ModernGreenResidentEngine,
     _checkpoint_cursor,
     _construct_shard_student,
+    _score_group_logits,
 )
 
 
@@ -107,3 +108,20 @@ def test_training_and_balanced64_score_inputs_remain_separate_when_windows_overl
 
 def test_canonical_u0_checkpoint_cursor_is_admitted():
     assert _checkpoint_cursor({"next_update": 0}) == 0
+
+
+def test_score_group_projects_the_pipeline_microbatch_with_one_head_call():
+    calls = []
+
+    class Final:
+        def to(self, dtype):
+            calls.append(("to", dtype))
+            return "batched-final"
+
+    def lm_head(value):
+        calls.append(("lm_head", value))
+        return "batched-logits"
+
+    torch = SimpleNamespace(bfloat16="bf16")
+    assert _score_group_logits(lm_head, Final(), torch) == "batched-logits"
+    assert calls == [("to", "bf16"), ("lm_head", "batched-final")]
