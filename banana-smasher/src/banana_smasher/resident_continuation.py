@@ -42,6 +42,7 @@ def _construct_shard_student(
     official_k2: Any,
     model_root: Path,
     admission: Mapping[str, Any],
+    parent_root: Path,
     member_roster_path: Path,
     member_roster_sha256: str,
     payload: Mapping[str, Any],
@@ -50,7 +51,7 @@ def _construct_shard_student(
     last: int,
     status_cb: Any,
 ) -> Any:
-    """Construct the single all-layer public trainer ABI."""
+    """Construct either accepted public trainer ABI without changing its wire."""
     loader = getattr(trainer, "load_member_roster", None)
     common = {
         "torch": torch,
@@ -65,10 +66,22 @@ def _construct_shard_student(
         "last": last,
         "status_cb": status_cb,
     }
-    if not callable(loader):
-        raise RuntimeError("resident trainer lacks the all-layer member roster ABI")
-    members = loader(member_roster_path, member_roster_sha256)
-    return trainer.ShardStudent(member_roster=members, **common)
+    if callable(loader):
+        members = loader(member_roster_path, member_roster_sha256)
+        return trainer.ShardStudent(member_roster=members, **common)
+    return trainer.ShardStudent(
+        parent_root=parent_root,
+        l034_roster=member_roster_path,
+        **common,
+    )
+
+
+def _select_trainer_fwht(trainer: Any) -> None:
+    """Select Quack on the authenticated trainer module that owns grouped-K2."""
+    selector = getattr(trainer, "set_fwht_backend", None)
+    if not callable(selector):
+        raise ArtifactError("official trainer lacks the required Quack FWHT selector")
+    selector("quack")
 
 
 def _historical_mode(config: Mapping[str, Any]) -> bool:
@@ -347,6 +360,7 @@ class ModernGreenResidentEngine:
         self.checkpoint = checkpoint
         self.rank = rank
         self.config = config
+        self.score_only = config.get("score_only") is True
         self.lr_scale = _validated_lr_scale(config)
         self.base_lrs = {
             name: value * self.lr_scale for name, value in _validated_base_lrs(config).items()
@@ -382,6 +396,7 @@ class ModernGreenResidentEngine:
         self.trainer = _load_source_module(
             f"banana_smasher_modern_green_api_{os.getpid()}_{rank}", self.trainer_path
         )
+        _select_trainer_fwht(self.trainer)
         if getattr(self.trainer, "MODEL_INDEX_SHA256", None) != MODEL_INDEX_SHA256:
             raise ArtifactError("official trainer model-index identity drift")
         self._prepare_import_paths()
@@ -410,6 +425,9 @@ class ModernGreenResidentEngine:
             raise ArtifactError("official resident LUT roster drift")
         self._configure_base()
         self.status: dict[str, Any] = {}
+        parent_root = Path(str(config.get("parent_root", ""))).expanduser().resolve()
+        if not parent_root.is_dir():
+            raise ArtifactError(f"official resident parent root is missing: {parent_root}")
         self.student = _construct_shard_student(
             self.trainer,
             torch=torch,
@@ -418,6 +436,7 @@ class ModernGreenResidentEngine:
             official_k2=official_k2,
             model_root=self.model_root,
             admission=admission,
+            parent_root=parent_root,
             member_roster_path=self.member_roster,
             member_roster_sha256=self.member_roster_sha256,
             payload=payload,
@@ -446,10 +465,13 @@ class ModernGreenResidentEngine:
         self.global_step = _checkpoint_cursor(payload)
 
     def _prepare_import_paths(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
         for path in (
             self.trainer_path.parent,
             self.asset_root / "source",
             self.asset_root / "source" / "site",
+            repository_root / "runtime" / "v7" / "vendor" / "src_lp4",
+            repository_root / "runtime" / "v7" / "vendor" / "src",
         ):
             value = str(path)
             if value not in sys.path:
@@ -503,6 +525,9 @@ class ModernGreenResidentEngine:
                 raise ArtifactError(f"U16 official {surface} state cannot load: {exc}") from exc
 
     def _load_optimizer_scheduler_state(self) -> None:
+        if self.score_only:
+            self.scheduler_state_action = "SCORE_ONLY_NO_TRAINING_LINEAGE"
+            return
         optimizer_payload = self.payload.get("optimizer", self.payload.get("optimizer_state"))
         if not isinstance(optimizer_payload, Mapping):
             raise ArtifactError("U16 checkpoint is missing the shared Adam optimizer state")
