@@ -453,10 +453,13 @@ class ModernGreenResidentEngine:
         self.global_step = _checkpoint_cursor(payload)
 
     def _prepare_import_paths(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
         for path in (
             self.trainer_path.parent,
             self.asset_root / "source",
             self.asset_root / "source" / "site",
+            repository_root / "runtime" / "v7" / "vendor" / "src_lp4",
+            repository_root / "runtime" / "v7" / "vendor" / "src",
         ):
             value = str(path)
             if value not in sys.path:
