@@ -7,12 +7,7 @@ from pathlib import Path
 import pytest
 
 from banana_smasher.cli import main as cli_main
-from banana_smasher.grouped_k2 import (
-    block_hadamard_128,
-    direct_decode_matrix,
-    fwht_backend_stats,
-    set_fwht_backend,
-)
+from banana_smasher.grouped_k2 import block_hadamard_128, direct_decode_matrix
 from banana_smasher.official_k2_resident import OfficialK2PackedResidentAdapter
 from banana_smasher.resident_training import (
     ParameterDescriptor,
@@ -412,17 +407,6 @@ def test_packaged_k2_reference_math_has_no_external_private_module_dependency() 
 
     assert transformed.shape == (1, 128)
     assert decoded.shape == (16, 16)
-
-
-def test_quack_fwht_is_fail_closed_off_cuda() -> None:
-    torch = pytest.importorskip("torch")
-    set_fwht_backend("quack")
-    try:
-        with pytest.raises(RuntimeError, match="needs contiguous CUDA"):
-            block_hadamard_128(torch.zeros((1, 128), dtype=torch.float32))
-        assert fwht_backend_stats()["quack_calls"] == 0
-    finally:
-        set_fwht_backend("current")
 
 
 def test_official_k2_adapter_uses_stable_ids_and_sparse_adam_state(

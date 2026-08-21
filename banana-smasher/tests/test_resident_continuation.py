@@ -12,6 +12,7 @@ from banana_smasher.resident_continuation import (
     _checkpoint_cursor,
     _construct_shard_student,
     _score_group_logits,
+    _select_trainer_fwht,
 )
 
 
@@ -128,6 +129,15 @@ def test_score_group_projects_the_pipeline_microbatch_with_one_head_call():
     torch = SimpleNamespace(bfloat16="bf16")
     assert _score_group_logits(lm_head, Final(), torch) == "batched-logits"
     assert calls == [("to", "bf16"), ("lm_head", "batched-final")]
+
+
+def test_resident_score_selects_authenticated_trainer_quack_backend():
+    calls = []
+    trainer = SimpleNamespace(set_fwht_backend=calls.append)
+
+    _select_trainer_fwht(trainer)
+
+    assert calls == ["quack"]
 
 
 def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():

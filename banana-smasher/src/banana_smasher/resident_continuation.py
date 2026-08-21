@@ -76,6 +76,14 @@ def _construct_shard_student(
     )
 
 
+def _select_trainer_fwht(trainer: Any) -> None:
+    """Select Quack on the authenticated trainer module that owns grouped-K2."""
+    selector = getattr(trainer, "set_fwht_backend", None)
+    if not callable(selector):
+        raise ArtifactError("official trainer lacks the required Quack FWHT selector")
+    selector("quack")
+
+
 def _historical_mode(config: Mapping[str, Any]) -> bool:
     return (
         config.get("sampling_mode") == HISTORICAL_SAMPLING_MODE
@@ -388,6 +396,7 @@ class ModernGreenResidentEngine:
         self.trainer = _load_source_module(
             f"banana_smasher_modern_green_api_{os.getpid()}_{rank}", self.trainer_path
         )
+        _select_trainer_fwht(self.trainer)
         if getattr(self.trainer, "MODEL_INDEX_SHA256", None) != MODEL_INDEX_SHA256:
             raise ArtifactError("official trainer model-index identity drift")
         self._prepare_import_paths()
@@ -397,13 +406,6 @@ class ModernGreenResidentEngine:
         except Exception as exc:
             raise ArtifactError(f"official grouped-K2 backend is unavailable: {exc}") from exc
         self.official_k2 = official_k2
-        # The resident expert implementation uses the public grouped-K2 rail.
-        # Its default FWHT materializes a dense H128 matrix for every routed
-        # projection; the authenticated Quack kernel preserves the transform
-        # while removing that dominant per-window overhead.
-        from .grouped_k2 import set_fwht_backend
-
-        set_fwht_backend("quack")
         self.model_root = Path(str(config["model_root"])).expanduser().resolve()
         self.asset_root = Path(str(config["asset_root"])).expanduser().resolve()
         self.member_roster = Path(str(config["member_roster"])).expanduser().resolve()
