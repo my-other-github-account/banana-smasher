@@ -391,6 +391,13 @@ class ModernGreenResidentEngine:
         except Exception as exc:
             raise ArtifactError(f"official grouped-K2 backend is unavailable: {exc}") from exc
         self.official_k2 = official_k2
+        # The resident expert implementation uses the public grouped-K2 rail.
+        # Its default FWHT materializes a dense H128 matrix for every routed
+        # projection; the authenticated Quack kernel preserves the transform
+        # while removing that dominant per-window overhead.
+        from .grouped_k2 import set_fwht_backend
+
+        set_fwht_backend("quack")
         self.model_root = Path(str(config["model_root"])).expanduser().resolve()
         self.asset_root = Path(str(config["asset_root"])).expanduser().resolve()
         self.member_roster = Path(str(config["member_roster"])).expanduser().resolve()

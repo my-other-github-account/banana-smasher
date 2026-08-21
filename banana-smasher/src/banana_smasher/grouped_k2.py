@@ -19,6 +19,8 @@ import torch
 _MUL1 = 0x83DCD12D
 _TENSOR_CORE_PERMUTATION: Any | None = None
 _NORMALIZED_HADAMARD_128: Any | None = None
+_FWHT_BACKEND = "current"
+_FWHT_STATS = {"current_calls": 0, "quack_calls": 0}
 
 
 def _default_tensor_core_permutation() -> tuple[int, ...]:
@@ -60,6 +62,22 @@ def configure_k2_math(*, tensor_core_permutation: Any, normalized_hadamard_128: 
     global _TENSOR_CORE_PERMUTATION, _NORMALIZED_HADAMARD_128
     _TENSOR_CORE_PERMUTATION = tensor_core_permutation
     _NORMALIZED_HADAMARD_128 = normalized_hadamard_128
+
+
+def set_fwht_backend(name: str) -> None:
+    """Select the fail-closed public FWHT implementation."""
+    global _FWHT_BACKEND
+    if name not in {"current", "quack"}:
+        raise ValueError(f"unsupported FWHT backend: {name}")
+    _FWHT_BACKEND = name
+
+
+def fwht_backend_stats(*, reset: bool = False) -> dict[str, int]:
+    value = dict(_FWHT_STATS)
+    if reset:
+        for key in _FWHT_STATS:
+            _FWHT_STATS[key] = 0
+    return value
 
 
 def _inverse_permutation(device: torch.device) -> torch.Tensor:
@@ -118,6 +136,21 @@ def block_hadamard_128(value: torch.Tensor) -> torch.Tensor:
     """Apply the exact normalized H128 independently to final-axis blocks."""
     if value.shape[-1] % 128:
         raise ValueError("last dimension must be divisible by 128")
+    blocks = value.reshape(-1, 128).contiguous()
+    if _FWHT_BACKEND == "quack":
+        if not blocks.is_cuda or blocks.dtype not in (
+            torch.float16,
+            torch.bfloat16,
+            torch.float32,
+        ):
+            raise RuntimeError(
+                "required Quack FWHT needs contiguous CUDA fp16/bf16/fp32 blocks"
+            )
+        from quack.hadamard import hadamard_transform
+
+        _FWHT_STATS["quack_calls"] += 1
+        return hadamard_transform(blocks, scale=1 / math.sqrt(128)).reshape_as(value)
+    _FWHT_STATS["current_calls"] += 1
     normalized_hadamard_128 = (
         _default_normalized_hadamard_128
         if _NORMALIZED_HADAMARD_128 is None
@@ -125,7 +158,7 @@ def block_hadamard_128(value: torch.Tensor) -> torch.Tensor:
     )
 
     matrix = normalized_hadamard_128(value.device, value.dtype)
-    return (value.reshape(-1, 128) @ matrix).reshape_as(value)
+    return (blocks @ matrix).reshape_as(value)
 
 
 def _validate_grouped(
@@ -349,8 +382,10 @@ def grouped_packed_projection(
 __all__ = [
     "block_hadamard_128",
     "direct_decode_matrix",
+    "fwht_backend_stats",
     "grouped_k2_stats",
     "grouped_packed_projection",
     "grouped_packed_projection_reference",
     "reset_grouped_k2_stats",
+    "set_fwht_backend",
 ]
