@@ -375,8 +375,15 @@ def _official_expert_source_path() -> Path:
 def _bind_official_expert_source() -> Any:
     """Bind the accepted clamp-free, ordered-reduction expert implementation."""
     runner = _official_expert_source_path().parent
-    _load_source_module("fast_k2_grouped", runner / "fast_k2_grouped.py")
-    return _load_source_module("fast_v7_expert_base", _official_expert_source_path())
+    previous = sys.modules.get("fast_k2_grouped")
+    try:
+        _load_source_module("fast_k2_grouped", runner / "fast_k2_grouped.py")
+        return _load_source_module("fast_v7_expert_base", _official_expert_source_path())
+    finally:
+        if previous is None:
+            sys.modules.pop("fast_k2_grouped", None)
+        else:
+            sys.modules["fast_k2_grouped"] = previous
 
 
 def _require_file(path: Path, expected_sha: str | None, label: str) -> None:
