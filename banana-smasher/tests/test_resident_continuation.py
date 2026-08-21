@@ -13,6 +13,8 @@ from banana_smasher.resident_continuation import (
     ModernGreenResidentEngine,
     _checkpoint_cursor,
     _construct_shard_student,
+    _enqueue_rank_send,
+    _flush_rank_sends,
     _official_expert_source_path,
     _score_group_logits,
     _score_window_groups,
@@ -133,6 +135,35 @@ def test_score_group_projects_the_pipeline_microbatch_with_one_head_call():
     torch = SimpleNamespace(bfloat16="bf16")
     assert _score_group_logits(lm_head, Final(), torch) == "batched-logits"
     assert calls == [("to", "bf16"), ("lm_head", "batched-final")]
+
+
+def test_rank_send_pipeline_preserves_tensor_lifetime_and_waits_fifo():
+    events = []
+
+    class Work:
+        def __init__(self, value):
+            self.value = value
+
+        def wait(self):
+            events.append(("wait", self.value))
+
+    class Dist:
+        def isend(self, value, *, dst):
+            events.append(("isend", value, dst))
+            return Work(value)
+
+    pending = []
+    _enqueue_rank_send(Dist(), pending, "group0")
+    assert pending[0][1] == "group0"
+    _enqueue_rank_send(Dist(), pending, "group1")
+    assert events == [
+        ("isend", "group0", 1),
+        ("isend", "group1", 1),
+        ("wait", "group0"),
+    ]
+    _flush_rank_sends(pending)
+    assert events[-1] == ("wait", "group1")
+    assert pending == []
 
 
 def test_resident_score_selects_authenticated_trainer_quack_backend():
