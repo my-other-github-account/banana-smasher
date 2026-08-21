@@ -609,18 +609,26 @@ def _manifest_bound_public_qtip_pack(pack):
         ):
             raise RuntimeError("public QTIP runner manifest pack roundtrip mismatch")
         roundtrip = unpacked.to(tiled.dtype).eq(tiled)
-        kernel = (
-            packed.view(torch.uint8)
-            .view(-1, 2)
-            .flip((-1,))
-            .reshape(m // 32, 2, k // 32, 2, 32, geometry[1])
-            .permute(0, 2, 4, 3, 1, 5)
-            .flip((-1,))
-            .contiguous()
-            .flatten()
-            .view(torch.uint16)
-            .reshape(packed.shape)
-        )
+        swizzle_elements = (m // 32) * 2 * (k // 32) * 2 * 32 * geometry[1]
+        if m % 32 == 0 and k % 32 == 0 and packed.numel() * 2 == swizzle_elements:
+            kernel = (
+                packed.view(torch.uint8)
+                .view(-1, 2)
+                .flip((-1,))
+                .reshape(m // 32, 2, k // 32, 2, 32, geometry[1])
+                .permute(0, 2, 4, 3, 1, 5)
+                .flip((-1,))
+                .contiguous()
+                .flatten()
+                .view(torch.uint16)
+                .reshape(packed.shape)
+            )
+            kernel_swizzle = (
+                "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)"
+            )
+        else:
+            kernel = packed
+            kernel_swizzle = "manifest-canonical-direct"
         packed_sha = _tensor_sha256(packed)
         kernel_sha = _tensor_sha256(kernel)
         kernel_bytes = kernel.numel() * kernel.element_size()
@@ -635,7 +643,7 @@ def _manifest_bound_public_qtip_pack(pack):
             "input_state_sha256": _tensor_sha256(tiled),
             "canonical_pack_roundtrip_fraction": float(roundtrip.float().mean()),
             "canonical_pack_roundtrip_exact": bool(roundtrip.all()),
-            "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+            "kernel_swizzle": kernel_swizzle,
             "kernel_packed_shape": list(kernel.shape),
             "kernel_packed_sha256": kernel_sha,
             "kernel_packed_bytes": kernel_bytes,
@@ -670,6 +678,11 @@ def _load_public_qtip_runner(path: Path, expected_sha256: str):
     if not _is_sha256_digest(expected_sha256) or actual_sha256 != expected_sha256:
         raise ValueError(
             f"public QTIP runner SHA mismatch: {actual_sha256} != {expected_sha256}"
+        )
+    if actual_sha256 != _TRUSTED_PUBLIC_QTIP_RUNNER_SHA256:
+        raise ValueError(
+            "public QTIP runner is not the trusted package anchor: "
+            f"{actual_sha256} != {_TRUSTED_PUBLIC_QTIP_RUNNER_SHA256}"
         )
     spec = importlib.util.spec_from_file_location("banana_smasher_qtip_runner", path)
     if spec is None:
