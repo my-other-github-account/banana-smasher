@@ -36,9 +36,11 @@ from .qtip25_native_v4 import (
 SCHEMA = "banana-smasher-qtip25-native-v4-cuda-cell-v1"
 
 
-def _decode_native_v4_blocks(decoder: Any, packed: Any, tlut: Any) -> Any:
-    """Call the installed V4 decoder through its public two-argument ABI."""
-    return decoder(packed, tlut)
+def _decode_native_v4_blocks(
+    decoder: Any, packed: Any, tlut: Any, *, bpw: float
+) -> Any:
+    """Call the installed V4 decoder at the exact public homogeneous rate."""
+    return decoder(packed, tlut, bpw=bpw)
 
 
 def _pack_cuda_states_v4(
@@ -480,7 +482,12 @@ def run_cuda_cell(
         for start in range(0, decode_extent, decode_batch):
             code = torch.from_numpy(packed[start : min(start + decode_batch, decode_extent)]).to(device)
             observed_parts.append(
-                _decode_native_v4_blocks(dequantize_native_v4_blocks, code, table).cpu()
+                _decode_native_v4_blocks(
+                    dequantize_native_v4_blocks,
+                    code,
+                    table,
+                    bpw=geometry.rate_num / geometry.rate_den,
+                ).cpu()
             )
         parity_observed = torch.cat(observed_parts[:1])[:reference_blocks].numpy()
         if not np.array_equal(reference, parity_observed):
@@ -495,7 +502,12 @@ def run_cuda_cell(
             for _ in range(decode_repeats):
                 for start in range(0, decode_extent, decode_batch):
                     code = torch.from_numpy(packed[start : min(start + decode_batch, decode_extent)]).to(device)
-                    _decode_native_v4_blocks(dequantize_native_v4_blocks, code, table)
+                    _decode_native_v4_blocks(
+                        dequantize_native_v4_blocks,
+                        code,
+                        table,
+                        bpw=geometry.rate_num / geometry.rate_den,
+                    )
             torch.cuda.synchronize()
             decode_seconds = time.perf_counter() - decode_started
     sse = None

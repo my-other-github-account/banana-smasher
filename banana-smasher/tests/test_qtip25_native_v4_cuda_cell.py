@@ -34,12 +34,15 @@ def test_native_v4_cuda_cell_preflight_binds_exact_basis_and_geometry(tmp_path) 
         )
 
 
-def test_native_v4_cuda_cell_calls_installed_decoder_without_legacy_bpw_keyword() -> None:
+def test_native_v4_cuda_cell_binds_exact_rate_to_installed_decoder() -> None:
     calls = []
 
-    def installed_decoder(packed, tlut):
-        calls.append((packed, tlut))
+    def installed_decoder(packed, tlut, *, bpw):
+        calls.append((packed, tlut, bpw))
         return "decoded"
 
-    assert _decode_native_v4_blocks(installed_decoder, "codes", "table") == "decoded"
-    assert calls == [("codes", "table")]
+    assert (
+        _decode_native_v4_blocks(installed_decoder, "codes", "table", bpw=3.0)
+        == "decoded"
+    )
+    assert calls == [("codes", "table", 3.0)]
