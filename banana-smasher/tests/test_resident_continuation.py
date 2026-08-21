@@ -4,6 +4,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 import hashlib
 import importlib.util
+import json
 import os
 import sys
 
@@ -22,12 +23,55 @@ from banana_smasher.resident_continuation import (
     _bind_official_expert_source,
     _construct_shard_student,
     _enqueue_rank_send,
+    _enforce_update_loss_guard,
     _flush_rank_sends,
     _official_expert_source_path,
     _score_group_logits,
     _score_window_groups,
     _select_trainer_fwht,
 )
+
+
+def test_update_loss_guard_records_monotonicity_and_rejects_explosion() -> None:
+    stable = _enforce_update_loss_guard(
+        loss=0.20, baseline=0.25, previous_loss=0.21, global_update=17
+    )
+    assert stable == {
+        "baseline_loss": 0.25,
+        "loss": 0.20,
+        "previous_loss": 0.21,
+        "nonincreasing": True,
+        "explosion_limit": 0.5,
+    }
+    noisy = _enforce_update_loss_guard(
+        loss=0.20, baseline=0.25, previous_loss=0.19, global_update=18
+    )
+    assert noisy["nonincreasing"] is False
+    with pytest.raises(ArtifactError, match=r"U19.*2x baseline.*0.5"):
+        _enforce_update_loss_guard(
+            loss=0.51, baseline=0.25, previous_loss=0.20, global_update=19
+        )
+
+
+def test_engine_halts_before_gather_or_checkpoint_when_loss_explodes(tmp_path: Path) -> None:
+    engine = object.__new__(ModernGreenResidentEngine)
+    engine.global_step = 16
+    engine._step = lambda update: {"loss": 0.51}
+    engine._gather_state = lambda: pytest.fail("exploded state must not be gathered")
+    receipt = tmp_path / "LOSS_GUARD.json"
+
+    with pytest.raises(ArtifactError, match=r"U17.*2x baseline"):
+        engine.advance_to(
+            20,
+            loss_guard_baseline=0.25,
+            loss_guard_receipt_path=receipt,
+        )
+
+    assert engine.global_step == 16
+    halted = json.loads(receipt.read_text())
+    assert halted["status"] == "HALTED_LOSS_EXPLOSION"
+    assert halted["global_update"] == 17
+    assert halted["accepted_checkpoint_written"] is False
 
 
 class _Student:

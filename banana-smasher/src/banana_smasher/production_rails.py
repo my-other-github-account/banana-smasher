@@ -23,6 +23,7 @@ from .resident_repair_api import BackpackArtifact, UniformBuild
 
 PRODUCTION_RAILS_SCHEMA = "banana-smasher-production-resident-rails-v1"
 PIPELINE_MICROBATCH = 4
+DEFAULT_IMPROVE_LR_SCALE = 0.1
 ALL_LAYERS = tuple(range(43))
 FORBIDDEN_SLOW_CONTROL_FIELDS = frozenset(
     {
@@ -153,10 +154,14 @@ class _ProvenSession:
         self.api = _ProvenResidentAPI.open(self.root)
         self.binding = binding
         self.continuation_config = dict(continuation_config)
+        # The public arm owns its conservative recipe. Callers cannot select a
+        # learning-rate variant through rank config or CLI.
+        self.continuation_config["lr_scale"] = DEFAULT_IMPROVE_LR_SCALE
         self.receipt_root = receipt_root
         self.engine = _construct_resident_engine(
             self.api, self.binding, self.continuation_config
         )
+        self._pre_kld: float | None = None
 
     def hot_swap(self, artifact: BackpackArtifact, binding: _ArtifactBinding) -> None:
         if artifact.root.resolve() != self.root:
@@ -171,11 +176,16 @@ class _ProvenSession:
             )
 
     def score(self, phase: str) -> Mapping[str, Any]:
-        del phase
         method = getattr(self.engine, "score_balanced64", None)
         if not callable(method):
             raise ProductionRailsError("physical resident engine cannot score in memory")
-        return dict(method(self.api.artifact.windows))
+        result = dict(method(self.api.artifact.windows))
+        if phase == "pre":
+            try:
+                self._pre_kld = float(result["mean_kld"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ProductionRailsError("resident pre-score lacks a loss-guard baseline") from exc
+        return result
 
     def train(self, updates: int) -> Mapping[str, Any]:
         if updates == 0:
@@ -191,6 +201,9 @@ class _ProvenSession:
         receipt = self.receipt_root / (
             f"CONTINUATION_U{start_update:03d}_U{target:03d}{rank_suffix}.json"
         )
+        if self._pre_kld is None:
+            raise ProductionRailsError("resident training requires a measured pre-score baseline")
+        loss_guard_receipt = receipt.with_name(f"{receipt.stem}.LOSS_GUARD.json")
         method = getattr(self.api, "advance_resident_engine", None)
         if not callable(method):
             raise ProductionRailsError("resident implementation cannot advance the live engine")
@@ -200,6 +213,8 @@ class _ProvenSession:
             target,
             config=config,
             receipt_path=receipt,
+            loss_guard_baseline=self._pre_kld,
+            loss_guard_receipt_path=loss_guard_receipt,
         )
         checkpoint = result.get("checkpoint")
         checkpoint_sha = result.get("checkpoint_sha256")
@@ -644,6 +659,7 @@ class ProductionRails:
 
 __all__ = [
     "ALL_LAYERS",
+    "DEFAULT_IMPROVE_LR_SCALE",
     "PIPELINE_MICROBATCH",
     "PRODUCTION_RAILS_SCHEMA",
     "ProductionRails",

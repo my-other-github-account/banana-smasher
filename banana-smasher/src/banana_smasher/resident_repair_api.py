@@ -9,6 +9,7 @@ boundary.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -35,6 +36,18 @@ _PHASE_PUBLIC_NAMES = {
     "post_update_score": "score_post",
 }
 _T = TypeVar("_T")
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, Mapping):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    raise TypeError(f"resident arm receipt contains unsupported {type(value).__name__}")
 
 
 class ResidentPhaseTimeout(RuntimeError):
@@ -147,6 +160,35 @@ def _checkpoint_receipt(
     return result
 
 
+def _verified_checkpoint_path(
+    artifact: BackpackArtifact, checkpoint_path: str | Path, checkpoint_sha: str
+) -> str:
+    selected = Path(checkpoint_path).expanduser().resolve()
+    rows = [
+        row
+        for row in artifact.identity.checkpoints.values()
+        if isinstance(row, Mapping) and row.get("sha256") == checkpoint_sha
+    ]
+    if len(rows) != 1 or not isinstance(rows[0].get("path"), str):
+        raise ValueError("explicit checkpoint path is not uniquely declared by artifact identity")
+    declared = (artifact.root.resolve() / rows[0]["path"]).resolve()
+    try:
+        declared.relative_to(artifact.root.resolve())
+    except ValueError as exc:
+        raise ValueError("explicit checkpoint path escapes artifact root") from exc
+    if selected != declared or not selected.is_file():
+        raise ValueError(
+            f"explicit checkpoint path mismatch: selected={selected} declared={declared}"
+        )
+    digest = hashlib.sha256()
+    with selected.open("rb") as stream:
+        for block in iter(lambda: stream.read(8 << 20), b""):
+            digest.update(block)
+    if digest.hexdigest() != checkpoint_sha:
+        raise ValueError("explicit checkpoint bytes do not match checkpoint SHA")
+    return str(selected)
+
+
 class ResidentRepairAPI:
     """One-path facade for uniform-build -> mix -> score -> train -> score.
 
@@ -176,6 +218,29 @@ class ResidentRepairAPI:
     @property
     def timing_path(self) -> Path:
         return self.run_root / "RESIDENT_ARM_TIMING.json"
+
+    @property
+    def result_path(self) -> Path:
+        return self.run_root / "RESIDENT_ARM_RESULT.json"
+
+    def _publish_result(self, value: Mapping[str, Any]) -> None:
+        payload = (
+            json.dumps(_json_safe(value), indent=2, sort_keys=True, allow_nan=False) + "\n"
+        ).encode()
+        fd, temporary_name = tempfile.mkstemp(
+            prefix=f".{self.result_path.name}.", dir=self.run_root
+        )
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary_name, self.result_path)
+        finally:
+            try:
+                os.unlink(temporary_name)
+            except FileNotFoundError:
+                pass
 
     def _timing_receipt(
         self, *, status: str, failed_phase: str | None = None
@@ -475,22 +540,49 @@ class ResidentRepairAPI:
         *,
         updates: int = 4,
         checkpoint_sha: str,
+        checkpoint_path: str | Path | None = None,
     ) -> dict[str, Any]:
         """Execute exactly zero-update score -> four updates -> post-update score."""
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("run_arm requires a mixed Backpack")
+        verified_checkpoint_path = (
+            None
+            if checkpoint_path is None
+            else _verified_checkpoint_path(selected, checkpoint_path, checkpoint_sha)
+        )
         pre = self.score_pre(selected, checkpoint_sha=checkpoint_sha)
         training = self.repair_train(
             selected, updates=updates, checkpoint_sha=checkpoint_sha
         )
         post = self.score_post(selected, checkpoint_sha=checkpoint_sha)
-        return {
+        pre_kld = float(pre["mean_kld"])
+        post_kld = float(post["mean_kld"])
+        improvement = {
+            "pre_kld": pre_kld,
+            "post_kld": post_kld,
+            "delta_kld": post_kld - pre_kld,
+            "improved": post_kld < pre_kld,
+        }
+        result = {
+            "schema": "banana-smasher-resident-arm-result-v1",
+            "status": "PASS" if improvement["improved"] else "FAILED",
+            "input_checkpoint_path": verified_checkpoint_path,
+            "input_checkpoint_sha256": checkpoint_sha,
             "pre": pre,
             "training": training,
             "post": post,
+            "improvement": improvement,
             "timing": self._timing_receipt(status="PASS"),
         }
+        self._publish_result(result)
+        if not improvement["improved"]:
+            raise ValueError(
+                "resident KLD did not improve: "
+                f"pre={pre_kld:.17g} post={post_kld:.17g}; "
+                f"receipt={self.result_path}"
+            )
+        return result
 
     def run(
         self,

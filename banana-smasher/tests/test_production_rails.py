@@ -321,6 +321,25 @@ def test_cli_exposes_only_one_process_resident_arm():
     assert args.updates == 4
     assert args.checkpoint_sha == "a" * 64
 
+    improve = parser.parse_args(
+        [
+            "resident",
+            "improve",
+            "--artifact-root",
+            "/artifact",
+            "--run-root",
+            "/run",
+            "--checkpoint",
+            "/artifact/checkpoints/UPDATE_000.pt",
+            "--checkpoint-sha",
+            "b" * 64,
+        ]
+    )
+    assert improve.resident_command == "improve"
+    assert improve.checkpoint == Path("/artifact/checkpoints/UPDATE_000.pt")
+    assert improve.checkpoint_sha == "b" * 64
+    assert not hasattr(improve, "rails_config")
+
 
 def test_continuation_geometry_is_sealed_to_pipeline_microbatch_four():
     assert _window_microbatches({}, 16) == [[20, 21, 22, 23]]
@@ -385,6 +404,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
 
     class FakeProvenAPI:
         def __init__(self):
+            self.advance_kwargs = None
             self.artifact = type(
                 "Artifact",
                 (),
@@ -392,7 +412,8 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
             )()
 
         def advance_resident_engine(self, engine, start_checkpoint, target_update, **kwargs):
-            del start_checkpoint, kwargs
+            del start_checkpoint
+            self.advance_kwargs = kwargs
             engine.update = target_update
             return {
                 "updates": target_update,
@@ -428,6 +449,11 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     assert pre["checkpoint"] == "UPDATE_000"
     assert trained["checkpoint"] == "UPDATE_004"
     assert post["checkpoint"] == "UPDATE_004"
+    assert fake_api.advance_kwargs["loss_guard_baseline"] == 0.25
+    assert fake_api.advance_kwargs["config"]["lr_scale"] == 0.1
+    assert str(fake_api.advance_kwargs["loss_guard_receipt_path"]).endswith(
+        "CONTINUATION_U000_U004.rank0.LOSS_GUARD.json"
+    )
     lifecycle = json.loads(rails.lifecycle_path.read_text())
     assert lifecycle["counts"]["model_constructions"] == 1
 

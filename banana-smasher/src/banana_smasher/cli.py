@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -520,6 +521,14 @@ def _parser() -> argparse.ArgumentParser:
     resident_arm.add_argument("--run-root", type=Path, required=True)
     resident_arm.add_argument("--checkpoint-sha", required=True)
     resident_arm.add_argument("--updates", type=int, choices=(4,), default=4)
+    resident_improve = resident_commands.add_parser(
+        "improve",
+        help="run the default zero-score, guarded resident updates, and improving post-score",
+    )
+    resident_improve.add_argument("--artifact-root", type=Path, required=True)
+    resident_improve.add_argument("--run-root", type=Path, required=True)
+    resident_improve.add_argument("--checkpoint", type=Path, required=True)
+    resident_improve.add_argument("--checkpoint-sha", required=True)
     resident_admit = resident_commands.add_parser(
         "admit", help="generate and verify one physical resident artifact plus rank configs"
     )
@@ -1707,28 +1716,50 @@ def main(argv: Sequence[str] | None = None) -> int:
                     checkpoint_sha256=args.checkpoint_sha,
                 )
                 resident_run_root = args.run_root.expanduser().resolve()
+                if args.resident_command == "improve":
+                    try:
+                        rank = int(os.environ["RANK"])
+                    except (KeyError, ValueError) as exc:
+                        raise ValueError(
+                            "resident improve requires distributed RANK=0 or RANK=1"
+                        ) from exc
+                    if rank not in (0, 1):
+                        raise ValueError(
+                            "resident improve requires distributed RANK=0 or RANK=1"
+                        )
+                    rails_config = artifact_root / f"production-rails.rank{rank}.json"
+                    updates = 4
+                    checkpoint_path = args.checkpoint
+                else:
+                    rails_config = args.rails_config
+                    updates = args.updates
+                    checkpoint_path = None
                 rails = ProductionRails.from_file(
-                    args.rails_config, run_root=resident_run_root
+                    rails_config, run_root=resident_run_root
                 )
                 facade = ResidentRepairAPI(
                     rails=rails, run_root=resident_run_root / "facade"
                 )
                 arm = facade.run_arm(
                     artifact,
-                    updates=args.updates,
+                    updates=updates,
                     checkpoint_sha=args.checkpoint_sha,
+                    checkpoint_path=checkpoint_path,
                 )
                 result = {
                     "status": "PASS",
-                    "command": "resident arm",
+                    "command": f"resident {args.resident_command}",
+                    "checkpoint_path": arm["input_checkpoint_path"],
                     "checkpoint_sha256": args.checkpoint_sha,
                     "artifact_identity_sha256": artifact.identity.sha256,
                     "provider_binding_sha256": rails.provider_binding_sha256,
                     "pre": dict(arm["pre"]),
                     "training": dict(arm["training"]),
                     "post": dict(arm["post"]),
+                    "improvement": dict(arm["improvement"]),
                     "timing": dict(arm["timing"]),
                     "timing_receipt": str(facade.timing_path),
+                    "result_receipt": str(facade.result_path),
                     "lifecycle": str(rails.lifecycle_path),
                 }
         elif args.command == "anchor":
