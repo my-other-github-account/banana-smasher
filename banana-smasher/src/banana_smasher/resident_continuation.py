@@ -27,7 +27,7 @@ TRAINER_SHA256 = "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf9420
 OFFICIAL_PHYSICAL_LAYER_SHA256 = "5d4ca4ac7d25e96fd428e55b2a7e18e074bac9d8aa23004bddbb6bde15d020d5"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
-SCORE_MICROBATCH = 32
+SCORE_MICROBATCH = 8
 BASE_LRS = {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2}
 HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
 HISTORICAL_SAMPLING_MODE = "historical_category_stratified_v1"
@@ -352,7 +352,7 @@ def _score_group_logits(lm_head: Any, final: Any, torch: Any) -> Any:
 
 
 def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
-    """Use four score-only groups without changing training microbatches."""
+    """Use bounded score-only groups without changing training microbatches."""
     if len(windows) != 64:
         raise ArtifactError("resident physical score requires exactly 64 windows")
     return [
@@ -376,6 +376,19 @@ def _flush_rank_sends(pending: list[tuple[Any, Any]]) -> None:
     for work, _keepalive in pending:
         work.wait()
     pending.clear()
+
+
+def _recv_rank_activation(dist: Any, activation: Any) -> None:
+    """Receive through the same batched P2P path used by rank0.
+
+    NCCL lazy communicator setup requires both peers to use the batched API;
+    a blocking ``recv`` on rank1 can wait for a different communicator key
+    until the TCPStore timeout while rank0 computes its first score group.
+    """
+    work = dist.batch_isend_irecv(
+        [dist.P2POp(dist.irecv, activation, 0, group=None)]
+    )[0]
+    work.wait()
 
 
 class ModernGreenResidentEngine:
@@ -745,7 +758,7 @@ class ModernGreenResidentEngine:
                         shape, dtype=torch.bfloat16, device=self.student.device
                     )
                     wait_started = time.perf_counter()
-                    self.dist.recv(activation, src=0)
+                    _recv_rank_activation(self.dist, activation)
                     pipeline_wait_seconds += time.perf_counter() - wait_started
                     compute_started = time.perf_counter()
                     hidden = self._run_layers(activation, ids, False)

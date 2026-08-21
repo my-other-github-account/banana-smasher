@@ -227,9 +227,38 @@ def test_score_configuration_forces_a1_eager_attention(monkeypatch):
     assert os.environ["BR_ATTN_IMPL"] == "eager"
 
 
-def test_physical_score_uses_two_ordered_thirty_two_window_groups():
+def test_physical_score_uses_eight_ordered_eight_window_groups():
     groups = _score_window_groups(tuple(range(64)))
-    assert groups == [list(range(32)), list(range(32, 64))]
+    assert groups == [list(range(offset, offset + 8)) for offset in range(0, 64, 8)]
+
+
+def test_rank_receive_uses_batched_p2p_and_waits():
+    events = []
+
+    class Work:
+        def wait(self):
+            events.append("wait")
+
+    class Dist:
+        @staticmethod
+        def irecv(value, src):
+            return value, src
+
+        @staticmethod
+        def P2POp(op, value, src, *, group):
+            return (op, value, src, group)
+
+        @staticmethod
+        def batch_isend_irecv(ops):
+            op, value, src, group = ops[0]
+            assert group is None
+            op(value, src)
+            events.append(("irecv", value, src))
+            return [Work()]
+
+    continuation_module._recv_rank_activation(Dist(), "activation")
+
+    assert events == [("irecv", "activation", 0), "wait"]
 
 
 def test_layer_stack_uses_a1_equivalent_fresh_cache_per_layer(monkeypatch):
