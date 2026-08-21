@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from banana_smasher.qtip3_api_producer import (
     Qtip3ApiPlan,
     verify_basis,
     verify_driver_authority,
+    verify_runtime_closure,
 )
 
 
@@ -95,3 +97,24 @@ assert LAYERS == tuple(range(34, 43))
     env = dict(os.environ)
     env["PYTHONPATH"] = str(Path(__file__).parents[1] / "src")
     subprocess.run([sys.executable, "-c", script], env=env, check=True)
+
+
+def test_runtime_closure_refuses_missing_cuda_plugin(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing(_name: str) -> object:
+        raise ModuleNotFoundError("missing plugin", name="banana_smasher_plugin")
+
+    monkeypatch.setattr("banana_smasher.qtip3_api_producer.importlib.import_module", missing)
+    with pytest.raises(RuntimeError, match="QTIP3_PUBLIC_RUNTIME_PLUGIN_MISSING"):
+        verify_runtime_closure()
+
+
+def test_runtime_closure_accepts_complete_cuda_plugin(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = SimpleNamespace(
+        __name__="banana_smasher_plugin.native_qtip25_v4",
+        dequantize_native_v4_blocks=lambda: None,
+        native_v4_decode_counters=lambda: None,
+    )
+    monkeypatch.setattr(
+        "banana_smasher.qtip3_api_producer.importlib.import_module", lambda _name: module
+    )
+    assert verify_runtime_closure()["status"] == "PASS"

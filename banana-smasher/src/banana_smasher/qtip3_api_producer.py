@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import fcntl
 import hashlib
+import importlib
 import json
 import os
 import shutil
@@ -223,6 +224,19 @@ def verify_driver_authority(plan: Qtip3ApiPlan) -> dict[str, Any]:
     if line not in text:
         raise RuntimeError(f"HOST_ALLOCATION_NOT_AUTHORIZED missing={line}")
     return {"status": "PASS", "path": str(path), "sha256": observed_sha, "allocation": line}
+
+
+def verify_runtime_closure() -> dict[str, Any]:
+    """Fail before host admission when the canonical CUDA plugin is absent."""
+    try:
+        module = importlib.import_module("banana_smasher_plugin.native_qtip25_v4")
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("QTIP3_PUBLIC_RUNTIME_PLUGIN_MISSING") from exc
+    required = ("dequantize_native_v4_blocks", "native_v4_decode_counters")
+    missing = [name for name in required if not callable(getattr(module, name, None))]
+    if missing:
+        raise RuntimeError(f"QTIP3_PUBLIC_RUNTIME_PLUGIN_INCOMPLETE missing={missing}")
+    return {"status": "PASS", "module": module.__name__, "required": list(required)}
 
 
 def _read_claim(plan: Qtip3ApiPlan) -> tuple[bytes, dict[str, Any], str]:
@@ -796,5 +810,5 @@ def release_host(plan: Qtip3ApiPlan, terminal_path: str | Path) -> dict[str, Any
 __all__ = [
     "BASIS", "LAYERS", "PROJECTIONS", "EXPECTED_CELLS", "CellSpec", "Qtip3ApiConfig",
     "Qtip3ApiPlan", "admit_host_and_shard", "release_host", "release_smoke_host", "release_unstarted_admission", "run_cells", "run_cells_batched", "sha256_file",
-    "verify_basis", "verify_driver_authority",
+    "verify_basis", "verify_driver_authority", "verify_runtime_closure",
 ]

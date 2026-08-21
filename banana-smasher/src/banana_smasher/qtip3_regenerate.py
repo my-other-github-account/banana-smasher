@@ -24,6 +24,7 @@ from banana_smasher.qtip3_api_producer import (
     release_unstarted_admission,
     run_cells,
     run_cells_batched,
+    verify_runtime_closure,
 )
 
 BASIS = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
@@ -375,6 +376,7 @@ def smoke(new_plan, cells):
     print(json.dumps(terminal, sort_keys=True), flush=True)
 
 
+verify_runtime_closure()
 new_plan = plan(EXPECTED_CLAIM)
 admission = admit_host_and_shard(new_plan, gpu_probe=gpu_probe)
 atomic(
