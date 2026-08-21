@@ -1,6 +1,7 @@
 """Fully resident, grouped official-K2 routed experts for all V7 layers."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -40,8 +41,12 @@ class FullyResidentGroupedV7Experts(nn.Module):
         self.cpu_relay_bytes = 0
         self.reconstruction_calls = 0
         self.fallback_calls = 0
+        self.trace_enabled = os.environ.get("BR_TRACE_TIMING", "0") == "1"
+        self._trace_events: list[tuple[str, Any, Any]] = []
+        self._trace_forward_calls = 0
+        self._trace_route_rows = 0
+        self._trace_unique_experts = 0
         self.act = F.silu
-        self.limit = 10.0
 
         for projection in PROJECTIONS:
             m, k = PROJECTION_SHAPES[projection]
@@ -88,6 +93,50 @@ class FullyResidentGroupedV7Experts(nn.Module):
                 value.numel() * value.element_size() for value in (packed, su, sv)
             )
 
+    def reset_trace(self) -> None:
+        self._trace_events.clear()
+        self._trace_forward_calls = 0
+        self._trace_route_rows = 0
+        self._trace_unique_experts = 0
+
+    def trace_snapshot(self, *, clear: bool = True) -> dict[str, Any]:
+        if not self.trace_enabled:
+            return {}
+        projection_gpu_seconds = {name: 0.0 for name in PROJECTIONS}
+        for projection, started, ended in self._trace_events:
+            projection_gpu_seconds[projection] += float(started.elapsed_time(ended)) / 1000.0
+        value = {
+            "layer": self.L,
+            "forward_calls": self._trace_forward_calls,
+            "route_rows": self._trace_route_rows,
+            "unique_expert_observations": self._trace_unique_experts,
+            "projection_calls": len(self._trace_events),
+            "projection_gpu_seconds": projection_gpu_seconds,
+        }
+        if clear:
+            self.reset_trace()
+        return value
+
+    def _project(
+        self,
+        projection: str,
+        x: torch.Tensor,
+        assignments: torch.Tensor,
+        packed: torch.Tensor,
+        lut_master: torch.Tensor,
+        su: torch.Tensor,
+        sv: torch.Tensor,
+    ) -> torch.Tensor:
+        if not self.trace_enabled:
+            return grouped_packed_projection(x, assignments, packed, lut_master, su, sv)
+        started = torch.cuda.Event(enable_timing=True)
+        ended = torch.cuda.Event(enable_timing=True)
+        started.record()
+        value = grouped_packed_projection(x, assignments, packed, lut_master, su, sv)
+        ended.record()
+        self._trace_events.append((projection, started, ended))
+        return value
+
     @property
     def codebooks(self) -> list[torch.Tensor]:
         return [self.plane_source.master]
@@ -123,25 +172,32 @@ class FullyResidentGroupedV7Experts(nn.Module):
         route_weight = top_k_weights.reshape(-1, 1).float()
         routed_hidden = hidden_states[token_index].contiguous()
         lut_master = self.plane_source.wire_lut().reshape(-1).contiguous()
+        if self.trace_enabled:
+            self._trace_forward_calls += 1
+            self._trace_route_rows += int(routed_hidden.shape[0])
+            self._trace_unique_experts += int(torch.unique(expert_index).numel())
 
-        gate = grouped_packed_projection(
+        gate = self._project(
+            "w1",
             routed_hidden,
             expert_index,
             self.packed_w1,
             lut_master,
             self.su_w1,
             self.sv_w1,
-        ).clamp(max=self.limit)
-        up = grouped_packed_projection(
+        )
+        up = self._project(
+            "w3",
             routed_hidden,
             expert_index,
             self.packed_w3,
             lut_master,
             self.su_w3,
             self.sv_w3,
-        ).clamp(min=-self.limit, max=self.limit)
+        )
         activated = self.act(gate) * up
-        routed_output = grouped_packed_projection(
+        routed_output = self._project(
+            "w2",
             activated,
             expert_index,
             self.packed_w2,
@@ -149,12 +205,25 @@ class FullyResidentGroupedV7Experts(nn.Module):
             self.su_w2,
             self.sv_w2,
         )
-        routed_output = routed_output * route_weight
-        final = torch.zeros_like(hidden_states, dtype=routed_output.dtype)
-        final.index_add_(0, token_index, routed_output)
+        routed_output = (
+            routed_output * route_weight
+        ).to(hidden_states.dtype)
+        route_shape = tuple(int(value) for value in top_k_index.shape)
+        routed_output = routed_output.reshape(
+            route_shape[0], route_shape[1], hidden_states.shape[1]
+        )
+        expert_order = torch.argsort(top_k_index, dim=1, stable=True)
+        ordered_output = torch.gather(
+            routed_output,
+            1,
+            expert_order.unsqueeze(-1).expand_as(routed_output),
+        )
+        final = torch.zeros_like(hidden_states)
+        for route_slot in range(route_shape[1]):
+            final = (final + ordered_output[:, route_slot]).to(hidden_states.dtype)
         self.cpu_relay_bytes += 0
         self.reconstruction_calls += 0
-        return final.to(hidden_states.dtype)
+        return final
 
 
 __all__ = ["FullyResidentGroupedV7Experts"]
