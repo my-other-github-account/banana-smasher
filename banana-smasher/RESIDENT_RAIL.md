@@ -3,12 +3,16 @@
 `banana_smasher.ResidentRepairAPI` is the only public scoring/training facade. The concrete provider is `banana_smasher.production_rails.ProductionRails`; the CLI keeps the complete pre-score → continuation → post-score arm in one process:
 
 ```bash
-smash resident arm \
+smash resident improve \
   --artifact-root /local/repair-artifact \
-  --rails-config /local/production-rails.json \
   --run-root /local/run \
-  --updates 4
+  --checkpoint /local/repair-artifact/checkpoints/UPDATE_000.pt \
+  --checkpoint-sha CHECKPOINT_SHA256
 ```
+
+The paired launcher supplies `RANK`; the verb selects the corresponding
+artifact-owned `production-rails.rankN.json`. Recipe and update-count choices
+are intentionally absent from the public command.
 
 Do not split these phases across separate CLI processes. `RESIDENT_LIFECYCLE.json` must finish with exactly one `model_constructions` and one `resident_loads`, two scores/canary passes, one training call, four updates, and in-memory checkpoint swaps between phases.
 

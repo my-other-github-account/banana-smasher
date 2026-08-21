@@ -2,6 +2,29 @@
 
 `banana-smasher` is the reusable, fail-closed `bs-pack v1` build and validation toolchain. `PACK_FORMAT.md` is the versioned pack contract: plane layout, per-layer metadata, `config.json` auto-detection keys, complete byte-count/SHA-256 manifest, and rejection rules.
 
+## Improve a resident checkpoint with one verb
+
+Use the same command on both ranks of the reserved pair; the distributed
+launcher supplies `RANK=0` and `RANK=1`. The admitted artifact contains its two
+rank configs, so callers do not choose a rails config or training recipe:
+
+```console
+smash resident improve \
+  --artifact-root /local/admitted-pre \
+  --run-root /local/improve-run \
+  --checkpoint /local/admitted-pre/checkpoints/UPDATE_000.pt \
+  --checkpoint-sha CHECKPOINT_SHA256
+```
+
+This one process-resident chain performs the mandatory zero-update Balanced64
+score, four guarded in-memory updates, and the post-update Balanced64 score on
+the same constructed model. The conservative learning-rate recipe is package
+owned. Every update records its loss; a non-finite loss or loss above 2x the
+pre-score baseline halts before checkpoint acceptance and writes a loss-guard
+receipt. The command exits nonzero unless `post_kld < pre_kld` and always writes
+`facade/RESIDENT_ARM_RESULT.json` with both KLDs, the explicit checkpoint path
+and SHA, timing, training receipt, and improvement decision.
+
 ## End-to-end Backpack plans
 
 ### Five-minute quickstart

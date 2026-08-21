@@ -1471,6 +1471,8 @@ class ResidentRepairAPI:
         *,
         config: Mapping[str, Any],
         receipt_path: str | Path,
+        loss_guard_baseline: float,
+        loss_guard_receipt_path: str | Path,
     ) -> dict[str, Any]:
         """Advance and persist the already-constructed production engine."""
         start = self.artifact.checkpoint_key(start_checkpoint)
@@ -1486,7 +1488,11 @@ class ResidentRepairAPI:
         if not isinstance(lineage, str) or not lineage:
             raise ArtifactError("shared_optimizer_scheduler_lineage is required")
         start_meta = self.artifact.manifest["checkpoints"][start]
-        state, step_report, _engine_meta = engine.advance_to(target_update)
+        state, step_report, _engine_meta = engine.advance_to(
+            target_update,
+            loss_guard_baseline=loss_guard_baseline,
+            loss_guard_receipt_path=loss_guard_receipt_path,
+        )
         transfer: Mapping[str, Any] | None = None
         if rank == 0:
             if state is None:
@@ -1513,6 +1519,25 @@ class ResidentRepairAPI:
             raise ArtifactError("official resident persistence broadcast missing")
         persisted = self._materialize_broadcast_checkpoint(transfer, rank=int(rank))
         engine.dist.barrier()
+        update_reports = step_report.get("actual_update_reports")
+        if not isinstance(update_reports, list) or len(update_reports) != target_update - start_update:
+            raise ArtifactError("resident loss guard did not cover every update")
+        loss_guard_rows = [row.get("loss_guard") for row in update_reports]
+        if any(not isinstance(row, Mapping) for row in loss_guard_rows):
+            raise ArtifactError("resident loss guard report is incomplete")
+        guard_receipt = {
+            "schema": "banana-smasher-resident-loss-guard-v1",
+            "status": "PASS",
+            "baseline_loss": float(loss_guard_baseline),
+            "updates": len(update_reports),
+            "all_within_explosion_limit": True,
+            "all_nonincreasing": all(bool(row["nonincreasing"]) for row in loss_guard_rows),
+            "update_reports": update_reports,
+            "accepted_checkpoint_written": True,
+            "checkpoint": persisted["checkpoint"],
+            "checkpoint_sha256": persisted["checkpoint_sha256"],
+        }
+        self._write_immutable_receipt(loss_guard_receipt_path, guard_receipt)
         result = {
             "schema": "resident-live-engine-advance-v1",
             "status": "PASS",
@@ -1527,6 +1552,13 @@ class ResidentRepairAPI:
             "world_size": 2,
             "model_engine": step_report["model_engine"],
             "timings": step_report["timings"],
+            "actual_update_reports": update_reports,
+            "loss_guard": {
+                "baseline_loss": float(loss_guard_baseline),
+                "all_within_explosion_limit": True,
+                "all_nonincreasing": guard_receipt["all_nonincreasing"],
+                "receipt": str(Path(loss_guard_receipt_path).expanduser().resolve()),
+            },
             "checkpoint_loaded_after_construction": False,
         }
         self._write_immutable_receipt(receipt_path, result)

@@ -40,6 +40,33 @@ HISTORICAL_TRAIN_BANK_SHA256 = "3553fce00efdb6d452171e6d5c429adc31580dedbf63eb82
 HISTORICAL_CATEGORIES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
 
 
+def _enforce_update_loss_guard(
+    *,
+    loss: float,
+    baseline: float,
+    previous_loss: float | None,
+    global_update: int,
+) -> dict[str, float | bool | None]:
+    current = float(loss)
+    initial = float(baseline)
+    prior = None if previous_loss is None else float(previous_loss)
+    limit = 2.0 * initial
+    if not math.isfinite(current) or not math.isfinite(initial) or initial <= 0.0:
+        raise ArtifactError(f"resident loss guard received non-finite loss at U{global_update}")
+    if current > limit:
+        raise ArtifactError(
+            f"resident loss explosion at U{global_update}: loss={current:.17g} "
+            f"> 2x baseline limit={limit:.17g}"
+        )
+    return {
+        "baseline_loss": initial,
+        "loss": current,
+        "previous_loss": prior,
+        "nonincreasing": prior is None or current <= prior,
+        "explosion_limit": limit,
+    }
+
+
 def _construct_shard_student(
     trainer: Any,
     *,
@@ -1217,7 +1244,13 @@ class ModernGreenResidentEngine:
         self.dist.barrier()
         return merged, optimizer, report
 
-    def advance_to(self, target_update: int) -> tuple[Mapping[str, Any] | None, dict[str, Any], Mapping[str, Any] | None]:
+    def advance_to(
+        self,
+        target_update: int,
+        *,
+        loss_guard_baseline: float | None = None,
+        loss_guard_receipt_path: str | Path | None = None,
+    ) -> tuple[Mapping[str, Any] | None, dict[str, Any], Mapping[str, Any] | None]:
         start = self.global_step
         if target_update <= start:
             raise ArtifactError("official resident target must advance beyond current update")
@@ -1226,11 +1259,46 @@ class ModernGreenResidentEngine:
         optimizer_state: Mapping[str, Any] | None = None
         report_state: Mapping[str, Any] | None = None
         update_reports: list[dict[str, Any]] = []
+        previous_loss: float | None = None
         for update in range(start, target_update):
             last = self._step(update)
+            loss_guard = None
+            if loss_guard_baseline is not None:
+                if loss_guard_receipt_path is None:
+                    raise ArtifactError("resident loss guard requires a receipt path")
+                try:
+                    loss_guard = _enforce_update_loss_guard(
+                        loss=last["loss"],
+                        baseline=loss_guard_baseline,
+                        previous_loss=previous_loss,
+                        global_update=update + 1,
+                    )
+                except ArtifactError:
+                    receipt_path = Path(loss_guard_receipt_path).expanduser().resolve()
+                    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+                    receipt = {
+                        "schema": "banana-smasher-resident-loss-guard-v1",
+                        "status": "HALTED_LOSS_EXPLOSION",
+                        "global_update": update + 1,
+                        "baseline_loss": float(loss_guard_baseline),
+                        "loss": float(last["loss"]),
+                        "explosion_limit": 2.0 * float(loss_guard_baseline),
+                        "accepted_checkpoint_written": False,
+                    }
+                    temporary = receipt_path.with_name(f".{receipt_path.name}.{os.getpid()}.tmp")
+                    payload = (json.dumps(receipt, sort_keys=True, indent=2) + "\n").encode()
+                    with temporary.open("wb") as stream:
+                        stream.write(payload)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    os.replace(temporary, receipt_path)
+                    raise
+                previous_loss = float(last["loss"])
             update_reports.append(
                 {
                     "global_update": update + 1,
+                    "loss": last["loss"],
+                    "loss_guard": loss_guard,
                     "windows": list(last["windows"]),
                     "window_microbatches": [list(group) for group in last["window_microbatches"]],
                     "windows_per_update": int(last["windows_per_update"]),

@@ -36,7 +36,7 @@ def identity(
         "composition": {"kind": kind, "layers": tiers},
         "canary": {
             "reference": {"kld": 0.25, "top1": 7},
-            "tolerance": {"kld_abs": 0.0, "top1_abs": 0},
+            "tolerance": {"kld_abs": 0.02, "top1_abs": 0},
         },
         "runtime": {},
     }
@@ -88,7 +88,11 @@ class Rails:
 
     def score(self, artifact, phase: str):
         self.calls.append(("score", phase, artifact.root))
-        return {"mean_kld": 0.25, "top1_matches": 7, "phase": phase}
+        return {
+            "mean_kld": 0.25 if phase == "pre" else 0.24,
+            "top1_matches": 7,
+            "phase": phase,
+        }
 
     def train(self, artifact, updates: int):
         self.calls.append(("train", updates, artifact.root))
@@ -232,7 +236,7 @@ def test_canary_is_read_from_artifact_not_source_constant(tmp_path: Path) -> Non
     build = api.build_uniform(
         tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
     )
-    rails.score = lambda artifact, phase: {"mean_kld": 0.251, "top1_matches": 7}
+    rails.score = lambda artifact, phase: {"mean_kld": 0.30, "top1_matches": 7}
     with pytest.raises(ValueError, match="declared tolerance"):
         api.score_pre(build, checkpoint_sha=sha("u0"))
 
@@ -395,3 +399,57 @@ def test_successful_arm_records_all_named_phases_and_exact_cycle(tmp_path: Path)
     ]
     assert [row["elapsed_seconds"] for row in timing["phases"]] == [5.0, 8.0, 6.0]
     assert timing["total_elapsed_seconds"] == 19.0
+
+
+def test_arm_requires_measured_kld_improvement_and_seals_both_numbers(
+    tmp_path: Path, monkeypatch
+) -> None:
+    class ScoredRails(Rails):
+        post_kld = 0.24
+
+        def score(self, artifact, phase: str):
+            result = super().score(artifact, phase)
+            result["mean_kld"] = 0.25 if phase == "pre" else self.post_kld
+            return result
+
+        def train(self, artifact, updates: int):
+            return {"updates": updates, "artifact_root": str(artifact.root)}
+
+    monkeypatch.setattr(
+        "banana_smasher.artifact_identity.ArtifactIdentity.require_canary",
+        lambda self, *, kld, top1: None,
+    )
+    rails = ScoredRails(tmp_path)
+    api = ResidentRepairAPI(rails=rails, run_root=tmp_path / "pass")
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
+    )
+
+    result = api.run_arm(build, checkpoint_sha=sha("u0"))
+
+    assert result["improvement"] == {
+        "pre_kld": 0.25,
+        "post_kld": 0.24,
+        "delta_kld": pytest.approx(-0.01),
+        "improved": True,
+    }
+    receipt = json.loads((tmp_path / "pass" / "RESIDENT_ARM_RESULT.json").read_text())
+    assert receipt["status"] == "PASS"
+    assert receipt["improvement"]["post_kld"] < receipt["improvement"]["pre_kld"]
+
+    rails = ScoredRails(tmp_path)
+    rails.post_kld = 0.25
+    api = ResidentRepairAPI(rails=rails, run_root=tmp_path / "fail")
+    build = api.build_uniform(
+        tmp_path / "model-2", "qtip1_v7", checkpoint_sha=sha("u0")
+    )
+    with pytest.raises(ValueError, match="did not improve"):
+        api.run_arm(build, checkpoint_sha=sha("u0"))
+    receipt = json.loads((tmp_path / "fail" / "RESIDENT_ARM_RESULT.json").read_text())
+    assert receipt["status"] == "FAILED"
+    assert receipt["improvement"] == {
+        "pre_kld": 0.25,
+        "post_kld": 0.25,
+        "delta_kld": 0.0,
+        "improved": False,
+    }
