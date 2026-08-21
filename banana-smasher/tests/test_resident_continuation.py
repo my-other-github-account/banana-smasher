@@ -653,7 +653,10 @@ def test_distributed_socket_interface_binds_nccl_peer_transport(monkeypatch):
             return False
 
         def init_process_group(self, **kwargs):
-            calls.append((dict(kwargs), os.environ.get("NCCL_SOCKET_IFNAME")))
+            calls.append(("init", dict(kwargs), os.environ.get("NCCL_SOCKET_IFNAME")))
+
+        def barrier(self):
+            calls.append(("barrier",))
 
     engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
     engine.dist = FakeDist()
@@ -670,6 +673,7 @@ def test_distributed_socket_interface_binds_nccl_peer_transport(monkeypatch):
 
     assert calls == [
         (
+            "init",
             {
                 "backend": "nccl",
                 "init_method": "tcp://192.168.200.7:29827",
@@ -677,5 +681,6 @@ def test_distributed_socket_interface_binds_nccl_peer_transport(monkeypatch):
                 "world_size": 2,
             },
             "enp1s0f1np1",
-        )
+        ),
+        ("barrier",),
     ]

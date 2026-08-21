@@ -516,6 +516,10 @@ class ModernGreenResidentEngine:
         if self.device.type != "cuda" or not torch.cuda.is_available():
             raise ArtifactError("official resident student requires a CUDA device")
         torch.cuda.set_device(int(config.get("cuda_device", 0)))
+        # Establish the NCCL communicator before rank-specific shard construction.
+        # Rank0's parent materialization is much slower than rank1's and must not
+        # leave rank1 lazily opening a peer connection that expires first.
+        self._init_distributed()
         self.layer_ranges = layer_ranges
         self.first, self.last = layer_ranges[rank]
         self.payload = payload
@@ -623,7 +627,6 @@ class ModernGreenResidentEngine:
         )
         self._load_optimizer_scheduler_state()
         self._load_training_data()
-        self._init_distributed()
         self.global_step = _checkpoint_cursor(payload)
 
     def _prepare_import_paths(self) -> None:
@@ -948,6 +951,7 @@ class ModernGreenResidentEngine:
         if self.dist.is_initialized():
             if self.dist.get_world_size() != 2 or self.dist.get_rank() != self.rank:
                 raise ArtifactError("existing process group does not match the exact two-Spark rank")
+            self.dist.barrier()
             return
         master_addr = str(self.config.get("master_addr", "127.0.0.1"))
         master_port = int(self.config.get("master_port", 29598))
@@ -965,6 +969,7 @@ class ModernGreenResidentEngine:
                 rank=self.rank,
                 world_size=2,
             )
+            self.dist.barrier()
         except Exception as exc:
             raise ArtifactError(f"official two-Spark process-group initialization failed: {exc}") from exc
 
