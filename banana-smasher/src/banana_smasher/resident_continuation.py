@@ -27,7 +27,7 @@ TRAINER_SHA256 = "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf9420
 OFFICIAL_PHYSICAL_LAYER_SHA256 = "5d4ca4ac7d25e96fd428e55b2a7e18e074bac9d8aa23004bddbb6bde15d020d5"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
-SCORE_MICROBATCH = 4
+SCORE_MICROBATCH = 32
 BASE_LRS = {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2}
 HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
 HISTORICAL_SAMPLING_MODE = "historical_category_stratified_v1"
@@ -363,7 +363,10 @@ def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
 
 def _enqueue_rank_send(dist: Any, pending: list[tuple[Any, Any]], tensor: Any) -> None:
     """Keep one activation send in flight while rank0 computes its successor."""
-    pending.append((dist.isend(tensor, dst=1), tensor))
+    work = dist.batch_isend_irecv(
+        [dist.P2POp(dist.isend, tensor, 1, group=None)]
+    )[0]
+    pending.append((work, tensor))
     if len(pending) >= 2:
         work, _keepalive = pending.pop(0)
         work.wait()
@@ -542,7 +545,12 @@ class ModernGreenResidentEngine:
     def _configure_base(self) -> None:
         os.environ["BR_CORPUS"] = str(self.corpus_path)
         os.environ["BR_TEACH"] = str(self.teacher_root)
-        os.environ.setdefault("BR_ATTN_IMPL", "sdpa")
+        attention = str(self.config.get("attention_implementation", "eager"))
+        if attention != "eager":
+            raise ArtifactError(
+                "canonical raw-U0 resident scoring requires A1-equivalent eager attention"
+            )
+        os.environ["BR_ATTN_IMPL"] = attention
         os.environ.setdefault("BR_FAST_STACK", "1")
         self.base.T.CKPT = str(self.model_root)
         self.base.T.DEV = "cuda"
@@ -843,8 +851,8 @@ class ModernGreenResidentEngine:
     def _run_layers(self, hidden: Any, ids: Any, train: bool) -> Any:
         from transformers.cache_utils import DynamicCache
         template = hidden[:, :, 0, :] if hidden.ndim == 4 else hidden
-        cache = DynamicCache(config=self.student.config)
-        pos, pe, mask = self._positional(ids, template, cache)
+        mask_cache = DynamicCache(config=self.student.config)
+        pos, pe, mask = self._positional(ids, template, mask_cache)
         for index in range(self.first, self.last + 1):
             layer = self.student.model.model.layers[index]
             def layer_fn(current: Any, layer: Any = layer) -> Any:
@@ -854,7 +862,11 @@ class ModernGreenResidentEngine:
                     position_ids=pos,
                     attention_mask=mask,
                     input_ids=ids,
-                    past_key_values=cache,
+                    # The sealed A1 builder uses one fresh cache per layer for a
+                    # full-sequence prefill. Reusing a layer-indexed cache here
+                    # changes the physical activation and was rejected by the
+                    # public-path parity gate.
+                    past_key_values=DynamicCache(config=self.student.config),
                 )
             if train:
                 hidden = self.checkpoint(layer_fn, hidden, use_reentrant=False)
