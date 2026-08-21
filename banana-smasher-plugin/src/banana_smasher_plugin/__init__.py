@@ -62,7 +62,8 @@ def configure_flashinfer_cuda_runtime() -> bool:
     return True
 
 
-configure_flashinfer_cuda_runtime()
+if os.environ.get("BANANA_SMASHER_PLUGIN_NATIVE_QTIP_ONLY") != "1":
+    configure_flashinfer_cuda_runtime()
 
 import torch  # noqa: E402
 

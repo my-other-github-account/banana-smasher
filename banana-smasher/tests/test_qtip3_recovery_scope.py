@@ -118,3 +118,22 @@ def test_runtime_closure_accepts_complete_cuda_plugin(monkeypatch: pytest.Monkey
         "banana_smasher.qtip3_api_producer.importlib.import_module", lambda _name: module
     )
     assert verify_runtime_closure()["status"] == "PASS"
+
+
+def test_native_qtip_plugin_import_skips_unrelated_flashinfer_bootstrap() -> None:
+    root = Path(__file__).parents[2]
+    env = dict(os.environ)
+    env["BANANA_SMASHER_PLUGIN_NATIVE_QTIP_ONLY"] = "1"
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(root / "banana-smasher/src"), str(root / "banana-smasher-plugin/src")]
+    )
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from banana_smasher.qtip3_api_producer import verify_runtime_closure; "
+            "assert verify_runtime_closure()['status'] == 'PASS'",
+        ],
+        env=env,
+        check=True,
+    )
