@@ -31,7 +31,6 @@ import sys
 from pathlib import Path
 import time
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -793,7 +792,6 @@ def cmd_fastdiag(a):
     per-step probe KL, per-group grad norms, param displacement, grad cosine.
     Steps are mb=1 x FD_WINS windows; probe = FD_PROBE fixed windows every step.
     """
-    import itertools
     out = os.path.expanduser(a.out or "~/missions/LP4_ARM/fastdiag")
     os.makedirs(out, exist_ok=True)
     tlog = os.path.join(out, "fastdiag.jsonl")
