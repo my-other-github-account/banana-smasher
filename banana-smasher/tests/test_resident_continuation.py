@@ -319,6 +319,8 @@ def test_resident_import_paths_do_not_shadow_trainer_fwht_selector(tmp_path):
 
 def test_official_expert_binding_loads_its_pinned_grouped_dependency_first(monkeypatch):
     calls = []
+    trainer_grouped = ModuleType("fast_k2_grouped")
+    monkeypatch.setitem(sys.modules, "fast_k2_grouped", trainer_grouped)
     monkeypatch.setattr(
         continuation_module,
         "_load_source_module",
@@ -335,6 +337,7 @@ def test_official_expert_binding_loads_its_pinned_grouped_dependency_first(monke
         ("fast_k2_grouped", "fast_k2_grouped.py"),
         ("fast_v7_expert_base", "fast_v7_expert_base.py"),
     ]
+    assert sys.modules["fast_k2_grouped"] is trainer_grouped
 
 
 def test_score_configuration_forces_a1_eager_attention(monkeypatch):
