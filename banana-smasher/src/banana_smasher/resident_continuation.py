@@ -27,7 +27,7 @@ TRAINER_SHA256 = "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf9420
 OFFICIAL_PHYSICAL_LAYER_SHA256 = "5d4ca4ac7d25e96fd428e55b2a7e18e074bac9d8aa23004bddbb6bde15d020d5"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
-SCORE_MICROBATCH = 16
+SCORE_MICROBATCH = 4
 BASE_LRS = {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2}
 HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
 HISTORICAL_SAMPLING_MODE = "historical_category_stratified_v1"
@@ -795,9 +795,8 @@ class ModernGreenResidentEngine:
         except Exception as exc:
             raise ArtifactError(f"official two-Spark process-group initialization failed: {exc}") from exc
 
-    def _positional(self, ids: Any, template: Any) -> tuple[Any, Any, Any]:
+    def _positional(self, ids: Any, template: Any, cache: Any) -> tuple[Any, Any, Any]:
         pos = self.torch.arange(ids.shape[1], device=self.student.device).unsqueeze(0)
-        from transformers.cache_utils import DynamicCache
         from transformers.masking_utils import create_sliding_window_causal_mask
         embeddings = self.student.model.model.rotary_emb
         pe = {
@@ -808,7 +807,7 @@ class ModernGreenResidentEngine:
             config=self.student.config,
             inputs_embeds=template,
             attention_mask=None,
-            past_key_values=DynamicCache(config=self.student.config),
+            past_key_values=cache,
             position_ids=pos,
         )
         return pos, pe, mask
@@ -816,7 +815,8 @@ class ModernGreenResidentEngine:
     def _run_layers(self, hidden: Any, ids: Any, train: bool) -> Any:
         from transformers.cache_utils import DynamicCache
         template = hidden[:, :, 0, :] if hidden.ndim == 4 else hidden
-        pos, pe, mask = self._positional(ids, template)
+        cache = DynamicCache(config=self.student.config)
+        pos, pe, mask = self._positional(ids, template, cache)
         for index in range(self.first, self.last + 1):
             layer = self.student.model.model.layers[index]
             def layer_fn(current: Any, layer: Any = layer) -> Any:
@@ -826,7 +826,7 @@ class ModernGreenResidentEngine:
                     position_ids=pos,
                     attention_mask=mask,
                     input_ids=ids,
-                    past_key_values=DynamicCache(config=self.student.config),
+                    past_key_values=cache,
                 )
             if train:
                 hidden = self.checkpoint(layer_fn, hidden, use_reentrant=False)
