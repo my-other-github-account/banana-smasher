@@ -317,6 +317,26 @@ def test_resident_import_paths_do_not_shadow_trainer_fwht_selector(tmp_path):
         sys.path[:] = original
 
 
+def test_resident_import_paths_admit_explicit_hashed_trainer_dependency(tmp_path):
+    dependency = tmp_path / "trainer-dependency"
+    dependency.mkdir()
+    source = dependency / "fast_k2_grouped.py"
+    source.write_bytes(b"def set_fwht_backend(name): pass\n")
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.trainer_path = tmp_path / "trainer.py"
+    engine.asset_root = tmp_path / "assets"
+    engine.config = {
+        "trainer_dependency_root": str(dependency),
+        "trainer_dependency_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+    }
+    original = list(sys.path)
+    try:
+        engine._prepare_import_paths()
+        assert sys.path[0] == str(dependency)
+    finally:
+        sys.path[:] = original
+
+
 def test_official_expert_binding_loads_its_pinned_grouped_dependency_first(monkeypatch):
     calls = []
     trainer_grouped = ModuleType("fast_k2_grouped")

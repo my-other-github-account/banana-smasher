@@ -579,13 +579,26 @@ class ModernGreenResidentEngine:
 
     def _prepare_import_paths(self) -> None:
         repository_root = Path(__file__).resolve().parents[3]
-        for path in (
+        paths = [
             self.trainer_path.parent,
             self.asset_root / "source",
             self.asset_root / "source" / "site",
             repository_root / "runtime" / "v7" / "vendor" / "src_lp4",
             repository_root / "runtime" / "v7" / "vendor" / "src",
-        ):
+        ]
+        dependency_value = getattr(self, "config", {}).get("trainer_dependency_root")
+        if dependency_value is not None:
+            dependency_root = Path(str(dependency_value)).expanduser().resolve()
+            expected = self.config.get("trainer_dependency_sha256")
+            if not isinstance(expected, str) or len(expected) != 64:
+                raise ArtifactError("trainer dependency SHA is required")
+            _require_file(
+                dependency_root / "fast_k2_grouped.py",
+                expected,
+                "trainer grouped-K2 dependency",
+            )
+            paths.append(dependency_root)
+        for path in paths:
             value = str(path)
             if value not in sys.path:
                 sys.path.insert(0, value)
