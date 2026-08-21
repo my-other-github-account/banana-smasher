@@ -4,7 +4,10 @@ import numpy as np
 import pytest
 
 from banana_smasher.qtip1 import gaussian_tlut
-from banana_smasher.qtip25_native_v4_cuda_cell import validate_input
+from banana_smasher.qtip25_native_v4_cuda_cell import (
+    _decode_native_v4_blocks,
+    validate_input,
+)
 
 
 def test_native_v4_cuda_cell_preflight_binds_exact_basis_and_geometry(tmp_path) -> None:
@@ -29,3 +32,14 @@ def test_native_v4_cuda_cell_preflight_binds_exact_basis_and_geometry(tmp_path) 
             intended_basis_sha256="9" * 64,
             observed_basis_sha256="8" * 64,
         )
+
+
+def test_native_v4_cuda_cell_calls_installed_decoder_without_legacy_bpw_keyword() -> None:
+    calls = []
+
+    def installed_decoder(packed, tlut):
+        calls.append((packed, tlut))
+        return "decoded"
+
+    assert _decode_native_v4_blocks(installed_decoder, "codes", "table") == "decoded"
+    assert calls == [("codes", "table")]
