@@ -177,6 +177,41 @@ def test_missing_provider_lut_refuses_undeclared_materialization_root(tmp_path):
         )
 
 
+def test_reclaimed_provider_manifest_path_rebinds_only_to_exact_declared_root(tmp_path):
+    import numpy as np
+
+    manifest = tmp_path / "manifests" / "L021" / "parent" / "QTIP_V7_MANIFEST.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('{"layer":21}\n')
+    wire = tmp_path / "L021.tlut.f16"
+    wire.write_bytes(np.zeros(1024, dtype="<f2").tobytes())
+    admission = {
+        "trainable_roster": {
+            "luts": [{
+                "layer": 21,
+                "name": "layers.21.experts.tlut",
+                "source_manifest": {
+                    "path": str(tmp_path / "reclaimed" / "QTIP_V7_MANIFEST.json"),
+                    "sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+                },
+                "wire": {
+                    "source_path": str(wire),
+                    "sha256": hashlib.sha256(wire.read_bytes()).hexdigest(),
+                },
+            }]
+        }
+    }
+
+    rebound, rows = _checkpoint_lut_admission(
+        admission,
+        {"luts": {"layers.21.experts.tlut": np.zeros(1024, dtype=np.float32)}},
+        manifest_root=tmp_path / "manifests",
+    )
+
+    assert rebound["trainable_roster"]["luts"][0]["source_manifest"]["path"] == str(manifest.resolve())
+    assert rows == []
+
+
 def test_original_provider_lut_remains_admitted_when_checkpoint_lut_differs(tmp_path):
     import numpy as np
 

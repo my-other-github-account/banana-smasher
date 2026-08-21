@@ -309,6 +309,7 @@ def _checkpoint_lut_admission(
     state: Mapping[str, Any],
     *,
     materialization_root: Path | None = None,
+    manifest_root: Path | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Admit only original or exact loaded-checkpoint float16 LUT wire bytes."""
     import numpy as np
@@ -320,6 +321,13 @@ def _checkpoint_lut_admission(
     for row in roster:
         layer = int(row["layer"])
         name = str(row["name"])
+        source_manifest = row.get("source_manifest")
+        if isinstance(source_manifest, Mapping):
+            manifest_path = Path(str(source_manifest["path"])).expanduser().resolve()
+            if not manifest_path.is_file() and manifest_root is not None:
+                candidate = (manifest_root / f"L{layer:03d}" / "parent" / "QTIP_V7_MANIFEST.json").resolve()
+                if candidate.is_file() and _sha256_file(candidate) == str(source_manifest["sha256"]):
+                    source_manifest["path"] = str(candidate)
         wire = row["wire"]
         path = Path(str(wire["source_path"])).expanduser().resolve()
         observed = _sha256_file(path) if path.is_file() else None
@@ -565,6 +573,11 @@ class ModernGreenResidentEngine:
             materialization_root=(
                 Path(str(config["checkpoint_lut_root"])).expanduser().resolve()
                 if config.get("checkpoint_lut_root")
+                else None
+            ),
+            manifest_root=(
+                Path(str(config["provider_manifest_root"])).expanduser().resolve()
+                if config.get("provider_manifest_root")
                 else None
             ),
         )
