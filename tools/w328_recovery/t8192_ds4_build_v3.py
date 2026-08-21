@@ -117,6 +117,20 @@ def atomic_hidden_checkpoint(root, *, layer, wins, hidden):
     return __import__("pathlib").Path(destination)
 
 
+def load_hidden_checkpoint(path, *, wins, device):
+    payload = torch.load(path, map_location="cpu", weights_only=True)
+    if payload.get("schema") != "banana-smasher.w328.hidden_checkpoint.v1":
+        raise RuntimeError("hidden checkpoint schema refused")
+    if payload.get("window_order") != [int(win) for win in wins]:
+        raise RuntimeError("hidden checkpoint window order refused")
+    completed = int(payload.get("completed_layer", -1))
+    next_layer = int(payload.get("next_layer", -1))
+    if next_layer != completed + 1 or completed < 0:
+        raise RuntimeError("hidden checkpoint layer boundary refused")
+    hidden = [value.to(device) for value in payload["hidden"]]
+    return hidden, next_layer
+
+
 # ---------------------------------------------------------------- shards
 class ShardCache:
     """Streams shards from remote over QSFP; keeps <= keep on disk."""
@@ -497,6 +511,8 @@ def main():
     ap.add_argument("--tag", default="")
     ap.add_argument("--hidden-checkpoint-dir", default=None,
                     help="durably persist immutable post-layer hidden states")
+    ap.add_argument("--resume-hidden-checkpoint", default=None,
+                    help="resume after an exact post-layer hidden checkpoint")
     a = ap.parse_args()
 
     assert a.mode == "bf16" or a.ref_dir, "--ref-dir required in cand modes"
@@ -614,7 +630,15 @@ def main():
                     -1, -1, config.hc_mult, -1).contiguous())
             del embeds
 
-            for L in range(NL):
+            first_layer = 0
+            if a.resume_hidden_checkpoint:
+                hidden, first_layer = load_hidden_checkpoint(
+                    a.resume_hidden_checkpoint, wins=wins, device=DEV)
+                if first_layer >= NL:
+                    raise RuntimeError("resume checkpoint is beyond model layers")
+                log(f"resuming exact hidden boundary at L{first_layer:02d}")
+
+            for L in range(first_layer, NL):
                 t0 = time.time()
                 for sh in layer_shards[L]:
                     cache.prefetch(sh)

@@ -32,8 +32,9 @@ OUT = Path("/dev/shm/W328_SEALED_RECON_t_03c6894c/output")
 TERMINAL = ROOT / "receipts/W328_EXACT_RECONSTRUCTION_TERMINAL.json"
 
 EXPECTED_FILES = {
-    BUILDER: "686f4d1fbe367811d203556891a16c7adc9ba9fbb71d5a078666f169c0bdc054",
-    PLANE: "454793702ede1305cb19a11ec0967c95e3ae77b20de0ebb3f7d2bc87c1b0bb81",
+    BUILDER: "40087bb30f7371accf79cfb2370fecc915a5df5a3509c7ea6405e266aa6334df",
+    PLANE: "93dc65ad63e68a611bbe09169d1bc7e059e64c2639e7c276034cbff45ab304f0",
+    CODE_ROOT / "complete_provider_recovery4_local30.py": "6154daf5b778f65b2a23bcb5e873a2af70af67c5a9942f0b4517079d756cc63a",
     ROOT / "code/complete_provider_recovery4_local30.py": "37addd4d86479194d15eb727a17a7920aa2bcc063f1645e74a5bcf7b24c60780",
     ROOT / "code/exact_k2_provider.py": "04b70b06450bf94320543e0f34b806f8ac705382fad04dc6b4e6cc401fd9bb7c",
     FREEZE: "2dcc28497deb834164be26e267fdf4c30cc951342c73f47ce78b207354275fc9",
@@ -166,6 +167,9 @@ def main() -> int:
             "--windows", "328", "--tag", "QTIP2_V7_ALL43_UNIFORM_BALANCED64_RUN1698",
             "--hidden-checkpoint-dir", str(ROOT / "hidden_checkpoints"),
         ]
+        resume_hidden = os.environ.get("W328_RESUME_HIDDEN_CHECKPOINT")
+        if resume_hidden:
+            sys.argv.extend(["--resume-hidden-checkpoint", resume_hidden])
         return_code = int(builder.main() or 0)
     finally:
         sys.argv = original_argv

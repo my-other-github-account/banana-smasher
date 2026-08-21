@@ -48,3 +48,18 @@ def test_checkpoint_refuses_overwrite(tmp_path: Path) -> None:
         assert "hidden_after_L000.pt" in str(error)
     else:
         raise AssertionError("checkpoint overwrite was not refused")
+
+
+def test_hidden_checkpoint_resume_seam(tmp_path: Path) -> None:
+    builder = load_builder()
+    hidden = [torch.arange(8, dtype=torch.bfloat16).reshape(1, 2, 2, 2)]
+    path = builder.atomic_hidden_checkpoint(
+        tmp_path, layer=33, wins=[328], hidden=hidden
+    )
+
+    resumed, next_layer = builder.load_hidden_checkpoint(
+        path, wins=[328], device="cpu"
+    )
+
+    assert next_layer == 34
+    assert torch.equal(resumed[0], hidden[0])
