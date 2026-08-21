@@ -360,21 +360,22 @@ def test_canonical_u0_checkpoint_cursor_is_admitted():
     assert _checkpoint_cursor({"next_update": 0}) == 0
 
 
-def test_score_group_projects_the_pipeline_microbatch_with_one_head_call():
+def test_score_group_bounds_vocabulary_projection_to_four_windows():
     calls = []
-
-    class Final:
-        def to(self, dtype):
-            calls.append(("to", dtype))
-            return "batched-final"
+    final = torch.zeros((32, 8, 16), dtype=torch.float32)
 
     def lm_head(value):
-        calls.append(("lm_head", value))
-        return "batched-logits"
+        calls.append(tuple(value.shape))
+        return value[:, :, :2]
 
-    torch = SimpleNamespace(bfloat16="bf16")
-    assert _score_group_logits(lm_head, Final(), torch) == "batched-logits"
-    assert calls == [("to", "bf16"), ("lm_head", "batched-final")]
+    batches = [
+        (offset, _score_group_logits(lm_head, final, torch, offset=offset))
+        for offset in range(0, 32, 4)
+    ]
+
+    assert [offset for offset, _logits in batches] == list(range(0, 32, 4))
+    assert calls == [(4, 8, 16)] * 8
+    assert [tuple(logits.shape) for _offset, logits in batches] == [(4, 8, 2)] * 8
 
 
 def test_rank_send_pipeline_preserves_tensor_lifetime_and_waits_fifo():

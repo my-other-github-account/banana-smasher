@@ -30,6 +30,7 @@ OFFICIAL_PHYSICAL_LAYER_SHA256 = "5d4ca4ac7d25e96fd428e55b2a7e18e074bac9d8aa2300
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
 SCORE_MICROBATCH = 32
+SCORE_LOGIT_MICROBATCH = 4
 BASE_LRS = {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2}
 HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
 HISTORICAL_SAMPLING_MODE = "historical_category_stratified_v1"
@@ -437,9 +438,12 @@ def _cuda_sync(torch: Any) -> None:
     torch.cuda.synchronize()
 
 
-def _score_group_logits(lm_head: Any, final: Any, torch: Any) -> Any:
-    """Project one pipeline microbatch through the vocabulary head in one GEMM."""
-    return lm_head(final.to(torch.bfloat16))
+def _score_group_logits(
+    lm_head: Any, final: Any, torch: Any, *, offset: int
+) -> Any:
+    """Project one bounded slice of a large pipeline score group."""
+    stop = offset + SCORE_LOGIT_MICROBATCH
+    return lm_head(final[offset:stop].to(torch.bfloat16))
 
 
 def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
@@ -891,28 +895,36 @@ class ModernGreenResidentEngine:
                         raise ArtifactError(
                             f"resident Balanced64 group has non-1024 lengths: {lengths}"
                         )
-                    group_logits = _score_group_logits(
-                        self.student.model.lm_head, final[:, :1024], torch
-                    )
-                    for row, window in enumerate(group):
-                        length = int(self.score_real_lengths[window])
-                        idx, lp_n, p_n = self._teacher_support(
-                            window, length, exact_rows=True, score=True
+                    for offset in range(0, len(group), SCORE_LOGIT_MICROBATCH):
+                        group_logits = _score_group_logits(
+                            self.student.model.lm_head,
+                            final[:, :1024],
+                            torch,
+                            offset=offset,
                         )
-                        logits = group_logits[row, :length]
-                        q = logits.gather(1, idx[:length]).float()
-                        qn = q - q.logsumexp(-1, keepdim=True)
-                        terms = (p_n[:length] * (lp_n[:length] - qn)).sum(-1)
-                        local_rows.append(
-                            {
-                                "window": window,
-                                "positions": length,
-                                "kld_sum": float(terms.double().sum().cpu()),
-                                "top1": int(
-                                    (logits.argmax(-1) == idx[:length, 0]).sum().cpu()
-                                ),
-                            }
-                        )
+                        for row, window in enumerate(
+                            group[offset : offset + SCORE_LOGIT_MICROBATCH]
+                        ):
+                            length = int(self.score_real_lengths[window])
+                            idx, lp_n, p_n = self._teacher_support(
+                                window, length, exact_rows=True, score=True
+                            )
+                            logits = group_logits[row, :length]
+                            q = logits.gather(1, idx[:length]).float()
+                            qn = q - q.logsumexp(-1, keepdim=True)
+                            terms = (p_n[:length] * (lp_n[:length] - qn)).sum(-1)
+                            local_rows.append(
+                                {
+                                    "window": window,
+                                    "positions": length,
+                                    "kld_sum": float(terms.double().sum().cpu()),
+                                    "top1": int(
+                                        (logits.argmax(-1) == idx[:length, 0]).sum().cpu()
+                                    ),
+                                }
+                            )
+                            del logits, q, qn, terms
+                        del group_logits
                     pipeline_compute_seconds += time.perf_counter() - compute_started
             if self.rank == 0:
                 wait_started = time.perf_counter()
