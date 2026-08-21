@@ -643,3 +643,39 @@ def test_public_resident_score_engine_loads_exact_state_without_training_lineage
     assert captured["config"]["score_only"] is True
     assert captured["config"]["score_windows"] == list(range(64))
     assert captured["layer_ranges"] == {0: (0, 20), 1: (21, 42)}
+
+
+def test_distributed_socket_interface_binds_nccl_peer_transport(monkeypatch):
+    calls = []
+
+    class FakeDist:
+        def is_initialized(self):
+            return False
+
+        def init_process_group(self, **kwargs):
+            calls.append((dict(kwargs), os.environ.get("NCCL_SOCKET_IFNAME")))
+
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.dist = FakeDist()
+    engine.rank = 0
+    engine.config = {
+        "distributed_backend": "nccl",
+        "distributed_socket_interface": "enp1s0f1np1",
+        "master_addr": "192.168.200.7",
+        "master_port": 29827,
+    }
+    monkeypatch.setenv("NCCL_SOCKET_IFNAME", "wrong-management-interface")
+
+    engine._init_distributed()
+
+    assert calls == [
+        (
+            {
+                "backend": "nccl",
+                "init_method": "tcp://192.168.200.7:29827",
+                "rank": 0,
+                "world_size": 2,
+            },
+            "enp1s0f1np1",
+        )
+    ]

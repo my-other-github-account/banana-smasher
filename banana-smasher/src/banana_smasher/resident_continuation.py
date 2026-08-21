@@ -952,6 +952,12 @@ class ModernGreenResidentEngine:
         master_addr = str(self.config.get("master_addr", "127.0.0.1"))
         master_port = int(self.config.get("master_port", 29598))
         init_method = str(self.config.get("init_method", f"tcp://{master_addr}:{master_port}"))
+        socket_interface = self.config.get("distributed_socket_interface")
+        if socket_interface is not None:
+            socket_interface = str(socket_interface).strip()
+            if not socket_interface:
+                raise ArtifactError("distributed_socket_interface must be non-empty")
+            os.environ["NCCL_SOCKET_IFNAME"] = socket_interface
         try:
             self.dist.init_process_group(
                 backend=str(self.config.get("distributed_backend", "nccl")),
