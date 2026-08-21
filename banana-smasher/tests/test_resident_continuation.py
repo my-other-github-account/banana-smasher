@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 import hashlib
 import sys
 
@@ -165,9 +165,45 @@ def test_resident_import_paths_do_not_shadow_trainer_fwht_selector(tmp_path):
         sys.path[:] = original
 
 
-def test_physical_score_uses_four_ordered_sixteen_window_groups():
+def test_physical_score_uses_ordered_four_window_groups():
     groups = _score_window_groups(tuple(range(64)))
-    assert groups == [list(range(start, start + 16)) for start in range(0, 64, 16)]
+    assert groups == [list(range(start, start + 4)) for start in range(0, 64, 4)]
+
+
+def test_layer_stack_reuses_one_dynamic_cache(monkeypatch):
+    caches = []
+
+    class Cache:
+        def __init__(self, *, config):
+            self.config = config
+            caches.append(self)
+
+    transformers = ModuleType("transformers")
+    cache_utils = ModuleType("transformers.cache_utils")
+    cache_utils.DynamicCache = Cache
+    transformers.cache_utils = cache_utils
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+    monkeypatch.setitem(sys.modules, "transformers.cache_utils", cache_utils)
+    seen = []
+
+    class Layer:
+        def __call__(self, hidden, **kwargs):
+            seen.append(kwargs["past_key_values"])
+            return hidden
+
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.student = SimpleNamespace(
+        config="config",
+        model=SimpleNamespace(model=SimpleNamespace(layers=[Layer(), Layer()])),
+    )
+    engine.first = 0
+    engine.last = 1
+    engine._positional = lambda ids, template, cache: ("pos", "pe", "mask")
+
+    engine._run_layers(SimpleNamespace(ndim=3), "ids", False)
+
+    assert len(caches) == 1
+    assert seen == [caches[0], caches[0]]
 
 
 def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():
