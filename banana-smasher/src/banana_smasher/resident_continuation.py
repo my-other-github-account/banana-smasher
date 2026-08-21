@@ -333,19 +333,6 @@ def _score_group_logits(lm_head: Any, final: Any, torch: Any) -> Any:
     return lm_head(final.to(torch.bfloat16))
 
 
-SCORE_MICROBATCH = 16
-
-
-def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
-    """Use a score-only batch large enough to saturate the two physical ranks."""
-    if len(windows) != 64:
-        raise ArtifactError("resident physical score requires exactly 64 windows")
-    return [
-        list(windows[offset : offset + SCORE_MICROBATCH])
-        for offset in range(0, len(windows), SCORE_MICROBATCH)
-    ]
-
-
 class ModernGreenResidentEngine:
     """One rank of the accepted two-Spark resident grouped-K2 trainer."""
 
@@ -663,12 +650,13 @@ class ModernGreenResidentEngine:
         local_rows: list[dict[str, Any]] = []
         torch = self.torch
         with torch.no_grad():
-            for group in _score_window_groups(selected):
+            for offset in range(0, len(selected), self.pipeline_microbatch):
+                group = list(selected[offset : offset + self.pipeline_microbatch])
                 ids = torch.cat(
                     [self.score_ids_cache[window] for window in group], dim=0
                 )
                 shape = (
-                    len(group),
+                    self.pipeline_microbatch,
                     self.base.T.T_TRAIN,
                     int(self.student.config.hc_mult),
                     int(self.student.config.hidden_size),
@@ -699,8 +687,8 @@ class ModernGreenResidentEngine:
                             f"resident Balanced64 group has non-1024 lengths: {lengths}"
                         )
                     # Preserve exact rows and reduction order while projecting the
-                    # score-only microbatch with one vocabulary GEMM rather than
-                    # independent M=1024 launches. Training remains sealed at four.
+                    # fixed microbatch with one M=4096 vocabulary GEMM rather than
+                    # four independent M=1024 launches.
                     group_logits = _score_group_logits(
                         self.student.model.lm_head, final[:, :1024], torch
                     )
