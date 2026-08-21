@@ -8,10 +8,13 @@ import banana_smasher.resident_continuation as continuation_module
 from banana_smasher.resident_proven_api import ResidentRepairAPI as ProvenResidentRepairAPI
 
 from banana_smasher.resident_continuation import (
+    OFFICIAL_PHYSICAL_LAYER_SHA256,
     ModernGreenResidentEngine,
     _checkpoint_cursor,
     _construct_shard_student,
+    _official_expert_source_path,
     _score_group_logits,
+    _score_window_groups,
     _select_trainer_fwht,
 )
 
@@ -138,6 +141,19 @@ def test_resident_score_selects_authenticated_trainer_quack_backend():
     _select_trainer_fwht(trainer)
 
     assert calls == ["quack"]
+
+
+def test_resident_binds_the_sealed_parity_expert_implementation():
+    source = _official_expert_source_path()
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == OFFICIAL_PHYSICAL_LAYER_SHA256
+    text = source.read_text()
+    assert ".clamp(" not in text
+    assert "torch.argsort(top_k_index, dim=1, stable=True)" in text
+
+
+def test_physical_score_uses_four_ordered_sixteen_window_groups():
+    groups = _score_window_groups(tuple(range(64)))
+    assert groups == [list(range(start, start + 16)) for start in range(0, 64, 16)]
 
 
 def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():

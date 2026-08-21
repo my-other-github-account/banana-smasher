@@ -24,8 +24,10 @@ MODEL_INDEX_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e
 ADMISSION_SHA256 = "76d0674eb0cd37fc9022bac5e048c2b77c721826182222ae0a0609e29607a2c5"
 CORPUS_SHA256 = "434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5"
 TRAINER_SHA256 = "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
+OFFICIAL_PHYSICAL_LAYER_SHA256 = "5d4ca4ac7d25e96fd428e55b2a7e18e074bac9d8aa23004bddbb6bde15d020d5"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
+SCORE_MICROBATCH = 16
 BASE_LRS = {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2}
 HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
 HISTORICAL_SAMPLING_MODE = "historical_category_stratified_v1"
@@ -320,6 +322,17 @@ def _load_source_module(name: str, path: Path) -> Any:
     return module
 
 
+def _official_expert_source_path() -> Path:
+    path = Path(__file__).resolve().parents[3] / "runtime" / "v7" / "runner" / "fast_v7_expert_base.py"
+    _require_file(path, OFFICIAL_PHYSICAL_LAYER_SHA256, "sealed parity expert source")
+    return path
+
+
+def _bind_official_expert_source() -> Any:
+    """Bind the accepted clamp-free, ordered-reduction expert implementation."""
+    return _load_source_module("fast_v7_expert_base", _official_expert_source_path())
+
+
 def _require_file(path: Path, expected_sha: str | None, label: str) -> None:
     if not path.is_file():
         raise ArtifactError(f"official resident {label} is missing: {path}")
@@ -336,6 +349,16 @@ def _cuda_sync(torch: Any) -> None:
 def _score_group_logits(lm_head: Any, final: Any, torch: Any) -> Any:
     """Project one pipeline microbatch through the vocabulary head in one GEMM."""
     return lm_head(final.to(torch.bfloat16))
+
+
+def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
+    """Use four score-only groups without changing training microbatches."""
+    if len(windows) != 64:
+        raise ArtifactError("resident physical score requires exactly 64 windows")
+    return [
+        list(windows[offset : offset + SCORE_MICROBATCH])
+        for offset in range(0, len(windows), SCORE_MICROBATCH)
+    ]
 
 
 class ModernGreenResidentEngine:
@@ -393,6 +416,7 @@ class ModernGreenResidentEngine:
         self.vq3b_dir = Path(str(config["vq3b_dir"])).expanduser().resolve()
         self._configure_import_environment()
         self._prepare_import_paths()
+        _bind_official_expert_source()
         self.trainer = _load_source_module(
             f"banana_smasher_modern_green_api_{os.getpid()}_{rank}", self.trainer_path
         )
@@ -473,6 +497,7 @@ class ModernGreenResidentEngine:
             self.trainer_path.parent,
             self.asset_root / "source",
             self.asset_root / "source" / "site",
+            repository_root / "runtime" / "v7" / "runner",
             repository_root / "runtime" / "v7" / "vendor" / "src_lp4",
             repository_root / "runtime" / "v7" / "vendor" / "src",
         ):
@@ -666,13 +691,12 @@ class ModernGreenResidentEngine:
         local_rows: list[dict[str, Any]] = []
         torch = self.torch
         with torch.no_grad():
-            for offset in range(0, len(selected), self.pipeline_microbatch):
-                group = list(selected[offset : offset + self.pipeline_microbatch])
+            for group in _score_window_groups(selected):
                 ids = torch.cat(
                     [self.score_ids_cache[window] for window in group], dim=0
                 )
                 shape = (
-                    self.pipeline_microbatch,
+                    len(group),
                     self.base.T.T_TRAIN,
                     int(self.student.config.hc_mult),
                     int(self.student.config.hidden_size),
