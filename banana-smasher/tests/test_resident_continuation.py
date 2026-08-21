@@ -526,6 +526,14 @@ def test_grouped_k2_inverts_stable_routing_order_without_a_second_sort():
 
     assert torch.equal(order[inverse], torch.arange(order.numel()))
     assert torch.equal(inverse, torch.argsort(order))
+    module.set_fwht_backend("current")
+    assert module.fwht_backend_stats() == {
+        "current_calls": 0,
+        "quack_calls": 0,
+        "fallback_calls": 0,
+    }
+    with pytest.raises(ValueError, match="unsupported FWHT backend"):
+        module.set_fwht_backend("fallback")
 
 
 def test_rank_receive_uses_batched_p2p_and_waits():

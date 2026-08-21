@@ -77,14 +77,46 @@ def direct_decode_matrix(packed: torch.Tensor, lut: torch.Tensor) -> torch.Tenso
     )
 
 
+_FWHT_BACKEND = "current"
+_FWHT_STATS = {"current_calls": 0, "quack_calls": 0, "fallback_calls": 0}
+
+
+def set_fwht_backend(name: str) -> None:
+    global _FWHT_BACKEND
+    if name not in {"current", "quack"}:
+        raise ValueError(f"unsupported FWHT backend: {name}")
+    _FWHT_BACKEND = name
+
+
+def fwht_backend_stats(*, reset: bool = False) -> dict[str, int]:
+    value = dict(_FWHT_STATS)
+    if reset:
+        for key in _FWHT_STATS:
+            _FWHT_STATS[key] = 0
+    return value
+
+
 def block_hadamard_128(value: torch.Tensor) -> torch.Tensor:
-    """Apply the exact normalized H128 independently to final-axis blocks."""
+    """Apply exact normalized H128 blocks through the selected required backend."""
     if value.shape[-1] % 128:
         raise ValueError("last dimension must be divisible by 128")
+    blocks = value.reshape(-1, 128).contiguous()
+    if _FWHT_BACKEND == "quack":
+        import math
+        from quack.hadamard import hadamard_transform
+
+        if not blocks.is_cuda or blocks.dtype not in (torch.float16, torch.bfloat16, torch.float32):
+            raise RuntimeError("required Quack FWHT needs contiguous CUDA fp16/bf16/fp32 blocks")
+        _FWHT_STATS["quack_calls"] += 1
+        return hadamard_transform(blocks, scale=1 / math.sqrt(128)).reshape_as(value)
+    if _FWHT_BACKEND != "current":
+        _FWHT_STATS["fallback_calls"] += 1
+        raise RuntimeError(f"unknown required FWHT backend: {_FWHT_BACKEND}")
     from banana_smasher.qtip_k2 import normalized_hadamard_128
 
+    _FWHT_STATS["current_calls"] += 1
     matrix = normalized_hadamard_128(value.device, value.dtype)
-    return (value.reshape(-1, 128) @ matrix).reshape_as(value)
+    return (blocks @ matrix).reshape_as(value)
 
 
 def _validate_grouped(
@@ -154,7 +186,7 @@ def _cuda_extension() -> Any:
             raise RuntimeError(
                 f"FAST_K2_EXTENSION sha drift: {observed} != {expected.lower()}"
             )
-        module_name = path.name.split(".", 1)[0]
+        module_name = os.environ.get("FAST_K2_MODULE_NAME", "banana_smasher_fast_k2_grouped")
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
             raise ImportError(path)
@@ -192,6 +224,7 @@ class _GroupedInnerFunction(torch.autograd.Function):
         output = extension.grouped_inner_forward(
             x, offsets, work_experts, work_starts, packed, lut_master
         )
+        _STATS["forward_kernel_calls"] += 1
         ctx.save_for_backward(
             x, offsets, work_experts, work_starts, active_experts, packed, lut_master
         )
@@ -218,6 +251,7 @@ class _GroupedInnerFunction(torch.autograd.Function):
             packed,
             lut_master,
         )
+        _STATS["backward_kernel_calls"] += 1
         return grad_x, None, None, None, None, None, grad_lut
 
 
@@ -228,16 +262,28 @@ _STATS = {
     "fallback_calls": 0,
     "reconstruction_calls": 0,
     "cpu_relay_bytes": 0,
+    "sort_calls": 0,
+    "routed_rows": 0,
+    "active_expert_observations": 0,
+    "work_blocks": 0,
+    "hadamard_calls": 0,
 }
 
 
 def grouped_k2_stats() -> dict[str, int]:
-    return dict(_STATS)
+    return {
+        **_STATS,
+        "quack_fwht_calls": int(_FWHT_STATS["quack_calls"]),
+        "reference_fwht_calls": int(_FWHT_STATS["current_calls"]),
+        "fwht_fallback_calls": int(_FWHT_STATS["fallback_calls"]),
+    }
 
 
 def reset_grouped_k2_stats() -> None:
     for name in _STATS:
         _STATS[name] = 0
+    for name in _FWHT_STATS:
+        _FWHT_STATS[name] = 0
 
 
 def grouped_packed_projection(
@@ -282,6 +328,11 @@ def grouped_packed_projection(
         offsets[work_experts.to(torch.int64)] + work_local * 16
     ).contiguous()
     active_experts = torch.nonzero(counts, as_tuple=False).flatten().to(torch.int32).contiguous()
+    _STATS["sort_calls"] += 1
+    _STATS["routed_rows"] += int(x.shape[0])
+    _STATS["active_expert_observations"] += int(active_experts.numel())
+    _STATS["work_blocks"] += int(work_starts.numel())
+    _STATS["hadamard_calls"] += 2
 
     x_inner = block_hadamard_128(
         sorted_x.float() * su[sorted_assignments].float()
@@ -299,9 +350,6 @@ def grouped_packed_projection(
         block_hadamard_128(inner) * sv[sorted_assignments].float()
     )
     _STATS["projection_calls"] += 1
-    _STATS["forward_kernel_calls"] += 1
-    if torch.is_grad_enabled() and (x.requires_grad or lut_master.requires_grad):
-        _STATS["backward_kernel_calls"] += 1
     return sorted_output[inverse_order]
 
 
