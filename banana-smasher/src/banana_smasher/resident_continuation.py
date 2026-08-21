@@ -550,22 +550,72 @@ class ModernGreenResidentEngine:
     def _load_training_data(self) -> None:
         training = _training_window_ids(self.config)
         score_windows = [int(value) for value in self.config.get("score_windows", ())]
-        ordered = list(dict.fromkeys([*training, *score_windows]))
-        corpus = self.base.T.load_corpus()
-        self.ids_cache = {
-            window: self.base.T.window_ids(corpus, window)[0].unsqueeze(0).to(self.student.device)
-            for window in ordered
-        }
-        self.real_lengths = {window: self.base.T.window_ids(corpus, window)[1] for window in ordered}
-        self.teacher_cache = {}
-        if self.rank == 1:
-            for window in ordered:
-                self.teacher_cache[window] = self.base.T.teacher_rows(window)
+        train_corpus = str(
+            self.config["train_corpus"]
+            if "train_corpus" in self.config
+            else self.corpus_path
+        )
+        train_teachers = str(
+            self.config["train_teacher_root"]
+            if "train_teacher_root" in self.config
+            else self.teacher_root
+        )
+        score_corpus = str(self.config.get("score_corpus", train_corpus))
+        score_teachers = str(self.config.get("score_teacher_root", train_teachers))
+        original_corpus = self.base.T.CORPUS
+        original_teachers = self.base.T.TEACH
+        try:
+            self.base.T.CORPUS = train_corpus
+            self.base.T.TEACH = train_teachers
+            corpus = self.base.T.load_corpus()
+            self.ids_cache = {
+                window: self.base.T.window_ids(corpus, window)[0]
+                .unsqueeze(0)
+                .to(self.student.device)
+                for window in training
+            }
+            self.real_lengths = {
+                window: self.base.T.window_ids(corpus, window)[1]
+                for window in training
+            }
+            self.teacher_cache = {}
+            if self.rank == 1:
+                self.teacher_cache = {
+                    window: self.base.T.teacher_rows(window) for window in training
+                }
+
+            self.base.T.CORPUS = score_corpus
+            self.base.T.TEACH = score_teachers
+            corpus = self.base.T.load_corpus()
+            self.score_ids_cache = {
+                window: self.base.T.window_ids(corpus, window)[0]
+                .unsqueeze(0)
+                .to(self.student.device)
+                for window in score_windows
+            }
+            self.score_real_lengths = {
+                window: self.base.T.window_ids(corpus, window)[1]
+                for window in score_windows
+            }
+            self.score_teacher_cache = {}
+            if self.rank == 1:
+                self.score_teacher_cache = {
+                    window: self.base.T.teacher_rows(window) for window in score_windows
+                }
+        finally:
+            self.base.T.CORPUS = original_corpus
+            self.base.T.TEACH = original_teachers
 
     def _teacher_support(
-        self, window: int, length: int, *, exact_rows: bool = False
+        self,
+        window: int,
+        length: int,
+        *,
+        exact_rows: bool = False,
+        score: bool = False,
     ) -> tuple[Any, Any, Any]:
-        idx, lp_n, p_n = self.teacher_cache[window]
+        cache = self.score_teacher_cache if score else self.teacher_cache
+        idx, lp_n, p_n = cache[window]
         shapes = [tuple(value.shape) for value in (idx, lp_n, p_n)]
         if any(
             len(shape) != 2
@@ -583,7 +633,7 @@ class ModernGreenResidentEngine:
         selected = tuple(int(value) for value in windows)
         if len(selected) != 64 or len(set(selected)) != 64:
             raise ArtifactError("resident physical score requires 64 unique ordered windows")
-        missing = [window for window in selected if window not in self.ids_cache]
+        missing = [window for window in selected if window not in self.score_ids_cache]
         if missing:
             raise ArtifactError(f"resident physical score windows were not preloaded: {missing}")
         started = time.perf_counter()
@@ -592,7 +642,9 @@ class ModernGreenResidentEngine:
         with torch.no_grad():
             for offset in range(0, len(selected), self.pipeline_microbatch):
                 group = list(selected[offset : offset + self.pipeline_microbatch])
-                ids = torch.cat([self.ids_cache[window] for window in group], dim=0)
+                ids = torch.cat(
+                    [self.score_ids_cache[window] for window in group], dim=0
+                )
                 shape = (
                     self.pipeline_microbatch,
                     self.base.T.T_TRAIN,
@@ -620,13 +672,13 @@ class ModernGreenResidentEngine:
                         self.student.model.model.hc_head(hidden)
                     )
                     for row, window in enumerate(group):
-                        length = int(self.real_lengths[window])
+                        length = int(self.score_real_lengths[window])
                         if length != 1024:
                             raise ArtifactError(
                                 f"resident Balanced64 window {window} has {length} positions"
                             )
                         idx, lp_n, p_n = self._teacher_support(
-                            window, length, exact_rows=True
+                            window, length, exact_rows=True, score=True
                         )
                         logits = self.student.model.lm_head(
                             final[row, :length].to(torch.bfloat16)
