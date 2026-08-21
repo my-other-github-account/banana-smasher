@@ -751,7 +751,7 @@ class ModernGreenResidentEngine:
             raise ArtifactError(f"U16 LambdaLR state cannot load: {exc}") from exc
 
     def _load_training_data(self) -> None:
-        training = _training_window_ids(self.config)
+        training = [] if getattr(self, "score_only", False) else _training_window_ids(self.config)
         score_windows = [int(value) for value in self.config.get("score_windows", ())]
         train_corpus = str(
             self.config["train_corpus"]

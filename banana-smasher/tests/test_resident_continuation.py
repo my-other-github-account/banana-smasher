@@ -314,6 +314,46 @@ def test_training_and_balanced64_score_inputs_remain_separate_when_windows_overl
     assert T.TEACH == "original-teacher"
 
 
+def test_score_only_engine_does_not_require_reclaimed_training_teacher_rows():
+    class T:
+        CORPUS = "original-corpus"
+        TEACH = "original-teacher"
+
+        @classmethod
+        def load_corpus(cls):
+            return cls.CORPUS
+
+        @staticmethod
+        def window_ids(corpus, window):
+            return _FakeTensor((corpus, window)), 1024
+
+        @classmethod
+        def teacher_rows(cls, window):
+            if cls.TEACH == "/reclaimed/train-teacher":
+                raise AssertionError("score-only construction touched training teacher rows")
+            return (cls.TEACH, window)
+
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.score_only = True
+    engine.config = {
+        "score_windows": [28],
+        "train_corpus": "/inputs/train.json",
+        "train_teacher_root": "/reclaimed/train-teacher",
+        "score_corpus": "/inputs/score.json",
+        "score_teacher_root": "/inputs/score-teacher",
+    }
+    engine.base = SimpleNamespace(T=T)
+    engine.student = SimpleNamespace(device="cuda")
+    engine.rank = 1
+
+    engine._load_training_data()
+
+    assert engine.ids_cache == {}
+    assert engine.teacher_cache == {}
+    assert engine.score_ids_cache[28].source == ("/inputs/score.json", 28)
+    assert engine.score_teacher_cache[28] == ("/inputs/score-teacher", 28)
+
+
 def test_canonical_u0_checkpoint_cursor_is_admitted():
     assert _checkpoint_cursor({"next_update": 0}) == 0
 
