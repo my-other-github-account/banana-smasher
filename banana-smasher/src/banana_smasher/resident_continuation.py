@@ -278,6 +278,13 @@ def _scheduler_state_action(config: Mapping[str, Any], next_update: int) -> str:
     return "LOAD_FRESH_CONTINUATION_SCHEDULE"
 
 
+def _checkpoint_cursor(payload: Mapping[str, Any]) -> int:
+    cursor = int(payload.get("next_update", 0))
+    if not 0 <= cursor < 64:
+        raise ArtifactError("official resident checkpoint cursor must be within U0..U63")
+    return cursor
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -443,9 +450,7 @@ class ModernGreenResidentEngine:
         self._load_optimizer_scheduler_state()
         self._load_training_data()
         self._init_distributed()
-        self.global_step = int(payload.get("next_update", 16))
-        if not 16 <= self.global_step < 64:
-            raise ArtifactError("official resident checkpoint cursor must be within U16..U63")
+        self.global_step = _checkpoint_cursor(payload)
 
     def _prepare_import_paths(self) -> None:
         for path in (

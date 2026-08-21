@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from banana_smasher.resident_continuation import (
     ModernGreenResidentEngine,
+    _checkpoint_cursor,
     _construct_shard_student,
 )
 
@@ -102,3 +103,7 @@ def test_training_and_balanced64_score_inputs_remain_separate_when_windows_overl
     assert engine.score_teacher_cache[28] == ("/inputs/score-teacher", 28)
     assert T.CORPUS == "original-corpus"
     assert T.TEACH == "original-teacher"
+
+
+def test_canonical_u0_checkpoint_cursor_is_admitted():
+    assert _checkpoint_cursor({"next_update": 0}) == 0
