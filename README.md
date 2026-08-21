@@ -2,9 +2,16 @@
 Canonical package code lives in the nested path `banana-smasher/src/banana_smasher/`; this is intentional—do not create a second package tree.
 Install from `banana-smasher/pyproject.toml`; the single command is `smash` (`banana_smasher.cli:main`).
 Start with `CODEBASE_MAP.md` for the authoritative module and repository map.
-Build uniform QTIP-V7 tiers with `ResidentRepairAPI.build_uniform(model, tier)` in `resident_repair_api.py`.
-Mix prebuilt tiers to a BPW target with `ResidentRepairAPI.backpack_mix(builds, bpw_target)`; mixing never re-solves anchors.
-Score and train through `score_pre()`, `repair_train()`, and `score_post()` on that same API.
+Canonical checkpoint identity: the published QTIP2 V7 pre-repair artifact is
+`f9bffe04…` (the [Evals row](Evals/README.md#results): KLD `0.229392`, Top-1
+`56,533/65,536`). Raw U0 `7978d100…` is a different state (about `0.2356`
+KLD), not an alias for the published PRE artifact.
+Every checkpoint-loading operation requires the same explicit `checkpoint_sha`
+keyword and refuses identity drift. Build with
+`ResidentRepairAPI.build_uniform(model, tier, checkpoint_sha=...)`, mix with
+`ResidentRepairAPI.backpack_mix(builds, bpw_target, checkpoint_sha=...)`, and pass the same value
+to `score_pre()`, `repair_train()`, and `score_post()`; each receipt echoes it as
+`input_checkpoint_sha256`.
 Artifact identity, layer-tier provenance, canary reference, and tolerance live in each artifact's `identity.json`.
 Use `smash --help` for the public CLI; `runtime/v7/` is the pinned rail, with image helpers at `docker/examples/build_image.sh` and `docker/examples/serve.sh`.
 Contributor laws are in `AGENTS.md`; accelerations and source lineage are in `ACCELERATIONS.md` and `PROVENANCE.md`.

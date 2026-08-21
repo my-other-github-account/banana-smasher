@@ -10,6 +10,7 @@ from banana_smasher.cli import _parser
 from banana_smasher.hf_deepseek_v4_backpack_adapter import DeepseekV4BackpackRuntime
 from banana_smasher import qtip_v7_joint_workflow
 from banana_smasher.production_rails import ProductionRails
+from banana_smasher.official_k2_resident import OfficialK2PackedResidentAdapter
 from banana_smasher.qtip_v7_routes import _load_qtip2_v7_member_roster
 from banana_smasher.resident_repair_api import ResidentRepairAPI
 
@@ -46,6 +47,7 @@ def test_resident_api_is_the_only_public_score_and_train_surface() -> None:
     assert not hasattr(qtip_v7_joint_workflow, "train_joint")
     assert not hasattr(backpack_exact64, "score_backpack_exact64")
     assert not hasattr(metrics, "score_candidate")
+    assert not hasattr(OfficialK2PackedResidentAdapter, "score")
 
     commands = _command_names(_parser())
     assert {

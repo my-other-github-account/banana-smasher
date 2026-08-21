@@ -65,6 +65,7 @@ class PipelineRails(Protocol):
 class BackpackArtifact:
     root: Path
     identity: ArtifactIdentity
+    checkpoint_sha256: str
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,42 @@ def _composition_tiers(identity: ArtifactIdentity) -> set[str]:
         tiers = row.get("tiers")
         if isinstance(tiers, Mapping):
             result.update(str(name) for name, count in tiers.items() if int(count) > 0)
+    return result
+
+
+def _checkpoint_sha(
+    identity: ArtifactIdentity, expected: str, *, operation: str
+) -> str:
+    if (
+        not isinstance(expected, str)
+        or len(expected) != 64
+        or any(character not in "0123456789abcdef" for character in expected)
+    ):
+        raise ValueError(f"{operation} checkpoint SHA must be a lowercase SHA-256")
+    declared = {
+        row.get("sha256")
+        for row in identity.checkpoints.values()
+        if isinstance(row, Mapping)
+    }
+    if expected not in declared:
+        raise ValueError(
+            f"{operation} checkpoint SHA mismatch: expected={expected} "
+            f"declared={sorted(value for value in declared if isinstance(value, str))}"
+        )
+    return expected
+
+
+def _checkpoint_receipt(
+    value: Mapping[str, Any], checkpoint_sha: str, *, operation: str
+) -> dict[str, Any]:
+    result = dict(value)
+    observed = result.get("input_checkpoint_sha256")
+    if observed is not None and observed != checkpoint_sha:
+        raise ValueError(
+            f"{operation} receipt checkpoint SHA mismatch: "
+            f"expected={checkpoint_sha} observed={observed}"
+        )
+    result["input_checkpoint_sha256"] = checkpoint_sha
     return result
 
 
@@ -237,14 +274,22 @@ class ResidentRepairAPI:
             return
         self.rails.hot_swap(artifact)
 
-    def build_uniform(self, model: str | Path, tier: str) -> UniformBuild:
+    def build_uniform(
+        self, model: str | Path, tier: str, *, checkpoint_sha: str
+    ) -> UniformBuild:
         if tier not in V7_UNIFORM_TIERS:
             raise ValueError(
                 "uniform build requires an integer QTIP-V7 tier: "
                 + ", ".join(sorted(V7_UNIFORM_TIERS))
             )
         if tier in self._uniforms:
-            return self._uniforms[tier]
+            cached = self._uniforms[tier]
+            if cached.checkpoint_sha256 != checkpoint_sha:
+                raise ValueError(
+                    "build checkpoint SHA mismatch for cached uniform: "
+                    f"expected={checkpoint_sha} cached={cached.checkpoint_sha256}"
+                )
+            return cached
         destination = self.run_root / "uniform" / tier
         root = Path(
             self.rails.build_uniform(
@@ -252,6 +297,9 @@ class ResidentRepairAPI:
             )
         ).resolve()
         identity = ArtifactIdentity.load(root)
+        verified_checkpoint_sha = _checkpoint_sha(
+            identity, checkpoint_sha, operation="build"
+        )
         declared = _composition_tiers(identity)
         forbidden = declared - {tier} - _NATIVE_TIERS
         if forbidden or tier not in declared:
@@ -262,17 +310,28 @@ class ResidentRepairAPI:
             raise ValueError(
                 "uniform build identity must declare uniform-qtip-v7 composition"
             )
-        result = UniformBuild(root=root, identity=identity, tier=tier)
+        result = UniformBuild(
+            root=root,
+            identity=identity,
+            checkpoint_sha256=verified_checkpoint_sha,
+            tier=tier,
+        )
         self._uniforms[tier] = result
         return result
 
     def backpack_mix(
-        self, builds: Sequence[UniformBuild], bpw_target: float
+        self,
+        builds: Sequence[UniformBuild],
+        bpw_target: float,
+        *,
+        checkpoint_sha: str,
     ) -> BackpackArtifact:
         target = _finite_positive(bpw_target, "bpw_target")
         rows = tuple(builds)
         if not rows:
             raise ValueError("Backpack mixing requires at least one uniform build")
+        if any(row.checkpoint_sha256 != checkpoint_sha for row in rows):
+            raise ValueError("mix checkpoint SHA mismatch across uniform builds")
         tiers = [row.tier for row in rows]
         if len(set(tiers)) != len(tiers) or any(
             tier not in V7_UNIFORM_TIERS for tier in tiers
@@ -286,6 +345,9 @@ class ResidentRepairAPI:
         destination = self.run_root / "mixed"
         root = Path(self.rails.mix(rows, target, destination)).resolve()
         identity = ArtifactIdentity.load(root)
+        verified_checkpoint_sha = _checkpoint_sha(
+            identity, checkpoint_sha, operation="mix"
+        )
         if identity.basis_sha256 != rows[0].identity.basis_sha256:
             raise ValueError("mixed Backpack basis differs from its uniform builds")
         if identity.composition_kind != "mixed-qtip-v7-backpack":
@@ -308,11 +370,20 @@ class ResidentRepairAPI:
             raise ValueError("mixed artifact uniform-build provenance mismatch")
         if float(provenance.get("bpw_target", -1.0)) != target:
             raise ValueError("mixed artifact BPW target provenance mismatch")
-        self._mixed = BackpackArtifact(root=root, identity=identity)
+        self._mixed = BackpackArtifact(
+            root=root,
+            identity=identity,
+            checkpoint_sha256=verified_checkpoint_sha,
+        )
         return self._mixed
 
-    def _score(self, artifact: BackpackArtifact, phase: str) -> Mapping[str, Any]:
+    def _score(
+        self, artifact: BackpackArtifact, phase: str, *, checkpoint_sha: str
+    ) -> Mapping[str, Any]:
         phase_name = "zero_update_score" if phase == "pre" else "post_update_score"
+        _checkpoint_sha(artifact.identity, checkpoint_sha, operation=f"score_{phase}")
+        if artifact.checkpoint_sha256 != checkpoint_sha:
+            raise ValueError(f"score_{phase} checkpoint SHA mismatch for selected artifact")
 
         def execute() -> dict[str, Any]:
             self._activate(artifact)
@@ -325,25 +396,36 @@ class ResidentRepairAPI:
                     "canonical scorer result lacks mean_kld/top1_matches"
                 ) from exc
             artifact.identity.require_canary(kld=kld, top1=top1)
-            return result
+            return _checkpoint_receipt(
+                result, checkpoint_sha, operation=f"score_{phase}"
+            )
 
         return self._timed(
             phase_name,
             execute,
         )
 
-    def score_pre(self, artifact: BackpackArtifact | None = None) -> Mapping[str, Any]:
+    def score_pre(
+        self,
+        artifact: BackpackArtifact | None = None,
+        *,
+        checkpoint_sha: str,
+    ) -> Mapping[str, Any]:
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("score_pre requires a mixed Backpack")
         if self._phase_state != "initialized":
             raise ValueError("score_pre must be the first resident arm phase")
-        result = self._score(selected, "pre")
+        result = self._score(selected, "pre", checkpoint_sha=checkpoint_sha)
         self._phase_state = "pre_scored"
         return result
 
     def repair_train(
-        self, artifact: BackpackArtifact | None = None, *, updates: int
+        self,
+        artifact: BackpackArtifact | None = None,
+        *,
+        updates: int,
+        checkpoint_sha: str,
     ) -> Mapping[str, Any]:
         selected = artifact or self._mixed
         if selected is None:
@@ -352,9 +434,17 @@ class ResidentRepairAPI:
             raise ValueError("production resident arm requires exactly four updates")
         if self._phase_state != "pre_scored":
             raise ValueError("repair_train requires one completed pre-score")
+        _checkpoint_sha(selected.identity, checkpoint_sha, operation="repair_train")
+        if selected.checkpoint_sha256 != checkpoint_sha:
+            raise ValueError("repair_train checkpoint SHA mismatch for selected artifact")
+
         def execute() -> dict[str, Any]:
             self._activate(selected)
-            return dict(self.rails.train(selected, updates))
+            return _checkpoint_receipt(
+                self.rails.train(selected, updates),
+                checkpoint_sha,
+                operation="repair_train",
+            )
 
         result = self._timed(
             "four_resident_updates",
@@ -363,27 +453,38 @@ class ResidentRepairAPI:
         self._phase_state = "trained"
         return result
 
-    def score_post(self, artifact: BackpackArtifact | None = None) -> Mapping[str, Any]:
+    def score_post(
+        self,
+        artifact: BackpackArtifact | None = None,
+        *,
+        checkpoint_sha: str,
+    ) -> Mapping[str, Any]:
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("score_post requires a mixed Backpack")
         if self._phase_state != "trained":
             raise ValueError("score_post requires completed resident training")
-        result = self._score(selected, "post")
+        result = self._score(selected, "post", checkpoint_sha=checkpoint_sha)
         self._phase_state = "completed"
         self._publish_timing(status="PASS")
         return result
 
     def run_arm(
-        self, artifact: BackpackArtifact | None = None, *, updates: int = 4
+        self,
+        artifact: BackpackArtifact | None = None,
+        *,
+        updates: int = 4,
+        checkpoint_sha: str,
     ) -> dict[str, Any]:
         """Execute exactly zero-update score -> four updates -> post-update score."""
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("run_arm requires a mixed Backpack")
-        pre = self.score_pre(selected)
-        training = self.repair_train(selected, updates=updates)
-        post = self.score_post(selected)
+        pre = self.score_pre(selected, checkpoint_sha=checkpoint_sha)
+        training = self.repair_train(
+            selected, updates=updates, checkpoint_sha=checkpoint_sha
+        )
+        post = self.score_post(selected, checkpoint_sha=checkpoint_sha)
         return {
             "pre": pre,
             "training": training,
@@ -398,10 +499,18 @@ class ResidentRepairAPI:
         uniform_tiers: Sequence[str],
         bpw_target: float,
         repair_updates: int,
+        checkpoint_sha: str,
     ) -> dict[str, Any]:
-        uniforms = tuple(self.build_uniform(model, tier) for tier in uniform_tiers)
-        mixed = self.backpack_mix(uniforms, bpw_target)
-        arm = self.run_arm(mixed, updates=repair_updates)
+        uniforms = tuple(
+            self.build_uniform(model, tier, checkpoint_sha=checkpoint_sha)
+            for tier in uniform_tiers
+        )
+        mixed = self.backpack_mix(
+            uniforms, bpw_target, checkpoint_sha=checkpoint_sha
+        )
+        arm = self.run_arm(
+            mixed, updates=repair_updates, checkpoint_sha=checkpoint_sha
+        )
         result = PipelineResult(
             uniforms=uniforms,
             mixed=mixed,

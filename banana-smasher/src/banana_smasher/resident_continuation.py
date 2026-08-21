@@ -42,7 +42,6 @@ def _construct_shard_student(
     official_k2: Any,
     model_root: Path,
     admission: Mapping[str, Any],
-    parent_root: Path,
     member_roster_path: Path,
     member_roster_sha256: str,
     payload: Mapping[str, Any],
@@ -51,7 +50,7 @@ def _construct_shard_student(
     last: int,
     status_cb: Any,
 ) -> Any:
-    """Construct either accepted public trainer ABI without changing its wire."""
+    """Construct the single all-layer public trainer ABI."""
     loader = getattr(trainer, "load_member_roster", None)
     common = {
         "torch": torch,
@@ -66,17 +65,10 @@ def _construct_shard_student(
         "last": last,
         "status_cb": status_cb,
     }
-    if callable(loader):
-        members = loader(member_roster_path, member_roster_sha256)
-        return trainer.ShardStudent(member_roster=members, **common)
-    # The immutable Modern Green source predates the all-layer roster ABI and
-    # authenticates the exact ordinary parent plus the selected L034 roster.
-    # Keep that accepted physical path explicit rather than inventing a roster.
-    return trainer.ShardStudent(
-        parent_root=parent_root,
-        l034_roster=member_roster_path,
-        **common,
-    )
+    if not callable(loader):
+        raise RuntimeError("resident trainer lacks the all-layer member roster ABI")
+    members = loader(member_roster_path, member_roster_sha256)
+    return trainer.ShardStudent(member_roster=members, **common)
 
 
 def _historical_mode(config: Mapping[str, Any]) -> bool:
@@ -418,9 +410,6 @@ class ModernGreenResidentEngine:
             raise ArtifactError("official resident LUT roster drift")
         self._configure_base()
         self.status: dict[str, Any] = {}
-        parent_root = Path(str(config.get("parent_root", ""))).expanduser().resolve()
-        if not parent_root.is_dir():
-            raise ArtifactError(f"official resident parent root is missing: {parent_root}")
         self.student = _construct_shard_student(
             self.trainer,
             torch=torch,
@@ -429,7 +418,6 @@ class ModernGreenResidentEngine:
             official_k2=official_k2,
             model_root=self.model_root,
             admission=admission,
-            parent_root=parent_root,
             member_roster_path=self.member_roster,
             member_roster_sha256=self.member_roster_sha256,
             payload=payload,

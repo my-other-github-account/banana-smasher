@@ -146,7 +146,7 @@ def _artifact(root: Path, provider_binding_sha256: str) -> BackpackArtifact:
             "teacher_inventory_sha256": _sha("teacher"),
         },
         "checkpoints": {
-            "u0": {"sha256": _sha("u0"), "identity_sha256": _sha("u0-id")}
+            "u0": {"sha256": checkpoint_sha, "identity_sha256": _sha("u0-id")}
         },
         "composition": {
             "kind": "mixed-qtip-v7-backpack",
@@ -166,7 +166,11 @@ def _artifact(root: Path, provider_binding_sha256: str) -> BackpackArtifact:
         },
     }
     (root / "identity.json").write_text(json.dumps(document, sort_keys=True))
-    return BackpackArtifact(root=root, identity=ArtifactIdentity.load(root))
+    return BackpackArtifact(
+        root=root,
+        identity=ArtifactIdentity.load(root),
+        checkpoint_sha256=checkpoint_sha,
+    )
 
 
 def _admit(config: dict, artifact: BackpackArtifact) -> None:
@@ -199,9 +203,11 @@ def test_production_rails_one_construction_across_score_updates_swap_and_post(
     )
     # Exercise the public phase surface with the already mixed pinned artifact.
     facade = ResidentRepairAPI(rails=rails, run_root=tmp_path / "facade")
-    pre = facade.score_pre(artifact)
-    trained = facade.repair_train(artifact, updates=4)
-    post = facade.score_post(artifact)
+    pre = facade.score_pre(artifact, checkpoint_sha=artifact.checkpoint_sha256)
+    trained = facade.repair_train(
+        artifact, updates=4, checkpoint_sha=artifact.checkpoint_sha256
+    )
+    post = facade.score_post(artifact, checkpoint_sha=artifact.checkpoint_sha256)
 
     lifecycle = json.loads((tmp_path / "run" / "RESIDENT_LIFECYCLE.json").read_text())
     assert FixtureSession.constructions == 1
@@ -306,11 +312,14 @@ def test_cli_exposes_only_one_process_resident_arm():
             "/rails.json",
             "--run-root",
             "/run",
+            "--checkpoint-sha",
+            "a" * 64,
         ]
     )
     assert args.command == "resident"
     assert args.resident_command == "arm"
     assert args.updates == 4
+    assert args.checkpoint_sha == "a" * 64
 
 
 def test_continuation_geometry_is_sealed_to_pipeline_microbatch_four():
@@ -409,9 +418,11 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     rails = ProductionRails(config, run_root=tmp_path / "run")
     facade = ResidentRepairAPI(rails=rails, run_root=tmp_path / "facade")
 
-    pre = facade.score_pre(artifact)
-    trained = facade.repair_train(artifact, updates=4)
-    post = facade.score_post(artifact)
+    pre = facade.score_pre(artifact, checkpoint_sha=artifact.checkpoint_sha256)
+    trained = facade.repair_train(
+        artifact, updates=4, checkpoint_sha=artifact.checkpoint_sha256
+    )
+    post = facade.score_post(artifact, checkpoint_sha=artifact.checkpoint_sha256)
 
     assert FakeEngine.constructions == 1
     assert pre["checkpoint"] == "UPDATE_000"

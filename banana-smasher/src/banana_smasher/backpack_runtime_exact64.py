@@ -17,7 +17,7 @@ from .anchor_sidecars import (
     CandidateSidecarWriter,
     load_teacher_support_manifest,
     load_teacher_window,
-    score_anchor_sidecars,
+    _score_anchor_sidecars,
 )
 from .hf_deepseek_v4_backpack_adapter import DeepseekV4BackpackRuntime
 
@@ -543,7 +543,7 @@ def _run_backpack_exact64(
             progress("terminal", slot=slot)
             del source, activation, support, scored
 
-    score_result = score_anchor_sidecars(teacher_manifest_path, candidate_manifest)
+    score_result = _score_anchor_sidecars(teacher_manifest_path, candidate_manifest)
     class_kld: dict[str, float] | None = None
     class_top1: dict[str, dict[str, float | int]] | None = None
     if class_by_window is not None:

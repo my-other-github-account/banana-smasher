@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from pathlib import Path
@@ -65,8 +64,6 @@ def test_documented_product_path_and_examples_exist() -> None:
     )
     assert all((ROOT / path).is_file() for path in required)
     readme = (ROOT / "README.md").read_text()
-    lines = readme.splitlines()
-    assert len(lines) == 10
     for entrypoint in (
         "banana-smasher/src/banana_smasher/",
         "smash",

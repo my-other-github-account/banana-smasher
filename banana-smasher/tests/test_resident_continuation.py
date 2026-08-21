@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from banana_smasher.resident_continuation import (
     ModernGreenResidentEngine,
     _checkpoint_cursor,
@@ -25,7 +27,6 @@ def _call(trainer):
         official_k2="k2",
         model_root=Path("model"),
         admission={"framework": "banana-smasher"},
-        parent_root=Path("parent"),
         member_roster_path=Path("roster.json"),
         member_roster_sha256="a" * 64,
         payload={"state": {}},
@@ -36,11 +37,9 @@ def _call(trainer):
     )
 
 
-def test_construct_shard_student_uses_modern_green_legacy_roster_abi():
-    student = _call(SimpleNamespace(ShardStudent=_Student))
-    assert student.kwargs["parent_root"] == Path("parent")
-    assert student.kwargs["l034_roster"] == Path("roster.json")
-    assert "member_roster" not in student.kwargs
+def test_construct_shard_student_refuses_legacy_single_layer_roster_abi():
+    with pytest.raises(RuntimeError, match="all-layer member roster"):
+        _call(SimpleNamespace(ShardStudent=_Student))
 
 
 def test_construct_shard_student_uses_all_layer_roster_abi_when_available():
@@ -53,7 +52,7 @@ def test_construct_shard_student_uses_all_layer_roster_abi_when_available():
         "path": Path("roster.json"),
         "sha": "a" * 64,
     }
-    assert "l034_roster" not in student.kwargs
+
 
 
 class _FakeTensor:

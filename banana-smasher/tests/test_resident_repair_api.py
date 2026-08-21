@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 from pathlib import Path
 
@@ -104,6 +105,7 @@ def test_full_pipeline_builds_uniforms_then_mixes_without_resolving(
         uniform_tiers=("qtip1_v7", "qtip2_v7"),
         bpw_target=1.5,
         repair_updates=4,
+        checkpoint_sha=sha("u0"),
     )
     assert [row[0] for row in rails.calls] == [
         "build_uniform",
@@ -121,13 +123,86 @@ def test_full_pipeline_builds_uniforms_then_mixes_without_resolving(
     assert result["mixed"].identity.composition_kind == "mixed-qtip-v7-backpack"
 
 
+def test_every_checkpoint_loading_operation_requires_one_explicit_sha() -> None:
+    for operation in (
+        "build_uniform",
+        "backpack_mix",
+        "score_pre",
+        "repair_train",
+        "score_post",
+        "run_arm",
+        "run",
+    ):
+        parameter = inspect.signature(getattr(ResidentRepairAPI, operation)).parameters[
+            "checkpoint_sha"
+        ]
+        assert parameter.default is inspect.Parameter.empty
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+
+
+def test_checkpoint_sha_is_refused_on_mismatch_and_echoed_in_every_receipt(
+    tmp_path: Path,
+) -> None:
+    expected = sha("u0")
+    rails = Rails(tmp_path)
+    api = ResidentRepairAPI(rails=rails, run_root=tmp_path / "run")
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=expected
+    )
+    second = api.build_uniform(
+        tmp_path / "model", "qtip2_v7", checkpoint_sha=expected
+    )
+    assert build.checkpoint_sha256 == expected
+
+    with pytest.raises(ValueError, match="checkpoint SHA mismatch"):
+        api.backpack_mix((build, second), 1.0, checkpoint_sha=sha("wrong"))
+
+    mixed = api.backpack_mix((build, second), 1.0, checkpoint_sha=expected)
+    assert mixed.checkpoint_sha256 == expected
+    assert (
+        api.score_pre(mixed, checkpoint_sha=expected)["input_checkpoint_sha256"]
+        == expected
+    )
+    assert (
+        api.repair_train(mixed, updates=4, checkpoint_sha=expected)[
+            "input_checkpoint_sha256"
+        ]
+        == expected
+    )
+    assert (
+        api.score_post(mixed, checkpoint_sha=expected)["input_checkpoint_sha256"]
+        == expected
+    )
+
+
+def test_checkpoint_receipt_echo_cannot_overwrite_backend_mismatch(tmp_path: Path) -> None:
+    expected = sha("u0")
+
+    class BadReceiptRails(Rails):
+        def score(self, artifact, phase: str):
+            return {
+                "mean_kld": 0.25,
+                "top1_matches": 7,
+                "input_checkpoint_sha256": sha("wrong"),
+            }
+
+    api = ResidentRepairAPI(
+        rails=BadReceiptRails(tmp_path), run_root=tmp_path / "run"
+    )
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=expected
+    )
+    with pytest.raises(ValueError, match="receipt checkpoint SHA mismatch"):
+        api.score_pre(build, checkpoint_sha=expected)
+
+
 def test_tier_space_is_integer_v7_only_and_rejects_d4_or_fractional(
     tmp_path: Path,
 ) -> None:
     api = ResidentRepairAPI(rails=Rails(tmp_path), run_root=tmp_path / "run")
     for tier in ("d4", "qtip2_5", "qtip1.5_v7", "native"):
         with pytest.raises(ValueError, match="QTIP-V7 tier"):
-            api.build_uniform(tmp_path / "model", tier)
+            api.build_uniform(tmp_path / "model", tier, checkpoint_sha=sha("u0"))
 
 
 def test_mix_fails_closed_if_declared_provenance_does_not_bind_builds(
@@ -144,18 +219,22 @@ def test_mix_fails_closed_if_declared_provenance_does_not_bind_builds(
             return output
 
     api = ResidentRepairAPI(rails=BadRails(tmp_path), run_root=tmp_path / "run")
-    build = api.build_uniform(tmp_path / "model", "qtip1_v7")
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
+    )
     with pytest.raises(ValueError, match="uniform-build provenance"):
-        api.backpack_mix((build,), 1.0)
+        api.backpack_mix((build,), 1.0, checkpoint_sha=sha("u0"))
 
 
 def test_canary_is_read_from_artifact_not_source_constant(tmp_path: Path) -> None:
     rails = Rails(tmp_path)
     api = ResidentRepairAPI(rails=rails, run_root=tmp_path / "run")
-    build = api.build_uniform(tmp_path / "model", "qtip1_v7")
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
+    )
     rails.score = lambda artifact, phase: {"mean_kld": 0.251, "top1_matches": 7}
     with pytest.raises(ValueError, match="declared tolerance"):
-        api.score_pre(build)
+        api.score_pre(build, checkpoint_sha=sha("u0"))
 
 
 def test_score_phase_raises_named_error_when_fast_budget_is_exceeded(
@@ -175,9 +254,11 @@ def test_score_phase_raises_named_error_when_fast_budget_is_exceeded(
     api = ResidentRepairAPI(
         rails=SlowRails(tmp_path), run_root=tmp_path / "run", clock=clock
     )
-    build = api.build_uniform(tmp_path / "model", "qtip1_v7")
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
+    )
     with pytest.raises(ResidentPhaseTimeout, match=r"score_pre.*300"):
-        api.score_pre(build)
+        api.score_pre(build, checkpoint_sha=sha("u0"))
 
 
 def test_model_loads_once_and_every_later_phase_hot_swaps_in_memory(
@@ -190,6 +271,7 @@ def test_model_loads_once_and_every_later_phase_hot_swaps_in_memory(
         uniform_tiers=("qtip1_v7", "qtip2_v7"),
         bpw_target=1.5,
         repair_updates=4,
+        checkpoint_sha=sha("u0"),
     )
     resident_calls = [
         row[0] for row in rails.calls if row[0] in {"load_resident", "hot_swap"}
@@ -248,10 +330,12 @@ def test_each_named_arm_phase_fails_hard_and_records_fault_timing(
         run_root=tmp_path / "run",
         clock=clock,
     )
-    build = api.build_uniform(tmp_path / "model", "qtip1_v7")
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
+    )
 
     with pytest.raises(ResidentPhaseTimeout, match=expected_phase):
-        api.run_arm(build, updates=4)
+        api.run_arm(build, updates=4, checkpoint_sha=sha("u0"))
 
     receipt = json.loads((tmp_path / "run" / "RESIDENT_ARM_TIMING.json").read_text())
     assert receipt["status"] == "FAILED"
@@ -271,15 +355,17 @@ def test_total_arm_budget_fails_hard_and_identifies_current_phase(tmp_path: Path
         run_root=tmp_path / "run",
         clock=clock,
     )
-    build = api.build_uniform(tmp_path / "model", "qtip1_v7")
-    api.score_pre(build)
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
+    )
+    api.score_pre(build, checkpoint_sha=sha("u0"))
     clock.advance(301.0)
 
     with pytest.raises(
         ResidentPhaseTimeout,
         match=rf"four_resident_updates.*arm_cycle.*{ARM_BUDGET_SECONDS:g}",
     ):
-        api.repair_train(build, updates=4)
+        api.repair_train(build, updates=4, checkpoint_sha=sha("u0"))
 
     receipt = json.loads((tmp_path / "run" / "RESIDENT_ARM_TIMING.json").read_text())
     assert receipt["status"] == "FAILED"
@@ -292,9 +378,11 @@ def test_successful_arm_records_all_named_phases_and_exact_cycle(tmp_path: Path)
     durations = {"resident_load": 2.0, "score_pre": 3.0, "hot_swap": 1.0, "train": 7.0, "score_post": 5.0}
     rails = TimedRails(tmp_path, clock, durations)
     api = ResidentRepairAPI(rails=rails, run_root=tmp_path / "run", clock=clock)
-    build = api.build_uniform(tmp_path / "model", "qtip1_v7")
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
+    )
 
-    result = api.run_arm(build, updates=4)
+    result = api.run_arm(build, updates=4, checkpoint_sha=sha("u0"))
 
     assert result["training"]["updates"] == 4
     assert [row[0] for row in rails.calls] == [

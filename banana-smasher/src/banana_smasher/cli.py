@@ -518,6 +518,7 @@ def _parser() -> argparse.ArgumentParser:
     resident_arm.add_argument("--artifact-root", type=Path, required=True)
     resident_arm.add_argument("--rails-config", type=Path, required=True)
     resident_arm.add_argument("--run-root", type=Path, required=True)
+    resident_arm.add_argument("--checkpoint-sha", required=True)
     resident_arm.add_argument("--updates", type=int, choices=(4,), default=4)
     resident_admit = resident_commands.add_parser(
         "admit", help="generate and verify one physical resident artifact plus rank configs"
@@ -1703,6 +1704,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 artifact = BackpackArtifact(
                     root=artifact_root,
                     identity=ArtifactIdentity.load(artifact_root),
+                    checkpoint_sha256=args.checkpoint_sha,
                 )
                 resident_run_root = args.run_root.expanduser().resolve()
                 rails = ProductionRails.from_file(
@@ -1711,10 +1713,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 facade = ResidentRepairAPI(
                     rails=rails, run_root=resident_run_root / "facade"
                 )
-                arm = facade.run_arm(artifact, updates=args.updates)
+                arm = facade.run_arm(
+                    artifact,
+                    updates=args.updates,
+                    checkpoint_sha=args.checkpoint_sha,
+                )
                 result = {
                     "status": "PASS",
                     "command": "resident arm",
+                    "checkpoint_sha256": args.checkpoint_sha,
                     "artifact_identity_sha256": artifact.identity.sha256,
                     "provider_binding_sha256": rails.provider_binding_sha256,
                     "pre": dict(arm["pre"]),
