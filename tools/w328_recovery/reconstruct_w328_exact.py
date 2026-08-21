@@ -61,6 +61,18 @@ def tensor_sha(value: Any) -> str:
     return hashlib.sha256(value.detach().cpu().contiguous().numpy().tobytes()).hexdigest()
 
 
+def effective_free_bytes(*, cuda_free: int, host_available: int, device_name: str) -> int:
+    """Use reclaimable host memory only on positively identified GB10 UMA."""
+    return max(cuda_free, host_available) if device_name == "NVIDIA GB10" else cuda_free
+
+
+def host_available_bytes() -> int:
+    for line in Path("/proc/meminfo").read_text().splitlines():
+        if line.startswith("MemAvailable:"):
+            return int(line.split()[1]) * 1024
+    raise RuntimeError("MemAvailable missing")
+
+
 def atomic_json(path: Path, value: dict[str, Any]) -> str:
     data = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -122,8 +134,18 @@ def main() -> int:
     l024 = verify_l024()
     import torch
     cuda_free, cuda_total = torch.cuda.mem_get_info()
-    if cuda_free < 72 * (1 << 30):
-        raise RuntimeError(f"CUDA free refusal {cuda_free}")
+    device_name = torch.cuda.get_device_name(0)
+    host_available = host_available_bytes()
+    effective_free = effective_free_bytes(
+        cuda_free=cuda_free,
+        host_available=host_available,
+        device_name=device_name,
+    )
+    if effective_free < 72 * (1 << 30):
+        raise RuntimeError(
+            f"memory free refusal cuda={cuda_free} host_available={host_available} "
+            f"effective={effective_free} device={device_name}"
+        )
     if OUT.exists() and any(OUT.iterdir()):
         raise RuntimeError("nonempty reconstruction output; retries are forbidden")
     OUT.mkdir(parents=True, exist_ok=True)
