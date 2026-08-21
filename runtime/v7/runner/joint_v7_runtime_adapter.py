@@ -194,12 +194,6 @@ def build_joint_v7_runtime(plane_sources, device, admission, ordered_train_windo
         if getattr(module, "_joint_v7_plane_source", None) is not sources[layer]:
             raise RuntimeError(f"Student did not retain exact PlaneSource L{layer:03d}")
 
-            raise RuntimeError(
-                f"whole-model Student experts container lacks canonical L{layer:03d}"
-            ) from exc
-        if getattr(module, "_joint_v7_plane_source", None) is not sources[layer]:
-            raise RuntimeError(f"Student did not retain exact PlaneSource L{layer:03d}")
-
     # Dense repair surfaces are exposed later by the accepted runner. Freeze the
     # inherited model first, while keeping the 43 external FP32 LUT masters live.
     for parameter in student.model.parameters():

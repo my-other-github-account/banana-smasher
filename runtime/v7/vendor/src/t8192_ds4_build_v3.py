@@ -300,8 +300,11 @@ def build_layer_sd(L, wm, get_tensor, mode, planes=None):
     def fp8(name):
         return deq_fp8_block(T(name + ".weight"), T(name + ".scale"))
 
-    f32 = lambda name: T(name).to(DEV).to(torch.float32)
-    bf = lambda name: T(name).to(DEV).to(torch.bfloat16)
+    def f32(name):
+        return T(name).to(DEV).to(torch.float32)
+
+    def bf(name):
+        return T(name).to(DEV).to(torch.bfloat16)
 
     # attention core (fp8 -> bf16)
     sd["self_attn.q_a_proj.weight"] = fp8("attn.wq_a")
