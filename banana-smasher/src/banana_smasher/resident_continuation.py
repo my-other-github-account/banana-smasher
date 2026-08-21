@@ -497,7 +497,6 @@ class ModernGreenResidentEngine:
             self.trainer_path.parent,
             self.asset_root / "source",
             self.asset_root / "source" / "site",
-            repository_root / "runtime" / "v7" / "runner",
             repository_root / "runtime" / "v7" / "vendor" / "src_lp4",
             repository_root / "runtime" / "v7" / "vendor" / "src",
         ):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 import hashlib
+import sys
 
 import banana_smasher.resident_continuation as continuation_module
 from banana_smasher.resident_proven_api import ResidentRepairAPI as ProvenResidentRepairAPI
@@ -149,6 +150,19 @@ def test_resident_binds_the_sealed_parity_expert_implementation():
     text = source.read_text()
     assert ".clamp(" not in text
     assert "torch.argsort(top_k_index, dim=1, stable=True)" in text
+
+
+def test_resident_import_paths_do_not_shadow_trainer_fwht_selector(tmp_path):
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.trainer_path = tmp_path / "trainer.py"
+    engine.asset_root = tmp_path / "assets"
+    original = list(sys.path)
+    try:
+        engine._prepare_import_paths()
+        repository = Path(continuation_module.__file__).resolve().parents[3]
+        assert str(repository / "runtime" / "v7" / "runner") not in sys.path
+    finally:
+        sys.path[:] = original
 
 
 def test_physical_score_uses_four_ordered_sixteen_window_groups():
