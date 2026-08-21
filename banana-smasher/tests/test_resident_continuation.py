@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 import hashlib
+import os
 import sys
 
 import banana_smasher.resident_continuation as continuation_module
@@ -148,9 +149,21 @@ def test_rank_send_pipeline_preserves_tensor_lifetime_and_waits_fifo():
             events.append(("wait", self.value))
 
     class Dist:
-        def isend(self, value, *, dst):
+        @staticmethod
+        def isend(value, dst):
+            return value, dst
+
+        @staticmethod
+        def P2POp(op, value, dst, *, group):
+            return (op, value, dst, group)
+
+        @staticmethod
+        def batch_isend_irecv(ops):
+            op, value, dst, group = ops[0]
+            assert group is None
+            op(value, dst)
             events.append(("isend", value, dst))
-            return Work(value)
+            return [Work(value)]
 
     pending = []
     _enqueue_rank_send(Dist(), pending, "group0")
@@ -196,12 +209,30 @@ def test_resident_import_paths_do_not_shadow_trainer_fwht_selector(tmp_path):
         sys.path[:] = original
 
 
-def test_physical_score_uses_ordered_four_window_groups():
+def test_score_configuration_forces_a1_eager_attention(monkeypatch):
+    monkeypatch.setenv("BR_ATTN_IMPL", "sdpa")
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.config = {}
+    engine.corpus_path = Path("corpus.json")
+    engine.teacher_root = Path("teachers")
+    engine.model_root = Path("model")
+    engine.base = SimpleNamespace(T=SimpleNamespace(CKPT=None, DEV=None))
+    engine.__dict__["torch"] = SimpleNamespace(
+        manual_seed=lambda _seed: None,
+        cuda=SimpleNamespace(manual_seed_all=lambda _seed: None),
+    )
+
+    engine._configure_base()
+
+    assert os.environ["BR_ATTN_IMPL"] == "eager"
+
+
+def test_physical_score_uses_two_ordered_thirty_two_window_groups():
     groups = _score_window_groups(tuple(range(64)))
-    assert groups == [list(range(start, start + 4)) for start in range(0, 64, 4)]
+    assert groups == [list(range(32)), list(range(32, 64))]
 
 
-def test_layer_stack_reuses_one_dynamic_cache(monkeypatch):
+def test_layer_stack_uses_a1_equivalent_fresh_cache_per_layer(monkeypatch):
     caches = []
 
     class Cache:
@@ -233,8 +264,9 @@ def test_layer_stack_reuses_one_dynamic_cache(monkeypatch):
 
     engine._run_layers(SimpleNamespace(ndim=3), "ids", False)
 
-    assert len(caches) == 1
-    assert seen == [caches[0], caches[0]]
+    assert len(caches) == 3
+    assert seen == [caches[1], caches[2]]
+    assert seen[0] is not seen[1]
 
 
 def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():
