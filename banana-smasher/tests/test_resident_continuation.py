@@ -17,6 +17,7 @@ from banana_smasher.resident_continuation import (
     ModernGreenResidentEngine,
     _checkpoint_cursor,
     _checkpoint_lut_admission,
+    _bind_official_expert_source,
     _construct_shard_student,
     _enqueue_rank_send,
     _flush_rank_sends,
@@ -314,6 +315,26 @@ def test_resident_import_paths_do_not_shadow_trainer_fwht_selector(tmp_path):
         assert str(repository / "runtime" / "v7" / "runner") not in sys.path
     finally:
         sys.path[:] = original
+
+
+def test_official_expert_binding_loads_its_pinned_grouped_dependency_first(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        continuation_module,
+        "_load_source_module",
+        lambda name, path: calls.append((name, path.name)) or name,
+    )
+    monkeypatch.setattr(
+        continuation_module,
+        "_official_expert_source_path",
+        lambda: Path("/runtime/v7/runner/fast_v7_expert_base.py"),
+    )
+
+    assert _bind_official_expert_source() == "fast_v7_expert_base"
+    assert calls == [
+        ("fast_k2_grouped", "fast_k2_grouped.py"),
+        ("fast_v7_expert_base", "fast_v7_expert_base.py"),
+    ]
 
 
 def test_score_configuration_forces_a1_eager_attention(monkeypatch):
