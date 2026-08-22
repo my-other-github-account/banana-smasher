@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +15,7 @@ from banana_smasher.d4_wire import decode_d4_expert, unpack_d4_codes
 from banana_smasher.hf_deepseek_v4_backpack_adapter import (
     DeepseekV4BackpackRuntime,
     _available_materialization_bytes,
+    _fwht,
 )
 
 
@@ -33,6 +37,34 @@ def test_gb10_materialization_admission_uses_reclaimable_host_memory(tmp_path) -
     assert _available_materialization_bytes(
         torch, "cuda", meminfo_path=meminfo
     ) == 115754600 * 1024
+
+
+def test_qtip_cuda_fwht_uses_required_fused_quack_backend(monkeypatch) -> None:
+    calls = []
+    sentinel = object()
+
+    class FakeCudaValue:
+        shape = (2, 8)
+        is_cuda = True
+
+        def contiguous(self):
+            return self
+
+    hadamard = types.ModuleType("quack.hadamard")
+
+    def hadamard_transform(value, *, scale):
+        calls.append((value, scale))
+        return sentinel
+
+    setattr(hadamard, "hadamard_transform", hadamard_transform)
+    quack = types.ModuleType("quack")
+    quack.__path__ = []
+    monkeypatch.setitem(sys.modules, "quack", quack)
+    monkeypatch.setitem(sys.modules, "quack.hadamard", hadamard)
+
+    value = FakeCudaValue()
+    assert _fwht(torch, value) is sentinel
+    assert calls == [(value, 1 / math.sqrt(8))]
 
 
 def test_unpack_d4_codes_round_trips_fixed_d4_wire() -> None:

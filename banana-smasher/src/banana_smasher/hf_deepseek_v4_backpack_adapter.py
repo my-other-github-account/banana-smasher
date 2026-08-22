@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import gc
 import hashlib
+import importlib
 import json
+import math
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import Any, Mapping
@@ -138,6 +140,11 @@ def _fwht(torch: Any, value: Any) -> Any:
     n = value.shape[-1]
     if n <= 0 or n & (n - 1):
         raise ValueError(f"FWHT requires power-of-two last dimension, got {n}")
+    if value.is_cuda:
+        hadamard_transform = importlib.import_module(
+            "quack.hadamard"
+        ).hadamard_transform
+        return hadamard_transform(value.contiguous(), scale=1 / math.sqrt(n))
     result = value.contiguous()
     width = 1
     while width < n:
