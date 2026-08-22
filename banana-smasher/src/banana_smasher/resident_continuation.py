@@ -1116,9 +1116,10 @@ class ModernGreenResidentEngine:
             )
         result = self._score_live_windows(selected)
         counters = dict(result.get("runtime_counters", {}))
+        group_size = int(counters.get("score_group_size", SCORE_MICROBATCH))
         counters.update(
             {
-                "activation_handoffs": len(_score_window_groups(selected)),
+                "activation_handoffs": len(_score_window_groups(selected, group_size)),
                 "timed_file_reads": 0,
                 "canary_activation_handoffs": 1,
                 "canary_timed_file_reads": 0,

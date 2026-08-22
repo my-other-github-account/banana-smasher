@@ -623,7 +623,7 @@ def test_balanced64_runs_paired_canary_before_full_and_promotes_only_when_faster
             "mean_kld": 0.21,
             "top1_matches": 48000,
             "timed_wall_seconds": 150.0,
-            "runtime_counters": {},
+            "runtime_counters": {"score_group_size": 16},
         }
 
     engine._score_live_windows = score_live
@@ -632,7 +632,7 @@ def test_balanced64_runs_paired_canary_before_full_and_promotes_only_when_faster
     assert calls == [(28, 29, 30, 31), tuple(range(20, 84))]
     assert result["sealed_batch1_gate"]["status"] == "PASS"
     assert result["projected_full64_seconds"] == 160.0
-    assert result["runtime_counters"]["activation_handoffs"] == 16
+    assert result["runtime_counters"]["activation_handoffs"] == 4
     assert result["runtime_counters"]["timed_file_reads"] == 0
 
 
