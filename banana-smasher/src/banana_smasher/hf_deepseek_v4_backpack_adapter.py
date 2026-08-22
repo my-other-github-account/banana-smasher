@@ -470,7 +470,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             or codes.nbytes != expected_codes_bytes
         ):
             raise ValueError(f"QTIP split codes geometry mismatch: {codes_path}")
-        if isinstance(geometry, Mapping):
+        if isinstance(geometry, Mapping) and source_key != "qtip3":
             return {
                 **control,
                 "schema": "banana-smasher-qtip-unit-v1",
@@ -528,7 +528,9 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             "schema": "banana-smasher-qtip3-native-v6-unit-v1",
             "geometry": dict(cell_geometry),
             "tlut": torch.from_numpy(np.array(tlut, copy=True)),
-            "trellis": torch.from_numpy(np.array(codes, copy=True)),
+            "trellis": torch.from_numpy(
+                np.array(codes, copy=True).reshape(rows, expected_codes_bytes // rows)
+            ),
         }
 
     def _decode_qtip2_v7_part(

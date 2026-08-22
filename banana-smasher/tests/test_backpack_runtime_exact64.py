@@ -155,7 +155,7 @@ def test_runtime_selects_exact_expert_slice_from_d4_pack(monkeypatch) -> None:
     }
 
 
-def test_runtime_composes_closure_bound_split_qtip_payload(tmp_path) -> None:
+def test_runtime_composes_closure_bound_legacy_qtip2_split_payload(tmp_path) -> None:
     control_path = tmp_path / "control.pt"
     codes_path = tmp_path / "codes.npy"
     torch.save(
@@ -177,7 +177,7 @@ def test_runtime_composes_closure_bound_split_qtip_payload(tmp_path) -> None:
         },
         control_path,
     )
-    np.save(codes_path, np.arange(48, dtype=np.uint8))
+    np.save(codes_path, np.arange(32, dtype=np.uint8))
     observed = []
     runtime = DeepseekV4BackpackRuntime.__new__(DeepseekV4BackpackRuntime)
     runtime.torch = torch
@@ -196,15 +196,15 @@ def test_runtime_composes_closure_bound_split_qtip_payload(tmp_path) -> None:
     payload = runtime._load_qtip_payload(
         receipt=receipt,
         artifact_path=tmp_path / "absent-monolith.pt",
-        source_key="qtip3",
+        source_key="qtip2",
     )
 
     assert observed == [control_path, codes_path]
     assert payload["schema"] == "banana-smasher-qtip-unit-v1"
-    assert payload["geometry"]["K"] == 3
+    assert payload["geometry"]["K"] == 2
     assert payload["trellis"].dtype == torch.uint8
-    assert payload["trellis"].numel() == 48
-    assert payload["trellis"].tolist() == list(range(48))
+    assert payload["trellis"].numel() == 32
+    assert payload["trellis"].tolist() == list(range(32))
 
 
 def test_runtime_composes_native_v6_qtip3_split_with_bound_shared_tlut(
@@ -219,10 +219,22 @@ def test_runtime_composes_native_v6_qtip3_split_with_bound_shared_tlut(
     control_path = tmp_path / "control.pt"
     torch.save(
         {
+            # The source control can be inherited from an older QTIP2 solve;
+            # native-v6 QTIP3 identity comes from the public cell receipt.
+            "schema": "banana-smasher-qtip2-public-unit-v1",
             "shape": [16, 8],
+            "trellis": torch.zeros(1, dtype=torch.int16),
             "SU": torch.ones(8),
             "SV": torch.ones(16),
             "Wscale": torch.tensor(1.0),
+            "tlut": torch.zeros(512, 2),
+            "geometry": {
+                "L": 16,
+                "K": 2,
+                "V": 2,
+                "tlut_bits": 9,
+                "decode_mode": "quantlut_sym",
+            },
         },
         control_path,
     )
