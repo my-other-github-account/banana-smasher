@@ -14,21 +14,34 @@ import math
 import os
 import tempfile
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
 
 from .backpack import CLASSES, _anchor_metrics
+from .banana_v1 import (
+    BANANA_V1_MULTIPLIER,
+    BANANA_V1_OFFSET,
+    expand_banana_v1_codebook,
+)
 from .qtip25_native_v4 import (
     NATIVE_QTIP25_GEOMETRY,
     decode_native_v4,
+    expand_native_v4_tlut,
+    ldlq_native_v4_matrix,
+    native_v4_lower_from_hessian,
+    native_v4_geometry,
+    native_v5_phase_widths,
     solve_native_v4,
 )
 
 CELL_SCHEMA = "banana-smasher-qtip25-native-v4-cell-v1"
 ANCHOR_SCHEMA = "banana-smasher-qtip25-native-v4-anchor-v1"
+GENERIC_CELL_SCHEMA = "banana-smasher-qtip-native-v4-cell-v1"
+GENERIC_ANCHOR_SCHEMA = "banana-smasher-qtip-native-v4-anchor-v1"
+ANCHOR_SET_SCHEMA = "banana-smasher-qtip-native-v4-anchor-set-v1"
 
 
 def _sha_file(path: Path) -> str:
@@ -93,6 +106,17 @@ def _fwht(value: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(result / np.float32(math.sqrt(count)), dtype=np.float32)
 
 
+def _fwht_blocks(value: np.ndarray, block: Any | None) -> np.ndarray:
+    if block is None:
+        return _fwht(value)
+    width = int(block)
+    source = np.asarray(value, dtype=np.float32)
+    if width <= 0 or width & (width - 1) or source.shape[-1] % width:
+        raise ValueError("native QTIP Hadamard block must divide the transform axis")
+    shaped = source.reshape(*source.shape[:-1], source.shape[-1] // width, width)
+    return _fwht(shaped).reshape(source.shape)
+
+
 def _numpy_control(path: Path) -> dict[str, Any]:
     with np.load(path, allow_pickle=False) as payload:
         required = {"SU", "SV", "Wscale", "shape"}
@@ -110,7 +134,7 @@ def _torch_control(path: Path) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise ValueError("native V4 PT control must contain a mapping")
     result: dict[str, Any] = {}
-    for name in ("SU", "SV", "Wscale", "shape", "qtip_k"):
+    for name in ("SU", "SV", "Wscale", "shape", "qtip_k", "hadamard_block"):
         if name not in raw:
             continue
         value = raw[name]
@@ -170,14 +194,24 @@ def _load_control(path: str | Path) -> tuple[dict[str, Any], Path]:
             if "qtip_k" in raw
             else {}
         ),
+        **(
+            {
+                "hadamard_block": int(
+                    np.asarray(raw["hadamard_block"]).reshape(-1)[0]
+                )
+            }
+            if "hadamard_block" in raw
+            else {}
+        ),
     }, control_path
 
 
 def _to_normalized_blocks(source: np.ndarray, control: Mapping[str, Any]) -> np.ndarray:
     su = np.asarray(control["SU"], dtype=np.float32)
     sv = np.asarray(control["SV"], dtype=np.float32)
-    transformed = _fwht(source * su)
-    transformed = _fwht((transformed * sv[:, None]).T).T
+    block = control.get("hadamard_block")
+    transformed = _fwht_blocks(source / su, block)
+    transformed = _fwht_blocks((transformed / sv[:, None]).T, block).T
     transformed = transformed / np.float32(control["Wscale"])
     rows, columns = transformed.shape
     return np.ascontiguousarray(
@@ -197,11 +231,26 @@ def _from_normalized_blocks(blocks: np.ndarray, control: Mapping[str, Any]) -> n
         .reshape(rows, columns)
     )
     transformed = transformed * np.float32(control["Wscale"])
-    physical = _fwht(transformed.T).T * np.asarray(control["SV"], dtype=np.float32)[:, None]
-    return np.ascontiguousarray(_fwht(physical) * np.asarray(control["SU"], dtype=np.float32))
+    block = control.get("hadamard_block")
+    physical = _fwht_blocks(transformed.T, block).T * np.asarray(
+        control["SV"], dtype=np.float32
+    )[:, None]
+    return np.ascontiguousarray(
+        _fwht_blocks(physical, block) * np.asarray(control["SU"], dtype=np.float32)
+    )
 
 
-def build_qtip25_native_v4_cell(
+def _hessian_regularization_sigma(
+    *, codec_version: Literal["v4", "v5", "v6"], hadamard_block: object | None
+) -> float:
+    """Return the fixed diagonal load for one native-QTIP encoder generation."""
+
+    if codec_version == "v6":
+        return 1.0
+    return 0.025 if hadamard_block is not None else 0.01
+
+
+def _build_qtip_native_v4_cell(
     source: str | Path,
     control: str | Path,
     tlut: str | Path,
@@ -209,12 +258,34 @@ def build_qtip25_native_v4_cell(
     *,
     intended_basis_sha256: str,
     observed_basis_sha256: str,
+    bpw: object,
+    receipt_schema: str,
+    codec_version: Literal["v4", "v5", "v6"] = "v4",
     backend: Literal["cuda", "reference"] = "cuda",
     solve_batch: int = 2048,
     decode_batch: int = 2048,
     decode_repeats: int = 1,
+    hessian: str | Path | None = None,
+    scale_factors: Sequence[float] = (
+        0.80,
+        0.85,
+        0.90,
+        0.95,
+        1.00,
+        1.05,
+        1.10,
+        1.15,
+        1.20,
+    ),
+    ldlq_scale_semantics: Literal[
+        "relative_search", "absolute_unit", "rms_ratio"
+    ] = "absolute_unit",
+    feedback_mode: Literal["off", "reverse_16"] = "off",
+    trellis_objective: Literal["sse", "lexicographic_l4"] = "sse",
+    cyclic_fixed_point_fast_path: bool = False,
+    reserve_bytes: int = 4 << 30,
 ) -> dict[str, Any]:
-    """Build one physical QTIP2.5 native-V4 candidate cell.
+    """Build one physical homogeneous native-V4 candidate cell.
 
     ``source`` is finite float32 physical cell weights. ``control`` is the
     compact QTIP transform for the same cell (``SU``, ``SV``, ``Wscale``,
@@ -222,12 +293,31 @@ def build_qtip25_native_v4_cell(
     tiny-fixture smoke backend and is not suitable for model-scale production.
     """
 
+    geometry = native_v4_geometry(bpw)
     intended = _basis(intended_basis_sha256, "intended_basis_sha256")
     observed = _basis(observed_basis_sha256, "observed_basis_sha256")
     if intended != observed:
         raise ValueError(f"native V4 basis mismatch: {observed} != {intended}")
     if backend not in {"cuda", "reference"}:
         raise ValueError("native V4 backend must be cuda or reference")
+    if codec_version not in {"v4", "v5", "v6"}:
+        raise ValueError("native QTIP codec_version must be v4, v5, or v6")
+    if ldlq_scale_semantics not in {
+        "relative_search",
+        "absolute_unit",
+        "rms_ratio",
+    }:
+        raise ValueError(
+            "native V4 LDLQ scale semantics must be relative_search, absolute_unit, or rms_ratio"
+        )
+    if feedback_mode not in {"off", "reverse_16"}:
+        raise ValueError("native V4 feedback mode must be off or reverse_16")
+    if trellis_objective not in {"sse", "lexicographic_l4"}:
+        raise ValueError("native QTIP trellis objective must be sse or lexicographic_l4")
+    if feedback_mode == "reverse_16" and hessian is None:
+        raise ValueError("native V4 reverse_16 feedback requires an explicit Hessian artifact")
+    if feedback_mode == "off" and ldlq_scale_semantics == "relative_search":
+        raise ValueError("native V4 relative scale search requires reverse_16 feedback")
     source_path = Path(source).expanduser().resolve()
     tlut_path = Path(tlut).expanduser().resolve()
     if source_path.is_symlink() or not source_path.is_file():
@@ -246,15 +336,71 @@ def build_qtip25_native_v4_cell(
             f"native V4 source must be finite float32{compact['shape']}, got "
             f"{source_weights.dtype}{source_weights.shape}"
         )
-    if table.dtype != np.float32 or table.shape != (512, 2) or not np.isfinite(table).all():
-        raise ValueError("native V4 TLUT must be finite float32 [512,2]")
+    old_v4 = table.dtype == np.float32 and table.shape == (512, 2)
+    pr31_v5 = table.dtype == np.float16 and table.shape == (1024,)
+    if not (old_v4 or pr31_v5) or not np.isfinite(table).all():
+        raise ValueError(
+            "native LUT must be finite V4 float32 [512,2] or compact PR31 float16 [1024]"
+        )
+    if codec_version == "v4" and not old_v4:
+        raise ValueError("native QTIP codec_version=v4 requires lut_identity=q9-v2-v4")
+    if codec_version in {"v5", "v6"} and not (pr31_v5 or old_v4):
+        raise ValueError(
+            f"native QTIP codec_version={codec_version} requires a supported V4/PR31 LUT"
+        )
+    if codec_version == "v5" and geometry.B != 8:
+        raise ValueError("native QTIP codec_version=v5 is fixed to B8")
+    if trellis_objective != "sse" and (not pr31_v5 or feedback_mode != "off"):
+        raise ValueError(
+            "lexicographic L4 requires the compact PR31 LUT with feedback disabled"
+        )
 
     output_root = Path(output).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     blocks = _to_normalized_blocks(source_weights, compact)
     normalized_sha256 = _sha_array(blocks)
+    effective_hessian = Path(hessian).expanduser().resolve() if hessian is not None else None
+    transformed_hessian_path: Path | None = None
+    if compact.get("hadamard_block") is not None and feedback_mode == "reverse_16":
+        assert effective_hessian is not None
+        hessian_value = np.load(effective_hessian, allow_pickle=False).astype(
+            np.float32, copy=True
+        )
+        signs = -np.sign(np.asarray(compact["SU"], dtype=np.float32))
+        block = compact.get("hadamard_block")
+        hessian_value *= signs[None, :]
+        hessian_value = _fwht_blocks(hessian_value, block)
+        hessian_value *= signs[:, None]
+        hessian_value = _fwht_blocks(hessian_value.T, block).T
+        transformed_hessian_path = output_root / ".normalized-hessian.npy"
+        np.save(transformed_hessian_path, hessian_value, allow_pickle=False)
+        effective_hessian = transformed_hessian_path
+    selected_scale = 1.0
+    cyclic_warmup_cycles = 2 if codec_version == "v6" else 1
+    if ldlq_scale_semantics == "rms_ratio":
+        expanded_lut = (
+            expand_banana_v1_codebook(table)
+            if pr31_v5
+            else expand_native_v4_tlut(table, geometry=geometry)
+        )
+        source_rms = float(np.sqrt(np.mean(blocks.astype(np.float64) ** 2)))
+        lut_rms = float(np.sqrt(np.mean(expanded_lut.astype(np.float64) ** 2)))
+        selected_scale = 1.0 if source_rms == 0 else source_rms / lut_rms
     started = time.perf_counter()
     cuda_receipt: dict[str, Any] | None = None
+    optimization: dict[str, Any] = {
+        "method": "rms_only_no_feedback",
+        "feedback_mode": "off",
+        "scale_semantics": ldlq_scale_semantics,
+        "base_scale": selected_scale,
+        "selected_factor": 1.0,
+        "selected_scale": selected_scale,
+        "scale_factor": selected_scale,
+        "scale_factors": [1.0],
+        "feedback_nonzero_count": 0,
+        "cyclic_warmup_cycles": cyclic_warmup_cycles,
+        "trellis_objective": trellis_objective,
+    }
     if backend == "cuda":
         from .qtip25_native_v4_cuda_cell import run_cuda_cell
 
@@ -270,31 +416,96 @@ def build_qtip25_native_v4_cell(
                 solve_batch=solve_batch,
                 decode_batch=decode_batch,
                 decode_repeats=decode_repeats,
+                geometry=geometry,
                 scale_bytes=4,
                 transform_bytes=int(
                     compact["SU_storage"].nbytes + compact["SV_storage"].nbytes
                 ),
+                hessian_path=(
+                    effective_hessian if feedback_mode == "reverse_16" else None
+                ),
+                matrix_shape=compact["shape"],
+                scale_factors=scale_factors,
+                ldlq_scale_semantics=ldlq_scale_semantics,
+                feedback_mode=feedback_mode,
+                hessian_regularization_sigma=_hessian_regularization_sigma(
+                    codec_version=codec_version,
+                    hadamard_block=compact.get("hadamard_block"),
+                ),
+                cyclic_warmup_cycles=cyclic_warmup_cycles,
+                trellis_objective=trellis_objective,
+                cyclic_fixed_point_fast_path=cyclic_fixed_point_fast_path,
+                reserve_bytes=reserve_bytes,
             )
         finally:
             normalized_path.unlink(missing_ok=True)
+            if transformed_hessian_path is not None:
+                transformed_hessian_path.unlink(missing_ok=True)
         packed = np.load(output_root / "codes.npy", allow_pickle=False)
         encode_seconds = float(cuda_receipt["encode"]["wall_seconds"])
+        optimization = dict(cuda_receipt["optimization"])
     else:
-        encoded = solve_native_v4(
-            blocks,
-            tlut=table,
-            scales=np.ones(len(blocks), dtype=np.float32),
-        )
-        packed = encoded.packed
+        if feedback_mode == "off":
+            encoded = solve_native_v4(
+                blocks,
+                tlut=table,
+                scales=np.full(len(blocks), selected_scale, dtype=np.float32),
+                geometry=geometry,
+                cyclic_warmup_cycles=cyclic_warmup_cycles,
+                trellis_objective=trellis_objective,
+            )
+            packed = encoded.packed
+        else:
+            assert effective_hessian is not None
+            hessian_path = effective_hessian
+            hessian_value = np.load(hessian_path, allow_pickle=False)
+            lower = native_v4_lower_from_hessian(
+                hessian_value,
+                regularization_sigma=_hessian_regularization_sigma(
+                    codec_version=codec_version,
+                    hadamard_block=compact.get("hadamard_block"),
+                ),
+            )
+            rows, columns = compact["shape"]
+            transformed = (
+                blocks.reshape(rows // 16, columns // 16, 16, 16)
+                .transpose(0, 2, 1, 3)
+                .reshape(rows, columns)
+            )
+            matrix = ldlq_native_v4_matrix(
+                transformed,
+                lower,
+                tlut=table,
+                geometry=geometry,
+                scale_factors=scale_factors,
+                scale_semantics=ldlq_scale_semantics,
+            )
+            packed = matrix.packed
+            optimization = {
+                "method": "qtip_batch_block_ldl_reverse_16",
+                "feedback_mode": "reverse_16",
+                "scale_semantics": ldlq_scale_semantics,
+                "selected_factor": matrix.scale_factor,
+                "selected_scale": float(matrix.scales[0]),
+                "scale_factor": float(matrix.scales[0]),
+                "scale_factors": list(matrix.scale_factors),
+                "feedback_nonzero_count": matrix.feedback_nonzero_count,
+                "distortion": matrix.distortion,
+                "hessian": _artifact(
+                    hessian_path, data_bytes=int(hessian_value.nbytes)
+                ),
+            }
         codes_path = output_root / "codes.npy"
         np.save(codes_path, packed, allow_pickle=False)
         encode_seconds = time.perf_counter() - started
 
+    selected_scale = np.float32(optimization["scale_factor"])
     decoded_blocks = decode_native_v4(
         packed,
-        np.ones(len(packed), dtype=np.float32),
+        np.full(len(packed), selected_scale, dtype=np.float32),
         positions=256,
         tlut=table,
+        geometry=geometry,
     ).reshape(-1, 64, 4)
     decoded = _from_normalized_blocks(decoded_blocks, compact).astype(np.float32)
     decoded_path = output_root / "decoded.npy"
@@ -304,13 +515,20 @@ def build_qtip25_native_v4_cell(
     np.save(decoded_path, decoded, allow_pickle=False)
     np.save(su_path, compact["SU_storage"], allow_pickle=False)
     np.save(sv_path, compact["SV_storage"], allow_pickle=False)
-    np.save(wscale_path, np.asarray(compact["Wscale"], dtype=np.float32), allow_pickle=False)
+    np.save(
+        wscale_path,
+        np.asarray(compact["Wscale"] * selected_scale, dtype=np.float32),
+        allow_pickle=False,
+    )
     codes_path = output_root / "codes.npy"
 
     weights = int(source_weights.size)
-    code_bits = weights * 5 // 2
-    if weights * 5 % 2 or packed.nbytes * 8 != code_bits:
-        raise RuntimeError("native V4 codes do not close exact 5/2-bit accounting")
+    code_bits_numerator = weights * geometry.B
+    if code_bits_numerator % geometry.V:
+        raise RuntimeError("native V4 weights do not close exact B/V accounting")
+    code_bits = code_bits_numerator // geometry.V
+    if packed.nbytes * 8 != code_bits:
+        raise RuntimeError("native V4 codes do not close exact B/V accounting")
     delta = decoded.astype(np.float64) - source_weights.astype(np.float64)
     sse = float(np.sum(delta * delta, dtype=np.float64))
     transform_bytes = int(
@@ -319,11 +537,13 @@ def build_qtip25_native_v4_cell(
     wscale_bytes = int(np.asarray(compact["Wscale"], dtype=np.float32).nbytes)
     full_wire_bytes = int(packed.nbytes + transform_bytes + wscale_bytes + table.nbytes)
     receipt: dict[str, Any] = {
-        "schema": CELL_SCHEMA,
+        "schema": receipt_schema,
         "status": "PASS",
         "backend": backend,
+        "codec_version": codec_version,
+        "provider": f"qtip-native-{codec_version}@{geometry.rate_num / geometry.rate_den:.2f}",
         "basis_sha256": intended,
-        "geometry": NATIVE_QTIP25_GEOMETRY.as_mapping(),
+        "geometry": geometry.as_mapping(),
         "source": {
             **_artifact(source_path, data_bytes=int(source_weights.nbytes)),
             "shape": list(source_weights.shape),
@@ -338,12 +558,23 @@ def build_qtip25_native_v4_cell(
             **_artifact(tlut_path, data_bytes=int(table.nbytes)),
             "tensor_sha256": _sha_array(table),
             "shape": list(table.shape),
+            "identity": "pr31-affine-gaussian-edge-v1" if pr31_v5 else "q9-v2-v4",
+            **(
+                {
+                    "phase_widths": list(native_v5_phase_widths(geometry=geometry)),
+                    "multiplier": BANANA_V1_MULTIPLIER,
+                    "offset": BANANA_V1_OFFSET,
+                }
+                if pr31_v5
+                else {}
+            ),
         },
         "normalized_tensor_sha256": normalized_sha256,
+        "optimization": optimization,
         "accounting": {
             "weights": weights,
             "exact_code_bits": code_bits,
-            "exact_code_bpw": 2.5,
+            "exact_code_bpw": geometry.rate_num / geometry.rate_den,
             "code_data_bytes": int(packed.nbytes),
             "transform_bytes": transform_bytes,
             "Wscale_bytes": wscale_bytes,
@@ -389,12 +620,187 @@ def build_qtip25_native_v4_cell(
     return receipt
 
 
-def anchor_qtip25_native_v4_cell(
+def build_qtip_native_v4_cell(
+    source: str | Path,
+    control: str | Path,
+    tlut: str | Path,
+    output: str | Path,
+    *,
+    bpw: object,
+    intended_basis_sha256: str,
+    observed_basis_sha256: str,
+    backend: Literal["cuda", "reference"] = "cuda",
+    solve_batch: int = 2048,
+    decode_batch: int = 2048,
+    decode_repeats: int = 1,
+    hessian: str | Path | None = None,
+    scale_factors: Sequence[float] = (
+        0.80,
+        0.85,
+        0.90,
+        0.95,
+        1.00,
+        1.05,
+        1.10,
+        1.15,
+        1.20,
+    ),
+    ldlq_scale_semantics: Literal[
+        "relative_search", "absolute_unit", "rms_ratio"
+    ] = "absolute_unit",
+    feedback_mode: Literal["off", "reverse_16"] = "off",
+    reserve_bytes: int = 4 << 30,
+) -> dict[str, Any]:
+    """Build one homogeneous native-V4 cell at an exact quarter-BPW rate."""
+
+    return _build_qtip_native_v4_cell(
+        source,
+        control,
+        tlut,
+        output,
+        bpw=bpw,
+        receipt_schema=GENERIC_CELL_SCHEMA,
+        codec_version="v4",
+        intended_basis_sha256=intended_basis_sha256,
+        observed_basis_sha256=observed_basis_sha256,
+        backend=backend,
+        solve_batch=solve_batch,
+        decode_batch=decode_batch,
+        decode_repeats=decode_repeats,
+        hessian=hessian,
+        scale_factors=scale_factors,
+        ldlq_scale_semantics=ldlq_scale_semantics,
+        feedback_mode=feedback_mode,
+        reserve_bytes=reserve_bytes,
+    )
+
+
+def build_qtip_native_cell(
+    source: str | Path,
+    control: str | Path,
+    tlut: str | Path,
+    output: str | Path,
+    *,
+    bpw: object,
+    intended_basis_sha256: str,
+    observed_basis_sha256: str,
+    codec_version: Literal["v4", "v5", "v6"] = "v6",
+    backend: Literal["cuda", "reference"] = "cuda",
+    solve_batch: int = 2048,
+    decode_batch: int = 2048,
+    decode_repeats: int = 1,
+    hessian: str | Path | None = None,
+    scale_factors: Sequence[float] = (
+        0.80,
+        0.85,
+        0.90,
+        0.95,
+        1.00,
+        1.05,
+        1.10,
+        1.15,
+        1.20,
+    ),
+    ldlq_scale_semantics: Literal[
+        "relative_search", "absolute_unit", "rms_ratio"
+    ]
+    | None = None,
+    feedback_mode: Literal["off", "reverse_16"] = "off",
+    trellis_objective: Literal["sse", "lexicographic_l4"] = "sse",
+    cyclic_fixed_point_fast_path: bool = True,
+    reserve_bytes: int = 4 << 30,
+) -> dict[str, Any]:
+    """Build one native QTIP cell, defaulting to the V6 PR31-edge codec."""
+
+    if codec_version not in {"v4", "v5", "v6"}:
+        raise ValueError("native QTIP codec_version must be v4, v5, or v6")
+    scale_semantics = ldlq_scale_semantics or (
+        "rms_ratio" if codec_version == "v6" else "absolute_unit"
+    )
+    return _build_qtip_native_v4_cell(
+        source,
+        control,
+        tlut,
+        output,
+        bpw=bpw,
+        receipt_schema=GENERIC_CELL_SCHEMA,
+        codec_version=codec_version,
+        intended_basis_sha256=intended_basis_sha256,
+        observed_basis_sha256=observed_basis_sha256,
+        backend=backend,
+        solve_batch=solve_batch,
+        decode_batch=decode_batch,
+        decode_repeats=decode_repeats,
+        hessian=hessian,
+        scale_factors=scale_factors,
+        ldlq_scale_semantics=scale_semantics,
+        feedback_mode=feedback_mode,
+        trellis_objective=trellis_objective,
+        cyclic_fixed_point_fast_path=cyclic_fixed_point_fast_path,
+        reserve_bytes=reserve_bytes,
+    )
+
+
+def build_qtip25_native_v4_cell(
+    source: str | Path,
+    control: str | Path,
+    tlut: str | Path,
+    output: str | Path,
+    *,
+    intended_basis_sha256: str,
+    observed_basis_sha256: str,
+    backend: Literal["cuda", "reference"] = "cuda",
+    solve_batch: int = 2048,
+    decode_batch: int = 2048,
+    decode_repeats: int = 1,
+    hessian: str | Path | None = None,
+    scale_factors: Sequence[float] = (
+        0.80,
+        0.85,
+        0.90,
+        0.95,
+        1.00,
+        1.05,
+        1.10,
+        1.15,
+        1.20,
+    ),
+    ldlq_scale_semantics: Literal[
+        "relative_search", "absolute_unit", "rms_ratio"
+    ] = "absolute_unit",
+    feedback_mode: Literal["off", "reverse_16"] = "off",
+) -> dict[str, Any]:
+    """Backward-compatible fixed-2.50 wrapper around the generic native-V4 API."""
+
+    return _build_qtip_native_v4_cell(
+        source,
+        control,
+        tlut,
+        output,
+        bpw=NATIVE_QTIP25_GEOMETRY.rate_num / NATIVE_QTIP25_GEOMETRY.rate_den,
+        receipt_schema=CELL_SCHEMA,
+        codec_version="v4",
+        intended_basis_sha256=intended_basis_sha256,
+        observed_basis_sha256=observed_basis_sha256,
+        backend=backend,
+        solve_batch=solve_batch,
+        decode_batch=decode_batch,
+        decode_repeats=decode_repeats,
+        hessian=hessian,
+        scale_factors=scale_factors,
+        ldlq_scale_semantics=ldlq_scale_semantics,
+        feedback_mode=feedback_mode,
+    )
+
+
+def _anchor_qtip_native_v4_cell(
     candidate: str | Path,
     *,
     anchor_bank: str | Path,
     teacher: str | Path,
     output: str | Path,
+    candidate_schemas: frozenset[str],
+    receipt_schema: str,
 ) -> dict[str, Any]:
     """Measure one built V4 cell with Banana's standard 64-window anchor."""
 
@@ -403,7 +809,7 @@ def anchor_qtip25_native_v4_cell(
     if receipt_path.is_symlink() or not receipt_path.is_file():
         raise ValueError(f"native V4 candidate receipt is missing: {receipt_path}")
     receipt = json.loads(receipt_path.read_text())
-    if receipt.get("schema") != CELL_SCHEMA or receipt.get("status") != "PASS":
+    if receipt.get("schema") not in candidate_schemas or receipt.get("status") != "PASS":
         raise ValueError("native V4 candidate receipt is incompatible or incomplete")
     decoded_path = Path(receipt["artifacts"]["decoded"]["path"])
     if _sha_file(decoded_path) != receipt["artifacts"]["decoded"]["sha256"]:
@@ -438,7 +844,7 @@ def anchor_qtip25_native_v4_cell(
     )
     output_path = Path(output).expanduser().resolve()
     payload: dict[str, Any] = {
-        "schema": ANCHOR_SCHEMA,
+        "schema": receipt_schema,
         "status": "PASS",
         "same_instrument": True,
         "windows": 64,
@@ -448,8 +854,303 @@ def anchor_qtip25_native_v4_cell(
         "anchor_bank_sha256": _sha_file(bank_path),
         "teacher": str(teacher_path),
         "teacher_sha256": _sha_file(teacher_path),
+        "geometry": receipt["geometry"],
+        "bpw": receipt["accounting"]["exact_code_bpw"],
         "metrics": metrics,
     }
     payload["receipt"] = str(output_path)
     payload["receipt_sha256"] = _atomic_json(output_path, payload)
     return payload
+
+
+def anchor_qtip_native_v4_cell(
+    candidate: str | Path,
+    *,
+    anchor_bank: str | Path,
+    teacher: str | Path,
+    output: str | Path,
+) -> dict[str, Any]:
+    """Anchor one generic homogeneous native-V4 cell."""
+
+    return _anchor_qtip_native_v4_cell(
+        candidate,
+        anchor_bank=anchor_bank,
+        teacher=teacher,
+        output=output,
+        candidate_schemas=frozenset((GENERIC_CELL_SCHEMA, CELL_SCHEMA)),
+        receipt_schema=GENERIC_ANCHOR_SCHEMA,
+    )
+
+
+def anchor_qtip25_native_v4_cell(
+    candidate: str | Path,
+    *,
+    anchor_bank: str | Path,
+    teacher: str | Path,
+    output: str | Path,
+) -> dict[str, Any]:
+    """Backward-compatible Anchor64 wrapper for fixed native QTIP2.5 cells."""
+
+    return _anchor_qtip_native_v4_cell(
+        candidate,
+        anchor_bank=anchor_bank,
+        teacher=teacher,
+        output=output,
+        candidate_schemas=frozenset((CELL_SCHEMA,)),
+        receipt_schema=ANCHOR_SCHEMA,
+    )
+
+
+def build_qtip_native_v4_anchor_set(
+    source: str | Path,
+    control: str | Path,
+    tlut: str | Path,
+    output: str | Path,
+    *,
+    bpws: Sequence[object],
+    anchor_bank: str | Path,
+    teacher: str | Path,
+    intended_basis_sha256: str,
+    observed_basis_sha256: str,
+    backend: Literal["cuda", "reference"] = "cuda",
+    solve_batch: int = 2048,
+    decode_batch: int = 2048,
+    decode_repeats: int = 1,
+) -> dict[str, Any]:
+    """Build and Anchor64 any declared set of homogeneous quarter-rate V4 tiers."""
+
+    geometries = [native_v4_geometry(value) for value in bpws]
+    if not geometries:
+        raise ValueError("native V4 anchor set requires at least one bpw")
+    transition_bits = [geometry.B for geometry in geometries]
+    if len(set(transition_bits)) != len(transition_bits):
+        raise ValueError("native V4 anchor set contains duplicate quarter-rate tiers")
+
+    output_root = Path(output).expanduser().resolve()
+    output_root.mkdir(parents=True, exist_ok=True)
+    rows: list[dict[str, Any]] = []
+    for geometry in geometries:
+        tier_root = output_root / f"b{geometry.B:02d}"
+        candidate = build_qtip_native_v4_cell(
+            source,
+            control,
+            tlut,
+            tier_root / "candidate",
+            bpw=geometry.rate_num / geometry.rate_den,
+            intended_basis_sha256=intended_basis_sha256,
+            observed_basis_sha256=observed_basis_sha256,
+            backend=backend,
+            solve_batch=solve_batch,
+            decode_batch=decode_batch,
+            decode_repeats=decode_repeats,
+        )
+        anchor = anchor_qtip_native_v4_cell(
+            tier_root / "candidate",
+            anchor_bank=anchor_bank,
+            teacher=teacher,
+            output=tier_root / "ANCHOR.json",
+        )
+        rows.append(
+            {
+                "tier": f"qtip-native-v4-b{geometry.B}",
+                "bpw": geometry.rate_num / geometry.rate_den,
+                "geometry": geometry.as_mapping(),
+                "candidate": candidate,
+                "anchor": anchor,
+            }
+        )
+
+    receipt_path = output_root / "ANCHOR_SET.json"
+    result: dict[str, Any] = {
+        "schema": ANCHOR_SET_SCHEMA,
+        "status": "PASS",
+        "same_instrument": True,
+        "basis_sha256": intended_basis_sha256,
+        "tiers": rows,
+        "receipt": str(receipt_path),
+    }
+    result["receipt_sha256"] = _atomic_json(receipt_path, result)
+    return result
+
+
+def build_qtip_native_cells(
+    cells: Sequence[Mapping[str, str | Path]],
+    tlut: str | Path,
+    *,
+    bpw: object,
+    intended_basis_sha256: str,
+    observed_basis_sha256: str,
+    codec_version: Literal["v6"] = "v6",
+    backend: Literal["cuda"] = "cuda",
+    solve_batch: int = 65_536,
+    decode_batch: int = 65_536,
+    decode_repeats: int = 1,
+    scale_factors: Sequence[float] = (1.0,),
+    ldlq_scale_semantics: Literal["rms_ratio"] = "rms_ratio",
+    feedback_mode: Literal["off"] = "off",
+    trellis_objective: Literal["sse"] = "sse",
+    cyclic_fixed_point_fast_path: bool = True,
+    reserve_bytes: int = 4 << 30,
+) -> list[dict[str, Any]]:
+    """Build independent QTIP3 cells in one GPU-resident recurrence call.
+
+    Each mapping contains ``source``, ``control``, and ``output``.  This seam is
+    intentionally fail-closed to the immutable QTIP3 B12/L16/V4 contract;
+    :func:`build_qtip_native_cell` remains the scalar compatibility wrapper.
+    """
+
+    geometry = native_v4_geometry(bpw)
+    intended = _basis(intended_basis_sha256, "intended_basis_sha256")
+    observed = _basis(observed_basis_sha256, "observed_basis_sha256")
+    if intended != observed:
+        raise ValueError(f"native V4 basis mismatch: {observed} != {intended}")
+    if (
+        not cells
+        or codec_version != "v6"
+        or backend != "cuda"
+        or (geometry.B, geometry.L, geometry.V) != (12, 16, 4)
+        or tuple(float(value) for value in scale_factors) != (1.0,)
+        or ldlq_scale_semantics != "rms_ratio"
+        or feedback_mode != "off"
+        or trellis_objective != "sse"
+    ):
+        raise ValueError("QTIP3 batch API is fixed to CUDA v6 B12/L16/V4 rms_ratio")
+
+    tlut_path = Path(tlut).expanduser().resolve()
+    table = np.load(tlut_path, allow_pickle=False)
+    if table.dtype != np.float32 or table.shape != (512, 2) or not np.isfinite(table).all():
+        raise ValueError("QTIP3 batch API requires finite float32 TLUT [512,2]")
+    expanded = expand_native_v4_tlut(table, geometry=geometry)
+    lut_rms = float(np.sqrt(np.mean(expanded.astype(np.float64) ** 2)))
+    prepared: list[dict[str, Any]] = []
+    for index, item in enumerate(cells):
+        if set(item) != {"source", "control", "output"}:
+            raise ValueError(f"QTIP3 batch cell {index} must contain source/control/output")
+        source_path = Path(item["source"]).expanduser().resolve()
+        output_root = Path(item["output"]).expanduser().resolve()
+        source_weights = np.load(source_path, allow_pickle=False)
+        compact, control_path = _load_control(item["control"])
+        if source_weights.dtype != np.float32 or source_weights.shape != compact["shape"] or not np.isfinite(source_weights).all():
+            raise ValueError(f"QTIP3 batch source {index} has incompatible shape/dtype")
+        blocks = _to_normalized_blocks(source_weights, compact)
+        source_rms = float(np.sqrt(np.mean(blocks.astype(np.float64) ** 2)))
+        scale = 1.0 if source_rms == 0 else source_rms / lut_rms
+        prepared.append({
+            "source_path": source_path, "source_weights": source_weights,
+            "control_path": control_path, "compact": compact, "blocks": blocks,
+            "scale": scale, "output": output_root,
+        })
+
+    from .qtip25_native_v4_cuda_cell import run_cuda_cell
+    import shutil
+
+    batch_tmpdir = os.environ.get("QTIP3_BATCH_TMPDIR")
+    if batch_tmpdir is not None:
+        Path(batch_tmpdir).mkdir(parents=True, exist_ok=True)
+    batch_parent = Path(tempfile.mkdtemp(prefix="banana-smasher-qtip3-batch-", dir=batch_tmpdir))
+    normalized_path = batch_parent / "normalized.npy"
+    cuda_root = batch_parent / "cuda"
+    try:
+        normalized = np.concatenate([row["blocks"] for row in prepared])
+        sequence_scales = np.concatenate([
+            np.full(len(row["blocks"]), row["scale"], dtype=np.float64)
+            for row in prepared
+        ])
+        sequence_boundaries = np.cumsum(
+            [len(row["blocks"]) for row in prepared], dtype=np.int64
+        ).tolist()
+        np.save(normalized_path, normalized, allow_pickle=False)
+        cuda_receipt = run_cuda_cell(
+            normalized_path, tlut_path, cuda_root,
+            intended_basis_sha256=intended, observed_basis_sha256=observed,
+            solve_batch=solve_batch, decode_batch=decode_batch,
+            decode_repeats=decode_repeats, geometry=geometry,
+            ldlq_scale_semantics="absolute_unit", feedback_mode="off",
+            cyclic_warmup_cycles=2, trellis_objective="sse",
+            cyclic_fixed_point_fast_path=cyclic_fixed_point_fast_path,
+            reserve_bytes=reserve_bytes,
+            sequence_scales=sequence_scales,
+            sequence_boundaries=sequence_boundaries,
+            defer_full_cuda_decode=True,
+        )
+        combined_packed = np.load(cuda_root / "codes.npy", allow_pickle=False)
+        combined_decoded_blocks = decode_native_v4(
+            combined_packed,
+            sequence_scales.astype(np.float32),
+            positions=256,
+            tlut=table,
+            geometry=geometry,
+        ).reshape(-1, 64, 4)
+        from concurrent.futures import ThreadPoolExecutor
+        block_starts = np.concatenate((np.asarray([0]), np.cumsum(
+            [len(row["blocks"]) for row in prepared], dtype=np.int64
+        )))
+        def finalize_decoded(index: int) -> np.ndarray:
+            row = prepared[index]
+            return _from_normalized_blocks(
+                combined_decoded_blocks[block_starts[index] : block_starts[index + 1]],
+                row["compact"],
+            ).astype(np.float32)
+        workers = min(int(os.environ.get("QTIP3_FINALIZE_WORKERS", "4")), len(prepared))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            decoded_cells = list(pool.map(finalize_decoded, range(len(prepared))))
+        results: list[dict[str, Any]] = []
+        cursor = 0
+        total_blocks = len(combined_packed)
+        for row_index, row in enumerate(prepared):
+            count = len(row["blocks"])
+            cell_start = cursor
+            packed = np.ascontiguousarray(combined_packed[cell_start : cell_start + count])
+            cursor += count
+            compact = row["compact"]
+            output_root = row["output"]
+            output_root.mkdir(parents=True, exist_ok=True)
+            codes_path, decoded_path = output_root / "codes.npy", output_root / "decoded.npy"
+            su_path, sv_path, wscale_path = output_root / "SU.npy", output_root / "SV.npy", output_root / "Wscale.npy"
+            np.save(codes_path, packed, allow_pickle=False)
+            decoded = decoded_cells[row_index]
+            np.save(decoded_path, decoded, allow_pickle=False)
+            np.save(su_path, compact["SU_storage"], allow_pickle=False)
+            np.save(sv_path, compact["SV_storage"], allow_pickle=False)
+            np.save(wscale_path, np.asarray(compact["Wscale"] * row["scale"], dtype=np.float32), allow_pickle=False)
+            source_weights = row["source_weights"]
+            delta = decoded.astype(np.float64) - source_weights.astype(np.float64)
+            sse = float(np.sum(delta * delta, dtype=np.float64))
+            optimization = dict(cuda_receipt["optimization"])
+            optimization.update({
+                "method": "qtip3_cross_cell_cuda_float4",
+                "base_scale": row["scale"], "selected_scale": row["scale"],
+                "scale_factor": row["scale"], "scale_semantics": "rms_ratio",
+                "cross_cell_batch_cells": len(prepared),
+                "cross_cell_batch_sequences": total_blocks,
+            })
+            weights = int(source_weights.size)
+            transform_bytes = int(compact["SU_storage"].nbytes + compact["SV_storage"].nbytes)
+            wscale_bytes = int(np.asarray(compact["Wscale"], dtype=np.float32).nbytes)
+            encode_seconds = float(cuda_receipt["encode"]["wall_seconds"]) * count / total_blocks
+            full_wire_bytes = int(packed.nbytes + transform_bytes + wscale_bytes + table.nbytes)
+            receipt: dict[str, Any] = {
+                "schema": GENERIC_CELL_SCHEMA, "status": "PASS", "backend": "cuda",
+                "codec_version": "v6", "provider": "qtip-native-v6@3.00",
+                "basis_sha256": intended, "geometry": geometry.as_mapping(),
+                "source": {**_artifact(row["source_path"], data_bytes=int(source_weights.nbytes)), "shape": list(source_weights.shape), "dtype": str(source_weights.dtype)},
+                "control": {**_artifact(row["control_path"]), "shape": list(compact["shape"])},
+                "tlut": {**_artifact(tlut_path, data_bytes=int(table.nbytes)), "tensor_sha256": _sha_array(table), "shape": list(table.shape), "identity": "q9-v2-v4"},
+                "normalized_tensor_sha256": _sha_array(row["blocks"]),
+                "optimization": optimization,
+                "accounting": {"weights": weights, "exact_code_bits": weights * geometry.B // geometry.V, "exact_code_bpw": 3.0, "code_data_bytes": int(packed.nbytes), "transform_bytes": transform_bytes, "Wscale_bytes": wscale_bytes, "shared_tlut_bytes": int(table.nbytes), "assignment_map_bytes": 0, "routing_bytes": 0, "full_cell_wire_bytes_including_shared_tlut": full_wire_bytes, "full_cell_wire_bpw_including_shared_tlut": full_wire_bytes * 8 / weights},
+                "direct_error": {"sse": sse, "mse": sse / weights},
+                "encode": {"wall_seconds": encode_seconds, "weights_per_second": weights / encode_seconds},
+                "artifacts": {"codes": _artifact(codes_path, data_bytes=int(packed.nbytes)), "decoded": _artifact(decoded_path, data_bytes=int(decoded.nbytes)), "SU": _artifact(su_path, data_bytes=int(compact["SU_storage"].nbytes)), "SV": _artifact(sv_path, data_bytes=int(compact["SV_storage"].nbytes)), "Wscale": _artifact(wscale_path, data_bytes=wscale_bytes)},
+                "installed_cuda_decode": cuda_receipt["installed_cuda_decode"],
+                "cuda": cuda_receipt["cuda"],
+            }
+            receipt_path = output_root / "CELL_RECEIPT.json"
+            receipt["receipt"] = str(receipt_path)
+            receipt["receipt_sha256"] = _atomic_json(receipt_path, receipt)
+            results.append(receipt)
+        if cursor != total_blocks:
+            raise RuntimeError("QTIP3 batch split did not consume every packed sequence")
+        return results
+    finally:
+        shutil.rmtree(batch_parent, ignore_errors=True)
