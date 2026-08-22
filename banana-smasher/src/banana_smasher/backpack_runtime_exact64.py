@@ -15,11 +15,16 @@ import numpy as np
 
 from .anchor_sidecars import (
     CandidateSidecarWriter,
+    _candidate_entry,
+    load_candidate_manifest,
     load_teacher_support_manifest,
     load_teacher_window,
-    _score_anchor_sidecars,
 )
-from .hf_deepseek_v4_backpack_adapter import DeepseekV4BackpackRuntime
+from .hf_deepseek_v4_backpack_adapter import (
+    DeepseekV4BackpackRuntime,
+    _available_materialization_bytes,
+)
+from .resident_terminal_scorer import ResidentScoreAccumulator
 
 
 def _sha256_file(path: Path) -> str:
@@ -517,33 +522,93 @@ def _run_backpack_exact64(
     ):
         raise ValueError("exact64 terminal checkpoint coverage mismatch")
     with runtime.terminal_stage() as score:
+        teacher_bytes = expected_windows * 1024 * teacher["support_width"] * (
+            8 + 2
+        )
+        available = _available_materialization_bytes(runtime.torch, runtime.device)
+        if available - (4 << 30) < teacher_bytes:
+            raise RuntimeError(
+                "insufficient memory for resident terminal teacher rows: "
+                f"available={available}, required_plus_guard={teacher_bytes + (4 << 30)}"
+            )
+        resident_teacher = []
+        for row in bank_rows:
+            teacher_idx, teacher_logprob = load_teacher_window(
+                teacher_manifest_path,
+                row["window_id"],
+                manifest=teacher,
+            )
+            resident_teacher.append(
+                (
+                    teacher_idx[:1024].to(runtime.device, dtype=runtime.torch.long),
+                    teacher_logprob[:1024].to(runtime.device),
+                )
+            )
+        score_accumulator = ResidentScoreAccumulator(runtime.torch)
         for slot, row in enumerate(bank_rows):
             if row["window_id"] in writer.completed_window_ids:
+                entry = writer._entries[slot]
+                candidate_lp, candidate_argmax = _candidate_entry(
+                    candidate_manifest,
+                    entry,
+                    width=teacher["support_width"],
+                    expected_window_id=row["window_id"],
+                    expected_identities=writer.identities,
+                )
+                resident_candidate = (
+                    candidate_lp.to(runtime.device),
+                    candidate_argmax.to(runtime.device),
+                )
+                support, teacher_logprob = resident_teacher[slot]
+                score_accumulator.add(
+                    row["window_id"],
+                    support,
+                    teacher_logprob,
+                    resident_candidate[0],
+                    resident_candidate[1],
+                )
                 continue
             source = _read_activation(
                 run_root / source_stage / f"window_{slot:03d}.npy",
                 final_receipts[str(slot)],
             )
             activation = runtime.import_activation(source)
-            support, _ = load_teacher_window(
-                teacher_manifest_path,
-                row["window_id"],
-                manifest=teacher,
-            )
+            support, teacher_logprob = resident_teacher[slot]
             scored = score(
                 activation,
-                support[:1024],
+                support,
                 window_id=row["window_id"],
+            )
+            score_accumulator.add(
+                row["window_id"],
+                support,
+                teacher_logprob,
+                scored["q_lp_at_ref"],
+                scored["q_argmax"],
             )
             writer.write_window(
                 row["window_id"],
                 q_lp_at_ref=scored["q_lp_at_ref"],
                 q_argmax=scored["q_argmax"],
+                resident_validated=True,
             )
             progress("terminal", slot=slot)
             del source, activation, support, scored
+        score_result = score_accumulator.finalize()
 
-    score_result = _score_anchor_sidecars(teacher_manifest_path, candidate_manifest)
+    candidate = load_candidate_manifest(candidate_manifest)
+    score_result.update(
+        {
+            "claimable": True,
+            "classification": "own-base-top8192-anchor",
+            "support_width": teacher["support_width"],
+            "position_cutoff": 1024,
+            "kld_semantics": "support-renormalized",
+            "top1_semantics": "full-vocabulary-argmax",
+            "windows": len(score_result["per_window"]),
+            "identities": dict(candidate["identities"]),
+        }
+    )
     class_kld: dict[str, float] | None = None
     class_top1: dict[str, dict[str, float | int]] | None = None
     if class_by_window is not None:

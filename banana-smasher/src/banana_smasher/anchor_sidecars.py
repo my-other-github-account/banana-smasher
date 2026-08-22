@@ -593,6 +593,7 @@ class CandidateSidecarWriter:
         *,
         q_lp_at_ref: Any,
         q_argmax: Any,
+        resident_validated: bool = False,
     ) -> bool:
         key = _window_key(window_id)
         completed = [_window_key(value) for value in self.completed_window_ids]
@@ -602,7 +603,7 @@ class CandidateSidecarWriter:
         if slot >= len(self.window_ids) or key != _window_key(self.window_ids[slot]):
             raise ValueError("candidate sidecars must be written in ordered window sequence")
         torch = _torch()
-        if (
+        invalid_structure = (
             not isinstance(q_lp_at_ref, torch.Tensor)
             or not isinstance(q_argmax, torch.Tensor)
             or q_lp_at_ref.dtype != torch.float16
@@ -611,18 +612,22 @@ class CandidateSidecarWriter:
             or q_lp_at_ref.shape[1] != self.teacher["support_width"]
             or q_lp_at_ref.shape[0] < 1
             or q_argmax.shape != (q_lp_at_ref.shape[0],)
-            or not bool(torch.isfinite(q_lp_at_ref).all())
-            or bool((q_argmax < 0).any())
-        ):
-            raise ValueError("candidate sidecars require fp16 q_lp_at_ref [T,S] and int32 q_argmax [T]")
-        teacher_idx, _ = load_teacher_window(
-            self.teacher_manifest_path, window_id, manifest=self.teacher
         )
-        if (
-            q_lp_at_ref.shape[1] != teacher_idx.shape[1]
-            or q_lp_at_ref.shape[0] > teacher_idx.shape[0]
-        ):
-            raise ValueError("candidate sidecar position/support shape differs from teacher")
+        invalid_values = not resident_validated and (
+            not bool(torch.isfinite(q_lp_at_ref).all())
+            or bool((q_argmax < 0).any())
+        )
+        if invalid_structure or invalid_values:
+            raise ValueError("candidate sidecars require fp16 q_lp_at_ref [T,S] and int32 q_argmax [T]")
+        if not resident_validated:
+            teacher_idx, _ = load_teacher_window(
+                self.teacher_manifest_path, window_id, manifest=self.teacher
+            )
+            if (
+                q_lp_at_ref.shape[1] != teacher_idx.shape[1]
+                or q_lp_at_ref.shape[0] > teacher_idx.shape[0]
+            ):
+                raise ValueError("candidate sidecar position/support shape differs from teacher")
         relative = _relative_sidecar(
             self.manifest_path,
             "q",

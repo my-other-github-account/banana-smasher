@@ -13,6 +13,7 @@ from .d4_wire import decode_d4_expert
 from .hf_deepseek_v4_d4_adapter import DeepseekV4D4Runtime
 from .loader import PackLoader
 from .qtip_v7_routes import _load_qtip2_v7_member_roster, load_qtip2_v7_wire
+from .resident_terminal_scorer import score_terminal_hidden
 
 
 def _available_materialization_bytes(
@@ -550,6 +551,8 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         )
         resources = [model.model.norm, model.model.hc_head, model.lm_head]
         self._resident_now()
+        q_lp_out = None
+        q_argmax_out = None
 
         def _score(
             activation: Any,
@@ -557,30 +560,38 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             *,
             window_id: object,
         ) -> dict[str, Any]:
+            nonlocal q_lp_out, q_argmax_out
             del window_id
             support_token_ids = torch.as_tensor(
                 support_token_ids,
                 dtype=torch.long,
                 device=self.device,
             )
-            pairs: list[Any] = []
-            top1: list[Any] = []
             with torch.no_grad():
                 hidden = model.model.norm(
                     model.model.hc_head(activation.hidden.unsqueeze(0))
                 ).squeeze(0)
-                for start in range(0, hidden.shape[0], 128):
-                    logits = model.lm_head(
-                        hidden[start : start + 128].to(torch.bfloat16)
-                    ).float()
-                    support = support_token_ids[start : start + logits.shape[0]]
-                    pairs.append(logits.gather(1, support).to(torch.float16).cpu())
-                    top1.append(logits.argmax(-1).to(torch.int32).cpu())
-                    del logits, support
+                shape = (hidden.shape[0], support_token_ids.shape[1])
+                if q_lp_out is None or tuple(q_lp_out.shape) != shape:
+                    q_lp_out = torch.empty(
+                        shape, dtype=torch.float16, device=self.device
+                    )
+                    q_argmax_out = torch.empty(
+                        (hidden.shape[0],), dtype=torch.int32, device=self.device
+                    )
+                score_terminal_hidden(
+                    hidden,
+                    support_token_ids,
+                    model.lm_head,
+                    chunk_size=128,
+                    q_lp_out=q_lp_out,
+                    q_argmax_out=q_argmax_out,
+                    compute_dtype=torch.bfloat16,
+                )
             self._resident_now()
             return {
-                "q_lp_at_ref": torch.cat(pairs),
-                "q_argmax": torch.cat(top1),
+                "q_lp_at_ref": q_lp_out,
+                "q_argmax": q_argmax_out,
             }
 
         try:
