@@ -77,6 +77,7 @@ def main() -> int:
         _atomic(args.output, receipt)
         print(json.dumps(receipt, sort_keys=True))
         return 2
+    engine.preload_score_windows(api.artifact.windows)
     full = engine.score_balanced64(api.artifact.windows)
     receipt.update(
         {

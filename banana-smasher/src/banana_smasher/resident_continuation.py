@@ -852,6 +852,30 @@ class ModernGreenResidentEngine:
             )
         return idx, lp_n, p_n
 
+    def preload_score_windows(self, windows: Any) -> None:
+        """Expand score caches outside the timed rail without reconstructing the model."""
+        selected = tuple(int(value) for value in windows)
+        missing = [window for window in selected if window not in self.score_ids_cache]
+        if not missing:
+            return
+        score_corpus = str(self.config.get("score_corpus", self.corpus_path))
+        score_teachers = str(self.config.get("score_teacher_root", self.teacher_root))
+        original_corpus = self.base.T.CORPUS
+        original_teachers = self.base.T.TEACH
+        try:
+            self.base.T.CORPUS = score_corpus
+            self.base.T.TEACH = score_teachers
+            corpus = self.base.T.load_corpus()
+            for window in missing:
+                ids, length = self.base.T.window_ids(corpus, window)
+                self.score_ids_cache[window] = ids.unsqueeze(0).to(self.student.device)
+                self.score_real_lengths[window] = length
+                if self.rank == 1:
+                    self.score_teacher_cache[window] = self.base.T.teacher_rows(window)
+        finally:
+            self.base.T.CORPUS = original_corpus
+            self.base.T.TEACH = original_teachers
+
     def score_balanced64(self, windows: Any) -> dict[str, Any]:
         """Score a W28 canary or full64 through one hot batch-one resident rail."""
         selected = tuple(int(value) for value in windows)

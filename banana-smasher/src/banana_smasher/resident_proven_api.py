@@ -1376,7 +1376,12 @@ class ResidentRepairAPI:
             raise ArtifactError("layer_split must cover disjoint generic layers 0..42")
         options["checkpoint_sha256"] = checkpoint_sha256
         options["score_only"] = True
-        options["score_windows"] = list(self.windows)
+        score_windows = tuple(
+            int(value) for value in options.get("score_windows", self.windows)
+        )
+        if not score_windows or not set(score_windows).issubset(set(self.windows)):
+            raise ArtifactError("resident score window preload is outside the artifact bank")
+        options["score_windows"] = list(score_windows)
         return ModernGreenResidentEngine(
             payload=payload, config=options, rank=int(rank), layer_ranges=ranges
         )
