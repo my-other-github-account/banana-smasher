@@ -530,40 +530,56 @@ def test_physical_score_admits_exactly_one_four_window_canary_batch():
     assert _score_window_groups((28, 29, 30, 31)) == [[28, 29, 30, 31]]
 
 
-def test_sealed_batch1_gate_binds_same_windows_and_values():
+def test_sealed_batch1_gate_binds_same_windows_and_exact_per_window_values():
+    per_window = [
+        {"window": window, "mean_kld": 0.2 + index / 1000, "top1_matches": 700 + index}
+        for index, window in enumerate((28, 29, 30, 31))
+    ]
     observed = {
         "windows": [28, 29, 30, 31],
         "positions": 4 * 1024,
-        "mean_kld": 0.229392,
-        "top1_matches": 3533,
+        "mean_kld": 0.2015,
+        "top1_matches": 2806,
+        "per_window": per_window,
     }
     reference = {
         "windows": [28, 29, 30, 31],
         "positions": 4 * 1024,
-        "mean_kld": 0.2293919,
-        "top1_matches": 3533,
-        "tolerance": {"kld_abs": 1.0e-6, "top1_abs": 0},
+        "mean_kld": 0.2015,
+        "top1_matches": 2806,
+        "per_window": per_window,
     }
 
     gate = continuation_module._require_sealed_batch1_parity(observed, reference)
 
     assert gate["status"] == "PASS"
+    assert gate["equality"] == "EXACT_A6_PER_WINDOW"
     assert gate["windows"] == [28, 29, 30, 31]
     with pytest.raises(ArtifactError, match="window identity"):
         continuation_module._require_sealed_batch1_parity(
             observed, {**reference, "windows": [29, 30, 31, 32]}
         )
+    changed = [dict(row) for row in per_window]
+    changed[0]["mean_kld"] += 1.0e-12
+    with pytest.raises(ArtifactError, match="exact per-window"):
+        continuation_module._require_sealed_batch1_parity(
+            observed, {**reference, "per_window": changed}
+        )
 
 
 def test_balanced64_runs_paired_canary_before_full_and_promotes_only_when_faster():
     engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    canary_rows = [
+        {"window": window, "positions": 1024, "mean_kld": 0.2, "top1_matches": 750}
+        for window in (28, 29, 30, 31)
+    ]
     engine.config = {
         "sealed_batch1_reference": {
             "windows": [28, 29, 30, 31],
             "positions": 4 * 1024,
             "mean_kld": 0.2,
             "top1_matches": 3000,
-            "tolerance": {"kld_abs": 0.0, "top1_abs": 0},
+            "per_window": canary_rows,
             "best_single_host_wall_seconds": 290.0,
         }
     }
@@ -578,6 +594,7 @@ def test_balanced64_runs_paired_canary_before_full_and_promotes_only_when_faster
                 "positions": 4 * 1024,
                 "mean_kld": 0.2,
                 "top1_matches": 3000,
+                "per_window": canary_rows,
                 "timed_wall_seconds": 10.0,
             }
         return {

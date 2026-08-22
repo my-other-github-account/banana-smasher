@@ -488,34 +488,30 @@ def _require_sealed_batch1_parity(
         or int(reference.get("positions", -1)) != expected_positions
     ):
         raise ArtifactError("sealed batch1 position identity mismatch")
-    tolerance = reference.get("tolerance", {})
-    if not isinstance(tolerance, Mapping):
-        raise ArtifactError("sealed batch1 tolerance must be a mapping")
-    kld_abs = float(tolerance.get("kld_abs", 0.0))
-    top1_abs = int(tolerance.get("top1_abs", 0))
     observed_kld = float(observed["mean_kld"])
     reference_kld = float(reference["mean_kld"])
     observed_top1 = int(observed["top1_matches"])
     reference_top1 = int(reference["top1_matches"])
+    observed_rows = observed.get("per_window")
+    reference_rows = reference.get("per_window")
     if (
         not math.isfinite(observed_kld)
         or not math.isfinite(reference_kld)
-        or kld_abs < 0.0
-        or top1_abs < 0
-        or abs(observed_kld - reference_kld) > kld_abs
-        or abs(observed_top1 - reference_top1) > top1_abs
+        or observed_kld != reference_kld
+        or observed_top1 != reference_top1
+        or not isinstance(observed_rows, list)
+        or not isinstance(reference_rows, list)
+        or observed_rows != reference_rows
     ):
-        raise ArtifactError("sealed batch1 functional parity mismatch")
+        raise ArtifactError("sealed batch1 exact per-window A6 parity mismatch")
     return {
         "status": "PASS",
+        "equality": "EXACT_A6_PER_WINDOW",
         "windows": observed_windows,
         "positions": expected_positions,
-        "observed": {"mean_kld": observed_kld, "top1_matches": observed_top1},
-        "reference": {
-            "mean_kld": reference_kld,
-            "top1_matches": reference_top1,
-        },
-        "tolerance": {"kld_abs": kld_abs, "top1_abs": top1_abs},
+        "mean_kld": observed_kld,
+        "top1_matches": observed_top1,
+        "per_window": observed_rows,
     }
 
 
@@ -1011,6 +1007,15 @@ class ModernGreenResidentEngine:
         elapsed = time.perf_counter() - started
         return {
             "windows": list(selected),
+            "per_window": [
+                {
+                    "window": int(row["window"]),
+                    "positions": int(row["positions"]),
+                    "mean_kld": float(row["kld_sum"]) / int(row["positions"]),
+                    "top1_matches": int(row["top1"]),
+                }
+                for row in rows
+            ],
             "mean_kld": math.fsum(float(row["kld_sum"]) for row in rows) / positions,
             "top1_matches": sum(int(row["top1"]) for row in rows),
             "positions": positions,
