@@ -207,6 +207,99 @@ def test_runtime_composes_closure_bound_split_qtip_payload(tmp_path) -> None:
     assert payload["trellis"].tolist() == list(range(48))
 
 
+def test_runtime_composes_native_v6_qtip3_split_with_bound_shared_tlut(
+    tmp_path,
+) -> None:
+    basis = "a" * 64
+    root = tmp_path / "qtip3"
+    cell_root = root / "outputs" / "full_api" / "L002_E000_down"
+    cell_root.mkdir(parents=True)
+    inputs = root / "inputs"
+    inputs.mkdir()
+    control_path = tmp_path / "control.pt"
+    torch.save(
+        {
+            "shape": [16, 8],
+            "SU": torch.ones(8),
+            "SV": torch.ones(16),
+            "Wscale": torch.tensor(1.0),
+        },
+        control_path,
+    )
+    codes_path = cell_root / "codes.npy"
+    np.save(codes_path, np.arange(48, dtype=np.uint8).reshape(16, 3))
+    tlut_path = inputs / "qtip_tlut.npy"
+    tlut = np.arange(1024, dtype=np.float32).reshape(512, 2)
+    np.save(tlut_path, tlut)
+    control_sha = hashlib.sha256(control_path.read_bytes()).hexdigest()
+    codes_sha = hashlib.sha256(codes_path.read_bytes()).hexdigest()
+    tlut_sha = hashlib.sha256(tlut_path.read_bytes()).hexdigest()
+    tlut_tensor_sha = hashlib.sha256(tlut.tobytes(order="C")).hexdigest()
+    geometry = {
+        "L": 16,
+        "B": 12,
+        "V": 4,
+        "rate_num": 3,
+        "rate_den": 1,
+        "phase_count": 1,
+        "unique_transition_bits_per_payload": 1,
+        "alternation": False,
+        "member_averaging": False,
+        "tlut_bits": 9,
+        "decode_mode": "paired_quantlut_sym",
+    }
+    (cell_root / "CELL_RECEIPT.json").write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-qtip-native-v4-cell-v1",
+                "status": "PASS",
+                "provider": "qtip-native-v6@3.00",
+                "codec_version": "v6",
+                "basis_sha256": basis,
+                "geometry": geometry,
+                "artifacts": {"codes": {"sha256": codes_sha}},
+                "control": {"sha256": control_sha},
+                "tlut": {
+                    "sha256": tlut_sha,
+                    "tensor_sha256": tlut_tensor_sha,
+                },
+            }
+        )
+        + "\n"
+    )
+    observed = []
+    runtime = DeepseekV4BackpackRuntime.__new__(DeepseekV4BackpackRuntime)
+    runtime.torch = torch  # type: ignore[assignment]
+    runtime.basis_sha256 = basis
+    runtime._record_path = lambda path: observed.append(path)  # type: ignore[method-assign]
+
+    payload = runtime._load_qtip_payload(
+        receipt={
+            "closure_split_payload": {
+                "closure_receipt_sha256": "1" * 64,
+                "control_path": str(control_path),
+                "control_sha256": control_sha,
+                "codes_path": str(codes_path),
+                "codes_sha256": codes_sha,
+                "source_host": "fixture",
+            }
+        },
+        artifact_path=tmp_path / "absent-monolith.pt",
+        source_key="qtip3",
+    )
+
+    assert observed == [
+        control_path,
+        codes_path,
+        cell_root / "CELL_RECEIPT.json",
+        tlut_path,
+    ]
+    assert payload["schema"] == "banana-smasher-qtip3-native-v6-unit-v1"
+    assert payload["geometry"] == geometry
+    assert payload["trellis"].shape == (16, 3)
+    assert payload["tlut"].shape == (512, 2)
+
+
 def test_materialize_provenance_assignment_for_exact64(tmp_path) -> None:
     basis = "1" * 64
     bank = "2" * 64

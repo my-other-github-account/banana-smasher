@@ -12,6 +12,7 @@ import numpy as np
 from .d4_wire import decode_d4_expert
 from .hf_deepseek_v4_d4_adapter import DeepseekV4D4Runtime
 from .loader import PackLoader
+from .qtip25_native_v4 import decode_native_v4_torch, native_v4_geometry
 from .qtip_v7_routes import _load_qtip2_v7_member_roster, load_qtip2_v7_wire
 
 
@@ -341,19 +342,33 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         )
         geometry = payload.get("geometry")
         expected_k = 2 if source_key == "qtip2" else 3
-        expected_schema = (
-            {"banana-smasher-qtip2-public-unit-v1", "banana-smasher-qtip-unit-v1"}
-            if source_key == "qtip2"
-            else {"ds4-qtip-hyb-bounded36-unit-v1", "banana-smasher-qtip-unit-v1"}
+        legacy_geometry = (
+            isinstance(geometry, Mapping)
+            and int(geometry.get("L", -1)) == 16
+            and int(geometry.get("K", -1)) == expected_k
+            and int(geometry.get("V", -1)) == 2
+            and int(geometry.get("tlut_bits", -1)) == 9
+            and geometry.get("decode_mode") == "quantlut_sym"
         )
-        if (
-            payload.get("schema") not in expected_schema
-            or not isinstance(geometry, Mapping)
-            or int(geometry.get("L", -1)) != 16
-            or int(geometry.get("K", -1)) != expected_k
-            or int(geometry.get("V", -1)) != 2
-            or int(geometry.get("tlut_bits", -1)) != 9
-            or geometry.get("decode_mode") != "quantlut_sym"
+        native_qtip3_geometry = (
+            source_key == "qtip3"
+            and isinstance(geometry, Mapping)
+            and int(geometry.get("L", -1)) == 16
+            and int(geometry.get("B", -1)) == 12
+            and int(geometry.get("V", -1)) == 4
+            and int(geometry.get("rate_num", -1)) == 3
+            and int(geometry.get("rate_den", -1)) == 1
+            and int(geometry.get("tlut_bits", -1)) == 9
+            and geometry.get("decode_mode") == "paired_quantlut_sym"
+        )
+        expected_schemas = {
+            "banana-smasher-qtip2-public-unit-v1",
+            "ds4-qtip-hyb-bounded36-unit-v1",
+            "banana-smasher-qtip-unit-v1",
+            "banana-smasher-qtip3-native-v6-unit-v1",
+        }
+        if payload.get("schema") not in expected_schemas or not (
+            legacy_geometry or native_qtip3_geometry
         ):
             raise ValueError(f"QTIP unit payload identity mismatch: {artifact_path}")
         rows, columns = [int(value) for value in payload["shape"]]
@@ -362,23 +377,33 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             raise ValueError(f"QTIP unit shape mismatch: {artifact_path}")
         device = self.device
         tlut = payload["tlut"].float().to(device)
-        index = torch.arange(1 << 16, device=device)
-        quadratic = (index + 1) * index
-        sign_flip = 1 - ((quadratic >> 15) & 1) * 2
-        lut_index = (quadratic >> 6) & ((1 << 9) - 1)
-        expanded = tlut[lut_index]
-        expanded[:, 0] *= sign_flip
-        raw = _decode_compressed(
-            torch,
-            16,
-            9,
-            expected_k,
-            1,
-            rows,
-            columns,
-            payload["trellis"].to(device).reshape(-1),
-            expanded,
-        )
+        if native_qtip3_geometry:
+            packed = payload["trellis"].to(device)
+            raw = decode_native_v4_torch(
+                packed,
+                torch.ones(rows, dtype=torch.float32, device=device),
+                positions=columns,
+                tlut=tlut,
+                geometry=native_v4_geometry(3.0),
+            )
+        else:
+            index = torch.arange(1 << 16, device=device)
+            quadratic = (index + 1) * index
+            sign_flip = 1 - ((quadratic >> 15) & 1) * 2
+            lut_index = (quadratic >> 6) & ((1 << 9) - 1)
+            expanded = tlut[lut_index]
+            expanded[:, 0] *= sign_flip
+            raw = _decode_compressed(
+                torch,
+                16,
+                9,
+                expected_k,
+                1,
+                rows,
+                columns,
+                payload["trellis"].to(device).reshape(-1),
+                expanded,
+            )
         decoded = raw * payload["Wscale"].to(device)
         decoded = _fwht(torch, decoded.T).T * payload["SV"].float().to(device)[:, None]
         decoded = _fwht(torch, decoded) * payload["SU"].float().to(device)
@@ -433,11 +458,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             raise ValueError(f"QTIP split control is not a mapping: {control_path}")
         shape = control.get("shape")
         geometry = control.get("geometry")
-        if (
-            not isinstance(shape, (list, tuple))
-            or len(shape) != 2
-            or not isinstance(geometry, Mapping)
-        ):
+        if not isinstance(shape, (list, tuple)) or len(shape) != 2:
             raise ValueError(f"QTIP split control geometry mismatch: {control_path}")
         expected_k = 2 if source_key == "qtip2" else 3
         rows, columns = (int(value) for value in shape)
@@ -449,12 +470,64 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             or codes.nbytes != expected_codes_bytes
         ):
             raise ValueError(f"QTIP split codes geometry mismatch: {codes_path}")
+        if isinstance(geometry, Mapping):
+            return {
+                **control,
+                "schema": "banana-smasher-qtip-unit-v1",
+                "geometry": {**geometry, "K": expected_k},
+                # Avoid aliasing a read-only numpy mmap; each compact member is
+                # released with its decoded layer state.
+                "trellis": torch.from_numpy(np.array(codes, copy=True)),
+            }
+        if source_key != "qtip3":
+            raise ValueError(f"QTIP split control geometry mismatch: {control_path}")
+
+        # Native-v6 QTIP3 deliberately keeps the compact codes separate from
+        # the small solve control.  Bind the sibling public producer receipt
+        # and its shared TLUT before composing the runtime payload.
+        cell_receipt_path = codes_path.parent / "CELL_RECEIPT.json"
+        cell_receipt = json.loads(cell_receipt_path.read_text())
+        cell_geometry = cell_receipt.get("geometry")
+        artifacts = cell_receipt.get("artifacts")
+        tlut_binding = cell_receipt.get("tlut")
+        if (
+            cell_receipt.get("schema") != "banana-smasher-qtip-native-v4-cell-v1"
+            or cell_receipt.get("status") != "PASS"
+            or cell_receipt.get("provider") != "qtip-native-v6@3.00"
+            or cell_receipt.get("codec_version") != "v6"
+            or cell_receipt.get("basis_sha256") != self.basis_sha256
+            or not isinstance(cell_geometry, Mapping)
+            or not isinstance(artifacts, Mapping)
+            or not isinstance(tlut_binding, Mapping)
+            or artifacts.get("codes", {}).get("sha256") != split["codes_sha256"]
+            or cell_receipt.get("control", {}).get("sha256") != split["control_sha256"]
+        ):
+            raise ValueError(f"QTIP3 split producer identity mismatch: {cell_receipt_path}")
+        expected_geometry = native_v4_geometry(3.0).as_mapping()
+        if any(cell_geometry.get(key) != value for key, value in expected_geometry.items()):
+            raise ValueError(f"QTIP3 split producer geometry mismatch: {cell_receipt_path}")
+        tlut_path = codes_path.parents[3] / "inputs" / "qtip_tlut.npy"
+        if (
+            not tlut_path.is_file()
+            or hashlib.sha256(tlut_path.read_bytes()).hexdigest()
+            != tlut_binding.get("sha256")
+        ):
+            raise ValueError(f"QTIP3 split shared TLUT identity mismatch: {tlut_path}")
+        tlut = np.load(tlut_path, mmap_mode="r", allow_pickle=False)
+        if (
+            tlut.dtype != np.float32
+            or tlut.shape != (512, 2)
+            or hashlib.sha256(tlut.tobytes(order="C")).hexdigest()
+            != tlut_binding.get("tensor_sha256")
+        ):
+            raise ValueError(f"QTIP3 split shared TLUT tensor mismatch: {tlut_path}")
+        self._record_path(cell_receipt_path)
+        self._record_path(tlut_path)
         return {
             **control,
-            "schema": "banana-smasher-qtip-unit-v1",
-            "geometry": {**geometry, "K": expected_k},
-            # Avoid aliasing a read-only numpy mmap; each compact member is
-            # released with its decoded layer state.
+            "schema": "banana-smasher-qtip3-native-v6-unit-v1",
+            "geometry": dict(cell_geometry),
+            "tlut": torch.from_numpy(np.array(tlut, copy=True)),
             "trellis": torch.from_numpy(np.array(codes, copy=True)),
         }
 
