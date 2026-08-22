@@ -155,6 +155,58 @@ def test_runtime_selects_exact_expert_slice_from_d4_pack(monkeypatch) -> None:
     }
 
 
+def test_runtime_composes_closure_bound_split_qtip_payload(tmp_path) -> None:
+    control_path = tmp_path / "control.pt"
+    codes_path = tmp_path / "codes.npy"
+    torch.save(
+        {
+            "schema": "banana-smasher-qtip2-public-unit-v1",
+            "shape": [16, 8],
+            "trellis": torch.zeros(1, dtype=torch.int16),
+            "SU": torch.ones(8),
+            "SV": torch.ones(16),
+            "Wscale": torch.tensor(1.0),
+            "tlut": torch.zeros(512, 2),
+            "geometry": {
+                "L": 16,
+                "K": 2,
+                "V": 2,
+                "tlut_bits": 9,
+                "decode_mode": "quantlut_sym",
+            },
+        },
+        control_path,
+    )
+    np.save(codes_path, np.arange(48, dtype=np.uint8))
+    observed = []
+    runtime = DeepseekV4BackpackRuntime.__new__(DeepseekV4BackpackRuntime)
+    runtime.torch = torch
+    runtime._record_path = lambda path: observed.append(path)  # type: ignore[method-assign]
+    receipt = {
+        "closure_split_payload": {
+            "closure_receipt_sha256": "1" * 64,
+            "control_path": str(control_path),
+            "control_sha256": "2" * 64,
+            "codes_path": str(codes_path),
+            "codes_sha256": "3" * 64,
+            "source_host": "fixture",
+        }
+    }
+
+    payload = runtime._load_qtip_payload(
+        receipt=receipt,
+        artifact_path=tmp_path / "absent-monolith.pt",
+        source_key="qtip3",
+    )
+
+    assert observed == [control_path, codes_path]
+    assert payload["schema"] == "banana-smasher-qtip-unit-v1"
+    assert payload["geometry"]["K"] == 3
+    assert payload["trellis"].dtype == torch.uint8
+    assert payload["trellis"].numel() == 48
+    assert payload["trellis"].tolist() == list(range(48))
+
+
 def test_materialize_provenance_assignment_for_exact64(tmp_path) -> None:
     basis = "1" * 64
     bank = "2" * 64

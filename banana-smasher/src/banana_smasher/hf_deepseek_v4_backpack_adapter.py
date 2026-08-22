@@ -334,12 +334,10 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         ):
             raise ValueError(f"QTIP unit receipt identity mismatch: {unit_root}")
         self._record_path(receipt_path)
-        self._record_path(artifact_path)
-        payload = torch.load(
-            artifact_path,
-            map_location="cpu",
-            mmap=True,
-            weights_only=True,
+        payload = self._load_qtip_payload(
+            receipt=receipt,
+            artifact_path=artifact_path,
+            source_key=source_key,
         )
         geometry = payload.get("geometry")
         expected_k = 2 if source_key == "qtip2" else 3
@@ -385,6 +383,80 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         decoded = _fwht(torch, decoded.T).T * payload["SV"].float().to(device)[:, None]
         decoded = _fwht(torch, decoded) * payload["SU"].float().to(device)
         return decoded.to(torch.bfloat16)
+
+    def _load_qtip_payload(
+        self,
+        *,
+        receipt: Mapping[str, Any],
+        artifact_path: Path,
+        source_key: str,
+    ) -> dict[str, Any]:
+        """Load a monolithic unit or compose its closure-bound split wire."""
+
+        torch = self.torch
+        split = receipt.get("closure_split_payload")
+        if split is None:
+            self._record_path(artifact_path)
+            return torch.load(
+                artifact_path,
+                map_location="cpu",
+                mmap=True,
+                weights_only=True,
+            )
+        required = {
+            "closure_receipt_sha256",
+            "control_path",
+            "control_sha256",
+            "codes_path",
+            "codes_sha256",
+            "source_host",
+        }
+        if not isinstance(split, Mapping) or set(split) != required:
+            raise ValueError(f"QTIP split payload binding mismatch: {artifact_path}")
+        for key in ("closure_receipt_sha256", "control_sha256", "codes_sha256"):
+            value = split[key]
+            if not isinstance(value, str) or len(value) != 64:
+                raise ValueError(f"QTIP split payload {key} is invalid: {artifact_path}")
+        control_path = Path(str(split["control_path"])).resolve()
+        codes_path = Path(str(split["codes_path"])).resolve()
+        if not control_path.is_file() or not codes_path.is_file():
+            raise FileNotFoundError(f"QTIP split payload is incomplete: {artifact_path}")
+        self._record_path(control_path)
+        self._record_path(codes_path)
+        control = torch.load(
+            control_path,
+            map_location="cpu",
+            mmap=True,
+            weights_only=True,
+        )
+        if not isinstance(control, Mapping):
+            raise ValueError(f"QTIP split control is not a mapping: {control_path}")
+        shape = control.get("shape")
+        geometry = control.get("geometry")
+        if (
+            not isinstance(shape, (list, tuple))
+            or len(shape) != 2
+            or not isinstance(geometry, Mapping)
+        ):
+            raise ValueError(f"QTIP split control geometry mismatch: {control_path}")
+        expected_k = 2 if source_key == "qtip2" else 3
+        rows, columns = (int(value) for value in shape)
+        expected_codes_bytes = expected_k * rows * columns // 8
+        codes = np.load(codes_path, mmap_mode="r", allow_pickle=False)
+        if (
+            codes.dtype != np.uint8
+            or not codes.flags.c_contiguous
+            or codes.nbytes != expected_codes_bytes
+        ):
+            raise ValueError(f"QTIP split codes geometry mismatch: {codes_path}")
+        return {
+            **control,
+            "schema": "banana-smasher-qtip-unit-v1",
+            "geometry": {**geometry, "K": expected_k},
+            # Avoid aliasing a read-only numpy mmap; each compact member is
+            # released with its decoded layer state.
+            "trellis": torch.from_numpy(np.array(codes, copy=True)),
+        }
 
     def _decode_qtip2_v7_part(
         self, layer: int, expert: int, wire_projection: str
