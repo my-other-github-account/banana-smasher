@@ -106,8 +106,8 @@ def load_checkpoint(path: Path, expected_sha256: str) -> dict[str, Any]:
 
 def parse_windows(value: str) -> list[int]:
     windows = [int(item) for item in value.split(",") if item.strip()]
-    if len(windows) not in (4, 64) or len(set(windows)) != len(windows):
-        raise argparse.ArgumentTypeError("windows must contain 4 or 64 unique IDs")
+    if len(windows) not in (4, 16, 64) or len(set(windows)) != len(windows):
+        raise argparse.ArgumentTypeError("windows must contain 4, 16, or 64 unique IDs")
     return windows
 
 
@@ -120,7 +120,7 @@ def main() -> int:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--checkpoint-sha256", required=True)
     parser.add_argument("--windows", type=parse_windows, required=True)
-    parser.add_argument("--mode", choices=("canary", "full64"), required=True)
+    parser.add_argument("--mode", choices=("canary", "profile16", "full64"), required=True)
     parser.add_argument("--canary-reference", type=Path)
     args = parser.parse_args()
 
@@ -137,7 +137,6 @@ def main() -> int:
 
     started_unix = time.time()
     started = time.perf_counter()
-    io_before = proc_io()
     engine = ModernGreenResidentEngine(
         payload=payload,
         config=config,
@@ -145,6 +144,7 @@ def main() -> int:
         layer_ranges={0: (0, 20), 1: (21, 42)},
     )
     construction_seconds = time.perf_counter() - started
+    io_before = proc_io()
     score_started = time.perf_counter()
     if args.mode == "canary":
         if len(args.windows) != 4:
@@ -152,6 +152,12 @@ def main() -> int:
         result = engine._score_live_windows(args.windows)
         gate = None
         projected = float(result["timed_wall_seconds"]) * 16.0
+    elif args.mode == "profile16":
+        if len(args.windows) != 16:
+            raise RuntimeError("profile16 mode requires exactly sixteen windows")
+        result = engine._score_live_windows(args.windows)
+        gate = None
+        projected = float(result["timed_wall_seconds"]) * 4.0
     else:
         if len(args.windows) != 64 or args.canary_reference is None:
             raise RuntimeError("full64 mode requires 64 windows and --canary-reference")

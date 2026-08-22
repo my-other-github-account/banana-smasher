@@ -459,15 +459,19 @@ def _score_group_logits(
     return lm_head(final[offset:stop].to(torch.bfloat16))
 
 
-def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
-    """Use one 4-window canary or bounded groups for the full64 score."""
-    if len(windows) not in {SCORE_MICROBATCH, 64}:
+def _score_window_groups(
+    windows: tuple[int, ...], group_size: int = SCORE_MICROBATCH
+) -> list[list[int]]:
+    """Use a four-window canary or a declared bounded warm profile/full group."""
+    if len(windows) not in {SCORE_MICROBATCH, 16, 64}:
         raise ArtifactError(
-            "resident physical score requires one 4-window canary or exactly 64 windows"
+            "resident physical score requires 4-window canary, 16-window profile, or full64"
         )
+    if group_size not in {SCORE_MICROBATCH, 8, 16} or len(windows) % group_size:
+        raise ArtifactError("resident score group size must be a fitting 4, 8, or 16")
     return [
-        list(windows[offset : offset + SCORE_MICROBATCH])
-        for offset in range(0, len(windows), SCORE_MICROBATCH)
+        list(windows[offset : offset + group_size])
+        for offset in range(0, len(windows), group_size)
     ]
 
 
@@ -936,10 +940,16 @@ class ModernGreenResidentEngine:
     def _score_live_windows(self, windows: Any) -> dict[str, Any]:
         """Score one canary batch or full64 without checkpoint/candidate reads."""
         selected = tuple(int(value) for value in windows)
-        if len(selected) not in {SCORE_MICROBATCH, 64} or len(set(selected)) != len(selected):
+        if len(selected) not in {SCORE_MICROBATCH, 16, 64} or len(set(selected)) != len(selected):
             raise ArtifactError(
-                "resident physical score requires one unique 4-window batch or 64 unique ordered windows"
+                "resident physical score requires unique 4-canary, 16-profile, or full64 windows"
             )
+        group_size = (
+            SCORE_MICROBATCH
+            if len(selected) == SCORE_MICROBATCH
+            else int(self.config.get("score_group_size", SCORE_MICROBATCH))
+        )
+        groups = _score_window_groups(selected, group_size)
         missing = [window for window in selected if window not in self.score_ids_cache]
         if missing:
             raise ArtifactError(f"resident physical score windows were not preloaded: {missing}")
@@ -950,7 +960,7 @@ class ModernGreenResidentEngine:
         pipeline_wait_seconds = 0.0
         torch = self.torch
         with torch.inference_mode():
-            for group in _score_window_groups(selected):
+            for group in groups:
                 ids = torch.cat(
                     [self.score_ids_cache[window] for window in group], dim=0
                 )
@@ -1064,8 +1074,9 @@ class ModernGreenResidentEngine:
                 "candidate_file_reads_during_score": 0,
                 "timed_file_reads": 0,
                 "windows": len(selected),
-                "score_batches": len(_score_window_groups(selected)),
-                "activation_handoffs": len(_score_window_groups(selected)),
+                "score_batches": len(groups),
+                "score_group_size": group_size,
+                "activation_handoffs": len(groups),
                 "pipeline_compute_seconds": pipeline_compute_seconds,
                 "pipeline_wait_seconds": pipeline_wait_seconds,
             },

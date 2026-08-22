@@ -530,6 +530,13 @@ def test_physical_score_admits_exactly_one_four_window_canary_batch():
     assert _score_window_groups((28, 29, 30, 31)) == [[28, 29, 30, 31]]
 
 
+def test_physical_score_admits_one_sixteen_window_warm_profile_group():
+    windows = tuple(range(28, 44))
+    assert _score_window_groups(windows, 16) == [list(windows)]
+    with pytest.raises(ArtifactError, match="fitting 4, 8, or 16"):
+        _score_window_groups(windows, 12)
+
+
 def test_sealed_batch1_gate_accepts_small_unbiased_kernel_noise_only():
     reference_rows = [
         {"window": window, "positions": 1024, "mean_kld": 0.2, "top1_matches": 700 + index}
