@@ -8,6 +8,7 @@ from banana_smasher.qtip25_native_v4 import (
     decode_native_v4,
     decode_native_v4_torch,
     expand_native_v4_tlut,
+    native_v4_geometry,
     native_v4_wire_accounting,
     pack_native_v4_states,
     solve_native_v4,
@@ -84,7 +85,7 @@ def test_native_v4_roundtrip_decode_and_exact_code_rate() -> None:
     assert accounting["routing_bytes"] == 0
 
 
-def test_native_v4_torch_vectorizes_all_state_windows_in_one_reduction(monkeypatch) -> None:
+def test_native_v4_torch_extracts_state_windows_without_reductions(monkeypatch) -> None:
     symbols = np.arange(32, dtype=np.uint16)
     states = _closed_states(symbols)[None, :]
     packed = pack_native_v4_states(states)
@@ -113,7 +114,32 @@ def test_native_v4_torch_vectorizes_all_state_windows_in_one_reduction(monkeypat
         tlut=tlut,
     )
     assert torch.equal(observed, torch.from_numpy(expected))
-    assert calls == 1
+    assert calls == 0
+
+
+def test_native_v4_torch_direct_byte_windows_match_qtip3_b12_reference() -> None:
+    geometry = native_v4_geometry(3.0)
+    rng = np.random.default_rng(7)
+    packed = rng.integers(0, 256, size=(2, 24), dtype=np.uint8)
+    scales = np.asarray([0.75, 1.25], dtype=np.float32)
+    tlut = gaussian_tlut(bits=9, columns=2)
+
+    expected = decode_native_v4(
+        packed,
+        scales,
+        positions=64,
+        tlut=tlut,
+        geometry=geometry,
+    )
+    observed = decode_native_v4_torch(
+        torch.from_numpy(packed),
+        torch.from_numpy(scales),
+        positions=64,
+        tlut=torch.from_numpy(tlut),
+        geometry=geometry,
+    )
+
+    assert torch.equal(observed, torch.from_numpy(expected))
 
 
 def test_native_v4_reference_solve_recovers_zero_distortion_closed_path() -> None:

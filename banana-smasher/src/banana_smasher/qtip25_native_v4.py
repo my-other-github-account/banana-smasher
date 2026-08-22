@@ -798,19 +798,16 @@ def decode_native_v4_torch(
             "Torch native QTIP LUT must be V4 Q9xV2 or compact PR31 [1024] on-device"
         )
 
-    shifts = torch.arange(7, -1, -1, device=packed.device, dtype=torch.int64)
-    all_bits = ((packed.to(torch.int64).unsqueeze(-1) >> shifts) & 1).reshape(
-        packed.shape[0], -1
+    bit_starts = torch.arange(steps, device=packed.device, dtype=torch.int64) * geometry.B
+    byte_starts = bit_starts >> 3
+    bit_offsets = bit_starts & 7
+    cyclic = torch.cat((packed, packed[:, :2]), dim=1).to(torch.int32)
+    word = (
+        (cyclic[:, byte_starts] << 16)
+        | (cyclic[:, byte_starts + 1] << 8)
+        | cyclic[:, byte_starts + 2]
     )
-    bits = all_bits[:, :bit_count]
-    stream = torch.cat((bits, bits[:, : geometry.L - geometry.B]), dim=1)
-    powers_l = 1 << torch.arange(
-        geometry.L - 1, -1, -1, device=packed.device, dtype=torch.int64
-    )
-    state_windows = stream.unfold(1, geometry.L, geometry.B)
-    if tuple(state_windows.shape[1:]) != (steps, geometry.L):
-        raise ValueError("Torch native QTIP2.5 state-window geometry drift")
-    state_tensor = torch.sum(state_windows * powers_l, dim=2)
+    state_tensor = (word >> (8 - bit_offsets)) & (geometry.states - 1)
 
     if table_shape == (1024,):
         from .banana_v1 import BANANA_V1_MULTIPLIER, BANANA_V1_OFFSET
