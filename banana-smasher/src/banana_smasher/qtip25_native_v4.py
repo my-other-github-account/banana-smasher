@@ -807,17 +807,10 @@ def decode_native_v4_torch(
     powers_l = 1 << torch.arange(
         geometry.L - 1, -1, -1, device=packed.device, dtype=torch.int64
     )
-    first = torch.sum(stream[:, : geometry.L] * powers_l, dim=1)
-    states = [first]
-    powers_b = 1 << torch.arange(
-        geometry.B - 1, -1, -1, device=packed.device, dtype=torch.int64
-    )
-    mask = geometry.states - 1
-    for step in range(1, steps):
-        start = geometry.L + (step - 1) * geometry.B
-        branch = torch.sum(stream[:, start : start + geometry.B] * powers_b, dim=1)
-        states.append(((states[-1] << geometry.B) & mask) + branch)
-    state_tensor = torch.stack(states, dim=1)
+    state_windows = stream.unfold(1, geometry.L, geometry.B)
+    if tuple(state_windows.shape[1:]) != (steps, geometry.L):
+        raise ValueError("Torch native QTIP2.5 state-window geometry drift")
+    state_tensor = torch.sum(state_windows * powers_l, dim=2)
 
     if table_shape == (1024,):
         from .banana_v1 import BANANA_V1_MULTIPLIER, BANANA_V1_OFFSET

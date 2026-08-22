@@ -84,6 +84,38 @@ def test_native_v4_roundtrip_decode_and_exact_code_rate() -> None:
     assert accounting["routing_bytes"] == 0
 
 
+def test_native_v4_torch_vectorizes_all_state_windows_in_one_reduction(monkeypatch) -> None:
+    symbols = np.arange(32, dtype=np.uint16)
+    states = _closed_states(symbols)[None, :]
+    packed = pack_native_v4_states(states)
+    tlut = gaussian_tlut(bits=9, columns=2)
+    calls = 0
+    original_sum = torch.sum
+
+    def counted_sum(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original_sum(*args, **kwargs)
+
+    monkeypatch.setattr(torch, "sum", counted_sum)
+
+    observed = decode_native_v4_torch(
+        torch.from_numpy(packed),
+        torch.ones(1),
+        positions=128,
+        tlut=torch.from_numpy(tlut),
+    )
+
+    expected = decode_native_v4(
+        packed,
+        np.ones(1, dtype=np.float32),
+        positions=128,
+        tlut=tlut,
+    )
+    assert torch.equal(observed, torch.from_numpy(expected))
+    assert calls == 1
+
+
 def test_native_v4_reference_solve_recovers_zero_distortion_closed_path() -> None:
     symbols = np.array([0, 1023, 17, 513, 7, 992, 341, 682], dtype=np.uint16)
     states = _closed_states(symbols)
