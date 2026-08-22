@@ -21,6 +21,7 @@ import time
 from typing import Any, Mapping
 
 from .resident_balanced64 import ArtifactError
+from .resident_terminal_scorer import ResidentScoreAccumulator, score_terminal_hidden
 
 MODEL_INDEX_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 ADMISSION_SHA256 = "76d0674eb0cd37fc9022bac5e048c2b77c721826182222ae0a0609e29607a2c5"
@@ -31,8 +32,8 @@ WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
 # Keep score-only attention at the proven per-step memory envelope. Balanced64
 # still covers all 64 ordered 1024-token windows; only the transient batch changes.
-SCORE_MICROBATCH = 4
-SCORE_LOGIT_MICROBATCH = 4
+SCORE_MICROBATCH = 1
+SCORE_LOGIT_MICROBATCH = 1
 BASE_LRS = {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2}
 HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
 HISTORICAL_SAMPLING_MODE = "historical_category_stratified_v1"
@@ -460,9 +461,9 @@ def _score_group_logits(
 
 
 def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
-    """Use bounded score-only groups without changing training microbatches."""
-    if len(windows) != 64:
-        raise ArtifactError("resident physical score requires exactly 64 windows")
+    """Use hot batch-one groups for a W28 canary or exact full64 score."""
+    if len(windows) not in (1, 64):
+        raise ArtifactError("resident physical score requires W28 canary or exactly 64 windows")
     return [
         list(windows[offset : offset + SCORE_MICROBATCH])
         for offset in range(0, len(windows), SCORE_MICROBATCH)
@@ -852,19 +853,23 @@ class ModernGreenResidentEngine:
         return idx, lp_n, p_n
 
     def score_balanced64(self, windows: Any) -> dict[str, Any]:
-        """Score the live ShardStudent without loading checkpoint/candidate files."""
+        """Score a W28 canary or full64 through one hot batch-one resident rail."""
         selected = tuple(int(value) for value in windows)
-        if len(selected) != 64 or len(set(selected)) != 64:
-            raise ArtifactError("resident physical score requires 64 unique ordered windows")
+        if len(selected) not in (1, 64) or len(set(selected)) != len(selected):
+            raise ArtifactError(
+                "resident physical score requires W28 canary or 64 unique ordered windows"
+            )
         missing = [window for window in selected if window not in self.score_ids_cache]
         if missing:
             raise ArtifactError(f"resident physical score windows were not preloaded: {missing}")
         started = time.perf_counter()
-        local_rows: list[dict[str, Any]] = []
         pending_sends: list[tuple[Any, Any]] = []
-        pipeline_compute_seconds = 0.0
-        pipeline_wait_seconds = 0.0
+        forward_seconds = 0.0
+        readout_seconds = 0.0
+        glue_seconds = 0.0
         torch = self.torch
+        accumulator = ResidentScoreAccumulator(torch) if self.rank == 1 else None
+        local_score: dict[str, Any] | None = None
         with torch.inference_mode():
             for group in _score_window_groups(selected):
                 ids = torch.cat(
@@ -887,78 +892,76 @@ class ModernGreenResidentEngine:
                         raise ArtifactError(
                             f"official score activation geometry drift: {tuple(hidden.shape)} {hidden.dtype}"
                         )
-                    pipeline_compute_seconds += time.perf_counter() - compute_started
-                    wait_started = time.perf_counter()
+                    forward_seconds += time.perf_counter() - compute_started
+                    glue_started = time.perf_counter()
                     _enqueue_rank_send(self.dist, pending_sends, hidden.contiguous())
-                    pipeline_wait_seconds += time.perf_counter() - wait_started
+                    glue_seconds += time.perf_counter() - glue_started
                 else:
                     activation = torch.empty(
                         shape, dtype=torch.bfloat16, device=self.student.device
                     )
-                    wait_started = time.perf_counter()
+                    glue_started = time.perf_counter()
                     _recv_rank_activation(self.dist, activation)
-                    pipeline_wait_seconds += time.perf_counter() - wait_started
+                    glue_seconds += time.perf_counter() - glue_started
                     compute_started = time.perf_counter()
                     hidden = self._run_layers(activation, ids, False)
                     final = self.student.model.model.norm(
                         self.student.model.model.hc_head(hidden)
                     )
+                    forward_seconds += time.perf_counter() - compute_started
                     lengths = [int(self.score_real_lengths[window]) for window in group]
                     if any(length != 1024 for length in lengths):
                         raise ArtifactError(
                             f"resident Balanced64 group has non-1024 lengths: {lengths}"
                         )
-                    for offset in range(0, len(group), SCORE_LOGIT_MICROBATCH):
-                        group_logits = _score_group_logits(
-                            self.student.model.lm_head,
-                            final[:, :1024],
-                            torch,
-                            offset=offset,
+                    for row, window in enumerate(group):
+                        length = int(self.score_real_lengths[window])
+                        idx, lp_n, _p_n = self._teacher_support(
+                            window, length, exact_rows=True, score=True
                         )
-                        for row, window in enumerate(
-                            group[offset : offset + SCORE_LOGIT_MICROBATCH]
-                        ):
-                            length = int(self.score_real_lengths[window])
-                            idx, lp_n, p_n = self._teacher_support(
-                                window, length, exact_rows=True, score=True
-                            )
-                            logits = group_logits[row, :length]
-                            q = logits.gather(1, idx[:length]).float()
-                            qn = q - q.logsumexp(-1, keepdim=True)
-                            terms = (p_n[:length] * (lp_n[:length] - qn)).sum(-1)
-                            local_rows.append(
-                                {
-                                    "window": window,
-                                    "positions": length,
-                                    "kld_sum": float(terms.double().sum().cpu()),
-                                    "top1": int(
-                                        (logits.argmax(-1) == idx[:length, 0]).sum().cpu()
-                                    ),
-                                }
-                            )
-                            del logits, q, qn, terms
-                        del group_logits
-                    pipeline_compute_seconds += time.perf_counter() - compute_started
+                        readout_started = time.perf_counter()
+                        q_lp, q_argmax = score_terminal_hidden(
+                            final[row, :length],
+                            idx[:length],
+                            self.student.model.lm_head,
+                            chunk_size=128,
+                            compute_dtype=torch.bfloat16,
+                        )
+                        readout_seconds += time.perf_counter() - readout_started
+                        glue_started = time.perf_counter()
+                        assert accumulator is not None
+                        accumulator.add(
+                            window, idx[:length], lp_n[:length], q_lp, q_argmax
+                        )
+                        glue_seconds += time.perf_counter() - glue_started
+                        del q_lp, q_argmax
             if self.rank == 0:
-                wait_started = time.perf_counter()
+                glue_started = time.perf_counter()
                 _flush_rank_sends(pending_sends)
-                pipeline_wait_seconds += time.perf_counter() - wait_started
+                glue_seconds += time.perf_counter() - glue_started
+            else:
+                glue_started = time.perf_counter()
+                assert accumulator is not None
+                local_score = accumulator.finalize()
+                glue_seconds += time.perf_counter() - glue_started
         gathered: list[Any] = [None, None]
-        self.dist.all_gather_object(
-            gathered, local_rows if self.rank == 1 else None
-        )
-        rows = gathered[1]
-        if not isinstance(rows, list) or len(rows) != 64:
-            raise ArtifactError("rank1 resident score did not publish 64 complete rows")
-        positions = sum(int(row["positions"]) for row in rows)
-        if positions != 64 * 1024:
+        glue_started = time.perf_counter()
+        self.dist.all_gather_object(gathered, local_score if self.rank == 1 else None)
+        glue_seconds += time.perf_counter() - glue_started
+        score = gathered[1]
+        if not isinstance(score, dict) or len(score.get("per_window", [])) != len(selected):
+            raise ArtifactError("rank1 resident score did not publish complete rows")
+        positions = int(score["positions"])
+        if positions != len(selected) * 1024:
             raise ArtifactError("resident physical score position count drift")
         _cuda_sync(torch)
         elapsed = time.perf_counter() - started
         return {
-            "mean_kld": math.fsum(float(row["kld_sum"]) for row in rows) / positions,
-            "top1_matches": sum(int(row["top1"]) for row in rows),
+            "mean_kld": float(score["mean_kld"]),
+            "kld_sum": float(score["kld_sum"]),
+            "top1_matches": int(score["top1_matches"]),
             "positions": positions,
+            "per_window": list(score["per_window"]),
             "checkpoint": f"UPDATE_{self.global_step:03d}",
             "timed_wall_seconds": elapsed,
             "execution_mode": "resident_model_in_memory",
@@ -966,9 +969,10 @@ class ModernGreenResidentEngine:
                 "model_constructions": 1,
                 "checkpoint_loads_during_score": 0,
                 "candidate_file_reads_during_score": 0,
-                "windows": 64,
-                "pipeline_compute_seconds": pipeline_compute_seconds,
-                "pipeline_wait_seconds": pipeline_wait_seconds,
+                "windows": len(selected),
+                "forward_seconds": forward_seconds,
+                "readout_seconds": readout_seconds,
+                "glue_seconds": glue_seconds,
             },
         }
 

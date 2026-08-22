@@ -369,7 +369,7 @@ def test_checkpoint_cursor_refuses_top_level_identity_drift():
         _checkpoint_cursor({"next_update": 23, "identity": {"next_update": 24}})
 
 
-def test_score_group_bounds_vocabulary_projection_to_four_windows():
+def test_score_group_bounds_vocabulary_projection_to_one_window():
     calls = []
     final = torch.zeros((32, 8, 16), dtype=torch.float32)
 
@@ -379,12 +379,12 @@ def test_score_group_bounds_vocabulary_projection_to_four_windows():
 
     batches = [
         (offset, _score_group_logits(lm_head, final, torch, offset=offset))
-        for offset in range(0, 32, 4)
+        for offset in range(0, 32, 1)
     ]
 
-    assert [offset for offset, _logits in batches] == list(range(0, 32, 4))
-    assert calls == [(4, 8, 16)] * 8
-    assert [tuple(logits.shape) for _offset, logits in batches] == [(4, 8, 2)] * 8
+    assert [offset for offset, _logits in batches] == list(range(32))
+    assert calls == [(1, 8, 16)] * 32
+    assert [tuple(logits.shape) for _offset, logits in batches] == [(1, 8, 2)] * 32
 
 
 def test_rank_send_pipeline_preserves_tensor_lifetime_and_waits_fifo():
@@ -519,11 +519,12 @@ def test_score_configuration_forces_a1_eager_attention(monkeypatch):
     assert os.environ["BR_ATTN_IMPL"] == "eager"
 
 
-def test_physical_score_uses_ordered_four_window_memory_bounded_groups():
+def test_physical_score_uses_hot_batch_one_and_admits_w28_canary():
     groups = _score_window_groups(tuple(range(64)))
-    assert groups == [
-        list(range(offset, offset + 4)) for offset in range(0, 64, 4)
-    ]
+    assert groups == [[window] for window in range(64)]
+    assert _score_window_groups((28,)) == [[28]]
+    with pytest.raises(ArtifactError, match="W28 canary"):
+        _score_window_groups((28, 56))
 
 
 def test_grouped_k2_inverts_stable_routing_order_without_a_second_sort():
