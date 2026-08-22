@@ -321,6 +321,83 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         self._record_path(self.virtual_manifest_path)
         self._record_path(self.materialization_index_path)
 
+    def _decode_native_qtip3_payloads(
+        self, payloads: list[Mapping[str, Any]]
+    ) -> list[Any]:
+        """Decode and transform one same-shape QTIP3 cell batch on-device."""
+
+        if not payloads:
+            return []
+        torch = self.torch
+        device = self.device
+        rows, columns = [int(value) for value in payloads[0]["shape"]]
+        tlut_cpu = payloads[0]["tlut"].float()
+        packed_rows = []
+        for payload in payloads:
+            if [int(value) for value in payload["shape"]] != [rows, columns]:
+                raise ValueError("QTIP3 decode batch shape mismatch")
+            if not torch.equal(payload["tlut"].float(), tlut_cpu):
+                raise ValueError("QTIP3 decode batch TLUT mismatch")
+            packed_rows.append(payload["trellis"].reshape(rows, -1))
+        packed = torch.cat(packed_rows, dim=0).to(device)
+        tlut = tlut_cpu.to(device)
+        raw = decode_native_v4_torch(
+            packed,
+            torch.ones(packed.shape[0], dtype=torch.float32, device=device),
+            positions=columns,
+            tlut=tlut,
+            geometry=native_v4_geometry(3.0),
+        ).reshape(len(payloads), rows, columns)
+        scale = torch.stack([payload["Wscale"].reshape(()) for payload in payloads]).to(
+            device
+        )
+        sv = torch.stack([payload["SV"].float() for payload in payloads]).to(device)
+        su = torch.stack([payload["SU"].float() for payload in payloads]).to(device)
+        decoded = raw * scale[:, None, None]
+        decoded = _fwht(torch, decoded.transpose(-1, -2)).transpose(-1, -2)
+        decoded = decoded * sv[:, :, None]
+        decoded = _fwht(torch, decoded) * su[:, None, :]
+        return list(decoded.to(torch.bfloat16).unbind(0))
+
+    def _load_verified_native_qtip3_payload(
+        self, layer: int, expert: int, projection: str
+    ) -> Mapping[str, Any]:
+        root = Path(self.root_maps["qtip3"][str(layer)])
+        unit_root = root / f"L{layer:03d}" / f"E{expert:03d}_{projection}"
+        receipt_path = unit_root / "QTIP_SOLVE_RECEIPT.json"
+        artifact_path = unit_root / "QTIP_UNIT.pt"
+        receipt = json.loads(receipt_path.read_text())
+        basis = receipt.get("basis_gate")
+        if (
+            receipt.get("schema") != "banana-smasher-qtip-solve-v1"
+            or receipt.get("status") != "PASS"
+            or receipt.get("layer") != layer
+            or receipt.get("expert") != expert
+            or receipt.get("projection") != projection
+            or not isinstance(basis, Mapping)
+            or basis.get("index_sha256") != self.basis_sha256
+        ):
+            raise ValueError(f"QTIP unit receipt identity mismatch: {unit_root}")
+        self._record_path(receipt_path)
+        payload = self._load_qtip_payload(
+            receipt=receipt,
+            artifact_path=artifact_path,
+            source_key="qtip3",
+        )
+        geometry = payload.get("geometry")
+        expected_geometry = native_v4_geometry(3.0).as_mapping()
+        if (
+            payload.get("schema") != "banana-smasher-qtip3-native-v6-unit-v1"
+            or not isinstance(geometry, Mapping)
+            or any(geometry.get(key) != value for key, value in expected_geometry.items())
+        ):
+            raise ValueError(f"QTIP3 unit payload identity mismatch: {artifact_path}")
+        rows, columns = [int(value) for value in payload["shape"]]
+        expected_shape = (4096, 2048) if projection == "down" else (4096, 4096)
+        if (rows, columns) != expected_shape:
+            raise ValueError(f"QTIP3 unit shape mismatch: {artifact_path}")
+        return payload
+
     def _decode_qtip(
         self, source_key: str, layer: int, expert: int, projection: str
     ) -> Any:
@@ -766,6 +843,24 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             for row in rows
             if str(row["source_key"]).startswith("d4_k")
         }
+        qtip3_values: dict[tuple[int, str], Any] = {}
+        for projection in ("down", "fused13"):
+            qtip3_rows = [
+                row
+                for row in rows
+                if row["source_key"] == "qtip3" and row["projection"] == projection
+            ]
+            for start in range(0, len(qtip3_rows), 32):
+                batch_rows = qtip3_rows[start : start + 32]
+                payloads = [
+                    self._load_verified_native_qtip3_payload(
+                        layer, int(row["expert"]), projection
+                    )
+                    for row in batch_rows
+                ]
+                values = self._decode_native_qtip3_payloads(payloads)
+                for row, value in zip(batch_rows, values, strict=True):
+                    qtip3_values[(int(row["expert"]), projection)] = value
         with ExitStack() as stack:
             d4_views = {
                 tier: stack.enter_context(
@@ -790,8 +885,10 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 seen.add(key)
                 if source_key == "native_mxfp4":
                     value = self._native(layer, expert, projection)
-                elif source_key in {"qtip2", "qtip3"}:
+                elif source_key == "qtip2":
                     value = self._decode_qtip(source_key, layer, expert, projection)
+                elif source_key == "qtip3":
+                    value = qtip3_values.pop(key)
                 elif source_key == "qtip2_v7":
                     value = self._decode_qtip2_v7(layer, expert, projection)
                 else:
@@ -817,6 +914,8 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                         flush=True,
                     )
                     self.synchronize()
+        if qtip3_values:
+            raise ValueError(f"layer {layer}: unused QTIP3 decode batch cells")
         if len(seen) != 512:
             raise ValueError(f"layer {layer}: mixed Backpack cell coverage mismatch")
         gc.collect()

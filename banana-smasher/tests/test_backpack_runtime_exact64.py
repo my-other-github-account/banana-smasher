@@ -187,6 +187,50 @@ def test_runtime_selects_exact_expert_slice_from_d4_pack(monkeypatch) -> None:
     }
 
 
+def test_runtime_batches_native_qtip3_payloads_through_one_public_decode(monkeypatch) -> None:
+    runtime = DeepseekV4BackpackRuntime.__new__(DeepseekV4BackpackRuntime)
+    runtime.torch = torch  # type: ignore[assignment]
+    runtime.device = "cpu"
+    calls = []
+
+    def decode(packed, scales, *, positions, tlut, geometry):
+        calls.append((tuple(packed.shape), tuple(scales.shape), positions, tuple(tlut.shape)))
+        return torch.arange(packed.shape[0] * positions, dtype=torch.float32).reshape(
+            packed.shape[0], positions
+        )
+
+    monkeypatch.setattr(
+        "banana_smasher.hf_deepseek_v4_backpack_adapter.decode_native_v4_torch",
+        decode,
+    )
+    monkeypatch.setattr(
+        "banana_smasher.hf_deepseek_v4_backpack_adapter._fwht",
+        lambda _torch, value: value,
+    )
+    tlut = torch.zeros(512, 2)
+    payloads = [
+        {
+            "shape": [2, 8],
+            "trellis": torch.full((2, 3), index, dtype=torch.uint8),
+            "tlut": tlut.clone(),
+            "Wscale": torch.tensor(1.0),
+            "SV": torch.ones(2),
+            "SU": torch.ones(8),
+        }
+        for index in range(2)
+    ]
+
+    observed = runtime._decode_native_qtip3_payloads(payloads)
+
+    assert calls == [((4, 3), (4,), 8, (512, 2))]
+    assert len(observed) == 2
+    assert tuple(observed[0].shape) == (2, 8)
+    assert torch.equal(observed[0], torch.arange(16).reshape(2, 8).to(torch.bfloat16))
+    assert torch.equal(
+        observed[1], torch.arange(16, 32).reshape(2, 8).to(torch.bfloat16)
+    )
+
+
 def test_runtime_composes_closure_bound_legacy_qtip2_split_payload(tmp_path) -> None:
     control_path = tmp_path / "control.pt"
     codes_path = tmp_path / "codes.npy"
