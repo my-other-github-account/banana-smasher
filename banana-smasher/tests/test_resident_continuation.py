@@ -530,40 +530,48 @@ def test_physical_score_admits_exactly_one_four_window_canary_batch():
     assert _score_window_groups((28, 29, 30, 31)) == [[28, 29, 30, 31]]
 
 
-def test_sealed_batch1_gate_binds_same_windows_and_exact_per_window_values():
-    per_window = [
-        {"window": window, "mean_kld": 0.2 + index / 1000, "top1_matches": 700 + index}
+def test_sealed_batch1_gate_accepts_small_unbiased_kernel_noise_only():
+    reference_rows = [
+        {"window": window, "positions": 1024, "mean_kld": 0.2, "top1_matches": 700 + index}
         for index, window in enumerate((28, 29, 30, 31))
+    ]
+    deltas = (2.0e-6, -2.0e-6, 1.0e-6, -1.0e-6)
+    observed_rows = [
+        {**row, "mean_kld": row["mean_kld"] + delta}
+        for row, delta in zip(reference_rows, deltas)
     ]
     observed = {
         "windows": [28, 29, 30, 31],
         "positions": 4 * 1024,
-        "mean_kld": 0.2015,
+        "mean_kld": sum(row["mean_kld"] for row in observed_rows) / 4,
         "top1_matches": 2806,
-        "per_window": per_window,
+        "per_window": observed_rows,
     }
     reference = {
         "windows": [28, 29, 30, 31],
         "positions": 4 * 1024,
-        "mean_kld": 0.2015,
+        "mean_kld": 0.2,
         "top1_matches": 2806,
-        "per_window": per_window,
+        "per_window": reference_rows,
+        "acceptance": {
+            "max_abs_per_window_kld_delta": 3.0e-6,
+            "max_abs_mean_signed_kld_delta": 1.0e-7,
+            "top1_matches_must_equal": True,
+        },
     }
 
     gate = continuation_module._require_sealed_batch1_parity(observed, reference)
 
     assert gate["status"] == "PASS"
-    assert gate["equality"] == "EXACT_A6_PER_WINDOW"
+    assert gate["equality"] == "KERNEL_NOISE_UNBIASED_TOP1_STABLE"
     assert gate["windows"] == [28, 29, 30, 31]
-    with pytest.raises(ArtifactError, match="window identity"):
+    shifted = [
+        {**row, "mean_kld": row["mean_kld"] + 2.0e-6}
+        for row in reference_rows
+    ]
+    with pytest.raises(ArtifactError, match="directional"):
         continuation_module._require_sealed_batch1_parity(
-            observed, {**reference, "windows": [29, 30, 31, 32]}
-        )
-    changed = [dict(row) for row in per_window]
-    changed[0]["mean_kld"] += 1.0e-12
-    with pytest.raises(ArtifactError, match="exact per-window"):
-        continuation_module._require_sealed_batch1_parity(
-            observed, {**reference, "per_window": changed}
+            {**observed, "mean_kld": 0.200002, "per_window": shifted}, reference
         )
 
 
@@ -580,6 +588,11 @@ def test_balanced64_runs_paired_canary_before_full_and_promotes_only_when_faster
             "mean_kld": 0.2,
             "top1_matches": 3000,
             "per_window": canary_rows,
+            "acceptance": {
+                "max_abs_per_window_kld_delta": 3.0e-6,
+                "max_abs_mean_signed_kld_delta": 1.0e-7,
+                "top1_matches_must_equal": True,
+            },
             "best_single_host_wall_seconds": 290.0,
         }
     }

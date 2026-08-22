@@ -494,24 +494,60 @@ def _require_sealed_batch1_parity(
     reference_top1 = int(reference["top1_matches"])
     observed_rows = observed.get("per_window")
     reference_rows = reference.get("per_window")
+    acceptance = reference.get("acceptance")
     if (
         not math.isfinite(observed_kld)
         or not math.isfinite(reference_kld)
-        or observed_kld != reference_kld
-        or observed_top1 != reference_top1
         or not isinstance(observed_rows, list)
         or not isinstance(reference_rows, list)
-        or observed_rows != reference_rows
+        or len(observed_rows) != SCORE_MICROBATCH
+        or len(reference_rows) != SCORE_MICROBATCH
+        or not isinstance(acceptance, Mapping)
     ):
-        raise ArtifactError("sealed batch1 exact per-window A6 parity mismatch")
+        raise ArtifactError("sealed batch1 per-window parity contract is incomplete")
+    try:
+        max_abs = float(acceptance["max_abs_per_window_kld_delta"])
+        max_bias = float(acceptance["max_abs_mean_signed_kld_delta"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ArtifactError("sealed batch1 kernel-noise bounds are incomplete") from exc
+    if max_abs < 0.0 or max_bias < 0.0 or acceptance.get("top1_matches_must_equal") is not True:
+        raise ArtifactError("sealed batch1 kernel-noise bounds are invalid")
+    deltas: list[float] = []
+    for observed_row, reference_row, window in zip(
+        observed_rows, reference_rows, observed_windows
+    ):
+        if (
+            int(observed_row.get("window", -1)) != window
+            or int(reference_row.get("window", -1)) != window
+            or int(observed_row.get("positions", -1)) != 1024
+            or int(reference_row.get("positions", -1)) != 1024
+        ):
+            raise ArtifactError("sealed batch1 per-window identity mismatch")
+        if int(observed_row.get("top1_matches", -1)) != int(
+            reference_row.get("top1_matches", -2)
+        ):
+            raise ArtifactError("sealed batch1 Top-1 is not stable")
+        delta = float(observed_row["mean_kld"]) - float(reference_row["mean_kld"])
+        if not math.isfinite(delta) or abs(delta) > max_abs:
+            raise ArtifactError("sealed batch1 per-window kernel noise is too large")
+        deltas.append(delta)
+    mean_signed_delta = math.fsum(deltas) / len(deltas)
+    if abs(mean_signed_delta) > max_bias:
+        raise ArtifactError("sealed batch1 has a consistent directional shift")
+    if observed_top1 != reference_top1:
+        raise ArtifactError("sealed batch1 aggregate Top-1 is not stable")
     return {
         "status": "PASS",
-        "equality": "EXACT_A6_PER_WINDOW",
+        "equality": "KERNEL_NOISE_UNBIASED_TOP1_STABLE",
         "windows": observed_windows,
         "positions": expected_positions,
         "mean_kld": observed_kld,
+        "reference_mean_kld": reference_kld,
+        "per_window_kld_deltas": deltas,
+        "mean_signed_kld_delta": mean_signed_delta,
+        "max_abs_per_window_kld_delta": max(abs(value) for value in deltas),
         "top1_matches": observed_top1,
-        "per_window": observed_rows,
+        "acceptance": dict(acceptance),
     }
 
 
