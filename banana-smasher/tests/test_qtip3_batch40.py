@@ -104,3 +104,58 @@ def test_public_batch_default_groups_40_cells_without_reordering(tmp_path, monke
     assert batches == [expected_order]
     assert terminal["batch_size"] == 40
     assert terminal["cells"] == 40
+    assert terminal["new_cells"] == 40
+    assert terminal["new_batches"] == 1
+
+
+def test_public_batch_can_stop_after_one_novel_batch(tmp_path, monkeypatch):
+    producer = load_producer(monkeypatch)
+    monkeypatch.setattr(producer, "LAYERS", (2,))
+    monkeypatch.setattr(producer, "EXPERTS", tuple(range(40)))
+    basis_file = tmp_path / "model.index"
+    basis_file.write_bytes(b"basis")
+    basis = hashlib.sha256(basis_file.read_bytes()).hexdigest()
+    driver = tmp_path / "authority"
+    allocation = "HOST_ALLOCATION t_test spark-4 qtip3-batch40-test"
+    driver.write_text(allocation + "\n")
+    source = tmp_path / "source.npy"
+    source.write_bytes(b"source")
+    control = tmp_path / "control.npy"
+    control.write_bytes(b"control")
+    tlut = tmp_path / "tlut.npy"
+    tlut.write_bytes(b"tlut")
+    mission = tmp_path / "mission"
+    (mission / "receipts").mkdir(parents=True)
+    (mission / "receipts" / "ADMISSION.json").write_text("{}\n")
+    plan = producer.Qtip3ApiPlan(
+        task_id="t_test", board_run_id=1, host="spark-4", allocation=allocation,
+        intended_basis_sha256=basis, driver_goals_path=driver,
+        driver_goals_sha256=hashlib.sha256(driver.read_bytes()).hexdigest(),
+        claim_path=tmp_path / "claim.json", shards_path=mission / "SHARDS.json",
+        mission_root=mission, model_index_path=basis_file, tlut_path=tlut, layers=(2,),
+    )
+    cells = [
+        producer.CellSpec(layer=2, expert=expert, projection=projection, source=source,
+                          control=control, output=mission / "outputs" / f"E{expert:03d}_{projection}")
+        for expert in range(40) for projection in producer.PROJECTIONS
+    ]
+    calls = []
+
+    def batch_api(rows, *_args, **_kwargs):
+        calls.append(len(rows))
+        return [
+            {"status": "PASS", "backend": "cuda", "codec_version": "v6",
+             "provider": "qtip-native-v6@3.00", "geometry": {"B": 12, "L": 16, "V": 4},
+             "installed_cuda_decode": {"counters": {"cuda_decode_calls": 1, "fallback_calls": 0}},
+             "receipt_sha256": f"receipt-{index}"}
+            for index, _ in enumerate(rows)
+        ]
+
+    terminal = producer.run_cells_batched(
+        plan, producer.Qtip3ApiConfig(), cells, batch_api=batch_api, max_new_batches=1
+    )
+    assert calls == [40]
+    assert terminal["bounded_partial"] is True
+    assert terminal["new_batches"] == 1
+    assert terminal["new_cells"] == 40
+    assert terminal["cells"] == 40

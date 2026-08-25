@@ -19,6 +19,7 @@ from banana_smasher.qtip3_api_producer import (
     Qtip3ApiConfig,
     Qtip3ApiPlan,
     admit_host_and_shard,
+    release_bounded_host,
     release_host,
     release_smoke_host,
     release_unstarted_admission,
@@ -57,6 +58,7 @@ WORK = ROOT / "working_full_api"
 SOURCE = WORK / "source.npy"
 OUTPUT = ROOT / "outputs/full_api"
 SMOKE_COUNT = int(os.environ.get("QTIP3_SMOKE_COUNT", "0"))
+MAX_NEW_BATCHES = int(os.environ.get("QTIP3_MAX_NEW_BATCHES", "0")) or None
 
 
 def atomic(path, payload):
@@ -401,8 +403,13 @@ else:
                 str(ROOT / "working_full_api" / "batch_sources"),
             )
         ),
+        max_new_batches=MAX_NEW_BATCHES,
     )
     atomic(REC / "FULL_API_CONTROLLER_TERMINAL.json", terminal)
-    release = release_host(new_plan, REC / "PRODUCER_TERMINAL.json")
+    release = (
+        release_bounded_host(new_plan, REC / "PRODUCER_TERMINAL.json")
+        if MAX_NEW_BATCHES is not None
+        else release_host(new_plan, REC / "PRODUCER_TERMINAL.json")
+    )
     atomic(REC / "FULL_API_RELEASE.json", release)
     print(json.dumps(terminal, sort_keys=True), flush=True)

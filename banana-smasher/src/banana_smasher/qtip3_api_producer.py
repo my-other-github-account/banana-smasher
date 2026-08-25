@@ -530,6 +530,7 @@ def run_cells_batched(
     prepare_cell: Callable[[CellSpec], None] | None = None,
     cleanup_cell: Callable[[CellSpec], None] | None = None,
     batch_source_root: Path | None = None,
+    max_new_batches: int | None = None,
 ) -> dict[str, Any]:
     """Resume exact cells while invoking the public CUDA API in bounded batches.
 
@@ -540,6 +541,12 @@ def run_cells_batched(
     """
     if isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size < 1:
         raise ValueError("batch_size must be a positive integer")
+    if max_new_batches is not None and (
+        isinstance(max_new_batches, bool)
+        or not isinstance(max_new_batches, int)
+        or max_new_batches < 1
+    ):
+        raise ValueError("max_new_batches must be a positive integer or None")
     rows = tuple(cells)
     expected = {
         (layer, expert, projection)
@@ -568,6 +575,8 @@ def run_cells_batched(
     passed: list[dict[str, Any]] = []
     layer_counts: dict[int, int] = {layer: 0 for layer in plan.layers}
     accepted_layers: set[int] = set()
+    new_batches = 0
+    new_cells = 0
 
     def accept(cell: CellSpec, accepted: dict[str, Any]) -> None:
         passed.append(accepted)
@@ -665,7 +674,11 @@ def run_cells_batched(
                 cleanup_cell(original)
             durable_source.unlink(missing_ok=True)
             accept(original, accepted)
+            new_cells += 1
         index += len(pending)
+        new_batches += 1
+        if max_new_batches is not None and new_batches >= max_new_batches:
+            break
 
     terminal_payload = {
         "schema": TERMINAL_SCHEMA, "status": "PASS", "task_id": plan.task_id,
@@ -678,11 +691,54 @@ def run_cells_batched(
         "geometry": {"B": 12, "L": 16, "V": 4},
         "cell_receipts": [row["receipt_sha256"] for row in passed],
         "pid": pid, "startticks": ticks, "execution": "public-cross-cell-batch",
-        "batch_size": batch_size,
+        "batch_size": batch_size, "bounded_partial": max_new_batches is not None,
+        "new_batches": new_batches, "new_cells": new_cells,
     }
     terminal = plan.mission_root / "receipts" / "PRODUCER_TERMINAL.json"
     terminal_payload["receipt_sha256"] = _atomic_json(terminal, terminal_payload)
     return terminal_payload
+
+
+def release_bounded_host(plan: Qtip3ApiPlan, terminal_path: str | Path) -> dict[str, Any]:
+    """Release this PID after a sealed, nonempty bounded production batch."""
+    terminal = Path(terminal_path)
+    value = json.loads(terminal.read_text())
+    if (
+        value.get("status") != "PASS"
+        or value.get("task_id") != plan.task_id
+        or not value.get("bounded_partial")
+        or int(value.get("new_batches", 0)) != 1
+        or int(value.get("new_cells", 0)) < 1
+        or int(value.get("new_cells", 0)) > int(value.get("batch_size", 0))
+    ):
+        raise RuntimeError("BOUNDED_RELEASE_REQUIRES_ONE_NONEMPTY_BATCH")
+    lock = _claim_lock(plan.claim_path)
+    try:
+        preimage, claim, preimage_sha = _read_claim(plan)
+        if claim.get("task_id") != plan.task_id or claim.get("controller_pid") != os.getpid():
+            raise RuntimeError("BOUNDED_RELEASE_IDENTITY_REFUSED")
+        post = dict(claim)
+        post.update({
+            "status": "RELEASED", "state": "RELEASED", "controller_pid": None,
+            "controller_startticks": None, "workload_pid": None, "workload_startticks": None,
+            "released_unix": time.time(), "release_terminal_path": str(terminal),
+            "release_terminal_sha256": sha256_file(terminal),
+            "release_reason": "PASS_BOUNDED_PRODUCTION_BATCH",
+        })
+        if plan.claim_path.read_bytes() != preimage:
+            raise RuntimeError("BOUNDED_RELEASE_CAS_DRIFT_REFUSED")
+        post_sha = _atomic_json(plan.claim_path, post)
+    finally:
+        lock.close()
+    result = {
+        "schema": f"{RELEASE_SCHEMA}-bounded", "status": "PASS", "task_id": plan.task_id,
+        "host": plan.host, "preimage_sha256": preimage_sha, "postimage_sha256": post_sha,
+        "terminal_sha256": sha256_file(terminal), "new_cells": int(value["new_cells"]),
+    }
+    result["receipt_sha256"] = _atomic_json(
+        plan.mission_root / "receipts" / "BOUNDED_RELEASE.json", result
+    )
+    return result
 
 
 def release_unstarted_admission(plan: Qtip3ApiPlan) -> dict[str, Any]:
@@ -798,6 +854,6 @@ def release_host(plan: Qtip3ApiPlan, terminal_path: str | Path) -> dict[str, Any
 
 __all__ = [
     "BASIS", "LAYERS", "PROJECTIONS", "EXPECTED_CELLS", "CellSpec", "Qtip3ApiConfig",
-    "Qtip3ApiPlan", "admit_host_and_shard", "release_host", "release_smoke_host", "release_unstarted_admission", "run_cells", "run_cells_batched", "sha256_file",
+    "Qtip3ApiPlan", "admit_host_and_shard", "release_bounded_host", "release_host", "release_smoke_host", "release_unstarted_admission", "run_cells", "run_cells_batched", "sha256_file",
     "verify_basis", "verify_driver_authority",
 ]
