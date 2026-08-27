@@ -233,7 +233,6 @@ class PlaneSource:
         self.disk_read_calls = 2
         self.disk_read_bytes = manifest.stat().st_size + lut_path.stat().st_size
         self.member_paths: dict[tuple[int, str], Path] = {}
-        self.parent_root = parent_root.resolve()
         # L034 remains an ordinary fully routed official-K2 layer, but its
         # authenticated selected-wire provider is staged under an immutable
         # local roster because the ordinary full-parent directory is absent.
@@ -460,7 +459,6 @@ class ShardStudent:
         last: int,
         status_cb: Any,
         defer_dense_l034: bool = False,
-        consume_private_parent_root: bool = False,
     ) -> None:
         from safetensors import safe_open
         from torch import nn
@@ -522,26 +520,6 @@ class ShardStudent:
         self.sources: dict[int, PlaneSource] = {}
         self.experts: dict[int, Any] = {}
         load_started = time.time()
-        def prune_unowned_private_parent_layers() -> None:
-            if not consume_private_parent_root:
-                return
-            root = parent_root.resolve(strict=True)
-            for candidate in sorted(root.glob("L*")):
-                if not candidate.is_dir() or len(candidate.name) != 4 or not candidate.name[1:].isdigit():
-                    continue
-                layer_id = int(candidate.name[1:])
-                if first <= layer_id <= last or layer_id == 34:
-                    continue
-                layer_root = candidate.resolve(strict=True)
-                if root not in layer_root.parents:
-                    raise RuntimeError(f"unowned layer escapes private parent root: {layer_root}")
-                for path in sorted(layer_root.rglob("*.q2v7wire")) + sorted(layer_root.rglob("*.k2wire")):
-                    resolved = path.resolve(strict=True)
-                    if layer_root not in resolved.parents or path.is_symlink() or not path.is_file():
-                        raise RuntimeError(f"unowned private member identity drift: {path}")
-                    path.unlink()
-
-        prune_unowned_private_parent_layers()
         for layer in range(first, last + 1):
             layer_started = time.time()
             source = PlaneSource(
@@ -574,7 +552,6 @@ class ShardStudent:
                 pilot=True,
                 plane_source=source,
                 swiglu_limit=swiglu_limit,
-                consume_private_parent_root=consume_private_parent_root,
             )
             m.model.layers[layer].mlp.experts = resident
             self.sources[layer] = source

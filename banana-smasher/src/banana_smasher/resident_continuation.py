@@ -25,7 +25,7 @@ from .resident_balanced64 import ArtifactError
 MODEL_INDEX_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 ADMISSION_SHA256 = "76d0674eb0cd37fc9022bac5e048c2b77c721826182222ae0a0609e29607a2c5"
 CORPUS_SHA256 = "434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5"
-TRAINER_SHA256 = "0709b552fc25398673238f535b26f13f9ea9dd9a6665722fd852eb5cf85b5eba"
+TRAINER_SHA256 = "1e7e596e1b3210fd81a4da352b00916e7cc969c20b365acde509dc51461297e1"
 OFFICIAL_PHYSICAL_LAYER_SHA256 = "5d4ca4ac7d25e96fd428e55b2a7e18e074bac9d8aa23004bddbb6bde15d020d5"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
@@ -153,7 +153,6 @@ def _construct_shard_student(
     first: int,
     last: int,
     status_cb: Any,
-    consume_private_parent_root: bool = False,
 ) -> Any:
     """Construct the authenticated trainer using its declared roster ABI."""
     loader = getattr(trainer, "load_member_roster", None)
@@ -169,7 +168,6 @@ def _construct_shard_student(
         "first": first,
         "last": last,
         "status_cb": status_cb,
-        "consume_private_parent_root": consume_private_parent_root,
     }
     if callable(loader):
         members = loader(member_roster_path, member_roster_sha256)
@@ -759,9 +757,6 @@ class ModernGreenResidentEngine:
             first=self.first,
             last=self.last,
             status_cb=self._status,
-            consume_private_parent_root=bool(
-                config.get("consume_private_parent_root", False)
-            ),
         )
         self.luts, self.norms, self.outputs = self.trainer.expose_local_dense(torch, self.student, admission)
         self._load_local_trainable_state()

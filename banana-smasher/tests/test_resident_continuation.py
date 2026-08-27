@@ -824,17 +824,7 @@ def test_sealed_trainer_materializes_nonexpert_before_resident_payload():
     release_cache = loop.index("torch.cuda.empty_cache()")
     assert capture_limit < identity < nonexpert
     assert "swiglu_limit=swiglu_limit" in loop[resident:assign]
-    prune_unowned = trainer.index("prune_unowned_private_parent_layers()")
-    loop_start = trainer.index("for layer in range(first, last + 1):", prune_unowned)
-    assert prune_unowned < loop_start
     assert nonexpert < materialize < synchronize < release_cache < resident < assign
-    assert "consume_private_parent_root=consume_private_parent_root" in loop[resident:assign]
-    dependency_path = trainer_path.with_name("fast_v7_expert_base.py")
-    dependency = dependency_path.read_text()
-    consume_block = dependency[dependency.index("if consume_private_parent_root:") :]
-    projection_sync = consume_block.index("torch.cuda.synchronize()")
-    projection_unlink = consume_block.index("_unlink_consumed_private_members")
-    assert projection_sync < projection_unlink
     assert continuation_module.TRAINER_SHA256 == hashlib.sha256(
         trainer_path.read_bytes()
     ).hexdigest()

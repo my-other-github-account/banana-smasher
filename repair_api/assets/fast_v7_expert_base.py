@@ -40,23 +40,6 @@ def _read_wire_payload(path: Path) -> bytes:
     return payload
 
 
-def _unlink_consumed_private_members(paths: list[Path], *, parent_root: Path) -> None:
-    """Release only verified members from an explicitly private staged root."""
-    root = parent_root.resolve(strict=True)
-    verified: list[Path] = []
-    for member in paths:
-        path = member.resolve(strict=True)
-        try:
-            path.relative_to(root)
-        except ValueError as exc:
-            raise RuntimeError(f"consumed wire escapes private parent root: {path}") from exc
-        if path.is_symlink() or not path.is_file():
-            raise RuntimeError(f"consumed wire is not a regular private member: {path}")
-        verified.append(path)
-    for path in verified:
-        path.unlink()
-
-
 class FullyResidentGroupedV7Experts(nn.Module):
     """One routed layer whose complete immutable K2 wire stays on CUDA."""
 
@@ -67,7 +50,6 @@ class FullyResidentGroupedV7Experts(nn.Module):
         *,
         plane_source: Any,
         swiglu_limit: float,
-        consume_private_parent_root: bool = False,
     ) -> None:
         super().__init__()
         self.L = int(layer)
@@ -149,7 +131,6 @@ class FullyResidentGroupedV7Experts(nn.Module):
             su = torch.empty((EXPERTS, k), dtype=torch.float16, device=device)
             sv = torch.empty((EXPERTS, m), dtype=torch.float16, device=device)
             expected = PACKED_BYTES + (k + m) * 2 + 4
-            consumed_paths: list[Path] = []
             for expert in range(EXPERTS):
                 path = plane_source.member_path(expert, projection)
                 payload = _read_wire_payload(Path(path))
@@ -178,16 +159,6 @@ class FullyResidentGroupedV7Experts(nn.Module):
                 sv[expert].copy_(sv_cpu)
                 self.disk_read_calls += 1
                 self.disk_read_bytes += len(payload)
-                consumed_paths.append(Path(path))
-            if consume_private_parent_root:
-                # The source is tmpfs-backed in the documented two-rank rail.
-                # Drain all projection copies before unlinking their authenticated
-                # private source bytes, so source residency falls as CUDA residency
-                # rises instead of retaining a second complete 31.7-GiB tree.
-                torch.cuda.synchronize()
-                _unlink_consumed_private_members(
-                    consumed_paths, parent_root=plane_source.parent_root
-                )
             self.register_buffer(f"packed_{projection}", packed, persistent=False)
             self.register_buffer(f"su_{projection}", su, persistent=False)
             self.register_buffer(f"sv_{projection}", sv, persistent=False)
