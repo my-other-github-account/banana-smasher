@@ -1605,12 +1605,8 @@ class ModernGreenResidentEngine:
                 )
             os.environ["BR_ATTN_IMPL"] = attention
             packed_validation = expert_implementation == "packed_cuda_bf16_boundary"
-            # The accepted 0eeb producer ran the immutable static provider with
-            # its decoded physical weights rounded to BF16 before each GEMM.
-            # Keep that runtime mode when selecting the same static source;
-            # only the separately admitted packed-boundary probe disables it.
             os.environ["FAST_K2_SEALED_FULL_WEIGHT_BF16"] = (
-                "0" if packed_validation else "1"
+                "1" if expert_implementation == "sealed_bf16_full_weight" else "0"
             )
             # The first physical PRE tap localized packed-provider drift to the
             # extra FP32→BF16→FP32 projection round at L000/w1.  Packed wire/CUDA
