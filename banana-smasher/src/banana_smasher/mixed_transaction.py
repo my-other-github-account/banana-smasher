@@ -4,11 +4,13 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
 
 from .backpack_dimensions import DynamicDimensionsError
+from .q2_codec import k2_lut_fp16
 
 BASIS_RE = re.compile(r"[0-9a-f]{64}")
 EXPERT_RE = re.compile(r"L(\d{3})\.E(\d{3})")
@@ -268,4 +270,178 @@ def prepare_mixed_backpack_transaction(
         "byte_accounting": accounting,
         "member_counts": manifest["member_counts"],
         "launch_argv": manifest["launch"]["argv"],
+    }
+
+
+def stage_mixed_v7_member_index(
+    solve_root: str | Path,
+    materialized_root: str | Path,
+    qtip3_terminals: str | Path,
+    *,
+    qtip3_source_root: str | Path,
+    qtip3_source_prefix: str | Path,
+    output: str | Path,
+) -> dict[str, Any]:
+    """Stage only mixed-V7 metadata and bind it to sealed payload members."""
+
+    solve = Path(solve_root).expanduser().resolve()
+    root = Path(materialized_root).expanduser().resolve()
+    terminals = Path(qtip3_terminals).expanduser().resolve()
+    source_root = Path(qtip3_source_root).expanduser().resolve()
+    source_prefix = Path(qtip3_source_prefix)
+    output_path = Path(output).expanduser().resolve()
+    identity, _ = _json(solve / "identity.json", "mixed identity")
+    materialized_identity, _ = _json(root / "identity.json", "materialized identity")
+    if identity.get("schema") != "banana-smasher-mixed-backpack-identity-v1":
+        raise DynamicDimensionsError("mixed identity schema mismatch")
+    for key in ("basis_sha256", "assignment_sha256"):
+        if identity.get(key) != materialized_identity.get(key):
+            raise DynamicDimensionsError(f"materialized identity {key} mismatch")
+    expected_members = materialized_identity.get("member_count")
+    if isinstance(expected_members, bool) or not isinstance(expected_members, int) or expected_members <= 0:
+        raise DynamicDimensionsError("materialized payload member count is invalid")
+
+    try:
+        payload_rows = [
+            json.loads(line)
+            for line in (root / "MATERIALIZED_MEMBERS.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+    except (OSError, json.JSONDecodeError) as exc:
+        raise DynamicDimensionsError("cannot read materialized payload members") from exc
+    if len(payload_rows) != materialized_identity["member_count"]:
+        raise DynamicDimensionsError("materialized payload index is incomplete")
+
+    q3_units: dict[tuple[int, str], tuple[dict[str, Any], dict[str, Any]]] = {}
+    for terminal_path in sorted(terminals.glob("**/LAYER_PRODUCT_TERMINAL.json")):
+        terminal, _ = _json(terminal_path, "QTIP3 layer terminal")
+        layer = int(terminal.get("layer", -1))
+        lut = terminal.get("method", {}).get("lut")
+        terminal_members = terminal.get("members")
+        if layer < 0 or not isinstance(lut, dict) or not isinstance(terminal_members, list):
+            raise DynamicDimensionsError(f"malformed QTIP3 terminal: {terminal_path}")
+        for member in terminal_members:
+            if not isinstance(member, dict) or not isinstance(member.get("control"), dict):
+                raise DynamicDimensionsError(f"malformed QTIP3 member: {terminal_path}")
+            key = (layer, str(member.get("cell")))
+            if key in q3_units:
+                raise DynamicDimensionsError(f"duplicate QTIP3 metadata unit {key!r}")
+            q3_units[key] = (member["control"], lut)
+
+    metadata_root = root / "metadata"
+    metadata_root.mkdir(parents=True, exist_ok=True)
+    q2_tlut = metadata_root / "qtip2" / "k2_lut.f16"
+    q2_tlut.parent.mkdir(parents=True, exist_ok=True)
+    q2_raw = k2_lut_fp16().astype("<f2", copy=False).tobytes(order="C")
+    if not q2_tlut.exists():
+        file_descriptor, temporary = tempfile.mkstemp(prefix=".k2_lut.", dir=q2_tlut.parent)
+        try:
+            with os.fdopen(file_descriptor, "wb") as handle:
+                handle.write(q2_raw)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, q2_tlut)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+    if q2_tlut.read_bytes() != q2_raw:
+        raise DynamicDimensionsError("staged QTIP2 TLUT drift")
+
+    def descriptor(path: Path) -> dict[str, Any]:
+        raw = path.read_bytes()
+        return {
+            "path": path.relative_to(root).as_posix(),
+            "sha256": _sha(raw),
+            "bytes": len(raw),
+        }
+
+    def source_path(value: Any) -> Path:
+        if not isinstance(value, str):
+            raise DynamicDimensionsError("QTIP3 metadata locator must be a path")
+        path = Path(value)
+        try:
+            relative = path.relative_to(source_prefix)
+        except ValueError as exc:
+            raise DynamicDimensionsError(f"QTIP3 locator escapes source prefix: {path}") from exc
+        return source_root / relative
+
+    def stage(source: dict[str, Any], destination: Path) -> dict[str, Any]:
+        path = source_path(source.get("path"))
+        expected_size = source.get("bytes")
+        expected_sha = source.get("sha256")
+        if not path.is_file() or path.is_symlink():
+            raise DynamicDimensionsError(f"QTIP3 metadata source unavailable: {path}")
+        if path.stat().st_size != expected_size or _sha(path.read_bytes()) != expected_sha:
+            raise DynamicDimensionsError(f"QTIP3 metadata source drift: {path}")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if not destination.exists():
+            temporary = destination.with_name(f".{destination.name}.{os.getpid()}")
+            shutil.copyfile(path, temporary)
+            with temporary.open("rb") as handle:
+                os.fsync(handle.fileno())
+            os.replace(temporary, destination)
+        result = descriptor(destination)
+        if result["bytes"] != expected_size or result["sha256"] != expected_sha:
+            raise DynamicDimensionsError(f"staged QTIP3 metadata drift: {destination}")
+        return result
+
+    q2_descriptor = descriptor(q2_tlut)
+    members: list[dict[str, Any]] = []
+    q3_controls = 0
+    staged_luts: dict[int, dict[str, Any]] = {}
+    for row in payload_rows:
+        cell_id = str(row.get("cell_id", ""))
+        tier = row.get("tier")
+        payload = {
+            "path": str(row.get("path")),
+            "sha256": row.get("sha256"),
+            "bytes": row.get("bytes"),
+        }
+        if tier == "qtip2":
+            metadata = {"tlut": q2_descriptor}
+        elif tier == "qtip3":
+            match = Q3_CELL_RE.fullmatch(cell_id)
+            if match is None:
+                raise DynamicDimensionsError(f"invalid QTIP3 payload cell {cell_id!r}")
+            layer = int(match.group(1))
+            cell = f"E{int(match.group(2)):03d}_{match.group(3)}"
+            try:
+                control_source, lut_source = q3_units[(layer, cell)]
+            except KeyError as exc:
+                raise DynamicDimensionsError(f"missing QTIP3 metadata for {cell_id}") from exc
+            control = stage(
+                control_source,
+                metadata_root / "qtip3" / f"L{layer:03d}" / cell / "CONTROL.pt",
+            )
+            q3_controls += 1
+            if layer not in staged_luts:
+                staged_luts[layer] = stage(
+                    lut_source,
+                    metadata_root / "qtip3" / f"L{layer:03d}" / "layer-shared-lut.npy",
+                )
+            metadata = {"control": control, "tlut": staged_luts[layer]}
+        else:
+            raise DynamicDimensionsError(f"unknown materialized tier {tier!r}")
+        members.append({"cell_id": cell_id, "tier": tier, "payload": payload, "unit_metadata": metadata})
+
+    document = {
+        "schema": "banana-smasher-mixed-v7-materialized-members-v1",
+        "status": "SEALED",
+        "basis_sha256": identity["basis_sha256"],
+        "assignment_sha256": identity["assignment_sha256"],
+        "materialized_root": str(root),
+        "members": members,
+    }
+    raw = _publish(output_path, document)
+    return {
+        "schema": "banana-smasher-mixed-v7-metadata-stage-receipt-v1",
+        "status": "PASS_ADMISSION_READY",
+        "basis_sha256": identity["basis_sha256"],
+        "assignment_sha256": identity["assignment_sha256"],
+        "members": len(members),
+        "qtip3_controls": q3_controls,
+        "qtip3_luts": len(staged_luts),
+        "index": {"path": str(output_path), "sha256": _sha(raw), "bytes": len(raw)},
     }

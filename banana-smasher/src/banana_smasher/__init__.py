@@ -116,7 +116,10 @@ from .backpack_dimensions import (
     preflight_mixed_backpack_config as preflight_mixed_backpack_config,
     solve_mixed_backpack_config as solve_mixed_backpack_config,
 )
-from .mixed_transaction import prepare_mixed_backpack_transaction
+from .mixed_transaction import (
+    prepare_mixed_backpack_transaction,
+    stage_mixed_v7_member_index,
+)
 
 from .backpack_selection import select_measured_nonworse
 from .measured_backpack_spsa import (
@@ -336,6 +339,7 @@ __all__ = [
     "persist_fixed_d4_solve",
     "preflight_mixed_backpack_config",
     "prepare_mixed_backpack_transaction",
+    "stage_mixed_v7_member_index",
     "prepare_fixed_d4_solve_config",
     "price_backpack_candidate",
     "predict_backpack",

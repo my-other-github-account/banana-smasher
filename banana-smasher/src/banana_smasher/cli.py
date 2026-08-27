@@ -389,6 +389,16 @@ def _parser() -> argparse.ArgumentParser:
     backpack_mixed_transaction.add_argument("--output", type=Path, required=True)
     backpack_mixed_transaction.add_argument("--destination-root", type=Path, required=True)
     backpack_mixed_transaction.add_argument("--canonical-commit-sha", required=True)
+    backpack_mixed_stage = backpack_commands.add_parser(
+        "stage-mixed-v7-members",
+        help="stage identity-bound QTIP2/QTIP3 metadata beside sealed mixed payloads",
+    )
+    backpack_mixed_stage.add_argument("--solve-root", type=Path, required=True)
+    backpack_mixed_stage.add_argument("--materialized-root", type=Path, required=True)
+    backpack_mixed_stage.add_argument("--qtip3-terminals", type=Path, required=True)
+    backpack_mixed_stage.add_argument("--qtip3-source-root", type=Path, required=True)
+    backpack_mixed_stage.add_argument("--qtip3-source-prefix", type=Path, required=True)
+    backpack_mixed_stage.add_argument("--output", type=Path, required=True)
     backpack_virtual = backpack_commands.add_parser(
         "virtualize",
         help="project a completed canonical solve into zero-copy contextual wire",
@@ -1558,6 +1568,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                         canonical_commit_sha=args.canonical_commit_sha,
                     ),
                     "command": "backpack prepare-mixed-transaction",
+                }
+            elif args.backpack_command == "stage-mixed-v7-members":
+                from .mixed_transaction import stage_mixed_v7_member_index
+
+                result = {
+                    **stage_mixed_v7_member_index(
+                        args.solve_root,
+                        args.materialized_root,
+                        args.qtip3_terminals,
+                        qtip3_source_root=args.qtip3_source_root,
+                        qtip3_source_prefix=args.qtip3_source_prefix,
+                        output=args.output,
+                    ),
+                    "command": "backpack stage-mixed-v7-members",
                 }
             elif args.backpack_command == "providers":
                 from .backpack_providers import builtin_backpack_family_providers
