@@ -30,6 +30,7 @@ def _model(root: Path) -> tuple[Path, str]:
 
 class _Tokenizer:
     tokenizer_id = "fixture-tokenizer-v1"
+    tokenizer_sha256 = "c" * 64
 
     def encode(self, text: str) -> list[int]:
         return [ord(character) for character in text]
@@ -208,7 +209,10 @@ def test_recover_source_text_requires_exact_tokenizer_round_trip(tmp_path: Path)
         "version": 1,
     }
     assert receipt["historical_token_ledger_sha256"] == _sha(historical_path)
-    assert receipt["source_tokenizer"] == {"id": "fixture-tokenizer-v1"}
+    assert receipt["source_tokenizer"] == {
+        "id": "fixture-tokenizer-v1",
+        "sha256": "c" * 64,
+    }
     assert receipt["suite_lock_sha256"] == lock["suite_lock_sha256"]
     assert receipt["source_provenance_sha256"] == provenance
     assert receipt["row_count"] == 64
@@ -218,6 +222,7 @@ def test_recover_source_text_requires_exact_tokenizer_round_trip(tmp_path: Path)
     assert manifest["historical_token_ledger"] == {
         "sha256": _sha(historical_path),
         "source_tokenizer_id": "fixture-tokenizer-v1",
+        "source_tokenizer_sha256": "c" * 64,
     }
     assert [item["window_id"] for item in manifest["items"]] == list(range(1000, 1064))
     assert manifest["items"][0]["item_id"] == "source-0"

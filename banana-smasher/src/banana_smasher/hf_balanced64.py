@@ -32,6 +32,7 @@ class Balanced64Tokenizer(Protocol):
     """Minimal tokenizer seam used by the public token-ledger builder."""
 
     tokenizer_id: str
+    tokenizer_sha256: str
 
     def encode(self, text: str) -> Any: ...
 
@@ -163,7 +164,8 @@ class _TokenizerJsonAdapter:
                 "normal banana-smasher installation requires tokenizers for token-ledger construction"
             ) from exc
         self._tokenizer = Tokenizer.from_file(str(tokenizer_path))
-        self.tokenizer_id = f"tokenizer-json-sha256:{_sha256(tokenizer_path)}"
+        self.tokenizer_sha256 = _sha256(tokenizer_path)
+        self.tokenizer_id = f"tokenizer-json-sha256:{self.tokenizer_sha256}"
 
     def encode(self, text: str) -> list[int]:
         return list(self._tokenizer.encode(text, add_special_tokens=False).ids)
@@ -247,6 +249,13 @@ def recover_balanced64_source_text(
     tokenizer_id = getattr(tokenizer, "tokenizer_id", None)
     if not isinstance(tokenizer_id, str) or not tokenizer_id:
         raise ValueError("BALANCED64 source tokenizer must declare a non-empty tokenizer_id")
+    tokenizer_sha256 = getattr(tokenizer, "tokenizer_sha256", None)
+    if (
+        not isinstance(tokenizer_sha256, str)
+        or len(tokenizer_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in tokenizer_sha256)
+    ):
+        raise ValueError("BALANCED64 source tokenizer must declare its lowercase SHA-256")
     decoder = getattr(tokenizer, "decode", None)
     if not callable(decoder):
         raise ValueError("BALANCED64 source tokenizer must provide decode(token_ids)")
@@ -311,6 +320,7 @@ def recover_balanced64_source_text(
         "historical_token_ledger": {
             "sha256": historical_sha256,
             "source_tokenizer_id": tokenizer_id,
+            "source_tokenizer_sha256": tokenizer_sha256,
         },
         "items": items,
     }
@@ -323,7 +333,7 @@ def recover_balanced64_source_text(
         "source_provenance_sha256": lock["source_provenance_sha256"],
         "historical_token_ledger_path": str(historical_path),
         "historical_token_ledger_sha256": historical_sha256,
-        "source_tokenizer": {"id": tokenizer_id},
+        "source_tokenizer": {"id": tokenizer_id, "sha256": tokenizer_sha256},
         "row_count": len(items),
         "roundtrip_verified_rows": len(items),
         "item_roster_sha256": manifest["item_roster_sha256"],
