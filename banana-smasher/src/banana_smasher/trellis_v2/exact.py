@@ -70,7 +70,7 @@ def geometry(cb: Any) -> dict[str, int | str | bool]:
         "chunk_sequences": MAX_CHUNK,
         "backpointer_dtype": "packed-uint4-q",
         "ordering": "one-full-row-cta-with-resident-fp32-costs",
-        "minimum_ctas_per_sm": 2,
+        "minimum_ctas_per_sm": 3,
         "production_default": True,
         "fallback": 0,
     }

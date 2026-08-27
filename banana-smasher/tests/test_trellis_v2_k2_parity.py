@@ -38,7 +38,7 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     }
     assert '"branch_sampling": "full"' in exact_source
     assert '"backpointer_dtype": "packed-uint4-q"' in exact_source
-    assert '"minimum_ctas_per_sm": 2' in exact_source
+    assert '"minimum_ctas_per_sm": 3' in exact_source
     assert '"fallback": 0' in exact_source
     assert "alternating-parity-full" not in exact_source
     assert "triton" not in exact_source
@@ -46,7 +46,7 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     cuda_source = (
         _package_root() / "trellis_v2" / "csrc" / "trellis_v2_exact.cu"
     ).read_text()
-    assert "__launch_bounds__(THREADS, 2)" in cuda_source
+    assert "__launch_bounds__(THREADS, 3)" in cuda_source
 
 
 @pytest.mark.skipif(
