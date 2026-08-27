@@ -858,6 +858,12 @@ class ModernGreenResidentEngine:
 
     def _status(self, **fields: Any) -> None:
         self.status.update(fields)
+        if fields.get("phase") == "loading":
+            # Shard construction reports after each layer has dropped its temporary
+            # state dict. Return those unused CUDA allocator pages before loading
+            # the next layer; on unified-memory hosts they otherwise accumulate
+            # outside the useful resident set and can starve the NVIDIA driver.
+            self.torch.cuda.empty_cache()
 
     def _load_local_trainable_state(self) -> None:
         loader = self.trainer.load_local_state

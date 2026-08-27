@@ -753,6 +753,25 @@ def test_layer_stack_uses_a1_equivalent_fresh_cache_per_layer(monkeypatch):
     assert seen[0] is not seen[1]
 
 
+def test_layer_construction_status_releases_unused_cuda_cache():
+    calls = []
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.status = {}
+    engine.torch = SimpleNamespace(
+        cuda=SimpleNamespace(empty_cache=lambda: calls.append("empty_cache"))
+    )
+
+    engine._status(phase="loading", loaded_layer=7)
+    engine._status(phase="training", global_update=5)
+
+    assert calls == ["empty_cache"]
+    assert engine.status == {
+        "phase": "training",
+        "loaded_layer": 7,
+        "global_update": 5,
+    }
+
+
 def test_warm_training_can_disable_layer_checkpoint_recompute(monkeypatch):
     class Cache:
         def __init__(self, *, config):
