@@ -405,12 +405,12 @@ def test_public_session_defaults_checkpoint_lut_materialization_inside_run_root(
         return object()
 
     monkeypatch.setattr(production_rails._ProvenResidentAPI, "open", lambda root: FakeProvenAPI())
-    monkeypatch.setattr(production_rails, "_construct_resident_engine", construct)
+    monkeypatch.setattr(production_rails, "_construct_resident_score_engine", construct)
     config = _base_config()
     artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
     receipt_root = tmp_path / "run" / "resident-receipts"
 
-    production_rails._ProvenSession(
+    session = production_rails._ProvenSession(
         artifact,
         production_rails._ArtifactBinding(
             identity_sha256=artifact.identity.sha256,
@@ -424,13 +424,18 @@ def test_public_session_defaults_checkpoint_lut_materialization_inside_run_root(
         receipt_root=receipt_root,
     )
 
-    assert observed["checkpoint_lut_root"] == str((receipt_root / "checkpoint-luts").resolve())
+    assert session.continuation_config["checkpoint_lut_root"] == str(
+        (receipt_root / "checkpoint-luts").resolve()
+    )
 
 
 def test_resident_score_normalizes_authenticated_checkpoint_alias(
     tmp_path, monkeypatch
 ):
     class FakeEngine:
+        def close(self, *, phase):
+            return {"phase": phase, "post_release_allocated_bytes": 0}
+
         def score_balanced64(self, windows):
             return {
                 "mean_kld": 0.2292069946743951,
@@ -462,7 +467,7 @@ def test_resident_score_normalizes_authenticated_checkpoint_alias(
     )
     monkeypatch.setattr(
         production_rails,
-        "_construct_resident_engine",
+        "_construct_resident_score_engine",
         lambda api, binding, config: FakeEngine(),
     )
     config = _base_config()
@@ -489,15 +494,24 @@ def test_resident_score_normalizes_authenticated_checkpoint_alias(
     assert result["physical_checkpoint"] == "UPDATE_000"
 
 
-def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
+def test_default_provider_releases_each_phase_engine_and_scores_trained_state(
     tmp_path, monkeypatch
 ):
     class FakeEngine:
         constructions = 0
+        closures = 0
 
-        def __init__(self):
+        def __init__(self, update=0):
             type(self).constructions += 1
-            self.update = 0
+            self.update = update
+
+        def close(self, *, phase):
+            type(self).closures += 1
+            return {
+                "phase": phase,
+                "post_release_allocated_bytes": 0,
+                "limit_bytes": 10 * 1024**3,
+            }
 
         def score_balanced64(self, windows):
             return {
@@ -538,11 +552,21 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
 
     fake_api = FakeProvenAPI()
     FakeEngine.constructions = 0
+    FakeEngine.closures = 0
     monkeypatch.setattr(production_rails._ProvenResidentAPI, "open", lambda root: fake_api)
     monkeypatch.setattr(
         production_rails,
+        "_construct_resident_score_engine",
+        lambda api, binding, config: FakeEngine(
+            int(binding.checkpoint.rsplit("_", 1)[-1])
+        ),
+    )
+    monkeypatch.setattr(
+        production_rails,
         "_construct_resident_engine",
-        lambda api, binding, config: FakeEngine(),
+        lambda api, binding, config: FakeEngine(
+            int(binding.checkpoint.rsplit("_", 1)[-1])
+        ),
     )
     monkeypatch.setattr(
         ProductionRails, "_require_live_checkpoint_bytes", staticmethod(lambda *args: None)
@@ -566,7 +590,8 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     )
     post = facade.score_post(artifact, checkpoint_sha=artifact.checkpoint_sha256)
 
-    assert FakeEngine.constructions == 1
+    assert FakeEngine.constructions == 3
+    assert FakeEngine.closures == 3
     assert pre["checkpoint"] == "UPDATE_000"
     assert trained["checkpoint"] == "UPDATE_008"
     assert post["checkpoint"] == "UPDATE_008"

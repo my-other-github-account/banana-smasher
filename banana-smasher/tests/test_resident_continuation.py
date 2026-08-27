@@ -839,6 +839,19 @@ def test_sealed_trainer_materializes_nonexpert_before_resident_payload():
     ).hexdigest()
 
 
+def test_score_only_engine_omits_optimizer_and_has_fail_closed_phase_release():
+    source = Path(continuation_module.__file__).read_text()
+    optimizer_gate = source[source.index("self.optimizer: Any = None") :]
+    assert optimizer_gate.index("if not self.score_only:") < optimizer_gate.index(
+        "self.optimizer = _build_fp64_adam"
+    )
+    close = source[source.index("def close(self, *, phase: str)") :]
+    assert "memory_ledger()" in close
+    assert "destroy_process_group()" in close
+    assert "torch.cuda.empty_cache()" in close
+    assert "allocated >= limit" in close
+
+
 def test_warm_training_can_disable_layer_checkpoint_recompute(monkeypatch):
     class Cache:
         def __init__(self, *, config):

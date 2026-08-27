@@ -9,6 +9,7 @@ through Adam and LambdaLR.
 from __future__ import annotations
 
 import copy
+import gc
 import hashlib
 import importlib.util
 import inspect
@@ -764,21 +765,87 @@ class ModernGreenResidentEngine:
         # exceed the 112 GiB rail if the score backend is activated early. Select
         # Quack only after the resident payload is complete, before any forward.
         _select_trainer_fwht(self.trainer)
-        self.optimizer = _build_fp64_adam(
-            torch,
-            [
-                {"params": [p for _name, p in self.luts], "lr": self.base_lrs["luts"], "group_name": "luts"},
-                {"params": [p for _name, p in self.norms], "lr": self.base_lrs["norms"], "group_name": "norms"},
-                {"params": [p for _name, p in self.outputs], "lr": self.base_lrs["outputs"], "group_name": "outputs"},
-            ],
-        )
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.optimizer,
-            lr_lambda=[lambda step: _schedule_multiplier(self.config, step, self.trainer.current_multiplier)] * 3,
-        )
-        self._load_optimizer_scheduler_state()
+        self.optimizer: Any = None
+        self.scheduler: Any = None
+        if not self.score_only:
+            self.optimizer = _build_fp64_adam(
+                torch,
+                [
+                    {"params": [p for _name, p in self.luts], "lr": self.base_lrs["luts"], "group_name": "luts"},
+                    {"params": [p for _name, p in self.norms], "lr": self.base_lrs["norms"], "group_name": "norms"},
+                    {"params": [p for _name, p in self.outputs], "lr": self.base_lrs["outputs"], "group_name": "outputs"},
+                ],
+            )
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer,
+                lr_lambda=[lambda step: _schedule_multiplier(self.config, step, self.trainer.current_multiplier)] * 3,
+            )
+            self._load_optimizer_scheduler_state()
         self._load_training_data()
         self.global_step = _checkpoint_cursor(payload)
+
+    def memory_ledger(self) -> dict[str, Any]:
+        """Account unique CUDA parameter/buffer storage by immediate module."""
+        rows: list[dict[str, Any]] = []
+        seen: set[tuple[int, int]] = set()
+        student = getattr(self, "student", None)
+        model = getattr(student, "model", None)
+        if model is not None:
+            for name, module in model.named_modules():
+                total = 0
+                for tensor in list(module.parameters(recurse=False)) + list(module.buffers(recurse=False)):
+                    if tensor is None or tensor.device.type != "cuda" or tensor.is_meta:
+                        continue
+                    storage = tensor.untyped_storage()
+                    key = (int(storage.data_ptr()), int(storage.nbytes()))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    total += int(storage.nbytes())
+                if total:
+                    rows.append({"module": name or "<root>", "bytes": total})
+        rows.sort(key=lambda row: int(row["bytes"]), reverse=True)
+        return {
+            "module_rows": rows,
+            "module_bytes": sum(int(row["bytes"]) for row in rows),
+            "torch_allocated_bytes": int(self.torch.cuda.memory_allocated()),
+            "torch_reserved_bytes": int(self.torch.cuda.memory_reserved()),
+        }
+
+    def close(self, *, phase: str) -> dict[str, Any]:
+        """Destroy one score/train phase and fail closed above 10 GiB residue."""
+        before = self.memory_ledger()
+        if self.dist.is_initialized():
+            self.dist.barrier()
+            self.dist.destroy_process_group()
+        for name in (
+            "optimizer", "scheduler", "student", "luts", "norms", "outputs",
+            "train_rows", "train_ids_cache", "train_teacher_cache", "score_ids_cache",
+        ):
+            if hasattr(self, name):
+                delattr(self, name)
+        gc.collect()
+        self.torch.cuda.synchronize()
+        self.torch.cuda.empty_cache()
+        collect = getattr(self.torch.cuda, "ipc_collect", None)
+        if callable(collect):
+            collect()
+        allocated = int(self.torch.cuda.memory_allocated())
+        reserved = int(self.torch.cuda.memory_reserved())
+        limit = 10 * 1024**3
+        if allocated >= limit:
+            raise ArtifactError(
+                f"resident phase teardown retained {allocated} CUDA bytes (limit {limit})"
+            )
+        return {
+            "schema": "banana-smasher-resident-phase-release-v1",
+            "status": "PASS",
+            "phase": phase,
+            "pre_release": before,
+            "post_release_allocated_bytes": allocated,
+            "post_release_reserved_bytes": reserved,
+            "limit_bytes": limit,
+        }
 
     def _prepare_import_paths(self) -> None:
         repository_root = Path(__file__).resolve().parents[3]
@@ -1483,7 +1550,3 @@ class ModernGreenResidentEngine:
         row = [value if self.rank == 0 else None]
         self.dist.broadcast_object_list(row, src=0)
         return row[0]
-
-    def close(self) -> None:
-        if self.dist.is_initialized() and self.config.get("destroy_process_group", False):
-            self.dist.destroy_process_group()

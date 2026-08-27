@@ -200,11 +200,33 @@ def _construct_resident_engine(
     return method(binding.checkpoint, config=options)
 
 
+def _construct_resident_score_engine(
+    api: _ProvenResidentAPI,
+    binding: _ArtifactBinding,
+    config: Mapping[str, Any],
+) -> Any:
+    """Construct one score-only physical model for a single API phase."""
+    method = getattr(api, "construct_resident_score_engine", None)
+    if not callable(method):
+        raise ProductionRailsError("resident implementation cannot construct a score engine")
+    options = dict(config)
+    options["basis_sha256"] = binding.basis_sha256
+    options["checkpoint_sha256"] = binding.checkpoint_sha256
+    checkpoint_path = api.artifact.checkpoint_path(binding.checkpoint)
+    return method(
+        checkpoint_path,
+        binding.checkpoint_sha256,
+        config=options,
+    )
+
+
 class _ProvenSession:
     """Adapter over the proven resident scorer/continuation implementation.
 
-    One object owns the scorer caches for the whole arm.  ``hot_swap`` changes
-    only the selected checkpoint; it never reopens or reconstructs the session.
+    One object owns the public arm, but each score/train phase owns a distinct
+    physical engine.  This matches the validated production topology: score
+    caches are destroyed before optimizer construction, and training residency
+    is destroyed before the post score is constructed.
     """
 
     def __init__(
@@ -233,15 +255,38 @@ class _ProvenSession:
             str((receipt_root / "checkpoint-luts").resolve()),
         )
         self.receipt_root = receipt_root
-        self.engine = _construct_resident_engine(
-            self.api, self.binding, self.continuation_config
-        )
+        # Physical residency is phase-lazy: a sealed PRE may proceed directly to
+        # training without constructing an unused scorer, while score_pre()
+        # constructs and later destroys its own score-only engine.
+        self.engine: Any | None = None
         if provider_binding_sha256 is not None:
             _require_distributed_pair_binding(
                 provider_binding_sha256,
                 self.continuation_config,
             )
         self._pre_kld: float | None = None
+        self.phase_releases: list[Mapping[str, Any]] = []
+
+    def _release_engine(self, phase: str) -> Mapping[str, Any]:
+        if self.engine is None:
+            raise ProductionRailsError(f"resident {phase} engine is already released")
+        close = getattr(self.engine, "close", None)
+        if not callable(close):
+            raise ProductionRailsError("physical resident engine lacks phase teardown")
+        raw_release = close(phase=phase)
+        if not isinstance(raw_release, Mapping):
+            raise ProductionRailsError("physical resident teardown must return a mapping")
+        release: dict[str, Any] = dict(raw_release)
+        allocated = release.get("post_release_allocated_bytes")
+        limit = 10 * 1024**3
+        if not isinstance(allocated, int) or allocated < 0 or allocated >= limit:
+            raise ProductionRailsError(
+                f"resident {phase} teardown did not return below 10 GiB: {allocated}"
+            )
+        release["limit_bytes"] = limit
+        self.phase_releases.append(release)
+        self.engine = None
+        return release
 
     def hot_swap(self, artifact: BackpackArtifact, binding: _ArtifactBinding) -> None:
         if artifact.root.resolve() != self.root:
@@ -256,6 +301,10 @@ class _ProvenSession:
             )
 
     def score(self, phase: str) -> Mapping[str, Any]:
+        if self.engine is None:
+            self.engine = _construct_resident_score_engine(
+                self.api, self.binding, self.continuation_config
+            )
         method = getattr(self.engine, "score_balanced64", None)
         if not callable(method):
             raise ProductionRailsError("physical resident engine cannot score in memory")
@@ -283,6 +332,7 @@ class _ProvenSession:
                 self._pre_kld = float(result["mean_kld"])
             except (KeyError, TypeError, ValueError) as exc:
                 raise ProductionRailsError("resident pre-score lacks a loss-guard baseline") from exc
+        result["phase_release"] = dict(self._release_engine(f"score_{phase}"))
         return result
 
     def train(self, updates: int) -> Mapping[str, Any]:
@@ -298,6 +348,12 @@ class _ProvenSession:
         rank_suffix = f".rank{rank}" if rank in (0, 1) else ""
         if self._pre_kld is None:
             raise ProductionRailsError("resident training requires a measured pre-score baseline")
+        if self.engine is not None:
+            raise ProductionRailsError("resident score engine must be released before training")
+        self.engine = _construct_resident_engine(
+            self.api, self.binding, self.continuation_config
+        )
+        assert self.engine is not None
         method = getattr(self.api, "advance_resident_engine", None)
         if not callable(method):
             raise ProductionRailsError("resident implementation cannot advance the live engine")
@@ -398,7 +454,7 @@ class _ProvenSession:
                 "boundaries": boundaries,
             },
         )
-        return {
+        completed = {
             **dict(result),
             "updates": updates,
             "accepted_update_cadence": accepted_update_cadence,
@@ -406,6 +462,8 @@ class _ProvenSession:
             "heldout_gates": str(gate_path),
             "heldout_boundaries": boundaries,
         }
+        completed["phase_release"] = dict(self._release_engine("repair_train"))
+        return completed
 
 
 class ProductionRails:

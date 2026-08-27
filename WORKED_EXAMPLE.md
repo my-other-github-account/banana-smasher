@@ -229,7 +229,12 @@ CUDA stream and releases only unused allocator blocks before reserving that
 layer's routed resident payload. This boundary is mandatory: `empty_cache()`
 without the preceding synchronization can overlap pending dequantization
 workspaces with the next ~1.6 GiB routed allocation and make the NVIDIA UMA
-driver fail before the first layer receipt. On the two
+driver fail before the first layer receipt. The public journey also treats
+`score_pre`, `repair_train`, and `score_post` as separate physical residency
+phases: each score-only engine omits Adam, every phase emits a module-level CUDA
+memory ledger, destroys its process group/model/teacher caches, and refuses to
+advance unless allocator residency is below 10 GiB. Training therefore never
+co-hosts the PRE scorer cache, matching the validated U45 launch topology. On the two
 Spark ranks, run under service scopes with `MemoryMax=95G` for rank 0 and
 `MemoryMax=90G` for rank 1 plus `LimitMEMLOCK=infinity`; these are host safety
 limits, not recipe knobs. The
