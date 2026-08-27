@@ -64,7 +64,7 @@ EXPERTS = tuple(range(256))
 REC = ROOT / "receipts"
 WORK = ROOT / "working_full_api"
 SOURCE = WORK / "source.npy"
-OUTPUT = ROOT / "outputs/full_api"
+OUTPUT = Path(os.environ.get("QTIP3_OUTPUT_ROOT", str(ROOT / "outputs/full_api")))
 SMOKE_COUNT = int(os.environ.get("QTIP3_SMOKE_COUNT", "0"))
 MAX_NEW_BATCHES = int(os.environ.get("QTIP3_MAX_NEW_BATCHES", "0")) or None
 

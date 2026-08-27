@@ -20,3 +20,4 @@ def test_qtip3_regenerate_entrypoint_accepts_authorized_routed_scope_and_batches
     assert "QTIP3 recovery scope must be exactly" not in source.read_text()
     assert "QTIP3_CELL_ROSTER_PATH" in source.read_text()
     assert "load_cell_roster" in source.read_text()
+    assert "QTIP3_OUTPUT_ROOT" in source.read_text()
