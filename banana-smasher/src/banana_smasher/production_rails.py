@@ -115,6 +115,22 @@ def _forbidden_slow_control(value: object) -> str | None:
     return None
 
 
+def _heldout_decision(
+    previous_kld: float, current_kld: float, streak: int, *, patience: int
+) -> dict[str, Any]:
+    if not all(math.isfinite(value) for value in (previous_kld, current_kld)):
+        raise ProductionRailsError("held-out gate received non-finite KLD")
+    if patience < 1 or streak < 0:
+        raise ProductionRailsError("held-out gate patience/streak is invalid")
+    improved = current_kld < previous_kld
+    next_streak = 0 if improved else streak + 1
+    return {
+        "improved": improved,
+        "non_improving_streak": next_streak,
+        "halt": next_streak >= patience,
+    }
+
+
 @dataclass(frozen=True)
 class _ArtifactBinding:
     identity_sha256: str
@@ -215,37 +231,113 @@ class _ProvenSession:
         config = dict(self.continuation_config)
         rank = self.continuation_config.get("rank")
         rank_suffix = f".rank{rank}" if rank in (0, 1) else ""
-        receipt = self.receipt_root / (
-            f"CONTINUATION_U{start_update:03d}_U{target:03d}{rank_suffix}.json"
-        )
         if self._pre_kld is None:
             raise ProductionRailsError("resident training requires a measured pre-score baseline")
-        loss_guard_receipt = receipt.with_name(f"{receipt.stem}.LOSS_GUARD.json")
         method = getattr(self.api, "advance_resident_engine", None)
         if not callable(method):
             raise ProductionRailsError("resident implementation cannot advance the live engine")
-        result = method(
-            self.engine,
-            self.binding.checkpoint,
-            target,
-            config=config,
-            receipt_path=receipt,
-            loss_guard_baseline=self._pre_kld,
-            loss_guard_receipt_path=loss_guard_receipt,
+        interval = int(config["heldout_validation_interval"])
+        patience = int(config["heldout_kill_patience"])
+        if interval != 4:
+            raise ProductionRailsError("validated resident recipe requires four-update boundaries")
+        previous_kld = self._pre_kld
+        streak = 0
+        boundaries: list[dict[str, Any]] = []
+        receipts: list[str] = []
+        result: Mapping[str, Any] = {}
+        current = start_update
+        while current < target:
+            boundary = min(current + interval, target)
+            receipt = self.receipt_root / (
+                f"CONTINUATION_U{current:03d}_U{boundary:03d}{rank_suffix}.json"
+            )
+            loss_guard_receipt = receipt.with_name(
+                f"{receipt.stem}.LOSS_GUARD.json"
+            )
+            result = method(
+                self.engine,
+                self.binding.checkpoint,
+                boundary,
+                config=config,
+                receipt_path=receipt,
+                loss_guard_baseline=self._pre_kld,
+                loss_guard_receipt_path=loss_guard_receipt,
+            )
+            checkpoint = result.get("checkpoint")
+            checkpoint_sha = result.get("checkpoint_sha256")
+            if not isinstance(checkpoint, str) or not isinstance(checkpoint_sha, str):
+                raise ProductionRailsError("resident training did not return a bound checkpoint")
+            self.binding = _ArtifactBinding(
+                identity_sha256=self.binding.identity_sha256,
+                basis_sha256=self.binding.basis_sha256,
+                checkpoint=checkpoint,
+                score_checkpoints={"post": checkpoint},
+                artifact_manifest_sha256=self.binding.artifact_manifest_sha256,
+                checkpoint_sha256=checkpoint_sha,
+            )
+            receipts.append(str(receipt))
+            if boundary - current < interval:
+                current = boundary
+                continue
+            validation = dict(self.engine.score_balanced64(self.api.artifact.windows))
+            try:
+                current_kld = float(validation["mean_kld"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ProductionRailsError("held-out boundary score lacks mean_kld") from exc
+            decision = _heldout_decision(
+                previous_kld, current_kld, streak, patience=patience
+            )
+            streak = int(decision["non_improving_streak"])
+            boundary_row = {
+                "update": boundary,
+                "checkpoint": checkpoint,
+                "checkpoint_sha256": checkpoint_sha,
+                "mean_kld": current_kld,
+                **decision,
+            }
+            boundaries.append(boundary_row)
+            previous_kld = current_kld
+            current = boundary
+            gate_path = self.receipt_root / (
+                f"HELDOUT_GATES_U{start_update:03d}_U{target:03d}{rank_suffix}.json"
+            )
+            _atomic_json(
+                gate_path,
+                {
+                    "schema": "banana-smasher-heldout-kill-gates-v1",
+                    "status": "HALTED" if decision["halt"] else "IN_PROGRESS",
+                    "start_kld": self._pre_kld,
+                    "interval_updates": interval,
+                    "patience": patience,
+                    "boundaries": boundaries,
+                },
+            )
+            if decision["halt"]:
+                raise ProductionRailsError(
+                    "held-out KLD was flat/rising at two consecutive boundaries; "
+                    f"halted at U{boundary}; receipt={gate_path}"
+                )
+        gate_path = self.receipt_root / (
+            f"HELDOUT_GATES_U{start_update:03d}_U{target:03d}{rank_suffix}.json"
         )
-        checkpoint = result.get("checkpoint")
-        checkpoint_sha = result.get("checkpoint_sha256")
-        if not isinstance(checkpoint, str) or not isinstance(checkpoint_sha, str):
-            raise ProductionRailsError("resident training did not return a bound checkpoint")
-        self.binding = _ArtifactBinding(
-            identity_sha256=self.binding.identity_sha256,
-            basis_sha256=self.binding.basis_sha256,
-            checkpoint=checkpoint,
-            score_checkpoints={"post": checkpoint},
-            artifact_manifest_sha256=self.binding.artifact_manifest_sha256,
-            checkpoint_sha256=checkpoint_sha,
+        _atomic_json(
+            gate_path,
+            {
+                "schema": "banana-smasher-heldout-kill-gates-v1",
+                "status": "PASS",
+                "start_kld": self._pre_kld,
+                "interval_updates": interval,
+                "patience": patience,
+                "boundaries": boundaries,
+            },
         )
-        return {**dict(result), "updates": updates, "receipt": str(receipt)}
+        return {
+            **dict(result),
+            "updates": updates,
+            "receipts": receipts,
+            "heldout_gates": str(gate_path),
+            "heldout_boundaries": boundaries,
+        }
 
 
 class ProductionRails:
@@ -306,6 +398,7 @@ class ProductionRails:
         self._active_binding: _ArtifactBinding | None = None
         self._phase_state = "initialized"
         self._pre_checkpoint: str | None = None
+        self._requested_updates: int | None = None
         self._started = self._clock()
         self._events: list[dict[str, Any]] = []
         self._counts = {
@@ -373,7 +466,7 @@ class ProductionRails:
             "scores": 2,
             "canary_passes": 2,
             "training_calls": 1,
-            "updates": 4,
+            "updates": self._requested_updates or 4,
         }
         status = (
             "PASS"
@@ -639,8 +732,14 @@ class ProductionRails:
     def train(self, artifact: BackpackArtifact, updates: int) -> Mapping[str, Any]:
         if self._session is None or self._active is None:
             raise ProductionRailsError("train requires a resident model/session")
-        if isinstance(updates, bool) or updates != 4:
-            raise ProductionRailsError("production resident arm requires exactly four updates")
+        if (
+            isinstance(updates, bool)
+            or not isinstance(updates, int)
+            or updates <= 0
+        ):
+            raise ProductionRailsError(
+                "production resident repair requires a positive update count"
+            )
         if self._phase_state != "pre_scored":
             raise ProductionRailsError("resident training requires one published pre-score")
         binding = self._binding(artifact)
@@ -658,6 +757,7 @@ class ProductionRails:
             raise ProductionRailsError("resident continuation update count mismatch")
         self._counts["training_calls"] += 1
         self._counts["updates"] += updates
+        self._requested_updates = updates
         live_binding = getattr(self._session, "binding", None)
         if isinstance(live_binding, _ArtifactBinding):
             self._active_binding = live_binding

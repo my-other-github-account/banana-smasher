@@ -34,6 +34,15 @@ def fixture_mixer(**kwargs):
     return kwargs["output"]
 
 
+def test_heldout_gate_kills_after_two_flat_or_rising_boundaries() -> None:
+    first = production_rails._heldout_decision(0.229, 0.220, 0, patience=2)
+    assert first == {"improved": True, "non_improving_streak": 0, "halt": False}
+    second = production_rails._heldout_decision(0.220, 0.220, 0, patience=2)
+    assert second == {"improved": False, "non_improving_streak": 1, "halt": False}
+    third = production_rails._heldout_decision(0.220, 0.221, 1, patience=2)
+    assert third == {"improved": False, "non_improving_streak": 2, "halt": True}
+
+
 class FixtureSession:
     constructions = 0
 
@@ -388,7 +397,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
 
         def score_balanced64(self, windows):
             return {
-                "mean_kld": 0.25,
+                "mean_kld": 0.25 - 0.001 * self.update,
                 "top1_matches": 7,
                 "positions": len(tuple(windows)) * 1024,
                 "checkpoint": f"UPDATE_{self.update:03d}",
@@ -432,6 +441,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     monkeypatch.setattr(
         ProductionRails, "_require_live_checkpoint_bytes", staticmethod(lambda *args: None)
     )
+    monkeypatch.setattr(ArtifactIdentity, "require_canary", lambda self, **kwargs: None)
     config = _base_config()
     config["continuation"] = {"authorized_api": True, "world_size": 2, "rank": 0}
     artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
@@ -441,14 +451,16 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
 
     pre = facade.score_pre(artifact, checkpoint_sha=artifact.checkpoint_sha256)
     trained = facade.repair_train(
-        artifact, updates=4, checkpoint_sha=artifact.checkpoint_sha256
+        artifact, updates=8, checkpoint_sha=artifact.checkpoint_sha256
     )
     post = facade.score_post(artifact, checkpoint_sha=artifact.checkpoint_sha256)
 
     assert FakeEngine.constructions == 1
     assert pre["checkpoint"] == "UPDATE_000"
-    assert trained["checkpoint"] == "UPDATE_004"
-    assert post["checkpoint"] == "UPDATE_004"
+    assert trained["checkpoint"] == "UPDATE_008"
+    assert post["checkpoint"] == "UPDATE_008"
+    assert [row["update"] for row in trained["heldout_boundaries"]] == [4, 8]
+    assert len(trained["receipts"]) == 2
     assert fake_api.advance_kwargs["loss_guard_baseline"] == 0.25
     recipe = fake_api.advance_kwargs["config"]
     assert recipe["training_recipe"] == "u45_validated_v1"
@@ -466,7 +478,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     assert recipe["heldout_validation_interval"] == 4
     assert recipe["heldout_kill_patience"] == 2
     assert str(fake_api.advance_kwargs["loss_guard_receipt_path"]).endswith(
-        "CONTINUATION_U000_U004.rank0.LOSS_GUARD.json"
+        "CONTINUATION_U004_U008.rank0.LOSS_GUARD.json"
     )
     lifecycle = json.loads(rails.lifecycle_path.read_text())
     assert lifecycle["counts"]["model_constructions"] == 1
@@ -504,7 +516,7 @@ def test_production_config_rejects_notification_and_slow_path_controls(
         ProductionRails(config, run_root=tmp_path / field)
 
 
-def test_lifecycle_is_not_pass_before_complete_and_training_is_exactly_four(
+def test_lifecycle_is_not_pass_before_complete_and_training_accepts_positive_updates(
     tmp_path, monkeypatch
 ):
     monkeypatch.setattr(production_rails, "_ProvenSession", FixtureSession)
@@ -514,8 +526,15 @@ def test_lifecycle_is_not_pass_before_complete_and_training_is_exactly_four(
     rails = ProductionRails(config, run_root=tmp_path / "run")
     assert json.loads(rails.lifecycle_path.read_text())["status"] == "IN_PROGRESS"
     rails.load_resident(artifact)
-    with pytest.raises(ProductionRailsError, match="exactly four"):
-        rails.train(artifact, 3)
+    with pytest.raises(ProductionRailsError, match="positive update count"):
+        rails.train(artifact, 0)
+
+    rails = ProductionRails(config, run_root=tmp_path / "run-8")
+    rails.load_resident(artifact)
+    rails.score(artifact, "pre")
+    result = rails.train(artifact, 8)
+    assert result["updates"] == 8
+    assert json.loads(rails.lifecycle_path.read_text())["counts"]["updates"] == 8
 
 
 def test_identity_retarget_and_stale_score_checkpoint_fail_closed(

@@ -208,6 +208,27 @@ def test_documented_separate_calls_fail_and_seal_when_post_is_not_better(
     }
 
 
+def test_repair_train_accepts_any_positive_update_count(tmp_path: Path) -> None:
+    checkpoint_sha = sha("u0")
+    rails = Rails(tmp_path)
+    api = ResidentRepairAPI(rails=rails, run_root=tmp_path / "run")
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=checkpoint_sha
+    )
+    api.score_pre(build, checkpoint_sha=checkpoint_sha)
+
+    result = api.repair_train(build, updates=45, checkpoint_sha=checkpoint_sha)
+
+    assert result["updates"] == 45
+    assert ("train", 45, build.root) in rails.calls
+    for index, invalid in enumerate((0, -1, True, 1.5)):
+        other = ResidentRepairAPI(
+            rails=Rails(tmp_path), run_root=tmp_path / f"bad-{index}"
+        )
+        with pytest.raises(ValueError, match="positive update count"):
+            other.repair_train(build, updates=invalid, checkpoint_sha=checkpoint_sha)
+
+
 def test_checkpoint_sha_is_refused_on_mismatch_and_echoed_in_every_receipt(
     tmp_path: Path,
 ) -> None:

@@ -576,8 +576,12 @@ class ResidentRepairAPI:
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("repair_train requires a mixed Backpack")
-        if isinstance(updates, bool) or updates != 4:
-            raise ValueError("production resident arm requires exactly four updates")
+        if (
+            isinstance(updates, bool)
+            or not isinstance(updates, int)
+            or updates <= 0
+        ):
+            raise ValueError("production resident repair requires a positive update count")
         if self._phase_state != "pre_scored":
             raise ValueError("repair_train requires one completed pre-score")
         _checkpoint_sha(selected.identity, checkpoint_sha, operation="repair_train")
