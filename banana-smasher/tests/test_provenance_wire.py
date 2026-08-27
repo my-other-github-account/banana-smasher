@@ -5,6 +5,7 @@ import json
 
 from banana_smasher.provenance_wire import (
     build_full_wire_provenance_ledger,
+    run_configured_provenance_solve,
     run_full_wire_provenance_solve,
 )
 
@@ -151,3 +152,70 @@ def test_run_full_wire_provenance_solve_charges_shared_activation_once(tmp_path)
     assert receipt["whole_model_accounting"]["selected_cell_payload_bytes"] == 4
     assert receipt["whole_model_accounting"]["selected_activation_bytes"] == 3
     assert receipt["whole_model_accounting"]["whole_shipping_bytes"] == 12
+
+
+def test_configured_provenance_solve_filters_tiers_and_hits_exact_cap(tmp_path) -> None:
+    identity = {
+        "model_id": "test/model",
+        "model_revision": "r1",
+        "basis_sha256": "a" * 64,
+        "bank_sha256": "b" * 64,
+        "teacher_sha256": "c" * 64,
+        "scorer_sha256": "d" * 64,
+    }
+    rows = []
+    for cell in ("L000:E000:down", "L000:E001:down"):
+        for tier, physical_bytes, damage in (
+            ("qtip2", 2, 2.0),
+            ("qtip3", 3, 1.0),
+            ("native_mxfp4", 4, 0.0),
+        ):
+            rows.append(
+                {
+                    **identity,
+                    "cell_id": cell,
+                    "tier": tier,
+                    "physical_bytes": physical_bytes,
+                    "prediction_by_class": {"chat": damage},
+                    "activation_ids": [],
+                    "activation_artifacts": [],
+                }
+            )
+    ledger = tmp_path / "options.jsonl"
+    ledger.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    fixed = tmp_path / "fixed.json"
+    fixed.write_text(
+        json.dumps(
+            {
+                "components": {
+                    "dense_nonrouted_bytes": 3,
+                    "repair_bytes": 0,
+                    "metadata_bytes": 2,
+                }
+            }
+        )
+        + "\n"
+    )
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-provenance-solve-config-v1",
+                "inputs": {
+                    "option_ledger": {"path": ledger.name, "sha256": _sha(ledger)},
+                    "fixed_accounting": {"path": fixed.name, "sha256": _sha(fixed)},
+                },
+                "target": {"whole_model_bytes": 11, "exact": True},
+                "allowed_tiers": ["qtip2", "qtip3"],
+                "class_weights": {"chat": 1.0},
+            }
+        )
+        + "\n"
+    )
+
+    receipt = run_configured_provenance_solve(config, output=tmp_path / "solve")
+    assignment = json.loads((tmp_path / "solve" / "ASSIGNMENT.json").read_text())
+    assert assignment["allowed_tiers"] == ["qtip2", "qtip3"]
+    assert assignment["exact_envelope"] is True
+    assert {row["tier"] for row in assignment["assignments"]} == {"qtip3"}
+    assert receipt["whole_model_accounting"]["whole_shipping_bytes"] == 11
