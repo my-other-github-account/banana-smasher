@@ -5,6 +5,10 @@ import pytest
 
 from repair_api.api import _validate_published_pre_crash_resume_start
 from repair_api.balanced64 import ArtifactError
+from repair_api.modern_green_resident import (
+    FAST_K2_EXTENSION_SOURCE_BUNDLE_SHA256,
+    _accepted_fast_k2_extension_source_bundle_sha256,
+)
 
 
 U10_SHA256 = "055f015f88c44f9092423a7e45525e3699d217d1d0b8b36eb269947915f17658"
@@ -104,3 +108,24 @@ def test_public_api_routes_u10_through_crash_resume_admission() -> None:
     source = (pathlib.Path(__file__).resolve().parents[1] / "api.py").read_text()
     assert "published_pre_crash_resume" in source
     assert "_validate_published_pre_crash_resume_start(" in source
+
+
+def test_exact_u10_crash_resume_retains_its_sealed_extension_source_bundle() -> None:
+    config = _config()
+    config.update({
+        "resume_checkpoint": "SCHEDULE_E186B108124B_UPDATE_010",
+        "optimizer_checkpoint": "SCHEDULE_E186B108124B_UPDATE_010",
+    })
+
+    accepted = _accepted_fast_k2_extension_source_bundle_sha256(config)
+
+    assert accepted == {
+        FAST_K2_EXTENSION_SOURCE_BUNDLE_SHA256,
+        "9f27d9911108712b6a7366490f51144d58bd19a8182de2105f000fa81db17266",
+    }
+
+
+def test_ordinary_continuation_does_not_admit_legacy_extension_bundle() -> None:
+    assert _accepted_fast_k2_extension_source_bundle_sha256(_config()) == {
+        FAST_K2_EXTENSION_SOURCE_BUNDLE_SHA256,
+    }
