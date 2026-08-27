@@ -202,6 +202,7 @@ def _run_backpack_exact64(
     qtip2_v7_root_map_path: str | Path | None = None,
     qtip2_v7_shared_lut_path: str | Path | None = None,
     qtip2_v7_member_roster_path: str | Path | None = None,
+    mixed_v7_member_contract_path: str | Path | None = None,
     output_root: str | Path,
     basis_sha256: str,
     expected_windows: int = 64,
@@ -234,6 +235,10 @@ def _run_backpack_exact64(
         value is not None for value in v7_values
     ):
         raise ValueError("exact64 QTIP2 V7 bindings must be supplied together")
+    if mixed_v7_member_contract_path is not None and any(
+        value is not None for value in v7_values
+    ):
+        raise ValueError("exact64 legacy and mixed V7 bindings are mutually exclusive")
     qtip2_v7_root_map_path = (
         None
         if qtip2_v7_root_map_path is None
@@ -248,6 +253,11 @@ def _run_backpack_exact64(
         None
         if qtip2_v7_member_roster_path is None
         else Path(qtip2_v7_member_roster_path).resolve()
+    )
+    mixed_v7_member_contract_path = (
+        None
+        if mixed_v7_member_contract_path is None
+        else Path(mixed_v7_member_contract_path).resolve()
     )
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -316,6 +326,25 @@ def _run_backpack_exact64(
     ):
         raise ValueError("exact64 virtual manifest identity mismatch")
     _validate_whole_model_accounting(virtual_manifest)
+    if mixed_v7_member_contract_path is not None:
+        runtime_binding = virtual_manifest.get("runtime_binding")
+        bind_receipt = virtual_manifest.get("mixed_v7_bind_receipt")
+        if not isinstance(runtime_binding, Mapping) or not isinstance(bind_receipt, Mapping):
+            raise ValueError("exact64 mixed V7 runtime binding is missing")
+        declared_contract = Path(
+            str(runtime_binding.get("mixed_v7_member_contract", ""))
+        ).resolve()
+        contract_evidence = bind_receipt.get("contract")
+        if (
+            declared_contract != mixed_v7_member_contract_path
+            or not isinstance(contract_evidence, Mapping)
+            or Path(str(contract_evidence.get("path", ""))).resolve()
+            != mixed_v7_member_contract_path
+            or not mixed_v7_member_contract_path.is_file()
+            or _sha256_file(mixed_v7_member_contract_path)
+            != contract_evidence.get("sha256")
+        ):
+            raise ValueError("exact64 mixed V7 member contract identity mismatch")
     virtual_files = []
     for path in (
         virtual_manifest_path.parent / "ASSIGNMENT.json",
@@ -362,6 +391,10 @@ def _run_backpack_exact64(
                 "qtip2_v7_member_roster": str(qtip2_v7_member_roster_path),
             }
         )
+    if mixed_v7_member_contract_path is not None:
+        binding_inputs["mixed_v7_member_contract"] = str(
+            mixed_v7_member_contract_path
+        )
     v7_hashes = (
         {}
         if qtip2_v7_root_map_path is None
@@ -369,6 +402,15 @@ def _run_backpack_exact64(
             "qtip2_v7_root_map_sha256": _sha256_file(qtip2_v7_root_map_path),
             "qtip2_v7_shared_lut_sha256": _sha256_file(qtip2_v7_shared_lut_path),
             "qtip2_v7_member_roster_sha256": _sha256_file(qtip2_v7_member_roster_path),
+        }
+    )
+    mixed_v7_hashes = (
+        {}
+        if mixed_v7_member_contract_path is None
+        else {
+            "mixed_v7_member_contract_sha256": _sha256_file(
+                mixed_v7_member_contract_path
+            )
         }
     )
     binding = hashlib.sha256(
@@ -383,6 +425,7 @@ def _run_backpack_exact64(
                 ),
                 **root_map_hashes,
                 **v7_hashes,
+                **mixed_v7_hashes,
             },
             sort_keys=True,
             separators=(",", ":"),
