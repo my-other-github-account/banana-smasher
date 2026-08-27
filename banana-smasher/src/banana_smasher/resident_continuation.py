@@ -815,6 +815,18 @@ class ModernGreenResidentEngine:
         os.environ["BR_TEACH"] = str(self.teacher_root)
         os.environ.setdefault("BR_TRAIN", "20,21,22,23")
         os.environ.setdefault("BR_PROBE", "20,21,22,23")
+        if "TORCH_EXTENSIONS_DIR" not in os.environ:
+            runtime_root = os.environ.get("BANANA_SMASHER_RUN_ROOT")
+            if runtime_root:
+                cache_root = Path(runtime_root).expanduser().resolve() / "torch_extensions"
+            else:
+                cache_root = (
+                    Path(os.environ.get("TMPDIR", "/tmp")).expanduser().resolve()
+                    / f"banana-smasher-{os.getuid()}"
+                    / "torch_extensions"
+                )
+            cache_root.mkdir(parents=True, exist_ok=True)
+            os.environ["TORCH_EXTENSIONS_DIR"] = str(cache_root)
 
     def _load_base(self) -> Any:
         path = self.asset_root / "source" / "base_binrepair_e2e.py"

@@ -557,6 +557,24 @@ def test_resident_import_paths_admit_explicit_hashed_trainer_dependency(tmp_path
         sys.path[:] = original
 
 
+def test_resident_runtime_uses_attempt_local_torch_extension_cache(monkeypatch, tmp_path: Path):
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.manifest_path = tmp_path / "manifest.json"
+    engine.delta_dir = tmp_path / "delta"
+    engine.vq3b_dir = tmp_path / "vq3b"
+    engine.corpus_path = tmp_path / "corpus.json"
+    engine.teacher_root = tmp_path / "teachers"
+    run_root = tmp_path / "attempt"
+    monkeypatch.setenv("BANANA_SMASHER_RUN_ROOT", str(run_root))
+    monkeypatch.delenv("TORCH_EXTENSIONS_DIR", raising=False)
+
+    engine._configure_import_environment()
+
+    expected = run_root / "torch_extensions"
+    assert expected.is_dir()
+    assert os.environ["TORCH_EXTENSIONS_DIR"] == str(expected.resolve())
+
+
 def test_official_expert_binding_loads_its_pinned_grouped_dependency_first(monkeypatch):
     calls = []
     trainer_grouped = ModuleType("fast_k2_grouped")
