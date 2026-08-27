@@ -649,7 +649,7 @@ def build_hf_moe_uniform(
 ) -> dict[str, Any]:
     """Materialize a routed-Q2/native-rest HF MoE artifact and seal its receipt."""
 
-    from .qtip1 import QTIP2_GEOMETRY, gaussian_tlut
+    from .qtip1 import EncodedQtip, QTIP2_GEOMETRY, gaussian_tlut
 
     destination = Path(output).expanduser().resolve()
     if destination.exists():
@@ -727,39 +727,74 @@ def build_hf_moe_uniform(
         tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
         routed_rows: list[dict[str, Any]] = []
         native_rows: list[dict[str, Any]] = []
+        max_batch_tensors = 10
+        routed_batches: list[list[dict[str, Any]]] = []
         for row in selected_routed:
-            shard = root / row["shard"]
-            matrix = _load_safetensors_matrix(shard, row)
-            if matrix.ndim != 2:
-                raise ValueError(f"Q2 routed tensor must be a matrix: {row['name']}")
-            encoded, encoder = _encode_hf_q2(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
-            trellis = staging / "routed" / _member_name(row["name"], "trellis.npy")
-            scales = staging / "routed" / _member_name(row["name"], "scales.npy")
-            trellis.parent.mkdir(parents=True, exist_ok=True)
-            import numpy as np
+            width = int(row["shape"][1])
+            if (
+                not routed_batches
+                or len(routed_batches[-1]) >= max_batch_tensors
+                or int(routed_batches[-1][0]["shape"][1]) != width
+            ):
+                routed_batches.append([])
+            routed_batches[-1].append(row)
+        import numpy as np
 
-            np.save(trellis, encoded.packed, allow_pickle=False)
-            np.save(scales, encoded.scales, allow_pickle=False)
-            routed_rows.append(
-                {
-                    **row,
-                    "wire": {
-                        "geometry": QTIP2_GEOMETRY.as_mapping(),
-                        "code_bpw": encoded.code_bpw,
-                        "trellis": {
-                            "path": trellis.relative_to(staging).as_posix(),
-                            "bytes": trellis.stat().st_size,
-                            "sha256": _sha256(trellis),
-                        },
-                        "scales": {
-                            "path": scales.relative_to(staging).as_posix(),
-                            "bytes": scales.stat().st_size,
-                            "sha256": _sha256(scales),
-                        },
-                        "encoder": encoder,
-                    },
-                }
+        for batch in routed_batches:
+            matrices = []
+            for row in batch:
+                matrix = _load_safetensors_matrix(root / row["shard"], row)
+                if matrix.ndim != 2:
+                    raise ValueError(f"Q2 routed tensor must be a matrix: {row['name']}")
+                matrices.append(matrix)
+            combined = np.concatenate(matrices, axis=0)
+            batch_encoded, batch_encoder = _encode_hf_q2(
+                combined, geometry=QTIP2_GEOMETRY, tlut=tlut
             )
+            row_offset = 0
+            for batch_ordinal, (row, matrix) in enumerate(zip(batch, matrices, strict=True)):
+                row_end = row_offset + int(matrix.shape[0])
+                encoded = EncodedQtip(
+                    geometry=batch_encoded.geometry,
+                    shape=(int(matrix.shape[0]), int(matrix.shape[1])),
+                    states=batch_encoded.states[row_offset:row_end],
+                    packed=batch_encoded.packed[row_offset:row_end],
+                    scales=batch_encoded.scales[row_offset:row_end],
+                )
+                encoder = {
+                    **batch_encoder,
+                    "packed_sha256": hashlib.sha256(encoded.packed.tobytes()).hexdigest(),
+                    "scales_sha256": hashlib.sha256(encoded.scales.tobytes()).hexdigest(),
+                    "batch_tensor_count": len(batch),
+                    "batch_tensor_ordinal": batch_ordinal,
+                    "batch_rows": int(combined.shape[0]),
+                }
+                trellis = staging / "routed" / _member_name(row["name"], "trellis.npy")
+                scales = staging / "routed" / _member_name(row["name"], "scales.npy")
+                trellis.parent.mkdir(parents=True, exist_ok=True)
+                np.save(trellis, encoded.packed, allow_pickle=False)
+                np.save(scales, encoded.scales, allow_pickle=False)
+                routed_rows.append(
+                    {
+                        **row,
+                        "wire": {
+                            "geometry": QTIP2_GEOMETRY.as_mapping(),
+                            "code_bpw": encoded.code_bpw,
+                            "trellis": {
+                                "path": trellis.relative_to(staging).as_posix(),
+                                "bytes": trellis.stat().st_size,
+                                "sha256": _sha256(trellis),
+                            },
+                            "scales": {
+                                "path": scales.relative_to(staging).as_posix(),
+                                "bytes": scales.stat().st_size,
+                                "sha256": _sha256(scales),
+                            },
+                            "encoder": encoder,
+                        },
+                    }
+                )
+                row_offset = row_end
         for row in selected_native:
             native_base = spill_staging if split_native else staging
             assert native_base is not None
@@ -801,6 +836,12 @@ def build_hf_moe_uniform(
             "geometry": plan["geometry"],
             "routed_tensors": routed_rows,
             "native_tensors": native_rows,
+            "acceleration": {
+                "routed_encode_batches": len(routed_batches),
+                "routed_tensors_batched": len(selected_routed),
+                "max_batch_tensors": max_batch_tensors,
+                "same_width_batching": True,
+            },
             "accounting": {
                 "routed_tensor_count": len(routed_rows),
                 "planned_routed_tensor_count": len(selected_routed),
@@ -1017,6 +1058,20 @@ def union_hf_moe_uniform_shards(
             **{key: first[key] for key in identity_keys},
             "routed_tensors": routed,
             "native_tensors": native,
+            "acceleration": {
+                "routed_encode_batches": sum(
+                    int(row["acceleration"]["routed_encode_batches"]) for row in ordered
+                ),
+                "routed_tensors_batched": sum(
+                    int(row["acceleration"]["routed_tensors_batched"]) for row in ordered
+                ),
+                "max_batch_tensors": min(
+                    int(row["acceleration"]["max_batch_tensors"]) for row in ordered
+                ),
+                "same_width_batching": all(
+                    row["acceleration"]["same_width_batching"] is True for row in ordered
+                ),
+            },
             "accounting": {
                 "routed_tensor_count": len(routed),
                 "planned_routed_tensor_count": total,

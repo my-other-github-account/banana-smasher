@@ -227,6 +227,87 @@ def test_public_hf_moe_build_materializes_one_q2_tensor_and_reopens_native_bytes
     }
 
 
+def test_public_hf_moe_build_batches_equal_width_routed_tensors_exactly(
+    tmp_path: Path,
+) -> None:
+    from banana_smasher import build_hf_moe_uniform, build_hf_moe_uniform_shard
+
+    model = tmp_path / "numeric-experts-model"
+    model.mkdir()
+    (model / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "fixture_numeric_moe",
+                "n_routed_experts": 3,
+                "num_hidden_layers": 1,
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    shard = model / "model-00001-of-00001.safetensors"
+    tensors = {
+        f"layers.0.experts.{expert}.down_proj.weight": (
+            np.arange(16, dtype=np.float16).reshape(2, 8) + expert
+        )
+        for expert in range(3)
+    }
+    save_file(tensors, shard)
+    (model / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_size": sum(value.nbytes for value in tensors.values())},
+                "weight_map": {name: shard.name for name in tensors},
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    revision = "3f1971b7b5f7a528c9c4ef6212c8785298a8c24a"
+
+    batched = build_hf_moe_uniform(
+        model,
+        revision=revision,
+        tier="q2",
+        scope="routed_only",
+        native_rest=True,
+        output=tmp_path / "batched",
+    )
+    isolated = [
+        build_hf_moe_uniform_shard(
+            model,
+            revision=revision,
+            tier="q2",
+            scope="routed_only",
+            native_rest=True,
+            routed_ordinal_start=ordinal,
+            routed_ordinal_end=ordinal + 1,
+            output=tmp_path / f"isolated-{ordinal}",
+        )
+        for ordinal in range(3)
+    ]
+
+    assert batched["acceleration"] == {
+        "routed_encode_batches": 1,
+        "routed_tensors_batched": 3,
+        "max_batch_tensors": 10,
+        "same_width_batching": True,
+    }
+    assert [
+        (
+            row["wire"]["trellis"]["sha256"],
+            row["wire"]["scales"]["sha256"],
+        )
+        for row in batched["routed_tensors"]
+    ] == [
+        (
+            result["routed_tensors"][0]["wire"]["trellis"]["sha256"],
+            result["routed_tensors"][0]["wire"]["scales"]["sha256"],
+        )
+        for result in isolated
+    ]
+
+
 def test_public_output_fit_preflight_uses_measured_plan_bytes_and_positive_reserve(
     tmp_path: Path,
 ) -> None:

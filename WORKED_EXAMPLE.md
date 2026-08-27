@@ -91,6 +91,8 @@ merged = union_hf_moe_uniform_shards(
     [shard1["artifact_root"], shard0["artifact_root"]],
     output="/local/output-filesystem/uniform-q2-horizontal",
 )
+assert merged["acceleration"]["same_width_batching"] is True
+assert merged["acceleration"]["max_batch_tensors"] == 10
 assert open_hf_moe_uniform(merged["artifact_root"]) == merged
 
 source_text = recover_balanced64_source_text(

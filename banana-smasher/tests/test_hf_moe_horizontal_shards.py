@@ -68,6 +68,12 @@ def test_public_horizontal_shards_union_disjoint_ranges_and_reopen(tmp_path: Pat
     )
     assert merged["accounting"]["routed_tensor_count"] == 2
     assert merged["accounting"]["native_tensor_count"] == 1
+    assert merged["acceleration"] == {
+        "routed_encode_batches": 2,
+        "routed_tensors_batched": 2,
+        "max_batch_tensors": 10,
+        "same_width_batching": True,
+    }
     assert merged["union"]["input_ranges"] == [[0, 1], [1, 2]]
     worked = (Path(__file__).parents[2] / "WORKED_EXAMPLE.md").read_text()
     assert "build_hf_moe_uniform_shard(" in worked
