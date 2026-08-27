@@ -45,3 +45,14 @@ def test_native_v4_installed_consumer_matches_reference_and_counts_no_fallback()
         "cuda_decode_calls": 0,
         "fallback_calls": 0,
     }
+
+
+def test_native_v4_installed_consumer_supports_b12_three_bpw() -> None:
+    packed = torch.zeros((3, 96), dtype=torch.uint8)
+    tlut = torch.from_numpy(gaussian_tlut(bits=9, columns=2))
+
+    reset_native_v4_decode_counters()
+    decoded = dequantize_native_v4_blocks(packed, tlut, bpw=3.0)
+
+    assert decoded.shape == (3, 16, 16)
+    assert native_v4_decode_counters()["decode_code_bytes"] == 288

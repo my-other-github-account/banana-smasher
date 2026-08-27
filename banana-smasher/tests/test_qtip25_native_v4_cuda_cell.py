@@ -34,7 +34,7 @@ def test_native_v4_cuda_cell_preflight_binds_exact_basis_and_geometry(tmp_path) 
         )
 
 
-def test_native_v4_cuda_cell_uses_public_decoder_signature() -> None:
+def test_native_v4_cuda_cell_passes_geometry_to_public_decoder() -> None:
     tree = ast.parse(inspect.getsource(run_cuda_cell))
     calls = [
         node
@@ -44,4 +44,8 @@ def test_native_v4_cuda_cell_uses_public_decoder_signature() -> None:
         and node.func.id == "dequantize_native_v4_blocks"
     ]
     assert len(calls) == 2
-    assert all(len(call.args) == 2 and not call.keywords for call in calls)
+    assert all(
+        len(call.args) == 2
+        and [keyword.arg for keyword in call.keywords] == ["bpw"]
+        for call in calls
+    )
