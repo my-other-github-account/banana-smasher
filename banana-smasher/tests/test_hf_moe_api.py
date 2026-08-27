@@ -261,6 +261,82 @@ def test_public_output_fit_preflight_uses_measured_plan_bytes_and_positive_reser
     assert json.loads(receipt_path.read_text()) == receipt
 
 
+def test_public_output_fit_can_admit_local_native_spill(tmp_path: Path) -> None:
+    from banana_smasher import preflight_hf_moe_output_fit
+
+    plan = {
+        "status": "PASS",
+        "intent": {"tier": "q2", "scope": "routed_only", "native_rest": True},
+        "routed_tensors": [
+            {"name": "layers.0.experts.0.down_proj.weight", "shape": [20, 80]}
+        ],
+        "accounting": {"native_source_bytes": 20_000, "routed_parameters": 1600},
+    }
+
+    receipt = preflight_hf_moe_output_fit(
+        plan,
+        free_bytes=10_000,
+        reserve_bytes=128,
+        native_spill_root=tmp_path / "native-spill",
+        native_spill_free_bytes=30_000,
+        native_spill_reserve_bytes=128,
+        receipt_path=tmp_path / "OUTPUT_FIT_SPLIT.json",
+    )
+
+    assert receipt["status"] == "PASS"
+    assert receipt["storage_mode"] == "split-native-local-v1"
+    assert receipt["primary_required_bytes"] <= receipt["free_bytes"]
+    assert receipt["native_spill_required_bytes"] <= receipt["native_spill_free_bytes"]
+    assert receipt["native_payload_bytes"] == 20_000
+
+
+def test_public_hf_moe_build_reopens_split_native_storage(tmp_path: Path) -> None:
+    from banana_smasher import ResidentRepairAPI, open_hf_moe_uniform
+
+    model = tmp_path / "numeric-experts-split-model"
+    model.mkdir()
+    (model / "config.json").write_text(
+        json.dumps({"n_routed_experts": 1, "num_hidden_layers": 1}) + "\n"
+    )
+    shard = model / "model-00001-of-00001.safetensors"
+    tensors = {
+        "layers.0.experts.0.down_proj.weight": np.arange(16, dtype=np.float16).reshape(2, 8),
+        "layers.0.router.weight": np.arange(8, dtype=np.float16).reshape(2, 4),
+    }
+    save_file(tensors, shard)
+    (model / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_size": sum(value.nbytes for value in tensors.values())},
+                "weight_map": {name: shard.name for name in tensors},
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    output = tmp_path / "artifact"
+    spill = tmp_path / "native-spill"
+
+    built = ResidentRepairAPI.build_uniform(
+        model,
+        revision="3f1971b7b5f7a528c9c4ef6212c8785298a8c24a",
+        tier="q2",
+        scope="routed_only",
+        native_rest=True,
+        output=output,
+        native_spill_root=spill,
+    )
+    reopened = open_hf_moe_uniform(output)
+
+    assert reopened == built
+    assert built["storage"]["mode"] == "split-native-local-v1"
+    assert Path(built["storage"]["native_root"]).is_dir()
+    native = built["native_tensors"][0]
+    assert native["storage_root"] == "native"
+    assert not (output / native["path"]).exists()
+    assert (Path(built["storage"]["native_root"]) / native["path"]).is_file()
+
+
 def test_public_bounded_canary_is_diagnostic_and_projects_complete_build(
     tmp_path: Path,
 ) -> None:

@@ -38,6 +38,13 @@ fit = preflight_hf_moe_output_fit(
 if fit["status"] != "PASS":
     raise RuntimeError("routed-Q2/native-rest output does not fit with reserve")
 
+# On Linux, when the primary filesystem cannot hold the complete serialized
+# artifact with its reserve, the public preflight and builder automatically
+# consider a local /dev/shm native-byte root. OUTPUT_FIT.json and ARTIFACT.json
+# record both roots, both reserves, and exact bytes; callers still provide only
+# the model, immutable revision, high-level routed-Q2/native-rest intent, and
+# primary output. No remote relay or timed streaming path is introduced.
+
 estimate = estimate_hf_moe_uniform(
     "/local/hf-model",
     revision="<immutable-hf-revision>",

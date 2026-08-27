@@ -349,9 +349,12 @@ def preflight_hf_moe_output_fit(
     free_bytes: int | None = None,
     output_root: str | Path | None = None,
     reserve_bytes: int = 8 << 30,
+    native_spill_root: str | Path | None = None,
+    native_spill_free_bytes: int | None = None,
+    native_spill_reserve_bytes: int = 4 << 30,
     receipt_path: str | Path,
 ) -> dict[str, Any]:
-    """Project exact Q2 code/scale and native bytes before host claim or build."""
+    """Project exact Q2/code/native bytes across admitted local storage roots."""
 
     if plan.get("status") != "PASS":
         raise ValueError("output-fit preflight requires a PASS HF MoE plan")
@@ -393,9 +396,46 @@ def preflight_hf_moe_output_fit(
     )
     payload_bytes = native_bytes + q2_code_bytes + q2_scale_bytes + metadata_bytes
     required_bytes = payload_bytes + reserve_bytes
+    primary_required_bytes = q2_code_bytes + q2_scale_bytes + metadata_bytes + reserve_bytes
+    storage_mode = "primary-only-v1"
+    spill_path: Path | None = None
+    spill_free: int | None = None
+    spill_required: int | None = None
+    if (
+        native_spill_root is None
+        and free_bytes < required_bytes
+        and output_root is not None
+        and Path("/dev/shm").is_dir()
+    ):
+        native_spill_root = Path("/dev/shm/banana-smasher-hf-moe-native")
+    if native_spill_root is not None:
+        import shutil
+
+        spill_path = Path(native_spill_root).expanduser().resolve()
+        spill_probe = spill_path if spill_path.exists() else spill_path.parent
+        spill_probe.mkdir(parents=True, exist_ok=True)
+        spill_free = (
+            native_spill_free_bytes
+            if native_spill_free_bytes is not None
+            else shutil.disk_usage(spill_probe).free
+        )
+        if (
+            isinstance(spill_free, bool)
+            or not isinstance(spill_free, int)
+            or spill_free <= 0
+            or isinstance(native_spill_reserve_bytes, bool)
+            or not isinstance(native_spill_reserve_bytes, int)
+            or native_spill_reserve_bytes <= 0
+        ):
+            raise ValueError("native spill free/reserve bytes must be positive integers")
+        spill_required = native_bytes + native_spill_reserve_bytes
+        if free_bytes >= primary_required_bytes and spill_free >= spill_required:
+            storage_mode = "split-native-local-v1"
+    passed = free_bytes >= required_bytes or storage_mode == "split-native-local-v1"
     receipt = {
         "schema": "banana-smasher-hf-moe-output-fit-v1",
-        "status": "PASS" if free_bytes >= required_bytes else "FAILED",
+        "status": "PASS" if passed else "FAILED",
+        "storage_mode": storage_mode,
         "free_bytes": free_bytes,
         "native_payload_bytes": native_bytes,
         "q2_code_bytes": q2_code_bytes,
@@ -405,6 +445,19 @@ def preflight_hf_moe_output_fit(
         "reserve_bytes": reserve_bytes,
         "required_bytes": required_bytes,
         "margin_bytes": free_bytes - required_bytes,
+        "primary_required_bytes": primary_required_bytes,
+        "primary_margin_bytes": free_bytes - primary_required_bytes,
+        "native_spill_root": str(spill_path) if spill_path is not None else None,
+        "native_spill_free_bytes": spill_free,
+        "native_spill_reserve_bytes": (
+            native_spill_reserve_bytes if spill_path is not None else None
+        ),
+        "native_spill_required_bytes": spill_required,
+        "native_spill_margin_bytes": (
+            spill_free - spill_required
+            if spill_free is not None and spill_required is not None
+            else None
+        ),
     }
     _atomic_json(Path(receipt_path).expanduser().resolve(), receipt)
     return receipt
@@ -562,6 +615,7 @@ def build_hf_moe_uniform(
     scope: str,
     native_rest: bool,
     output: str | Path,
+    native_spill_root: str | Path | None = None,
 ) -> dict[str, Any]:
     """Materialize a routed-Q2/native-rest HF MoE artifact and seal its receipt."""
 
@@ -573,6 +627,13 @@ def build_hf_moe_uniform(
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{destination.name}.", dir=destination.parent))
+    requested_spill = (
+        Path(native_spill_root).expanduser().resolve()
+        if native_spill_root is not None
+        else Path("/dev/shm/banana-smasher-hf-moe-native").resolve() / destination.name
+    )
+    spill_staging: Path | None = None
+    spill_promoted = False
     try:
         plan = plan_hf_moe_uniform(
             model,
@@ -583,6 +644,26 @@ def build_hf_moe_uniform(
             receipt_path=staging / "UNIFORM_PLAN.json",
         )
         root = Path(plan["source"]["model_root"])
+        fit = preflight_hf_moe_output_fit(
+            plan,
+            output_root=destination.parent,
+            native_spill_root=(
+                requested_spill
+                if native_spill_root is not None or Path("/dev/shm").is_dir()
+                else None
+            ),
+            receipt_path=staging / "OUTPUT_FIT.json",
+        )
+        if fit["status"] != "PASS":
+            raise ValueError("HF MoE artifact does not fit admitted local storage roots")
+        split_native = fit["storage_mode"] == "split-native-local-v1"
+        if split_native:
+            if requested_spill.exists():
+                raise FileExistsError(f"HF MoE native spill output already exists: {requested_spill}")
+            requested_spill.parent.mkdir(parents=True, exist_ok=True)
+            spill_staging = Path(
+                tempfile.mkdtemp(prefix=f".{requested_spill.name}.", dir=requested_spill.parent)
+            )
         headers = {
             shard: _safetensors_header(root / shard) for shard in plan["source"]["shards"]
         }
@@ -623,7 +704,9 @@ def build_hf_moe_uniform(
                 }
             )
         for row in plan["native_tensors"]:
-            member = staging / "native" / _member_name(row["name"], "native.bin")
+            native_base = spill_staging if split_native else staging
+            assert native_base is not None
+            member = native_base / "native" / _member_name(row["name"], "native.bin")
             digest = _copy_tensor_data_bytes(
                 source=root / row["shard"],
                 metadata=headers[row["shard"]][row["name"]],
@@ -633,7 +716,8 @@ def build_hf_moe_uniform(
                 {
                     **row,
                     "representation": "exact-source-data-bytes",
-                    "path": member.relative_to(staging).as_posix(),
+                    "storage_root": "native" if split_native else "primary",
+                    "path": member.relative_to(native_base).as_posix(),
                     "source_sha256": digest,
                     "artifact_sha256": _sha256(member),
                 }
@@ -666,8 +750,18 @@ def build_hf_moe_uniform(
                 "relay": 0,
                 "streaming": 0,
             },
+            "storage": {
+                "mode": fit["storage_mode"],
+                "primary_root": str(destination),
+                "native_root": str(requested_spill) if split_native else str(destination),
+                "fit": fit,
+            },
         }
         _atomic_json(staging / "ARTIFACT.json", receipt)
+        if split_native:
+            assert spill_staging is not None
+            os.replace(spill_staging, requested_spill)
+            spill_promoted = True
         destination.parent.mkdir(parents=True, exist_ok=True)
         os.replace(staging, destination)
         _verify_hf_moe_members(destination, receipt)
@@ -679,6 +773,10 @@ def build_hf_moe_uniform(
         import shutil
 
         shutil.rmtree(staging, ignore_errors=True)
+        if spill_staging is not None:
+            shutil.rmtree(spill_staging, ignore_errors=True)
+        if spill_promoted and not destination.exists():
+            shutil.rmtree(requested_spill, ignore_errors=True)
 
 
 def _verify_hf_moe_members(root: Path, receipt: Mapping[str, Any]) -> None:
@@ -699,7 +797,10 @@ def _verify_hf_moe_members(root: Path, receipt: Mapping[str, Any]) -> None:
             if _sha256(member) != row["wire"][key]["sha256"]:
                 raise ValueError(f"HF MoE routed member hash mismatch: {member}")
     for row in receipt["native_tensors"]:
-        member = root / row["path"]
+        storage = receipt.get("storage", {})
+        native_root = Path(storage.get("native_root", root))
+        member_root = native_root if row.get("storage_root", "primary") == "native" else root
+        member = member_root / row["path"]
         if _sha256(member) != row["artifact_sha256"] or row["artifact_sha256"] != row["source_sha256"]:
             raise ValueError(f"HF MoE native member hash mismatch: {member}")
 
