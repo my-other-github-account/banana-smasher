@@ -291,3 +291,326 @@ def build_dynamic_dimensions(
         "output": receipt_value["output"],
         "receipt": {"path": str(receipt_path), "sha256": _sha(receipt_raw), "bytes": len(receipt_raw)},
     }
+
+
+def solve_mixed_backpack_config(
+    config: str | Path, *, output: str | Path
+) -> dict[str, Any]:
+    """Solve a basis-bound sparse tier inventory from one declarative config.
+
+    The inventory may omit a tier for a cell.  Such rows are disabled in the
+    shared class-balanced solver rather than synthesized; the configured
+    fallback must be physically present for every cell.
+    """
+
+    from .knapsack import solve_class_balanced_options
+
+    config_path = Path(config).expanduser().resolve()
+    value, config_raw = _read_json(config_path, "mixed Backpack config")
+    if not isinstance(value, dict) or value.get("schema") != "banana-smasher-mixed-backpack-config-v1":
+        raise DynamicDimensionsError(
+            "mixed Backpack config must use banana-smasher-mixed-backpack-config-v1"
+        )
+    allowed_fields = {
+        "schema",
+        "basis_sha256",
+        "target",
+        "allowed_tiers",
+        "fallback_tier",
+        "dimensions",
+        "class_caps",
+        "class_weights",
+    }
+    unknown = sorted(set(value) - allowed_fields)
+    if unknown:
+        raise DynamicDimensionsError(f"mixed Backpack config has unknown fields: {unknown}")
+    basis = _sha_field(value.get("basis_sha256"), "basis_sha256")
+    tiers = value.get("allowed_tiers")
+    if (
+        not isinstance(tiers, list)
+        or not tiers
+        or len(tiers) != len(set(tiers))
+        or any(not isinstance(tier, str) or not tier for tier in tiers)
+    ):
+        raise DynamicDimensionsError("allowed_tiers must be a non-empty unique string array")
+    fallback = value.get("fallback_tier")
+    if fallback not in tiers:
+        raise DynamicDimensionsError("fallback_tier must be present in allowed_tiers")
+
+    target = value.get("target")
+    if not isinstance(target, dict) or set(target) != {
+        "whole_model_bytes",
+        "fixed_nonexpert_bytes",
+        "exact",
+    }:
+        raise DynamicDimensionsError(
+            "target must contain whole_model_bytes, fixed_nonexpert_bytes, and exact"
+        )
+    whole_target = target["whole_model_bytes"]
+    fixed_bytes = target["fixed_nonexpert_bytes"]
+    if (
+        isinstance(whole_target, bool)
+        or not isinstance(whole_target, int)
+        or isinstance(fixed_bytes, bool)
+        or not isinstance(fixed_bytes, int)
+        or whole_target <= fixed_bytes
+        or fixed_bytes < 0
+    ):
+        raise DynamicDimensionsError("target byte accounting is invalid")
+    if not isinstance(target["exact"], bool):
+        raise DynamicDimensionsError("target.exact must be boolean")
+
+    descriptor = value.get("dimensions")
+    if not isinstance(descriptor, dict) or set(descriptor) != {"path", "sha256"}:
+        raise DynamicDimensionsError("dimensions must contain path and sha256")
+    raw_dimensions_path = Path(str(descriptor["path"])).expanduser()
+    dimensions_path = (
+        raw_dimensions_path
+        if raw_dimensions_path.is_absolute()
+        else config_path.parent / raw_dimensions_path
+    ).resolve()
+    expected_dimensions_sha = _sha_field(descriptor["sha256"], "dimensions.sha256")
+    rows, dimensions_raw = _read_jsonl(dimensions_path, "mixed Backpack dimensions")
+    if _sha(dimensions_raw) != expected_dimensions_sha:
+        raise DynamicDimensionsError("mixed Backpack dimensions SHA-256 mismatch")
+
+    raw_caps = value.get("class_caps")
+    if not isinstance(raw_caps, dict) or set(raw_caps) != set(CLASSES):
+        raise DynamicDimensionsError("class_caps must cover the six canonical classes")
+    class_caps = {
+        name: _finite(raw_caps[name], f"class_caps.{name}", nonnegative=True)
+        for name in CLASSES
+    }
+    raw_weights = value.get("class_weights")
+    class_weights = None
+    if raw_weights is not None:
+        if not isinstance(raw_weights, dict) or set(raw_weights) != set(CLASSES):
+            raise DynamicDimensionsError("class_weights must cover the six canonical classes")
+        class_weights = {
+            name: _finite(raw_weights[name], f"class_weights.{name}", nonnegative=True)
+            for name in CLASSES
+        }
+
+    projection_inventory: dict[tuple[str, str], dict[str, Any]] = {}
+    projection_geometry: dict[str, tuple[int, int, str]] = {}
+    for index, row in enumerate(rows):
+        if row.get("basis_sha256") != basis:
+            raise DynamicDimensionsError(f"mixed dimension row {index} basis mismatch")
+        if row.get("allocation_eligible") is not True or row.get("status") != "ADMITTED_COMPLETE_ALLOCATION_ELIGIBLE":
+            raise DynamicDimensionsError(f"mixed dimension row {index} is not allocation eligible")
+        layer, expert, projection, tier = _identity(row, f"mixed dimension row {index}")
+        if tier not in tiers:
+            continue
+        projection = "fused13" if projection == "13" else projection
+        cell_id = f"L{layer:03d}.E{expert:03d}.{projection}"
+        key = (cell_id, tier)
+        if key in projection_inventory:
+            raise DynamicDimensionsError(f"duplicate mixed option {key!r}")
+        predictions = row.get("six_class_predictions")
+        if not isinstance(predictions, dict) or set(predictions) != set(CLASSES):
+            raise DynamicDimensionsError(f"mixed option {key!r} lacks six-class predictions")
+        physical_bytes = row.get("physical_bytes")
+        if isinstance(physical_bytes, bool) or not isinstance(physical_bytes, int) or physical_bytes < 0:
+            raise DynamicDimensionsError(f"mixed option {key!r} physical_bytes is invalid")
+        activations = row.get("activation_artifacts", [])
+        if not isinstance(activations, list) or not all(isinstance(item, dict) for item in activations):
+            raise DynamicDimensionsError(f"mixed option {key!r} activation_artifacts is invalid")
+        projection_inventory[key] = {
+            "bytes": physical_bytes,
+            "predictions": {
+                name: _finite(predictions[name], f"{key!r}.{name}", nonnegative=True)
+                for name in CLASSES
+            },
+            "activations": tuple(dict(item) for item in activations),
+            "candidate_id": row.get("candidate_id"),
+        }
+        projection_geometry[cell_id] = (layer, expert, projection)
+    projection_cells = sorted(projection_geometry)
+    if not projection_cells:
+        raise DynamicDimensionsError("mixed Backpack inventory has no allowed options")
+    missing_fallback = [
+        cell for cell in projection_cells if (cell, fallback) not in projection_inventory
+    ]
+    if missing_fallback:
+        raise DynamicDimensionsError(
+            f"fallback tier {fallback!r} is missing for {len(missing_fallback)} cells; first={missing_fallback[0]!r}"
+        )
+
+    # Runtime tier maps select one family per layer/expert, shared by down and
+    # fused13.  Aggregate the measured projection rows into that physical
+    # selection unit so the optimizer cannot emit an unmaterializable split.
+    projections_by_cell: dict[str, list[str]] = {}
+    cell_geometry: dict[str, tuple[int, int]] = {}
+    for projection_cell, (layer, expert, _projection) in projection_geometry.items():
+        cell_id = f"L{layer:03d}.E{expert:03d}"
+        projections_by_cell.setdefault(cell_id, []).append(projection_cell)
+        cell_geometry[cell_id] = (layer, expert)
+    cells = sorted(projections_by_cell)
+    for cell in cells:
+        projections_by_cell[cell].sort(
+            key=lambda value: (0 if value.endswith(".down") else 1, value)
+        )
+
+    expected_options = {(cell, tier) for cell in cells for tier in tiers}
+    available = {
+        (cell, tier)
+        for cell in cells
+        for tier in tiers
+        if all(
+            (projection_cell, tier) in projection_inventory
+            for projection_cell in projections_by_cell[cell]
+        )
+    }
+    bytes_by_option: dict[tuple[str, str], int] = {}
+    costs_by_option: dict[tuple[str, str], dict[str, float]] = {}
+    activations_by_option: dict[tuple[str, str], tuple[dict[str, Any], ...]] = {}
+    fallback_cost = {name: 0.0 for name in CLASSES}
+    for key in expected_options:
+        cell, tier = key
+        if key not in available:
+            bytes_by_option[key] = 0
+            costs_by_option[key] = dict(fallback_cost)
+            activations_by_option[key] = ()
+            continue
+        options = [
+            projection_inventory[(projection_cell, tier)]
+            for projection_cell in projections_by_cell[cell]
+        ]
+        bytes_by_option[key] = sum(int(option["bytes"]) for option in options)
+        costs_by_option[key] = {
+            name: math.fsum(float(option["predictions"][name]) for option in options)
+            for name in CLASSES
+        }
+        activation_by_id: dict[str, dict[str, Any]] = {}
+        for option in options:
+            for activation in option["activations"]:
+                artifact_id = activation.get("id")
+                prior = activation_by_id.get(str(artifact_id))
+                if prior is not None and prior != activation:
+                    raise DynamicDimensionsError(
+                        f"activation artifact {artifact_id!r} conflicts across projections for {key!r}"
+                    )
+                activation_by_id[str(artifact_id)] = dict(activation)
+        activations_by_option[key] = tuple(
+            activation_by_id[name] for name in sorted(activation_by_id)
+        )
+
+    envelope = whole_target - fixed_bytes
+    solved = solve_class_balanced_options(
+        cells=cells,
+        tiers=list(tiers),
+        bytes_by_option=bytes_by_option,
+        class_costs_by_option=costs_by_option,
+        envelope_bytes=envelope,
+        class_caps=class_caps,
+        class_weights=class_weights,
+        exact_envelope=target["exact"],
+        available_options=available,
+        activation_artifacts_by_option=activations_by_option,
+    )
+    assignment = {row["cell_id"]: row["tier"] for row in solved["assignments"]}
+    assignment_sha = _sha(_canonical_json(assignment))
+    layers: dict[int, dict[str, int]] = {}
+    for cell_id, tier in assignment.items():
+        layer = cell_geometry[cell_id][0]
+        layer_counts = layers.setdefault(layer, {})
+        layer_counts[tier] = layer_counts.get(tier, 0) + 1
+    all_layers = sorted({geometry[0] for geometry in cell_geometry.values()})
+    coverage = {
+        tier: {
+            "available_cells": sum((cell, tier) in available for cell in cells),
+            "missing_layers": [
+                layer
+                for layer in all_layers
+                if not any(
+                    geometry[0] == layer and (cell, tier) in available
+                    for cell, geometry in cell_geometry.items()
+                )
+            ],
+        }
+        for tier in tiers
+    }
+    identity = {
+        "schema": "banana-smasher-mixed-backpack-identity-v1",
+        "status": "PRE_REPAIR_SOLVED",
+        "basis_sha256": basis,
+        "assignment_sha256": assignment_sha,
+        "assignment": assignment,
+        "allowed_tiers": list(tiers),
+        "fallback_tier": fallback,
+        "coverage": coverage,
+        "composition": {
+            "kind": "mixed-per-layer-per-expert",
+            "layers": [
+                {"layer": layer, "tiers": dict(sorted(layers[layer].items()))}
+                for layer in sorted(layers)
+            ],
+        },
+    }
+    whole_bytes = fixed_bytes + solved["assigned_bytes"]
+    byte_accounting = {
+        "fixed_nonexpert_bytes": fixed_bytes,
+        "candidate_payload_bytes": solved["assigned_bytes"],
+        "whole_model_bytes": whole_bytes,
+        "target_whole_model_bytes": whole_target,
+        "slack_bytes": whole_target - whole_bytes,
+    }
+    assignment_document = {
+        "schema": "banana-smasher-mixed-backpack-assignment-v1",
+        "status": solved["status"],
+        "basis_sha256": basis,
+        "assignment_sha256": assignment_sha,
+        "assignments": solved["assignments"],
+        "materialization_assignments": [
+            {"cell_id": projection_cell, "tier": assignment[cell]}
+            for cell in cells
+            for projection_cell in projections_by_cell[cell]
+        ],
+        "activated_artifacts": solved["activated_artifacts"],
+        "byte_accounting": byte_accounting,
+        "prediction_by_class": solved["prediction_by_class"],
+        "objective": solved["objective"],
+        "solver": solved["solver"],
+    }
+    output_root = Path(output).expanduser().resolve()
+    assignment_raw = _canonical_json(assignment_document)
+    identity_raw = _canonical_json(identity)
+    _write_once(output_root / "ASSIGNMENT.json", assignment_raw)
+    _write_once(output_root / "identity.json", identity_raw)
+    receipt = {
+        "schema": "banana-smasher-mixed-backpack-solve-receipt-v1",
+        "status": "PASS_PRE_REPAIR_MIX_SOLVED",
+        "basis_sha256": basis,
+        "config": {
+            "path": str(config_path),
+            "sha256": _sha(config_raw),
+            "bytes": len(config_raw),
+        },
+        "dimensions": {
+            "path": str(dimensions_path),
+            "sha256": expected_dimensions_sha,
+            "bytes": len(dimensions_raw),
+        },
+        "assignment": {
+            "path": str(output_root / "ASSIGNMENT.json"),
+            "sha256": _sha(assignment_raw),
+            "bytes": len(assignment_raw),
+        },
+        "identity": {
+            "path": str(output_root / "identity.json"),
+            "sha256": _sha(identity_raw),
+            "bytes": len(identity_raw),
+        },
+        "coverage": coverage,
+        "byte_accounting": byte_accounting,
+    }
+    receipt_raw = _canonical_json(receipt)
+    _write_once(output_root / "RECEIPT.json", receipt_raw)
+    return {
+        **receipt,
+        "receipt": {
+            "path": str(output_root / "RECEIPT.json"),
+            "sha256": _sha(receipt_raw),
+            "bytes": len(receipt_raw),
+        },
+    }
