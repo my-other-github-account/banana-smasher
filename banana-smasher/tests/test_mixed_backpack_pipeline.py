@@ -10,9 +10,7 @@ from banana_smasher.backpack_dimensions import (
     preflight_mixed_backpack_config,
     solve_mixed_backpack_config,
 )
-from banana_smasher import (
-    solve_mixed_backpack_config as public_solve_mixed_backpack_config,
-)
+from banana_smasher import solve_mixed_backpack_config as public_solve_mixed_backpack_config
 from banana_smasher import (
     preflight_mixed_backpack_config as public_preflight_mixed_backpack_config,
 )
@@ -215,8 +213,7 @@ def test_mixed_config_has_a_public_json_schema(tmp_path: Path) -> None:
 
 
 def test_preflight_accepts_partial_dimensions_and_reports_pending_locator(
-    tmp_path: Path,
-    capsys,
+    tmp_path: Path, capsys,
 ) -> None:
     dimensions = tmp_path / "partial.jsonl"
     _dimension_rows(dimensions)
