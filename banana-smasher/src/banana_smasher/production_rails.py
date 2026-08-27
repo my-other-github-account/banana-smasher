@@ -36,6 +36,10 @@ VALIDATED_REPAIR_RECIPE = {
     "heldout_validation_interval": 4,
     "heldout_kill_patience": 2,
     "accepted_update_cadence": 1,
+    # The warm physical profile must accept each update inside ten minutes.
+    # Whole-layer activation checkpointing replayed every forward during
+    # backward and made one update take ~22 minutes despite ample MemoryMax.
+    "activation_checkpointing": False,
 }
 ALL_LAYERS = tuple(range(43))
 FORBIDDEN_SLOW_CONTROL_FIELDS = frozenset(

@@ -590,6 +590,8 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     assert recipe["lr_scale"] == 0.1
     assert recipe["heldout_validation_interval"] == 4
     assert recipe["heldout_kill_patience"] == 2
+    assert recipe["accepted_update_cadence"] == 1
+    assert recipe["activation_checkpointing"] is False
     assert str(fake_api.advance_kwargs["loss_guard_receipt_path"]).endswith(
         "CONTINUATION_U007_U008.rank0.LOSS_GUARD.json"
     )
