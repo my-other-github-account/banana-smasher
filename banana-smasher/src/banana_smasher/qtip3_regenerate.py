@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -11,13 +12,8 @@ import numpy as np
 import torch
 from safetensors import safe_open
 
-from banana_smasher import qtip3_api_producer as producer_module
-from banana_smasher.qtip25_native_v4_api import (
-    build_qtip_native_cell,
-    build_qtip_native_cells,
-    build_qtip_native_transform_control,
-    qtip_transform_seed,
-)
+ROOT = Path(os.environ["QTIP3_ROOT"])
+from banana_smasher.qtip25_native_v4_api import build_qtip_native_cell, build_qtip_native_cells
 from banana_smasher.qtip3_api_producer import (
     CellSpec,
     Qtip3ApiConfig,
@@ -27,10 +23,11 @@ from banana_smasher.qtip3_api_producer import (
     release_bounded_host,
     release_host,
     release_smoke_host,
+    release_unstarted_admission,
+    run_cells,
     run_cells_batched,
 )
 
-ROOT = Path(os.environ["QTIP3_ROOT"])
 BASIS = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 TASK_ID = os.environ["QTIP3_TASK_ID"]
 BOARD_RUN_ID = int(os.environ["QTIP3_BOARD_RUN_ID"])
@@ -52,6 +49,7 @@ if not LAYERS or len(set(LAYERS)) != len(LAYERS) or any(layer < 0 or layer > 42 
 # The proven producer module has an immutable campaign-specific default.  This
 # task owns a disjoint routed continuation scope, so bind its module-level
 # validator to the exact card-assigned subset before constructing plans or CellSpecs.
+from banana_smasher import qtip3_api_producer as producer_module
 producer_module.LAYERS = LAYERS
 producer_module.EXPECTED_CELLS = len(LAYERS) * 512
 CELL_ROSTER_PATH = os.environ.get("QTIP3_CELL_ROSTER_PATH")
@@ -234,42 +232,10 @@ CONTROL_ROOT = Path(os.environ["QTIP3_CONTROL_ROOT"])
 CONTROL_MAP = {int(layer): Path(prefix) for layer, prefix in json.loads(os.environ["QTIP3_CONTROL_MAP"]).items()}
 if set(CONTROL_MAP) != set(LAYERS):
     raise RuntimeError(f"control map mismatch: layers={LAYERS} map={sorted(CONTROL_MAP)}")
-GENERATED_CONTROL_ROOT = Path(
-    os.environ.get("QTIP3_GENERATED_CONTROL_ROOT", str(ROOT / "inputs/generated_controls"))
-)
-CONTROL_SEED_DOMAIN = os.environ.get("QTIP3_CONTROL_SEED_DOMAIN")
-CONTROL_SEED_MATERIAL = os.environ.get("QTIP3_CONTROL_SEED_MATERIAL")
 
 
 def control_for(layer, expert, projection):
-    historical = CONTROL_ROOT / CONTROL_MAP[layer] / f"L{layer:03d}/E{expert:03d}_{projection}/QTIP_UNIT.pt"
-    if historical.is_file():
-        return historical
-    return GENERATED_CONTROL_ROOT / f"L{layer:03d}/E{expert:03d}_{projection}/QTIP_UNIT.pt"
-
-
-def prepare(cell):
-    materialize(cell)
-    if cell.control.is_file():
-        return
-    if not CONTROL_SEED_DOMAIN or not CONTROL_SEED_MATERIAL:
-        raise RuntimeError(f"MISSING_CONTROL_SEED_CLOSURE {cell.key}")
-    seed = qtip_transform_seed(
-        CONTROL_SEED_DOMAIN,
-        CONTROL_SEED_MATERIAL,
-        cell.layer,
-        cell.expert,
-        cell.projection,
-    )
-    build_qtip_native_transform_control(
-        SOURCE,
-        cell.control,
-        transform_seed=seed,
-        intended_basis_sha256=BASIS,
-        observed_basis_sha256=BASIS,
-        device="cuda",
-        qtip_k=3,
-    )
+    return CONTROL_ROOT / CONTROL_MAP[layer] / f"L{layer:03d}/E{expert:03d}_{projection}/QTIP_UNIT.pt"
 
 
 def all_cells():
@@ -441,7 +407,7 @@ else:
     config = Qtip3ApiConfig(reserve_bytes=256 << 20)
     terminal = run_cells_batched(
         new_plan, config, cells, batch_api=build_qtip_native_cells, batch_size=40,
-        prepare_cell=prepare, cleanup_cell=cleanup,
+        prepare_cell=materialize, cleanup_cell=cleanup,
         batch_source_root=Path(
             os.environ.get(
                 "QTIP3_BATCH_SOURCE_ROOT",
