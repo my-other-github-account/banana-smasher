@@ -1045,9 +1045,17 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
     down_projection = None
     full_weight_builder = None
     if (
-        config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
-        and config.get("resident_gate_up_provider_sha256")
-        == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+        (
+            config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
+            and config.get("resident_gate_up_provider_sha256")
+            == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+        )
+        or (
+            config.get("resident_native_moe_return")
+            == "accepted_deepseek_v4_expert_loop_v1"
+            and config.get("resident_native_moe_provider_sha256")
+            == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+        )
     ):
         sealed_wrapper = Path(__file__).resolve().parent / "assets" / "fast_k2_grouped.py"
         _require_file(
