@@ -82,6 +82,33 @@ def test_admission_generates_one_identity_and_two_verified_rank_configs(tmp_path
     assert not list(output.glob(".verify-rank*"))
 
 
+def test_admission_binds_joint_admission_sha_from_authenticated_asset(tmp_path: Path):
+    checkpoint = tmp_path / "source.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    asset_root = tmp_path / "asset"
+    admission = asset_root / "code" / "JOINT_REPAIR_ADMISSION.json"
+    admission.parent.mkdir(parents=True)
+    admission.write_bytes(b'{"schema":"joint"}\n')
+    spec_path = _spec(tmp_path, checkpoint, admission)
+    spec = json.loads(spec_path.read_text())
+    for rank in (0, 1):
+        spec["continuations"][str(rank)]["asset_root"] = str(asset_root)
+    spec_path.write_text(json.dumps(spec, sort_keys=True))
+
+    output = tmp_path / "artifact"
+    admit_resident_artifact(
+        spec_path,
+        output,
+        checkpoint=checkpoint,
+        checkpoint_sha256=_sha(checkpoint.read_bytes()),
+    )
+
+    expected = _sha(admission.read_bytes())
+    for rank in (0, 1):
+        config = json.loads((output / f"production-rails.rank{rank}.json").read_text())
+        assert config["continuation"]["admission_sha256"] == expected
+
+
 def test_admission_refuses_explicit_checkpoint_sha_mismatch(tmp_path: Path):
     checkpoint = tmp_path / "source.pt"
     checkpoint.write_bytes(b"checkpoint")

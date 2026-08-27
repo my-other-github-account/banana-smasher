@@ -93,6 +93,7 @@ def admit_resident_artifact(
     expected_checkpoint_sha = _sha(checkpoint_sha256, "checkpoint_sha256")
     if not source_checkpoint.is_file() or _sha256(source_checkpoint) != expected_checkpoint_sha:
         raise ValueError("checkpoint bytes do not match explicit checkpoint SHA")
+    authenticated_sha_by_path: dict[Path, str] = {}
     for index, row in enumerate(spec.get("authenticated_inputs", [])):
         if not isinstance(row, Mapping):
             raise ValueError("authenticated_inputs rows must be objects")
@@ -100,6 +101,7 @@ def admit_resident_artifact(
         expected = _sha(row.get("sha256"), f"authenticated_inputs[{index}].sha256")
         if not path.is_file() or _sha256(path) != expected:
             raise ValueError(f"authenticated input mismatch: {path}")
+        authenticated_sha_by_path[path] = expected
     root = Path(output_root).expanduser().resolve()
     if root.exists() and any(root.iterdir()):
         raise FileExistsError(f"resident artifact output is not empty: {root}")
@@ -179,6 +181,16 @@ def admit_resident_artifact(
         continuation = continuations.get(str(rank))
         if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
             raise ValueError(f"continuations.{rank} must bind rank {rank}")
+        bound_continuation = dict(continuation)
+        asset_root = bound_continuation.get("asset_root")
+        if asset_root:
+            admission_path = Path(str(asset_root)).expanduser().resolve() / "code" / "JOINT_REPAIR_ADMISSION.json"
+            authenticated_admission_sha = authenticated_sha_by_path.get(admission_path)
+            if authenticated_admission_sha is not None:
+                explicit_admission_sha = bound_continuation.get("admission_sha256")
+                if explicit_admission_sha is not None and explicit_admission_sha != authenticated_admission_sha:
+                    raise ValueError(f"continuations.{rank}.admission_sha256 contradicts authenticated input")
+                bound_continuation["admission_sha256"] = authenticated_admission_sha
         config = {
             **identity_fields,
             "allowed_artifacts": {
@@ -189,7 +201,7 @@ def admit_resident_artifact(
                     "checkpoint_sha256": expected_checkpoint_sha,
                 }
             },
-            "continuation": dict(continuation),
+            "continuation": bound_continuation,
         }
         path = root / f"production-rails.rank{rank}.json"
         _atomic_json(path, config)
