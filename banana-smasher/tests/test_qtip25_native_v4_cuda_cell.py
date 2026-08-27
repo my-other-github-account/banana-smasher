@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import ast
+import inspect
+
 import numpy as np
 import pytest
 
 from banana_smasher.qtip1 import gaussian_tlut
-from banana_smasher.qtip25_native_v4_cuda_cell import validate_input
+from banana_smasher.qtip25_native_v4_cuda_cell import run_cuda_cell, validate_input
 
 
 def test_native_v4_cuda_cell_preflight_binds_exact_basis_and_geometry(tmp_path) -> None:
@@ -29,3 +32,16 @@ def test_native_v4_cuda_cell_preflight_binds_exact_basis_and_geometry(tmp_path) 
             intended_basis_sha256="9" * 64,
             observed_basis_sha256="8" * 64,
         )
+
+
+def test_native_v4_cuda_cell_uses_public_decoder_signature() -> None:
+    tree = ast.parse(inspect.getsource(run_cuda_cell))
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "dequantize_native_v4_blocks"
+    ]
+    assert len(calls) == 2
+    assert all(len(call.args) == 2 and not call.keywords for call in calls)
