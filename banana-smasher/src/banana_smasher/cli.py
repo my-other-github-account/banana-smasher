@@ -380,6 +380,15 @@ def _parser() -> argparse.ArgumentParser:
         help="admit available mixed inventory shards and report pending locators",
     )
     backpack_mixed_preflight.add_argument("--config", type=Path, required=True)
+    backpack_mixed_transaction = backpack_commands.add_parser(
+        "prepare-mixed-transaction",
+        help="seal the physical-member transaction for a solved mixed Backpack",
+    )
+    backpack_mixed_transaction.add_argument("--solve-root", type=Path, required=True)
+    backpack_mixed_transaction.add_argument("--sensitivity-ledger", type=Path, required=True)
+    backpack_mixed_transaction.add_argument("--output", type=Path, required=True)
+    backpack_mixed_transaction.add_argument("--destination-root", type=Path, required=True)
+    backpack_mixed_transaction.add_argument("--canonical-commit-sha", required=True)
     backpack_virtual = backpack_commands.add_parser(
         "virtualize",
         help="project a completed canonical solve into zero-copy contextual wire",
@@ -1531,6 +1540,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = {
                     **preflight_mixed_backpack_config(args.config),
                     "command": "backpack preflight-mixed",
+                }
+            elif args.backpack_command == "prepare-mixed-transaction":
+                from .mixed_transaction import prepare_mixed_backpack_transaction
+
+                result = {
+                    **prepare_mixed_backpack_transaction(
+                        args.solve_root,
+                        args.sensitivity_ledger,
+                        output=args.output,
+                        destination_root=args.destination_root,
+                        canonical_commit_sha=args.canonical_commit_sha,
+                    ),
+                    "command": "backpack prepare-mixed-transaction",
                 }
             elif args.backpack_command == "providers":
                 from .backpack_providers import builtin_backpack_family_providers
