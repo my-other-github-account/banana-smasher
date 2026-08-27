@@ -27,11 +27,11 @@ class WrappedFakeExpert(FakeExpert):
 
 
 class ProjectFakeExpert(torch.nn.Module):
-    def _project(self, value: torch.Tensor) -> torch.Tensor:
-        return grouped_packed_projection(value)
+    def _project(self, projection: str, x: torch.Tensor) -> torch.Tensor:
+        return grouped_packed_projection(x)
 
     def forward(self, value: torch.Tensor) -> torch.Tensor:
-        return self._project(value)
+        return self._project("w2", value)
 
 
 class WrappedProjectFakeExpert(ProjectFakeExpert):
@@ -102,3 +102,30 @@ def test_provider_dispatch_identity_binds_project_method_under_wrapped_forward()
     assert implementation["dispatch_owner_method"] == "_project"
     assert implementation["dispatch_callable"].endswith(".grouped_packed_projection")
     assert implementation["dispatch_source_sha256"]
+
+
+def test_provider_project_code_object_emits_call_and_return_boundaries(tmp_path: Path) -> None:
+    model = ProjectFakeStudent()
+    trace_path = tmp_path / "project-trace.jsonl"
+    value = torch.ones(2, 3)
+    with FullCallTreeTrace(
+        model,
+        trace_path,
+        rail="test",
+        basis_sha256="b" * 64,
+        canonical_code_commit="c" * 40,
+    ):
+        assert torch.equal(model.experts[0](value), value)
+    rows = [json.loads(line) for line in trace_path.read_text().splitlines()]
+    grouped = [
+        row for row in rows
+        if str(row.get("semantic_boundary", "")).startswith("grouped_mm_dispatch_")
+    ]
+    assert [row["semantic_boundary"] for row in grouped] == [
+        "grouped_mm_dispatch_input", "grouped_mm_dispatch_output",
+    ]
+    assert [row["projection"] for row in grouped] == ["w2", "w2"]
+    assert all(
+        row["code_binding"]["owner_class"].endswith(".ProjectFakeExpert")
+        for row in grouped
+    )

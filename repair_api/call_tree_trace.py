@@ -166,6 +166,36 @@ def _provider_dispatch_identity(model: Any) -> dict[str, Any]:
     }
 
 
+def _provider_project_code_bindings(model: Any) -> dict[Any, dict[str, Any]]:
+    """Resolve exact installed _project code objects that call grouped dispatch."""
+    experts = getattr(model, "experts", None)
+    expert_items: Any = getattr(experts, "items", None)
+    if not callable(expert_items):
+        return {}
+    bindings: dict[Any, dict[str, Any]] = {}
+    items: Any = expert_items()
+    for _, expert in items:
+        for owner in type(expert).__mro__:
+            candidate = owner.__dict__.get("_project")
+            code = getattr(candidate, "__code__", None)
+            names = getattr(code, "co_names", ())
+            globals_value = getattr(candidate, "__globals__", {})
+            if (
+                code is not None
+                and "grouped_packed_projection" in names
+                and callable(globals_value.get("grouped_packed_projection"))
+            ):
+                identity = _callable_source_identity(candidate)
+                bindings[code] = {
+                    "owner_class": f"{owner.__module__}.{owner.__qualname__}",
+                    "source_file": identity["source_file"],
+                    "source_sha256": identity["source_sha256"],
+                    "firstlineno": identity["firstlineno"],
+                }
+                break
+    return bindings
+
+
 def _semantic_line_boundary(
     filename: str, function: str, line: int,
 ) -> tuple[str, tuple[str, ...]] | None:
@@ -294,6 +324,7 @@ class FullCallTreeTrace:
         self._stream: Any = None
         self._hooks: list[Any] = []
         self._dispatch = _HiddenStateDispatchMode(self)
+        self._provider_project_codes = _provider_project_code_bindings(model)
         self._started = False
         self._stopped = False
         self._start_unix = 0.0
@@ -312,6 +343,19 @@ class FullCallTreeTrace:
 
     def _trace_frame(self, frame: Any, event: str, arg: Any) -> Any:
         if event == "call":
+            project_binding = self._provider_project_codes.get(frame.f_code)
+            if project_binding is not None:
+                tensor = frame.f_locals.get("x")
+                if isinstance(tensor, torch.Tensor):
+                    self._event({
+                        "kind": "semantic_boundary",
+                        "semantic_boundary": "grouped_mm_dispatch_input",
+                        "source_family": Path(frame.f_code.co_filename).name,
+                        "projection": frame.f_locals.get("projection"),
+                        "code_binding": project_binding,
+                        "tensors": [{"name": "x", **_tensor_metadata(tensor)}],
+                    })
+                return self._trace_frame
             filename = str(Path(frame.f_code.co_filename).resolve())
             if filename == str(Path(__file__).resolve()):
                 return None
@@ -339,6 +383,16 @@ class FullCallTreeTrace:
                     if boundary.startswith("grouped_mm_dispatch_"):
                         value["projection"] = frame.f_locals.get("projection")
                     self._event(value)
+        project_binding = self._provider_project_codes.get(frame.f_code)
+        if event == "return" and project_binding is not None and isinstance(arg, torch.Tensor):
+            self._event({
+                "kind": "semantic_boundary",
+                "semantic_boundary": "grouped_mm_dispatch_output",
+                "source_family": Path(frame.f_code.co_filename).name,
+                "projection": frame.f_locals.get("projection"),
+                "code_binding": project_binding,
+                "tensors": [{"name": "value", **_tensor_metadata(arg)}],
+            })
         if event == "return" and (
             Path(frame.f_code.co_filename).name == "modeling_deepseek_v4.py"
             and frame.f_code.co_name == "forward"
