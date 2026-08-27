@@ -218,9 +218,12 @@ resident expert source is external, admission also auto-binds its authenticated
 artifact before launch if that dependency was not staged. An optional prebuilt
 grouped-K2 extension remains path-and-SHA bound in the same continuation. The
 resident loader drops each clean immutable wire file from the source page cache
-immediately after copying it into the rank-local CUDA tensor; this keeps the
-~34 GiB input tree from overlapping the complete unified-memory resident set
-during construction without deleting or mutating sealed inputs. After each native
+immediately after copying it into the rank-local CUDA tensor. After a native
+layer's CUDA copies are synchronized, it also closes the layer's safetensors
+mappings and drops their clean model-shard cache pages before reserving the next
+~1.6 GiB routed payload. These bounded source-cache lifetimes keep immutable
+input bytes from overlapping the growing unified-memory resident set; neither
+path deletes or mutates sealed inputs. After each native
 layer's FP8 dequantization is assigned, the packaged constructor synchronizes the
 CUDA stream and releases only unused allocator blocks before reserving that
 layer's routed resident payload. This boundary is mandatory: `empty_cache()`
