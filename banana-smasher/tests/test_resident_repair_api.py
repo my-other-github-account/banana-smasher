@@ -129,7 +129,6 @@ def test_full_pipeline_builds_uniforms_then_mixes_without_resolving(
 
 def test_build_binds_checkpoint_once_and_later_operations_default_to_it() -> None:
     for operation in (
-        "build_uniform",
         "backpack_mix",
         "run_arm",
         "run",
@@ -139,6 +138,11 @@ def test_build_binds_checkpoint_once_and_later_operations_default_to_it() -> Non
         ]
         assert parameter.default is inspect.Parameter.empty
         assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    build_checkpoint = inspect.signature(ResidentRepairAPI.build_uniform).parameters[
+        "checkpoint_sha"
+    ]
+    assert build_checkpoint.default is None
+    assert build_checkpoint.kind is inspect.Parameter.KEYWORD_ONLY
     for operation in ("score_pre", "repair_train", "score_post"):
         parameter = inspect.signature(getattr(ResidentRepairAPI, operation)).parameters[
             "checkpoint_sha"

@@ -357,11 +357,13 @@ class ResidentRepairAPI:
         model: str | Path | None = None,
         tier: str | None = None,
         *,
-        checkpoint_sha: str,
+        checkpoint_sha: str | None = None,
         run_root: str | Path | None = None,
         scope: str | None = None,
         native_rest: bool | None = None,
-    ) -> "UniformBuild | ResidentRepairAPI":
+        revision: str | None = None,
+        output: str | Path | None = None,
+    ) -> "UniformBuild | ResidentRepairAPI | dict[str, Any]":
         """Build through an injected provider, or open an admitted Q2 artifact.
 
         Calling ``ResidentRepairAPI.build_uniform(model, tier="q2", ...)`` is
@@ -377,6 +379,10 @@ class ResidentRepairAPI:
         if isinstance(self_or_model, ResidentRepairAPI):
             if model is None or tier is None:
                 raise TypeError("instance build_uniform requires model and tier")
+            if checkpoint_sha is None:
+                raise TypeError("instance build_uniform requires checkpoint_sha")
+            if revision is not None or output is not None:
+                raise TypeError("instance build_uniform does not accept revision/output")
             return self_or_model._build_uniform(
                 model, tier, checkpoint_sha=checkpoint_sha
             )
@@ -388,6 +394,25 @@ class ResidentRepairAPI:
         )
         if normalized_tier != "qtip2_v7":
             raise ValueError("documented resident production path currently requires tier='q2'")
+        if revision is not None or output is not None:
+            if checkpoint_sha is not None:
+                raise ValueError("HF source build does not accept an artifact checkpoint SHA")
+            if revision is None or output is None:
+                raise ValueError("HF source build requires both revision and output")
+            if scope != "routed_only" or native_rest is not True:
+                raise ValueError("HF source build requires routed_only with native_rest=True")
+            from .hf_moe import build_hf_moe_uniform
+
+            return build_hf_moe_uniform(
+                artifact_root,
+                revision=revision,
+                tier="q2",
+                scope=scope,
+                native_rest=native_rest,
+                output=output,
+            )
+        if checkpoint_sha is None:
+            raise TypeError("admitted artifact build_uniform requires checkpoint_sha")
         identity = ArtifactIdentity.load(artifact_root)
         _checkpoint_sha(identity, checkpoint_sha, operation="build")
         declared = _composition_tiers(identity) - _NATIVE_TIERS

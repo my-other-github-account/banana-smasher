@@ -13,6 +13,7 @@ from typing import Any, Protocol
 
 HF_SOURCE_ADMISSION_SCHEMA = "banana-smasher-hf-source-admission-v1"
 HF_UNIFORM_PLAN_SCHEMA = "banana-smasher-hf-moe-uniform-plan-v1"
+HF_UNIFORM_ARTIFACT_SCHEMA = "banana-smasher-hf-moe-uniform-artifact-v1"
 _REVISION_RE = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 
 
@@ -260,6 +261,7 @@ def plan_hf_moe_uniform(
                 "name": name,
                 "shard": shard,
                 "dtype": dtype,
+                "shape": shape,
                 "parameters": math.prod(shape),
                 "source_bytes": offsets[1] - offsets[0],
             }
@@ -339,3 +341,347 @@ def plan_hf_moe_uniform(
     if plan["status"] != "PASS":
         raise ValueError("HF MoE plan has tensor coverage or routed-scope defects")
     return plan
+
+
+def preflight_hf_moe_output_fit(
+    plan: Mapping[str, Any],
+    *,
+    free_bytes: int | None = None,
+    output_root: str | Path | None = None,
+    reserve_bytes: int = 8 << 30,
+    receipt_path: str | Path,
+) -> dict[str, Any]:
+    """Project exact Q2 code/scale and native bytes before host claim or build."""
+
+    if plan.get("status") != "PASS":
+        raise ValueError("output-fit preflight requires a PASS HF MoE plan")
+    if plan.get("intent") != {
+        "tier": "q2",
+        "scope": "routed_only",
+        "native_rest": True,
+    }:
+        raise ValueError("output-fit preflight requires routed-only Q2 with native rest")
+    if free_bytes is None:
+        if output_root is None:
+            raise ValueError("output-fit preflight requires output_root or measured free_bytes")
+        import shutil
+
+        probe = Path(output_root).expanduser().resolve()
+        probe.mkdir(parents=True, exist_ok=True)
+        free_bytes = shutil.disk_usage(probe).free
+    for value, label in ((free_bytes, "free_bytes"), (reserve_bytes, "reserve_bytes")):
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError(f"{label} must be a positive integer")
+    q2_code_bytes = 0
+    q2_scale_bytes = 0
+    for row in plan["routed_tensors"]:
+        shape = row.get("shape")
+        if (
+            not isinstance(shape, list)
+            or len(shape) != 2
+            or any(not isinstance(value, int) or value < 1 for value in shape)
+        ):
+            raise ValueError(f"routed tensor lacks matrix shape: {row.get('name')}")
+        rows, width = shape
+        q2_code_bytes += rows * math.ceil(width * 2 / 16) * 2
+        q2_scale_bytes += rows * 4
+    native_bytes = int(plan["accounting"]["native_source_bytes"])
+    metadata_bytes = (
+        len(json.dumps(plan, sort_keys=True, separators=(",", ":")).encode())
+        + 256 * (2 * len(plan["routed_tensors"]) + len(plan.get("native_tensors", [])))
+        + 4096
+    )
+    payload_bytes = native_bytes + q2_code_bytes + q2_scale_bytes + metadata_bytes
+    required_bytes = payload_bytes + reserve_bytes
+    receipt = {
+        "schema": "banana-smasher-hf-moe-output-fit-v1",
+        "status": "PASS" if free_bytes >= required_bytes else "FAILED",
+        "free_bytes": free_bytes,
+        "native_payload_bytes": native_bytes,
+        "q2_code_bytes": q2_code_bytes,
+        "q2_scale_bytes": q2_scale_bytes,
+        "metadata_bytes": metadata_bytes,
+        "projected_payload_bytes": payload_bytes,
+        "reserve_bytes": reserve_bytes,
+        "required_bytes": required_bytes,
+        "margin_bytes": free_bytes - required_bytes,
+    }
+    _atomic_json(Path(receipt_path).expanduser().resolve(), receipt)
+    return receipt
+
+
+def estimate_hf_moe_uniform(
+    model: str | Path,
+    *,
+    revision: str,
+    tier: str,
+    scope: str,
+    native_rest: bool,
+    receipt_path: str | Path,
+) -> dict[str, Any]:
+    """Encode one representative routed tensor and project a complete build."""
+
+    import time
+    import tracemalloc
+
+    from safetensors import safe_open
+
+    from .qtip1 import QTIP2_GEOMETRY, encode_qtip, gaussian_tlut
+
+    destination = Path(receipt_path).expanduser().resolve()
+    plan = plan_hf_moe_uniform(
+        model,
+        revision=revision,
+        tier=tier,
+        scope=scope,
+        native_rest=native_rest,
+        receipt_path=destination.with_name("CANARY_PLAN.json"),
+    )
+    ordered = sorted(plan["routed_tensors"], key=lambda row: (row["source_bytes"], row["name"]))
+    selected = ordered[len(ordered) // 2]
+    root = Path(plan["source"]["model_root"])
+    tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
+    tracemalloc.start()
+    started = time.perf_counter()
+    with safe_open(root / selected["shard"], framework="numpy") as handle:
+        matrix = handle.get_tensor(selected["name"])
+    encoded = encode_qtip(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
+    wall_seconds = time.perf_counter() - started
+    _, traced_peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    peak_memory_bytes = int(traced_peak + matrix.nbytes + encoded.packed.nbytes + encoded.scales.nbytes)
+    total_parameters = int(plan["accounting"]["routed_parameters"])
+    complete_wall_seconds = wall_seconds * total_parameters / int(selected["parameters"])
+    q2_code_bytes = 0
+    q2_scale_bytes = 0
+    for row in plan["routed_tensors"]:
+        rows, width = row["shape"]
+        q2_code_bytes += rows * math.ceil(width * 2 / 16) * 2
+        q2_scale_bytes += rows * 4
+    complete_payload_bytes = (
+        int(plan["accounting"]["native_source_bytes"])
+        + q2_code_bytes
+        + q2_scale_bytes
+    )
+    receipt = {
+        "schema": "banana-smasher-hf-moe-build-estimate-v1",
+        "status": "PASS_DIAGNOSTIC",
+        "artifact_admissible": False,
+        "artifact_created": False,
+        "api": {"method": "estimate_hf_moe_uniform", "version": 1},
+        "source": plan["source"],
+        "intent": plan["intent"],
+        "canary": {
+            "routed_tensor_count": 1,
+            "name": selected["name"],
+            "shape": selected["shape"],
+            "parameters": selected["parameters"],
+            "source_bytes": selected["source_bytes"],
+            "wall_seconds": wall_seconds,
+            "peak_memory_bytes": peak_memory_bytes,
+            "q2_code_bytes": encoded.packed.nbytes,
+            "q2_scale_bytes": encoded.scales.nbytes,
+        },
+        "projection": {
+            "complete_routed_tensor_count": len(plan["routed_tensors"]),
+            "complete_routed_parameters": total_parameters,
+            "complete_wall_seconds": complete_wall_seconds,
+            "complete_q2_code_bytes": q2_code_bytes,
+            "complete_q2_scale_bytes": q2_scale_bytes,
+            "complete_native_bytes": int(plan["accounting"]["native_source_bytes"]),
+            "complete_payload_bytes": complete_payload_bytes,
+        },
+        "mechanisms": {"fallback": 0},
+    }
+    _atomic_json(destination, receipt)
+    return receipt
+
+
+def _member_name(tensor_name: str, suffix: str) -> str:
+    return f"{hashlib.sha256(tensor_name.encode()).hexdigest()}.{suffix}"
+
+
+def _copy_tensor_data_bytes(
+    *, source: Path, metadata: Mapping[str, Any], destination: Path
+) -> str:
+    offsets = metadata["data_offsets"]
+    with source.open("rb") as stream:
+        header_length = struct.unpack("<Q", stream.read(8))[0]
+        stream.seek(8 + header_length + int(offsets[0]))
+        payload = stream.read(int(offsets[1]) - int(offsets[0]))
+    if len(payload) != int(offsets[1]) - int(offsets[0]):
+        raise ValueError(f"safetensors tensor data is truncated: {source}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("xb") as stream:
+        stream.write(payload)
+        stream.flush()
+        os.fsync(stream.fileno())
+    return hashlib.sha256(payload).hexdigest()
+
+
+def build_hf_moe_uniform(
+    model: str | Path,
+    *,
+    revision: str,
+    tier: str,
+    scope: str,
+    native_rest: bool,
+    output: str | Path,
+) -> dict[str, Any]:
+    """Materialize a routed-Q2/native-rest HF MoE artifact and seal its receipt."""
+
+    from safetensors import safe_open
+
+    from .qtip1 import QTIP2_GEOMETRY, encode_qtip, gaussian_tlut
+
+    destination = Path(output).expanduser().resolve()
+    if destination.exists():
+        raise FileExistsError(f"HF MoE artifact output already exists: {destination}")
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{destination.name}.", dir=destination.parent))
+    try:
+        plan = plan_hf_moe_uniform(
+            model,
+            revision=revision,
+            tier=tier,
+            scope=scope,
+            native_rest=native_rest,
+            receipt_path=staging / "UNIFORM_PLAN.json",
+        )
+        root = Path(plan["source"]["model_root"])
+        headers = {
+            shard: _safetensors_header(root / shard) for shard in plan["source"]["shards"]
+        }
+        selected_routed = plan["routed_tensors"]
+        tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
+        routed_rows: list[dict[str, Any]] = []
+        native_rows: list[dict[str, Any]] = []
+        for row in selected_routed:
+            shard = root / row["shard"]
+            with safe_open(shard, framework="numpy") as handle:
+                matrix = handle.get_tensor(row["name"])
+            if matrix.ndim != 2:
+                raise ValueError(f"Q2 routed tensor must be a matrix: {row['name']}")
+            encoded = encode_qtip(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
+            trellis = staging / "routed" / _member_name(row["name"], "trellis.npy")
+            scales = staging / "routed" / _member_name(row["name"], "scales.npy")
+            trellis.parent.mkdir(parents=True, exist_ok=True)
+            import numpy as np
+
+            np.save(trellis, encoded.packed, allow_pickle=False)
+            np.save(scales, encoded.scales, allow_pickle=False)
+            routed_rows.append(
+                {
+                    **row,
+                    "wire": {
+                        "geometry": QTIP2_GEOMETRY.as_mapping(),
+                        "code_bpw": encoded.code_bpw,
+                        "trellis": {
+                            "path": trellis.relative_to(staging).as_posix(),
+                            "bytes": trellis.stat().st_size,
+                            "sha256": _sha256(trellis),
+                        },
+                        "scales": {
+                            "path": scales.relative_to(staging).as_posix(),
+                            "bytes": scales.stat().st_size,
+                            "sha256": _sha256(scales),
+                        },
+                    },
+                }
+            )
+        for row in plan["native_tensors"]:
+            member = staging / "native" / _member_name(row["name"], "native.bin")
+            digest = _copy_tensor_data_bytes(
+                source=root / row["shard"],
+                metadata=headers[row["shard"]][row["name"]],
+                destination=member,
+            )
+            native_rows.append(
+                {
+                    **row,
+                    "representation": "exact-source-data-bytes",
+                    "path": member.relative_to(staging).as_posix(),
+                    "source_sha256": digest,
+                    "artifact_sha256": _sha256(member),
+                }
+            )
+        receipt = {
+            "schema": HF_UNIFORM_ARTIFACT_SCHEMA,
+            "status": "STAGED",
+            "reload_verified": False,
+            "api": {"method": "build_hf_moe_uniform", "version": 1},
+            "source": plan["source"],
+            "intent": plan["intent"],
+            "adapter": plan["adapter"],
+            "geometry": plan["geometry"],
+            "routed_tensors": routed_rows,
+            "native_tensors": native_rows,
+            "accounting": {
+                "routed_tensor_count": len(routed_rows),
+                "planned_routed_tensor_count": plan["accounting"]["routed_tensor_count"],
+                "native_tensor_count": len(native_rows),
+                "planned_native_tensor_count": plan["accounting"]["native_tensor_count"],
+                "routed_parameters": sum(row["parameters"] for row in routed_rows),
+                "native_parameters": sum(row["parameters"] for row in native_rows),
+                "routed_source_bytes": sum(row["source_bytes"] for row in routed_rows),
+                "native_source_bytes": sum(row["source_bytes"] for row in native_rows),
+            },
+            "coverage": plan["coverage"],
+            "mechanisms": {
+                "fallback": 0,
+                "reconstruction": 0,
+                "relay": 0,
+                "streaming": 0,
+            },
+        }
+        _atomic_json(staging / "ARTIFACT.json", receipt)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(staging, destination)
+        _verify_hf_moe_members(destination, receipt)
+        receipt["status"] = "PASS"
+        receipt["reload_verified"] = True
+        _atomic_json(destination / "ARTIFACT.json", receipt)
+        return open_hf_moe_uniform(destination)
+    finally:
+        import shutil
+
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def _verify_hf_moe_members(root: Path, receipt: Mapping[str, Any]) -> None:
+    accounting = receipt.get("accounting")
+    if not isinstance(accounting, Mapping):
+        raise ValueError("HF MoE artifact lacks accounting")
+    if (
+        len(receipt["routed_tensors"]) != accounting.get("planned_routed_tensor_count")
+        or len(receipt["native_tensors"]) != accounting.get("planned_native_tensor_count")
+        or accounting.get("routed_tensor_count") != accounting.get("planned_routed_tensor_count")
+        or accounting.get("native_tensor_count") != accounting.get("planned_native_tensor_count")
+        or receipt.get("coverage") != {"duplicates": [], "gaps": []}
+    ):
+        raise ValueError("HF MoE artifact does not cover its complete planned inventory")
+    for row in receipt["routed_tensors"]:
+        for key in ("trellis", "scales"):
+            member = root / row["wire"][key]["path"]
+            if _sha256(member) != row["wire"][key]["sha256"]:
+                raise ValueError(f"HF MoE routed member hash mismatch: {member}")
+    for row in receipt["native_tensors"]:
+        member = root / row["path"]
+        if _sha256(member) != row["artifact_sha256"] or row["artifact_sha256"] != row["source_sha256"]:
+            raise ValueError(f"HF MoE native member hash mismatch: {member}")
+
+
+def open_hf_moe_uniform(output: str | Path) -> dict[str, Any]:
+    """Reload and hash-verify a serialized routed-Q2/native-rest artifact."""
+
+    root = Path(output).expanduser().resolve()
+    receipt = json.loads((root / "ARTIFACT.json").read_text(encoding="utf-8"))
+    if (
+        receipt.get("schema") != HF_UNIFORM_ARTIFACT_SCHEMA
+        or receipt.get("status") != "PASS"
+        or receipt.get("reload_verified") is not True
+    ):
+        raise ValueError("HF MoE artifact receipt is not an admitted reloaded PASS")
+    _verify_hf_moe_members(root, receipt)
+    return receipt

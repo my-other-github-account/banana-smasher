@@ -112,6 +112,7 @@ def test_generic_hf_moe_plan_serializes_routed_and_native_inventories(
             "dtype": "F16",
             "name": "layers.0.experts.0.down_proj.weight",
             "parameters": 8,
+            "shape": [2, 4],
             "shard": shard.name,
             "source_bytes": 16,
         }
@@ -144,5 +145,169 @@ def test_public_docs_show_the_general_hf_moe_plan_call() -> None:
 
     assert "Python 3.11 or newer" in readme
     assert "plan_hf_moe_uniform(" in worked
+    assert "preflight_hf_moe_output_fit(" in worked
+    assert "estimate_hf_moe_uniform(" in worked
+    assert "ResidentRepairAPI.build_uniform(" in worked
+    assert "open_hf_moe_uniform(" in worked
     assert 'scope="routed_only"' in worked
     assert "native_rest=True" in worked
+
+
+def test_public_hf_moe_build_materializes_one_q2_tensor_and_reopens_native_bytes(
+    tmp_path: Path,
+) -> None:
+    from banana_smasher import ResidentRepairAPI, open_hf_moe_uniform
+
+    model = tmp_path / "numeric-experts-model"
+    model.mkdir()
+    (model / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "fixture_numeric_moe",
+                "n_routed_experts": 1,
+                "num_hidden_layers": 1,
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    shard = model / "model-00001-of-00001.safetensors"
+    tensors = {
+        "layers.0.experts.0.down_proj.weight": np.arange(16, dtype=np.float16).reshape(2, 8),
+        "layers.0.router.weight": np.arange(8, dtype=np.float16).reshape(2, 4),
+    }
+    save_file(tensors, shard)
+    (model / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_size": sum(value.nbytes for value in tensors.values())},
+                "weight_map": {name: shard.name for name in tensors},
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    output = tmp_path / "artifact"
+
+    built = ResidentRepairAPI.build_uniform(
+        model,
+        revision="3f1971b7b5f7a528c9c4ef6212c8785298a8c24a",
+        tier="q2",
+        scope="routed_only",
+        native_rest=True,
+        output=output,
+    )
+    reopened = open_hf_moe_uniform(output)
+
+    assert reopened == built
+    assert built["status"] == "PASS"
+    assert built["accounting"]["routed_tensor_count"] == 1
+    assert built["accounting"]["planned_routed_tensor_count"] == 1
+    assert built["accounting"]["native_tensor_count"] == 1
+    assert built["accounting"]["planned_native_tensor_count"] == 1
+    assert built["reload_verified"] is True
+    assert built["accounting"]["routed_parameters"] == 16
+    assert built["accounting"]["native_parameters"] == 8
+    assert built["routed_tensors"][0]["wire"]["geometry"]["K"] == 2
+    assert built["routed_tensors"][0]["wire"]["code_bpw"] == 2.0
+    assert built["native_tensors"][0]["representation"] == "exact-source-data-bytes"
+    assert built["native_tensors"][0]["source_sha256"] == built["native_tensors"][0]["artifact_sha256"]
+    assert built["coverage"] == {"duplicates": [], "gaps": []}
+    assert built["mechanisms"] == {
+        "fallback": 0,
+        "reconstruction": 0,
+        "relay": 0,
+        "streaming": 0,
+    }
+
+
+def test_public_output_fit_preflight_uses_measured_plan_bytes_and_positive_reserve(
+    tmp_path: Path,
+) -> None:
+    from banana_smasher import preflight_hf_moe_output_fit
+
+    plan = {
+        "status": "PASS",
+        "intent": {"tier": "q2", "scope": "routed_only", "native_rest": True},
+        "routed_tensors": [
+            {"name": "layers.0.experts.0.down_proj.weight", "shape": [2, 8]}
+        ],
+        "accounting": {
+            "native_source_bytes": 16,
+            "routed_parameters": 16,
+        },
+    }
+    receipt_path = tmp_path / "OUTPUT_FIT.json"
+
+    receipt = preflight_hf_moe_output_fit(
+        plan,
+        free_bytes=10_000,
+        reserve_bytes=128,
+        receipt_path=receipt_path,
+    )
+
+    assert receipt["status"] == "PASS"
+    assert receipt["free_bytes"] == 10_000
+    assert receipt["native_payload_bytes"] == 16
+    assert receipt["q2_code_bytes"] == 4
+    assert receipt["q2_scale_bytes"] == 8
+    assert receipt["reserve_bytes"] == 128
+    assert receipt["required_bytes"] > 156
+    assert json.loads(receipt_path.read_text()) == receipt
+
+
+def test_public_bounded_canary_is_diagnostic_and_projects_complete_build(
+    tmp_path: Path,
+) -> None:
+    from banana_smasher import estimate_hf_moe_uniform
+
+    model = tmp_path / "numeric-experts-model"
+    model.mkdir()
+    (model / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "fixture_numeric_moe",
+                "n_routed_experts": 1,
+                "num_hidden_layers": 1,
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    shard = model / "model-00001-of-00001.safetensors"
+    tensors = {
+        "layers.0.experts.0.down_proj.weight": np.arange(16, dtype=np.float16).reshape(2, 8),
+        "layers.0.router.weight": np.arange(8, dtype=np.float16).reshape(2, 4),
+    }
+    save_file(tensors, shard)
+    (model / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_size": sum(value.nbytes for value in tensors.values())},
+                "weight_map": {name: shard.name for name in tensors},
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    receipt_path = tmp_path / "BUILD_ESTIMATE.json"
+
+    estimate = estimate_hf_moe_uniform(
+        model,
+        revision="3f1971b7b5f7a528c9c4ef6212c8785298a8c24a",
+        tier="q2",
+        scope="routed_only",
+        native_rest=True,
+        receipt_path=receipt_path,
+    )
+
+    assert estimate["status"] == "PASS_DIAGNOSTIC"
+    assert estimate["artifact_admissible"] is False
+    assert estimate["artifact_created"] is False
+    assert estimate["canary"]["routed_tensor_count"] == 1
+    assert estimate["canary"]["wall_seconds"] > 0
+    assert estimate["canary"]["peak_memory_bytes"] > 0
+    assert estimate["projection"]["complete_routed_tensor_count"] == 1
+    assert estimate["projection"]["complete_wall_seconds"] > 0
+    assert estimate["projection"]["complete_payload_bytes"] > 0
+    assert json.loads(receipt_path.read_text()) == estimate

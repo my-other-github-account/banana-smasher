@@ -20,9 +20,14 @@ from .resident_repair_api import (
 )
 from .hf_moe import (
     HF_SOURCE_ADMISSION_SCHEMA,
+    HF_UNIFORM_ARTIFACT_SCHEMA,
     HF_UNIFORM_PLAN_SCHEMA,
     admit_hf_source,
+    build_hf_moe_uniform,
+    estimate_hf_moe_uniform,
+    open_hf_moe_uniform,
     plan_hf_moe_uniform,
+    preflight_hf_moe_output_fit,
 )
 from .production_rails import ProductionRails, ProductionRailsError
 from .anchor import (
@@ -238,9 +243,14 @@ __all__ = [
     "UniformBuild",
     "V7_UNIFORM_TIERS",
     "HF_SOURCE_ADMISSION_SCHEMA",
+    "HF_UNIFORM_ARTIFACT_SCHEMA",
     "HF_UNIFORM_PLAN_SCHEMA",
     "admit_hf_source",
+    "build_hf_moe_uniform",
+    "estimate_hf_moe_uniform",
+    "open_hf_moe_uniform",
     "plan_hf_moe_uniform",
+    "preflight_hf_moe_output_fit",
     "UpdateQueue",
     "aggregate_scores",
     "aggregate_balanced64",

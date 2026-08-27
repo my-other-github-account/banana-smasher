@@ -9,7 +9,13 @@ The adapter is selected from config capabilities and tensor-name structure; the
 caller does not provide model-family code or a routed layer roster.
 
 ```python
-from banana_smasher import plan_hf_moe_uniform
+from banana_smasher import (
+    ResidentRepairAPI,
+    estimate_hf_moe_uniform,
+    open_hf_moe_uniform,
+    plan_hf_moe_uniform,
+    preflight_hf_moe_output_fit,
+)
 
 plan = plan_hf_moe_uniform(
     "/local/hf-model",
@@ -19,13 +25,51 @@ plan = plan_hf_moe_uniform(
     native_rest=True,
     receipt_path="./uniform-plan/UNIFORM_PLAN.json",
 )
+
+fit = preflight_hf_moe_output_fit(
+    plan,
+    output_root="/local/output-filesystem",
+    receipt_path="./uniform-plan/OUTPUT_FIT.json",
+)
+if fit["status"] != "PASS":
+    raise RuntimeError("routed-Q2/native-rest output does not fit with reserve")
+
+estimate = estimate_hf_moe_uniform(
+    "/local/hf-model",
+    revision="<immutable-hf-revision>",
+    tier="q2",
+    scope="routed_only",
+    native_rest=True,
+    receipt_path="./uniform-plan/BUILD_ESTIMATE.json",
+)
+if estimate["projection"]["complete_wall_seconds"] > 6 * 60 * 60:
+    raise RuntimeError("complete build projection requires encoder optimization")
+
+built = ResidentRepairAPI.build_uniform(
+    "/local/hf-model",
+    revision="<immutable-hf-revision>",
+    tier="q2",
+    scope="routed_only",
+    native_rest=True,
+    output="/local/output-filesystem/uniform-q2",
+)
+reopened = open_hf_moe_uniform("/local/output-filesystem/uniform-q2")
+assert reopened == built
 ```
 
 The receipt has `source.model_index_sha256`, `adapter.id`, sorted
 `routed_tensors` and `native_tensors`, exact source bytes and parameters for
 both classes, `coverage.gaps=[]`, `coverage.duplicates=[]`, and
 `mechanisms.fallback=0`. Planning does not mutate or quantize the source tree.
-Only a PASS plan may be supplied to the serialized build/admission phase.
+Only a PASS plan and PASS output-fit receipt may precede the serialized build.
+The bounded estimate encodes exactly one representative routed tensor and is
+diagnostic only (`artifact_admissible=false`); it reports measured wall/peak
+memory and projected complete wall/bytes and never creates an artifact.
+`ResidentRepairAPI.build_uniform` dispatches the generic HF builder, Q2-encodes
+every adapter-selected routed matrix, copies
+each non-routed tensor's exact safetensors data bytes, and atomically seals
+`ARTIFACT.json`. `open_hf_moe_uniform` reloads that receipt and re-hashes every
+routed wire member and native byte member; opening is mandatory before scoring.
 
 This is the public end-to-end resident path. It uses the published PRE checkpoint
 identity and the package-owned U45 recipe; callers do not select teacher paths,
