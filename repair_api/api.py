@@ -303,6 +303,57 @@ def _validate_published_pre_resume_start(
         raise ArtifactError("published PRE scored resume identity drift")
 
 
+def _validate_published_pre_crash_resume_start(
+    start: str,
+    start_update: int,
+    start_meta: Mapping[str, Any],
+    *,
+    requested: tuple[int, ...],
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Admit the authenticated paired U10 crash checkpoint without replay."""
+    u10_sha256 = "055f015f88c44f9092423a7e45525e3699d217d1d0b8b36eb269947915f17658"
+    u10_state_sha256 = "7e19879e4b526793c4837a81f4fc3658a00980a2ebf4252b9a23c0d7da9021a6"
+    schedule_sha256 = "e186b108124b7c0c2e070016612ebb1de7dc208ef5806acf0f8f5bc4b7377351"
+    lineage = "fresh-published-pre-adam-lambdalr"
+    if requested != (11, 12):
+        raise ArtifactError("published PRE U10 crash resume may execute U11,U12 only")
+    schedule_matches = (
+        start == "SCHEDULE_E186B108124B_UPDATE_010"
+        and start_update == 10
+        and start_meta.get("next_update") == 10
+        and config.get("controlled_window_schedule_sha256") == schedule_sha256
+    )
+    if not schedule_matches:
+        raise ArtifactError("published PRE U10 crash resume schedule identity drift")
+    paired_state_matches = (
+        start_meta.get("sha256") == u10_sha256
+        and config.get("checkpoint_sha256") == u10_sha256
+        and start_meta.get("state_sha256") == u10_state_sha256
+        and start_meta.get("rank_provenance") == [0, 1]
+        and start_meta.get("world_size") == 2
+        and start_meta.get("optimizer_steps") == 1
+        and start_meta.get("scheduler_steps") == 1
+        and start_meta.get("optimizer_scheduler_lineage") == lineage
+        and config.get("shared_optimizer_scheduler_lineage") == lineage
+    )
+    if not paired_state_matches:
+        raise ArtifactError("published PRE crash resume requires authenticated paired U10 state")
+    if (
+        config.get("recipe_id") != "published_pre_lower_lr_warmup16_cosine64_v1"
+        or config.get("published_pre_checkpoint_sha256")
+            != "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+        or config.get("fresh_published_pre_lineage") is not True
+    ):
+        raise ArtifactError("published PRE U10 crash resume recipe identity drift")
+    return {
+        "checkpoint_sha256": u10_sha256,
+        "next_incomplete_update": 11,
+        "rank_provenance": [0, 1],
+        "state_sha256": u10_state_sha256,
+    }
+
+
 def _validate_controlled_arm_start(
     arm_id: str,
     start_update: int,
@@ -2805,6 +2856,7 @@ class ResidentRepairAPI:
         start = self.artifact.checkpoint_key(start_checkpoint)
         start_update = self._checkpoint_update(start)
         start_meta = self.artifact.manifest["checkpoints"][start]
+        requested = tuple(int(value) for value in milestones)
         validation_proof = config.get("resident_validation_proof") is True
         published_pre_sha = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
         published_pre_recipe = "published_pre_lower_lr_warmup16_cosine64_v1"
@@ -2868,6 +2920,11 @@ class ResidentRepairAPI:
             and config.get("published_pre_checkpoint_sha256") == published_pre_sha
             and controlled_arm_id is None
         )
+        published_pre_crash_resume = (
+            start_update == 10
+            and str(start) == "SCHEDULE_E186B108124B_UPDATE_010"
+            and published_pre_resume
+        )
         if validation_proof:
             if config.get("validation_windows") != [28]:
                 raise ArtifactError("resident validation proof requires validation_windows=[28]")
@@ -2885,6 +2942,10 @@ class ResidentRepairAPI:
                 raise ArtifactError("published PRE validation proof requires fresh optimizer and scheduler state")
         elif published_pre_schedule_resume:
             pass
+        elif published_pre_crash_resume:
+            _validate_published_pre_crash_resume_start(
+                str(start), start_update, start_meta, requested=requested, config=config
+            )
         elif controlled_arm_id is None:
             if fresh_published_pre_start:
                 if any(start_meta.get(name) is not None for name in (
@@ -2905,7 +2966,6 @@ class ResidentRepairAPI:
                 str(controlled_arm_id), start_update, start_meta,
                 controlled_config_sha256=controlled_config_sha256,
             )
-        requested = tuple(int(value) for value in milestones)
         valid_one_update_proof = validation_proof and requested == (start_update + 1,)
         valid_fresh_pre_u1_u4 = fresh_published_pre_start and requested == (1, 2, 3, 4)
         valid_authenticated_u22_u26 = (
@@ -3244,6 +3304,7 @@ class ResidentRepairAPI:
             or valid_authenticated_u38_u39_bounded_partial
             or valid_authenticated_u40_u41_w56_repair
             or valid_authenticated_u41_u45_continuation
+            or published_pre_crash_resume
             or valid_milestones
         ):
             raise ArtifactError(
