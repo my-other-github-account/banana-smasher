@@ -817,8 +817,11 @@ def test_sealed_trainer_materializes_nonexpert_before_resident_payload():
     materialize = loop.index("base.v3.materialize_layer")
     resident = loop.index("resident = FullyResidentGroupedV7Experts")
     assign = loop.index("mlp.experts = resident")
+    capture_limit = loop.index("swiglu_limit = float(m.model.layers[layer].mlp.experts.limit)")
 
-    assert "mlp.experts = nn.Identity()" in loop[:nonexpert]
+    identity = loop.index("mlp.experts = nn.Identity()")
+    assert capture_limit < identity < nonexpert
+    assert "swiglu_limit=swiglu_limit" in loop[resident:assign]
     assert nonexpert < materialize < resident < assign
     assert continuation_module.TRAINER_SHA256 == hashlib.sha256(
         trainer_path.read_bytes()

@@ -534,13 +534,19 @@ class ShardStudent:
             # payload.  The old order overlapped that payload with FP8
             # dequantization temporaries and could starve the NVIDIA UMA driver
             # before the post-layer cache-release callback was reachable.
+            # Capture the native expert clamp before replacing the meta module;
+            # the authenticated resident implementation requires the exact seam.
+            swiglu_limit = float(m.model.layers[layer].mlp.experts.limit)
             m.model.layers[layer].mlp.experts = nn.Identity()
             sd = base.T.build_nonexpert_sd(layer, self.wm, get_tensor)
             base.v3.materialize_layer(m, layer, sd, self.config)
             del sd
             torch.cuda.empty_cache()
             resident = FullyResidentGroupedV7Experts(
-                layer=layer, pilot=True, plane_source=source
+                layer=layer,
+                pilot=True,
+                plane_source=source,
+                swiglu_limit=swiglu_limit,
             )
             m.model.layers[layer].mlp.experts = resident
             self.sources[layer] = source
