@@ -91,6 +91,7 @@ from .backpack_contextual_measure import record_contextual_swap_measurement
 from .backpack_contextual_prepare import prepare_contextual_iteration
 from .backpack_exact64 import EXACT64_TERMINAL_SCHEMA, bind_backpack_exact64
 from .backpack_dimensions import (
+    bind_mixed_v7_physical_dimensions as bind_mixed_v7_physical_dimensions,
     preflight_mixed_backpack_config as preflight_mixed_backpack_config,
     solve_mixed_backpack_config as solve_mixed_backpack_config,
 )
@@ -250,6 +251,7 @@ __all__ = [
     "bq23_backpack_family_providers",
     "bind_native_mxfp4_backpack_candidate",
     "bind_backpack_exact64",
+    "bind_mixed_v7_physical_dimensions",
     "build_bank",
     "build_bank_manifest",
     "build_bpw_accounting",

@@ -375,6 +375,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     backpack_mixed.add_argument("--config", type=Path, required=True)
     backpack_mixed.add_argument("--output", type=Path, required=True)
+    backpack_bind_physical = backpack_commands.add_parser(
+        "bind-mixed-v7-physical",
+        help="bind runtime-measured V7 payload/control/shared bytes to sensitivity rows",
+    )
+    backpack_bind_physical.add_argument("--sensitivity-ledger", type=Path, required=True)
+    backpack_bind_physical.add_argument("--member-contract", type=Path, required=True)
+    backpack_bind_physical.add_argument("--qtip3-terminals", type=Path, required=True)
+    backpack_bind_physical.add_argument("--basis-sha256", required=True)
+    backpack_bind_physical.add_argument("--output", type=Path, required=True)
+    backpack_bind_physical.add_argument("--receipt", type=Path, required=True)
     backpack_mixed_preflight = backpack_commands.add_parser(
         "preflight-mixed",
         help="admit available mixed inventory shards and report pending locators",
@@ -1548,6 +1558,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = {
                     **solve_mixed_backpack_config(args.config, output=args.output),
                     "command": "backpack solve-mixed",
+                }
+            elif args.backpack_command == "bind-mixed-v7-physical":
+                from .backpack_dimensions import bind_mixed_v7_physical_dimensions
+
+                result = {
+                    **bind_mixed_v7_physical_dimensions(
+                        sensitivity_ledger=args.sensitivity_ledger,
+                        member_contract=args.member_contract,
+                        qtip3_terminals=args.qtip3_terminals,
+                        basis_sha256=args.basis_sha256,
+                        output=args.output,
+                        receipt=args.receipt,
+                    ),
+                    "command": "backpack bind-mixed-v7-physical",
                 }
             elif args.backpack_command == "preflight-mixed":
                 from .backpack_dimensions import preflight_mixed_backpack_config

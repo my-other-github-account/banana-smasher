@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from banana_smasher.backpack_dimensions import (
+    bind_mixed_v7_physical_dimensions,
     DynamicDimensionsError,
     preflight_mixed_backpack_config,
     solve_mixed_backpack_config,
@@ -639,3 +640,85 @@ def test_solve_emits_hash_bound_selected_physical_members(tmp_path: Path) -> Non
         match=r"missing physical member binding .*down.*qtip3",
     ):
         solve_mixed_backpack_config(config, output=tmp_path / "incomplete-solve")
+
+
+def test_bind_mixed_v7_physical_dimensions_charges_controls_and_shared_luts_once(
+    tmp_path: Path,
+) -> None:
+    descriptor = {"path": "wire", "sha256": "b" * 64, "bytes": 7}
+    q2_lut = {"path": "q2-lut", "sha256": "c" * 64, "bytes": 2}
+    q3_lut = {"path": "q3-lut", "sha256": "d" * 64, "bytes": 3}
+    contract = tmp_path / "contract.json"
+    _write_json(
+        contract,
+        {
+            "schema": "banana-smasher-mixed-v7-member-contract-v1",
+            "status": "PASS_ADMISSION_READY",
+            "basis_sha256": BASIS,
+            "members": [
+                {"cell_id": "L001.E000.w1", "tier": "qtip2", "payload": descriptor, "unit_metadata": {"tlut": q2_lut}},
+            ],
+        },
+    )
+    terminals = tmp_path / "terminals/L000"
+    terminal_members = []
+    for expert in range(256):
+        for projection, payload_bytes, control_bytes in (
+            ("down", 11, 5),
+            ("fused13", 13, 6),
+        ):
+            terminal_members.append(
+                {
+                    "cell": f"E{expert:03d}_{projection}",
+                    "codes": {"path": f"{expert}-{projection}-codes", "sha256": "e" * 64, "bytes": payload_bytes},
+                    "control": {"path": f"{expert}-{projection}-control", "sha256": "f" * 64, "bytes": control_bytes},
+                }
+            )
+    _write_json(
+        terminals / "LAYER_PRODUCT_TERMINAL.json",
+        {
+            "schema": "banana-smasher-qtip3-full43-layer-product-v2",
+            "status": "PASS",
+            "basis_sha256": BASIS,
+            "layer": 0,
+            "cells": 512,
+            "complete_members": 512,
+            "gaps": 0,
+            "duplicates": 0,
+            "method": {"lut": q3_lut},
+            "members": terminal_members,
+        },
+    )
+    ledger = tmp_path / "sensitivity.jsonl"
+    source_rows = []
+    for tier, wire_bytes in (("Q2", 23), ("QTIP3_V7", 24)):
+        source_rows.append(
+            {
+                "schema": "banana-smasher-sensitivity-row-v1",
+                "basis_sha256": BASIS,
+                "layer": 0,
+                "expert": 0,
+                "tier": tier,
+                "bytes": wire_bytes,
+                "predicted_delta_contribution": 0.1,
+                "routing_mass": 0.0,
+            }
+        )
+    ledger.write_text("".join(json.dumps(row) + "\n" for row in source_rows))
+
+    result = bind_mixed_v7_physical_dimensions(
+        sensitivity_ledger=ledger,
+        member_contract=contract,
+        qtip3_terminals=tmp_path / "terminals",
+        basis_sha256=BASIS,
+        output=tmp_path / "bound.jsonl",
+        receipt=tmp_path / "receipt.json",
+    )
+
+    bound = [json.loads(line) for line in (tmp_path / "bound.jsonl").read_text().splitlines()]
+    assert bound[0]["bytes"] == 23
+    assert bound[0]["activation_artifacts"][0]["bytes"] == 2
+    assert bound[1]["physical_bytes"] == 35
+    assert bound[1]["activation_artifacts"][0]["bytes"] == 3
+    assert result["qtip2_rows"] == 1
+    assert result["qtip3_rows"] == 1
