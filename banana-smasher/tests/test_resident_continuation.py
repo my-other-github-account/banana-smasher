@@ -753,6 +753,42 @@ def test_layer_stack_uses_a1_equivalent_fresh_cache_per_layer(monkeypatch):
     assert seen[0] is not seen[1]
 
 
+def test_warm_training_can_disable_layer_checkpoint_recompute(monkeypatch):
+    class Cache:
+        def __init__(self, *, config):
+            self.config = config
+
+    transformers = ModuleType("transformers")
+    cache_utils = ModuleType("transformers.cache_utils")
+    cache_utils.DynamicCache = Cache
+    transformers.cache_utils = cache_utils
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+    monkeypatch.setitem(sys.modules, "transformers.cache_utils", cache_utils)
+    calls = []
+
+    class Layer:
+        def __call__(self, hidden, **_kwargs):
+            calls.append(hidden)
+            return hidden
+
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.config = {"activation_checkpointing": False}
+    engine.student = SimpleNamespace(
+        config="config",
+        model=SimpleNamespace(model=SimpleNamespace(layers=[Layer(), Layer()])),
+    )
+    engine.first = 0
+    engine.last = 1
+    engine._positional = lambda ids, template, cache: ("pos", "pe", "mask")
+    engine.checkpoint = lambda *_args, **_kwargs: pytest.fail(
+        "warm training must not replay layer forwards"
+    )
+    hidden = SimpleNamespace(ndim=3)
+
+    assert engine._run_layers(hidden, "ids", True) is hidden
+    assert calls == [hidden, hidden]
+
+
 def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():
     engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
     engine.score_only = True

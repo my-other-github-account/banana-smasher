@@ -1178,6 +1178,9 @@ class ModernGreenResidentEngine:
         template = hidden[:, :, 0, :] if hidden.ndim == 4 else hidden
         mask_cache = DynamicCache(config=self.student.config)
         pos, pe, mask = self._positional(ids, template, mask_cache)
+        activation_checkpointing = train and bool(
+            self.config.get("activation_checkpointing", True)
+        )
         for index in range(self.first, self.last + 1):
             layer = self.student.model.model.layers[index]
             def layer_fn(current: Any, layer: Any = layer) -> Any:
@@ -1193,7 +1196,7 @@ class ModernGreenResidentEngine:
                     # public-path parity gate.
                     past_key_values=DynamicCache(config=self.student.config),
                 )
-            if train:
+            if activation_checkpointing:
                 hidden = self.checkpoint(layer_fn, hidden, use_reentrant=False)
             else:
                 hidden = layer_fn(hidden)
