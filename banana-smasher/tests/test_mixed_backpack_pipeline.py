@@ -10,7 +10,9 @@ from banana_smasher.backpack_dimensions import (
     preflight_mixed_backpack_config,
     solve_mixed_backpack_config,
 )
-from banana_smasher import solve_mixed_backpack_config as public_solve_mixed_backpack_config
+from banana_smasher import (
+    solve_mixed_backpack_config as public_solve_mixed_backpack_config,
+)
 from banana_smasher import (
     preflight_mixed_backpack_config as public_preflight_mixed_backpack_config,
 )
@@ -213,7 +215,8 @@ def test_mixed_config_has_a_public_json_schema(tmp_path: Path) -> None:
 
 
 def test_preflight_accepts_partial_dimensions_and_reports_pending_locator(
-    tmp_path: Path, capsys,
+    tmp_path: Path,
+    capsys,
 ) -> None:
     dimensions = tmp_path / "partial.jsonl"
     _dimension_rows(dimensions)
@@ -343,6 +346,80 @@ def test_solve_auto_consumes_a_sealed_dimension_locator(tmp_path: Path) -> None:
         "L001.E000": "qtip2",
         "L002.E000": "qtip2",
     }
+
+
+def test_preflight_consumes_sealed_physical_locator_without_inventing_dimensions(
+    tmp_path: Path,
+) -> None:
+    partial = tmp_path / "partial.jsonl"
+    _dimension_rows(partial)
+    manifest = tmp_path / "physical-terminal.json"
+    _write_json(
+        manifest,
+        {
+            "schema": "banana-smasher-qtip2-v7-regeneration-terminal-v1",
+            "status": "PASS",
+            "basis_sha256": BASIS,
+            "members_expected": 1,
+            "members_complete": 1,
+            "gaps": 0,
+            "duplicates": 0,
+            "members": [{"member": "L000/E000/w1", "bytes": 1}],
+        },
+    )
+    locator = tmp_path / "physical-locator.json"
+    _write_json(
+        locator,
+        {
+            "schema": "banana-smasher-mixed-backpack-physical-locator-v1",
+            "status": "SEALED",
+            "basis_sha256": BASIS,
+            "physical_manifest": {
+                "path": manifest.name,
+                "sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+            },
+        },
+    )
+    config = tmp_path / "mixed.json"
+    _write_json(
+        config,
+        {
+            "schema": "banana-smasher-mixed-backpack-config-v1",
+            "basis_sha256": BASIS,
+            "target": {
+                "whole_model_bytes": 13,
+                "fixed_nonexpert_bytes": 10,
+                "exact": True,
+            },
+            "allowed_tiers": ["qtip2", "qtip3"],
+            "fallback_tier": "qtip2",
+            "topology": {
+                "layers": [0, 1, 2],
+                "experts_per_layer": 1,
+                "projections": ["down"],
+            },
+            "dimensions": {
+                "sources": [
+                    {
+                        "path": partial.name,
+                        "sha256": hashlib.sha256(partial.read_bytes()).hexdigest(),
+                    },
+                    {"locator_path": locator.name},
+                    {"locator_path": "still-pending.json"},
+                ]
+            },
+            "class_caps": {name: 10.0 for name in CLASSES},
+        },
+    )
+
+    receipt = preflight_mixed_backpack_config(config)
+
+    assert receipt["sources"] == {"admitted": 2, "pending": 1}
+    assert receipt["missing_fallback_projection_cells"] == ["L002.E000.down"]
+    physical = receipt["admitted_sources"][1]
+    assert physical["kind"] == "physical_inventory"
+    assert physical["rows"] == 0
+    assert physical["path"] == str(manifest)
 
 
 def test_preflight_and_solve_consume_explicit_expert_sensitivity_rows(

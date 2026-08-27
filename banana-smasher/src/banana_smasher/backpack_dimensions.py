@@ -30,7 +30,11 @@ def _sha(data: bytes) -> str:
 
 
 def _sha_field(value: object, label: str) -> str:
-    if not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(c not in "0123456789abcdef" for c in value)
+    ):
         raise DynamicDimensionsError(f"{label} must be a lowercase SHA-256 digest")
     return value
 
@@ -40,7 +44,9 @@ def _read_json(path: Path, label: str) -> tuple[Any, bytes]:
         raw = path.read_bytes()
         return json.loads(raw), raw
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise DynamicDimensionsError(f"cannot read valid {label} at {path}: {exc}") from exc
+        raise DynamicDimensionsError(
+            f"cannot read valid {label} at {path}: {exc}"
+        ) from exc
 
 
 def _read_jsonl(path: Path, label: str) -> tuple[list[dict[str, Any]], bytes]:
@@ -48,28 +54,47 @@ def _read_jsonl(path: Path, label: str) -> tuple[list[dict[str, Any]], bytes]:
         raw = path.read_bytes()
         rows = [json.loads(line) for line in raw.splitlines() if line.strip()]
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise DynamicDimensionsError(f"cannot read valid {label} at {path}: {exc}") from exc
+        raise DynamicDimensionsError(
+            f"cannot read valid {label} at {path}: {exc}"
+        ) from exc
     if not rows or not all(isinstance(row, dict) for row in rows):
         raise DynamicDimensionsError(f"{label} must contain non-empty JSON-object rows")
     return rows, raw
 
 
-def _finite(value: object, label: str, *, positive: bool = False, nonnegative: bool = False) -> float:
+def _finite(
+    value: object, label: str, *, positive: bool = False, nonnegative: bool = False
+) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise DynamicDimensionsError(f"{label} must be numeric")
     result = float(value)
-    if not math.isfinite(result) or (positive and result <= 0.0) or (nonnegative and result < 0.0):
-        qualifier = "positive finite" if positive else "non-negative finite" if nonnegative else "finite"
+    if (
+        not math.isfinite(result)
+        or (positive and result <= 0.0)
+        or (nonnegative and result < 0.0)
+    ):
+        qualifier = (
+            "positive finite"
+            if positive
+            else "non-negative finite"
+            if nonnegative
+            else "finite"
+        )
         raise DynamicDimensionsError(f"{label} must be {qualifier}")
     return result
 
 
 def _canonical_json(value: object) -> bytes:
-    return (json.dumps(value, indent=2, sort_keys=True, separators=(",", ": ")) + "\n").encode()
+    return (
+        json.dumps(value, indent=2, sort_keys=True, separators=(",", ": ")) + "\n"
+    ).encode()
 
 
 def _canonical_jsonl(rows: list[dict[str, Any]]) -> bytes:
-    return b"".join((json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n").encode() for row in rows)
+    return b"".join(
+        (json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n").encode()
+        for row in rows
+    )
 
 
 def _write_once(path: Path, payload: bytes) -> None:
@@ -77,7 +102,9 @@ def _write_once(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         if path.read_bytes() != payload:
-            raise FileExistsError(f"refusing to replace different sealed output: {path}")
+            raise FileExistsError(
+                f"refusing to replace different sealed output: {path}"
+            )
         return
     fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     temporary = Path(temporary_name)
@@ -90,7 +117,9 @@ def _write_once(path: Path, payload: bytes) -> None:
             os.link(temporary, path)
         except FileExistsError:
             if path.read_bytes() != payload:
-                raise FileExistsError(f"refusing to replace different sealed output: {path}")
+                raise FileExistsError(
+                    f"refusing to replace different sealed output: {path}"
+                )
         directory_fd = os.open(path.parent, os.O_RDONLY)
         try:
             os.fsync(directory_fd)
@@ -145,7 +174,9 @@ def _normalize_mixed_source_rows(
             or not isinstance(expert, int)
             or expert < 0
         ):
-            raise DynamicDimensionsError(f"{row_label} layer/expert geometry is invalid")
+            raise DynamicDimensionsError(
+                f"{row_label} layer/expert geometry is invalid"
+            )
         source_tier = row.get("tier")
         if not isinstance(source_tier, str):
             raise DynamicDimensionsError(f"{row_label} tier is unsupported")
@@ -235,14 +266,27 @@ def build_dynamic_dimensions(
     ledger_rows, ledger_raw = _read_jsonl(ledger_path, "candidate ledger")
     dimension_rows, dimension_raw = _read_jsonl(dimensions_path, "dimension ledger")
     ceilings_value, ceilings_raw = _read_json(ceilings_path, "class ceilings")
-    if not isinstance(ceilings_value, dict) or ceilings_value.get("schema") != "banana-smasher-dynamic-backpack-class-ceilings-v1":
-        raise DynamicDimensionsError("class ceilings must use banana-smasher-dynamic-backpack-class-ceilings-v1")
-    if ceilings_value.get("basis_sha256") != basis or ceilings_value.get("status") not in {"PASS", "SEALED"}:
+    if (
+        not isinstance(ceilings_value, dict)
+        or ceilings_value.get("schema")
+        != "banana-smasher-dynamic-backpack-class-ceilings-v1"
+    ):
+        raise DynamicDimensionsError(
+            "class ceilings must use banana-smasher-dynamic-backpack-class-ceilings-v1"
+        )
+    if ceilings_value.get("basis_sha256") != basis or ceilings_value.get(
+        "status"
+    ) not in {"PASS", "SEALED"}:
         raise DynamicDimensionsError("class ceilings basis/status mismatch")
     raw_ceilings = ceilings_value.get("six_class_ceilings")
     if not isinstance(raw_ceilings, dict) or set(raw_ceilings) != set(CLASSES):
-        raise DynamicDimensionsError("six_class_ceilings must explicitly cover the six canonical classes")
-    ceilings = {name: _finite(raw_ceilings[name], f"ceiling {name}", nonnegative=True) for name in CLASSES}
+        raise DynamicDimensionsError(
+            "six_class_ceilings must explicitly cover the six canonical classes"
+        )
+    ceilings = {
+        name: _finite(raw_ceilings[name], f"ceiling {name}", nonnegative=True)
+        for name in CLASSES
+    }
 
     candidates: dict[str, dict[str, Any]] = {}
     candidate_identities: dict[str, tuple[int, int, str, str]] = {}
@@ -251,48 +295,99 @@ def build_dynamic_dimensions(
         schema = row.get("schema")
         if schema in CANDIDATE_LEDGER_SCHEMAS:
             if row.get("basis_sha256") != basis:
-                raise DynamicDimensionsError(f"candidate ledger row {index} basis mismatch")
+                raise DynamicDimensionsError(
+                    f"candidate ledger row {index} basis mismatch"
+                )
             candidate_id = row.get("candidate_id")
-            if not isinstance(candidate_id, str) or not candidate_id or candidate_id in candidates:
-                raise DynamicDimensionsError(f"candidate ledger row {index} candidate_id must be unique")
+            if (
+                not isinstance(candidate_id, str)
+                or not candidate_id
+                or candidate_id in candidates
+            ):
+                raise DynamicDimensionsError(
+                    f"candidate ledger row {index} candidate_id must be unique"
+                )
             candidates[candidate_id] = row
-            candidate_identities[candidate_id] = _identity(row, f"candidate {candidate_id}")
+            candidate_identities[candidate_id] = _identity(
+                row, f"candidate {candidate_id}"
+            )
             continue
         if schema != DIMENSION_BINDING_SCHEMA:
-            raise DynamicDimensionsError(f"candidate ledger row {index} schema mismatch")
+            raise DynamicDimensionsError(
+                f"candidate ledger row {index} schema mismatch"
+            )
         if row.get("basis_sha256") != basis:
-            raise DynamicDimensionsError(f"dimension binding row {index} basis mismatch")
+            raise DynamicDimensionsError(
+                f"dimension binding row {index} basis mismatch"
+            )
         candidate_id = row.get("candidate_id")
         if not isinstance(candidate_id, str) or candidate_id not in candidates:
-            raise DynamicDimensionsError(f"dimension binding row {index} names unknown candidate {candidate_id!r}")
-        if _identity(row, f"dimension binding {candidate_id}") != candidate_identities[candidate_id]:
-            raise DynamicDimensionsError(f"dimension binding identity mismatch for {candidate_id}")
+            raise DynamicDimensionsError(
+                f"dimension binding row {index} names unknown candidate {candidate_id!r}"
+            )
+        if (
+            _identity(row, f"dimension binding {candidate_id}")
+            != candidate_identities[candidate_id]
+        ):
+            raise DynamicDimensionsError(
+                f"dimension binding identity mismatch for {candidate_id}"
+            )
         physical_bytes = row.get("physical_bytes")
-        if isinstance(physical_bytes, bool) or not isinstance(physical_bytes, int) or physical_bytes < 0:
-            raise DynamicDimensionsError(f"dimension binding physical_bytes must be a non-negative integer for {candidate_id}")
+        if (
+            isinstance(physical_bytes, bool)
+            or not isinstance(physical_bytes, int)
+            or physical_bytes < 0
+        ):
+            raise DynamicDimensionsError(
+                f"dimension binding physical_bytes must be a non-negative integer for {candidate_id}"
+            )
         source_sidecar = row.get("source_physical_sidecar_sha256")
-        _sha_field(source_sidecar, f"dimension binding {candidate_id} source_physical_sidecar_sha256")
+        _sha_field(
+            source_sidecar,
+            f"dimension binding {candidate_id} source_physical_sidecar_sha256",
+        )
         candidate_physical_bytes = candidates[candidate_id].get("physical_bytes")
-        if candidate_physical_bytes is not None and candidate_physical_bytes != physical_bytes:
-            raise DynamicDimensionsError(f"dimension binding physical_bytes conflict for {candidate_id}")
+        if (
+            candidate_physical_bytes is not None
+            and candidate_physical_bytes != physical_bytes
+        ):
+            raise DynamicDimensionsError(
+                f"dimension binding physical_bytes conflict for {candidate_id}"
+            )
         prior_physical_bytes = physical_bindings.get(candidate_id)
         if prior_physical_bytes is not None and prior_physical_bytes != physical_bytes:
-            raise DynamicDimensionsError(f"conflicting dimension bindings for {candidate_id}")
+            raise DynamicDimensionsError(
+                f"conflicting dimension bindings for {candidate_id}"
+            )
         physical_bindings[candidate_id] = physical_bytes
 
     explicit: dict[str, dict[str, Any]] = {}
     for index, row in enumerate(dimension_rows):
-        if row.get("schema") != "banana-smasher-dynamic-backpack-explicit-dimension-row-v1":
-            raise DynamicDimensionsError(f"dimension row {index} schema mismatch; aggregate inputs are forbidden")
+        if (
+            row.get("schema")
+            != "banana-smasher-dynamic-backpack-explicit-dimension-row-v1"
+        ):
+            raise DynamicDimensionsError(
+                f"dimension row {index} schema mismatch; aggregate inputs are forbidden"
+            )
         if row.get("basis_sha256") != basis:
             raise DynamicDimensionsError(f"dimension row {index} basis mismatch")
         candidate_id = row.get("candidate_id")
         if not isinstance(candidate_id, str) or candidate_id in explicit:
-            raise DynamicDimensionsError(f"dimension row {index} candidate_id must be unique")
+            raise DynamicDimensionsError(
+                f"dimension row {index} candidate_id must be unique"
+            )
         if candidate_id not in candidates:
-            raise DynamicDimensionsError(f"dimension row {index} names unknown candidate {candidate_id!r}")
-        if _identity(row, f"dimension {candidate_id}") != candidate_identities[candidate_id]:
-            raise DynamicDimensionsError(f"dimension identity mismatch for {candidate_id}")
+            raise DynamicDimensionsError(
+                f"dimension row {index} names unknown candidate {candidate_id!r}"
+            )
+        if (
+            _identity(row, f"dimension {candidate_id}")
+            != candidate_identities[candidate_id]
+        ):
+            raise DynamicDimensionsError(
+                f"dimension identity mismatch for {candidate_id}"
+            )
         explicit[candidate_id] = row
 
     missing = sorted(set(candidates) - set(explicit))
@@ -304,40 +399,69 @@ def build_dynamic_dimensions(
     completed: list[dict[str, Any]] = []
     for candidate_id in sorted(candidates):
         candidate, dimension = candidates[candidate_id], explicit[candidate_id]
-        physical_bytes = physical_bindings.get(candidate_id, candidate.get("physical_bytes"))
-        if isinstance(physical_bytes, bool) or not isinstance(physical_bytes, int) or physical_bytes < 0:
-            raise DynamicDimensionsError(f"physical_bytes must be a non-negative integer for {candidate_id}")
+        physical_bytes = physical_bindings.get(
+            candidate_id, candidate.get("physical_bytes")
+        )
+        if (
+            isinstance(physical_bytes, bool)
+            or not isinstance(physical_bytes, int)
+            or physical_bytes < 0
+        ):
+            raise DynamicDimensionsError(
+                f"physical_bytes must be a non-negative integer for {candidate_id}"
+            )
         if dimension.get("physical_bytes") != physical_bytes:
             raise DynamicDimensionsError(f"physical_bytes mismatch for {candidate_id}")
         predictions_raw = dimension.get("six_class_predictions")
-        if not isinstance(predictions_raw, dict) or set(predictions_raw) != set(CLASSES):
+        if not isinstance(predictions_raw, dict) or set(predictions_raw) != set(
+            CLASSES
+        ):
             raise DynamicDimensionsError(
                 f"six_class_predictions must explicitly cover six classes for {candidate_id}; aggregate inference forbidden"
             )
         predictions = {
-            name: _finite(predictions_raw[name], f"{candidate_id} prediction {name}", nonnegative=True)
+            name: _finite(
+                predictions_raw[name],
+                f"{candidate_id} prediction {name}",
+                nonnegative=True,
+            )
             for name in CLASSES
         }
         routing_importance = _finite(
-            dimension.get("routing_importance"), f"{candidate_id} routing_importance", positive=True
+            dimension.get("routing_importance"),
+            f"{candidate_id} routing_importance",
+            positive=True,
         )
-        source_importance = candidate.get("source_class_features", {}).get("routing_importance")
+        source_importance = candidate.get("source_class_features", {}).get(
+            "routing_importance"
+        )
         if source_importance is not None and not math.isclose(
             routing_importance,
-            _finite(source_importance, f"{candidate_id} source routing_importance", positive=True),
+            _finite(
+                source_importance,
+                f"{candidate_id} source routing_importance",
+                positive=True,
+            ),
             rel_tol=0.0,
             abs_tol=0.0,
         ):
-            raise DynamicDimensionsError(f"routing_importance mismatch for {candidate_id}")
+            raise DynamicDimensionsError(
+                f"routing_importance mismatch for {candidate_id}"
+            )
         projection_weight = _finite(
-            dimension.get("projection_weight"), f"{candidate_id} projection_weight", positive=True
+            dimension.get("projection_weight"),
+            f"{candidate_id} projection_weight",
+            positive=True,
         )
         projection_correction = _finite(
-            dimension.get("projection_correction"), f"{candidate_id} projection_correction"
+            dimension.get("projection_correction"),
+            f"{candidate_id} projection_correction",
         )
         authority = dimension.get("authority")
         if not isinstance(authority, dict):
-            raise DynamicDimensionsError(f"authority must be explicit for {candidate_id}")
+            raise DynamicDimensionsError(
+                f"authority must be explicit for {candidate_id}"
+            )
         for field in (
             "six_class_predictions_sha256",
             "routing_importance_sha256",
@@ -371,16 +495,35 @@ def build_dynamic_dimensions(
         "allocation_eligible": True,
         "inference_policy": "explicit-per-candidate-only; aggregate-to-cell inference forbidden",
         "sources": {
-            "ledger": {"path": str(ledger_path), "sha256": _sha(ledger_raw), "bytes": len(ledger_raw)},
-            "dimensions": {"path": str(dimensions_path), "sha256": _sha(dimension_raw), "bytes": len(dimension_raw)},
-            "class_ceilings": {"path": str(ceilings_path), "sha256": _sha(ceilings_raw), "bytes": len(ceilings_raw)},
+            "ledger": {
+                "path": str(ledger_path),
+                "sha256": _sha(ledger_raw),
+                "bytes": len(ledger_raw),
+            },
+            "dimensions": {
+                "path": str(dimensions_path),
+                "sha256": _sha(dimension_raw),
+                "bytes": len(dimension_raw),
+            },
+            "class_ceilings": {
+                "path": str(ceilings_path),
+                "sha256": _sha(ceilings_raw),
+                "bytes": len(ceilings_raw),
+            },
         },
-        "output": {"path": str(output_path), "sha256": _sha(output_raw), "bytes": len(output_raw)},
+        "output": {
+            "path": str(output_path),
+            "sha256": _sha(output_raw),
+            "bytes": len(output_raw),
+        },
     }
     receipt_raw = _canonical_json(receipt_value)
     _write_once(output_path, output_raw)
     _write_once(receipt_path, receipt_raw)
-    if output_path.read_bytes() != output_raw or receipt_path.read_bytes() != receipt_raw:
+    if (
+        output_path.read_bytes() != output_raw
+        or receipt_path.read_bytes() != receipt_raw
+    ):
         raise RuntimeError("sealed dimension outputs changed during publication")
     return {
         "status": receipt_value["status"],
@@ -389,7 +532,11 @@ def build_dynamic_dimensions(
         "candidate_count": len(completed),
         "allocation_eligible": True,
         "output": receipt_value["output"],
-        "receipt": {"path": str(receipt_path), "sha256": _sha(receipt_raw), "bytes": len(receipt_raw)},
+        "receipt": {
+            "path": str(receipt_path),
+            "sha256": _sha(receipt_raw),
+            "bytes": len(receipt_raw),
+        },
     }
 
 
@@ -428,14 +575,82 @@ def _resolve_mixed_dimension_sources(
             if not locator_path.exists():
                 pending.append(str(locator_path))
                 continue
-            locator, locator_raw = _read_json(locator_path, f"dimensions locator {index}")
+            locator, locator_raw = _read_json(
+                locator_path, f"dimensions locator {index}"
+            )
             if (
                 not isinstance(locator, dict)
-                or locator.get("schema")
-                != "banana-smasher-mixed-backpack-dimensions-locator-v1"
                 or locator.get("status") not in {"PASS", "SEALED"}
                 or locator.get("basis_sha256") != basis
             ):
+                raise DynamicDimensionsError(
+                    f"dimensions locator {index} schema/status/basis mismatch"
+                )
+            locator_schema = locator.get("schema")
+            if locator_schema == "banana-smasher-mixed-backpack-physical-locator-v1":
+                manifest_descriptor = locator.get("physical_manifest")
+                if not isinstance(manifest_descriptor, dict) or set(
+                    manifest_descriptor
+                ) != {"path", "sha256"}:
+                    raise DynamicDimensionsError(
+                        f"physical locator {index} lacks physical_manifest descriptor"
+                    )
+                manifest_path = Path(str(manifest_descriptor["path"])).expanduser()
+                if not manifest_path.is_absolute():
+                    manifest_path = locator_path.parent / manifest_path
+                manifest_path = manifest_path.resolve()
+                expected_manifest_sha = _sha_field(
+                    manifest_descriptor["sha256"],
+                    f"physical locator {index}.physical_manifest.sha256",
+                )
+                manifest, manifest_raw = _read_json(
+                    manifest_path, f"physical manifest {index}"
+                )
+                if _sha(manifest_raw) != expected_manifest_sha:
+                    raise DynamicDimensionsError(
+                        f"physical manifest {index} SHA-256 mismatch"
+                    )
+                members_expected = (
+                    manifest.get("members_expected")
+                    if isinstance(manifest, dict)
+                    else None
+                )
+                members = (
+                    manifest.get("members") if isinstance(manifest, dict) else None
+                )
+                if (
+                    not isinstance(manifest, dict)
+                    or manifest.get("status") not in {"PASS", "SEALED"}
+                    or manifest.get("basis_sha256") != basis
+                    or manifest.get("gaps") != 0
+                    or manifest.get("duplicates") != 0
+                    or isinstance(members_expected, bool)
+                    or not isinstance(members_expected, int)
+                    or members_expected <= 0
+                    or manifest.get("members_complete") != members_expected
+                    or not isinstance(members, list)
+                    or len(members) != members_expected
+                ):
+                    raise DynamicDimensionsError(
+                        f"physical manifest {index} is not a complete basis-bound inventory"
+                    )
+                admitted.append(
+                    {
+                        "kind": "physical_inventory",
+                        "path": str(manifest_path),
+                        "sha256": expected_manifest_sha,
+                        "bytes": len(manifest_raw),
+                        "rows": 0,
+                        "members": manifest["members_complete"],
+                        "locator": {
+                            "path": str(locator_path),
+                            "sha256": _sha(locator_raw),
+                            "bytes": len(locator_raw),
+                        },
+                    }
+                )
+                continue
+            if locator_schema != "banana-smasher-mixed-backpack-dimensions-locator-v1":
                 raise DynamicDimensionsError(
                     f"dimensions locator {index} schema/status/basis mismatch"
                 )
@@ -493,14 +708,19 @@ def preflight_mixed_backpack_config(config: str | Path) -> dict[str, Any]:
 
     config_path = Path(config).expanduser().resolve()
     value, config_raw = _read_json(config_path, "mixed Backpack config")
-    if not isinstance(value, dict) or value.get("schema") != "banana-smasher-mixed-backpack-config-v1":
+    if (
+        not isinstance(value, dict)
+        or value.get("schema") != "banana-smasher-mixed-backpack-config-v1"
+    ):
         raise DynamicDimensionsError(
             "mixed Backpack config must use banana-smasher-mixed-backpack-config-v1"
         )
     basis = _sha_field(value.get("basis_sha256"), "basis_sha256")
     tiers = value.get("allowed_tiers")
-    if not isinstance(tiers, list) or not tiers or any(
-        not isinstance(tier, str) or not tier for tier in tiers
+    if (
+        not isinstance(tiers, list)
+        or not tiers
+        or any(not isinstance(tier, str) or not tier for tier in tiers)
     ):
         raise DynamicDimensionsError("allowed_tiers must be a non-empty string array")
     fallback = value.get("fallback_tier")
@@ -522,7 +742,10 @@ def preflight_mixed_backpack_config(config: str | Path) -> dict[str, Any]:
         not isinstance(layers, list)
         or not layers
         or len(layers) != len(set(layers))
-        or any(isinstance(layer, bool) or not isinstance(layer, int) or layer < 0 for layer in layers)
+        or any(
+            isinstance(layer, bool) or not isinstance(layer, int) or layer < 0
+            for layer in layers
+        )
         or isinstance(experts, bool)
         or not isinstance(experts, int)
         or experts <= 0
@@ -540,8 +763,13 @@ def preflight_mixed_backpack_config(config: str | Path) -> dict[str, Any]:
     for index, row in enumerate(rows):
         if row.get("basis_sha256") != basis:
             raise DynamicDimensionsError(f"mixed dimension row {index} basis mismatch")
-        if row.get("allocation_eligible") is not True or row.get("status") != "ADMITTED_COMPLETE_ALLOCATION_ELIGIBLE":
-            raise DynamicDimensionsError(f"mixed dimension row {index} is not allocation eligible")
+        if (
+            row.get("allocation_eligible") is not True
+            or row.get("status") != "ADMITTED_COMPLETE_ALLOCATION_ELIGIBLE"
+        ):
+            raise DynamicDimensionsError(
+                f"mixed dimension row {index} is not allocation eligible"
+            )
         layer, expert, projection, tier = _identity(row, f"mixed dimension row {index}")
         projection = "fused13" if projection == "13" else projection
         key = (f"L{layer:03d}.E{expert:03d}.{projection}", tier)
@@ -556,7 +784,9 @@ def preflight_mixed_backpack_config(config: str | Path) -> dict[str, Any]:
     ]
     coverage = {
         tier: {
-            "available_projection_cells": sum((cell, tier) in available for cell in expected),
+            "available_projection_cells": sum(
+                (cell, tier) in available for cell in expected
+            ),
             "missing_layers": [
                 layer
                 for layer in sorted(layers)
@@ -576,7 +806,11 @@ def preflight_mixed_backpack_config(config: str | Path) -> dict[str, Any]:
         "status": "READY_TO_SOLVE" if ready else "WAITING_FOR_DIMENSION_LOCATORS",
         "ready_to_solve": ready,
         "basis_sha256": basis,
-        "config": {"path": str(config_path), "sha256": _sha(config_raw), "bytes": len(config_raw)},
+        "config": {
+            "path": str(config_path),
+            "sha256": _sha(config_raw),
+            "bytes": len(config_raw),
+        },
         "sources": {"admitted": len(admitted), "pending": len(pending)},
         "admitted_sources": admitted,
         "pending_locators": pending,
@@ -599,7 +833,10 @@ def solve_mixed_backpack_config(
 
     config_path = Path(config).expanduser().resolve()
     value, config_raw = _read_json(config_path, "mixed Backpack config")
-    if not isinstance(value, dict) or value.get("schema") != "banana-smasher-mixed-backpack-config-v1":
+    if (
+        not isinstance(value, dict)
+        or value.get("schema") != "banana-smasher-mixed-backpack-config-v1"
+    ):
         raise DynamicDimensionsError(
             "mixed Backpack config must use banana-smasher-mixed-backpack-config-v1"
         )
@@ -616,7 +853,9 @@ def solve_mixed_backpack_config(
     }
     unknown = sorted(set(value) - allowed_fields)
     if unknown:
-        raise DynamicDimensionsError(f"mixed Backpack config has unknown fields: {unknown}")
+        raise DynamicDimensionsError(
+            f"mixed Backpack config has unknown fields: {unknown}"
+        )
     basis = _sha_field(value.get("basis_sha256"), "basis_sha256")
     tiers = value.get("allowed_tiers")
     if (
@@ -625,7 +864,9 @@ def solve_mixed_backpack_config(
         or len(tiers) != len(set(tiers))
         or any(not isinstance(tier, str) or not tier for tier in tiers)
     ):
-        raise DynamicDimensionsError("allowed_tiers must be a non-empty unique string array")
+        raise DynamicDimensionsError(
+            "allowed_tiers must be a non-empty unique string array"
+        )
     fallback = value.get("fallback_tier")
     if fallback not in tiers:
         raise DynamicDimensionsError("fallback_tier must be present in allowed_tiers")
@@ -681,7 +922,9 @@ def solve_mixed_backpack_config(
     class_weights = None
     if raw_weights is not None:
         if not isinstance(raw_weights, dict) or set(raw_weights) != set(CLASSES):
-            raise DynamicDimensionsError("class_weights must cover the six canonical classes")
+            raise DynamicDimensionsError(
+                "class_weights must cover the six canonical classes"
+            )
         class_weights = {
             name: _finite(raw_weights[name], f"class_weights.{name}", nonnegative=True)
             for name in CLASSES
@@ -692,8 +935,13 @@ def solve_mixed_backpack_config(
     for index, row in enumerate(rows):
         if row.get("basis_sha256") != basis:
             raise DynamicDimensionsError(f"mixed dimension row {index} basis mismatch")
-        if row.get("allocation_eligible") is not True or row.get("status") != "ADMITTED_COMPLETE_ALLOCATION_ELIGIBLE":
-            raise DynamicDimensionsError(f"mixed dimension row {index} is not allocation eligible")
+        if (
+            row.get("allocation_eligible") is not True
+            or row.get("status") != "ADMITTED_COMPLETE_ALLOCATION_ELIGIBLE"
+        ):
+            raise DynamicDimensionsError(
+                f"mixed dimension row {index} is not allocation eligible"
+            )
         layer, expert, projection, tier = _identity(row, f"mixed dimension row {index}")
         if tier not in tiers:
             continue
@@ -704,13 +952,25 @@ def solve_mixed_backpack_config(
             raise DynamicDimensionsError(f"duplicate mixed option {key!r}")
         predictions = row.get("six_class_predictions")
         if not isinstance(predictions, dict) or set(predictions) != set(CLASSES):
-            raise DynamicDimensionsError(f"mixed option {key!r} lacks six-class predictions")
+            raise DynamicDimensionsError(
+                f"mixed option {key!r} lacks six-class predictions"
+            )
         physical_bytes = row.get("physical_bytes")
-        if isinstance(physical_bytes, bool) or not isinstance(physical_bytes, int) or physical_bytes < 0:
-            raise DynamicDimensionsError(f"mixed option {key!r} physical_bytes is invalid")
+        if (
+            isinstance(physical_bytes, bool)
+            or not isinstance(physical_bytes, int)
+            or physical_bytes < 0
+        ):
+            raise DynamicDimensionsError(
+                f"mixed option {key!r} physical_bytes is invalid"
+            )
         activations = row.get("activation_artifacts", [])
-        if not isinstance(activations, list) or not all(isinstance(item, dict) for item in activations):
-            raise DynamicDimensionsError(f"mixed option {key!r} activation_artifacts is invalid")
+        if not isinstance(activations, list) or not all(
+            isinstance(item, dict) for item in activations
+        ):
+            raise DynamicDimensionsError(
+                f"mixed option {key!r} activation_artifacts is invalid"
+            )
         projection_inventory[key] = {
             "bytes": physical_bytes,
             "predictions": {
@@ -725,7 +985,9 @@ def solve_mixed_backpack_config(
     if not projection_cells:
         raise DynamicDimensionsError("mixed Backpack inventory has no allowed options")
     missing_fallback = [
-        cell for cell in projection_cells if (cell, fallback) not in projection_inventory
+        cell
+        for cell in projection_cells
+        if (cell, fallback) not in projection_inventory
     ]
     if missing_fallback:
         raise DynamicDimensionsError(
