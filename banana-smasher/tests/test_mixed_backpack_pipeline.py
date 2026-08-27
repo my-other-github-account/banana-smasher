@@ -487,6 +487,69 @@ def test_preflight_and_solve_consume_explicit_expert_sensitivity_rows(
     }
 
 
+def test_sensitivity_rows_preserve_measured_physical_bytes_and_activations(
+    tmp_path: Path,
+) -> None:
+    sensitivity = tmp_path / "sensitivity.jsonl"
+    rows = []
+    for tier in ("Q2", "QTIP3_V7"):
+        row = {
+            "schema": "banana-smasher-sensitivity-row-v1",
+            "basis_sha256": BASIS,
+            "layer": 0,
+            "expert": 0,
+            "tier": tier,
+            "bytes": 2 if tier == "Q2" else 3,
+            "routing_mass": 2.0,
+            "predicted_delta_contribution": 2.0 if tier == "Q2" else 0.2,
+            "projection_terms": {
+                "down": {"relative_output_rms": 0.5},
+                "fused13": {"relative_output_rms": 0.5},
+            },
+            "source_receipts": [],
+        }
+        if tier == "QTIP3_V7":
+            row["physical_bytes"] = 4
+            row["activation_artifacts"] = [{"id": "q3-layer0-lut", "bytes": 1}]
+        rows.append(row)
+    sensitivity.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
+    )
+    config = tmp_path / "mixed.json"
+    _write_json(
+        config,
+        {
+            "schema": "banana-smasher-mixed-backpack-config-v1",
+            "basis_sha256": BASIS,
+            "target": {
+                "whole_model_bytes": 15,
+                "fixed_nonexpert_bytes": 10,
+                "exact": True,
+            },
+            "allowed_tiers": ["qtip2", "qtip3"],
+            "fallback_tier": "qtip2",
+            "topology": {
+                "layers": [0],
+                "experts_per_layer": 1,
+                "projections": ["down", "fused13"],
+            },
+            "dimensions": {
+                "path": sensitivity.name,
+                "sha256": hashlib.sha256(sensitivity.read_bytes()).hexdigest(),
+            },
+            "class_caps": {name: 100.0 for name in CLASSES},
+        },
+    )
+
+    receipt = solve_mixed_backpack_config(config, output=tmp_path / "solve")
+
+    assert receipt["byte_accounting"]["candidate_payload_bytes"] == 5
+    assignment = json.loads((tmp_path / "solve/ASSIGNMENT.json").read_text())
+    assert assignment["activated_artifacts"] == [
+        {"id": "q3-layer0-lut", "bytes": 1}
+    ]
+
+
 def test_solve_emits_hash_bound_selected_physical_members(tmp_path: Path) -> None:
     dimensions = tmp_path / "dimensions.jsonl"
     _dimension_rows(dimensions)

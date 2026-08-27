@@ -153,13 +153,39 @@ def _normalize_mixed_source_rows(
         tier = SENSITIVITY_TIER_NAMES.get(source_tier)
         if tier is None:
             raise DynamicDimensionsError(f"{row_label} tier is unsupported")
-        physical_bytes = row.get("bytes")
+        physical_bytes = row.get("physical_bytes", row.get("bytes"))
         if (
             isinstance(physical_bytes, bool)
             or not isinstance(physical_bytes, int)
             or physical_bytes < 0
         ):
-            raise DynamicDimensionsError(f"{row_label} bytes is invalid")
+            raise DynamicDimensionsError(f"{row_label} physical bytes is invalid")
+        raw_activations = row.get("activation_artifacts", [])
+        if not isinstance(raw_activations, list):
+            raise DynamicDimensionsError(
+                f"{row_label} activation_artifacts must be an array"
+            )
+        activation_artifacts: list[dict[str, Any]] = []
+        seen_activation_ids: set[str] = set()
+        for activation_index, activation in enumerate(raw_activations):
+            activation_label = (
+                f"{row_label} activation_artifacts[{activation_index}]"
+            )
+            if not isinstance(activation, dict):
+                raise DynamicDimensionsError(f"{activation_label} must be an object")
+            activation_id = activation.get("id")
+            activation_bytes = activation.get("bytes")
+            if (
+                not isinstance(activation_id, str)
+                or not activation_id
+                or activation_id in seen_activation_ids
+                or isinstance(activation_bytes, bool)
+                or not isinstance(activation_bytes, int)
+                or activation_bytes < 0
+            ):
+                raise DynamicDimensionsError(f"{activation_label} is invalid")
+            seen_activation_ids.add(activation_id)
+            activation_artifacts.append(dict(activation))
         damage = _finite(
             row.get("predicted_delta_contribution"),
             f"{row_label} predicted_delta_contribution",
@@ -206,7 +232,9 @@ def _normalize_mixed_source_rows(
                     "six_class_predictions": {
                         name: damage if carrier else 0.0 for name in CLASSES
                     },
-                    "activation_artifacts": [],
+                    "activation_artifacts": (
+                        activation_artifacts if carrier else []
+                    ),
                     "sensitivity_authority": authority,
                 }
             )
