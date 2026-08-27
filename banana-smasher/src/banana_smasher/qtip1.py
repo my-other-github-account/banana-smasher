@@ -92,7 +92,7 @@ class QtipGeometry:
 
 QTIP1_GEOMETRY = QtipGeometry(L=16, K=1, V=1, tlut_bits=9, decode_mode="quantlut")
 QTIP2_GEOMETRY = QtipGeometry(L=16, K=2, V=2, tlut_bits=9, decode_mode="quantlut_sym")
-QTIP2_EXACT_MAX_CHUNK_ROWS = 8192
+QTIP2_EXACT_MAX_CHUNK_ROWS = 256
 
 
 def plan_qtip2_cuda_chunks(
@@ -127,7 +127,7 @@ def plan_qtip2_cuda_chunks(
     per_row_bytes = (
         width * 4  # contiguous FP32 input
         + 2 * prefixes * 4  # ping-pong costs
-        + steps * prefixes * 4  # exact int32 backpointers
+        + math.ceil(steps / 2) * prefixes  # packed exact uint8 q-pairs
         + steps * 4  # GPU result states
         + steps * 4  # conservatively retained result during transfer
         + prefixes * 4  # state-order final-tie candidate surface
@@ -147,7 +147,7 @@ def plan_qtip2_cuda_chunks(
             "QTIP2 CUDA peak-memory admission failed before allocation: "
             f"free={free_bytes} reserve={reserve_bytes} minimum_required={minimum}"
         )
-    bounded_backpointer_bytes = steps * chunk_rows * prefixes * 4
+    bounded_backpointer_bytes = math.ceil(steps / 2) * chunk_rows * prefixes
 
     peak_memory_bytes = fixed_bytes + per_row_bytes * chunk_rows
     return {
@@ -163,7 +163,7 @@ def plan_qtip2_cuda_chunks(
         "free_bytes": free_bytes,
         "reserve_bytes": reserve_bytes,
         "peak_memory_bytes": peak_memory_bytes,
-        "full_batch_backpointer_bytes": steps * rows * prefixes * 4,
+        "full_batch_backpointer_bytes": math.ceil(steps / 2) * rows * prefixes,
         "bounded_backpointer_bytes": bounded_backpointer_bytes,
 
     }

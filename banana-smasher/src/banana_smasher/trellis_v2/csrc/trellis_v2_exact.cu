@@ -16,8 +16,6 @@
 #include <vector>
 
 namespace {
-constexpr int STEPS = 128;
-constexpr int PAIRS = 64;
 constexpr int PREFIXES = 4096;
 constexpr int STATES = 65536;
 constexpr int BATCH = 256;
@@ -43,7 +41,7 @@ __device__ __forceinline__ float emission(
   // Match the canonical Triton PTX exactly: mul(d1,d1), then
   // fma.rn(d0,d0,d1_squared).  The fusion point is winner-visible on
   // near-tied FIRST64 rows and is therefore part of the exact contract.
-  return __fmaf_rn(d0, d0, __fmul_rn(d1, d1));
+  return __fadd_rn(__fmul_rn(d0, d0), __fmul_rn(d1, d1));
 }
 
 __device__ __forceinline__ float candidate(
@@ -52,7 +50,8 @@ __device__ __forceinline__ float candidate(
   const float d1 = __fsub_rn(l1, x1);
   // Canonical Triton emits two ordered fma.rn operations:
   //   acc0 = fma(d0,d0,prev); candidate = fma(d1,d1,acc0).
-  return __fmaf_rn(d1, d1, __fmaf_rn(d0, d0, prev));
+  return __fadd_rn(
+      prev, __fadd_rn(__fmul_rn(d0, d0), __fmul_rn(d1, d1)));
 }
 
 // SM100+ executes these float2 intrinsics component-wise with the same scalar
@@ -64,8 +63,9 @@ __device__ __forceinline__ float2 candidate2(
       make_float2(l0, l0), make_float2(-x0.x, -x0.y));
   const float2 d1 = __fadd2_rn(
       make_float2(l1, l1), make_float2(-x1.x, -x1.y));
-  const float2 acc = __ffma2_rn(d0, d0, previous);
-  return __ffma2_rn(d1, d1, acc);
+  return make_float2(
+      candidate(previous.x, x0.x, x1.x, l0, l1),
+      candidate(previous.y, x0.y, x1.y, l0, l1));
 }
 
 // nvcc lowers the source-level two-result `if (value < best)` to a divergent
@@ -88,7 +88,7 @@ __device__ __forceinline__ void update_best_strict(
 // sequence rows without changing q order, arithmetic, or winners.
 template <bool NO_PREVIOUS>
 __device__ __forceinline__ void score_step(
-    const half* __restrict__ x,
+    const float* __restrict__ x,
     const float* __restrict__ lut_aos,
     const float* __restrict__ previous,
     float* __restrict__ output,
@@ -106,8 +106,8 @@ __device__ __forceinline__ void score_step(
   for (int k = 0; k < ROWS_PER_LANE; ++k) {
     const int row = row_group + 2 * k;
     const int seq = seq_base + row;
-    x0s[k] = __half2float(x[seq]);
-    x1s[k] = __half2float(x[BATCH + seq]);
+    x0s[k] = x[seq];
+    x1s[k] = x[BATCH + seq];
   }
 
 #pragma unroll
@@ -177,7 +177,7 @@ __device__ __forceinline__ void score_step(
 // the second shared winner plane and the generic copy-out pass without changing
 // q visitation order, arithmetic, or storage order.
 __device__ __forceinline__ void score_odd_to_sink(
-    const half* __restrict__ x,
+    const float* __restrict__ x,
     const float* __restrict__ lut_aos,
     const float* __restrict__ previous,
     const uint8_t* __restrict__ q_even,
@@ -196,8 +196,8 @@ __device__ __forceinline__ void score_odd_to_sink(
   for (int k = 0; k < ROWS_PER_LANE; ++k) {
     const int row = row_group + 2 * k;
     const int seq = seq_base + row;
-    x0s[k] = __half2float(x[2 * BATCH + seq]);
-    x1s[k] = __half2float(x[3 * BATCH + seq]);
+    x0s[k] = x[2 * BATCH + seq];
+    x1s[k] = x[3 * BATCH + seq];
   }
 
 #pragma unroll
@@ -252,7 +252,7 @@ __device__ __forceinline__ void score_odd_to_sink(
 
 template <bool FIRST_PAIR, bool HAS_OVERLAP>
 __global__ void _persistent_k2_viterbi(
-    const half* __restrict__ x,
+    const float* __restrict__ x,
     const float* __restrict__ lut_aos,
     const float* __restrict__ cost_in,
     float* __restrict__ cost_out,
@@ -295,8 +295,8 @@ __global__ void _persistent_k2_viterbi(
       if (group_b == ov_b && axis_a == ov_a) {
         const int prefix = axis_a * 256 + group_b * 16 + suffix;
         const int state = ov_q * PREFIXES + prefix;
-        const float x0 = __half2float(x[seq]);
-        const float x1 = __half2float(x[BATCH + seq]);
+        const float x0 = x[seq];
+        const float x1 = x[BATCH + seq];
         const float2 lut_pair =
             reinterpret_cast<const float2*>(lut_aos)[state];
         value = emission(x0, x1, lut_pair.x, lut_pair.y);
@@ -326,7 +326,8 @@ __global__ void backtrack_kernel(
     const float* __restrict__ final_cost,
     const uint8_t* __restrict__ packed_backpointer,
     const int32_t* __restrict__ overlap,
-    int32_t* __restrict__ states) {
+    int32_t* __restrict__ states,
+    int steps) {
   const int global_thread = blockIdx.x * blockDim.x + threadIdx.x;
   const int seq = global_thread >> 5;
   const int lane = threadIdx.x & 31;
@@ -337,11 +338,28 @@ __global__ void backtrack_kernel(
   } else {
     float best = INFINITY;
     int best_prefix = 0;
+    int best_state = 0;
     for (int j = lane; j < PREFIXES; j += 32) {
       const float value = final_cost[seq * PREFIXES + j];
-      if (value < best) {
+      const int step = steps - 1;
+      const int pair = step >> 1;
+      uint8_t packed;
+      if (step & 1) {
+        packed = packed_backpointer[
+            (static_cast<int64_t>(pair) * BATCH + seq) * PREFIXES + j] >> 4;
+      } else {
+        const int axis_a = j >> 8;
+        const int axis_b = (j >> 4) & 15;
+        const int suffix = j & 15;
+        const int storage_prefix = axis_b * 256 + axis_a * 16 + suffix;
+        packed = packed_backpointer[
+            (static_cast<int64_t>(pair) * BATCH + seq) * PREFIXES + storage_prefix] & 15;
+      }
+      const int state = static_cast<int>(packed) * PREFIXES + j;
+      if (value < best || (value == best && state < best_state)) {
         best = value;
         best_prefix = j;
+        best_state = state;
       }
     }
 #pragma unroll
@@ -349,15 +367,18 @@ __global__ void backtrack_kernel(
       const float other = __shfl_down_sync(0xffffffffu, best, offset);
       const int other_prefix =
           __shfl_down_sync(0xffffffffu, best_prefix, offset);
-      if (other < best || (other == best && other_prefix < best_prefix)) {
+      const int other_state =
+          __shfl_down_sync(0xffffffffu, best_state, offset);
+      if (other < best || (other == best && other_state < best_state)) {
         best = other;
         best_prefix = other_prefix;
+        best_state = other_state;
       }
     }
     prefix = __shfl_sync(0xffffffffu, best_prefix, 0);
   }
   if (lane != 0) return;
-  for (int step = STEPS - 1; step >= 0; --step) {
+  for (int step = steps - 1; step >= 0; --step) {
     const int pair = step >> 1;
     uint8_t packed;
     if (step & 1) {
@@ -397,15 +418,16 @@ constexpr size_t MAX_GRAPH_CACHE_ENTRIES = 8;
 void build_exact_graph(
     GraphState* state,
     int B,
-    bool has_overlap) {
+    bool has_overlap,
+    int steps) {
   C10_CUDA_CHECK(cudaGraphCreate(&state->graph, 0));
   const dim3 grid(BATCH / B_TILE, AXIS);
   float* in_ptr = state->cost0.data_ptr<float>();
   float* out_ptr = state->cost1.data_ptr<float>();
   cudaGraphNode_t previous = nullptr;
-  for (int pair = 0; pair < PAIRS; ++pair) {
-    const half* x_ptr =
-        reinterpret_cast<const half*>(state->x.data_ptr<c10::Half>()) +
+  const int pairs = steps / 2;
+  for (int pair = 0; pair < pairs; ++pair) {
+    const float* x_ptr = state->x.data_ptr<float>() +
         static_cast<int64_t>(pair) * 4 * BATCH;
     const float* lut_ptr = state->lut.data_ptr<float>();
     const float* cost_in_ptr = in_ptr;
@@ -445,7 +467,7 @@ void build_exact_graph(
       has_overlap ? state->overlap.data_ptr<int32_t>() : nullptr;
   int32_t* states_ptr = state->states.data_ptr<int32_t>();
   void* arguments[] = {
-      &final_cost_ptr, &packed_ptr, &overlap_ptr, &states_ptr};
+      &final_cost_ptr, &packed_ptr, &overlap_ptr, &states_ptr, &steps};
   cudaKernelNodeParams parameters{};
   parameters.func = has_overlap
       ? reinterpret_cast<void*>(backtrack_kernel<true>)
@@ -467,7 +489,8 @@ GraphState* graph_state_for(
     int B,
     cudaStream_t stream) {
   const int device = x.get_device();
-  const GraphKey key(device, B, has_overlap, reinterpret_cast<uintptr_t>(stream));
+  const int steps = static_cast<int>(x.size(0)) / 2;
+  const GraphKey key(device, steps, has_overlap, reinterpret_cast<uintptr_t>(stream));
   std::lock_guard<std::mutex> lock(graph_cache_mutex);
   const auto existing = graph_cache.find(key);
   if (existing != graph_cache.end()) return existing->second;
@@ -483,13 +506,13 @@ GraphState* graph_state_for(
   state->x = torch::empty_like(x);
   state->lut = torch::empty_like(lut_aos);
   if (has_overlap) state->overlap = torch::empty_like(overlap_tensor);
-  state->states = torch::empty({STEPS, B}, x.options().dtype(torch::kInt32));
+  state->states = torch::empty({steps, B}, x.options().dtype(torch::kInt32));
   state->packed_bp =
-      torch::empty({PAIRS, B, PREFIXES}, x.options().dtype(torch::kUInt8));
+      torch::empty({steps / 2, B, PREFIXES}, x.options().dtype(torch::kUInt8));
   state->cost0 = torch::empty({B, PREFIXES}, x.options().dtype(torch::kFloat32));
   state->cost1 = torch::empty_like(state->cost0);
 
-  build_exact_graph(state, B, has_overlap);
+  build_exact_graph(state, B, has_overlap, steps);
   TORCH_CHECK(state->graph != nullptr, "QTIP2 CUDA graph capture returned null graph");
   C10_CUDA_CHECK(
       cudaGraphInstantiate(&state->exec, state->graph, nullptr, nullptr, 0));
@@ -510,8 +533,9 @@ std::vector<torch::Tensor> trellis_v2_exact_cuda(
   CHECK_CUDA(lut_aos); CHECK_CONTIG(lut_aos);
   TORCH_CHECK(x.device() == lut_aos.device(), "x and lut_aos must share one CUDA device");
   TORCH_CHECK(
-      x.scalar_type() == torch::kFloat16 && x.dim() == 2 && x.size(0) == 256,
-      "public smash solve must produce contiguous CUDA float16 x [256,B] before trellis-v2-exact");
+      x.scalar_type() == torch::kFloat32 && x.dim() == 2 &&
+          x.size(0) >= 8 && x.size(0) % 4 == 0,
+      "public smash solve must produce contiguous CUDA float32 x [2*T,B] with even T>=4 before trellis-v2-exact");
   TORCH_CHECK(
       lut_aos.scalar_type() == torch::kFloat32 &&
           lut_aos.dim() == 2 && lut_aos.size(0) == STATES && lut_aos.size(1) == 2,
@@ -538,7 +562,8 @@ std::vector<torch::Tensor> trellis_v2_exact_cuda(
         "overlap prefixes must be in [0, ", PREFIXES, ")");
   }
   const c10::cuda::CUDAGuard guard(x.device());
-  auto states = torch::empty({STEPS, B}, x.options().dtype(torch::kInt32));
+  const int steps = static_cast<int>(x.size(0)) / 2;
+  auto states = torch::empty({steps, B}, x.options().dtype(torch::kInt32));
   const auto stream = at::cuda::getCurrentCUDAStream(x.get_device()).stream();
   GraphState* state = graph_state_for(
       x, lut_aos, overlap_tensor, has_overlap, B, stream);
