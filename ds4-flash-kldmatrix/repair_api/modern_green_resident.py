@@ -937,6 +937,8 @@ def _bind_sealed_native_moe_return_provider(
         raise ArtifactError("accepted native MoE return requires the sealed full-weight builder")
 
     class SealedNativeMoeReturnExpert(provider_class):
+        _sealed_gate_up_runtime_marker = SEALED_GATE_UP_RUNTIME_MARKER
+
         def forward(
             self, hidden_states: Any, top_k_index: Any, top_k_weights: Any
         ) -> Any:

@@ -30,6 +30,7 @@ def test_native_provider_binding_replaces_the_complete_custom_forward(monkeypatc
         full_weight_builder=builder,
     )
     instance = bound()
+    assert bound._sealed_gate_up_runtime_marker == resident.SEALED_GATE_UP_RUNTIME_MARKER
     args = (object(), object(), object())
     assert instance.forward(*args) == "native-return"
     assert calls == [(instance, *args, builder)]
