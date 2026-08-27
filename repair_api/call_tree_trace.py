@@ -196,6 +196,50 @@ def _provider_project_code_bindings(model: Any) -> dict[Any, dict[str, Any]]:
     return bindings
 
 
+def _provider_rebound_project_code_bindings(model: Any) -> dict[Any, dict[str, Any]]:
+    """Bind wrapper _project code and the exact super method it delegates to."""
+    experts = getattr(model, "experts", None)
+    expert_items: Any = getattr(experts, "items", None)
+    if not callable(expert_items):
+        return {}
+    bindings: dict[Any, dict[str, Any]] = {}
+    items: Any = expert_items()
+    for _, expert in items:
+        mro = type(expert).__mro__
+        for index, owner in enumerate(mro):
+            candidate = owner.__dict__.get("_project")
+            code = getattr(candidate, "__code__", None)
+            if code is None or "super" not in getattr(code, "co_names", ()):
+                continue
+            super_owner = None
+            super_candidate = None
+            for inherited_owner in mro[index + 1:]:
+                inherited = inherited_owner.__dict__.get("_project")
+                if callable(inherited):
+                    super_owner = inherited_owner
+                    super_candidate = inherited
+                    break
+            if super_owner is None or super_candidate is None:
+                continue
+            identity = _callable_source_identity(candidate)
+            super_identity = _callable_source_identity(super_candidate)
+            bindings[code] = {
+                "owner_class": f"{owner.__module__}.{owner.__qualname__}",
+                "source_file": identity["source_file"],
+                "source_sha256": identity["source_sha256"],
+                "firstlineno": identity["firstlineno"],
+                "super_owner_class": (
+                    f"{super_owner.__module__}.{super_owner.__qualname__}"
+                ),
+                "super_callable": super_identity["callable"],
+                "super_source_file": super_identity["source_file"],
+                "super_source_sha256": super_identity["source_sha256"],
+                "super_firstlineno": super_identity["firstlineno"],
+            }
+            break
+    return bindings
+
+
 def _semantic_line_boundary(
     filename: str, function: str, line: int,
 ) -> tuple[str, tuple[str, ...]] | None:
@@ -325,6 +369,7 @@ class FullCallTreeTrace:
         self._hooks: list[Any] = []
         self._dispatch = _HiddenStateDispatchMode(self)
         self._provider_project_codes = _provider_project_code_bindings(model)
+        self._provider_rebound_project_codes = _provider_rebound_project_code_bindings(model)
         self._started = False
         self._stopped = False
         self._start_unix = 0.0
@@ -343,6 +388,29 @@ class FullCallTreeTrace:
 
     def _trace_frame(self, frame: Any, event: str, arg: Any) -> Any:
         if event == "call":
+            rebound_binding = self._provider_rebound_project_codes.get(frame.f_code)
+            if rebound_binding is not None:
+                call_args = frame.f_locals.get("args")
+                projection = (
+                    call_args[0]
+                    if isinstance(call_args, tuple) and call_args
+                    else frame.f_locals.get("kwargs", {}).get("projection")
+                )
+                tensor = (
+                    call_args[1]
+                    if isinstance(call_args, tuple) and len(call_args) > 1
+                    else frame.f_locals.get("kwargs", {}).get("x")
+                )
+                if isinstance(tensor, torch.Tensor):
+                    self._event({
+                        "kind": "semantic_boundary",
+                        "semantic_boundary": "rebound_project_input",
+                        "source_family": Path(frame.f_code.co_filename).name,
+                        "projection": projection,
+                        "code_binding": rebound_binding,
+                        "tensors": [{"name": "x", **_tensor_metadata(tensor)}],
+                    })
+                return self._trace_frame
             project_binding = self._provider_project_codes.get(frame.f_code)
             if project_binding is not None:
                 tensor = frame.f_locals.get("x")
@@ -384,6 +452,22 @@ class FullCallTreeTrace:
                         value["projection"] = frame.f_locals.get("projection")
                     self._event(value)
         project_binding = self._provider_project_codes.get(frame.f_code)
+        rebound_binding = self._provider_rebound_project_codes.get(frame.f_code)
+        if event == "return" and rebound_binding is not None and isinstance(arg, torch.Tensor):
+            call_args = frame.f_locals.get("args")
+            projection = (
+                call_args[0]
+                if isinstance(call_args, tuple) and call_args
+                else frame.f_locals.get("kwargs", {}).get("projection")
+            )
+            self._event({
+                "kind": "semantic_boundary",
+                "semantic_boundary": "rebound_project_output",
+                "source_family": Path(frame.f_code.co_filename).name,
+                "projection": projection,
+                "code_binding": rebound_binding,
+                "tensors": [{"name": "value", **_tensor_metadata(arg)}],
+            })
         if event == "return" and project_binding is not None and isinstance(arg, torch.Tensor):
             self._event({
                 "kind": "semantic_boundary",
