@@ -265,7 +265,7 @@ def plan_hf_moe_uniform(
     if not routed:
         raise ValueError("HF MoE adapter selected zero routed expert weights")
     layer_pattern = re.compile(r"(?:^|\.)layers\.(\d+)\.")
-    model_layer_ids = sorted(
+    observed_layer_ids = sorted(
         {
             int(match.group(1))
             for name in tensor_names
@@ -282,11 +282,23 @@ def plan_hf_moe_uniform(
     expected_model_layers = _nested_positive_int(config, "num_hidden_layers")
     if expected_model_layers is None:
         raise ValueError("HF MoE config does not declare num_hidden_layers")
+    model_layer_ids = [
+        layer for layer in observed_layer_ids if layer < expected_model_layers
+    ]
+    auxiliary_layer_ids = [
+        layer for layer in observed_layer_ids if layer >= expected_model_layers
+    ]
     model_layer_gaps = sorted(set(range(expected_model_layers)) - set(model_layer_ids))
+    routed_auxiliary_layers = sorted(set(routed_layer_ids) & set(auxiliary_layer_ids))
     plan = {
         "schema": HF_UNIFORM_PLAN_SCHEMA,
         "status": (
-            "PASS" if not missing and not duplicate and not model_layer_gaps else "FAILED"
+            "PASS"
+            if not missing
+            and not duplicate
+            and not model_layer_gaps
+            and not routed_auxiliary_layers
+            else "FAILED"
         ),
         "api": {"method": "plan_hf_moe_uniform", "version": 1},
         "source": source,
@@ -295,6 +307,7 @@ def plan_hf_moe_uniform(
         "geometry": {
             "expected_model_layers": expected_model_layers,
             "model_layer_ids": model_layer_ids,
+            "auxiliary_layer_ids": auxiliary_layer_ids,
             "routed_layer_ids": routed_layer_ids,
             "model_layer_gaps": model_layer_gaps,
         },
