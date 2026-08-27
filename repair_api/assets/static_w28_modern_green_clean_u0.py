@@ -541,6 +541,11 @@ class ShardStudent:
             sd = base.T.build_nonexpert_sd(layer, self.wm, get_tensor)
             base.v3.materialize_layer(m, layer, sd, self.config)
             del sd
+            # FP8 dequantization and assign=True enqueue CUDA work.  Drain that
+            # stream before the routed resident constructor reserves its next
+            # ~1.6 GiB payload; empty_cache alone cannot release blocks still in
+            # use by pending kernels on unified-memory hosts.
+            torch.cuda.synchronize()
             torch.cuda.empty_cache()
             resident = FullyResidentGroupedV7Experts(
                 layer=layer,

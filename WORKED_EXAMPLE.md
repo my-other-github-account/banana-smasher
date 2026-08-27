@@ -220,7 +220,13 @@ grouped-K2 extension remains path-and-SHA bound in the same continuation. The
 resident loader drops each clean immutable wire file from the source page cache
 immediately after copying it into the rank-local CUDA tensor; this keeps the
 ~34 GiB input tree from overlapping the complete unified-memory resident set
-during construction without deleting or mutating sealed inputs. On the two
+during construction without deleting or mutating sealed inputs. After each native
+layer's FP8 dequantization is assigned, the packaged constructor synchronizes the
+CUDA stream and releases only unused allocator blocks before reserving that
+layer's routed resident payload. This boundary is mandatory: `empty_cache()`
+without the preceding synchronization can overlap pending dequantization
+workspaces with the next ~1.6 GiB routed allocation and make the NVIDIA UMA
+driver fail before the first layer receipt. On the two
 Spark ranks, run under service scopes with `MemoryMax=95G` for rank 0 and
 `MemoryMax=90G` for rank 1 plus `LimitMEMLOCK=infinity`; these are host safety
 limits, not recipe knobs. The

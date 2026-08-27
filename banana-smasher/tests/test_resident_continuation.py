@@ -820,9 +820,11 @@ def test_sealed_trainer_materializes_nonexpert_before_resident_payload():
     capture_limit = loop.index("swiglu_limit = float(m.model.layers[layer].mlp.experts.limit)")
 
     identity = loop.index("mlp.experts = nn.Identity()")
+    synchronize = loop.index("torch.cuda.synchronize()")
+    release_cache = loop.index("torch.cuda.empty_cache()")
     assert capture_limit < identity < nonexpert
     assert "swiglu_limit=swiglu_limit" in loop[resident:assign]
-    assert nonexpert < materialize < resident < assign
+    assert nonexpert < materialize < synchronize < release_cache < resident < assign
     assert continuation_module.TRAINER_SHA256 == hashlib.sha256(
         trainer_path.read_bytes()
     ).hexdigest()
