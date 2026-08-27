@@ -190,6 +190,10 @@ class _ProvenSession:
                 for key, value in VALIDATED_REPAIR_RECIPE.items()
             }
         )
+        self.continuation_config.setdefault(
+            "checkpoint_lut_root",
+            str((receipt_root / "checkpoint-luts").resolve()),
+        )
         self.receipt_root = receipt_root
         self.engine = _construct_resident_engine(
             self.api, self.binding, self.continuation_config

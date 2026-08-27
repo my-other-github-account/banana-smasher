@@ -385,6 +385,46 @@ def test_artifact_admission_binds_manifest_and_checkpoint_bytes(tmp_path):
         rails.load_resident(artifact)
 
 
+def test_public_session_defaults_checkpoint_lut_materialization_inside_run_root(
+    tmp_path, monkeypatch
+):
+    observed = {}
+
+    class FakeProvenAPI:
+        artifact = type(
+            "Artifact",
+            (),
+            {"windows": tuple(range(64)), "manifest": {"checkpoints": {"UPDATE_000": {"next_update": 0}}}},
+        )()
+
+    def construct(api, binding, config):
+        del api, binding
+        observed.update(config)
+        return object()
+
+    monkeypatch.setattr(production_rails._ProvenResidentAPI, "open", lambda root: FakeProvenAPI())
+    monkeypatch.setattr(production_rails, "_construct_resident_engine", construct)
+    config = _base_config()
+    artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
+    receipt_root = tmp_path / "run" / "resident-receipts"
+
+    production_rails._ProvenSession(
+        artifact,
+        production_rails._ArtifactBinding(
+            identity_sha256=artifact.identity.sha256,
+            basis_sha256=artifact.identity.basis_sha256,
+            checkpoint="UPDATE_000",
+            score_checkpoints={"pre": "UPDATE_000"},
+            artifact_manifest_sha256=hashlib.sha256((artifact.root / "ARTIFACT.json").read_bytes()).hexdigest(),
+            checkpoint_sha256=artifact.checkpoint_sha256,
+        ),
+        continuation_config={},
+        receipt_root=receipt_root,
+    )
+
+    assert observed["checkpoint_lut_root"] == str((receipt_root / "checkpoint-luts").resolve())
+
+
 def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     tmp_path, monkeypatch
 ):
