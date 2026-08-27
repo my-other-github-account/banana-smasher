@@ -10,9 +10,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
+import shutil
 import tempfile
 import time
 from typing import Any, Callable, Mapping, Protocol, Sequence, TypeVar
@@ -36,6 +38,28 @@ _PHASE_PUBLIC_NAMES = {
     "post_update_score": "score_post",
 }
 _T = TypeVar("_T")
+
+
+def _ensure_ninja_available() -> Path:
+    """Make the solve extra's Ninja executable visible to PyTorch extensions."""
+    resolved = shutil.which("ninja")
+    if resolved is not None:
+        return Path(resolved)
+    try:
+        ninja = importlib.import_module("ninja")
+    except ImportError as exc:
+        raise RuntimeError(
+            "resident Q2 execution requires the solve extra: pip install 'banana-smasher[solve]'"
+        ) from exc
+    bin_dir = Path(str(getattr(ninja, "BIN_DIR", ""))).resolve()
+    candidate = bin_dir / "ninja"
+    if not candidate.is_file():
+        raise RuntimeError(f"solve extra did not provide a Ninja executable under {bin_dir}")
+    os.environ["PATH"] = str(bin_dir) + os.pathsep + os.environ.get("PATH", "")
+    resolved = shutil.which("ninja")
+    if resolved is None:
+        raise RuntimeError(f"could not expose solve-extra Ninja executable: {candidate}")
+    return Path(resolved)
 
 
 def _json_safe(value: Any) -> Any:
@@ -437,6 +461,8 @@ class ResidentRepairAPI:
         from .production_rails import ProductionRails
 
         rails = ProductionRails.from_file(config, run_root=selected_run_root)
+        if isinstance(rails, ProductionRails):
+            _ensure_ninja_available()
         api = ResidentRepairAPI(
             rails=rails,
             run_root=selected_run_root / "facade" / f"rank{rank}",

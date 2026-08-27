@@ -146,14 +146,21 @@ dtypes, or held-out gates.
 - Two reserved CUDA ranks launched with the artifact-owned distributed settings.
   The launcher sets only `RANK=0` or `RANK=1`; scientific paths and geometry come
   from the corresponding rank config.
-- Python 3.11 or newer. Install the runtime dependencies with
-  `python -m pip install './banana-smasher[solve]'`.
+- Python 3.11 or newer. Install the runtime dependencies into the interpreter
+  that launches the API with `python -m pip install './banana-smasher[solve]'`.
+  The admitted API verifies the solve extra and restores its packaged `ninja`
+  executable to `PATH` before loading any PyTorch CUDA extension, including from
+  a constrained service environment.
 
 Admission is the staging boundary: it copies and re-hashes the explicit
 checkpoint, verifies every `authenticated_inputs` row, writes rank configs, and
 refuses basis, corpus, teacher, or checkpoint identity drift. On the two Spark
 ranks, run under a service scope with `MemoryMax=105G` and
-`LimitMEMLOCK=infinity`; these are host safety limits, not recipe knobs.
+`LimitMEMLOCK=infinity`; these are host safety limits, not recipe knobs. The
+service launcher supplies `RANK=0` or `RANK=1`, optionally points
+`BANANA_SMASHER_RUN_ROOT` at durable local storage, and invokes the same API
+program below; it does not supply corpus, teacher, source-model, layer-split, or
+recipe paths.
 
 ## Exact API calls
 
