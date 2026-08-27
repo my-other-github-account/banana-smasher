@@ -466,6 +466,7 @@ def test_q2_full_row_cuda_source_preserves_exact_arithmetic_and_tie_contract() -
     ).read_text()
 
     assert "full_row_k2_viterbi" in source
+    assert "#include <math_constants.h>" in source
     assert "__fmul_rn" in source
     assert "__fadd_rn" in source
     assert "candidate < best" in source

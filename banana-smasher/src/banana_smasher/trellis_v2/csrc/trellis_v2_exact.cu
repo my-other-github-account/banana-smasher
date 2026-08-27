@@ -5,6 +5,7 @@
 #include <torch/extension.h>
 
 #include <cuda_runtime.h>
+#include <math_constants.h>
 
 #include <cfloat>
 #include <cstdint>
