@@ -29,6 +29,14 @@ def test_source_transform_control_is_seeded_basis_bound_and_idempotent(
     np.save(source, np.ones((32, 16), dtype=np.float32), allow_pickle=False)
     seed = qtip_transform_seed("domain-v1", "sealed-material", 4, 7, "down")
     assert seed == qtip_transform_seed("domain-v1", "sealed-material", 4, 7, "down")
+    assert qtip_transform_seed(
+        "qtip-rht-bounded36-v1",
+        "4fa7b1213db1d6a4670b534785edb1681d1538bb6d12a90222e33c30251c2462"
+        "|t_782dc70e|heldout-experts-v1",
+        39,
+        0,
+        "down",
+    ) == 3662494846445047602
     receipt = build_qtip_native_transform_control(
         source,
         output,
