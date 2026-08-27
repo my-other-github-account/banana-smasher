@@ -13,11 +13,57 @@ from safetensors import safe_open
 from .contract import (
     PackValidationError,
     load_manifest,
+    verify_mixed_v7_member_contract,
     verify_pack,
     verify_serve_compatibility,
 )
 
 Framework = Literal["np", "pt"]
+
+
+class MixedV7MemberLoader:
+    """Hash-verified reopen surface for identity-bound QTIP2/QTIP3 V7 members."""
+
+    def __init__(self, contract: str | Path) -> None:
+        self.contract = verify_mixed_v7_member_contract(contract)
+        self.members: dict[tuple[int, int, str], dict[str, Any]] = {}
+        for member in self.contract["members"]:
+            layer_text, expert_text, projection = member["cell_id"].split(".")
+            key = (int(layer_text[1:]), int(expert_text[1:]), projection)
+            self.members[key] = member
+
+    def reopen_hashes(self, layer: int, expert: int, tier: str) -> dict[str, str]:
+        projections = ("w1", "w2", "w3") if tier == "qtip2" else ("down", "fused13")
+        if tier not in {"qtip2", "qtip3"}:
+            raise ValueError(f"unsupported mixed V7 tier: {tier}")
+        hashes: dict[str, str] = {}
+        for projection in projections:
+            try:
+                member = self.members[(layer, expert, projection)]
+            except KeyError as exc:
+                raise PackValidationError(
+                    f"mixed V7 contract lacks L{layer:03d}.E{expert:03d}.{projection}"
+                ) from exc
+            if member["tier"] != tier:
+                raise PackValidationError("mixed V7 tier selection mismatch")
+            if tier == "qtip2":
+                hashes[projection] = member["payload"]["sha256"]
+                hashes[f"{projection}.tlut"] = member["unit_metadata"]["tlut"][
+                    "sha256"
+                ]
+            else:
+                hashes[f"{projection}.codes"] = member["payload"]["sha256"]
+                for name in ("control", "tlut"):
+                    hashes[f"{projection}.{name}"] = member["unit_metadata"][name]["sha256"]
+        return hashes
+
+    def member(self, layer: int, expert: int, projection: str) -> dict[str, Any]:
+        try:
+            return self.members[(layer, expert, projection)]
+        except KeyError as exc:
+            raise PackValidationError(
+                f"mixed V7 contract lacks L{layer:03d}.E{expert:03d}.{projection}"
+            ) from exc
 
 
 class LayerTensorView:

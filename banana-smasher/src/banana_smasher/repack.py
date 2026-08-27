@@ -12,6 +12,7 @@ import numpy as np
 from safetensors import safe_open
 
 from .contract import (
+    MIXED_V7_MEMBER_CONTRACT_SCHEMA,
     MANIFEST_NAME,
     PackValidationError,
     _canonical_json_bytes,
@@ -20,6 +21,7 @@ from .contract import (
     _write_bytes_durable,
     load_manifest,
     verify_pack,
+    verify_mixed_v7_member_contract,
 )
 
 CONTAINER_NAME = "bs-pack.safetensors"
@@ -38,6 +40,107 @@ _DTYPE_TO_SAFE = {
     np.dtype("float64"): "F64",
 }
 _SAFE_TO_DTYPE = {value: key for key, value in _DTYPE_TO_SAFE.items()}
+
+
+def bind_mixed_v7_member_contract(
+    mixed_identity: str | Path,
+    materialized_members: str | Path,
+    *,
+    output: str | Path,
+) -> dict[str, Any]:
+    """Bind a solve-mixed identity to sealed codes-only V7 runtime members."""
+
+    identity_path = Path(mixed_identity).expanduser().resolve()
+    if identity_path.is_dir():
+        identity_path = identity_path / "identity.json"
+    member_path = Path(materialized_members).expanduser().resolve()
+    try:
+        identity_raw = identity_path.read_bytes()
+        identity = json.loads(identity_raw)
+        member_raw = member_path.read_bytes()
+        materialized = json.loads(member_raw)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PackValidationError("cannot read mixed identity/materialized member index") from exc
+    if (
+        not isinstance(identity, dict)
+        or identity.get("schema") != "banana-smasher-mixed-backpack-identity-v1"
+        or identity.get("status") != "PRE_REPAIR_SOLVED"
+    ):
+        raise PackValidationError("mixed solve identity schema/status mismatch")
+    if (
+        not isinstance(materialized, dict)
+        or materialized.get("schema")
+        != "banana-smasher-mixed-v7-materialized-members-v1"
+        or materialized.get("status") != "SEALED"
+    ):
+        raise PackValidationError("mixed materialized member index schema/status mismatch")
+    for key in ("basis_sha256", "assignment_sha256"):
+        if materialized.get(key) != identity.get(key):
+            raise PackValidationError(f"mixed materialized member {key} mismatch")
+    assignment = identity.get("assignment")
+    members = materialized.get("members")
+    if not isinstance(assignment, dict) or not isinstance(members, list):
+        raise PackValidationError("mixed assignment/materialized members are malformed")
+    groups: dict[str, tuple[str, set[str]]] = {}
+    for member in members:
+        if not isinstance(member, dict):
+            raise PackValidationError("mixed materialized member row is malformed")
+        pieces = str(member.get("cell_id", "")).split(".")
+        if len(pieces) != 3:
+            raise PackValidationError("mixed materialized member cell id is invalid")
+        expert = ".".join(pieces[:2])
+        tier = str(member.get("tier"))
+        group = groups.setdefault(expert, (tier, set()))
+        if group[0] != tier:
+            raise PackValidationError(f"mixed materialized expert {expert} selects multiple tiers")
+        group[1].add(pieces[2])
+    if set(groups) != set(assignment):
+        raise PackValidationError("mixed materialized expert coverage differs from assignment")
+    for expert, tier in assignment.items():
+        if groups[expert][0] != tier:
+            raise PackValidationError(f"mixed materialized tier mismatch for {expert}")
+    tier_counts = {
+        "qtip2": sum(member.get("tier") == "qtip2" for member in members),
+        "qtip3": sum(member.get("tier") == "qtip3" for member in members),
+        "total": len(members),
+        "experts": len(groups),
+    }
+    contract = {
+        "schema": MIXED_V7_MEMBER_CONTRACT_SCHEMA,
+        "status": "PASS_ADMISSION_READY",
+        "basis_sha256": identity["basis_sha256"],
+        "assignment_sha256": identity["assignment_sha256"],
+        "materialized_root": materialized.get("materialized_root"),
+        "inputs": {
+            "mixed_identity": {
+                "path": str(identity_path),
+                "sha256": hashlib.sha256(identity_raw).hexdigest(),
+                "bytes": len(identity_raw),
+            },
+            "materialized_members": {
+                "path": str(member_path),
+                "sha256": hashlib.sha256(member_raw).hexdigest(),
+                "bytes": len(member_raw),
+            },
+        },
+        "member_counts": tier_counts,
+        "members": members,
+    }
+    output_path = Path(output).expanduser().resolve()
+    _write_bytes_durable(output_path, _canonical_json_bytes(contract))
+    verified = verify_mixed_v7_member_contract(output_path)
+    return {
+        "schema": "banana-smasher-mixed-v7-member-contract-receipt-v1",
+        "status": "PASS_ADMISSION_READY",
+        "basis_sha256": verified["basis_sha256"],
+        "assignment_sha256": verified["assignment_sha256"],
+        "member_counts": verified["member_counts"],
+        "contract": {
+            "path": str(output_path),
+            "sha256": _sha256_file(output_path),
+            "bytes": output_path.stat().st_size,
+        },
+    }
 
 
 def _sha256_range(

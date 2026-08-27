@@ -103,6 +103,130 @@ class PackValidationError(ValueError):
     """Raised when a pack fails any fail-closed contract gate."""
 
 
+MIXED_V7_MEMBER_CONTRACT_SCHEMA = "banana-smasher-mixed-v7-member-contract-v1"
+
+
+def _verify_mixed_v7_descriptor(
+    root: Path, descriptor: Any, *, label: str
+) -> dict[str, Any]:
+    if not isinstance(descriptor, dict) or set(descriptor) != {
+        "path",
+        "sha256",
+        "bytes",
+    }:
+        raise PackValidationError(f"{label} descriptor is malformed")
+    relative = Path(str(descriptor["path"]))
+    if relative.is_absolute() or ".." in relative.parts:
+        raise PackValidationError(f"{label} path is unsafe")
+    path = root / relative
+    try:
+        resolved = path.resolve(strict=True)
+        resolved.relative_to(root)
+    except (OSError, ValueError) as exc:
+        raise PackValidationError(f"{label} path is unavailable or escapes its root") from exc
+    if path.is_symlink() or not path.is_file():
+        raise PackValidationError(f"{label} path is not a regular sealed file")
+    size = descriptor["bytes"]
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+        raise PackValidationError(f"{label} byte count is invalid")
+    if path.stat().st_size != size:
+        raise PackValidationError(f"{label} byte count drift")
+    expected = descriptor["sha256"]
+    if not isinstance(expected, str) or re.fullmatch(r"[0-9a-f]{64}", expected) is None:
+        raise PackValidationError(f"{label} SHA-256 is invalid")
+    if _sha256_file(path) != expected:
+        raise PackValidationError(f"{label} SHA-256 drift")
+    return {**descriptor, "resolved_path": str(resolved)}
+
+
+def verify_mixed_v7_member_contract(path: str | Path) -> dict[str, Any]:
+    """Verify the codes-only QTIP2/QTIP3 runtime contract and every bound byte."""
+
+    contract_path = Path(path).expanduser().resolve()
+    try:
+        document = json.loads(contract_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PackValidationError(f"cannot read mixed V7 member contract: {contract_path}") from exc
+    if (
+        not isinstance(document, dict)
+        or document.get("schema") != MIXED_V7_MEMBER_CONTRACT_SCHEMA
+        or document.get("status") != "PASS_ADMISSION_READY"
+    ):
+        raise PackValidationError("mixed V7 member contract schema/status mismatch")
+    for key in ("basis_sha256", "assignment_sha256"):
+        if not isinstance(document.get(key), str) or re.fullmatch(
+            r"[0-9a-f]{64}", document[key]
+        ) is None:
+            raise PackValidationError(f"mixed V7 contract {key} is invalid")
+    root = Path(str(document.get("materialized_root", ""))).expanduser().resolve()
+    if not root.is_dir() or root.is_symlink():
+        raise PackValidationError("mixed V7 materialized root is unavailable or unsafe")
+    members = document.get("members")
+    if not isinstance(members, list) or not members:
+        raise PackValidationError("mixed V7 contract has no members")
+    verified: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    groups: dict[tuple[int, int], tuple[str, set[str]]] = {}
+    cell_pattern = re.compile(r"L(\d{3})\.E(\d{3})\.(w[123]|down|fused13)")
+    for index, member in enumerate(members):
+        if not isinstance(member, dict):
+            raise PackValidationError(f"mixed V7 member {index} is malformed")
+        cell_id = member.get("cell_id")
+        tier = member.get("tier")
+        match = cell_pattern.fullmatch(cell_id if isinstance(cell_id, str) else "")
+        if match is None or tier not in {"qtip2", "qtip3"} or cell_id in seen:
+            raise PackValidationError(f"mixed V7 member {index} identity is invalid")
+        projection = match.group(3)
+        if (tier == "qtip2") != projection.startswith("w"):
+            raise PackValidationError(f"mixed V7 member {cell_id} tier/projection mismatch")
+        seen.add(cell_id)
+        key = (int(match.group(1)), int(match.group(2)))
+        previous = groups.setdefault(key, (tier, set()))
+        if previous[0] != tier:
+            raise PackValidationError(f"mixed V7 expert {key} selects multiple tiers")
+        previous[1].add(projection)
+        checked = {
+            **member,
+            "payload": _verify_mixed_v7_descriptor(
+                root, member.get("payload"), label=f"{cell_id} payload"
+            ),
+        }
+        metadata = member.get("unit_metadata")
+        expected_metadata = {"control", "tlut"} if tier == "qtip3" else {"tlut"}
+        if not isinstance(metadata, dict) or set(metadata) != expected_metadata:
+            raise PackValidationError(f"mixed V7 {tier} member {cell_id} lacks unit metadata")
+        if tier == "qtip3":
+            checked["unit_metadata"] = {
+                name: _verify_mixed_v7_descriptor(
+                    root, metadata[name], label=f"{cell_id} {name}"
+                )
+                for name in ("control", "tlut")
+            }
+        else:
+            checked["unit_metadata"] = {
+                "tlut": _verify_mixed_v7_descriptor(
+                    root, metadata["tlut"], label=f"{cell_id} tlut"
+                )
+            }
+        verified.append(checked)
+    expected = {"qtip2": {"w1", "w2", "w3"}, "qtip3": {"down", "fused13"}}
+    for key, (tier, projections) in groups.items():
+        if projections != expected[tier]:
+            raise PackValidationError(
+                f"mixed V7 expert {key} has incomplete {tier} projections: {sorted(projections)}"
+            )
+    declared = document.get("member_counts")
+    tier_counts = {
+        "qtip2": sum(member["tier"] == "qtip2" for member in verified),
+        "qtip3": sum(member["tier"] == "qtip3" for member in verified),
+        "total": len(verified),
+        "experts": len(groups),
+    }
+    if declared != tier_counts:
+        raise PackValidationError("mixed V7 contract member counts disagree")
+    return {**document, "members": verified, "contract_path": str(contract_path)}
+
+
 def _canonical_json(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
 

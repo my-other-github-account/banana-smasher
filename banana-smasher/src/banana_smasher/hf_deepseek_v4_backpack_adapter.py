@@ -13,7 +13,7 @@ import numpy as np
 
 from .d4_wire import decode_d4_expert
 from .hf_deepseek_v4_d4_adapter import DeepseekV4D4Runtime
-from .loader import PackLoader
+from .loader import MixedV7MemberLoader, PackLoader
 from .qtip25_native_v4 import decode_native_v4_torch, native_v4_geometry
 from .qtip_v7_routes import _load_qtip2_v7_member_roster, load_qtip2_v7_wire
 
@@ -179,7 +179,8 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             "qtip2_v7_shared_lut",
             "qtip2_v7_member_roster",
         }
-        allowed = required | v7_group | set().union(*qtip_groups.values())
+        mixed_v7_group = {"mixed_v7_member_contract"}
+        allowed = required | v7_group | mixed_v7_group | set().union(*qtip_groups.values())
         if (
             not isinstance(binding, Mapping)
             or not required.issubset(binding)
@@ -227,8 +228,14 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 raise ValueError(
                     f"backpack_runtime {source_key} binding/selection mismatch"
                 )
-        if ("qtip2_v7" in selected_source_keys) != v7_group.issubset(binding):
+        mixed_v7_selected = bool(
+            selected_source_keys.intersection({"qtip2_v7", "qtip3_v7"})
+        )
+        mixed_v7_bound = mixed_v7_group.issubset(binding)
+        if (("qtip2_v7" in selected_source_keys) and not mixed_v7_bound) != v7_group.issubset(binding):
             raise ValueError("backpack_runtime qtip2_v7 binding/selection mismatch")
+        if mixed_v7_selected != mixed_v7_bound:
+            raise ValueError("backpack_runtime mixed V7 binding/selection mismatch")
         source_bindings = manifest.get("source_bindings")
         if not isinstance(source_bindings, Mapping):
             raise ValueError("virtual Backpack source bindings are missing")
@@ -284,6 +291,16 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             self._record_path(path)
         self.qtip2_v7_shared_lut_path: Path | None = None
         self.qtip2_v7_roster_members: dict[tuple[int, int, str], tuple[Path, str]] = {}
+        self.mixed_v7_loader: MixedV7MemberLoader | None = None
+        if mixed_v7_bound:
+            self.mixed_v7_loader = MixedV7MemberLoader(
+                binding["mixed_v7_member_contract"]
+            )
+            if self.mixed_v7_loader.contract["basis_sha256"] != self.basis_sha256:
+                raise ValueError("mixed V7 member contract basis mismatch")
+            self._record_path(
+                Path(str(binding["mixed_v7_member_contract"])).resolve()
+            )
         if v7_group.issubset(binding):
             path = Path(str(binding["qtip2_v7_root_map"])).resolve()
             root_map = json.loads(path.read_text())
@@ -678,6 +695,71 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         del gate, up
         return result
 
+    def _decode_mixed_v7(
+        self, source_key: str, layer: int, expert: int, projection: str
+    ) -> Any:
+        """Decode one member-index-bound QTIP2/QTIP3 V7 logical projection."""
+
+        if self.mixed_v7_loader is None:
+            raise ValueError("mixed V7 source selected without its member contract")
+        if source_key == "qtip2_v7":
+            wire_projections = ("w2",) if projection == "down" else ("w1", "w3")
+            values = []
+            for wire_projection in wire_projections:
+                member = self.mixed_v7_loader.member(layer, expert, wire_projection)
+                wire = Path(member["payload"]["resolved_path"])
+                tlut_path = Path(member["unit_metadata"]["tlut"]["resolved_path"])
+                payload = load_qtip2_v7_wire(wire, projection=wire_projection)
+                torch = self.torch
+                packed = torch.from_numpy(np.array(payload["packed"], copy=True)).to(
+                    self.device
+                ).reshape(-1)
+                su = torch.from_numpy(np.array(payload["SU"], copy=True)).float().to(self.device)
+                sv = torch.from_numpy(np.array(payload["SV"], copy=True)).float().to(self.device)
+                scale = torch.from_numpy(np.array(payload["Wscale"], copy=True)).float().to(
+                    self.device
+                )
+                lut_values = np.fromfile(tlut_path, dtype="<f2")
+                if lut_values.shape != (1024,):
+                    raise ValueError("mixed qtip2_v7 TLUT must be float16[1024]")
+                tlut = torch.from_numpy(lut_values.copy()).reshape(512, 2).float().to(
+                    self.device
+                )
+                index = torch.arange(1 << 16, device=self.device)
+                quadratic = (index + 1) * index
+                sign_flip = 1 - ((quadratic >> 15) & 1) * 2
+                expanded = tlut[(quadratic >> 6) & ((1 << 9) - 1)]
+                expanded[:, 0] *= sign_flip
+                rows, columns = payload["weight_shape"]
+                raw = _decode_compressed(
+                    torch, 16, 9, 2, 1, rows, columns, packed, expanded
+                )
+                decoded = raw * scale
+                decoded = _fwht(torch, decoded.T).T * sv[:, None]
+                values.append((_fwht(torch, decoded) * su).to(torch.bfloat16))
+            return values[0] if len(values) == 1 else self.torch.cat(values, dim=0)
+        if source_key != "qtip3_v7":
+            raise ValueError(f"unsupported mixed V7 source: {source_key}")
+        member = self.mixed_v7_loader.member(layer, expert, projection)
+        control_path = Path(member["unit_metadata"]["control"]["resolved_path"])
+        codes_path = Path(member["payload"]["resolved_path"])
+        tlut_path = Path(member["unit_metadata"]["tlut"]["resolved_path"])
+        control = self.torch.load(
+            control_path, map_location="cpu", mmap=True, weights_only=True
+        )
+        if not isinstance(control, Mapping):
+            raise ValueError("mixed qtip3_v7 control is not a mapping")
+        codes = np.load(codes_path, mmap_mode="r", allow_pickle=False)
+        tlut = np.load(tlut_path, mmap_mode="r", allow_pickle=False)
+        payload = {
+            **control,
+            "schema": "banana-smasher-qtip3-native-v6-unit-v1",
+            "geometry": native_v4_geometry(3.0).as_mapping(),
+            "trellis": self.torch.from_numpy(np.array(codes, copy=True)),
+            "tlut": self.torch.from_numpy(np.array(tlut, copy=True)),
+        }
+        return self._decode_native_qtip3_payloads([payload])[0]
+
     def _native(self, layer: int, expert: int, projection: str) -> Any:
         prefix = f"layers.{layer}.ffn.experts.{expert}."
 
@@ -878,6 +960,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                     "qtip2",
                     "qtip3",
                     "qtip2_v7",
+                    "qtip3_v7",
                     "d4_k2048",
                     "d4_k4096",
                 }:
@@ -890,7 +973,15 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 elif source_key == "qtip3":
                     value = qtip3_values.pop(key)
                 elif source_key == "qtip2_v7":
-                    value = self._decode_qtip2_v7(layer, expert, projection)
+                    value = (
+                        self._decode_mixed_v7(source_key, layer, expert, projection)
+                        if self.mixed_v7_loader is not None
+                        else self._decode_qtip2_v7(layer, expert, projection)
+                    )
+                elif source_key == "qtip3_v7":
+                    value = self._decode_mixed_v7(
+                        source_key, layer, expert, projection
+                    )
                 else:
                     value = self._decode_d4(
                         source_key,
