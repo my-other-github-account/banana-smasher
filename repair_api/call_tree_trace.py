@@ -120,16 +120,21 @@ def _provider_dispatch_identity(model: Any) -> dict[str, Any]:
         forward_identity = _callable_source_identity(forward)
         dispatcher = None
         dispatch_owner = None
-        for owner in type(expert).__mro__:
-            candidate = owner.__dict__.get("forward")
-            candidate_globals = getattr(candidate, "__globals__", {})
-            candidate_names = getattr(getattr(candidate, "__code__", None), "co_names", ())
-            if (
-                "grouped_packed_projection" in candidate_names
-                and callable(candidate_globals.get("grouped_packed_projection"))
-            ):
-                dispatcher = candidate_globals["grouped_packed_projection"]
-                dispatch_owner = owner
+        dispatch_owner_method = None
+        for method_name in ("_project", "forward"):
+            for owner in type(expert).__mro__:
+                candidate = owner.__dict__.get(method_name)
+                candidate_globals = getattr(candidate, "__globals__", {})
+                candidate_names = getattr(getattr(candidate, "__code__", None), "co_names", ())
+                if (
+                    "grouped_packed_projection" in candidate_names
+                    and callable(candidate_globals.get("grouped_packed_projection"))
+                ):
+                    dispatcher = candidate_globals["grouped_packed_projection"]
+                    dispatch_owner = owner
+                    dispatch_owner_method = method_name
+                    break
+            if dispatcher is not None:
                 break
         dispatch_identity = (
             _callable_source_identity(dispatcher) if callable(dispatcher)
@@ -146,6 +151,7 @@ def _provider_dispatch_identity(model: Any) -> dict[str, Any]:
                 f"{dispatch_owner.__module__}.{dispatch_owner.__qualname__}"
                 if dispatch_owner is not None else "<missing>"
             ),
+            "dispatch_owner_method": dispatch_owner_method or "<missing>",
             "dispatch_callable": dispatch_identity["callable"],
             "dispatch_source_file": dispatch_identity["source_file"],
             "dispatch_source_sha256": dispatch_identity["source_sha256"],

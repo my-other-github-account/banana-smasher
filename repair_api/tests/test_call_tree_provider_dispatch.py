@@ -26,10 +26,29 @@ class WrappedFakeExpert(FakeExpert):
         return super().forward(value)
 
 
+class ProjectFakeExpert(torch.nn.Module):
+    def _project(self, value: torch.Tensor) -> torch.Tensor:
+        return grouped_packed_projection(value)
+
+    def forward(self, value: torch.Tensor) -> torch.Tensor:
+        return self._project(value)
+
+
+class WrappedProjectFakeExpert(ProjectFakeExpert):
+    def forward(self, value: torch.Tensor) -> torch.Tensor:
+        return super().forward(value)
+
+
 class FakeStudent(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.experts = {0: WrappedFakeExpert(), 1: WrappedFakeExpert()}
+
+
+class ProjectFakeStudent(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.experts = {0: WrappedProjectFakeExpert()}
 
 
 def test_static_w28_grouped_dispatch_lines_are_named() -> None:
@@ -55,6 +74,7 @@ def test_provider_dispatch_identity_binds_installed_expert_and_callable(tmp_path
     implementation = identity["implementations"][0]
     assert implementation["expert_class"].endswith(".WrappedFakeExpert")
     assert implementation["dispatch_owner_class"].endswith(".FakeExpert")
+    assert implementation["dispatch_owner_method"] == "forward"
     assert implementation["dispatch_callable"].endswith(".grouped_packed_projection")
     assert implementation["dispatch_source_sha256"]
 
@@ -71,3 +91,14 @@ def test_provider_dispatch_identity_binds_installed_expert_and_callable(tmp_path
     event = next(row for row in rows if row["kind"] == "provider_dispatch_identity")
     assert event["status"] == "BOUND"
     assert event["implementations"] == identity["implementations"]
+
+
+def test_provider_dispatch_identity_binds_project_method_under_wrapped_forward() -> None:
+    model = ProjectFakeStudent()
+    identity = _provider_dispatch_identity(model)
+    implementation = identity["implementations"][0]
+    assert implementation["expert_class"].endswith(".WrappedProjectFakeExpert")
+    assert implementation["dispatch_owner_class"].endswith(".ProjectFakeExpert")
+    assert implementation["dispatch_owner_method"] == "_project"
+    assert implementation["dispatch_callable"].endswith(".grouped_packed_projection")
+    assert implementation["dispatch_source_sha256"]
