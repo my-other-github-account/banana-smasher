@@ -161,3 +161,63 @@ def test_admission_rejects_rank_scientific_runtime_digest_drift(tmp_path: Path):
             checkpoint=checkpoint,
             checkpoint_sha256=_sha(checkpoint.read_bytes()),
         )
+
+
+def test_admission_auto_binds_authenticated_grouped_wrapper_next_to_expert(tmp_path: Path):
+    checkpoint = tmp_path / "source.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    expert = tmp_path / "runtime" / "fast_v7_expert_base.py"
+    wrapper = expert.with_name("fast_k2_grouped.py")
+    expert.parent.mkdir()
+    expert.write_bytes(b"# expert\n")
+    wrapper.write_bytes(b"# grouped wrapper\n")
+    spec_path = _spec(tmp_path, checkpoint, expert)
+    spec = json.loads(spec_path.read_text())
+    spec["authenticated_inputs"].append(
+        {"path": str(wrapper), "sha256": _sha(wrapper.read_bytes())}
+    )
+    for rank in (0, 1):
+        spec["continuations"][str(rank)].update(
+            resident_expert_source=str(expert),
+            resident_expert_source_sha256=_sha(expert.read_bytes()),
+        )
+    spec_path.write_text(json.dumps(spec, sort_keys=True))
+
+    output = tmp_path / "artifact"
+    admit_resident_artifact(
+        spec_path,
+        output,
+        checkpoint=checkpoint,
+        checkpoint_sha256=_sha(checkpoint.read_bytes()),
+    )
+
+    for rank in (0, 1):
+        continuation = json.loads(
+            (output / f"production-rails.rank{rank}.json").read_text()
+        )["continuation"]
+        assert continuation["fast_k2_wrapper_source"] == str(wrapper.resolve())
+        assert continuation["fast_k2_wrapper_source_sha256"] == _sha(wrapper.read_bytes())
+
+
+def test_admission_refuses_unstaged_grouped_wrapper_next_to_expert(tmp_path: Path):
+    checkpoint = tmp_path / "source.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    expert = tmp_path / "runtime" / "fast_v7_expert_base.py"
+    expert.parent.mkdir()
+    expert.write_bytes(b"# expert\n")
+    spec_path = _spec(tmp_path, checkpoint, expert)
+    spec = json.loads(spec_path.read_text())
+    for rank in (0, 1):
+        spec["continuations"][str(rank)].update(
+            resident_expert_source=str(expert),
+            resident_expert_source_sha256=_sha(expert.read_bytes()),
+        )
+    spec_path.write_text(json.dumps(spec, sort_keys=True))
+
+    with pytest.raises(ValueError, match="authenticated grouped-K2 wrapper"):
+        admit_resident_artifact(
+            spec_path,
+            tmp_path / "artifact",
+            checkpoint=checkpoint,
+            checkpoint_sha256=_sha(checkpoint.read_bytes()),
+        )

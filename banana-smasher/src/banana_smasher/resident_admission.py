@@ -20,6 +20,9 @@ SHARED_CONTINUATION_BINDING_FIELDS = (
     "base_source_sha256",
     "trainer_source_sha256",
     "resident_expert_source_sha256",
+    "fast_k2_wrapper_source_sha256",
+    "fast_k2_extension_sha256",
+    "fast_k2_module_name",
     "member_roster_sha256",
     "corpus_sha256",
     "train_corpus_sha256",
@@ -147,6 +150,42 @@ def admit_resident_artifact(
     continuations = spec.get("continuations")
     if not all(isinstance(row, Mapping) for row in (checkpoint_row, corpora, composition, canary, score, continuations)):
         raise ValueError("checkpoint/corpora/composition/canary/score/continuations must be objects")
+    assert isinstance(continuations, Mapping)
+    bound_continuations: dict[str, dict[str, Any]] = {}
+    for rank in (0, 1):
+        continuation = continuations.get(str(rank))
+        if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
+            raise ValueError(f"continuations.{rank} must bind rank {rank}")
+        bound = dict(continuation)
+        configured_expert = bound.get("resident_expert_source")
+        if configured_expert:
+            expert = Path(str(configured_expert)).expanduser().resolve()
+            expert_sha = authenticated_sha_by_path.get(expert)
+            if expert_sha is None or bound.get("resident_expert_source_sha256") != expert_sha:
+                raise ValueError(
+                    f"continuations.{rank} requires an authenticated resident expert source"
+                )
+            configured_wrapper = bound.get("fast_k2_wrapper_source")
+            wrapper = (
+                Path(str(configured_wrapper)).expanduser().resolve()
+                if configured_wrapper
+                else expert.with_name("fast_k2_grouped.py")
+            )
+            wrapper_sha = authenticated_sha_by_path.get(wrapper)
+            if wrapper_sha is None:
+                raise ValueError(
+                    f"continuations.{rank} requires an authenticated grouped-K2 wrapper"
+                )
+            explicit_wrapper_sha = bound.get("fast_k2_wrapper_source_sha256")
+            if explicit_wrapper_sha is not None and explicit_wrapper_sha != wrapper_sha:
+                raise ValueError(
+                    f"continuations.{rank}.fast_k2_wrapper_source_sha256 contradicts authenticated input"
+                )
+            bound["fast_k2_wrapper_source"] = str(wrapper)
+            bound["fast_k2_wrapper_source_sha256"] = wrapper_sha
+        bound_continuations[str(rank)] = bound
+    binding_spec = dict(spec)
+    binding_spec["continuations"] = bound_continuations
     checkpoint_name = str(checkpoint_row.get("name", ""))
     if not checkpoint_name:
         raise ValueError("checkpoint.name is required")
@@ -157,7 +196,7 @@ def admit_resident_artifact(
         os.fsync(target.fileno())
     if _sha256(destination) != expected_checkpoint_sha:
         raise RuntimeError("copied checkpoint failed read-back verification")
-    identity_fields, binding_sha = provider_binding(spec)
+    identity_fields, binding_sha = provider_binding(binding_spec)
     manifest = {
         "schema": "repair-artifact-v1",
         "artifact_id": str(spec.get("artifact_id", "canonical-resident-artifact")),
@@ -211,10 +250,7 @@ def admit_resident_artifact(
     RepairArtifact.open(root)
     configs: dict[str, str] = {}
     for rank in (0, 1):
-        continuation = continuations.get(str(rank))
-        if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
-            raise ValueError(f"continuations.{rank} must bind rank {rank}")
-        bound_continuation = dict(continuation)
+        bound_continuation = dict(bound_continuations[str(rank)])
         asset_root = bound_continuation.get("asset_root")
         if asset_root:
             admission_path = Path(str(asset_root)).expanduser().resolve() / "code" / "JOINT_REPAIR_ADMISSION.json"

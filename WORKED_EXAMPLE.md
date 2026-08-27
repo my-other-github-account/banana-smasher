@@ -185,8 +185,12 @@ dtypes, or held-out gates.
 
 Admission is the staging boundary: it copies and re-hashes the explicit
 checkpoint, verifies every `authenticated_inputs` row, writes rank configs, and
-refuses basis, corpus, teacher, or checkpoint identity drift. On the two Spark
-ranks, run under a service scope with `MemoryMax=105G` and
+refuses basis, corpus, teacher, or checkpoint identity drift. When an admitted
+resident expert source is external, admission also auto-binds its authenticated
+`fast_k2_grouped.py` sibling (or the explicit hashed wrapper), and refuses the
+artifact before launch if that dependency was not staged. An optional prebuilt
+grouped-K2 extension remains path-and-SHA bound in the same continuation. On
+the two Spark ranks, run under a service scope with `MemoryMax=105G` and
 `LimitMEMLOCK=infinity`; these are host safety limits, not recipe knobs. The
 service launcher supplies `RANK=0` or `RANK=1`, a shared `MASTER_ADDR` /
 `MASTER_PORT` when the admitted copies do not already agree, optionally points
