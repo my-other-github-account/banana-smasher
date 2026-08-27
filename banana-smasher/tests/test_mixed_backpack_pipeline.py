@@ -10,6 +10,7 @@ from banana_smasher.backpack_dimensions import (
     bind_mixed_v7_physical_dimensions,
     DynamicDimensionsError,
     preflight_mixed_backpack_config,
+    preflight_mixed_v7_recovery_plan,
     solve_mixed_backpack_config,
 )
 from banana_smasher import solve_mixed_backpack_config as public_solve_mixed_backpack_config
@@ -51,6 +52,84 @@ def _dimension_rows(path: Path) -> None:
                 }
             )
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+
+
+def test_preflight_mixed_v7_recovery_closes_source_and_sensitivity_contract(
+    tmp_path: Path,
+) -> None:
+    terminal = tmp_path / "L002_SOURCE_TERMINAL.json"
+    _write_json(
+        terminal,
+        {
+            "status": "PASS",
+            "basis_index_sha256": BASIS,
+            "layer": 2,
+            "path": "/source/model-00004-of-00048.safetensors",
+            "bytes": 123,
+            "sha256": "b" * 64,
+        },
+    )
+    terminal_raw = terminal.read_bytes()
+    plan = tmp_path / "recovery.json"
+    _write_json(
+        plan,
+        {
+            "schema": "banana-smasher-mixed-v7-recovery-plan-v1",
+            "basis_sha256": BASIS,
+            "canonical_commit_sha": "c" * 40,
+            "selection_policy": {
+                "selected_layers": [2],
+                "experts_per_layer": 1,
+                "additional_qtip3_expert_options": 1,
+                "minimum_required_options": 1,
+            },
+            "layers": [
+                {
+                    "layer": 2,
+                    "source_stage_terminal": {
+                        "path": str(terminal),
+                        "bytes": len(terminal_raw),
+                        "sha256": hashlib.sha256(terminal_raw).hexdigest(),
+                    },
+                    "source_payload": {
+                        "path": "/source/model-00004-of-00048.safetensors",
+                        "bytes": 123,
+                        "sha256": "b" * 64,
+                    },
+                    "capture": {"path": "/capture/L002.pt", "sha256": "d" * 64},
+                }
+            ],
+        },
+    )
+    plan_raw = plan.read_bytes()
+    contract = tmp_path / "sensitivity.json"
+    _write_json(
+        contract,
+        {
+            "schema": "banana-smasher-mixed-v7-sensitivity-extraction-contract-v1",
+            "basis_sha256": BASIS,
+            "canonical_commit_sha": "c" * 40,
+            "recovery_plan": {
+                "path": str(plan),
+                "bytes": len(plan_raw),
+                "sha256": hashlib.sha256(plan_raw).hexdigest(),
+            },
+            "inputs": {"layers": [{"layer": 2}]},
+            "output": {"expected_rows": 1},
+        },
+    )
+
+    receipt = preflight_mixed_v7_recovery_plan(plan, contract)
+
+    assert receipt["status"] == "PASS_READY_TO_CAS"
+    assert receipt["selected_layers"] == [2]
+    assert receipt["source_payload_bytes"] == 123
+
+    payload = json.loads(terminal.read_text())
+    payload["basis_index_sha256"] = "e" * 64
+    _write_json(terminal, payload)
+    with pytest.raises(DynamicDimensionsError, match="descriptor mismatch"):
+        preflight_mixed_v7_recovery_plan(plan, contract)
 
 
 def _config(tmp_path: Path, *, target: int) -> Path:

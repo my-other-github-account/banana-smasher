@@ -385,6 +385,14 @@ def _parser() -> argparse.ArgumentParser:
     backpack_bind_physical.add_argument("--basis-sha256", required=True)
     backpack_bind_physical.add_argument("--output", type=Path, required=True)
     backpack_bind_physical.add_argument("--receipt", type=Path, required=True)
+    backpack_recovery_preflight = backpack_commands.add_parser(
+        "preflight-mixed-v7-recovery",
+        help="admit a hash-bound QTIP3 recovery tranche before host CAS",
+    )
+    backpack_recovery_preflight.add_argument("--plan", type=Path, required=True)
+    backpack_recovery_preflight.add_argument(
+        "--sensitivity-contract", type=Path, required=True
+    )
     backpack_mixed_preflight = backpack_commands.add_parser(
         "preflight-mixed",
         help="admit available mixed inventory shards and report pending locators",
@@ -1572,6 +1580,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                         receipt=args.receipt,
                     ),
                     "command": "backpack bind-mixed-v7-physical",
+                }
+            elif args.backpack_command == "preflight-mixed-v7-recovery":
+                from .backpack_dimensions import preflight_mixed_v7_recovery_plan
+
+                result = {
+                    **preflight_mixed_v7_recovery_plan(
+                        args.plan, args.sensitivity_contract
+                    ),
+                    "command": "backpack preflight-mixed-v7-recovery",
                 }
             elif args.backpack_command == "preflight-mixed":
                 from .backpack_dimensions import preflight_mixed_backpack_config
