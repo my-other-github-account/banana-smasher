@@ -102,11 +102,11 @@ def _advance_prefix_costs(
         state = q * 4096 + j
         lut0 = tl.load(lut_ptr + state * 2).to(tl.float32)
         lut1 = tl.load(lut_ptr + state * 2 + 1).to(tl.float32)
-        candidate = (
-            predecessor_cost
-            + (lut0 - x0) * (lut0 - x0)
+        error = (
+            (lut0 - x0) * (lut0 - x0)
             + (lut1 - x1) * (lut1 - x1)
         )
+        candidate = predecessor_cost + error
         take = candidate < best
         best = tl.where(take, candidate, best)
         chosen = tl.where(take, state, chosen)
