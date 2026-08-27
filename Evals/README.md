@@ -1,6 +1,6 @@
 # DeepSeek-V4-Flash-0731 quant results
 
-This page compares quality and declared shipping-accounting size for fourteen measured quants on the frozen competitive `BALANCED64_V1` population. Every row states whether its byte numerator excludes MTP, includes the complete native MTP checkpoint, includes a sealed historical partial native-MTP payload, or includes a separate drafter. **QTIP2 V7 pre-repair** is now published under its own measured artifact identity. A different prior QTIP2 `412/500` MMLU result remains method-divergent and quarantined with accepted score 0 because it used layerwise LUT-only optimization rather than the required joint RMSNorm/output-gain whole-model training.
+This page compares quality and declared shipping-accounting size for fifteen measured quants on the frozen competitive `BALANCED64_V1` population. Every row states whether its byte numerator excludes MTP, includes the complete native MTP checkpoint, includes a sealed historical partial native-MTP payload, or includes a separate drafter. **QTIP2 V7 pre-repair** is now published under its own measured artifact identity. A different prior QTIP2 `412/500` MMLU result remains method-divergent and quarantined with accepted score 0 because it used layerwise LUT-only optimization rather than the required joint RMSNorm/output-gain whole-model training.
 
 The separate [MMLU-500 capability-density table](../archive/notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md) scores thirteen accepted sealed rows on one immutable zero-shot question bank, including the distinct routed-native greedy K2.5 artifact and full physical alternating K2/K3 comparator. The original four per-question result sets remain unchanged. Every later accepted row carries compact public-safe measurement provenance; the completed full EXL3 K2.5 greedy-optimizer search is separately recorded as `ARTIFACT_UNAVAILABLE`, with no inferred score. The quarantined QTIP2 qrows are preserved as diagnostics, not rewritten as a joint result.
 
@@ -20,6 +20,7 @@ Every quant row with Top-1/KLD values ran the same 64 windows and 65,536 scored 
 | **Unsloth IQ3** | **87.95%** (57,638/65,536) | **0.177708** | **83.20%** (416/500) | **19.850** | **28.377** | **0.558** | 104.208 | MTP excluded | 2.932 | FP8 e4m3 dynamic own-base |
 | **EXL3 K2 routed-only + native rest** | **86.33%** (56,579/65,536) | **0.234288** | **83.60%** (418/500) | **23.305** | **33.247** | **0.656** | 89.371 | Historical partial native MTP | 2.515 | FP8 e4m3 dynamic own-base |
 | **QTIP2 V7 pre-repair** | **86.26%** (56,533/65,536) | **0.229392** | **N/A — not measured** | N/A | N/A | N/A | **100.636** | Historical partial native MTP | **2.831** | FP8 e4m3 dynamic own-base; sealed pre-repair artifact |
+| **0xSero REAP-K216 EXL3 3.0** | **84.81%** (55,584/65,536) | **0.386969** | **N/A — not measured** | N/A | N/A | N/A | **106.817** | MTP included | **3.005** | FP8 e4m3 dynamic own-base |
 | **Unsloth IQ2** | **84.57%** (55,422/65,536) | **0.276747** | **81.80%** (409/500) | **22.218** | **31.998** | **0.625** | 90.861 | MTP excluded | 2.556 | FP8 e4m3 dynamic own-base |
 | **DwarfStar Q2** | **83.69%** (54,845/65,536) | **0.309521** | **80.60%** (403/500) | **21.092** | **30.576** | **0.593** | 93.691 | Stock MTP excluded; separate drafter included | 2.636 | FP8 e4m3 dynamic own-base |
 | **EXL3 K2.5 greedy optimizer full** | **83.51%** (54,732/65,536) | **0.302775** | **N/A — artifact unavailable** | N/A | N/A | N/A | 94.833 | MTP included | 2.668 | FP8 e4m3 dynamic own-base; MMLU artifact unavailable |
@@ -51,7 +52,7 @@ The historical QTIP2 V7 / EXL K2 size anomaly is now closed byte-for-byte in the
 
 The corrected QTIP accounting restores ten omitted MTP tensors totaling 33,843,220 payload bytes and includes the deterministic index-length increase. That raises QTIP3 from 123.935 to **123.969 GB**. QTIP2.5's later physical MMLU terminal materialized an exact **106.657444992 GB** artifact, superseding the earlier 106.657097796 GB reconstruction by 347,196 bytes. Quality metrics do not change. The historical QTIP2 V7 pre-repair row retains its separately sealed **100.636011256 GB** numerator and is explicitly scoped as partial native MTP; later accounting is not back-applied to a different historical artifact. Source index hashes and exact physical terminals remain recorded in the machine receipts; no unmaterialized content hash is fabricated. The method-divergent LUT-only QTIP2 MMLU diagnostic remains quarantined and excluded from decisions.
 
-The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, per-row payload scope, both BPW conventions, candidate identities, measurement bindings, protected source hashes, replay limits, and six-category breakdowns for all fourteen measured quants. The SHA-bound [size-accounting receipt](results/deepseek-v4-flash-0731-mtp-size-accounting-v1.json) records denominator policy and scope evidence for the complete row population, including the historical partial-native-MTP QTIP2 V7 row. The full greedy K2.5 row binds its exact-rate solution, corrected optimizer measurement, artifact identity, payload manifest, physical provenance, 64-window bindings, capture manifest, and independent recomputation. The routed-native greedy row additionally binds its fresh overlay identity, routed tensor-source manifest, runtime-selected payload proof, Exact64 capture and independent recomputation, functional readback, durable mirror, and release terminal. The routed K3 row binds its protected source tree/index, overlay and selected-payload proofs, 64-window measurement, raw rows, independent recomputation, functional readback, exact 104,290,452,480-byte routed payload, and exact 19,708,797,688-byte native-rest payload. Separately materialized routed composite tree and publicly distributed manifest digests remain explicitly unavailable rather than inferred.
+The [machine-readable result](results/deepseek-v4-flash-0731-balanced64-v1.json) contains exact bytes, full decimal ratios, per-row payload scope, both BPW conventions, candidate identities, measurement bindings, protected source hashes, replay limits, and six-category breakdowns for all fifteen measured quants. The SHA-bound [size-accounting receipt](results/deepseek-v4-flash-0731-mtp-size-accounting-v1.json) records denominator policy and scope evidence for the complete row population, including the historical partial-native-MTP QTIP2 V7 row. The full greedy K2.5 row binds its exact-rate solution, corrected optimizer measurement, artifact identity, payload manifest, physical provenance, 64-window bindings, capture manifest, and independent recomputation. The routed-native greedy row additionally binds its fresh overlay identity, routed tensor-source manifest, runtime-selected payload proof, Exact64 capture and independent recomputation, functional readback, durable mirror, and release terminal. The routed K3 row binds its protected source tree/index, overlay and selected-payload proofs, 64-window measurement, raw rows, independent recomputation, functional readback, exact 104,290,452,480-byte routed payload, and exact 19,708,797,688-byte native-rest payload. Separately materialized routed composite tree and publicly distributed manifest digests remain explicitly unavailable rather than inferred.
 
 ## What makes these apples to apples
 
@@ -83,6 +84,7 @@ These category rows are derived from the exact same 64-window competitive aggreg
 | **Unsloth IQ3** | 87.68% (17,059/19,456) | 91.35% (6,548/7,168) | 91.46% (8,429/9,216) | 83.54% (8,555/10,240) | 82.17% (8,414/10,240) | 93.67% (8,633/9,216) |
 | **EXL3 K2 routed + native rest** | 86.43% (16,815/19,456) | 89.30% (6,401/7,168) | 90.08% (8,302/9,216) | 81.48% (8,344/10,240) | 80.18% (8,210/10,240) | 92.31% (8,507/9,216) |
 | **QTIP2 V7 pre-repair** | 86.30% (16,791/19,456) | 89.17% (6,392/7,168) | 89.81% (8,277/9,216) | 81.49% (8,345/10,240) | 80.03% (8,195/10,240) | 92.59% (8,533/9,216) |
+| **0xSero REAP-K216 EXL3 3.0** | 87.78% (17,079/19,456) | 90.89% (6,515/7,168) | 93.12% (8,582/9,216) | 63.40% (6,492/10,240) | 78.78% (8,067/10,240) | 96.02% (8,849/9,216) |
 | **Unsloth IQ2** | 84.43% (16,426/19,456) | 88.85% (6,369/7,168) | 89.08% (8,210/9,216) | 78.76% (8,065/10,240) | 76.81% (7,865/10,240) | 92.09% (8,487/9,216) |
 | **DwarfStar Q2** | 83.13% (16,174/19,456) | 88.38% (6,335/7,168) | 88.10% (8,119/9,216) | 77.75% (7,962/10,240) | 76.12% (7,795/10,240) | 91.80% (8,460/9,216) |
 | **EXL3 K2.5 greedy optimizer full** | 84.06% (16,355/19,456) | 85.92% (6,159/7,168) | 88.03% (8,113/9,216) | 78.32% (8,020/10,240) | 76.61% (7,845/10,240) | 89.41% (8,240/9,216) |
@@ -107,6 +109,7 @@ These category rows are derived from the exact same 64-window competitive aggreg
 | **EXL3 K2.5 greedy optimizer full** | 0.3965 | 0.1512 | 0.1640 | 0.4481 | 0.3914 | 0.1017 |
 | **DwarfStar Q2** | 0.4198 | 0.1250 | 0.1745 | 0.4674 | 0.4150 | 0.0625 |
 | **EXL3 K2 exact** | 0.4630 | 0.1931 | 0.1964 | 0.5621 | 0.4817 | 0.1246 |
+| **0xSero REAP-K216 EXL3 3.0** | 0.3248 | 0.1481 | 0.1115 | 1.1625 | 0.4671 | 0.0287 |
 
 ## Internal anchors are separate
 
@@ -125,13 +128,13 @@ python3 -m Evals.tools.receipts verify \
 Expected Top-1 order:
 
 ```text
-IQ4 > EXL3 K3 routed + native rest > QTIP3 > QTIP2.5 > EXL3 K2.5 greedy routed + native rest > EXL3 K3 full > IQ3 > EXL3 K2 routed + native rest > QTIP2 V7 pre-repair > IQ2 > DwarfStar > EXL3 K2.5 greedy full > physical alternating comparator > EXL3 K2
+IQ4 > EXL3 K3 routed + native rest > QTIP3 > QTIP2.5 > EXL3 K2.5 greedy routed + native rest > EXL3 K3 full > IQ3 > EXL3 K2 routed + native rest > QTIP2 V7 pre-repair > 0xSero REAP-K216 EXL3 3.0 > IQ2 > DwarfStar > EXL3 K2.5 greedy full > physical alternating comparator > EXL3 K2
 ```
 
 Expected KLD order:
 
 ```text
-IQ4 > EXL3 K3 routed + native rest > QTIP3 > EXL3 K3 full > EXL3 K2.5 greedy routed + native rest > IQ3 > QTIP2.5 > QTIP2 V7 pre-repair > EXL3 K2 routed + native rest > IQ2 > physical alternating comparator > EXL3 K2.5 greedy full > DwarfStar > EXL3 K2
+IQ4 > EXL3 K3 routed + native rest > QTIP3 > EXL3 K3 full > EXL3 K2.5 greedy routed + native rest > IQ3 > QTIP2.5 > QTIP2 V7 pre-repair > EXL3 K2 routed + native rest > IQ2 > physical alternating comparator > EXL3 K2.5 greedy full > DwarfStar > EXL3 K2 > 0xSero REAP-K216 EXL3 3.0
 ```
 
 ## Standard HumanEval tooling

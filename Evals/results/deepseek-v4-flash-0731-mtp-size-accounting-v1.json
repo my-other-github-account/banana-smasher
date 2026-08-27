@@ -195,6 +195,15 @@
       "matched_physical_parameter_denominator": 294476673408,
       "matched_physical_bpw": "2.733962186989743081307444759220580226529533181651880663179160168733985428980087482094462223516969077",
       "scope_evidence": "QTIP2 V7 pre-repair independent exact wire accounting: 42 compact layers, one dense L034 layer, exact historical native-rest payload, and ten later-identified native MTP tensors absent from this measured artifact"
+    },
+    "0xSero-REAP-K216-EXL3-3P0": {
+      "artifact_payload_scope": "base-plus-native-mtp",
+      "mtp_included": true,
+      "shipping_bytes": 106816685560,
+      "comparison_bpw": "3.005380217960803579052804265982957394282309584686338197582853797143706799671549697184155962081445776",
+      "matched_physical_parameter_denominator": 294550374339,
+      "matched_physical_bpw": "2.901145470949263453823350735768830157976192474452844358501767722990230329520178841438712186976467966",
+      "scope_evidence": "sealed artifact manifest and Hugging Face revision bind the complete native MTP checkpoint inside the 106816685560-byte REAP-K216 EXL3 3.0 artifact"
     }
   },
   "limitations": [

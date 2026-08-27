@@ -7,7 +7,7 @@
   "mtp_inclusive_parameter_denominator": 294550374339,
   "size_accounting": {
     "receipt_path": "deepseek-v4-flash-0731-mtp-size-accounting-v1.json",
-    "receipt_sha256": "059a732ba0a024f707cbd11fb066aac29819751f4f742b93e211c18cbad4fb50",
+    "receipt_sha256": "8d39925b3540f86398f3fe3801d0bd122f8920b70e211d2c219ede1fd8076632",
     "comparison_bpw_kind": "base-equivalent: all shipped bytes divided by the fixed base-model parameter denominator",
     "matched_physical_bpw_kind": "all shipped bytes divided by parameters represented by the artifact payload"
   },
@@ -464,7 +464,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "059a732ba0a024f707cbd11fb066aac29819751f4f742b93e211c18cbad4fb50"
+          "accounting_receipt_sha256": "8d39925b3540f86398f3fe3801d0bd122f8920b70e211d2c219ede1fd8076632"
         }
       },
       "measurement": {
@@ -663,7 +663,7 @@
           "missing_tensor_payload_bytes": 33843220,
           "corrected_retained_tensor_count": 6279,
           "corrected_retained_payload_bytes": 19742640908,
-          "accounting_receipt_sha256": "059a732ba0a024f707cbd11fb066aac29819751f4f742b93e211c18cbad4fb50"
+          "accounting_receipt_sha256": "8d39925b3540f86398f3fe3801d0bd122f8920b70e211d2c219ede1fd8076632"
         }
       },
       "measurement": {
@@ -1476,6 +1476,125 @@
           "teacher-bank payloads and frozen corpus text are not distributed by this repository",
           "the distributed multi-host pre-repair candidate payload is not preserved as one public standalone tree",
           "the protected physical measurement environment is not reproducible from a clean public clone"
+        ]
+      }
+    },
+    {
+      "model_id": "0xSero-REAP-K216-EXL3-3P0",
+      "display_name": "0xSero REAP-K216 EXL3 3.0",
+      "vendor": "0xSero",
+      "fp": "FP8 e4m3 dynamic own-base teacher",
+      "artifact": {
+        "repository": "0xSero/deepseek-v4-flash-0731-spark",
+        "revision": "22f28d32b9b29b4352eaa380ff8c2c170b2847ab",
+        "variant": "REAP K216 EXL3 3.0 one-DGX-Spark",
+        "artifact_manifest_sha256": "ea8522d22abbbb91f9bb992884e5b1e546ff86336d17b2a64fe95b00157ed6d4",
+        "identity_status": "complete-as-recorded",
+        "missing_identity_fields": []
+      },
+      "wire": {
+        "bytes": 106816685560,
+        "decimal_gb": "106.81668556",
+        "artifact_payload_scope": "base-plus-native-mtp",
+        "parameter_denominator": 284334567511,
+        "normalized_bpw": "3.005380217960803579052804265982957394282309584686338197582853797143706799671549697184155962081445776",
+        "total_model_parameters": 294550374339,
+        "total_model_parameter_components": {
+          "base_model": 284334567511,
+          "auxiliary_models": 10215806828
+        },
+        "total_model_bpw": "2.901145470949263453823350735768830157976192474452844358501767722990230329520178841438712186976467966"
+      },
+      "kld": {
+        "direction": "KL(teacher||candidate)",
+        "mean": "0.3869685678133764"
+      },
+      "top1": {
+        "matches": 55584,
+        "positions": 65536,
+        "rate": "0.84814453125"
+      },
+      "classes": {
+        "agentic": {
+          "windows": 19,
+          "positions": 19456,
+          "kld_mean": "0.32480143440453224",
+          "top1_matches": 17079,
+          "top1_rate": "0.8778268914473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789"
+        },
+        "chat": {
+          "windows": 7,
+          "positions": 7168,
+          "kld_mean": "0.14813124229609684",
+          "top1_matches": 6515,
+          "top1_rate": "0.9089006696428571428571428571428571428571428571428571428571428571428571428571428571428571428571428571"
+        },
+        "code": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.11152047051784912",
+          "top1_matches": 8582,
+          "top1_rate": "0.9312065972222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "multilingual": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "1.1624590982792047",
+          "top1_matches": 6492,
+          "top1_rate": "0.633984375"
+        },
+        "prose": {
+          "windows": 10,
+          "positions": 10240,
+          "kld_mean": "0.4670952295772638",
+          "top1_matches": 8067,
+          "top1_rate": "0.78779296875"
+        },
+        "reasoning": {
+          "windows": 9,
+          "positions": 9216,
+          "kld_mean": "0.028734986341330204",
+          "top1_matches": 8849,
+          "top1_rate": "0.9601779513888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889"
+        }
+      },
+      "source_receipts": [
+        {
+          "sha256": "9dc4b6a211af34f1b0ed50974d2ee3d5d720bda07b80b847a64d585fdcf9072a",
+          "label": "0xSero REAP-K216 capture successor terminal",
+          "role": "terminal sealed measurement, artifact, and publication handoff",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "9efe0632b6b9c0ee08390b57b267a21121e2dfab74aedf6f1573a77129b42896",
+          "label": "0xSero REAP-K216 independent exact recompute",
+          "role": "independent global and six-category binary64 recomputation evidence",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "b40a7ca0a1f414aa058a7feb1e40246036ab026b2e3c66ceda4d9c5b138a779b",
+          "label": "0xSero REAP-K216 BALANCED64 bindings",
+          "role": "suite, teacher, candidate, raw-row, and no-fallback bindings",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "5f2ad894578d2ef4a538fc8d2350eb77d76948f34c77ff3d7f608c2b7d9d5a29",
+          "label": "0xSero REAP-K216 Exact64 capture",
+          "role": "64 protected candidate-row capture identity",
+          "availability": "protected-not-distributed"
+        },
+        {
+          "sha256": "ea8522d22abbbb91f9bb992884e5b1e546ff86336d17b2a64fe95b00157ed6d4",
+          "label": "0xSero REAP-K216 complete artifact manifest",
+          "role": "exact 106816685560-byte Hugging Face artifact identity with complete native MTP",
+          "availability": "protected-not-distributed"
+        }
+      ],
+      "replay": {
+        "status": "blocked",
+        "blockers": [
+          "teacher-bank, frozen-corpus, and protected candidate-row payloads are not distributed by this repository",
+          "the protected one-DGX-Spark scoring environment is not reproducible from a clean public clone"
         ]
       }
     },
