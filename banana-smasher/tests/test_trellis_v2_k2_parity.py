@@ -38,6 +38,8 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     }
     assert '"branch_sampling": "full"' in exact_source
     assert "alternating-parity-full" not in exact_source
+    assert exact_source.count("tl.cast(B, tl.int64)") == 2
+    assert "step.to(tl.int64)" not in exact_source
 
 
 @pytest.mark.skipif(

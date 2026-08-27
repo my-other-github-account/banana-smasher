@@ -128,7 +128,7 @@ def _advance_prefix_costs(
         chosen = tl.where(take, state, chosen)
     base = seq.to(tl.int64) * 4096
     tl.store(current_ptr + base + j, best)
-    backpointer_base = step.to(tl.int64) * B * 4096 + base
+    backpointer_base = step * tl.cast(B, tl.int64) * 4096 + base
     tl.store(best_state_ptr + backpointer_base + j, chosen)
 
 
@@ -145,7 +145,7 @@ def _backtrack(
     for step in tl.static_range(NSTEPS - 1, -1, -1):
         state = tl.load(
             best_state_ptr
-            + step * B.to(tl.int64) * 4096
+            + step * tl.cast(B, tl.int64) * 4096
             + seq.to(tl.int64) * 4096
             + prefix
         ).to(tl.int32)
