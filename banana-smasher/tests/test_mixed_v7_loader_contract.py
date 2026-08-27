@@ -87,12 +87,12 @@ def test_qtip2_only_codes_contract_reopens_exact_wire_hashes(tmp_path: Path) -> 
 
     assert receipt["status"] == "PASS_ADMISSION_READY"
     assert loader.reopen_hashes(0, 0, "qtip2") == {
-        "w1": _sha(materialized / "qtip2/L000/E000/w1.q2v7wire"),
-        "w1.tlut": _sha(tlut),
-        "w2": _sha(materialized / "qtip2/L000/E000/w2.q2v7wire"),
-        "w2.tlut": _sha(tlut),
-        "w3": _sha(materialized / "qtip2/L000/E000/w3.q2v7wire"),
-        "w3.tlut": _sha(tlut),
+        "w1": "c974e17b8e7321ce8c12983de3d0ed4a289821f579bbe0925b0181a4bc8e8d80",
+        "w1.tlut": "7ed5b3a9783e0298128e42a10979f5a7170b5e2f82767913e26b497743918970",
+        "w2": "908aec4512d80ff4fefb1970899091e9de8e734b36b8fdb7678e77dc092f6959",
+        "w2.tlut": "7ed5b3a9783e0298128e42a10979f5a7170b5e2f82767913e26b497743918970",
+        "w3": "75a288c0d6898c5f7b054590845978a82a3ad79fcce3d43ff68a7501e5a91ee9",
+        "w3.tlut": "7ed5b3a9783e0298128e42a10979f5a7170b5e2f82767913e26b497743918970",
     }
 
 
@@ -143,12 +143,9 @@ def test_qtip3_only_codes_contract_reopens_codes_and_per_unit_metadata(
     loader = MixedV7MemberLoader(output)
 
     reopened = loader.reopen_hashes(23, 7, "qtip3")
-    assert reopened["down.codes"] == _sha(
-        materialized / "qtip3/L023/E007_down/codes.npy"
-    )
-    assert reopened["fused13.control"] == _sha(
-        materialized / "qtip3/L023/E007_fused13/CONTROL.pt"
-    )
+    assert reopened["down.codes"] == "0181710422c3eeda2ecbc6ae20139a14912054181e55c57a83b7da5d2fc683ec"
+    assert reopened["fused13.control"] == "307290617bbd8f62ee47bc105dc7bdf7ffa1ed267ecab71057851d4ae4536b52"
+    assert reopened["down.tlut"] == "58bfbd29f52b67c7e2f8b179cb4fe1676aab73e911ef9100b5a587274d40f20a"
     assert reopened["down.tlut"] == reopened["fused13.tlut"]
 
 
