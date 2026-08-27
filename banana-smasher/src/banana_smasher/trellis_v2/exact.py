@@ -15,6 +15,7 @@ import torch
 try:
     import triton
     import triton.language as tl
+    from triton.language.extra import libdevice
 except Exception as exc:  # fail loudly; a silent slow path is forbidden
     raise RuntimeError(
         "public solve could not load the SHA-pinned full-16 exact QTIP2 "
@@ -58,7 +59,12 @@ def _init_prefix_costs(
         state = q * 4096 + j
         lut0 = tl.load(lut_ptr + state * 2).to(tl.float32)
         lut1 = tl.load(lut_ptr + state * 2 + 1).to(tl.float32)
-        candidate = (lut0 - x0) * (lut0 - x0) + (lut1 - x1) * (lut1 - x1)
+        delta0 = lut0 - x0
+        delta1 = lut1 - x1
+        candidate = libdevice.add_rn(
+            libdevice.mul_rn(delta0, delta0),
+            libdevice.mul_rn(delta1, delta1),
+        )
         valid = residue == (overlap & 255)
         best = tl.where(valid, candidate, best)
         chosen = state
@@ -67,7 +73,12 @@ def _init_prefix_costs(
             state = q * 4096 + j
             lut0 = tl.load(lut_ptr + state * 2).to(tl.float32)
             lut1 = tl.load(lut_ptr + state * 2 + 1).to(tl.float32)
-            candidate = (lut0 - x0) * (lut0 - x0) + (lut1 - x1) * (lut1 - x1)
+            delta0 = lut0 - x0
+            delta1 = lut1 - x1
+            candidate = libdevice.add_rn(
+                libdevice.mul_rn(delta0, delta0),
+                libdevice.mul_rn(delta1, delta1),
+            )
             take = candidate < best
             best = tl.where(take, candidate, best)
             chosen = tl.where(take, state, chosen)
@@ -102,11 +113,13 @@ def _advance_prefix_costs(
         state = q * 4096 + j
         lut0 = tl.load(lut_ptr + state * 2).to(tl.float32)
         lut1 = tl.load(lut_ptr + state * 2 + 1).to(tl.float32)
-        error = (
-            (lut0 - x0) * (lut0 - x0)
-            + (lut1 - x1) * (lut1 - x1)
+        delta0 = lut0 - x0
+        delta1 = lut1 - x1
+        error = libdevice.add_rn(
+            libdevice.mul_rn(delta0, delta0),
+            libdevice.mul_rn(delta1, delta1),
         )
-        candidate = predecessor_cost + error
+        candidate = libdevice.add_rn(predecessor_cost, error)
         take = candidate < best
         best = tl.where(take, candidate, best)
         chosen = tl.where(take, state, chosen)
