@@ -3135,16 +3135,15 @@ class ModernGreenResidentEngine:
             self.published_pre_recipe and _has_static_w28_binding(self.config)
         )
         if published_pre_proof:
-            # PRE_FANIN_TERMINAL's immutable builder_B2_PUBLISHED_PRE source
-            # sliced every selected row through a sealed PRE single-window
-            # microbatch. Never add W56 as hidden W28 context or regroup full64:
-            # physical batching changes every row on this rail.
+            # The immutable accepted producer scored singleton W28 while
+            # preserving an intact physical mb2 forward. Do not add W56 as
+            # hidden context or regroup full64: both alter the admitted rail.
             physical_batch_size = int(
-                self.config.get("sealed_builder_window_microbatch", 1)
+                self.config.get("sealed_builder_window_microbatch", 2)
             )
-            if physical_batch_size != 1:
+            if physical_batch_size != 2:
                 raise ArtifactError(
-                    "published PRE validation requires sealed single-window microbatch"
+                    "published PRE validation requires sealed mb=2 microbatch"
                 )
         root = Path(teacher_root).expanduser().resolve()
         if not root.is_dir():
