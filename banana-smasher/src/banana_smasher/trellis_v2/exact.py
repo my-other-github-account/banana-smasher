@@ -26,10 +26,10 @@ PREFIXES = 4096
 BRANCHES = 16
 STATES = 65536
 STEPS = 128
-# Triton lowers this large prefix-DP tensor's indexing through signed 31-bit
-# byte offsets on the production CUDA path.  This static throughput cap is
-# further reduced from the actual step count before allocation.
-MAX_CHUNK = 256
+# Every backpointer pointer offset is explicitly promoted to int64 in the
+# kernels below, so the public memory planner—not signed-31-bit arithmetic—is
+# the sole chunk bound.
+MAX_CHUNK = 8192
 PREFIX_DP_NUM_WARPS = 8
 _PRODUCTION_LINEAGE_SHA256 = (
     "379a24289514ead53de1415fdddc9cf77026d46c7b8d9ffef783fe5632a9319b"
@@ -85,7 +85,7 @@ def _init_prefix_costs(
             take = candidate < best
             best = tl.where(take, candidate, best)
             chosen = tl.where(take, state, chosen)
-    base = seq * 4096
+    base = seq.to(tl.int64) * 4096
     tl.store(scratch_ptr + base + j, best)
     tl.store(best_state_ptr + base + j, chosen)
 
@@ -107,7 +107,7 @@ def _advance_prefix_costs(
     x1 = tl.load(x_ptr + (step * 2 + 1) * B + seq).to(tl.float32)
     best = tl.full((4096,), float("inf"), tl.float32)
     chosen = tl.zeros((4096,), tl.int32)
-    previous_base = seq * 4096
+    previous_base = seq.to(tl.int64) * 4096
     for q in range(16):
         predecessor_prefix = q * 256 + residue
         predecessor_cost = tl.load(
@@ -126,9 +126,10 @@ def _advance_prefix_costs(
         take = candidate < best
         best = tl.where(take, candidate, best)
         chosen = tl.where(take, state, chosen)
-    base = seq * 4096
+    base = seq.to(tl.int64) * 4096
     tl.store(current_ptr + base + j, best)
-    tl.store(best_state_ptr + step * B * 4096 + base + j, chosen)
+    backpointer_base = step.to(tl.int64) * B * 4096 + base
+    tl.store(best_state_ptr + backpointer_base + j, chosen)
 
 
 @triton.jit
@@ -143,7 +144,10 @@ def _backtrack(
     prefix = tl.load(final_prefix_ptr + seq).to(tl.int32)
     for step in tl.static_range(NSTEPS - 1, -1, -1):
         state = tl.load(
-            best_state_ptr + step * B * 4096 + seq * 4096 + prefix
+            best_state_ptr
+            + step * B.to(tl.int64) * 4096
+            + seq.to(tl.int64) * 4096
+            + prefix
         ).to(tl.int32)
         tl.store(states_ptr + step * B + seq, state)
         prefix = state >> 4
@@ -287,16 +291,7 @@ def trellis_v2_exact(
             raise ValueError(f"overlap prefixes must be in [0, {PREFIXES})")
     x = x.contiguous()
     outputs = []
-    steps = int(x.shape[0]) // 2
-    max_rows_by_backpointer_offset = ((1 << 31) - 1) // (
-        steps * PREFIXES * torch.int32.itemsize
-    )
-    chunk_rows = min(MAX_CHUNK, max_rows_by_backpointer_offset)
-    if chunk_rows < 1:
-        raise RuntimeError(
-            "exact QTIP2 sequence cannot fit one prefix-DP row under the "
-            "31-bit byte-offset contract"
-        )
+    chunk_rows = MAX_CHUNK
     for start in range(0, batch, chunk_rows):
         end = min(batch, start + chunk_rows)
         overlap_arg = (

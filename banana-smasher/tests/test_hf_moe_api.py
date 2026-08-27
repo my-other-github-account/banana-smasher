@@ -452,12 +452,10 @@ def test_q2_gpu_encoder_memory_plan_is_bounded_before_allocation() -> None:
     assert plan["peak_memory_bytes"] <= (16 << 30) - (4 << 30)
     assert plan["full_batch_backpointer_bytes"] == 68_719_476_736
     assert plan["bounded_backpointer_bytes"] < plan["full_batch_backpointer_bytes"]
-    assert int(plan["chunk_rows"]) <= 256
-    assert int(plan["exact_max_chunk_rows"]) == 256
-    assert int(plan["chunk_rows"]) == int(plan["max_rows_by_backpointer_offset"])
-    assert int(plan["bounded_backpointer_bytes"]) < int(
-        plan["backpointer_byte_offset_limit"]
-    )
+    assert int(plan["chunk_rows"]) <= 8192
+    assert int(plan["exact_max_chunk_rows"]) == 8192
+    assert int(plan["backpointer_address_bits"]) == 64
+    assert int(plan["bounded_backpointer_bytes"]) > 1 << 31
 
 
 def test_q2_gpu_encoder_memory_plan_refuses_before_allocation() -> None:

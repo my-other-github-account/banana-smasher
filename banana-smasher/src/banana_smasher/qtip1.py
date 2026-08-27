@@ -92,7 +92,7 @@ class QtipGeometry:
 
 QTIP1_GEOMETRY = QtipGeometry(L=16, K=1, V=1, tlut_bits=9, decode_mode="quantlut")
 QTIP2_GEOMETRY = QtipGeometry(L=16, K=2, V=2, tlut_bits=9, decode_mode="quantlut_sym")
-QTIP2_EXACT_MAX_CHUNK_ROWS = 256
+QTIP2_EXACT_MAX_CHUNK_ROWS = 8192
 
 
 def plan_qtip2_cuda_chunks(
@@ -101,7 +101,7 @@ def plan_qtip2_cuda_chunks(
     width: int,
     free_bytes: int,
     reserve_bytes: int = 4 << 30,
-    max_chunk_rows: int = 256,
+    max_chunk_rows: int = QTIP2_EXACT_MAX_CHUNK_ROWS,
 ) -> dict[str, int | str]:
     """Admit an exact bounded K2/V2 CUDA solve before any device allocation.
 
@@ -135,14 +135,10 @@ def plan_qtip2_cuda_chunks(
         + 4  # final prefix
     )
     admitted = free_bytes - reserve_bytes
-    max_rows_by_backpointer_offset = ((1 << 31) - 1) // (
-        steps * prefixes * 4
-    )
     chunk_rows = min(
         rows,
         max_chunk_rows,
         QTIP2_EXACT_MAX_CHUNK_ROWS,
-        max_rows_by_backpointer_offset,
         (admitted - fixed_bytes) // per_row_bytes,
     )
     if chunk_rows < 1:
@@ -152,11 +148,7 @@ def plan_qtip2_cuda_chunks(
             f"free={free_bytes} reserve={reserve_bytes} minimum_required={minimum}"
         )
     bounded_backpointer_bytes = steps * chunk_rows * prefixes * 4
-    if bounded_backpointer_bytes >= (1 << 31):
-        raise RuntimeError(
-            "QTIP2 CUDA chunk exceeds the exact prefix-DP 31-bit byte-offset "
-            f"contract: backpointers={bounded_backpointer_bytes}"
-        )
+
     peak_memory_bytes = fixed_bytes + per_row_bytes * chunk_rows
     return {
         "schema": "banana-smasher-qtip2-cuda-memory-plan-v1",
@@ -166,14 +158,14 @@ def plan_qtip2_cuda_chunks(
         "steps": steps,
         "chunk_rows": chunk_rows,
         "exact_max_chunk_rows": QTIP2_EXACT_MAX_CHUNK_ROWS,
-        "max_rows_by_backpointer_offset": max_rows_by_backpointer_offset,
+        "backpointer_address_bits": 64,
         "chunk_count": math.ceil(rows / chunk_rows),
         "free_bytes": free_bytes,
         "reserve_bytes": reserve_bytes,
         "peak_memory_bytes": peak_memory_bytes,
         "full_batch_backpointer_bytes": steps * rows * prefixes * 4,
         "bounded_backpointer_bytes": bounded_backpointer_bytes,
-        "backpointer_byte_offset_limit": 1 << 31,
+
     }
 
 
