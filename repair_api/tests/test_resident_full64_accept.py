@@ -60,11 +60,15 @@ def test_w28_trace_wrapper_records_sealed_known_value_control(
     terminal = json.loads(Path(str(trace_path) + ".terminal.json").read_text())
 
     assert observed == sealed
-    assert [row["kind"] for row in rows] == ["header", "footer"]
+    assert [row["kind"] for row in rows] == [
+        "header", "provider_dispatch_identity", "footer"
+    ]
+    assert rows[1]["status"] == "UNBOUND"
+    assert rows[1]["reason"] == "MODEL_EXPERT_MAPPING_MISSING"
     assert rows[0]["rail"] == "product_w28_admission"
     assert rows[0]["canonical_code_commit"] == canonical_pin
     assert terminal["status"] == "PASS"
-    assert terminal["event_count"] == 2
+    assert terminal["event_count"] == 3
 
 
 def test_w28_trace_wrapper_rejects_non_singleton_geometry(

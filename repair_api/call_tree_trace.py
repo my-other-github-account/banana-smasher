@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import os
 import sys
@@ -37,6 +38,12 @@ def _semantic_operator_boundary(callsite: dict[str, Any], operator: str) -> str 
 
 
 _SEMANTIC_LINE_BOUNDARIES: dict[tuple[str, str, int], tuple[str, tuple[str, ...]]] = {
+    ("static_w28_fast_v7_expert_base.py", "_project", 146): (
+        "grouped_mm_dispatch_input", ("x",),
+    ),
+    ("static_w28_fast_v7_expert_base.py", "_project", 151): (
+        "grouped_mm_dispatch_output", ("value",),
+    ),
     ("fast_v7_expert_base.py", "forward", 297): ("w2_output", ("routed_output",)),
     ("fast_v7_expert_base.py", "forward", 302): (
         "route_weight_multiply_inputs", ("routed_output", "route_weight"),
@@ -71,6 +78,58 @@ _SEMANTIC_LINE_BOUNDARIES: dict[tuple[str, str, int], tuple[str, tuple[str, ...]
         "residual_combine_inputs", ("mlp_output", "post", "comb", "hidden_states"),
     ),
 }
+
+
+def _callable_source_identity(value: Any) -> dict[str, Any]:
+    code = getattr(value, "__code__", None)
+    filename = inspect.getsourcefile(value) or (code.co_filename if code is not None else None)
+    path = Path(filename).resolve() if filename else None
+    raw = path.read_bytes() if path is not None and path.is_file() else b""
+    return {
+        "callable": f"{getattr(value, '__module__', '<unknown>')}."
+        f"{getattr(value, '__qualname__', getattr(value, '__name__', '<unknown>'))}",
+        "source_file": str(path) if path is not None else "<unknown>",
+        "source_sha256": hashlib.sha256(raw).hexdigest() if raw else None,
+        "firstlineno": int(code.co_firstlineno) if code is not None else -1,
+    }
+
+
+def _provider_dispatch_identity(model: Any) -> dict[str, Any]:
+    """Bind resident expert instances to their actual grouped dispatcher."""
+    experts = getattr(model, "experts", None)
+    expert_items: Any = getattr(experts, "items", None)
+    if not callable(expert_items):
+        return {"status": "UNBOUND", "reason": "MODEL_EXPERT_MAPPING_MISSING"}
+    rows: dict[str, dict[str, Any]] = {}
+    layers: list[int] = []
+    for layer, expert in sorted(expert_items(), key=lambda item: int(item[0])):
+        layers.append(int(layer))
+        forward = type(expert).forward
+        forward_identity = _callable_source_identity(forward)
+        dispatcher = getattr(forward, "__globals__", {}).get("grouped_packed_projection")
+        dispatch_identity = (
+            _callable_source_identity(dispatcher) if callable(dispatcher)
+            else {"callable": "<missing>", "source_file": "<unknown>",
+                  "source_sha256": None, "firstlineno": -1}
+        )
+        row = {
+            "expert_class": f"{type(expert).__module__}.{type(expert).__qualname__}",
+            "expert_forward": forward_identity["callable"],
+            "expert_source_file": forward_identity["source_file"],
+            "expert_source_sha256": forward_identity["source_sha256"],
+            "expert_forward_firstlineno": forward_identity["firstlineno"],
+            "dispatch_callable": dispatch_identity["callable"],
+            "dispatch_source_file": dispatch_identity["source_file"],
+            "dispatch_source_sha256": dispatch_identity["source_sha256"],
+            "dispatch_firstlineno": dispatch_identity["firstlineno"],
+        }
+        rows.setdefault(json.dumps(row, sort_keys=True, separators=(",", ":")), row)
+    return {
+        "status": "BOUND" if rows else "UNBOUND",
+        "layer_count": len(layers),
+        "layers": layers,
+        "implementations": list(rows.values()),
+    }
 
 
 def _semantic_line_boundary(
@@ -237,12 +296,15 @@ class FullCallTreeTrace:
                     if isinstance(frame.f_locals.get(name), torch.Tensor)
                 ]
                 if tensors:
-                    self._event({
+                    value = {
                         "kind": "semantic_boundary",
                         "semantic_boundary": boundary,
                         "source_family": Path(filename).name,
                         "tensors": tensors,
-                    })
+                    }
+                    if boundary.startswith("grouped_mm_dispatch_"):
+                        value["projection"] = frame.f_locals.get("projection")
+                    self._event(value)
         if event == "return" and (
             Path(frame.f_code.co_filename).name == "modeling_deepseek_v4.py"
             and frame.f_code.co_name == "forward"
@@ -299,6 +361,10 @@ class FullCallTreeTrace:
             "pid": os.getpid(),
             "thread": threading.get_ident(),
             "created_unix": self._start_unix,
+        })
+        self._event({
+            "kind": "provider_dispatch_identity",
+            **_provider_dispatch_identity(self.model),
         })
         sys.settrace(self._trace_frame)
         threading.settrace(self._trace_frame)
