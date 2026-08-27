@@ -18,6 +18,7 @@ from banana_smasher.resident_proven_api import ResidentRepairAPI as ProvenReside
 from banana_smasher.resident_continuation import (
     OFFICIAL_PHYSICAL_LAYER_SHA256,
     ModernGreenResidentEngine,
+    _build_fp64_adam,
     _checkpoint_cursor,
     _checkpoint_lut_admission,
     _bind_official_expert_source,
@@ -30,6 +31,29 @@ from banana_smasher.resident_continuation import (
     _score_window_groups,
     _select_trainer_fwht,
 )
+
+
+def test_validated_adam_keeps_moments_fp64_across_state_reload() -> None:
+    parameter = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32))
+    optimizer = _build_fp64_adam(
+        torch, [{"params": [parameter], "lr": 1.0e-2, "group_name": "luts"}]
+    )
+    parameter.grad = torch.tensor([0.5], dtype=torch.float32)
+    optimizer.step()
+    state = optimizer.state[parameter]
+    assert state["exp_avg"].dtype == torch.float64
+    assert state["exp_avg_sq"].dtype == torch.float64
+
+    checkpoint = optimizer.state_dict()
+    restored_parameter = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32))
+    restored = _build_fp64_adam(
+        torch,
+        [{"params": [restored_parameter], "lr": 1.0e-2, "group_name": "luts"}],
+    )
+    restored.load_state_dict(checkpoint)
+    restored_state = restored.state[restored_parameter]
+    assert restored_state["exp_avg"].dtype == torch.float64
+    assert restored_state["exp_avg_sq"].dtype == torch.float64
 
 
 def test_update_loss_guard_records_monotonicity_and_rejects_explosion() -> None:
@@ -489,6 +513,49 @@ def test_resident_binds_the_sealed_parity_expert_implementation():
     assert "torch.argsort(top_k_index, dim=1, stable=True)" in text
 
 
+def test_resident_wire_read_evicts_clean_source_pages(monkeypatch, tmp_path: Path):
+    grouped = ModuleType("fast_k2_grouped")
+    setattr(grouped, "grouped_k2_stats", lambda: {})
+    setattr(grouped, "grouped_packed_projection", lambda *args: None)
+    setattr(grouped, "grouped_sealed_gate_up_projection", lambda *args: None)
+    monkeypatch.setitem(sys.modules, "fast_k2_grouped", grouped)
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "repair_api"
+        / "assets"
+        / "fast_v7_expert_base.py"
+    )
+    spec = importlib.util.spec_from_file_location("resident_eviction_test", source)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    payload = tmp_path / "wire.bin"
+    payload.write_bytes(b"wire-payload")
+    calls = []
+    monkeypatch.setattr(module.os, "POSIX_FADV_DONTNEED", 4, raising=False)
+    monkeypatch.setattr(
+        module.os,
+        "posix_fadvise",
+        lambda fd, offset, length, advice: calls.append((fd, offset, length, advice)),
+        raising=False,
+    )
+
+    assert module._read_wire_payload(payload) == b"wire-payload"
+    assert len(calls) == 1
+    assert calls[0][1:] == (0, 0, module.os.POSIX_FADV_DONTNEED)
+
+
+def test_resident_accepts_config_bound_packaged_expert_source(tmp_path: Path):
+    source = tmp_path / "fast_v7_expert_base.py"
+    source.write_bytes(_official_expert_source_path().read_bytes())
+    assert _official_expert_source_path(
+        {
+            "resident_expert_source": str(source),
+            "resident_expert_source_sha256": OFFICIAL_PHYSICAL_LAYER_SHA256,
+        }
+    ) == source.resolve()
+
+
 def test_resident_import_paths_do_not_shadow_trainer_fwht_selector(tmp_path):
     engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
     engine.trainer_path = tmp_path / "trainer.py"
@@ -522,6 +589,24 @@ def test_resident_import_paths_admit_explicit_hashed_trainer_dependency(tmp_path
         sys.path[:] = original
 
 
+def test_resident_runtime_uses_attempt_local_torch_extension_cache(monkeypatch, tmp_path: Path):
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.manifest_path = tmp_path / "manifest.json"
+    engine.delta_dir = tmp_path / "delta"
+    engine.vq3b_dir = tmp_path / "vq3b"
+    engine.corpus_path = tmp_path / "corpus.json"
+    engine.teacher_root = tmp_path / "teachers"
+    run_root = tmp_path / "attempt"
+    monkeypatch.setenv("BANANA_SMASHER_RUN_ROOT", str(run_root))
+    monkeypatch.delenv("TORCH_EXTENSIONS_DIR", raising=False)
+
+    engine._configure_import_environment()
+
+    expected = run_root / "torch_extensions"
+    assert expected.is_dir()
+    assert os.environ["TORCH_EXTENSIONS_DIR"] == str(expected.resolve())
+
+
 def test_official_expert_binding_loads_its_pinned_grouped_dependency_first(monkeypatch):
     calls = []
     trainer_grouped = ModuleType("fast_k2_grouped")
@@ -543,6 +628,48 @@ def test_official_expert_binding_loads_its_pinned_grouped_dependency_first(monke
         ("fast_v7_expert_base", "fast_v7_expert_base.py"),
     ]
     assert sys.modules["fast_k2_grouped"] is trainer_grouped
+
+
+def test_official_expert_binding_uses_authenticated_prebuilt_extension(monkeypatch, tmp_path: Path):
+    expert = tmp_path / "expert.py"
+    wrapper = tmp_path / "grouped.py"
+    extension = tmp_path / "banana_fast_k2.so"
+    expert.write_text("# expert\n")
+    wrapper.write_text("# grouped\n")
+    extension.write_bytes(b"prebuilt-extension")
+
+    def digest(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    calls = []
+    monkeypatch.setattr(
+        continuation_module,
+        "_load_source_module",
+        lambda name, path: calls.append((name, path)) or name,
+    )
+    monkeypatch.delenv("FAST_K2_EXTENSION", raising=False)
+    monkeypatch.delenv("FAST_K2_EXTENSION_SHA256", raising=False)
+    monkeypatch.delenv("FAST_K2_MODULE_NAME", raising=False)
+
+    assert _bind_official_expert_source(
+        {
+            "resident_expert_source": str(expert),
+            "resident_expert_source_sha256": digest(expert),
+            "fast_k2_wrapper_source": str(wrapper),
+            "fast_k2_wrapper_source_sha256": digest(wrapper),
+            "fast_k2_extension": str(extension),
+            "fast_k2_extension_sha256": digest(extension),
+            "fast_k2_module_name": "banana_fast_k2_test",
+        }
+    ) == "fast_v7_expert_base"
+
+    assert calls == [
+        ("fast_k2_grouped", wrapper.resolve()),
+        ("fast_v7_expert_base", expert.resolve()),
+    ]
+    assert os.environ["FAST_K2_EXTENSION"] == str(extension.resolve())
+    assert os.environ["FAST_K2_EXTENSION_SHA256"] == digest(extension)
+    assert os.environ["FAST_K2_MODULE_NAME"] == "banana_fast_k2_test"
 
 
 def test_score_configuration_forces_a1_eager_attention(monkeypatch):
@@ -658,12 +785,103 @@ def test_layer_stack_uses_a1_equivalent_fresh_cache_per_layer(monkeypatch):
     assert seen[0] is not seen[1]
 
 
+def test_layer_construction_status_releases_unused_cuda_cache():
+    calls = []
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.status = {}
+    engine.torch = SimpleNamespace(
+        cuda=SimpleNamespace(empty_cache=lambda: calls.append("empty_cache"))
+    )
+
+    engine._status(phase="loading", loaded_layer=7)
+    engine._status(phase="training", global_update=5)
+
+    assert calls == ["empty_cache"]
+    assert engine.status == {
+        "phase": "training",
+        "loaded_layer": 7,
+        "global_update": 5,
+    }
+
+
+def test_sealed_trainer_materializes_nonexpert_before_resident_payload():
+    trainer_path = (
+        Path(__file__).resolve().parents[2]
+        / "repair_api"
+        / "assets"
+        / "static_w28_modern_green_clean_u0.py"
+    )
+    trainer = trainer_path.read_text()
+    loop = trainer[trainer.index("for layer in range(first, last + 1):") :]
+    nonexpert = loop.index("sd = base.T.build_nonexpert_sd")
+    materialize = loop.index("base.v3.materialize_layer")
+    resident = loop.index("resident = FullyResidentGroupedV7Experts")
+    assign = loop.index("mlp.experts = resident")
+    capture_limit = loop.index("swiglu_limit = float(m.model.layers[layer].mlp.experts.limit)")
+
+    identity = loop.index("mlp.experts = nn.Identity()")
+    synchronize = loop.index("torch.cuda.synchronize()")
+    release_cache = loop.index("torch.cuda.empty_cache()")
+    assert capture_limit < identity < nonexpert
+    assert "swiglu_limit=swiglu_limit" in loop[resident:assign]
+    assert nonexpert < materialize < synchronize < release_cache < resident < assign
+    assert continuation_module.TRAINER_SHA256 == hashlib.sha256(
+        trainer_path.read_bytes()
+    ).hexdigest()
+
+
+def test_warm_training_can_disable_layer_checkpoint_recompute(monkeypatch):
+    class Cache:
+        def __init__(self, *, config):
+            self.config = config
+
+    transformers = ModuleType("transformers")
+    cache_utils = ModuleType("transformers.cache_utils")
+    cache_utils.DynamicCache = Cache
+    transformers.cache_utils = cache_utils
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+    monkeypatch.setitem(sys.modules, "transformers.cache_utils", cache_utils)
+    calls = []
+
+    class Layer:
+        def __call__(self, hidden, **_kwargs):
+            calls.append(hidden)
+            return hidden
+
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.config = {"activation_checkpointing": False}
+    engine.student = SimpleNamespace(
+        config="config",
+        model=SimpleNamespace(model=SimpleNamespace(layers=[Layer(), Layer()])),
+    )
+    engine.first = 0
+    engine.last = 1
+    engine._positional = lambda ids, template, cache: ("pos", "pe", "mask")
+    engine.checkpoint = lambda *_args, **_kwargs: pytest.fail(
+        "warm training must not replay layer forwards"
+    )
+    hidden = SimpleNamespace(ndim=3)
+
+    assert engine._run_layers(hidden, "ids", True) is hidden
+    assert calls == [hidden, hidden]
+
+
 def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():
     engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
     engine.score_only = True
     engine.payload = {"state": {"luts": {}, "norms": {}, "outputs": {}}}
 
     engine._load_optimizer_scheduler_state()
+
+
+def test_published_pre_starts_with_fresh_optimizer_and_scheduler_state():
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.score_only = False
+    engine.payload = {"next_update": 0}
+
+    engine._load_optimizer_scheduler_state()
+
+    assert engine.scheduler_state_action == "FRESH_PRE_OPTIMIZER_AND_SCHEDULE"
 
 
 def test_public_resident_score_engine_loads_exact_state_without_training_lineage(tmp_path, monkeypatch):
@@ -737,6 +955,46 @@ def test_distributed_socket_interface_binds_nccl_peer_transport(monkeypatch):
                 "world_size": 2,
             },
             "enp1s0f1np1",
+        ),
+        ("barrier",),
+    ]
+
+
+def test_distributed_rendezvous_honors_standard_environment_override(monkeypatch):
+    calls = []
+
+    class FakeDist:
+        def is_initialized(self):
+            return False
+
+        def init_process_group(self, **kwargs):
+            calls.append(("init", dict(kwargs)))
+
+        def barrier(self):
+            calls.append(("barrier",))
+
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.dist = FakeDist()
+    engine.rank = 1
+    engine.config = {
+        "distributed_backend": "nccl",
+        "master_addr": "192.168.200.2",
+        "master_port": 30151,
+    }
+    monkeypatch.setenv("MASTER_ADDR", "192.168.200.1")
+    monkeypatch.setenv("MASTER_PORT", "30171")
+
+    engine._init_distributed()
+
+    assert calls == [
+        (
+            "init",
+            {
+                "backend": "nccl",
+                "init_method": "tcp://192.168.200.1:30171",
+                "rank": 1,
+                "world_size": 2,
+            },
         ),
         ("barrier",),
     ]

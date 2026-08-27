@@ -1,0 +1,19 @@
+test_alternate_pre_is_quarantine_only_for_canonical_lane (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_api_score_rejects_alternate_pre_even_when_backend_is_declared (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_api_score_routes_declared_official_backend_without_opt_in (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_raw_u0_adapter_passes_without_embedded_identity_fields (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_raw_u0_adapter_rejects_sha_path_lock_and_basis_drift (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_u0_is_admitted_without_serialized_pre_calibration (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_u1_requires_immediate_canonical_u0_parent (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_payload_identity_is_bound_before_resident_construction (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_production_standalone_builder_runners_are_hard_rejected (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_resident_backend_rejects_streaming_fallback_configuration (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_score_routed_k2_accepts_exact_closure_and_emits_resident_receipt (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_score_routed_k2_rejects_any_sealed_identity_drift (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_supported_production_entrypoints_install_the_hard_guard (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_u3_plus_requires_pre_calibration_and_preregistered_question (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.570s
+
+OK

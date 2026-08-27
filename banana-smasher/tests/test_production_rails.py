@@ -34,6 +34,15 @@ def fixture_mixer(**kwargs):
     return kwargs["output"]
 
 
+def test_heldout_gate_kills_after_two_flat_or_rising_boundaries() -> None:
+    first = production_rails._heldout_decision(0.229, 0.220, 0, patience=2)
+    assert first == {"improved": True, "non_improving_streak": 0, "halt": False}
+    second = production_rails._heldout_decision(0.220, 0.220, 0, patience=2)
+    assert second == {"improved": False, "non_improving_streak": 1, "halt": False}
+    third = production_rails._heldout_decision(0.220, 0.221, 1, patience=2)
+    assert third == {"improved": False, "non_improving_streak": 2, "halt": True}
+
+
 class FixtureSession:
     constructions = 0
 
@@ -103,6 +112,8 @@ def _binding_sha(config: dict) -> str:
             "layers",
             "uniform_builder",
             "backpack_mixer",
+            "score_contract",
+            "continuation_science",
         )
     }
     return hashlib.sha256(
@@ -376,6 +387,108 @@ def test_artifact_admission_binds_manifest_and_checkpoint_bytes(tmp_path):
         rails.load_resident(artifact)
 
 
+def test_public_session_defaults_checkpoint_lut_materialization_inside_run_root(
+    tmp_path, monkeypatch
+):
+    observed = {}
+
+    class FakeProvenAPI:
+        artifact = type(
+            "Artifact",
+            (),
+            {"windows": tuple(range(64)), "manifest": {"checkpoints": {"UPDATE_000": {"next_update": 0}}}},
+        )()
+
+    def construct(api, binding, config):
+        del api, binding
+        observed.update(config)
+        return object()
+
+    monkeypatch.setattr(production_rails._ProvenResidentAPI, "open", lambda root: FakeProvenAPI())
+    monkeypatch.setattr(production_rails, "_construct_resident_engine", construct)
+    config = _base_config()
+    artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
+    receipt_root = tmp_path / "run" / "resident-receipts"
+
+    production_rails._ProvenSession(
+        artifact,
+        production_rails._ArtifactBinding(
+            identity_sha256=artifact.identity.sha256,
+            basis_sha256=artifact.identity.basis_sha256,
+            checkpoint="UPDATE_000",
+            score_checkpoints={"pre": "UPDATE_000"},
+            artifact_manifest_sha256=hashlib.sha256((artifact.root / "ARTIFACT.json").read_bytes()).hexdigest(),
+            checkpoint_sha256=artifact.checkpoint_sha256,
+        ),
+        continuation_config={},
+        receipt_root=receipt_root,
+    )
+
+    assert observed["checkpoint_lut_root"] == str((receipt_root / "checkpoint-luts").resolve())
+
+
+def test_resident_score_normalizes_authenticated_checkpoint_alias(
+    tmp_path, monkeypatch
+):
+    class FakeEngine:
+        def score_balanced64(self, windows):
+            return {
+                "mean_kld": 0.2292069946743951,
+                "top1_matches": 56534,
+                "positions": len(tuple(windows)) * 1024,
+                "checkpoint": "UPDATE_000",
+                "timed_wall_seconds": 1.0,
+                "execution_mode": "resident_model_in_memory",
+                "runtime_counters": {
+                    "model_constructions": 1,
+                    "windows": 64,
+                    "checkpoint_loads_during_score": 0,
+                    "candidate_file_reads_during_score": 0,
+                },
+            }
+
+    class FakeProvenAPI:
+        artifact = type(
+            "Artifact",
+            (),
+            {
+                "windows": tuple(range(64)),
+                "manifest": {"checkpoints": {"PRE": {"next_update": 0}}},
+            },
+        )()
+
+    monkeypatch.setattr(
+        production_rails._ProvenResidentAPI, "open", lambda root: FakeProvenAPI()
+    )
+    monkeypatch.setattr(
+        production_rails,
+        "_construct_resident_engine",
+        lambda api, binding, config: FakeEngine(),
+    )
+    config = _base_config()
+    artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
+    session = production_rails._ProvenSession(
+        artifact,
+        production_rails._ArtifactBinding(
+            identity_sha256=artifact.identity.sha256,
+            basis_sha256=artifact.identity.basis_sha256,
+            checkpoint="PRE",
+            score_checkpoints={"pre": "PRE"},
+            artifact_manifest_sha256=hashlib.sha256(
+                (artifact.root / "ARTIFACT.json").read_bytes()
+            ).hexdigest(),
+            checkpoint_sha256=artifact.checkpoint_sha256,
+        ),
+        continuation_config={},
+        receipt_root=tmp_path / "receipts",
+    )
+
+    result = session.score("pre")
+
+    assert result["checkpoint"] == "PRE"
+    assert result["physical_checkpoint"] == "UPDATE_000"
+
+
 def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     tmp_path, monkeypatch
 ):
@@ -388,7 +501,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
 
         def score_balanced64(self, windows):
             return {
-                "mean_kld": 0.25,
+                "mean_kld": 0.25 - 0.001 * self.update,
                 "top1_matches": 7,
                 "positions": len(tuple(windows)) * 1024,
                 "checkpoint": f"UPDATE_{self.update:03d}",
@@ -405,6 +518,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     class FakeProvenAPI:
         def __init__(self):
             self.advance_kwargs = None
+            self.advance_targets = []
             self.artifact = type(
                 "Artifact",
                 (),
@@ -414,6 +528,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
         def advance_resident_engine(self, engine, start_checkpoint, target_update, **kwargs):
             del start_checkpoint
             self.advance_kwargs = kwargs
+            self.advance_targets.append(target_update)
             engine.update = target_update
             return {
                 "updates": target_update,
@@ -432,6 +547,12 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     monkeypatch.setattr(
         ProductionRails, "_require_live_checkpoint_bytes", staticmethod(lambda *args: None)
     )
+    monkeypatch.setattr(ArtifactIdentity, "require_canary", lambda self, **kwargs: None)
+    monkeypatch.setattr(
+        production_rails,
+        "_require_distributed_pair_binding",
+        lambda *args, **kwargs: None,
+    )
     config = _base_config()
     config["continuation"] = {"authorized_api": True, "world_size": 2, "rank": 0}
     artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
@@ -441,18 +562,38 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
 
     pre = facade.score_pre(artifact, checkpoint_sha=artifact.checkpoint_sha256)
     trained = facade.repair_train(
-        artifact, updates=4, checkpoint_sha=artifact.checkpoint_sha256
+        artifact, updates=8, checkpoint_sha=artifact.checkpoint_sha256
     )
     post = facade.score_post(artifact, checkpoint_sha=artifact.checkpoint_sha256)
 
     assert FakeEngine.constructions == 1
     assert pre["checkpoint"] == "UPDATE_000"
-    assert trained["checkpoint"] == "UPDATE_004"
-    assert post["checkpoint"] == "UPDATE_004"
+    assert trained["checkpoint"] == "UPDATE_008"
+    assert post["checkpoint"] == "UPDATE_008"
+    assert [row["update"] for row in trained["heldout_boundaries"]] == [4, 8]
+    assert fake_api.advance_targets == list(range(1, 9))
+    assert len(trained["receipts"]) == 8
+    assert trained["accepted_update_cadence"] == 1
     assert fake_api.advance_kwargs["loss_guard_baseline"] == 0.25
-    assert fake_api.advance_kwargs["config"]["lr_scale"] == 0.1
+    recipe = fake_api.advance_kwargs["config"]
+    assert recipe["training_recipe"] == "u45_validated_v1"
+    assert recipe["sampling_mode"] == "broad_rotation_v1"
+    assert recipe["windows_per_update"] == 16
+    assert recipe["pipeline_microbatch"] == 4
+    assert recipe["loss_reduction_dtype"] == "float32"
+    assert recipe["optimizer_moment_dtype"] == "float64"
+    assert recipe["base_lrs"] == {
+        "luts": 1.0e-2,
+        "norms": 1.0e-4,
+        "outputs": 1.0e-2,
+    }
+    assert recipe["lr_scale"] == 0.1
+    assert recipe["heldout_validation_interval"] == 4
+    assert recipe["heldout_kill_patience"] == 2
+    assert recipe["accepted_update_cadence"] == 1
+    assert recipe["activation_checkpointing"] is False
     assert str(fake_api.advance_kwargs["loss_guard_receipt_path"]).endswith(
-        "CONTINUATION_U000_U004.rank0.LOSS_GUARD.json"
+        "CONTINUATION_U007_U008.rank0.LOSS_GUARD.json"
     )
     lifecycle = json.loads(rails.lifecycle_path.read_text())
     assert lifecycle["counts"]["model_constructions"] == 1
@@ -465,6 +606,32 @@ def test_production_config_rejects_session_factory_bypass(tmp_path):
             config,
             run_root=tmp_path / "run",
             session_factory=lambda **kwargs: FixtureSession(**kwargs),
+        )
+
+
+def test_distributed_pair_binding_rejects_different_rank_science() -> None:
+    class FakeDistributed:
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def is_initialized():
+            return True
+
+        @staticmethod
+        def get_world_size():
+            return 2
+
+        @staticmethod
+        def all_gather_object(output, value):
+            output[:] = [value, {**value, "provider_binding_sha256": _sha("different-rank")}]
+
+    with pytest.raises(ProductionRailsError, match="distributed pair scientific binding mismatch"):
+        production_rails._require_distributed_pair_binding(
+            "a" * 64,
+            {"world_size": 2, "basis_sha256": "b" * 64},
+            distributed=FakeDistributed(),
         )
 
 
@@ -490,7 +657,7 @@ def test_production_config_rejects_notification_and_slow_path_controls(
         ProductionRails(config, run_root=tmp_path / field)
 
 
-def test_lifecycle_is_not_pass_before_complete_and_training_is_exactly_four(
+def test_lifecycle_is_not_pass_before_complete_and_training_accepts_positive_updates(
     tmp_path, monkeypatch
 ):
     monkeypatch.setattr(production_rails, "_ProvenSession", FixtureSession)
@@ -500,8 +667,15 @@ def test_lifecycle_is_not_pass_before_complete_and_training_is_exactly_four(
     rails = ProductionRails(config, run_root=tmp_path / "run")
     assert json.loads(rails.lifecycle_path.read_text())["status"] == "IN_PROGRESS"
     rails.load_resident(artifact)
-    with pytest.raises(ProductionRailsError, match="exactly four"):
-        rails.train(artifact, 3)
+    with pytest.raises(ProductionRailsError, match="positive update count"):
+        rails.train(artifact, 0)
+
+    rails = ProductionRails(config, run_root=tmp_path / "run-8")
+    rails.load_resident(artifact)
+    rails.score(artifact, "pre")
+    result = rails.train(artifact, 8)
+    assert result["updates"] == 8
+    assert json.loads(rails.lifecycle_path.read_text())["counts"]["updates"] == 8
 
 
 def test_identity_retarget_and_stale_score_checkpoint_fail_closed(

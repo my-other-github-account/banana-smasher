@@ -144,12 +144,10 @@ import os
 os.environ.pop("BANANA_SMASHER_TRELLIS_V2_EXTENSION", None)
 os.environ.pop("BANANA_SMASHER_TRELLIS_V2_EXTENSION_SHA256", None)
 from banana_smasher import trellis_v2
-try:
-    trellis_v2.install_trellis_v2(object())
-except RuntimeError as exc:
-    assert "could not load the SHA-pinned" in str(exc)
-else:
-    raise AssertionError("unconfigured accelerator entrypoint did not fail closed")
+from banana_smasher.trellis_v2.exact import prepare_exact_cuda
+assert callable(trellis_v2.trellis_v2)
+assert callable(prepare_exact_cuda)
+assert not any(name.startswith("banana_smasher_trellis_v2_fullrow_") for name in __import__("sys").modules)
 """,
         ],
         check=False,

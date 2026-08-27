@@ -1,0 +1,75 @@
+{
+  "schema": "banana-smasher.public-resident-api-repair.v2",
+  "status": "PASS",
+  "task_id": "t_dacb9631",
+  "host_compute": false,
+  "remote_mutation": false,
+  "public_api": {
+    "method": "ResidentRepairAPI.score",
+    "version": "official-k2-resident-v2",
+    "route": "repair_api.api.ResidentRepairAPI.score -> OfficialK2ResidentScorer.score",
+    "execution_mode": "resident_in_memory",
+    "resident_ready": true,
+    "timed_score_file_reads": 0,
+    "forbidden_paths": [
+      "layer streaming",
+      "relay",
+      "reconstruction",
+      "fallback",
+      "historical builder.main",
+      "rail.score_outputs",
+      "direct scorer runner"
+    ]
+  },
+  "basis_gate": {
+    "basis_sha256": "98efab455cf08dfbbba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "canonical_u0_checkpoint_sha256": "7978d1002d7e4ecfa280f646f70cc76638c0e7bd833cc3cc13a2de999050133f",
+    "canonical_u1_checkpoint_sha256": "65cedb1c46f7bb57ad42dcc44686d00410f955f4e1b8e38a18a4520c68b3b865",
+    "canonical_u1_parent_sha256": "7978d1002d7e4ecfa280f646f70cc76638c0e7bd833cc3cc13a2de999050133f",
+    "alternate_pre_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+    "alternate_pre_policy": "quarantine-only; never a production prerequisite"
+  },
+  "admission": {
+    "canonical_u0": "admitted by immutable checkpoint SHA with no serialized PRE calibration receipt",
+    "canonical_u1": "admitted only with update=1 and immediate canonical U0 parent SHA",
+    "noncanonical_updates": "require public canonical resident calibration schema and separate scientific question for U3+"
+  },
+  "changed_files": {
+    "repair_api/__init__.py": {
+      "sha256": "a45f735ba230d4d51471b9fc2a46e27c39da4523b26a89910d1fc157347137ea",
+      "changes": "public package exports canonical admission identities and API version"
+    },
+    "repair_api/api.py": {
+      "sha256": "04be594c7f40fc08aaf1b94b8f3c41351274d8ef7df69698287274b3a6680749",
+      "changes": "public route provenance method/version and resident counters"
+    },
+    "repair_api/official_k2_resident_score.py": {
+      "sha256": "40c6b47316a607cfeee90d9c1af0eb562a7a7a2421b8445cc64ddafd854c2770",
+      "changes": "canonical U0/U1 admission, immediate-parent gate, alternate PRE quarantine, public calibration contract"
+    },
+    "repair_api/tests/test_official_k2_resident_score.py": {
+      "sha256": "98575f462766aac32e7c2f5853f853a347ea871e8a95d95092018509eb44f56a",
+      "changes": "focused U0/U1/quarantine/provenance coverage"
+    }
+  },
+  "verification": [
+    {
+      "command": "python3 -m unittest repair_api.tests.test_official_k2_resident_score -v",
+      "result": "Ran 9 tests; OK"
+    },
+    {
+      "command": "python3 -m unittest discover -s repair_api/tests -v",
+      "result": "Ran 33 tests; OK"
+    },
+    {
+      "command": "python3 -m compileall -q repair_api",
+      "result": "PASS"
+    }
+  ],
+  "next_use": {
+    "successor_task": "t_1d62fc5e",
+    "invocation": "PYTHONPATH=/Users/macmini/clawd/ds4-flash-kldmatrix python3 -m repair_api <artifact-root> --trend UPDATE_000,UPDATE_001",
+    "required_checks": "independently verify basis, canonical U0 SHA, canonical U1 SHA, immediate U0 parent binding, resident_ready, timed_score_file_reads=0, and public_api method/version in both receipts",
+    "no_score_claim": "this repair receipt contains no score and authorizes no host/GPU work"
+  }
+}

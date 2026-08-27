@@ -1,0 +1,41 @@
+{
+  "claim_free": true,
+  "created_unix": 1787067144.333445,
+  "gpu_run_performed": false,
+  "host": "macmini.local",
+  "implementation_file_sha256": {
+    "repair_api/api.py": "a279957001146cee54997ca05554c049852a0a54c32d3cc94b23f070b347c5e9",
+    "repair_api/balanced64.py": "59b880df05d91082cbe80cd657222fa9d9a0daefd7f5c3cd5823a6c64d7a9853",
+    "repair_api/official_k2_resident_score.py": "9fff2a251c69b183d0fa70595bf43657e027ed8a8717352a8670a309a879cdf3",
+    "repair_api/production_score_guard.py": "41f0b05f0611212d3ccea0be4a4320b41266cf093c05a071f34437297df18176",
+    "repair_api/tests/test_official_k2_resident_score.py": "a4192778ffa40f6bcbab46cdf9d108b74721c034b83d6f9e5ce0dd3cb93c5471"
+  },
+  "public_route": {
+    "entrypoint": "ResidentRepairAPI.score(checkpoint, windows)",
+    "manifest_key": "score.official_k2_resident",
+    "route_guard_test": "PASS",
+    "standalone_builder_rail_guard_test": "PASS"
+  },
+  "quality_gate": {
+    "alternate_serialized_pre": "quarantine_only",
+    "canonical_clean_u0_physical_pre": "owned by successor t_0a825351",
+    "u3_plus_run": "not launched; separate pre-registered question required"
+  },
+  "schema": "banana-smasher.official-k2-resident-implementation-verification-v1",
+  "source_handoff_receipt_sha256": "b5bd6dad34f54c2b07cf2a1c8e7dcf445f6aa862d0ee869065ed15dafa59e543",
+  "status": "IMPLEMENTATION_PASS_PHYSICAL_CANARY_SUCCESSOR_REQUIRED",
+  "successor_step": "Successor t_0a825351 runs canonical clean-U0 PRE on an exact idle two-Spark pair, then U1 only; no U3+ trajectory.",
+  "task_id": "t_33abad08",
+  "verification": {
+    "compile_command": "python -m compileall -q repair_api",
+    "compile_status": "PASS",
+    "focused_command": "python -m unittest repair_api.tests.test_official_k2_resident_score -v",
+    "focused_log_sha256": "2b275ce85d2d336033c78e36b39b419646d0180cb103ff216743a5214d409f58",
+    "focused_status": "PASS",
+    "focused_tests": 7,
+    "full_command": "python -m unittest discover -s repair_api/tests -v",
+    "full_log_sha256": "f1fa278da801a116b56bfe3c0b28f4ae73ef22fa4a752ecc04d1b5d16cf3aa5f",
+    "full_status": "PASS",
+    "full_tests": 29
+  }
+}

@@ -1,0 +1,12 @@
+test_api_score_routes_declared_official_backend_without_opt_in (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests.test_api_score_routes_declared_official_backend_without_opt_in) ... ok
+test_payload_identity_is_bound_before_resident_construction (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests.test_payload_identity_is_bound_before_resident_construction) ... ok
+test_pre_calibration_is_exact_and_mismatch_is_quarantined (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests.test_pre_calibration_is_exact_and_mismatch_is_quarantined) ... ok
+test_production_standalone_builder_runners_are_hard_rejected (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests.test_production_standalone_builder_runners_are_hard_rejected) ... ok
+test_resident_backend_rejects_streaming_fallback_configuration (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests.test_resident_backend_rejects_streaming_fallback_configuration) ... ok
+test_supported_production_entrypoints_install_the_hard_guard (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests.test_supported_production_entrypoints_install_the_hard_guard) ... ok
+test_u3_plus_requires_pre_calibration_and_preregistered_question (repair_api.tests.test_official_k2_resident_score.OfficialK2ResidentScoreTests.test_u3_plus_requires_pre_calibration_and_preregistered_question) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.003s
+
+OK

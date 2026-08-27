@@ -1,0 +1,85 @@
+{
+  "schema": "banana-smasher.official-k2-fully-resident-implementation-handoff.v1",
+  "status": "IMPLEMENTATION_PASS_PRE_PHYSICAL_RUN_REQUIRED",
+  "task_id": "t_33abad08",
+  "claim_free": true,
+  "gpu_run_performed": false,
+  "basis_gate": {
+    "intended_basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "official_physical_layer_sha256": "7687e39fc5b6bb34b30e8d4a79771affb472497f4d2f323adbe1e8e277746729",
+    "pre_checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+  },
+  "frozen_pre_canary": {
+    "kld_mean": 0.2293201724587741,
+    "top1": 56566,
+    "positions": 65536,
+    "windows": 64,
+    "support": 8192,
+    "kld_abs_tolerance": 1e-15,
+    "receipt_sha256": "759496a060fb984e2c627405a942363ee0b5e6e00cafeaee8a0e602368455837",
+    "physical_reproduction": "NOT_RUN_BY_IMPLEMENTATION_CARD; successor must run PRE only before any post-PRE quality claim"
+  },
+  "implementation": {
+    "public_entrypoint": "ResidentRepairAPI.score(checkpoint, windows)",
+    "automatic_backend_manifest_key": "score.official_k2_resident",
+    "execution_mode": "resident_in_memory",
+    "resident_ready_event": true,
+    "checkpoint_loads_per_rank": 1,
+    "timed_score_file_reads": 0,
+    "forbidden_paths": [
+      "per-layer disk staging",
+      "remote shard buffer",
+      "repeated safe_open/torch.load",
+      "CPU activation relay",
+      "reconstruction/fallback",
+      "reference FWHT"
+    ],
+    "resident_model_path": "ShardStudent + FullyResidentGroupedV7Experts + OfficialQtipK2PhysicalLayer + grouped-K2/Quack-FWHT",
+    "supported_checkpoints": ["PRE", "U1", "arbitrary declared checkpoint capability"],
+    "current_production_scope": "PRE then U1 only",
+    "u3_plus_scope": "requires separate pre-registered matched parent/windows/dose scientific question; does not re-score clean-U0 trajectory"
+  },
+  "files": {
+    "repair_api/official_k2_resident_score.py": {
+      "sha256": "9fff2a251c69b183d0fa70595bf43657e027ed8a8717352a8670a309a879cdf3",
+      "role": "fully resident two-rank model scorer, PRE gate, zero-read closure"
+    },
+    "repair_api/production_score_guard.py": {
+      "sha256": "41f0b05f0611212d3ccea0be4a4320b41266cf093c05a071f34437297df18176",
+      "role": "unconditional rejection of standalone builder/rail production scorers"
+    },
+    "repair_api/api.py": {
+      "sha256": "a279957001146cee54997ca05554c049852a0a54c32d3cc94b23f070b347c5e9",
+      "role": "automatic official backend routing and materializer re-entry through API.score"
+    },
+    "repair_api/balanced64.py": {
+      "sha256": "59b880df05d91082cbe80cd657222fa9d9a0daefd7f5c3cd5823a6c64d7a9853",
+      "role": "timed/scoring receipt fields including scoring_wall_seconds and timed_score_file_reads"
+    },
+    "repair_api/tests/test_official_k2_resident_score.py": {
+      "sha256": "a4192778ffa40f6bcbab46cdf9d108b74721c034b83d6f9e5ce0dd3cb93c5471",
+      "role": "route, PRE quarantine, U3+ preregistration, and standalone guard tests"
+    }
+  },
+  "verification": {
+    "focused_command": "python -m unittest repair_api.tests.test_official_k2_resident_score -v",
+    "focused_result": "7 tests OK",
+    "full_command": "python -m unittest discover -s repair_api/tests -v",
+    "full_result": "29 tests OK",
+    "compile_command": "python -m compileall -q repair_api",
+    "compile_result": "PASS"
+  },
+  "exact_successor_launch_template": "PYTHONPATH=<repo> torchrun --nnodes=2 --nproc_per_node=1 --node_rank=<0|1> --master_addr=<rank0-host> --master_port=29598 -m repair_api <artifact-root> --checkpoint <PRE-or-U1-key> --windows 28,56,68,71,76,99,107,122,124,130,141,156,160,171,180,183,185,186,196,210,212,213,218,228,232,235,249,270,272,273,283,288,290,295,297,306,307,309,311,328,331,357,362,365,368,374,376,380,384,385,391,396,413,429,430,437,442,447,454,462,464,475,489,499",
+  "host_memory_requirements": {
+    "rank0_min_cuda_free_bytes": 45495991052,
+    "rank1_min_cuda_free_bytes": 47441448700,
+    "cuda_reserve_bytes": 4294967296,
+    "resident_estimate_bytes_by_rank": {
+      "0": 41201023756,
+      "1": 43146481404
+    },
+    "host_ram_minimum_bytes": 8589934592,
+    "requirement": "model/payload/teacher/corpus closure must be local before resident_ready; no remote shard buffer"
+  },
+  "successor_step": "Claim an idle two-Spark pair only after the current owner releases it; run PRE through this API, require exact 0.2293201724587741/56566, then U1. Quarantine any mismatch and do not run U3+ without a separate pre-registered question."
+}

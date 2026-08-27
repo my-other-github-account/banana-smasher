@@ -10,9 +10,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
+import shutil
 import tempfile
 import time
 from typing import Any, Callable, Mapping, Protocol, Sequence, TypeVar
@@ -22,9 +24,9 @@ from .artifact_identity import ArtifactIdentity
 
 V7_UNIFORM_TIERS = frozenset({"qtip1_v7", "qtip2_v7", "qtip3_v7", "qtip4_v7"})
 _NATIVE_TIERS = frozenset({"native", "native_mxfp4"})
-SCORE_BUDGET_SECONDS = 300.0
-TRAIN_BUDGET_SECONDS = 2_100.0
-ARM_BUDGET_SECONDS = 2_700.0
+SCORE_BUDGET_SECONDS = 1_200.0
+TRAIN_BUDGET_SECONDS = 18_000.0
+ARM_BUDGET_SECONDS = 21_600.0
 PHASE_BUDGET_SECONDS = {
     "zero_update_score": SCORE_BUDGET_SECONDS,
     "four_resident_updates": TRAIN_BUDGET_SECONDS,
@@ -36,6 +38,28 @@ _PHASE_PUBLIC_NAMES = {
     "post_update_score": "score_post",
 }
 _T = TypeVar("_T")
+
+
+def _ensure_ninja_available() -> Path:
+    """Make the solve extra's Ninja executable visible to PyTorch extensions."""
+    resolved = shutil.which("ninja")
+    if resolved is not None:
+        return Path(resolved)
+    try:
+        ninja = importlib.import_module("ninja")
+    except ImportError as exc:
+        raise RuntimeError(
+            "resident Q2 execution requires the solve extra: pip install 'banana-smasher[solve]'"
+        ) from exc
+    bin_dir = Path(str(getattr(ninja, "BIN_DIR", ""))).resolve()
+    candidate = bin_dir / "ninja"
+    if not candidate.is_file():
+        raise RuntimeError(f"solve extra did not provide a Ninja executable under {bin_dir}")
+    os.environ["PATH"] = str(bin_dir) + os.pathsep + os.environ.get("PATH", "")
+    resolved = shutil.which("ninja")
+    if resolved is None:
+        raise RuntimeError(f"could not expose solve-extra Ninja executable: {candidate}")
+    return Path(resolved)
 
 
 def _json_safe(value: Any) -> Any:
@@ -203,6 +227,7 @@ class ResidentRepairAPI:
         rails: PipelineRails,
         run_root: str | Path,
         clock: Callable[[], float] = time.monotonic,
+        enforce_improvement: bool = False,
     ) -> None:
         self.rails = rails
         self.run_root = Path(run_root).expanduser().resolve()
@@ -214,6 +239,18 @@ class ResidentRepairAPI:
         self._phase_state = "initialized"
         self._arm_started: float | None = None
         self._phase_timings: list[dict[str, Any]] = []
+        self._default_checkpoint_sha: str | None = None
+        self._enforce_improvement = bool(enforce_improvement)
+        self._pre_result: Mapping[str, Any] | None = None
+        self._training_result: Mapping[str, Any] | None = None
+
+    def _selected_checkpoint_sha(self, value: str | None, operation: str) -> str:
+        selected = value or self._default_checkpoint_sha
+        if selected is None:
+            raise ValueError(
+                f"{operation} requires checkpoint_sha unless build_uniform bound it"
+            )
+        return selected
 
     @property
     def timing_path(self) -> Path:
@@ -340,6 +377,108 @@ class ResidentRepairAPI:
         self.rails.hot_swap(artifact)
 
     def build_uniform(
+        self_or_model,
+        model: str | Path | None = None,
+        tier: str | None = None,
+        *,
+        checkpoint_sha: str | None = None,
+        run_root: str | Path | None = None,
+        scope: str | None = None,
+        native_rest: bool | None = None,
+        revision: str | None = None,
+        output: str | Path | None = None,
+        native_spill_root: str | Path | None = None,
+    ) -> "UniformBuild | ResidentRepairAPI | dict[str, Any]":
+        """Build through an injected provider, or open an admitted Q2 artifact.
+
+        Calling ``ResidentRepairAPI.build_uniform(model, tier="q2", ...)`` is
+        the documented production path. Calling the same method on an instance
+        preserves the lower-level provider seam used by integrations and tests.
+        ``scope='routed_only', native_rest=True`` makes the routed/native intent
+        explicit while preserving compatibility with already admitted artifacts.
+        """
+        if scope is not None and scope != "routed_only":
+            raise ValueError("build_uniform scope must be 'routed_only'")
+        if native_rest is not None and native_rest is not True:
+            raise ValueError("build_uniform native_rest must be True")
+        if isinstance(self_or_model, ResidentRepairAPI):
+            if model is None or tier is None:
+                raise TypeError("instance build_uniform requires model and tier")
+            if checkpoint_sha is None:
+                raise TypeError("instance build_uniform requires checkpoint_sha")
+            if revision is not None or output is not None:
+                raise TypeError("instance build_uniform does not accept revision/output")
+            return self_or_model._build_uniform(
+                model, tier, checkpoint_sha=checkpoint_sha
+            )
+        if model is not None:
+            raise TypeError("class build_uniform accepts the model as its first argument")
+        artifact_root = Path(self_or_model).expanduser().resolve()
+        normalized_tier = {"q2": "qtip2_v7", "qtip2": "qtip2_v7"}.get(
+            str(tier), str(tier)
+        )
+        if normalized_tier != "qtip2_v7":
+            raise ValueError("documented resident production path currently requires tier='q2'")
+        if revision is not None or output is not None:
+            if checkpoint_sha is not None:
+                raise ValueError("HF source build does not accept an artifact checkpoint SHA")
+            if revision is None or output is None:
+                raise ValueError("HF source build requires both revision and output")
+            if scope != "routed_only" or native_rest is not True:
+                raise ValueError("HF source build requires routed_only with native_rest=True")
+            from .hf_moe import build_hf_moe_uniform
+
+            return build_hf_moe_uniform(
+                artifact_root,
+                revision=revision,
+                tier="q2",
+                scope=scope,
+                native_rest=native_rest,
+                output=output,
+                native_spill_root=native_spill_root,
+            )
+        if checkpoint_sha is None:
+            raise TypeError("admitted artifact build_uniform requires checkpoint_sha")
+        identity = ArtifactIdentity.load(artifact_root)
+        _checkpoint_sha(identity, checkpoint_sha, operation="build")
+        declared = _composition_tiers(identity) - _NATIVE_TIERS
+        if declared != {"qtip2_v7"}:
+            raise ValueError(
+                "admitted production artifact is not routed-only uniform Q2: "
+                f"declared={sorted(declared)}"
+            )
+        try:
+            rank = int(os.environ["RANK"])
+        except (KeyError, ValueError) as exc:
+            raise ValueError("build_uniform requires distributed RANK=0 or RANK=1") from exc
+        if rank not in (0, 1):
+            raise ValueError("build_uniform requires distributed RANK=0 or RANK=1")
+        selected_run_root = Path(
+            run_root
+            or os.environ.get("BANANA_SMASHER_RUN_ROOT", "banana-smasher-resident-run")
+        ).expanduser().resolve()
+        config = artifact_root / f"production-rails.rank{rank}.json"
+        if not config.is_file():
+            raise ValueError(f"admitted artifact is missing rank config: {config}")
+        from .production_rails import ProductionRails
+
+        rails = ProductionRails.from_file(config, run_root=selected_run_root)
+        if isinstance(rails, ProductionRails):
+            _ensure_ninja_available()
+        api = ResidentRepairAPI(
+            rails=rails,
+            run_root=selected_run_root / "facade" / f"rank{rank}",
+            enforce_improvement=True,
+        )
+        api._mixed = BackpackArtifact(
+            root=artifact_root,
+            identity=identity,
+            checkpoint_sha256=checkpoint_sha,
+        )
+        api._default_checkpoint_sha = checkpoint_sha
+        return api
+
+    def _build_uniform(
         self, model: str | Path, tier: str, *, checkpoint_sha: str
     ) -> UniformBuild:
         if tier not in V7_UNIFORM_TIERS:
@@ -474,8 +613,9 @@ class ResidentRepairAPI:
         self,
         artifact: BackpackArtifact | None = None,
         *,
-        checkpoint_sha: str,
+        checkpoint_sha: str | None = None,
     ) -> Mapping[str, Any]:
+        checkpoint_sha = self._selected_checkpoint_sha(checkpoint_sha, "score_pre")
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("score_pre requires a mixed Backpack")
@@ -483,6 +623,7 @@ class ResidentRepairAPI:
             raise ValueError("score_pre must be the first resident arm phase")
         result = self._score(selected, "pre", checkpoint_sha=checkpoint_sha)
         self._phase_state = "pre_scored"
+        self._pre_result = result
         return result
 
     def repair_train(
@@ -490,13 +631,18 @@ class ResidentRepairAPI:
         artifact: BackpackArtifact | None = None,
         *,
         updates: int,
-        checkpoint_sha: str,
+        checkpoint_sha: str | None = None,
     ) -> Mapping[str, Any]:
+        checkpoint_sha = self._selected_checkpoint_sha(checkpoint_sha, "repair_train")
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("repair_train requires a mixed Backpack")
-        if isinstance(updates, bool) or updates != 4:
-            raise ValueError("production resident arm requires exactly four updates")
+        if (
+            isinstance(updates, bool)
+            or not isinstance(updates, int)
+            or updates <= 0
+        ):
+            raise ValueError("production resident repair requires a positive update count")
         if self._phase_state != "pre_scored":
             raise ValueError("repair_train requires one completed pre-score")
         _checkpoint_sha(selected.identity, checkpoint_sha, operation="repair_train")
@@ -516,14 +662,16 @@ class ResidentRepairAPI:
             execute,
         )
         self._phase_state = "trained"
+        self._training_result = result
         return result
 
     def score_post(
         self,
         artifact: BackpackArtifact | None = None,
         *,
-        checkpoint_sha: str,
+        checkpoint_sha: str | None = None,
     ) -> Mapping[str, Any]:
+        checkpoint_sha = self._selected_checkpoint_sha(checkpoint_sha, "score_post")
         selected = artifact or self._mixed
         if selected is None:
             raise ValueError("score_post requires a mixed Backpack")
@@ -532,6 +680,35 @@ class ResidentRepairAPI:
         result = self._score(selected, "post", checkpoint_sha=checkpoint_sha)
         self._phase_state = "completed"
         self._publish_timing(status="PASS")
+        if self._enforce_improvement:
+            if self._pre_result is None or self._training_result is None:
+                raise RuntimeError("improvement verdict lacks pre-score or training receipt")
+            pre_kld = float(self._pre_result["mean_kld"])
+            post_kld = float(result["mean_kld"])
+            improvement = {
+                "pre_kld": pre_kld,
+                "post_kld": post_kld,
+                "delta_kld": post_kld - pre_kld,
+                "improved": post_kld < pre_kld,
+            }
+            receipt = {
+                "schema": "banana-smasher-resident-arm-result-v1",
+                "status": "PASS" if improvement["improved"] else "FAILED",
+                "input_checkpoint_path": None,
+                "input_checkpoint_sha256": checkpoint_sha,
+                "pre": dict(self._pre_result),
+                "training": dict(self._training_result),
+                "post": dict(result),
+                "improvement": improvement,
+                "timing": self._timing_receipt(status="PASS"),
+            }
+            self._publish_result(receipt)
+            if not improvement["improved"]:
+                raise ValueError(
+                    "resident KLD did not improve: "
+                    f"pre={pre_kld:.17g} post={post_kld:.17g}; "
+                    f"receipt={self.result_path}"
+                )
         return result
 
     def run_arm(

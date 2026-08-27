@@ -1,0 +1,275 @@
+test_checkpoint_selection_and_fixed_score (test_balanced64.Balanced64ApiTests) ... ok
+test_public_generation_binds_checkpoint_identity (test_balanced64.Balanced64ApiTests) ... ok
+test_exact_registered_policies (test_controlled_arm_policy.ControlledArmPolicyTest) ... ok
+test_from_u0_midpoint_recipe_switch_is_rejected_until_kld_resume_seal (test_controlled_arm_policy.ControlledArmPolicyTest) ... ok
+test_from_u0_policy_rejects_out_of_range_cursor (test_controlled_arm_policy.ControlledArmPolicyTest) ... ok
+test_from_u0_registered_policies_diverge_before_u16 (test_controlled_arm_policy.ControlledArmPolicyTest) ... ok
+test_from_u0_start_and_same_recipe_scored_resume_are_admitted (test_controlled_arm_policy.ControlledArmPolicyTest) ... ok
+test_from_u16_recipe_cannot_claim_a_u0_start (test_controlled_arm_policy.ControlledArmPolicyTest) ... ok
+test_schedule_origin_and_lambda_cursor_follow_trajectory_origin (test_controlled_arm_policy.ControlledArmPolicyTest) ... ok
+test_unknown_arm_and_cursor_fail_closed (test_controlled_arm_policy.ControlledArmPolicyTest) ... ok
+test_api_receipt_provenance_and_resident_guards (test_memory_fit_policy.MemoryFitPolicyTests) ... ERROR
+test_base_loader_window_environment_is_not_treated_as_a_path (test_memory_fit_policy.MemoryFitPolicyTests) ... ok
+test_default_four_gib_reserve_rejects_when_margin_is_insufficient (test_memory_fit_policy.MemoryFitPolicyTests) ... ok
+test_explicit_bounded_rank_local_reserve_accepts_positive_margin (test_memory_fit_policy.MemoryFitPolicyTests) ... ok
+test_explicit_rank_local_reserve_rejects_insufficient_margin (test_memory_fit_policy.MemoryFitPolicyTests) ... ok
+test_public_resident_binds_base_loader_environment_from_manifest (test_memory_fit_policy.MemoryFitPolicyTests) ... ok
+test_rank_local_policy_rejects_missing_or_nonpositive_reserve (test_memory_fit_policy.MemoryFitPolicyTests) ... ok
+test_alternate_pre_is_quarantine_only_for_canonical_lane (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_api_score_rejects_alternate_pre_even_when_backend_is_declared (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_api_score_routes_declared_official_backend_without_opt_in (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_input_identities_are_distinct_and_frozen (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_raw_u0_adapter_passes_without_embedded_identity_fields (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_raw_u0_adapter_rejects_sha_path_lock_and_basis_drift (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_raw_u1_adapter_binds_manifest_parent_and_embedded_source_identity (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_raw_u1_is_adapted_before_payload_identity_validation (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_score_preserves_2048_context_and_pads_short_rows (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_u0_requires_unskippable_calibration (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_canonical_u1_requires_immediate_canonical_u0_parent (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_causal_mask_is_fresh_per_window_not_cached_after_cache_mutation (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_cold_load_gate_rejects_stale_generation_and_releases_rank1_after_rank0_prune (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_full_prefill_matches_sealed_dynamic_cache_semantics (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_host_local_shared_cuda_device_uses_gloo_control_group (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_loading_status_incrementally_prunes_only_the_fully_loaded_parent_layer (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_memory_preflight_credits_only_task_local_prunable_cold_sources (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_payload_identity_is_bound_before_resident_construction (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_positional_state_is_fresh_and_cache_coupled_like_sealed_builder (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_production_standalone_builder_runners_are_hard_rejected (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_prune_loaded_parent_members_is_root_bound_and_skips_l034 (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_public_parity_current_layer0_matches_sealed_eager_reference (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_public_parity_tap_has_exact_tensor_schema_and_is_diagnostic_only (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_public_parity_tap_is_repeatable_with_fresh_diagnostic_backend (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_public_parity_tap_rejects_non_numeric_or_nonfinite_samples (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_public_parity_tap_rejects_non_scalar_windows_before_backend (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_public_parity_tap_rolls_back_promotion_state_mutation (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_rank0_tcpstore_listener_is_armed_before_heavy_resident_load (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_raw_u0_payload_retains_immutable_lock_corpus_identity (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_resident_backend_rejects_streaming_fallback_configuration (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_score_cli_routes_exact_pre_post_through_public_routed_method (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_score_publishes_per_window_hot_path_progress (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_score_resume_round_trips_exact_binary64_terms_before_next_attempt (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_score_resumes_at_next_window_and_reduces_saved_terms_in_order (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_score_routed_k2_accepts_exact_closure_and_emits_resident_receipt (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_score_routed_k2_rejects_any_sealed_identity_drift (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_shared_cuda_device_transport_uses_ipc_descriptor_not_dist_send (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_shared_device_score_batches_four_independent_windows_for_weight_reuse (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_shared_device_score_pipelines_resident_rank_halves (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_supported_production_entrypoints_install_the_hard_guard (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_tensor_tap_hash_and_bf16_sample_are_deterministic_and_bounded (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_two_host_route_requires_explicit_qsfp_pin (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_u3_plus_requires_pre_calibration_and_preregistered_question (test_official_k2_resident_score.OfficialK2ResidentScoreTests) ... ok
+test_fresh_optimizer_parameter_groups_are_metadata_not_state (test_raw_u0_optimizer_gate.CanonicalRawU0OptimizerGateTests) ... ERROR
+test_nonempty_optimizer_state_is_rejected (test_raw_u0_optimizer_gate.CanonicalRawU0OptimizerGateTests) ... FAIL
+test_nonzero_declared_optimizer_state_entries_are_rejected (test_raw_u0_optimizer_gate.CanonicalRawU0OptimizerGateTests) ... FAIL
+test_checkpoint_sha_mismatch_is_rejected (test_resident_api.ResidentApiTests) ... ERROR
+test_clean_u0_replay_rejects_raw_command_and_missing_true_inputs (test_resident_api.ResidentApiTests) ... ok
+test_continuation_rejects_artifact_root_not_consumed_by_materializer (test_resident_api.ResidentApiTests) ... ok
+test_continue_to_selects_u64_milestone_after_u16 (test_resident_api.ResidentApiTests) ... ERROR
+test_durable_milestones_have_paths_manifest_shas_and_readback (test_resident_api.ResidentApiTests) ... ok
+test_legacy_fixture_continuation_is_rejected (test_resident_api.ResidentApiTests) ... ok
+test_materialize_candidates_requires_real_two_rank_lineage_and_scores_all_milestones (test_resident_api.ResidentApiTests) ... ERROR
+test_materialize_rejects_receipt_only_state_when_file_is_missing (test_resident_api.ResidentApiTests) ... ok
+test_missing_scientific_identity_is_rejected (test_resident_api.ResidentApiTests) ... ERROR
+test_partial_resident_artifact_is_rejected_before_scoring (test_resident_api.ResidentApiTests) ... ERROR
+test_real_forward_is_not_constant_target_mse_or_state_hash_bump (test_resident_api.ResidentApiTests) ... ok
+test_real_two_spark_requires_official_resident_inputs_not_state_surrogate (test_resident_api.ResidentApiTests) ... ok
+test_resident_accepts_real_root_teacher_padding_beyond_scored_positions (test_resident_api.ResidentApiTests) ... ERROR
+test_resident_facade_caches_rows_and_emits_identity_receipt (test_resident_api.ResidentApiTests) ... ERROR
+test_resume_compare_requires_checkpoint_pair_binding (test_resident_api.ResidentApiTests) ... ok
+test_resume_compare_returns_bound_pair (test_resident_api.ResidentApiTests) ... ERROR
+test_resume_equivalence_is_u0_to_u4_with_one_u2_reload (test_resident_api.ResidentApiTests) ... ok
+test_resume_equivalence_rejects_vacuous_midpoint (test_resident_api.ResidentApiTests) ... ok
+test_second_rank_reuses_files_and_merges_rank_provenance (test_resident_api.ResidentApiTests) ... ok
+test_teacher_inventory_is_derived_for_legacy_real_root_manifest (test_resident_api.ResidentApiTests) ... ERROR
+test_true_clean_u0_replay_runs_exact_updates_and_emits_receipt (test_resident_api.ResidentApiTests) ... ok
+test_two_spark_continuation_requires_explicit_resident_two_rank_config (test_resident_api.ResidentApiTests) ... ok
+test_pins_source_and_forwards_task_run_and_arguments (test_sealed_rail_runner.SealedRailRunnerTest) ... ok
+test_refuses_source_hash_drift (test_sealed_rail_runner.SealedRailRunnerTest) ... ok
+test_official_config_without_candidate_rows_never_uses_row_loader (test_u20_official_route_t_9ade8ba8.U20OfficialRouteRegression) ... ok
+
+======================================================================
+ERROR: test_api_receipt_provenance_and_resident_guards (test_memory_fit_policy.MemoryFitPolicyTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_memory_fit_policy.py", line 204, in test_api_receipt_provenance_and_resident_guards
+    result = api.score("UPDATE_000", receipt_path=receipt)
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+ERROR: test_fresh_optimizer_parameter_groups_are_metadata_not_state (test_raw_u0_optimizer_gate.CanonicalRawU0OptimizerGateTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_raw_u0_optimizer_gate.py", line 44, in test_fresh_optimizer_parameter_groups_are_metadata_not_state
+    _validate_raw_u0_gates(self.payload(), self.lock())
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/official_k2_resident_score.py", line 306, in _validate_raw_u0_gates
+    _require_equal(_normalized_hash_field(corpus), CANONICAL_U0_LOCK_CORPUS_SHA256, "payload corpus SHA")
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/official_k2_resident_score.py", line 288, in _require_equal
+    raise ArtifactError(f"canonical raw U0 {field} drift: {observed!r} != {expected!r}")
+repair_api.balanced64.ArtifactError: canonical raw U0 payload corpus SHA drift: '16575db7fd180ca193aa13c4e642400b9ed416dbd0c36c3c5302422b31f5cbae' != '434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5'
+
+======================================================================
+ERROR: test_checkpoint_sha_mismatch_is_rejected (test_resident_api.ResidentApiTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_resident_api.py", line 147, in test_checkpoint_sha_mismatch_is_rejected
+    api.score("UPDATE_016", windows=[28])
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+ERROR: test_continue_to_selects_u64_milestone_after_u16 (test_resident_api.ResidentApiTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_resident_api.py", line 133, in test_continue_to_selects_u64_milestone_after_u16
+    result = api.continue_to("UPDATE_016", "U64", windows=[28])
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1865, in continue_to
+    score = self.score(target_key, windows=selected).as_dict()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+ERROR: test_materialize_candidates_requires_real_two_rank_lineage_and_scores_all_milestones (test_resident_api.ResidentApiTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_resident_api.py", line 500, in test_materialize_candidates_requires_real_two_rank_lineage_and_scores_all_milestones
+    result = api.materialize_candidates(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1719, in materialize_candidates
+    score = self.score(key, windows=selected_windows).as_dict()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+ERROR: test_missing_scientific_identity_is_rejected (test_resident_api.ResidentApiTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_resident_api.py", line 158, in test_missing_scientific_identity_is_rejected
+    api.score("UPDATE_016", windows=[28])
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+ERROR: test_partial_resident_artifact_is_rejected_before_scoring (test_resident_api.ResidentApiTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_resident_api.py", line 180, in test_partial_resident_artifact_is_rejected_before_scoring
+    api.score("UPDATE_016", windows=[28])
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+ERROR: test_resident_accepts_real_root_teacher_padding_beyond_scored_positions (test_resident_api.ResidentApiTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_resident_api.py", line 106, in test_resident_accepts_real_root_teacher_padding_beyond_scored_positions
+    result = api.score("UPDATE_016", windows=[28])
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+ERROR: test_resident_facade_caches_rows_and_emits_identity_receipt (test_resident_api.ResidentApiTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_resident_api.py", line 93, in test_resident_facade_caches_rows_and_emits_identity_receipt
+    first = api.score("UPDATE_016", windows=[28])
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+ERROR: test_resume_compare_returns_bound_pair (test_resident_api.ResidentApiTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_resident_api.py", line 122, in test_resume_compare_returns_bound_pair
+    result = api.resume_compare("UPDATE_064", "UPDATE_016", windows=[28])
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1818, in resume_compare
+    resume_score = self.score(resume, windows=selected).as_dict()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+ERROR: test_teacher_inventory_is_derived_for_legacy_real_root_manifest (test_resident_api.ResidentApiTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_resident_api.py", line 168, in test_teacher_inventory_is_derived_for_legacy_real_root_manifest
+    result = api.score("UPDATE_016", windows=[28])
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/api.py", line 1280, in score
+    self._last_preflight = self._shared_preflight.run(
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 112, in run
+    basis = self._basis()
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/core.py", line 61, in _basis
+    raise ValueError("basis_sha256 must be 64 lowercase hex characters")
+ValueError: basis_sha256 must be 64 lowercase hex characters
+
+======================================================================
+FAIL: test_nonempty_optimizer_state_is_rejected (test_raw_u0_optimizer_gate.CanonicalRawU0OptimizerGateTests)
+----------------------------------------------------------------------
+repair_api.balanced64.ArtifactError: canonical raw U0 payload corpus SHA drift: '16575db7fd180ca193aa13c4e642400b9ed416dbd0c36c3c5302422b31f5cbae' != '434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_raw_u0_optimizer_gate.py", line 50, in test_nonempty_optimizer_state_is_rejected
+    _validate_raw_u0_gates(payload, self.lock())
+AssertionError: "optimizer state is not empty" does not match "canonical raw U0 payload corpus SHA drift: '16575db7fd180ca193aa13c4e642400b9ed416dbd0c36c3c5302422b31f5cbae' != '434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5'"
+
+======================================================================
+FAIL: test_nonzero_declared_optimizer_state_entries_are_rejected (test_raw_u0_optimizer_gate.CanonicalRawU0OptimizerGateTests)
+----------------------------------------------------------------------
+repair_api.balanced64.ArtifactError: canonical raw U0 payload corpus SHA drift: '16575db7fd180ca193aa13c4e642400b9ed416dbd0c36c3c5302422b31f5cbae' != '434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/macmini/clawd/ds4-flash-kldmatrix/repair_api/tests/test_raw_u0_optimizer_gate.py", line 56, in test_nonzero_declared_optimizer_state_entries_are_rejected
+    _validate_raw_u0_gates(payload, self.lock())
+AssertionError: "optimizer state entries drift" does not match "canonical raw U0 payload corpus SHA drift: '16575db7fd180ca193aa13c4e642400b9ed416dbd0c36c3c5302422b31f5cbae' != '434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5'"
+
+----------------------------------------------------------------------
+Ran 88 tests in 8.060s
+
+FAILED (failures=2, errors=11)

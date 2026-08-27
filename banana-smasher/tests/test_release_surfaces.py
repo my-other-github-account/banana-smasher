@@ -57,6 +57,7 @@ def test_pack_format_documents_versioned_layout_and_auto_detection() -> None:
 
 def test_dynamic_backpack_release_dependency_is_exactly_pinned() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'requires-python = ">=3.11"' in pyproject
     assert 'knapsack = ["scipy==1.16.1"]' in pyproject
     assert 'test = ["pytest==8.4.2", "ruff==0.12.7", "scipy==1.16.1"]' in pyproject
 

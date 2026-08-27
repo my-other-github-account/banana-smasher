@@ -92,6 +92,83 @@ class QtipGeometry:
 
 QTIP1_GEOMETRY = QtipGeometry(L=16, K=1, V=1, tlut_bits=9, decode_mode="quantlut")
 QTIP2_GEOMETRY = QtipGeometry(L=16, K=2, V=2, tlut_bits=9, decode_mode="quantlut_sym")
+QTIP2_EXACT_MAX_CHUNK_ROWS = 8192
+
+
+def plan_qtip2_cuda_chunks(
+    *,
+    rows: int,
+    width: int,
+    free_bytes: int,
+    reserve_bytes: int = 4 << 30,
+    max_chunk_rows: int = QTIP2_EXACT_MAX_CHUNK_ROWS,
+) -> dict[str, int | str]:
+    """Admit an exact bounded K2/V2 CUDA solve before any device allocation.
+
+    The plan accounts for the complete prefix-DP backpointer surface plus both
+    ping-pong cost rows, input, LUT, overlap, output, and a second retained CPU
+    result represented conservatively as device bytes.  It deliberately chooses
+    a row chunk from available headroom instead of ever attempting full-batch
+    Viterbi storage.
+    """
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) or value < 1
+        for value in (rows, width, free_bytes, reserve_bytes, max_chunk_rows)
+    ):
+        raise ValueError("QTIP2 CUDA memory-plan inputs must be positive integers")
+    if width % QTIP2_GEOMETRY.V:
+        raise ValueError("QTIP2 CUDA width must be divisible by V=2")
+    steps = width // QTIP2_GEOMETRY.V
+    if steps * QTIP2_GEOMETRY.branch_bits < QTIP2_GEOMETRY.L:
+        raise ValueError("QTIP2 CUDA sequence is too short to close the cyclic trellis")
+    prefixes = 1 << (QTIP2_GEOMETRY.L - QTIP2_GEOMETRY.branch_bits)
+    lut_bytes = QTIP2_GEOMETRY.V * QTIP2_GEOMETRY.states * 4
+    fixed_bytes = lut_bytes
+    per_row_bytes = (
+        width * 4  # contiguous FP32 input
+        + 2 * prefixes * 4  # ping-pong costs
+        + math.ceil(steps * prefixes / 2)  # exact packed four-bit q winners
+        + steps * 4  # GPU result states
+        + steps * 4  # conservatively retained result during transfer
+        + prefixes * 4  # state-order final-tie candidate surface
+        + 4  # overlap prefix
+        + 4  # final prefix
+    )
+    admitted = free_bytes - reserve_bytes
+    chunk_rows = min(
+        rows,
+        max_chunk_rows,
+        QTIP2_EXACT_MAX_CHUNK_ROWS,
+        (admitted - fixed_bytes) // per_row_bytes,
+    )
+    if chunk_rows < 1:
+        minimum = fixed_bytes + per_row_bytes + reserve_bytes
+        raise RuntimeError(
+            "QTIP2 CUDA peak-memory admission failed before allocation: "
+            f"free={free_bytes} reserve={reserve_bytes} minimum_required={minimum}"
+        )
+    bounded_backpointer_bytes = math.ceil(steps * prefixes / 2) * chunk_rows
+
+    peak_memory_bytes = fixed_bytes + per_row_bytes * chunk_rows
+    return {
+        "schema": "banana-smasher-qtip2-cuda-memory-plan-v1",
+        "status": "PASS",
+        "rows": rows,
+        "width": width,
+        "steps": steps,
+        "chunk_rows": chunk_rows,
+        "exact_max_chunk_rows": QTIP2_EXACT_MAX_CHUNK_ROWS,
+        "backpointer_address_bits": 64,
+        "backpointer_bits_per_prefix_step": 4,
+        "encoder": "full-row-packed-backpointer-cuda",
+        "chunk_count": math.ceil(rows / chunk_rows),
+        "free_bytes": free_bytes,
+        "reserve_bytes": reserve_bytes,
+        "peak_memory_bytes": peak_memory_bytes,
+        "full_batch_backpointer_bytes": math.ceil(steps * prefixes / 2) * rows,
+        "bounded_backpointer_bytes": bounded_backpointer_bytes,
+
+    }
 
 
 @dataclass(frozen=True)
@@ -558,6 +635,103 @@ class EncodedQtip:
         return self.packed.nbytes * 8 / self.weights
 
 
+def encode_qtip2_bounded_cuda(
+    matrix: np.ndarray,
+    *,
+    geometry: QtipGeometry,
+    tlut: np.ndarray,
+    scales: np.ndarray | Sequence[float] | None = None,
+    reserve_bytes: int = 4 << 30,
+) -> tuple[EncodedQtip, dict[str, Any]]:
+    """Encode exact K2/V2 states on CUDA with pre-admitted row chunks."""
+    if geometry != QTIP2_GEOMETRY:
+        raise ValueError("bounded CUDA encoder currently requires canonical QTIP2 geometry")
+    values = np.asarray(matrix, dtype=np.float32)
+    if values.ndim != 2 or values.shape[1] % geometry.V:
+        raise ValueError("QTIP2 CUDA matrix must be [rows, steps*V]")
+    state_lut = _state_lut(geometry, tlut)
+    if scales is None:
+        source_rms = np.sqrt(np.mean(values * values, axis=1, dtype=np.float32))
+        lut_rms = np.float32(np.sqrt(np.mean(state_lut * state_lut, dtype=np.float32)))
+        row_scales = np.where(source_rms == 0, 1.0, source_rms / lut_rms).astype(np.float32)
+    else:
+        row_scales = np.asarray(scales, dtype=np.float32)
+        if row_scales.ndim == 0:
+            row_scales = np.full((values.shape[0],), row_scales, dtype=np.float32)
+        if row_scales.shape != (values.shape[0],):
+            raise ValueError("QTIP2 CUDA scales must contain one value per matrix row")
+    if np.any(~np.isfinite(row_scales)) or np.any(row_scales <= 0):
+        raise ValueError("QTIP2 CUDA scales must be finite and positive")
+
+    import torch
+    from types import SimpleNamespace
+
+    if not torch.cuda.is_available():
+        raise RuntimeError("QTIP2 CUDA fast path is unavailable; refusing slower fallback")
+    device = torch.device("cuda")
+    free_bytes, _total_bytes = torch.cuda.mem_get_info(device)
+    plan = plan_qtip2_cuda_chunks(
+        rows=int(values.shape[0]),
+        width=int(values.shape[1]),
+        free_bytes=int(free_bytes),
+        reserve_bytes=reserve_bytes,
+    )
+    chunk_rows = int(plan["chunk_rows"])
+    torch.cuda.reset_peak_memory_stats(device)
+    cb = SimpleNamespace(
+        L=geometry.L,
+        K=geometry.K,
+        V=geometry.V,
+        lut=torch.from_numpy(state_lut).to(device=device, dtype=torch.float32),
+    )
+    from .trellis_v2 import trellis_v2
+
+    normalized = values / row_scales[:, None]
+    steps = values.shape[1] // geometry.V
+
+    def solve(source: np.ndarray, overlap: np.ndarray | None = None) -> np.ndarray:
+        output = np.empty((values.shape[0], steps), dtype=np.int32)
+        for start in range(0, values.shape[0], chunk_rows):
+            end = min(values.shape[0], start + chunk_rows)
+            x = torch.from_numpy(np.ascontiguousarray(source[start:end].T)).to(device)
+            overlap_cuda = (
+                None
+                if overlap is None
+                else torch.from_numpy(np.ascontiguousarray(overlap[start:end])).to(
+                    device=device, dtype=torch.int32
+                )
+            )
+            states_cuda = trellis_v2(cb, x, overlap_cuda)
+            output[start:end] = states_cuda.T.cpu().numpy()
+            del x, overlap_cuda, states_cuda
+        return output
+
+    rolled = np.roll(normalized, (steps // 2) * geometry.V, axis=1)
+    first = solve(rolled)
+    overlap = np.asarray(first[:, steps // 2] >> geometry.branch_bits, dtype=np.int32)
+    states = solve(normalized, overlap)
+    torch.cuda.synchronize(device)
+    measured_peak = int(torch.cuda.max_memory_allocated(device))
+    packed = pack_qtip_states(states, geometry)
+    encoded = EncodedQtip(
+        geometry=geometry,
+        shape=(int(values.shape[0]), int(values.shape[1])),
+        states=states,
+        packed=packed,
+        scales=row_scales,
+    )
+    return encoded, {
+        "backend": "public-qtip2-trellis-v2-bounded-cuda",
+        "memory_plan": plan,
+        "measured_peak_memory_bytes": measured_peak,
+        "fallback": 0,
+        "exact_full_branches": 16,
+        "passes": 2,
+        "packed_sha256": hashlib.sha256(packed.tobytes()).hexdigest(),
+        "scales_sha256": hashlib.sha256(row_scales.tobytes()).hexdigest(),
+    }
+
+
 def decode_qtip(encoded: EncodedQtip, *, tlut: np.ndarray) -> np.ndarray:
     steps = encoded.shape[1] // encoded.geometry.V
     states = unpack_qtip_states(
@@ -947,8 +1121,10 @@ __all__ = [
     "assign_qtip_provider_components",
     "decode_qtip",
     "encode_qtip",
+    "encode_qtip2_bounded_cuda",
     "gaussian_tlut",
     "pack_qtip_states",
+    "plan_qtip2_cuda_chunks",
     "qtip1_5_provider_declaration",
     "qtip1_provider_declaration",
     "qtip_provider_counts",

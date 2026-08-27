@@ -6,19 +6,22 @@ build-backend = "hatchling.build"
 name = "banana-smasher"
 version = "1.0.0"
 description = "Fail-closed bs-pack tooling and shared serving loader"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "numpy==2.3.5",
   "safetensors==0.8.0",
   "scipy==1.16.1",
   "setuptools==80.9.0",
+  "tokenizers==0.23.1",
 ]
 
 [project.optional-dependencies]
 test = ["pytest==8.4.2", "ruff==0.12.7", "scipy==1.16.1"]
 knapsack = ["scipy==1.16.1"]
 solve = [
+  "ninja==1.13.0",
   "torch==2.8.0",
+  "transformers @ git+https://github.com/huggingface/transformers.git@b6c0bfe04c823a7b2ca48f91b8b91b2a7741f309",
   "triton==3.4.0; platform_system == 'Linux'",
 ]
 
@@ -27,6 +30,15 @@ smash = "banana_smasher.cli:main"
 
 [project.entry-points."banana_smasher.update_backends"]
 physical-repair = "banana_smasher.update_backends.physical_repair:run_physical_repair"
+
+[project.entry-points."banana_smasher.balanced64_runtimes"]
+hf-sharded = "banana_smasher.hf_sharded_balanced64_runtime:ShardedHFBalanced64Runtime"
+
+[project.entry-points."banana_smasher.sharded_hf_balanced64_executors"]
+package-hf-layer-streamed = "banana_smasher.hf_sharded_balanced64_executor:PackageHFShardedExecutor"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/banana_smasher"]

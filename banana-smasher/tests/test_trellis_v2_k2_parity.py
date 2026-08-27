@@ -27,16 +27,27 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
         if isinstance(node, ast.Assign)
         for target in node.targets
         if isinstance(target, ast.Name)
-        and target.id in {"BRANCHES", "PREFIXES", "STATES", "STEPS"}
+        and target.id in {"BRANCHES", "PREFIXES", "STATES", "STEPS", "MAX_CHUNK"}
     }
     assert assignments == {
         "BRANCHES": 16,
         "PREFIXES": 4096,
         "STATES": 65536,
         "STEPS": 128,
+        "MAX_CHUNK": 8192,
     }
     assert '"branch_sampling": "full"' in exact_source
+    assert '"backpointer_dtype": "packed-uint4-q"' in exact_source
+    assert '"minimum_ctas_per_sm": 2' in exact_source
+    assert '"fallback": 0' in exact_source
     assert "alternating-parity-full" not in exact_source
+    assert "triton" not in exact_source
+    assert "prepare_exact_cuda" in exact_source
+    cuda_source = (
+        _package_root() / "trellis_v2" / "csrc" / "trellis_v2_exact.cu"
+    ).read_text()
+    assert "constexpr int THREADS = 512;" in cuda_source
+    assert "__launch_bounds__(THREADS, 2)" in cuda_source
 
 
 @pytest.mark.skipif(

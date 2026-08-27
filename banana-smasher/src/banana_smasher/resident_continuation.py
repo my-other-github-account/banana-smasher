@@ -25,7 +25,7 @@ from .resident_balanced64 import ArtifactError
 MODEL_INDEX_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 ADMISSION_SHA256 = "76d0674eb0cd37fc9022bac5e048c2b77c721826182222ae0a0609e29607a2c5"
 CORPUS_SHA256 = "434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5"
-TRAINER_SHA256 = "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
+TRAINER_SHA256 = "1e7e596e1b3210fd81a4da352b00916e7cc969c20b365acde509dc51461297e1"
 OFFICIAL_PHYSICAL_LAYER_SHA256 = "5d4ca4ac7d25e96fd428e55b2a7e18e074bac9d8aa23004bddbb6bde15d020d5"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
@@ -38,6 +38,75 @@ HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
 HISTORICAL_SAMPLING_MODE = "historical_category_stratified_v1"
 HISTORICAL_TRAIN_BANK_SHA256 = "3553fce00efdb6d452171e6d5c429adc31580dedbf63eb821f81bc82406983b3"
 HISTORICAL_CATEGORIES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
+
+
+def _build_fp64_adam(torch: Any, param_groups: list[dict[str, Any]]) -> Any:
+    """Adam with FP64 moments and FP32-or-better update arithmetic.
+
+    PyTorch's stock Adam stores moments in the parameter dtype and casts them
+    back to that dtype during ``load_state_dict``. The validated U45 recipe
+    requires FP64 moments both before and after resume, so this small optimizer
+    keeps the state contract explicit while preserving the standard Adam rule.
+    """
+
+    class FP64MomentAdam(torch.optim.Optimizer):
+        def __init__(self, groups: list[dict[str, Any]]) -> None:
+            super().__init__(
+                groups,
+                {"lr": 1.0e-3, "betas": (0.9, 0.999), "eps": 1.0e-8},
+            )
+
+        def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+            super().load_state_dict(state_dict)
+            for state in self.state.values():
+                for name in ("exp_avg", "exp_avg_sq"):
+                    value = state.get(name)
+                    if value is not None:
+                        state[name] = value.to(dtype=torch.float64)
+
+        def step(self, closure: Any = None) -> Any:
+            loss = None
+            if closure is not None:
+                with torch.enable_grad():
+                    loss = closure()
+            with torch.no_grad():
+                for group in self.param_groups:
+                    beta1, beta2 = group["betas"]
+                    lr = float(group["lr"])
+                    eps = float(group["eps"])
+                    for parameter in group["params"]:
+                        gradient = parameter.grad
+                        if gradient is None:
+                            continue
+                        if gradient.is_sparse:
+                            raise RuntimeError("FP64MomentAdam does not support sparse gradients")
+                        state = self.state[parameter]
+                        if not state:
+                            state["step"] = 0
+                            state["exp_avg"] = torch.zeros_like(
+                                parameter, dtype=torch.float64
+                            )
+                            state["exp_avg_sq"] = torch.zeros_like(
+                                parameter, dtype=torch.float64
+                            )
+                        state["step"] = int(state["step"]) + 1
+                        step = state["step"]
+                        grad64 = gradient.detach().to(dtype=torch.float64)
+                        exp_avg = state["exp_avg"]
+                        exp_avg_sq = state["exp_avg_sq"]
+                        exp_avg.mul_(beta1).add_(grad64, alpha=1.0 - beta1)
+                        exp_avg_sq.mul_(beta2).addcmul_(
+                            grad64, grad64, value=1.0 - beta2
+                        )
+                        step_size = lr / (1.0 - beta1**step)
+                        denominator = exp_avg_sq.sqrt().div_(
+                            math.sqrt(1.0 - beta2**step)
+                        ).add_(eps)
+                        update = (exp_avg / denominator).to(dtype=parameter.dtype)
+                        parameter.add_(update, alpha=-step_size)
+            return loss
+
+    return FP64MomentAdam(param_groups)
 
 
 def _enforce_update_loss_guard(
@@ -445,19 +514,57 @@ def _load_source_module(name: str, path: Path) -> Any:
     return module
 
 
-def _official_expert_source_path() -> Path:
-    path = Path(__file__).resolve().parents[3] / "runtime" / "v7" / "runner" / "fast_v7_expert_base.py"
-    _require_file(path, OFFICIAL_PHYSICAL_LAYER_SHA256, "sealed parity expert source")
+def _official_expert_source_path(config: Mapping[str, Any] | None = None) -> Path:
+    configured = config.get("resident_expert_source") if config is not None else None
+    path = (
+        Path(str(configured)).expanduser().resolve()
+        if configured
+        else Path(__file__).resolve().parents[3]
+        / "runtime"
+        / "v7"
+        / "runner"
+        / "fast_v7_expert_base.py"
+    )
+    expected = (
+        config.get("resident_expert_source_sha256", OFFICIAL_PHYSICAL_LAYER_SHA256)
+        if config is not None
+        else OFFICIAL_PHYSICAL_LAYER_SHA256
+    )
+    _require_file(path, str(expected), "sealed parity expert source")
     return path
 
 
-def _bind_official_expert_source() -> Any:
+def _bind_official_expert_source(config: Mapping[str, Any] | None = None) -> Any:
     """Bind the accepted clamp-free, ordered-reduction expert implementation."""
-    runner = _official_expert_source_path().parent
+    source = (
+        _official_expert_source_path()
+        if config is None
+        else _official_expert_source_path(config)
+    )
+    runner = source.parent
+    grouped_source = runner / "fast_k2_grouped.py"
+    if config is not None and config.get("fast_k2_wrapper_source"):
+        grouped_source = Path(str(config["fast_k2_wrapper_source"])).expanduser().resolve()
+        grouped_sha = config.get("fast_k2_wrapper_source_sha256")
+        if not isinstance(grouped_sha, str) or len(grouped_sha) != 64:
+            raise ArtifactError("grouped-K2 wrapper source SHA is required")
+        _require_file(grouped_source, grouped_sha, "grouped-K2 wrapper source")
+    if config is not None and config.get("fast_k2_extension"):
+        extension = Path(str(config["fast_k2_extension"])).expanduser().resolve()
+        extension_sha = config.get("fast_k2_extension_sha256")
+        if not isinstance(extension_sha, str) or len(extension_sha) != 64:
+            raise ArtifactError("grouped-K2 prebuilt extension SHA is required")
+        _require_file(extension, extension_sha, "grouped-K2 prebuilt extension")
+        module_name = config.get("fast_k2_module_name")
+        if not isinstance(module_name, str) or not module_name.isidentifier():
+            raise ArtifactError("grouped-K2 prebuilt extension module name is required")
+        os.environ["FAST_K2_EXTENSION"] = str(extension)
+        os.environ["FAST_K2_EXTENSION_SHA256"] = extension_sha
+        os.environ["FAST_K2_MODULE_NAME"] = module_name
     previous = sys.modules.get("fast_k2_grouped")
     try:
-        _load_source_module("fast_k2_grouped", runner / "fast_k2_grouped.py")
-        return _load_source_module("fast_v7_expert_base", _official_expert_source_path())
+        _load_source_module("fast_k2_grouped", grouped_source)
+        return _load_source_module("fast_v7_expert_base", source)
     finally:
         if previous is None:
             sys.modules.pop("fast_k2_grouped", None)
@@ -585,7 +692,7 @@ class ModernGreenResidentEngine:
         self.vq3b_dir = Path(str(config["vq3b_dir"])).expanduser().resolve()
         self._configure_import_environment()
         self._prepare_import_paths()
-        _bind_official_expert_source()
+        _bind_official_expert_source(config)
         self.trainer = _load_source_module(
             f"banana_smasher_modern_green_api_{os.getpid()}_{rank}", self.trainer_path
         )
@@ -657,13 +764,13 @@ class ModernGreenResidentEngine:
         # exceed the 112 GiB rail if the score backend is activated early. Select
         # Quack only after the resident payload is complete, before any forward.
         _select_trainer_fwht(self.trainer)
-        self.optimizer = torch.optim.Adam(
+        self.optimizer = _build_fp64_adam(
+            torch,
             [
                 {"params": [p for _name, p in self.luts], "lr": self.base_lrs["luts"], "group_name": "luts"},
                 {"params": [p for _name, p in self.norms], "lr": self.base_lrs["norms"], "group_name": "norms"},
                 {"params": [p for _name, p in self.outputs], "lr": self.base_lrs["outputs"], "group_name": "outputs"},
             ],
-            foreach=False,
         )
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer,
@@ -708,6 +815,18 @@ class ModernGreenResidentEngine:
         os.environ["BR_TEACH"] = str(self.teacher_root)
         os.environ.setdefault("BR_TRAIN", "20,21,22,23")
         os.environ.setdefault("BR_PROBE", "20,21,22,23")
+        if "TORCH_EXTENSIONS_DIR" not in os.environ:
+            runtime_root = os.environ.get("BANANA_SMASHER_RUN_ROOT")
+            if runtime_root:
+                cache_root = Path(runtime_root).expanduser().resolve() / "torch_extensions"
+            else:
+                cache_root = (
+                    Path(os.environ.get("TMPDIR", "/tmp")).expanduser().resolve()
+                    / f"banana-smasher-{os.getuid()}"
+                    / "torch_extensions"
+                )
+            cache_root.mkdir(parents=True, exist_ok=True)
+            os.environ["TORCH_EXTENSIONS_DIR"] = str(cache_root)
 
     def _load_base(self) -> Any:
         path = self.asset_root / "source" / "base_binrepair_e2e.py"
@@ -739,6 +858,12 @@ class ModernGreenResidentEngine:
 
     def _status(self, **fields: Any) -> None:
         self.status.update(fields)
+        if fields.get("phase") == "loading":
+            # Shard construction reports after each layer has dropped its temporary
+            # state dict. Return those unused CUDA allocator pages before loading
+            # the next layer; on unified-memory hosts they otherwise accumulate
+            # outside the useful resident set and can starve the NVIDIA driver.
+            self.torch.cuda.empty_cache()
 
     def _load_local_trainable_state(self) -> None:
         loader = self.trainer.load_local_state
@@ -756,8 +881,14 @@ class ModernGreenResidentEngine:
             self.scheduler_state_action = "SCORE_ONLY_NO_TRAINING_LINEAGE"
             return
         optimizer_payload = self.payload.get("optimizer", self.payload.get("optimizer_state"))
+        scheduler_payload = self.payload.get("scheduler", self.payload.get("scheduler_state"))
+        if _checkpoint_cursor(self.payload) == 0:
+            if isinstance(optimizer_payload, Mapping) or isinstance(scheduler_payload, Mapping):
+                raise ArtifactError("published PRE must start with fresh optimizer and scheduler state")
+            self.scheduler_state_action = "FRESH_PRE_OPTIMIZER_AND_SCHEDULE"
+            return
         if not isinstance(optimizer_payload, Mapping):
-            raise ArtifactError("U16 checkpoint is missing the shared Adam optimizer state")
+            raise ArtifactError("continuation checkpoint is missing the shared Adam optimizer state")
         groups = optimizer_payload.get("param_groups")
         global_state = optimizer_payload.get("state")
         if not isinstance(groups, list) or len(groups) != 3 or not isinstance(global_state, Mapping):
@@ -1005,8 +1136,14 @@ class ModernGreenResidentEngine:
                 raise ArtifactError("existing process group does not match the exact two-Spark rank")
             self.dist.barrier()
             return
-        master_addr = str(self.config.get("master_addr", "127.0.0.1"))
-        master_port = int(self.config.get("master_port", 29598))
+        master_addr = os.environ.get(
+            "MASTER_ADDR", str(self.config.get("master_addr", "127.0.0.1"))
+        ).strip()
+        if not master_addr:
+            raise ArtifactError("MASTER_ADDR/master_addr must be non-empty")
+        master_port = int(
+            os.environ.get("MASTER_PORT", str(self.config.get("master_port", 29598)))
+        )
         init_method = str(self.config.get("init_method", f"tcp://{master_addr}:{master_port}"))
         socket_interface = self.config.get("distributed_socket_interface")
         if socket_interface is not None:
@@ -1047,6 +1184,9 @@ class ModernGreenResidentEngine:
         template = hidden[:, :, 0, :] if hidden.ndim == 4 else hidden
         mask_cache = DynamicCache(config=self.student.config)
         pos, pe, mask = self._positional(ids, template, mask_cache)
+        activation_checkpointing = train and bool(
+            self.config.get("activation_checkpointing", True)
+        )
         for index in range(self.first, self.last + 1):
             layer = self.student.model.model.layers[index]
             def layer_fn(current: Any, layer: Any = layer) -> Any:
@@ -1062,7 +1202,7 @@ class ModernGreenResidentEngine:
                     # public-path parity gate.
                     past_key_values=DynamicCache(config=self.student.config),
                 )
-            if train:
+            if activation_checkpointing:
                 hidden = self.checkpoint(layer_fn, hidden, use_reentrant=False)
             else:
                 hidden = layer_fn(hidden)

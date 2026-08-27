@@ -1,0 +1,74 @@
+{
+  "api_smoke": {
+    "clean_u0_entry_point": "ResidentRepairAPI.construct_clean_u0 / construct_from_clean_u0",
+    "clean_u0_local_result": "PASS; exact 16/16 updates; target state loaded from sealed checkpoint; declared target-state substitutes rejected",
+    "clean_u0_root_result": "REJECTED as expected: root target is not bound to midpoint SHA, so no false clean-U0 PASS",
+    "two_spark_entry_point": "ResidentRepairAPI.continue_two_spark",
+    "two_spark_local_result": "PASS; actual U16 payload load and SHA binding; U20/U32/U48/U64 chained receipts; real step reports required",
+    "two_spark_root_result": "REJECTED as expected after actual U16 load: bare fixture advance_fn cannot PASS"
+  },
+  "changed_files": [
+    {
+      "path": "repair_api/api.py",
+      "sha256": "adebca9829b035d630223d8f2a10411422b773fe85a76416fb592441280b2469",
+      "changes": "sealed target-checkpoint authentication for clean U0; actual U16 load/state binding; checkpoint_loaded=true; exact optimizer/scheduler step reports; scalar tensor fingerprint fix"
+    },
+    {
+      "path": "repair_api/tests/test_resident_api.py",
+      "sha256": "94b0833f67c70992939fc0b7bd57a39b7f7c9fa26755c8119094d2cc96e0c125",
+      "changes": "torch-backed target/U16 fixtures, step-report assertions, fixture rejection coverage"
+    },
+    {
+      "path": "repair_api/README.md",
+      "sha256": "68be9a3a8918ae15b7c43d230ded476953a6536dd331f24b8309d24616a9d2e3",
+      "changes": "documented sealed target authentication, U16 state binding, and real step-report contract"
+    }
+  ],
+  "driver_required_correction": {
+    "fixture_or_subsecond_continuation": "refused",
+    "checkpoint_loaded": true,
+    "loaded_u16_sha256": "e1dd79d23e6ad419d457b20c5c5bb808ec09f52dc6bec40df2f93254688bc2ad",
+    "root_smoke": "claim-free read-only API smoke on spark-7; no GPU launch, process, or host claim"
+  },
+  "preserved_receipt": {
+    "path": "repair_api/receipts/T05259B29_API_INTEGRATION.json",
+    "sha256": "a89ff23251f8a37e09db946ea938f4e3c4c6ce48d3526756e6aa8fdd4d5d882a"
+  },
+  "schema": "modern-green-repair-api-v3",
+  "status": "PASS_API_REPAIR_FAIL_LOUD_ROOT_SMOKE",
+  "task_id": "t_6a8dfc1b",
+  "tests_run": [
+    {
+      "command": "/Users/macmini/clawd/hermes-agent/.venv/bin/python -m pytest repair_api/tests -q",
+      "result": "14 passed"
+    },
+    {
+      "command": "/Users/macmini/clawd/hermes-agent/.venv/bin/python -m compileall -q repair_api",
+      "result": "PASS"
+    },
+    {
+      "command": "python3 /tmp/t6a8_root_smoke.py",
+      "result": "PASS smoke harness; clean_u0 rejected unbound target; two_spark loaded U16 then rejected fixture advance_fn"
+    }
+  ],
+  "root_bound_smoke": {
+    "remote": "spark-7",
+    "artifact_root": "/home/dnola/missions/MODERN_GREEN_SCORE_t_632e9474_s7/api_stage_t_f5d2415c/artifact_v10",
+    "manifest_present": true,
+    "clean_u0": {
+      "status": "REJECTED",
+      "error": "clean-U0 constructor target is not bound to the midpoint checkpoint SHA"
+    },
+    "two_spark": {
+      "status": "REJECTED",
+      "checkpoint_loaded": true,
+      "error": "advance_fn fixture rejected: return (state, step_report) with real resident optimizer steps"
+    }
+  },
+  "next_use_commands": {
+    "t_01e56dfe": "from repair_api import ResidentRepairAPI; api=ResidentRepairAPI.open(ARTIFACT_ROOT); u16=api.artifact.checkpoint_key('UPDATE_016'); payload=load_actual_u16_payload(api); CONFIG['resident_state_sha256']=api._state_fingerprint({'state': payload['state']}); api.continue_two_spark(u16, [20,32,48,64], config=CONFIG, advance_fn=ADVANCE_RESIDENT_STATE_RETURNING_STATE_AND_STEP_REPORT, receipt_path=RECEIPT)",
+    "t_0d6864c5": "from repair_api import ResidentRepairAPI; api=ResidentRepairAPI.open(ARTIFACT_ROOT); api.construct_clean_u0(UPDATE_000, UPDATE_016, replay=DECLARED_CLEAN_U0_REPLAY_WITHOUT_EXPECTED_TARGET_STATE_OR_TARGET_SHA, receipt_path=RECEIPT)"
+  },
+  "scope": "API-only non-GPU repair; immutable U0-U16 lineage preserved; sibling experiments remain downstream",
+  "successor_step": "t_0d6864c5 and t_01e56dfe must use the strict entry-point contracts; remote root PASS requires real clean-U0 model factories or real resident optimizer step reports, never a fixture callback."
+}
