@@ -478,7 +478,6 @@ def estimate_hf_moe_uniform(
     import tracemalloc
 
     from .qtip1 import QTIP2_GEOMETRY, gaussian_tlut
-    from .trellis_v2 import prepare_exact_cuda
 
     destination = Path(receipt_path).expanduser().resolve()
     plan = plan_hf_moe_uniform(
@@ -493,12 +492,6 @@ def estimate_hf_moe_uniform(
     selected = ordered[len(ordered) // 2]
     root = Path(plan["source"]["model_root"])
     tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
-    try:
-        import torch
-    except ModuleNotFoundError:
-        torch = None
-    if torch is not None and torch.cuda.is_available():
-        prepare_exact_cuda()
     tracemalloc.start()
     started = time.perf_counter()
     matrix = _load_safetensors_matrix(root / selected["shard"], selected)

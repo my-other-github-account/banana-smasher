@@ -34,7 +34,7 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
         "PREFIXES": 4096,
         "STATES": 65536,
         "STEPS": 128,
-        "MAX_CHUNK": 256,
+        "MAX_CHUNK": 8192,
     }
     assert '"branch_sampling": "full"' in exact_source
     assert "alternating-parity-full" not in exact_source

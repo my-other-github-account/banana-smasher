@@ -450,14 +450,12 @@ def test_q2_gpu_encoder_memory_plan_is_bounded_before_allocation() -> None:
     assert 1 <= plan["chunk_rows"] < 4096
     assert plan["chunk_count"] > 1
     assert plan["peak_memory_bytes"] <= (16 << 30) - (4 << 30)
-    assert plan["full_batch_backpointer_bytes"] == 8_589_934_592
-    assert int(plan["bounded_backpointer_bytes"]) < int(
-        plan["full_batch_backpointer_bytes"]
-    )
-    assert int(plan["chunk_rows"]) <= 256
-    assert int(plan["exact_max_chunk_rows"]) == 256
+    assert plan["full_batch_backpointer_bytes"] == 68_719_476_736
+    assert plan["bounded_backpointer_bytes"] < plan["full_batch_backpointer_bytes"]
+    assert int(plan["chunk_rows"]) <= 8192
+    assert int(plan["exact_max_chunk_rows"]) == 8192
     assert int(plan["backpointer_address_bits"]) == 64
-    assert int(plan["bounded_backpointer_bytes"]) < 1 << 31
+    assert int(plan["bounded_backpointer_bytes"]) > 1 << 31
 
 
 def test_q2_gpu_encoder_memory_plan_refuses_before_allocation() -> None:
@@ -467,7 +465,7 @@ def test_q2_gpu_encoder_memory_plan_refuses_before_allocation() -> None:
         plan_qtip2_cuda_chunks(
             rows=2048,
             width=4096,
-            free_bytes=(4 << 30) + (1 << 20),
+            free_bytes=(4 << 30) + (16 << 20),
             reserve_bytes=4 << 30,
         )
 

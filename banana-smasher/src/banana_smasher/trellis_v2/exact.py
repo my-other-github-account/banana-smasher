@@ -8,9 +8,6 @@ warm start, or fallback route.
 """
 from __future__ import annotations
 
-from functools import lru_cache
-import hashlib
-from pathlib import Path
 from typing import Any
 
 import torch
@@ -32,7 +29,7 @@ STEPS = 128
 # Every backpointer pointer offset is explicitly promoted to int64 in the
 # kernels below, so the public memory planner—not signed-31-bit arithmetic—is
 # the sole chunk bound.
-MAX_CHUNK = 256
+MAX_CHUNK = 8192
 PREFIX_DP_NUM_WARPS = 8
 _PRODUCTION_LINEAGE_SHA256 = (
     "379a24289514ead53de1415fdddc9cf77026d46c7b8d9ffef783fe5632a9319b"
@@ -40,26 +37,6 @@ _PRODUCTION_LINEAGE_SHA256 = (
 _PARITY_REFERENCE_SHA256 = (
     "96b83c837a017c36f6630ac7b6b7a3be16888ea15a03593f3c4709b0675c3a50"
 )
-
-
-@lru_cache(maxsize=1)
-def prepare_exact_cuda() -> Any:
-    """Build/load the package-owned exact persistent CUDA producer."""
-    from torch.utils.cpp_extension import load
-
-    csrc = Path(__file__).with_name("csrc")
-    sources = [csrc / "binding_exact.cpp", csrc / "trellis_v2_exact.cu"]
-    digest = hashlib.sha256()
-    for source in sources:
-        digest.update(source.read_bytes())
-    return load(
-        name=f"banana_smasher_trellis_v2_exact_{digest.hexdigest()[:16]}",
-        sources=[str(source) for source in sources],
-        extra_cflags=["-O3", "-std=c++17"],
-        extra_cuda_cflags=["-O3", "-std=c++17", "-lineinfo", "--fmad=false"],
-        with_cuda=True,
-        verbose=False,
-    )
 
 
 @triton.jit
@@ -181,7 +158,7 @@ def geometry(cb: Any) -> dict[str, int | str | bool]:
     if got != (16, 2, 2):
         raise ValueError(f"trellis-v2 is sealed for L16/K2/V2, got {got}")
     return {
-        "implementation": "package-persistent-k2-cuda-graph-exact-v2",
+        "implementation": "p821-k2-triton-exact-prefix-dp-pingpong-p691-w8-v1",
         "production_lineage_sha256": _PRODUCTION_LINEAGE_SHA256,
         "parity_reference_sha256": _PARITY_REFERENCE_SHA256,
         "L": 16,
@@ -195,7 +172,7 @@ def geometry(cb: Any) -> dict[str, int | str | bool]:
         "branch_sampling": "full",
         "strict_tie_order": "ascending-q-strict-less-than",
         "prefix_dp_num_warps": PREFIX_DP_NUM_WARPS,
-        "chunk_sequences": 256,
+        "chunk_sequences": MAX_CHUNK,
         "backpointer_dtype": "int32",
         "ordering": "separate-stream-ordered-kernel-launches",
         "production_default": True,
@@ -312,40 +289,17 @@ def trellis_v2_exact(
             raise ValueError("overlap must be integral CUDA [B] on the input device")
         if bool(((overlap < 0) | (overlap >= PREFIXES)).any()):
             raise ValueError(f"overlap prefixes must be in [0, {PREFIXES})")
-    x = x.to(dtype=torch.float32).contiguous()
-    module = prepare_exact_cuda()
-    lut_aos = cb.lut.T.contiguous()
+    x = x.contiguous()
     outputs = []
-    chunk_rows = 256
+    chunk_rows = MAX_CHUNK
     for start in range(0, batch, chunk_rows):
         end = min(batch, start + chunk_rows)
-        actual = end - start
-        chunk = x[:, start:end].contiguous()
-        if actual < chunk_rows:
-            chunk = torch.cat(
-                [
-                    chunk,
-                    torch.zeros(
-                        (chunk.shape[0], chunk_rows - actual),
-                        device=x.device,
-                        dtype=x.dtype,
-                    ),
-                ],
-                dim=1,
-            )
         overlap_arg = (
             None
             if overlap is None
             else overlap[start:end].to(dtype=torch.int32).contiguous()
         )
-        if overlap_arg is not None and actual < chunk_rows:
-            overlap_arg = torch.cat(
-                [
-                    overlap_arg,
-                    torch.zeros(
-                        (chunk_rows - actual,), device=x.device, dtype=torch.int32
-                    ),
-                ]
-            )
-        outputs.append(module.viterbi(chunk, lut_aos, overlap_arg)[0][:, :actual])
+        outputs.append(
+            _exact_chunk(cb, x[:, start:end].contiguous(), overlap_arg)
+        )
     return outputs[0] if len(outputs) == 1 else torch.cat(outputs, dim=1)

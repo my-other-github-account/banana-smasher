@@ -20,10 +20,6 @@ def geometry(cb: Any) -> dict[str, int | str | bool]:
     return _exact_module().geometry(cb)
 
 
-def prepare_exact_cuda() -> Any:
-    return _exact_module().prepare_exact_cuda()
-
-
 def trellis_v2(
     cb: Any,
     x: torch.Tensor,
@@ -75,4 +71,4 @@ def install_trellis_v2(cb: Any) -> dict[str, int | str | bool]:
     return meta
 
 
-__all__ = ["geometry", "prepare_exact_cuda", "trellis_v2", "install_trellis_v2"]
+__all__ = ["geometry", "trellis_v2", "install_trellis_v2"]
