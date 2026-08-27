@@ -40,6 +40,75 @@ HISTORICAL_TRAIN_BANK_SHA256 = "3553fce00efdb6d452171e6d5c429adc31580dedbf63eb82
 HISTORICAL_CATEGORIES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
 
 
+def _build_fp64_adam(torch: Any, param_groups: list[dict[str, Any]]) -> Any:
+    """Adam with FP64 moments and FP32-or-better update arithmetic.
+
+    PyTorch's stock Adam stores moments in the parameter dtype and casts them
+    back to that dtype during ``load_state_dict``. The validated U45 recipe
+    requires FP64 moments both before and after resume, so this small optimizer
+    keeps the state contract explicit while preserving the standard Adam rule.
+    """
+
+    class FP64MomentAdam(torch.optim.Optimizer):
+        def __init__(self, groups: list[dict[str, Any]]) -> None:
+            super().__init__(
+                groups,
+                {"lr": 1.0e-3, "betas": (0.9, 0.999), "eps": 1.0e-8},
+            )
+
+        def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+            super().load_state_dict(state_dict)
+            for state in self.state.values():
+                for name in ("exp_avg", "exp_avg_sq"):
+                    value = state.get(name)
+                    if value is not None:
+                        state[name] = value.to(dtype=torch.float64)
+
+        def step(self, closure: Any = None) -> Any:
+            loss = None
+            if closure is not None:
+                with torch.enable_grad():
+                    loss = closure()
+            with torch.no_grad():
+                for group in self.param_groups:
+                    beta1, beta2 = group["betas"]
+                    lr = float(group["lr"])
+                    eps = float(group["eps"])
+                    for parameter in group["params"]:
+                        gradient = parameter.grad
+                        if gradient is None:
+                            continue
+                        if gradient.is_sparse:
+                            raise RuntimeError("FP64MomentAdam does not support sparse gradients")
+                        state = self.state[parameter]
+                        if not state:
+                            state["step"] = 0
+                            state["exp_avg"] = torch.zeros_like(
+                                parameter, dtype=torch.float64
+                            )
+                            state["exp_avg_sq"] = torch.zeros_like(
+                                parameter, dtype=torch.float64
+                            )
+                        state["step"] = int(state["step"]) + 1
+                        step = state["step"]
+                        grad64 = gradient.detach().to(dtype=torch.float64)
+                        exp_avg = state["exp_avg"]
+                        exp_avg_sq = state["exp_avg_sq"]
+                        exp_avg.mul_(beta1).add_(grad64, alpha=1.0 - beta1)
+                        exp_avg_sq.mul_(beta2).addcmul_(
+                            grad64, grad64, value=1.0 - beta2
+                        )
+                        step_size = lr / (1.0 - beta1**step)
+                        denominator = exp_avg_sq.sqrt().div_(
+                            math.sqrt(1.0 - beta2**step)
+                        ).add_(eps)
+                        update = (exp_avg / denominator).to(dtype=parameter.dtype)
+                        parameter.add_(update, alpha=-step_size)
+            return loss
+
+    return FP64MomentAdam(param_groups)
+
+
 def _enforce_update_loss_guard(
     *,
     loss: float,
@@ -657,13 +726,13 @@ class ModernGreenResidentEngine:
         # exceed the 112 GiB rail if the score backend is activated early. Select
         # Quack only after the resident payload is complete, before any forward.
         _select_trainer_fwht(self.trainer)
-        self.optimizer = torch.optim.Adam(
+        self.optimizer = _build_fp64_adam(
+            torch,
             [
                 {"params": [p for _name, p in self.luts], "lr": self.base_lrs["luts"], "group_name": "luts"},
                 {"params": [p for _name, p in self.norms], "lr": self.base_lrs["norms"], "group_name": "norms"},
                 {"params": [p for _name, p in self.outputs], "lr": self.base_lrs["outputs"], "group_name": "outputs"},
             ],
-            foreach=False,
         )
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer,

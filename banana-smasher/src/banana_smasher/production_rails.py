@@ -24,6 +24,18 @@ from .resident_repair_api import BackpackArtifact, UniformBuild
 PRODUCTION_RAILS_SCHEMA = "banana-smasher-production-resident-rails-v1"
 PIPELINE_MICROBATCH = 4
 DEFAULT_IMPROVE_LR_SCALE = 0.1
+VALIDATED_REPAIR_RECIPE = {
+    "training_recipe": "u45_validated_v1",
+    "sampling_mode": "broad_rotation_v1",
+    "windows_per_update": 16,
+    "pipeline_microbatch": 4,
+    "loss_reduction_dtype": "float32",
+    "optimizer_moment_dtype": "float64",
+    "base_lrs": {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2},
+    "lr_scale": DEFAULT_IMPROVE_LR_SCALE,
+    "heldout_validation_interval": 4,
+    "heldout_kill_patience": 2,
+}
 ALL_LAYERS = tuple(range(43))
 FORBIDDEN_SLOW_CONTROL_FIELDS = frozenset(
     {
@@ -154,9 +166,14 @@ class _ProvenSession:
         self.api = _ProvenResidentAPI.open(self.root)
         self.binding = binding
         self.continuation_config = dict(continuation_config)
-        # The public arm owns its conservative recipe. Callers cannot select a
-        # learning-rate variant through rank config or CLI.
-        self.continuation_config["lr_scale"] = DEFAULT_IMPROVE_LR_SCALE
+        # The public arm owns the validated U45 recipe. Callers cannot select
+        # sampling, numeric, learning-rate, or held-out gate variants.
+        self.continuation_config.update(
+            {
+                key: dict(value) if isinstance(value, Mapping) else value
+                for key, value in VALIDATED_REPAIR_RECIPE.items()
+            }
+        )
         self.receipt_root = receipt_root
         self.engine = _construct_resident_engine(
             self.api, self.binding, self.continuation_config
@@ -662,6 +679,7 @@ __all__ = [
     "DEFAULT_IMPROVE_LR_SCALE",
     "PIPELINE_MICROBATCH",
     "PRODUCTION_RAILS_SCHEMA",
+    "VALIDATED_REPAIR_RECIPE",
     "ProductionRails",
     "ProductionRailsError",
 ]

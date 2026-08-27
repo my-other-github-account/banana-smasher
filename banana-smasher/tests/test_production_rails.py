@@ -450,7 +450,21 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     assert trained["checkpoint"] == "UPDATE_004"
     assert post["checkpoint"] == "UPDATE_004"
     assert fake_api.advance_kwargs["loss_guard_baseline"] == 0.25
-    assert fake_api.advance_kwargs["config"]["lr_scale"] == 0.1
+    recipe = fake_api.advance_kwargs["config"]
+    assert recipe["training_recipe"] == "u45_validated_v1"
+    assert recipe["sampling_mode"] == "broad_rotation_v1"
+    assert recipe["windows_per_update"] == 16
+    assert recipe["pipeline_microbatch"] == 4
+    assert recipe["loss_reduction_dtype"] == "float32"
+    assert recipe["optimizer_moment_dtype"] == "float64"
+    assert recipe["base_lrs"] == {
+        "luts": 1.0e-2,
+        "norms": 1.0e-4,
+        "outputs": 1.0e-2,
+    }
+    assert recipe["lr_scale"] == 0.1
+    assert recipe["heldout_validation_interval"] == 4
+    assert recipe["heldout_kill_patience"] == 2
     assert str(fake_api.advance_kwargs["loss_guard_receipt_path"]).endswith(
         "CONTINUATION_U000_U004.rank0.LOSS_GUARD.json"
     )

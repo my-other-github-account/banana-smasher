@@ -18,6 +18,7 @@ from banana_smasher.resident_proven_api import ResidentRepairAPI as ProvenReside
 from banana_smasher.resident_continuation import (
     OFFICIAL_PHYSICAL_LAYER_SHA256,
     ModernGreenResidentEngine,
+    _build_fp64_adam,
     _checkpoint_cursor,
     _checkpoint_lut_admission,
     _bind_official_expert_source,
@@ -30,6 +31,29 @@ from banana_smasher.resident_continuation import (
     _score_window_groups,
     _select_trainer_fwht,
 )
+
+
+def test_validated_adam_keeps_moments_fp64_across_state_reload() -> None:
+    parameter = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32))
+    optimizer = _build_fp64_adam(
+        torch, [{"params": [parameter], "lr": 1.0e-2, "group_name": "luts"}]
+    )
+    parameter.grad = torch.tensor([0.5], dtype=torch.float32)
+    optimizer.step()
+    state = optimizer.state[parameter]
+    assert state["exp_avg"].dtype == torch.float64
+    assert state["exp_avg_sq"].dtype == torch.float64
+
+    checkpoint = optimizer.state_dict()
+    restored_parameter = torch.nn.Parameter(torch.tensor([1.0], dtype=torch.float32))
+    restored = _build_fp64_adam(
+        torch,
+        [{"params": [restored_parameter], "lr": 1.0e-2, "group_name": "luts"}],
+    )
+    restored.load_state_dict(checkpoint)
+    restored_state = restored.state[restored_parameter]
+    assert restored_state["exp_avg"].dtype == torch.float64
+    assert restored_state["exp_avg_sq"].dtype == torch.float64
 
 
 def test_update_loss_guard_records_monotonicity_and_rejects_explosion() -> None:

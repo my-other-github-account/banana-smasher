@@ -127,13 +127,10 @@ def test_full_pipeline_builds_uniforms_then_mixes_without_resolving(
     assert result["mixed"].identity.composition_kind == "mixed-qtip-v7-backpack"
 
 
-def test_every_checkpoint_loading_operation_requires_one_explicit_sha() -> None:
+def test_build_binds_checkpoint_once_and_later_operations_default_to_it() -> None:
     for operation in (
         "build_uniform",
         "backpack_mix",
-        "score_pre",
-        "repair_train",
-        "score_post",
         "run_arm",
         "run",
     ):
@@ -142,6 +139,73 @@ def test_every_checkpoint_loading_operation_requires_one_explicit_sha() -> None:
         ]
         assert parameter.default is inspect.Parameter.empty
         assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    for operation in ("score_pre", "repair_train", "score_post"):
+        parameter = inspect.signature(getattr(ResidentRepairAPI, operation)).parameters[
+            "checkpoint_sha"
+        ]
+        assert parameter.default is None
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+
+
+def test_documented_class_call_opens_admitted_q2_with_internal_defaults(
+    tmp_path: Path, monkeypatch
+) -> None:
+    checkpoint_sha = sha("u0")
+    artifact_root = tmp_path / "admitted-q2"
+    identity(
+        artifact_root,
+        kind="uniform-qtip-v7",
+        tiers=[{"layer": 0, "tiers": {"qtip2_v7": 2, "native": 1}}],
+    )
+    (artifact_root / "production-rails.rank0.json").write_text("{}")
+    rails = Rails(tmp_path)
+    monkeypatch.setenv("RANK", "0")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "banana_smasher.production_rails.ProductionRails.from_file",
+        lambda config, *, run_root: rails,
+    )
+
+    api = ResidentRepairAPI.build_uniform(
+        artifact_root, tier="q2", checkpoint_sha=checkpoint_sha
+    )
+
+    assert isinstance(api, ResidentRepairAPI)
+    assert api.score_pre()["input_checkpoint_sha256"] == checkpoint_sha
+    assert api.repair_train(updates=4)["input_checkpoint_sha256"] == checkpoint_sha
+    assert api.score_post()["input_checkpoint_sha256"] == checkpoint_sha
+    assert api.result_path.parent.name == "rank0"
+
+
+def test_documented_separate_calls_fail_and_seal_when_post_is_not_better(
+    tmp_path: Path,
+) -> None:
+    class FlatRails(Rails):
+        def score(self, artifact, phase: str):
+            return {"mean_kld": 0.25, "top1_matches": 7, "phase": phase}
+
+    checkpoint_sha = sha("u0")
+    rails = FlatRails(tmp_path)
+    api = ResidentRepairAPI(
+        rails=rails, run_root=tmp_path / "run", enforce_improvement=True
+    )
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=checkpoint_sha
+    )
+    api.score_pre(build, checkpoint_sha=checkpoint_sha)
+    api.repair_train(build, updates=4, checkpoint_sha=checkpoint_sha)
+
+    with pytest.raises(ValueError, match="did not improve"):
+        api.score_post(build, checkpoint_sha=checkpoint_sha)
+
+    receipt = json.loads(api.result_path.read_text())
+    assert receipt["status"] == "FAILED"
+    assert receipt["improvement"] == {
+        "pre_kld": 0.25,
+        "post_kld": 0.25,
+        "delta_kld": 0.0,
+        "improved": False,
+    }
 
 
 def test_checkpoint_sha_is_refused_on_mismatch_and_echoed_in_every_receipt(
