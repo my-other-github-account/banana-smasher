@@ -772,6 +772,27 @@ def test_layer_construction_status_releases_unused_cuda_cache():
     }
 
 
+def test_sealed_trainer_materializes_nonexpert_before_resident_payload():
+    trainer_path = (
+        Path(__file__).resolve().parents[2]
+        / "repair_api"
+        / "assets"
+        / "static_w28_modern_green_clean_u0.py"
+    )
+    trainer = trainer_path.read_text()
+    loop = trainer[trainer.index("for layer in range(first, last + 1):") :]
+    nonexpert = loop.index("sd = base.T.build_nonexpert_sd")
+    materialize = loop.index("base.v3.materialize_layer")
+    resident = loop.index("resident = FullyResidentGroupedV7Experts")
+    assign = loop.index("mlp.experts = resident")
+
+    assert "mlp.experts = nn.Identity()" in loop[:nonexpert]
+    assert nonexpert < materialize < resident < assign
+    assert continuation_module.TRAINER_SHA256 == hashlib.sha256(
+        trainer_path.read_bytes()
+    ).hexdigest()
+
+
 def test_warm_training_can_disable_layer_checkpoint_recompute(monkeypatch):
     class Cache:
         def __init__(self, *, config):

@@ -530,15 +530,21 @@ class ShardStudent:
                 l034_roster=l034_roster,
                 device=self.device,
             )
+            # Materialize the native layer before allocating its ~1.6 GiB routed
+            # payload.  The old order overlapped that payload with FP8
+            # dequantization temporaries and could starve the NVIDIA UMA driver
+            # before the post-layer cache-release callback was reachable.
+            m.model.layers[layer].mlp.experts = nn.Identity()
+            sd = base.T.build_nonexpert_sd(layer, self.wm, get_tensor)
+            base.v3.materialize_layer(m, layer, sd, self.config)
+            del sd
+            torch.cuda.empty_cache()
             resident = FullyResidentGroupedV7Experts(
                 layer=layer, pilot=True, plane_source=source
             )
             m.model.layers[layer].mlp.experts = resident
             self.sources[layer] = source
             self.experts[layer] = resident
-            sd = base.T.build_nonexpert_sd(layer, self.wm, get_tensor)
-            base.v3.materialize_layer(m, layer, sd, self.config)
-            del sd
             status_cb(
                 phase="loading",
                 loaded_layer=layer,
