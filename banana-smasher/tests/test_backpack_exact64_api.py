@@ -33,8 +33,11 @@ def test_exact64_oracle_is_private_and_has_no_cli_route() -> None:
     assert "qtip2_v7_root_map_path" in signature.parameters
     assert "qtip2_v7_member_roster_path" in signature.parameters
     assert "mixed_v7_member_contract_path" in signature.parameters
+    assert "checkpoint_path" in signature.parameters
+    assert "checkpoint_sha256" in signature.parameters
     assert 'binding_inputs["mixed_v7_member_contract"]' in source
     assert "exact64 mixed V7 member contract identity mismatch" in source
+    assert "exact64 checkpoint bytes do not match explicit checkpoint SHA" in source
 
 
 def test_exact64_rejects_unbound_historical_teacher_manifest(
