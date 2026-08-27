@@ -20,6 +20,10 @@ CANDIDATE_LEDGER_SCHEMAS = frozenset(
 DIMENSION_BINDING_SCHEMA = "banana-smasher-dynamic-backpack-dimension-binding-v1"
 SENSITIVITY_ROW_SCHEMA = "banana-smasher-sensitivity-row-v1"
 SENSITIVITY_TIER_NAMES = {"Q2": "qtip2", "QTIP3_V7": "qtip3"}
+MIXED_V7_RECOVERY_PLAN_SCHEMA = "banana-smasher-mixed-v7-recovery-plan-v1"
+MIXED_V7_SENSITIVITY_CONTRACT_SCHEMA = (
+    "banana-smasher-mixed-v7-sensitivity-extraction-contract-v1"
+)
 
 
 class DynamicDimensionsError(ValueError):
@@ -99,6 +103,140 @@ def _write_once(path: Path, payload: bytes) -> None:
             os.close(directory_fd)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def preflight_mixed_v7_recovery_plan(
+    plan: str | Path,
+    sensitivity_contract: str | Path,
+) -> dict[str, Any]:
+    """Admit a hash-bound QTIP3 recovery tranche before any host claim.
+
+    This is deliberately a read-only Backpack API boundary.  It proves that
+    the selected source-stage terminals, model basis, option count, and future
+    sensitivity extraction contract form one closed launch input.  Host/shard
+    CAS and physical generation remain separate, mandatory launch gates.
+    """
+
+    plan_path = Path(plan).expanduser().resolve()
+    contract_path = Path(sensitivity_contract).expanduser().resolve()
+    document, plan_raw = _read_json(plan_path, "mixed V7 recovery plan")
+    contract, contract_raw = _read_json(
+        contract_path, "mixed V7 sensitivity extraction contract"
+    )
+    if not isinstance(document, dict) or document.get("schema") != MIXED_V7_RECOVERY_PLAN_SCHEMA:
+        raise DynamicDimensionsError("mixed V7 recovery plan schema mismatch")
+    if (
+        not isinstance(contract, dict)
+        or contract.get("schema") != MIXED_V7_SENSITIVITY_CONTRACT_SCHEMA
+    ):
+        raise DynamicDimensionsError("mixed V7 sensitivity contract schema mismatch")
+    basis = _sha_field(document.get("basis_sha256"), "plan basis_sha256")
+    if contract.get("basis_sha256") != basis:
+        raise DynamicDimensionsError("sensitivity contract basis mismatch")
+    commit = document.get("canonical_commit_sha")
+    if not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+        raise DynamicDimensionsError("canonical_commit_sha must be a lowercase Git SHA")
+    if contract.get("canonical_commit_sha") != commit:
+        raise DynamicDimensionsError("sensitivity contract canonical commit mismatch")
+
+    selection = document.get("selection_policy")
+    layers = document.get("layers")
+    if not isinstance(selection, dict) or not isinstance(layers, list) or not layers:
+        raise DynamicDimensionsError("recovery plan must contain selection_policy and layers")
+    selected = selection.get("selected_layers")
+    if (
+        not isinstance(selected, list)
+        or any(isinstance(layer, bool) or not isinstance(layer, int) or layer < 0 for layer in selected)
+        or len(selected) != len(set(selected))
+        or [row.get("layer") for row in layers if isinstance(row, dict)] != selected
+    ):
+        raise DynamicDimensionsError("selected layers must be unique and match ordered layer rows")
+    experts = selection.get("experts_per_layer")
+    options = selection.get("additional_qtip3_expert_options")
+    minimum = selection.get("minimum_required_options")
+    if (
+        isinstance(experts, bool)
+        or not isinstance(experts, int)
+        or experts <= 0
+        or isinstance(options, bool)
+        or not isinstance(options, int)
+        or options != len(selected) * experts
+        or isinstance(minimum, bool)
+        or not isinstance(minimum, int)
+        or options < minimum
+    ):
+        raise DynamicDimensionsError("recovery plan does not close the required QTIP3 option count")
+
+    source_bytes = 0
+    terminal_sources = []
+    for index, row in enumerate(layers):
+        if not isinstance(row, dict):
+            raise DynamicDimensionsError(f"recovery layer {index} must be an object")
+        descriptor = row.get("source_stage_terminal")
+        payload = row.get("source_payload")
+        capture = row.get("capture")
+        if not isinstance(descriptor, dict):
+            raise DynamicDimensionsError(f"recovery layer {index} is missing source terminal identity")
+        if not isinstance(payload, dict):
+            raise DynamicDimensionsError(f"recovery layer {index} is missing source payload identity")
+        if not isinstance(capture, dict):
+            raise DynamicDimensionsError(f"recovery layer {index} is missing capture identity")
+        terminal_path = Path(descriptor.get("path", "")).expanduser().resolve()
+        terminal, terminal_raw = _read_json(terminal_path, f"source terminal {index}")
+        if descriptor.get("bytes") != len(terminal_raw) or descriptor.get("sha256") != _sha(terminal_raw):
+            raise DynamicDimensionsError(f"source terminal {index} descriptor mismatch")
+        if (
+            not isinstance(terminal, dict)
+            or terminal.get("status") != "PASS"
+            or terminal.get("basis_index_sha256") != basis
+            or terminal.get("layer") != row.get("layer")
+            or terminal.get("path") != payload.get("path")
+            or terminal.get("bytes") != payload.get("bytes")
+            or terminal.get("sha256") != payload.get("sha256")
+        ):
+            raise DynamicDimensionsError(f"source terminal {index} payload or basis mismatch")
+        _sha_field(payload.get("sha256"), f"source payload {index} sha256")
+        _sha_field(capture.get("sha256"), f"capture {index} sha256")
+        source_bytes += int(payload["bytes"])
+        terminal_sources.append(
+            {"layer": row["layer"], "path": str(terminal_path), "sha256": _sha(terminal_raw)}
+        )
+
+    plan_descriptor = contract.get("recovery_plan")
+    contract_inputs = contract.get("inputs")
+    output = contract.get("output")
+    if (
+        not isinstance(plan_descriptor, dict)
+        or plan_descriptor.get("path") != str(plan_path)
+        or plan_descriptor.get("bytes") != len(plan_raw)
+        or plan_descriptor.get("sha256") != _sha(plan_raw)
+        or not isinstance(contract_inputs, dict)
+        or [row.get("layer") for row in contract_inputs.get("layers", [])] != selected
+        or not isinstance(output, dict)
+        or output.get("expected_rows") != options
+    ):
+        raise DynamicDimensionsError("sensitivity contract does not close over the recovery plan")
+
+    return {
+        "schema": "banana-smasher-mixed-v7-recovery-preflight-v1",
+        "status": "PASS_READY_TO_CAS",
+        "basis_sha256": basis,
+        "canonical_commit_sha": commit,
+        "selected_layers": selected,
+        "selected_layer_count": len(selected),
+        "additional_qtip3_expert_options": options,
+        "minimum_required_options": minimum,
+        "source_payload_bytes": source_bytes,
+        "source_terminals": terminal_sources,
+        "plan": {"path": str(plan_path), "bytes": len(plan_raw), "sha256": _sha(plan_raw)},
+        "sensitivity_contract": {
+            "path": str(contract_path),
+            "bytes": len(contract_raw),
+            "sha256": _sha(contract_raw),
+        },
+        "host_claim_acquired": False,
+        "gpu_payload_launched": False,
+    }
 
 
 def _identity(row: dict[str, Any], label: str) -> tuple[int, int, str, str]:

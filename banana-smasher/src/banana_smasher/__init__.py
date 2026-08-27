@@ -115,6 +115,7 @@ from .backpack_exact64 import EXACT64_TERMINAL_SCHEMA, bind_backpack_exact64
 from .backpack_dimensions import (
     bind_mixed_v7_physical_dimensions as bind_mixed_v7_physical_dimensions,
     preflight_mixed_backpack_config as preflight_mixed_backpack_config,
+    preflight_mixed_v7_recovery_plan as preflight_mixed_v7_recovery_plan,
     solve_mixed_backpack_config as solve_mixed_backpack_config,
 )
 from .mixed_transaction import (
