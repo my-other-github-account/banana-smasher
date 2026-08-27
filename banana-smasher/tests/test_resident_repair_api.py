@@ -345,7 +345,7 @@ def test_score_phase_raises_named_error_when_fast_budget_is_exceeded(
     class SlowRails(Rails):
         def score(self, artifact, phase: str):
             nonlocal now
-            now += 301.0
+            now += 1_201.0
             return super().score(artifact, phase)
 
     api = ResidentRepairAPI(
@@ -354,7 +354,7 @@ def test_score_phase_raises_named_error_when_fast_budget_is_exceeded(
     build = api.build_uniform(
         tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
     )
-    with pytest.raises(ResidentPhaseTimeout, match=r"score_pre.*300"):
+    with pytest.raises(ResidentPhaseTimeout, match=r"score_pre.*1200"):
         api.score_pre(build, checkpoint_sha=sha("u0"))
 
 
@@ -456,7 +456,12 @@ def test_total_arm_budget_fails_hard_and_identifies_current_phase(tmp_path: Path
         tmp_path / "model", "qtip1_v7", checkpoint_sha=sha("u0")
     )
     api.score_pre(build, checkpoint_sha=sha("u0"))
-    clock.advance(301.0)
+    clock.advance(
+        ARM_BUDGET_SECONDS
+        - PHASE_BUDGET_SECONDS["zero_update_score"]
+        - PHASE_BUDGET_SECONDS["four_resident_updates"]
+        + 1.0
+    )
 
     with pytest.raises(
         ResidentPhaseTimeout,

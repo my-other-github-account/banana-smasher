@@ -24,9 +24,9 @@ from .artifact_identity import ArtifactIdentity
 
 V7_UNIFORM_TIERS = frozenset({"qtip1_v7", "qtip2_v7", "qtip3_v7", "qtip4_v7"})
 _NATIVE_TIERS = frozenset({"native", "native_mxfp4"})
-SCORE_BUDGET_SECONDS = 300.0
-TRAIN_BUDGET_SECONDS = 2_100.0
-ARM_BUDGET_SECONDS = 2_700.0
+SCORE_BUDGET_SECONDS = 1_200.0
+TRAIN_BUDGET_SECONDS = 18_000.0
+ARM_BUDGET_SECONDS = 21_600.0
 PHASE_BUDGET_SECONDS = {
     "zero_update_score": SCORE_BUDGET_SECONDS,
     "four_resident_updates": TRAIN_BUDGET_SECONDS,
