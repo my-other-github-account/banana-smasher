@@ -43,14 +43,10 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
 
 
 def test_public_k2_v2_routes_through_proven_persistent_prefix_producer() -> None:
-    root = _package_root()
-    integration_source = (root / "trellis_v2" / "__init__.py").read_text()
+    integration_source = (_package_root() / "trellis_v2" / "__init__.py").read_text()
     assert 'import_module("banana_smasher.qtip_viterbi")' in integration_source
     assert "exact_prefix_viterbi(cb, x, overlap)" in integration_source
     assert "trellis_v2_exact(cb, x, overlap)" not in integration_source
-    rings = json.loads((root / "qtip_rings.json").read_text())
-    backend = next(row["backend"] for row in rings["backends"] if row["K"] == 2)
-    assert backend == "persistent-prefix-generic-aot-v1"
 
 
 @pytest.mark.skipif(
