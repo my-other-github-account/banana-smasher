@@ -3124,6 +3124,7 @@ class ModernGreenResidentEngine:
         from .official_k2_resident_score import (
             SOURCE_CONTEXT_TOKENS,
             _canonical_causal_score_tokens,
+            _physical_canary_batch_windows,
         )
 
         ordered = tuple(int(value) for value in windows)
@@ -3145,6 +3146,9 @@ class ModernGreenResidentEngine:
                 raise ArtifactError(
                     "published PRE validation requires sealed mb=2 microbatch"
                 )
+            physical = _physical_canary_batch_windows(
+                ordered, physical_batch_size, tuple(range(20, 84))
+            )
         root = Path(teacher_root).expanduser().resolve()
         if not root.is_dir():
             raise ArtifactError(f"resident validation teacher root is missing: {root}")

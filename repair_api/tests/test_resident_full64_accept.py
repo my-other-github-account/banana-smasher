@@ -207,7 +207,8 @@ def test_production_rebinds_to_sealed_single_window_pre_semantics() -> None:
     assert 'self.config.get("sealed_builder_window_microbatch", 2)' in engine_source
     assert "published PRE validation requires sealed mb=2 microbatch" in engine_source
     assert "physical_batch_size != 2" in engine_source
-    assert "_physical_canary_batch_windows(ordered" not in engine_source
+    assert "_physical_canary_batch_windows(" in engine_source
+    assert "tuple(range(20, 84))" in engine_source
     assert "scheduled PRE pair group requires exact sealed mb=2" not in engine_source
     assert "validate_scheduled_pair_group(" in source[production:]
     assert "validate_full64_admission_pairs(" not in source[production:]
