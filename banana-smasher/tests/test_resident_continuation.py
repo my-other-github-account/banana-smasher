@@ -513,6 +513,17 @@ def test_resident_binds_the_sealed_parity_expert_implementation():
     assert "torch.argsort(top_k_index, dim=1, stable=True)" in text
 
 
+def test_resident_accepts_config_bound_packaged_expert_source(tmp_path: Path):
+    source = tmp_path / "fast_v7_expert_base.py"
+    source.write_bytes(_official_expert_source_path().read_bytes())
+    assert _official_expert_source_path(
+        {
+            "resident_expert_source": str(source),
+            "resident_expert_source_sha256": OFFICIAL_PHYSICAL_LAYER_SHA256,
+        }
+    ) == source.resolve()
+
+
 def test_resident_import_paths_do_not_shadow_trainer_fwht_selector(tmp_path):
     engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
     engine.trainer_path = tmp_path / "trainer.py"

@@ -514,19 +514,38 @@ def _load_source_module(name: str, path: Path) -> Any:
     return module
 
 
-def _official_expert_source_path() -> Path:
-    path = Path(__file__).resolve().parents[3] / "runtime" / "v7" / "runner" / "fast_v7_expert_base.py"
-    _require_file(path, OFFICIAL_PHYSICAL_LAYER_SHA256, "sealed parity expert source")
+def _official_expert_source_path(config: Mapping[str, Any] | None = None) -> Path:
+    configured = config.get("resident_expert_source") if config is not None else None
+    path = (
+        Path(str(configured)).expanduser().resolve()
+        if configured
+        else Path(__file__).resolve().parents[3]
+        / "runtime"
+        / "v7"
+        / "runner"
+        / "fast_v7_expert_base.py"
+    )
+    expected = (
+        config.get("resident_expert_source_sha256", OFFICIAL_PHYSICAL_LAYER_SHA256)
+        if config is not None
+        else OFFICIAL_PHYSICAL_LAYER_SHA256
+    )
+    _require_file(path, str(expected), "sealed parity expert source")
     return path
 
 
-def _bind_official_expert_source() -> Any:
+def _bind_official_expert_source(config: Mapping[str, Any] | None = None) -> Any:
     """Bind the accepted clamp-free, ordered-reduction expert implementation."""
-    runner = _official_expert_source_path().parent
+    source = (
+        _official_expert_source_path()
+        if config is None
+        else _official_expert_source_path(config)
+    )
+    runner = source.parent
     previous = sys.modules.get("fast_k2_grouped")
     try:
         _load_source_module("fast_k2_grouped", runner / "fast_k2_grouped.py")
-        return _load_source_module("fast_v7_expert_base", _official_expert_source_path())
+        return _load_source_module("fast_v7_expert_base", source)
     finally:
         if previous is None:
             sys.modules.pop("fast_k2_grouped", None)
@@ -654,7 +673,7 @@ class ModernGreenResidentEngine:
         self.vq3b_dir = Path(str(config["vq3b_dir"])).expanduser().resolve()
         self._configure_import_environment()
         self._prepare_import_paths()
-        _bind_official_expert_source()
+        _bind_official_expert_source(config)
         self.trainer = _load_source_module(
             f"banana_smasher_modern_green_api_{os.getpid()}_{rank}", self.trainer_path
         )
