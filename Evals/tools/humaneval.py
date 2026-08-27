@@ -117,6 +117,33 @@ def _call_argument(
     return args[position] if len(args) > position else kwargs.get(name, default)
 
 
+def _promote_reasoning_final_answer(response: Any) -> Any:
+    """Expose a thinking-on response at EvalPlus' message.content boundary."""
+    for choice in list(getattr(response, "choices", []) or []):
+        message = getattr(choice, "message", None)
+        if message is None or getattr(message, "content", None) is not None:
+            continue
+        reasoning_content = getattr(message, "reasoning_content", None)
+        reasoning = getattr(message, "reasoning", None)
+        final_answer = reasoning_content if isinstance(reasoning_content, str) else reasoning
+        if isinstance(final_answer, str) and final_answer.strip():
+            message.content = final_answer
+    return response
+
+
+def install_openai_final_answer_shim(request_module: Any) -> None:
+    """Normalize thinking-on responses before downstream response auditing."""
+    if getattr(request_module, "_banana_smasher_final_answer_shim", False):
+        return
+    original_make_request = request_module.make_request
+
+    def make_request_with_final_answer(*args: Any, **kwargs: Any) -> Any:
+        return _promote_reasoning_final_answer(original_make_request(*args, **kwargs))
+
+    request_module.make_request = make_request_with_final_answer
+    request_module._banana_smasher_final_answer_shim = True
+
+
 def install_openai_request_audit(
     request_module: Any,
     cap: int,
@@ -176,6 +203,9 @@ def install_openai_cap_shim(
         return
     original_make_model = codegen_module.make_model
     audit_path = Path(request_audit) if request_audit is not None else None
+    if audit_path is not None:
+        request_module = importlib.import_module("evalplus.gen.util.openai_request")
+        install_openai_final_answer_shim(request_module)
 
     def make_model_with_true_cap(*args: Any, **kwargs: Any) -> Any:
         model = original_make_model(*args, **kwargs)
