@@ -37,9 +37,11 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
         "MAX_CHUNK": 8192,
     }
     assert '"branch_sampling": "full"' in exact_source
+    assert '"backpointer_dtype": "packed-uint4-q"' in exact_source
+    assert '"fallback": 0' in exact_source
     assert "alternating-parity-full" not in exact_source
-    assert exact_source.count("tl.cast(B, tl.int64)") == 2
-    assert "step.to(tl.int64)" not in exact_source
+    assert "triton" not in exact_source
+    assert "prepare_exact_cuda" in exact_source
 
 
 @pytest.mark.skipif(

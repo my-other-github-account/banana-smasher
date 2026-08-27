@@ -447,15 +447,30 @@ def test_q2_gpu_encoder_memory_plan_is_bounded_before_allocation() -> None:
     )
 
     assert plan["status"] == "PASS"
-    assert 1 <= plan["chunk_rows"] < 4096
-    assert plan["chunk_count"] > 1
+    assert plan["chunk_rows"] == 2048
+    assert plan["chunk_count"] == 1
     assert plan["peak_memory_bytes"] <= (16 << 30) - (4 << 30)
-    assert plan["full_batch_backpointer_bytes"] == 68_719_476_736
-    assert plan["bounded_backpointer_bytes"] < plan["full_batch_backpointer_bytes"]
+    assert plan["full_batch_backpointer_bytes"] == 8_589_934_592
+    assert plan["bounded_backpointer_bytes"] == plan["full_batch_backpointer_bytes"]
     assert int(plan["chunk_rows"]) <= 8192
     assert int(plan["exact_max_chunk_rows"]) == 8192
     assert int(plan["backpointer_address_bits"]) == 64
-    assert int(plan["bounded_backpointer_bytes"]) > 1 << 31
+    assert int(plan["backpointer_bits_per_prefix_step"]) == 4
+    assert plan["encoder"] == "full-row-packed-backpointer-cuda"
+
+
+def test_q2_full_row_cuda_source_preserves_exact_arithmetic_and_tie_contract() -> None:
+    source = (
+        Path(__file__).parents[1]
+        / "src/banana_smasher/trellis_v2/csrc/trellis_v2_exact.cu"
+    ).read_text()
+
+    assert "full_row_k2_viterbi" in source
+    assert "__fmul_rn" in source
+    assert "__fadd_rn" in source
+    assert "candidate < best" in source
+    assert "q0 | (q1 << 4)" in source
+    assert "float2" not in source
 
 
 def test_q2_gpu_encoder_memory_plan_refuses_before_allocation() -> None:
@@ -465,7 +480,7 @@ def test_q2_gpu_encoder_memory_plan_refuses_before_allocation() -> None:
         plan_qtip2_cuda_chunks(
             rows=2048,
             width=4096,
-            free_bytes=(4 << 30) + (16 << 20),
+            free_bytes=(4 << 30) + (1 << 20),
             reserve_bytes=4 << 30,
         )
 
