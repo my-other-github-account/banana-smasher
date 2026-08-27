@@ -216,11 +216,19 @@ def _exact_chunk(
             num_stages=1,
         )
         previous, current = current, previous
-    final_prefix = (
-        previous.argmin(dim=1).to(torch.int32)
-        if overlap is None
-        else overlap.to(torch.int32)
-    )
+    if overlap is None:
+        # NumPy's current exact control selects the smallest full state on an
+        # equal-cost final tie (q-major state order), not the smallest retained
+        # low-prefix. Reconstruct that ordering before backtracking.
+        minimum_cost = previous.min(dim=1, keepdim=True).values
+        final_states = torch.where(
+            previous == minimum_cost,
+            best_state[steps - 1],
+            torch.iinfo(torch.int32).max,
+        )
+        final_prefix = final_states.min(dim=1).values & (PREFIXES - 1)
+    else:
+        final_prefix = overlap.to(torch.int32)
     _backtrack[(batch,)](
         best_state,
         final_prefix,

@@ -129,6 +129,7 @@ def plan_qtip2_cuda_chunks(
         + steps * prefixes * 4  # exact int32 backpointers
         + steps * 4  # GPU result states
         + steps * 4  # conservatively retained result during transfer
+        + prefixes * 4  # state-order final-tie candidate surface
         + 4  # overlap prefix
         + 4  # final prefix
     )
