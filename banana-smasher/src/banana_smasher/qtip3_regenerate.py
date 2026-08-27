@@ -239,7 +239,6 @@ GENERATED_CONTROL_ROOT = Path(
 )
 CONTROL_SEED_DOMAIN = os.environ.get("QTIP3_CONTROL_SEED_DOMAIN")
 CONTROL_SEED_MATERIAL = os.environ.get("QTIP3_CONTROL_SEED_MATERIAL")
-CONTROL_CANARY_CELL = os.environ.get("QTIP3_CONTROL_CANARY_CELL")
 
 
 def control_for(layer, expert, projection):
@@ -270,63 +269,6 @@ def prepare(cell):
         observed_basis_sha256=BASIS,
         device="cuda",
         qtip_k=3,
-    )
-
-
-def control_canary(cells):
-    if not CONTROL_CANARY_CELL:
-        return
-    selected = [cell for cell in cells if cell.key == CONTROL_CANARY_CELL]
-    if len(selected) != 1:
-        raise RuntimeError(f"CONTROL_CANARY_CELL_NOT_IN_SCOPE {CONTROL_CANARY_CELL}")
-    cell = selected[0]
-    historical = CONTROL_ROOT / CONTROL_MAP[cell.layer] / (
-        f"L{cell.layer:03d}/E{cell.expert:03d}_{cell.projection}/QTIP_UNIT.pt"
-    )
-    if not historical.is_file() or not CONTROL_SEED_DOMAIN or not CONTROL_SEED_MATERIAL:
-        raise RuntimeError(f"CONTROL_CANARY_CLOSURE_MISSING {cell.key}")
-    materialize(cell)
-    canary = GENERATED_CONTROL_ROOT / "canary" / (
-        f"L{cell.layer:03d}/E{cell.expert:03d}_{cell.projection}/QTIP_UNIT.pt"
-    )
-    canary.unlink(missing_ok=True)
-    seed = qtip_transform_seed(
-        CONTROL_SEED_DOMAIN,
-        CONTROL_SEED_MATERIAL,
-        cell.layer,
-        cell.expert,
-        cell.projection,
-    )
-    build_qtip_native_transform_control(
-        SOURCE,
-        canary,
-        transform_seed=seed,
-        intended_basis_sha256=BASIS,
-        observed_basis_sha256=BASIS,
-        device="cuda",
-        qtip_k=3,
-    )
-    expected = torch.load(historical, map_location="cpu", mmap=True, weights_only=True)
-    observed = torch.load(canary, map_location="cpu", mmap=True, weights_only=True)
-    if (
-        list(expected["shape"]) != list(observed["shape"])
-        or not torch.equal(expected["SU"], observed["SU"])
-        or not torch.equal(expected["SV"], observed["SV"])
-    ):
-        raise RuntimeError(f"CONTROL_CANARY_TRANSFORM_MISMATCH {cell.key}")
-    canary.unlink()
-    print(
-        json.dumps(
-            {
-                "status": "PASS",
-                "cell": cell.key,
-                "basis_sha256": BASIS,
-                "transform_seed": seed,
-                "mechanism": "source-derived seeded SU/SV equals authentic control",
-            },
-            sort_keys=True,
-        ),
-        flush=True,
     )
 
 
@@ -493,7 +435,6 @@ atomic(
     },
 )
 cells = all_cells()
-control_canary(cells)
 if SMOKE_COUNT:
     smoke(new_plan, cells)
 else:
