@@ -949,6 +949,23 @@ def materialize_mixed_v7_virtual_backpack(
     destination = Path(output).expanduser().resolve()
     if destination.exists() and any(destination.iterdir()):
         if (destination / VIRTUAL_MANIFEST).is_file():
+            manifest, _ = _load_object(destination / VIRTUAL_MANIFEST)
+            if manifest.get("storage", {}).get("kind") == "mixed-v7-member-contract-v1":
+                solve_receipt_path = solve / "RECEIPT.json"
+                if solve_receipt_path.is_file():
+                    solve_receipt, _ = _load_object(solve_receipt_path)
+                    solve_accounting = solve_receipt.get("byte_accounting")
+                    accounting = manifest.get("byte_accounting")
+                    if isinstance(solve_accounting, dict) and isinstance(accounting, dict):
+                        logical_payload = int(solve_accounting.get("candidate_payload_bytes", 0))
+                        fixed = int(solve_accounting.get("fixed_nonexpert_bytes", 0))
+                        if logical_payload > 0:
+                            accounting.setdefault("physical_payload_bytes", accounting["payload_bytes"])
+                            accounting["payload_bytes"] = logical_payload
+                            accounting["assigned_expert_bytes"] = logical_payload
+                            accounting["fixed_nonexpert_bytes"] = fixed
+                            accounting["assigned_package_bytes"] = logical_payload + fixed
+                            _atomic_write(destination / VIRTUAL_MANIFEST, _canonical(manifest))
             return verify_virtual_backpack(destination)
         raise FileExistsError(f"refusing non-empty virtual output: {destination}")
     destination.mkdir(parents=True, exist_ok=True)
@@ -1011,12 +1028,14 @@ def materialize_mixed_v7_virtual_backpack(
     _atomic_write(destination / ASSIGNMENT_FILE, assignment_raw)
     _atomic_write(destination / INDEX_FILE, index_raw)
     fixed_bytes = 0
+    logical_payload_bytes = payload_bytes
     receipt_path = solve / "RECEIPT.json"
     if receipt_path.is_file():
         solve_receipt, _ = _load_object(receipt_path)
         accounting = solve_receipt.get("byte_accounting")
         if isinstance(accounting, dict):
             fixed_bytes = int(accounting.get("fixed_nonexpert_bytes", 0))
+            logical_payload_bytes = int(accounting.get("candidate_payload_bytes", payload_bytes))
     source_bindings = {
         source: {
             "root": str(destination),
@@ -1063,11 +1082,12 @@ def materialize_mixed_v7_virtual_backpack(
         "tier_counts": dict(sorted(tier_counts.items())),
         "source_component_counts": dict(sorted(source_counts.items())),
         "byte_accounting": {
-            "payload_bytes": payload_bytes,
+            "payload_bytes": logical_payload_bytes,
+            "physical_payload_bytes": payload_bytes,
             "activation_bytes": 0,
-            "assigned_expert_bytes": payload_bytes,
+            "assigned_expert_bytes": logical_payload_bytes,
             "fixed_nonexpert_bytes": fixed_bytes,
-            "assigned_package_bytes": payload_bytes + fixed_bytes,
+            "assigned_package_bytes": logical_payload_bytes + fixed_bytes,
             "tier_payload_bytes": {},
         },
         "activated_artifacts": [],
@@ -1181,14 +1201,17 @@ def verify_virtual_backpack(root: str | Path) -> dict[str, Any]:
     accounting = manifest.get("byte_accounting")
     if not isinstance(accounting, dict):
         raise ValueError("virtual Backpack byte accounting is missing")
-    if accounting.get("payload_bytes") != payload_bytes:
-        raise ValueError("virtual Backpack payload accounting does not match its index")
+    if accounting.get("physical_payload_bytes", accounting.get("payload_bytes")) != payload_bytes:
+        raise ValueError("virtual Backpack physical payload accounting does not match its index")
     if accounting.get("activation_bytes") != activation_bytes:
         raise ValueError("virtual Backpack activation accounting does not match its index")
-    if accounting.get("assigned_expert_bytes") != payload_bytes + activation_bytes:
+    logical_payload_bytes = accounting.get("payload_bytes")
+    if not isinstance(logical_payload_bytes, int) or isinstance(logical_payload_bytes, bool) or logical_payload_bytes < payload_bytes:
+        raise ValueError("virtual Backpack logical payload accounting is invalid")
+    if accounting.get("assigned_expert_bytes") != logical_payload_bytes + activation_bytes:
         raise ValueError("virtual Backpack expert accounting is inconsistent")
     if accounting.get("assigned_package_bytes") != (
-        payload_bytes + activation_bytes + accounting.get("fixed_nonexpert_bytes", -1)
+        logical_payload_bytes + activation_bytes + accounting.get("fixed_nonexpert_bytes", -1)
     ):
         raise ValueError("virtual Backpack package accounting is inconsistent")
 
