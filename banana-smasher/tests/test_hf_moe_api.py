@@ -203,6 +203,7 @@ def test_public_hf_moe_build_materializes_one_q2_tensor_and_reopens_native_bytes
     reopened = open_hf_moe_uniform(output)
 
     assert reopened == built
+    assert reopened["artifact_root"] == str(output.resolve())
     assert built["status"] == "PASS"
     assert built["accounting"]["routed_tensor_count"] == 1
     assert built["accounting"]["planned_routed_tensor_count"] == 1

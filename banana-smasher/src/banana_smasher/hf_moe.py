@@ -716,4 +716,4 @@ def open_hf_moe_uniform(output: str | Path) -> dict[str, Any]:
     ):
         raise ValueError("HF MoE artifact receipt is not an admitted reloaded PASS")
     _verify_hf_moe_members(root, receipt)
-    return receipt
+    return {**receipt, "artifact_root": str(root)}
