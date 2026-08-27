@@ -139,6 +139,7 @@ class NumericExpertsAdapter:
 
     adapter_id = "hf-numeric-experts-v1"
     _routed = re.compile(r"(?:^|\.)experts\.(\d+)\..+\.weight\Z")
+    _layer = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 
     def matches(self, config: Mapping[str, Any], tensor_names: Sequence[str]) -> bool:
         count = _nested_positive_int(config, "n_routed_experts")
@@ -148,10 +149,19 @@ class NumericExpertsAdapter:
         self, config: Mapping[str, Any], tensor_names: Sequence[str]
     ) -> set[str]:
         count = _nested_positive_int(config, "n_routed_experts")
+        layer_count = _nested_positive_int(config, "num_hidden_layers")
         selected: set[str] = set()
         for tensor_name in tensor_names:
             match = self._routed.search(tensor_name)
-            if match and count is not None and int(match.group(1)) < count:
+            layer = self._layer.search(tensor_name)
+            if (
+                match
+                and layer
+                and count is not None
+                and layer_count is not None
+                and int(match.group(1)) < count
+                and int(layer.group(1)) < layer_count
+            ):
                 selected.add(tensor_name)
         return selected
 
@@ -327,5 +337,5 @@ def plan_hf_moe_uniform(
     }
     _atomic_json(destination, plan)
     if plan["status"] != "PASS":
-        raise ValueError("HF MoE plan has tensor coverage gaps or duplicates")
+        raise ValueError("HF MoE plan has tensor coverage or routed-scope defects")
     return plan

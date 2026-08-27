@@ -83,7 +83,7 @@ def test_generic_hf_moe_plan_serializes_routed_and_native_inventories(
         "layers.0.experts.0.down_proj.weight": np.arange(8, dtype=np.float16).reshape(2, 4),
         "layers.0.experts.0.down_proj.weight_scale_inv": np.ones(2, dtype=np.float32),
         "layers.0.shared_experts.down_proj.weight": np.arange(8, dtype=np.float16).reshape(2, 4),
-        "layers.1.mtp.weight": np.arange(2, dtype=np.float16),
+        "layers.1.experts.0.down_proj.weight": np.arange(2, dtype=np.float16),
         "embed_tokens.weight": np.arange(6, dtype=np.float16).reshape(3, 2),
     }
     save_file(tensors, shard)
@@ -119,7 +119,7 @@ def test_generic_hf_moe_plan_serializes_routed_and_native_inventories(
     assert {row["name"] for row in plan["native_tensors"]} == {
         "layers.0.experts.0.down_proj.weight_scale_inv",
         "layers.0.shared_experts.down_proj.weight",
-        "layers.1.mtp.weight",
+        "layers.1.experts.0.down_proj.weight",
         "embed_tokens.weight",
     }
     assert plan["accounting"]["routed_tensor_count"] == 1
