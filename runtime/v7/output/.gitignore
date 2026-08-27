@@ -1,3 +1,0 @@
-# Keep unified runtime output in this folder without committing checkpoints/logs.
-*
-!.gitignore
