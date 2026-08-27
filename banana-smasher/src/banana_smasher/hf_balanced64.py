@@ -23,7 +23,7 @@ class Balanced64Runtime(Protocol):
 
     runtime_id: str
 
-    def capture_teacher(self, *, source, suite_lock, corpus, output): ...
+    def capture_teacher(self, *, source, suite_lock, corpus, output, windows): ...
 
     def score_pre(self, *, artifact, teacher_capture, suite_lock, corpus): ...
 
@@ -142,11 +142,26 @@ def capture_balanced64_teacher(
     corpus: str | Path,
     output: str | Path,
     receipt_path: str | Path,
+    windows: list[int] | tuple[int, ...] | None = None,
     runtime: Balanced64Runtime | None = None,
 ) -> dict[str, Any]:
     """Capture a model's own teacher rows under one immutable BALANCED64 lock."""
 
     lock = _suite_lock(suite_lock)
+    selected_ids = (
+        [row["window_id"] for row in lock["windows"]]
+        if windows is None
+        else list(windows)
+    )
+    if not selected_ids or len(selected_ids) != len(set(selected_ids)):
+        raise ValueError("teacher capture windows must be a non-empty unique sequence")
+    by_id = {row["window_id"]: row for row in lock["windows"]}
+    if set(selected_ids) - set(by_id):
+        raise ValueError("teacher capture windows must belong to the frozen suite lock")
+    selected_windows = [by_id[window_id] for window_id in selected_ids]
+    complete = len(selected_windows) == 64 and selected_ids == [
+        row["window_id"] for row in lock["windows"]
+    ]
     corpus_path = Path(corpus).expanduser().resolve()
     if _sha256(corpus_path) != lock.get("source_windows_sha256"):
         raise ValueError("BALANCED64 corpus SHA does not match the suite lock")
@@ -167,13 +182,16 @@ def capture_balanced64_teacher(
         suite_lock=lock,
         corpus=corpus_path,
         output=destination,
+        windows=selected_windows,
     )
     if not isinstance(runtime_result, Mapping):
         raise TypeError("BALANCED64 teacher runtime must return a mapping")
     rows = runtime_result.get("rows")
-    if not isinstance(rows, list) or len(rows) != 64:
-        raise ValueError("BALANCED64 teacher capture must return exactly 64 rows")
-    expected_windows = lock["windows"]
+    if not isinstance(rows, list) or len(rows) != len(selected_windows):
+        raise ValueError(
+            "BALANCED64 teacher capture returned the wrong selected row count"
+        )
+    expected_windows = selected_windows
     verified_rows: list[dict[str, Any]] = []
     for expected, row in zip(expected_windows, rows, strict=True):
         if not isinstance(row, Mapping):
@@ -196,7 +214,8 @@ def capture_balanced64_teacher(
     counters = _zero_mechanisms(runtime_result.get("runtime_counters"), timed=False)
     receipt = {
         "schema": "banana-smasher-balanced64-teacher-capture-v1",
-        "status": "PASS",
+        "status": "PASS" if complete else "PASS_DIAGNOSTIC",
+        "artifact_admissible": complete,
         "api": {"method": "capture_balanced64_teacher", "version": 1},
         "runtime": {"id": _runtime_id(runtime)},
         "source": source,
@@ -204,8 +223,8 @@ def capture_balanced64_teacher(
         "window_population_sha256": lock["window_population_sha256"],
         "corpus_sha256": _sha256(corpus_path),
         "teacher_bank": lock["teacher_bank"],
-        "row_count": 64,
-        "positions": POSITION_COUNT,
+        "row_count": len(verified_rows),
+        "positions": len(verified_rows) * POSITIONS_PER_WINDOW,
         "support": SUPPORT,
         "rows": verified_rows,
         "runtime_counters": counters,

@@ -43,10 +43,10 @@ def _lock(corpus_sha: str, model_index_sha: str) -> dict:
 class _FixtureRuntime:
     runtime_id = "fixture-model-neutral-v1"
 
-    def capture_teacher(self, *, source, suite_lock, corpus, output):
+    def capture_teacher(self, *, source, suite_lock, corpus, output, windows):
         rows = []
         output.mkdir(parents=True)
-        for window in suite_lock["windows"]:
+        for window in windows:
             path = output / f"teacher-{window['ordinal']:02d}.bin"
             path.write_bytes(f"teacher:{window['window_id']}".encode())
             rows.append(
@@ -101,6 +101,20 @@ def test_public_model_neutral_teacher_capture_and_score_pre(tmp_path: Path) -> N
     lock_path = tmp_path / "suite-lock.json"
     lock_path.write_text(json.dumps(suite_lock, sort_keys=True) + "\n")
     runtime = _FixtureRuntime()
+
+    canary = capture_balanced64_teacher(
+        model,
+        revision="3f1971b7b5f7a528c9c4ef6212c8785298a8c24a",
+        suite_lock=lock_path,
+        corpus=corpus,
+        output=tmp_path / "teacher-canary",
+        receipt_path=tmp_path / "TEACHER_CANARY.json",
+        windows=[1000],
+        runtime=runtime,
+    )
+    assert canary["status"] == "PASS_DIAGNOSTIC"
+    assert canary["artifact_admissible"] is False
+    assert canary["row_count"] == 1
 
     teacher = capture_balanced64_teacher(
         model,

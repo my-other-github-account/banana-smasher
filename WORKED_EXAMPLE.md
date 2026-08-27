@@ -58,6 +58,18 @@ built = ResidentRepairAPI.build_uniform(
 reopened = open_hf_moe_uniform("/local/output-filesystem/uniform-q2")
 assert reopened == built
 
+teacher_canary = capture_balanced64_teacher(
+    "/local/hf-model",
+    revision="<immutable-hf-revision>",
+    suite_lock="Evals/configs/<model>-balanced64-v1.json",
+    corpus="/local/frozen-balanced64.json",
+    output="/local/eval/teacher-canary",
+    receipt_path="/local/eval/TEACHER_CANARY.json",
+    windows=[28],
+)
+assert teacher_canary["status"] == "PASS_DIAGNOSTIC"
+assert teacher_canary["artifact_admissible"] is False
+
 teacher = capture_balanced64_teacher(
     "/local/hf-model",
     revision="<immutable-hf-revision>",
