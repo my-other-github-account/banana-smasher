@@ -337,6 +337,19 @@ def test_sealed_planesource_restores_combined_native_swiglu_constructor() -> Non
     assert 'if expert_implementation == "sealed_bf16_full_weight" and hasattr(self, "trainer"):' in engine
 
 
+def test_static_w28_caller_passes_native_swiglu_limit_to_historical_provider() -> None:
+    """The static caller must preserve the model clamp across expert replacement."""
+    provider = (
+        Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
+    ).read_text()
+    layer_loop = provider[provider.index("        for layer in range(first, last + 1):") :]
+    constructor = layer_loop[
+        layer_loop.index("            resident = FullyResidentGroupedV7Experts(") :
+        layer_loop.index("            m.model.layers[layer].mlp.experts = resident")
+    ]
+    assert "swiglu_limit=" in constructor
+
+
 def test_sealed_planesource_combines_existing_w1_w3_payloads_at_w13_boundary() -> None:
     provider = (Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py").read_text()
     resident = provider[provider.index("class ResidentOfficialExperts") :]

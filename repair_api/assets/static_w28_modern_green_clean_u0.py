@@ -531,7 +531,10 @@ class ShardStudent:
                 device=self.device,
             )
             resident = FullyResidentGroupedV7Experts(
-                layer=layer, pilot=True, plane_source=source
+                layer=layer,
+                pilot=True,
+                plane_source=source,
+                swiglu_limit=float(m.model.layers[layer].mlp.experts.limit),
             )
             m.model.layers[layer].mlp.experts = resident
             self.sources[layer] = source
