@@ -16,12 +16,18 @@ def _exact_module() -> Any:
     return importlib.import_module(f"{__name__}.exact")
 
 
+def _persistent_module() -> Any:
+    return importlib.import_module("banana_smasher.qtip_viterbi")
+
+
 def geometry(cb: Any) -> dict[str, int | str | bool]:
     return _exact_module().geometry(cb)
 
 
 def prepare_exact_cuda() -> Any:
-    return _exact_module().prepare_exact_cuda()
+    module = _persistent_module()
+    module._require_triton()
+    return module
 
 
 def trellis_v2(
@@ -29,7 +35,7 @@ def trellis_v2(
     x: torch.Tensor,
     overlap: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    states = _exact_module().trellis_v2_exact(cb, x, overlap)
+    states = _persistent_module().exact_prefix_viterbi(cb, x, overlap)
     if bool(getattr(cb, "_trellis_v2_collect_stats", True)):
         batch = int(x.shape[1])
         initial_branches = 1 if overlap is not None else BRANCHES
