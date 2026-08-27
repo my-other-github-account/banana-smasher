@@ -1,5 +1,32 @@
 # Worked example: routed-only Q2 repair
 
+## General Hugging Face MoE source plan
+
+Before any large build, use the public metadata-only planner. It pins the local
+HF source revision and config/index hashes, selects one registered MoE adapter,
+reads only safetensors headers, and writes complete routed/native inventories.
+The adapter is selected from config capabilities and tensor-name structure; the
+caller does not provide model-family code or a routed layer roster.
+
+```python
+from banana_smasher import plan_hf_moe_uniform
+
+plan = plan_hf_moe_uniform(
+    "/local/hf-model",
+    revision="<immutable-hf-revision>",
+    tier="q2",
+    scope="routed_only",
+    native_rest=True,
+    receipt_path="./uniform-plan/UNIFORM_PLAN.json",
+)
+```
+
+The receipt has `source.model_index_sha256`, `adapter.id`, sorted
+`routed_tensors` and `native_tensors`, exact source bytes and parameters for
+both classes, `coverage.gaps=[]`, `coverage.duplicates=[]`, and
+`mechanisms.fallback=0`. Planning does not mutate or quantize the source tree.
+Only a PASS plan may be supplied to the serialized build/admission phase.
+
 This is the public end-to-end resident path. It uses the published PRE checkpoint
 identity and the package-owned U45 recipe; callers do not select teacher paths,
 corpus paths, layer splits, microbatch geometry, learning rates, optimizer

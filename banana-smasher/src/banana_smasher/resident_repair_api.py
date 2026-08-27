@@ -359,13 +359,21 @@ class ResidentRepairAPI:
         *,
         checkpoint_sha: str,
         run_root: str | Path | None = None,
+        scope: str | None = None,
+        native_rest: bool | None = None,
     ) -> "UniformBuild | ResidentRepairAPI":
         """Build through an injected provider, or open an admitted Q2 artifact.
 
         Calling ``ResidentRepairAPI.build_uniform(model, tier="q2", ...)`` is
         the documented production path. Calling the same method on an instance
         preserves the lower-level provider seam used by integrations and tests.
+        ``scope='routed_only', native_rest=True`` makes the routed/native intent
+        explicit while preserving compatibility with already admitted artifacts.
         """
+        if scope is not None and scope != "routed_only":
+            raise ValueError("build_uniform scope must be 'routed_only'")
+        if native_rest is not None and native_rest is not True:
+            raise ValueError("build_uniform native_rest must be True")
         if isinstance(self_or_model, ResidentRepairAPI):
             if model is None or tier is None:
                 raise TypeError("instance build_uniform requires model and tier")

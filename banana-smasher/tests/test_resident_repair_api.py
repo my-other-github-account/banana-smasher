@@ -167,7 +167,11 @@ def test_documented_class_call_opens_admitted_q2_with_internal_defaults(
     )
 
     api = ResidentRepairAPI.build_uniform(
-        artifact_root, tier="q2", checkpoint_sha=checkpoint_sha
+        artifact_root,
+        tier="q2",
+        scope="routed_only",
+        native_rest=True,
+        checkpoint_sha=checkpoint_sha,
     )
 
     assert isinstance(api, ResidentRepairAPI)

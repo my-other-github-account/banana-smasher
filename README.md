@@ -1,6 +1,7 @@
 # Banana Smasher
 Canonical package code lives in the nested path `banana-smasher/src/banana_smasher/`; this is intentional—do not create a second package tree.
 Install from `banana-smasher/pyproject.toml`; the single command is `smash` (`banana_smasher.cli:main`).
+Python 3.11 or newer is required; older interpreters cannot install the pinned numeric stack.
 Start with `CODEBASE_MAP.md` for the authoritative module and repository map.
 Canonical checkpoint identity: the published QTIP2 V7 pre-repair artifact is
 `f9bffe04…` (the [Evals row](Evals/README.md#results): KLD `0.229392`, Top-1

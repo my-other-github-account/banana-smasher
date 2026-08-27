@@ -18,6 +18,12 @@ from .resident_repair_api import (
     UniformBuild,
     V7_UNIFORM_TIERS,
 )
+from .hf_moe import (
+    HF_SOURCE_ADMISSION_SCHEMA,
+    HF_UNIFORM_PLAN_SCHEMA,
+    admit_hf_source,
+    plan_hf_moe_uniform,
+)
 from .production_rails import ProductionRails, ProductionRailsError
 from .anchor import (
     AnchorEvaluationError,
@@ -231,6 +237,10 @@ __all__ = [
     "ResidentRepairAPI",
     "UniformBuild",
     "V7_UNIFORM_TIERS",
+    "HF_SOURCE_ADMISSION_SCHEMA",
+    "HF_UNIFORM_PLAN_SCHEMA",
+    "admit_hf_source",
+    "plan_hf_moe_uniform",
     "UpdateQueue",
     "aggregate_scores",
     "aggregate_balanced64",
