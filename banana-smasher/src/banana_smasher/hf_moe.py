@@ -477,7 +477,7 @@ def estimate_hf_moe_uniform(
     import time
     import tracemalloc
 
-    from .qtip1 import QTIP2_GEOMETRY, encode_qtip, gaussian_tlut
+    from .qtip1 import QTIP2_GEOMETRY, gaussian_tlut
 
     destination = Path(receipt_path).expanduser().resolve()
     plan = plan_hf_moe_uniform(
@@ -495,7 +495,7 @@ def estimate_hf_moe_uniform(
     tracemalloc.start()
     started = time.perf_counter()
     matrix = _load_safetensors_matrix(root / selected["shard"], selected)
-    encoded = encode_qtip(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
+    encoded, encoder = _encode_hf_q2(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
     wall_seconds = time.perf_counter() - started
     _, traced_peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
@@ -532,6 +532,7 @@ def estimate_hf_moe_uniform(
             "peak_memory_bytes": peak_memory_bytes,
             "q2_code_bytes": encoded.packed.nbytes,
             "q2_scale_bytes": encoded.scales.nbytes,
+            "encoder": encoder,
         },
         "projection": {
             "complete_routed_tensor_count": len(plan["routed_tensors"]),
@@ -607,6 +608,26 @@ def _load_safetensors_matrix(source: Path, row: Mapping[str, Any]):
     return matrix
 
 
+def _encode_hf_q2(matrix: Any, *, geometry: Any, tlut: Any):
+    """Use bounded CUDA for production tensors and keep tiny fixture coverage."""
+    from .qtip1 import encode_qtip, encode_qtip2_bounded_cuda
+
+    try:
+        import torch
+    except ModuleNotFoundError:
+        torch = None
+    if torch is not None and torch.cuda.is_available():
+        return encode_qtip2_bounded_cuda(matrix, geometry=geometry, tlut=tlut)
+    if int(matrix.nbytes) > 1 << 20:
+        raise RuntimeError("QTIP2 CUDA fast path is unavailable; refusing slower fallback")
+    encoded = encode_qtip(matrix, geometry=geometry, tlut=tlut)
+    return encoded, {
+        "backend": "numpy-reference-small-fixture",
+        "fixture_max_bytes": 1 << 20,
+        "fallback": 0,
+    }
+
+
 def build_hf_moe_uniform(
     model: str | Path,
     *,
@@ -619,7 +640,7 @@ def build_hf_moe_uniform(
 ) -> dict[str, Any]:
     """Materialize a routed-Q2/native-rest HF MoE artifact and seal its receipt."""
 
-    from .qtip1 import QTIP2_GEOMETRY, encode_qtip, gaussian_tlut
+    from .qtip1 import QTIP2_GEOMETRY, gaussian_tlut
 
     destination = Path(output).expanduser().resolve()
     if destination.exists():
@@ -676,7 +697,7 @@ def build_hf_moe_uniform(
             matrix = _load_safetensors_matrix(shard, row)
             if matrix.ndim != 2:
                 raise ValueError(f"Q2 routed tensor must be a matrix: {row['name']}")
-            encoded = encode_qtip(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
+            encoded, encoder = _encode_hf_q2(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
             trellis = staging / "routed" / _member_name(row["name"], "trellis.npy")
             scales = staging / "routed" / _member_name(row["name"], "scales.npy")
             trellis.parent.mkdir(parents=True, exist_ok=True)
@@ -700,6 +721,7 @@ def build_hf_moe_uniform(
                             "bytes": scales.stat().st_size,
                             "sha256": _sha256(scales),
                         },
+                        "encoder": encoder,
                     },
                 }
             )

@@ -163,15 +163,16 @@ def _exact_chunk(
     cb: Any, x: torch.Tensor, overlap: torch.Tensor | None
 ) -> torch.Tensor:
     batch = int(x.shape[1])
+    steps = int(x.shape[0]) // 2
     lut = cb.lut.T.contiguous()
     scratch_a = torch.empty(
         (batch, PREFIXES), device=x.device, dtype=torch.float32
     )
     scratch_b = torch.empty_like(scratch_a)
     best_state = torch.empty(
-        (STEPS, batch, PREFIXES), device=x.device, dtype=torch.int32
+        (steps, batch, PREFIXES), device=x.device, dtype=torch.int32
     )
-    states = torch.empty((STEPS, batch), device=x.device, dtype=torch.int32)
+    states = torch.empty((steps, batch), device=x.device, dtype=torch.int32)
     overlap_arg = (
         overlap
         if overlap is not None
@@ -189,7 +190,7 @@ def _exact_chunk(
         num_stages=1,
     )
     previous, current = scratch_a, scratch_b
-    for step in range(1, STEPS):
+    for step in range(1, steps):
         _advance_prefix_costs[(batch,)](
             x,
             lut,
@@ -212,7 +213,7 @@ def _exact_chunk(
         final_prefix,
         states,
         B=batch,
-        NSTEPS=STEPS,
+        NSTEPS=steps,
         num_warps=1,
         num_stages=1,
     )
@@ -224,13 +225,18 @@ def trellis_v2_exact(
     x: torch.Tensor,
     overlap: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """Return canonical all-16-branch states for CUDA input shaped ``[256,B]``."""
+    """Return canonical all-16-branch states for CUDA input shaped ``[2*T,B]``."""
     geometry(cb)
-    if not x.is_cuda or x.ndim != 2 or x.shape[0] != 256:
-        raise ValueError(f"x must be CUDA [256,B], got {tuple(x.shape)} {x.device}")
-    if x.dtype != torch.float16:
+    if (
+        not x.is_cuda
+        or x.ndim != 2
+        or x.shape[0] % 2
+        or x.shape[0] < 8
+    ):
+        raise ValueError(f"x must be CUDA [2*T,B] with T>=4, got {tuple(x.shape)} {x.device}")
+    if x.dtype not in {torch.float16, torch.float32}:
         raise ValueError(
-            f"public smash solve must produce float16 trellis input; got {x.dtype}"
+            f"public smash solve must produce float16/float32 trellis input; got {x.dtype}"
         )
     batch = int(x.shape[1])
     if batch < 1 or batch > 8192:

@@ -6,6 +6,7 @@ import struct
 from pathlib import Path
 
 import numpy as np
+import pytest
 from safetensors.numpy import save_file
 
 
@@ -433,3 +434,65 @@ def test_public_bounded_canary_reads_safetensors_float8_e4m3(tmp_path: Path) -> 
     assert estimate["status"] == "PASS_DIAGNOSTIC"
     assert estimate["canary"]["source_dtype"] == "F8_E4M3"
     assert estimate["canary"]["parameters"] == 16
+
+
+def test_q2_gpu_encoder_memory_plan_is_bounded_before_allocation() -> None:
+    from banana_smasher.qtip1 import plan_qtip2_cuda_chunks
+
+    plan = plan_qtip2_cuda_chunks(
+        rows=2048,
+        width=4096,
+        free_bytes=16 << 30,
+        reserve_bytes=4 << 30,
+    )
+
+    assert plan["status"] == "PASS"
+    assert 1 <= plan["chunk_rows"] < 4096
+    assert plan["chunk_count"] > 1
+    assert plan["peak_memory_bytes"] <= (16 << 30) - (4 << 30)
+    assert plan["full_batch_backpointer_bytes"] == 68_719_476_736
+    assert plan["bounded_backpointer_bytes"] < plan["full_batch_backpointer_bytes"]
+
+
+def test_q2_gpu_encoder_memory_plan_refuses_before_allocation() -> None:
+    from banana_smasher.qtip1 import plan_qtip2_cuda_chunks
+
+    with pytest.raises(RuntimeError, match="QTIP2 CUDA peak-memory admission failed"):
+        plan_qtip2_cuda_chunks(
+            rows=2048,
+            width=4096,
+            free_bytes=(4 << 30) + (16 << 20),
+            reserve_bytes=4 << 30,
+        )
+
+
+def test_q2_gpu_encoder_matches_known_current_output_hash() -> None:
+    torch = pytest.importorskip("torch")
+    if not torch.cuda.is_available():
+        pytest.skip("known-control output-hash gate requires CUDA")
+    from banana_smasher.qtip1 import (
+        QTIP2_GEOMETRY,
+        encode_qtip2_bounded_cuda,
+        gaussian_tlut,
+    )
+
+    matrix = (np.arange(64, dtype=np.float32).reshape(4, 16) - 31.5) / 7
+    encoded, report = encode_qtip2_bounded_cuda(
+        matrix,
+        geometry=QTIP2_GEOMETRY,
+        tlut=gaussian_tlut(bits=9, columns=2),
+    )
+
+    assert hashlib.sha256(encoded.packed.tobytes()).hexdigest() == (
+        "fe136b4f2340f5e462cbff8198248fb51ca3806a847d1bab700cded2ab1f74b5"
+    )
+    assert hashlib.sha256(encoded.states.tobytes()).hexdigest() == (
+        "ae445063d0c47ebdaf812935b70497fc065b2721d131c54e42751ccffa543935"
+    )
+    assert hashlib.sha256(encoded.scales.tobytes()).hexdigest() == (
+        "ab9166e7feddc0384435d16d4c9dae7f8dcf2d6683e2484d0ba771a6c2bfe54b"
+    )
+    assert report["fallback"] == 0
+    assert report["memory_plan"]["peak_memory_bytes"] <= (
+        report["memory_plan"]["free_bytes"] - report["memory_plan"]["reserve_bytes"]
+    )
