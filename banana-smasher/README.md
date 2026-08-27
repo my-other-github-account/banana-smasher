@@ -118,6 +118,28 @@ smash backpack preflight-mixed --config mixed-102gb.json
 smash backpack solve-mixed --config mixed-102gb.json --output ./mixed-102gb
 ```
 
+When an exact solve proves that the admitted physical inventory cannot reach the
+configured byte target, select a recovery tranche in a
+`banana-smasher-mixed-v7-recovery-plan-v1` document and bind its future
+measurements with a
+`banana-smasher-mixed-v7-sensitivity-extraction-contract-v1` document. Admit
+both, without acquiring a host claim, through the same Backpack API:
+
+```console
+smash backpack preflight-mixed-v7-recovery \
+  --plan recovery18.json \
+  --sensitivity-contract recovery18-sensitivity.json
+```
+
+The preflight reopens every local source-stage terminal, verifies its bytes,
+SHA-256, model-index basis, layer, and payload identity, proves the tranche
+contains enough expert options, and checks that the sensitivity contract closes
+over the exact ordered layer set and canonical Git commit. A
+`PASS_READY_TO_CAS` receipt is launch input, not physical-product acceptance;
+callers must still acquire host and shard claims, generate the sealed products,
+measure the declared rows, then feed them to `bind-mixed-v7-physical` and the
+normal exact solve.
+
 `preflight-mixed` admits already sealed shards, reports exact missing fallback
 projection cells, and returns `WAITING_FOR_DIMENSION_LOCATORS` while a declared
 locator is absent. The config does not change when a producer publishes that
