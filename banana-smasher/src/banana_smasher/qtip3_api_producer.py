@@ -12,6 +12,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -44,6 +45,27 @@ def sha256_file(path: str | Path) -> str:
         for block in iter(lambda: stream.read(8 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def load_cell_roster(
+    path: str | Path, *, intended_basis_sha256: str, expected_count: int | None = None
+) -> tuple[tuple[int, int, str], ...]:
+    """Load the exact missing-cell roster from physical admission evidence."""
+    payload = json.loads(Path(path).read_text())
+    if payload.get("basis_sha256") != intended_basis_sha256:
+        raise RuntimeError("CELL_ROSTER_BASIS_MISMATCH")
+    rows = []
+    for item in payload.get("missing", ()):
+        match = re.fullmatch(r"L(\d{3}):E(\d{3}):(down|fused13)", str(item.get("cell_id", "")))
+        if match is None:
+            raise ValueError("invalid physical-preflight cell_id")
+        rows.append((int(match.group(1)), int(match.group(2)), match.group(3)))
+    roster = tuple(sorted(rows, key=lambda row: (row[0], row[1], PROJECTIONS.index(row[2]))))
+    if len(set(roster)) != len(roster):
+        raise ValueError("physical-preflight roster contains duplicates")
+    if expected_count is not None and len(roster) != expected_count:
+        raise ValueError(f"cell roster count mismatch expected={expected_count} actual={len(roster)}")
+    return roster
 
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> str:
@@ -168,6 +190,7 @@ class Qtip3ApiPlan:
     model_index_path: Path
     tlut_path: Path
     layers: tuple[int, ...] = LAYERS
+    cell_roster: tuple[tuple[int, int, str], ...] = ()
     # The canonical host claim is outside the mission root.  Binding its
     # exact RELEASED preimage prevents admission against a stale/foreign seat.
     expected_claim_sha256: str | None = None
@@ -179,12 +202,24 @@ class Qtip3ApiPlan:
             raise ValueError("task, host, and explicit HOST_ALLOCATION are required")
         if self.layers != LAYERS:
             raise ValueError(f"QTIP3 V7 missing scope is fixed to {LAYERS}")
+        if self.cell_roster:
+            if len(set(self.cell_roster)) != len(self.cell_roster):
+                raise ValueError("cell_roster contains duplicates")
+            for layer, expert, projection in self.cell_roster:
+                if layer not in self.layers or expert not in EXPERTS or projection not in PROJECTIONS:
+                    raise ValueError("cell_roster contains a cell outside the declared scope")
         if self.allocation.split()[1] != self.task_id or self.host not in self.allocation.split():
             raise ValueError("allocation must name this task and host")
 
     @property
     def expected_cells(self) -> int:
-        return len(self.layers) * len(EXPERTS) * len(PROJECTIONS)
+        return len(self.cell_roster) or len(self.layers) * len(EXPERTS) * len(PROJECTIONS)
+
+    @property
+    def expected_cell_scope(self) -> set[tuple[int, int, str]]:
+        if self.cell_roster:
+            return set(self.cell_roster)
+        return {(layer, expert, projection) for layer in self.layers for expert in EXPERTS for projection in PROJECTIONS}
 
 
 @dataclass(frozen=True)
@@ -255,10 +290,13 @@ def admit_host_and_shard(
     shard_before = None
     if plan.shards_path.exists():
         shard_before = json.loads(plan.shards_path.read_text())
-        if shard_before.get("task_id") != plan.task_id or tuple(shard_before.get("layers", ())) != plan.layers:
+        shard_layers = tuple(shard_before.get("layers", shard_before.get("scope_layers", ())))
+        if shard_before.get("task_id") != plan.task_id or shard_layers != plan.layers:
             raise RuntimeError("SHARD_COLLISION_REFUSED")
-        if shard_before.get("status") not in {"CLAIMED", "RUNNING", "PASS"}:
+        if shard_before.get("status") not in {"CLAIMED", "RUNNING", "PASS", "RELEASED"}:
             raise RuntimeError("SHARD_NONCOMPLIANT_REFUSED")
+        if plan.cell_roster and int(shard_before.get("missing_members", plan.expected_cells)) != plan.expected_cells:
+            raise RuntimeError("SHARD_CELL_ROSTER_COUNT_REFUSED")
     pid = os.getpid() if pid is None else int(pid)
     ticks = _startticks(pid)
     if ticks is None:
@@ -422,7 +460,7 @@ def run_cells(
 ) -> dict[str, Any]:
     """Run exactly the declared cells, resuming only valid PASS receipts."""
     rows = tuple(cells)
-    expected = {(layer, expert, projection) for layer in plan.layers for expert in EXPERTS for projection in PROJECTIONS}
+    expected = plan.expected_cell_scope
     actual = {(cell.layer, cell.expert, cell.projection) for cell in rows}
     if actual != expected or len(rows) != plan.expected_cells:
         raise ValueError(f"cell scope mismatch expected={len(expected)} actual={len(actual)}")
@@ -548,12 +586,7 @@ def run_cells_batched(
     ):
         raise ValueError("max_new_batches must be a positive integer or None")
     rows = tuple(cells)
-    expected = {
-        (layer, expert, projection)
-        for layer in plan.layers
-        for expert in EXPERTS
-        for projection in PROJECTIONS
-    }
+    expected = plan.expected_cell_scope
     actual = {(cell.layer, cell.expert, cell.projection) for cell in rows}
     if actual != expected or len(rows) != plan.expected_cells:
         raise ValueError(f"cell scope mismatch expected={len(expected)} actual={len(actual)}")
@@ -694,6 +727,8 @@ def run_cells_batched(
         "batch_size": batch_size, "bounded_partial": max_new_batches is not None,
         "new_batches": new_batches, "new_cells": new_cells,
     }
+    if plan.cell_roster:
+        terminal_payload["cell_roster"] = [list(row) for row in plan.cell_roster]
     terminal = plan.mission_root / "receipts" / "PRODUCER_TERMINAL.json"
     terminal_payload["receipt_sha256"] = _atomic_json(terminal, terminal_payload)
     return terminal_payload

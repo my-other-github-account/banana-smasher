@@ -19,6 +19,7 @@ from banana_smasher.qtip3_api_producer import (
     Qtip3ApiConfig,
     Qtip3ApiPlan,
     admit_host_and_shard,
+    load_cell_roster,
     release_bounded_host,
     release_host,
     release_smoke_host,
@@ -51,6 +52,13 @@ if not LAYERS or len(set(LAYERS)) != len(LAYERS) or any(layer < 0 or layer > 42 
 from banana_smasher import qtip3_api_producer as producer_module
 producer_module.LAYERS = LAYERS
 producer_module.EXPECTED_CELLS = len(LAYERS) * 512
+CELL_ROSTER_PATH = os.environ.get("QTIP3_CELL_ROSTER_PATH")
+CELL_ROSTER = (
+    load_cell_roster(CELL_ROSTER_PATH, intended_basis_sha256=BASIS, expected_count=5992)
+    if CELL_ROSTER_PATH else ()
+)
+if CELL_ROSTER and {row[0] for row in CELL_ROSTER} != set(LAYERS):
+    raise RuntimeError("cell roster layers do not match QTIP3_LAYERS")
 PROJECTIONS = ("fused13", "down")
 EXPERTS = tuple(range(256))
 REC = ROOT / "receipts"
@@ -110,6 +118,7 @@ def plan(expected_claim):
         tlut_path=ROOT / "inputs/qtip_tlut.npy",
         expected_claim_sha256=expected_claim,
         layers=LAYERS,
+        cell_roster=CELL_ROSTER,
     )
 
 
@@ -231,9 +240,11 @@ def control_for(layer, expert, projection):
 
 def all_cells():
     cells = []
-    for layer in LAYERS:
-        for expert in EXPERTS:
-            for projection in PROJECTIONS:
+    scope = CELL_ROSTER or tuple(
+        (layer, expert, projection)
+        for layer in LAYERS for expert in EXPERTS for projection in PROJECTIONS
+    )
+    for layer, expert, projection in scope:
                 cells.append(
                     CellSpec(
                         layer=layer,
