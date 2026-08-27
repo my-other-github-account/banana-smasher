@@ -936,7 +936,10 @@ def _authenticated_l000_internal_bisect(
     engine: Any, *, window: int, root: Path, rank: int, pin: str
 ) -> dict[str, Any]:
     """Capture only the authorized high-level L000 internal boundaries."""
-    control_path = root / "control" / "ACCEPTED_BUILDER_L000_INTERNAL.json"
+    control_path = Path(os.environ.get(
+        "ACCEPTED_L000_INTERNAL_PATH",
+        str(root / "control" / "ACCEPTED_BUILDER_L000_INTERNAL.json"),
+    ))
     control_sha = os.environ.get("ACCEPTED_L000_INTERNAL_SHA256", "")
     if not control_sha or sha(control_path) != control_sha:
         raise RuntimeError("ACCEPTED_L000_INTERNAL_IDENTITY_RED")

@@ -7,6 +7,7 @@ def test_authenticated_l000_internal_instrument_is_basis_and_control_bound():
     source = (ROOT / "resident_full64_accept.py").read_text()
     assert 'AUTHENTICATED_L000_INTERNAL_ONLY' in source
     assert 'ACCEPTED_L000_INTERNAL_SHA256' in source
+    assert 'ACCEPTED_L000_INTERNAL_PATH' in source
     assert '11ead706db562197e76cdc320d5d13044bb254a411b6412326667f524ddf29ed' in source
     for boundary in (
         '"layer_input"', '"attention_return"', '"post_attention_residual"',
