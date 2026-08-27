@@ -231,6 +231,41 @@ def test_public_projection_wrapper_calls_native_bf16_w2_before_weighting() -> No
     assert native_calls[0][2] is provider.packed_w2
 
 
+def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
+    """The repaired W2 path applies identically to every layer instance."""
+    config = ResidentRepairAPI.bind_combined_gate_up_projection(
+        {}, provider_expert_sha256=PROVIDER_SHA256
+    )
+
+    def native_down_projection(x: torch.Tensor, *_args: torch.Tensor) -> torch.Tensor:
+        return x.clone()
+
+    wrapped_type = _bind_sealed_gate_up_projection_for_test(
+        Immutable942cProjectionProvider,
+        config,
+        lambda *args: (torch.ones_like(args[0]), torch.ones_like(args[0])),
+        native_down_projection=native_down_projection,
+    )
+    assert wrapped_type._sealed_native_bf16_w2_scope == "provider_class_all_instances_v1"
+
+    for layer in (0, 1, 42):
+        provider = wrapped_type()
+        provider.L = layer
+        provider._sealed_aligned_positions = None
+        activated = torch.tensor([[0.006927490234375]], dtype=torch.bfloat16)
+        observed = provider._project(
+            "w2",
+            activated,
+            torch.tensor([0], dtype=torch.int64),
+            provider.packed_w2,
+            provider.plane_source.wire_lut(),
+            provider.su_w2,
+            provider.sv_w2,
+        )
+        assert observed.dtype == torch.bfloat16
+        assert torch.equal(observed, activated)
+
+
 def _bind_sealed_gate_up_projection_for_test(
     provider, config, combined_projection, *, native_down_projection=None
 ):

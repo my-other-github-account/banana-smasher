@@ -665,6 +665,9 @@ def _bind_sealed_gate_up_projection(
 
     class SealedCombinedGateUpProjectionExpert(provider_class):
         _sealed_gate_up_runtime_marker = SEALED_GATE_UP_RUNTIME_MARKER
+        # This wrapper replaces the provider class itself, so the W2 repair is
+        # inherited by every layer instance rather than selected by layer id.
+        _sealed_native_bf16_w2_scope = "provider_class_all_instances_v1"
 
         @staticmethod
         def _sealed_tensor_witness(value: Any) -> dict[str, Any]:
@@ -776,6 +779,14 @@ def _bind_sealed_gate_up_projection(
                 value = native_down_projection(
                     args[1], args[2], self.packed_w2, args[4], self.su_w2, self.sv_w2
                 )
+                import torch
+
+                value_dtype = getattr(value, "dtype", None)
+                if value_dtype != torch.bfloat16:
+                    raise RuntimeError(
+                        "SEALED_NATIVE_W2_OUTPUT_DTYPE_DRIFT:"
+                        f"{value_dtype}!=torch.bfloat16"
+                    )
             else:
                 value = super()._project(*args, **kwargs)
             if projection == "w2" and self._sealed_aligned_positions is not None:
