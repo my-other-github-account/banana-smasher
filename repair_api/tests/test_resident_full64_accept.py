@@ -16,6 +16,7 @@ from repair_api.resident_full64_accept import (
     CUDA_MEMORY_FRACTION,
     _apply_cuda_memory_fraction,
     _resolve_config_path,
+    _score_admission_windows,
     atomic,
     validate_scheduled_pair_group,
 )
@@ -31,6 +32,57 @@ def test_resident_receipt_atomic_creates_missing_parent() -> None:
         digest = atomic(path, {"status": "PASS"})
         assert path.exists()
         assert len(digest) == 64
+
+
+def test_w28_trace_wrapper_records_sealed_known_value_control(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    import json
+
+    trace_path = tmp_path / "w28-control.jsonl"
+    canonical_pin = "f23b4b19ce96913f4f2a6f302edb61989e697491"
+    monkeypatch.setenv("W28_FULL_CALL_TREE_PATH", str(trace_path))
+    monkeypatch.setenv("BANANA_SMASHER_CANONICAL_PIN", canonical_pin)
+    sealed = {"windows": [28], "kld_mean": 0.1364830042977786, "top1": 880}
+
+    class Api:
+        @staticmethod
+        def validate(engine: Any, windows: tuple[int, ...], teacher_root: Path) -> dict[str, Any]:
+            assert windows == (28,)
+            assert teacher_root == tmp_path / "teacher"
+            engine.student(torch.zeros(1024))
+            return sealed
+
+    observed = _score_admission_windows(
+        Api(), SimpleNamespace(student=torch.nn.Identity()), (28,), tmp_path / "teacher"
+    )
+    rows = [json.loads(line) for line in trace_path.read_text().splitlines()]
+    terminal = json.loads(Path(str(trace_path) + ".terminal.json").read_text())
+
+    assert observed == sealed
+    assert [row["kind"] for row in rows] == ["header", "footer"]
+    assert rows[0]["rail"] == "product_w28_admission"
+    assert rows[0]["canonical_code_commit"] == canonical_pin
+    assert terminal["status"] == "PASS"
+    assert terminal["event_count"] == 2
+
+
+def test_w28_trace_wrapper_rejects_non_singleton_geometry(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    monkeypatch.setenv("W28_FULL_CALL_TREE_PATH", str(tmp_path / "wrong.jsonl"))
+    monkeypatch.setenv("BANANA_SMASHER_CANONICAL_PIN", "f" * 40)
+    try:
+        _score_admission_windows(
+            SimpleNamespace(validate=lambda *_args: {}),
+            SimpleNamespace(student=torch.nn.Identity()),
+            (27, 28),
+            tmp_path,
+        )
+    except RuntimeError as error:
+        assert str(error) == "W28_FULL_CALL_TREE_REQUIRES_EXACT_SINGLETON_28"
+    else:
+        raise AssertionError("non-singleton trace geometry was accepted")
 
 
 def test_builder_frame_readout_projects_full_real_length_before_score_slice() -> None:
