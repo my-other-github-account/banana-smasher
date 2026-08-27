@@ -9,6 +9,7 @@ import pytest
 from banana_smasher.contract import PackValidationError
 from banana_smasher.backpack_virtual import materialize_mixed_v7_virtual_backpack
 from banana_smasher.loader import MixedV7MemberLoader
+from banana_smasher.mixed_transaction import stage_mixed_v7_member_index
 from banana_smasher.repack import bind_mixed_v7_member_contract
 
 
@@ -246,3 +247,77 @@ def test_mixed_virtualizer_projects_expert_tiers_to_runtime_cells(tmp_path: Path
         ("L0:E1:down", "qtip3_v7"),
         ("L0:E1:fused13", "qtip3_v7"),
     ]
+
+
+def test_stage_mixed_v7_member_index_binds_sealed_payloads_and_metadata(
+    tmp_path: Path,
+) -> None:
+    solve = tmp_path / "solve"
+    _identity(solve, {"L000.E000": "qtip2", "L000.E001": "qtip3"})
+    materialized = tmp_path / "materialized"
+    rows = []
+    for projection in ("w1", "w2", "w3"):
+        path = materialized / "members" / f"L000.E000.{projection}.wire"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(projection.encode())
+        rows.append({
+            "cell_id": f"L000.E000.{projection}",
+            "tier": "qtip2",
+            "path": path.relative_to(materialized).as_posix(),
+            "sha256": _sha(path),
+            "bytes": path.stat().st_size,
+        })
+    for projection in ("down", "fused13"):
+        path = materialized / "members" / f"L000.E001.{projection}.npy"
+        path.write_bytes(f"codes-{projection}".encode())
+        rows.append({
+            "cell_id": f"L000.E001.{projection}",
+            "tier": "qtip3",
+            "path": path.relative_to(materialized).as_posix(),
+            "sha256": _sha(path),
+            "bytes": path.stat().st_size,
+        })
+    _write_json(materialized / "identity.json", {
+        "basis_sha256": BASIS,
+        "assignment_sha256": ASSIGNMENT_SHA,
+        "member_count": len(rows),
+    })
+    (materialized / "MATERIALIZED_MEMBERS.jsonl").write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
+    )
+    source = tmp_path / "source"
+    lut = source / "lut.npy"
+    lut.parent.mkdir(parents=True)
+    lut.write_bytes(b"q3-lut")
+    members = []
+    for projection in ("down", "fused13"):
+        control = source / f"{projection}.pt"
+        control.write_bytes(f"control-{projection}".encode())
+        members.append({
+            "cell": f"E001_{projection}",
+            "control": {"path": f"/sealed/{control.name}", "sha256": _sha(control), "bytes": control.stat().st_size},
+        })
+    terminals = tmp_path / "terminals" / "L000"
+    _write_json(terminals / "LAYER_PRODUCT_TERMINAL.json", {
+        "layer": 0,
+        "method": {"lut": {"path": "/sealed/lut.npy", "sha256": _sha(lut), "bytes": lut.stat().st_size}},
+        "members": members,
+    })
+    index = materialized / "MIXED_V7_MATERIALIZED_MEMBERS.json"
+
+    receipt = stage_mixed_v7_member_index(
+        solve,
+        materialized,
+        terminals.parent,
+        qtip3_source_root=source,
+        qtip3_source_prefix="/sealed",
+        output=index,
+    )
+    contract = tmp_path / "contract.json"
+    bind_mixed_v7_member_contract(solve, index, output=contract)
+
+    assert receipt["status"] == "PASS_ADMISSION_READY"
+    assert receipt["members"] == 5
+    assert receipt["qtip3_controls"] == 2
+    assert receipt["qtip3_luts"] == 1
+    assert MixedV7MemberLoader(contract).member(0, 1, "down")["tier"] == "qtip3"
