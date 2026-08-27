@@ -11,6 +11,7 @@ caller does not provide model-family code or a routed layer roster.
 ```python
 from banana_smasher import (
     ResidentRepairAPI,
+    build_balanced64_token_ledger,
     capture_balanced64_teacher,
     estimate_hf_moe_uniform,
     open_hf_moe_uniform,
@@ -59,11 +60,23 @@ reopened = open_hf_moe_uniform("/local/output-filesystem/uniform-q2")
 assert reopened == built
 assert reopened["artifact_root"] == "/local/output-filesystem/uniform-q2"
 
-teacher_canary = capture_balanced64_teacher(
+ledger = build_balanced64_token_ledger(
     "/local/hf-model",
     revision="<immutable-hf-revision>",
     suite_lock="Evals/configs/<model>-balanced64-v1.json",
-    corpus="/local/frozen-balanced64.json",
+    source_manifest="/local/authenticated-balanced64-source-text.json",
+    output="/local/eval/model-balanced64-token-ledger.json",
+    bound_suite_lock="/local/eval/model-balanced64-suite-lock.json",
+    receipt_path="/local/eval/TOKEN_LEDGER.json",
+)
+assert ledger["row_count"] == 64
+assert ledger["positions"] == 65536
+
+teacher_canary = capture_balanced64_teacher(
+    "/local/hf-model",
+    revision="<immutable-hf-revision>",
+    suite_lock="/local/eval/model-balanced64-suite-lock.json",
+    corpus="/local/eval/model-balanced64-token-ledger.json",
     output="/local/eval/teacher-canary",
     receipt_path="/local/eval/TEACHER_CANARY.json",
     windows=[28],
@@ -74,23 +87,32 @@ assert teacher_canary["artifact_admissible"] is False
 teacher = capture_balanced64_teacher(
     "/local/hf-model",
     revision="<immutable-hf-revision>",
-    suite_lock="Evals/configs/<model>-balanced64-v1.json",
-    corpus="/local/frozen-balanced64.json",
+    suite_lock="/local/eval/model-balanced64-suite-lock.json",
+    corpus="/local/eval/model-balanced64-token-ledger.json",
     output="/local/eval/teacher",
     receipt_path="/local/eval/TEACHER_CAPTURE.json",
 )
 pre = score_balanced64_pre(
     "/local/output-filesystem/uniform-q2",
     teacher_capture=teacher,
-    suite_lock="Evals/configs/<model>-balanced64-v1.json",
-    corpus="/local/frozen-balanced64.json",
+    suite_lock="/local/eval/model-balanced64-suite-lock.json",
+    corpus="/local/eval/model-balanced64-token-ledger.json",
     receipt_path="/local/eval/PRE.json",
 )
 ```
 
-The caller never injects a runtime object or model-family script. The package
-selects exactly one registered `banana_smasher.balanced64_runtimes` capability
-from source config/index semantics for teacher capture and from the admitted
+The caller never injects a runtime object or model-family script. A historical
+model's integer token IDs are not portable to a different tokenizer. The token-
+ledger builder therefore accepts only authenticated raw source text with stable
+item/window IDs and per-item text hashes; it rejects any source row that supplies
+historical `token_ids`. It binds the selected model index and tokenizer identity,
+writes the model-specific token ledger, and derives a suite lock whose
+`source_windows_sha256` is that ledger's exact SHA-256. Teacher capture and PRE
+must use that derived lock and ledger together.
+
+The package selects exactly one registered
+`banana_smasher.balanced64_runtimes` capability from source config/index
+semantics for teacher capture and from the admitted
 artifact contract for PRE. Zero or multiple matches fail closed. Teacher capture
 must precede candidate scoring and is bound to the model-specific suite lock; a
 DeepSeek teacher bank or numeric baseline cannot satisfy a GLM lock.

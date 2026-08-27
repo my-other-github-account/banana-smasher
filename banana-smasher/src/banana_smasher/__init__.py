@@ -31,6 +31,8 @@ from .hf_moe import (
 )
 from .hf_balanced64 import (
     Balanced64Runtime,
+    Balanced64Tokenizer,
+    build_balanced64_token_ledger,
     capture_balanced64_teacher,
     score_balanced64_pre,
 )
@@ -257,6 +259,8 @@ __all__ = [
     "plan_hf_moe_uniform",
     "preflight_hf_moe_output_fit",
     "Balanced64Runtime",
+    "Balanced64Tokenizer",
+    "build_balanced64_token_ledger",
     "capture_balanced64_teacher",
     "score_balanced64_pre",
     "UpdateQueue",

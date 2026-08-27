@@ -28,6 +28,14 @@ class Balanced64Runtime(Protocol):
     def score_pre(self, *, artifact, teacher_capture, suite_lock, corpus): ...
 
 
+class Balanced64Tokenizer(Protocol):
+    """Minimal tokenizer seam used by the public token-ledger builder."""
+
+    tokenizer_id: str
+
+    def encode(self, text: str) -> Any: ...
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -132,6 +140,193 @@ def _zero_mechanisms(value: Any, *, timed: bool) -> dict[str, int]:
     if any(counter != 0 for counter in counters.values()):
         raise ValueError(f"BALANCED64 runtime mechanism gate is nonzero: {counters}")
     return {key: int(counter) for key, counter in counters.items()}
+
+
+def _canonical_sha256(value: Any) -> str:
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+class _TokenizerJsonAdapter:
+    def __init__(self, model: Path) -> None:
+        tokenizer_path = model / "tokenizer.json"
+        if not tokenizer_path.is_file():
+            raise ValueError(f"model has no tokenizer.json: {tokenizer_path}")
+        try:
+            from tokenizers import Tokenizer
+        except ImportError as exc:
+            raise RuntimeError(
+                "normal banana-smasher installation requires tokenizers for token-ledger construction"
+            ) from exc
+        self._tokenizer = Tokenizer.from_file(str(tokenizer_path))
+        self.tokenizer_id = f"tokenizer-json-sha256:{_sha256(tokenizer_path)}"
+
+    def encode(self, text: str) -> list[int]:
+        return list(self._tokenizer.encode(text, add_special_tokens=False).ids)
+
+
+def build_balanced64_token_ledger(
+    model: str | Path,
+    *,
+    revision: str,
+    suite_lock: Mapping[str, Any] | str | Path,
+    source_manifest: Mapping[str, Any] | str | Path,
+    output: str | Path,
+    bound_suite_lock: str | Path,
+    receipt_path: str | Path,
+    tokenizer: Balanced64Tokenizer | None = None,
+) -> dict[str, Any]:
+    """Tokenize authenticated source text and bind its model-specific suite lock."""
+
+    lock = _suite_lock(suite_lock)
+    destination = Path(output).expanduser().resolve()
+    bound_lock_destination = Path(bound_suite_lock).expanduser().resolve()
+    for label, path in (
+        ("token ledger", destination),
+        ("bound suite lock", bound_lock_destination),
+    ):
+        if path.exists():
+            raise FileExistsError(f"BALANCED64 {label} already exists: {path}")
+    manifest = _mapping(source_manifest, "BALANCED64 raw-source manifest")
+    if manifest.get("schema") != "banana-smasher.balanced64-source-text.v1":
+        raise ValueError("BALANCED64 source manifest is not authenticated raw source text")
+    items = manifest.get("items")
+    if not isinstance(items, list):
+        raise ValueError("BALANCED64 source manifest must contain an item list")
+    by_window: dict[int, Mapping[str, Any]] = {}
+    descriptors: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, Mapping):
+            raise ValueError("BALANCED64 raw-source item must be an object")
+        if "token_ids" in item:
+            raise ValueError("BALANCED64 raw-source items must not supply historical token_ids")
+        window_id = item.get("window_id")
+        item_id = item.get("item_id")
+        source_class = item.get("source_class")
+        text = item.get("text")
+        text_sha = item.get("text_sha256")
+        if (
+            isinstance(window_id, bool)
+            or not isinstance(window_id, int)
+            or not isinstance(item_id, str)
+            or not item_id
+            or not isinstance(source_class, str)
+            or not source_class
+            or not isinstance(text, str)
+            or not isinstance(text_sha, str)
+        ):
+            raise ValueError("BALANCED64 raw-source item identity/text fields are invalid")
+        actual_text_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        if text_sha != actual_text_sha:
+            raise ValueError(f"raw source text hash mismatch: window_id={window_id}")
+        if window_id in by_window:
+            raise ValueError(f"duplicate BALANCED64 raw-source window_id: {window_id}")
+        by_window[window_id] = item
+        descriptors.append(
+            {
+                "item_id": item_id,
+                "window_id": window_id,
+                "source_class": source_class,
+                "text_sha256": text_sha,
+            }
+        )
+    roster_sha256 = _canonical_sha256(descriptors)
+    provenance = manifest.get("source_provenance_sha256")
+    if (
+        manifest.get("item_roster_sha256") != roster_sha256
+        or not isinstance(provenance, str)
+        or lock.get("source_provenance_sha256") != provenance
+    ):
+        raise ValueError("BALANCED64 raw-source provenance does not match the suite lock")
+
+    receipt_destination = Path(receipt_path).expanduser().resolve()
+    source = admit_hf_source(
+        model,
+        revision=revision,
+        receipt_path=receipt_destination.with_name("TOKEN_LEDGER_SOURCE_ADMISSION.json"),
+    )
+    if source["model_index_sha256"] != lock.get("teacher_source_model_index_sha256"):
+        raise ValueError("token-ledger model index does not match the model-specific suite lock")
+    selected_tokenizer = tokenizer or _TokenizerJsonAdapter(Path(model).expanduser().resolve())
+    tokenizer_id = getattr(selected_tokenizer, "tokenizer_id", None)
+    if not isinstance(tokenizer_id, str) or not tokenizer_id:
+        raise ValueError("BALANCED64 tokenizer must declare a non-empty tokenizer_id")
+
+    rows: list[dict[str, Any]] = []
+    for window in lock["windows"]:
+        item = by_window.get(window["window_id"])
+        if item is None:
+            raise ValueError(f"raw source missing frozen window_id={window['window_id']}")
+        if item["source_class"] != window["source_class"]:
+            raise ValueError(f"raw-source class drift: window_id={window['window_id']}")
+        encoded = selected_tokenizer.encode(item["text"])
+        token_ids = list(encoded.ids) if hasattr(encoded, "ids") else list(encoded)
+        if len(token_ids) < POSITIONS_PER_WINDOW + 1 or any(
+            isinstance(token, bool) or not isinstance(token, int) or token < 0
+            for token in token_ids
+        ):
+            raise ValueError(
+                f"model tokenization cannot supply 1024 next-token positions: window_id={window['window_id']}"
+            )
+        rows.append(
+            {
+                **window,
+                "item_id": item["item_id"],
+                "text_sha256": item["text_sha256"],
+                "token_count": len(token_ids),
+                "token_ids": token_ids,
+            }
+        )
+
+    ledger = {
+        "schema": "banana-smasher.balanced64-token-ledger.v1",
+        "window_population_sha256": lock["window_population_sha256"],
+        "source_provenance_sha256": provenance,
+        "item_roster_sha256": roster_sha256,
+        "model_index_sha256": source["model_index_sha256"],
+        "revision": revision,
+        "tokenizer": {"id": tokenizer_id},
+        "positions_per_window": POSITIONS_PER_WINDOW,
+        "rows": rows,
+    }
+    _atomic_json(destination, ledger)
+    ledger_sha256 = _sha256(destination)
+    bound_lock = dict(lock)
+    bound_lock.pop("suite_lock_sha256", None)
+    bound_lock["historical_source_windows_sha256"] = lock["source_windows_sha256"]
+    bound_lock["source_windows_sha256"] = ledger_sha256
+    bound_lock["token_ledger"] = {
+        "schema": ledger["schema"],
+        "sha256": ledger_sha256,
+        "model_index_sha256": source["model_index_sha256"],
+        "tokenizer_id": tokenizer_id,
+        "row_count": len(rows),
+    }
+    bound_lock["suite_lock_sha256"] = _canonical_sha256(bound_lock)
+    _atomic_json(bound_lock_destination, bound_lock)
+    receipt = {
+        "schema": "banana-smasher-balanced64-token-ledger-receipt-v1",
+        "status": "PASS",
+        "api": {"method": "build_balanced64_token_ledger", "version": 1},
+        "input_suite_lock_sha256": lock["suite_lock_sha256"],
+        "bound_suite_lock_path": str(bound_lock_destination),
+        "bound_suite_lock_sha256": bound_lock["suite_lock_sha256"],
+        "window_population_sha256": lock["window_population_sha256"],
+        "source_provenance_sha256": provenance,
+        "item_roster_sha256": roster_sha256,
+        "model_index_sha256": source["model_index_sha256"],
+        "revision": revision,
+        "tokenizer": {"id": tokenizer_id},
+        "row_count": len(rows),
+        "positions": len(rows) * POSITIONS_PER_WINDOW,
+        "ledger_path": str(destination),
+        "ledger_bytes": destination.stat().st_size,
+        "ledger_sha256": ledger_sha256,
+    }
+    _atomic_json(receipt_destination, receipt)
+    return receipt
 
 
 def capture_balanced64_teacher(
