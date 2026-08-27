@@ -69,7 +69,7 @@ smash backpack status --run-root ./backpack-run
 smash verify ./backpack-run/pre-repair-pack
 ```
 
-### Sparse mixed Q2/Q3 inventories at an exact model size
+### Sparse mixed Q2/Q3 inventories under a model-size budget
 
 `smash backpack solve-mixed` is the config-driven allocation seam for a
 partially available QTIP3 inventory. It consumes the sealed per-candidate rows
@@ -98,7 +98,8 @@ QTIP2 fallback must exist for every cell. Decimal GB is explicit: 102 GB is
   "dimensions": {
     "sources": [
       {"path": "./PARTIAL_DIMENSIONS.jsonl", "sha256": "PARTIAL_SHA256"},
-      {"locator_path": "./FINAL_DIMENSIONS_LOCATOR.json"}
+      {"locator_path": "./FINAL_DIMENSIONS_LOCATOR.json"},
+      {"locator_path": "./QTIP3_PHYSICAL_LOCATOR.json"}
     ]
   },
   "class_caps": {
@@ -132,13 +133,24 @@ option. The class-neutral scalar is used identically by all six balancing
 lanes and this policy is recorded in the option authority; no projection or
 class-specific value is inferred.
 
+A physical locator uses schema
+`banana-smasher-mixed-backpack-physical-locator-v1` and binds a complete
+`physical_manifest` descriptor. When that manifest uses schema
+`banana-smasher-mixed-backpack-physical-members-v1`, each member binds one
+`Lxxx.Exxx.{down,fused13}` plus tier to a host, path, byte count, and SHA-256.
+The solve filters this reusable full inventory by the chosen assignment and
+seals the hash-bound subset as `SELECTED_PHYSICAL_MEMBERS.json`; no canary path
+or unselected member is promoted.
+
 `solve-mixed`
 then auto-consumes all locators, refuses if any remains pending or if topology
 lacks QTIP2 fallback, and records every source and locator hash in its receipt.
 
-The output seals `ASSIGNMENT.json`, `identity.json`, and `RECEIPT.json`.
+The output seals `ASSIGNMENT.json`, `identity.json`, `RECEIPT.json`, and (when
+physical member bindings are supplied) `SELECTED_PHYSICAL_MEMBERS.json`.
 `identity.json` records the complete cell assignment, QTIP3 coverage and
-missing layers, and per-layer tier counts. `ASSIGNMENT.json` expands each
+missing layers, per-layer tier counts, and a deterministic relative-path/hash
+descriptor for the selected physical roster. `ASSIGNMENT.json` expands each
 layer/expert choice into the projection-level materialization assignments used
 by the existing loader/contract assembly path. A 96/108/115 GB variant changes only
 `target.whole_model_bytes`; tier policy remains in `allowed_tiers`. The public

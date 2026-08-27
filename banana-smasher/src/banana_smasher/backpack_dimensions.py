@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -397,7 +398,12 @@ def _resolve_mixed_dimension_sources(
     config_path: Path,
     descriptor: object,
     basis: str,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[str],
+    list[dict[str, Any]],
+]:
     if not isinstance(descriptor, dict):
         raise DynamicDimensionsError("dimensions must be an object")
     if set(descriptor) == {"path", "sha256"}:
@@ -414,6 +420,8 @@ def _resolve_mixed_dimension_sources(
     rows: list[dict[str, Any]] = []
     admitted: list[dict[str, Any]] = []
     pending: list[str] = []
+    physical_members: list[dict[str, Any]] = []
+    physical_member_keys: set[tuple[str, str]] = set()
     for index, source in enumerate(raw_sources):
         if not isinstance(source, dict):
             raise DynamicDimensionsError(f"dimensions source {index} must be an object")
@@ -484,6 +492,48 @@ def _resolve_mixed_dimension_sources(
                     raise DynamicDimensionsError(
                         f"physical manifest {index} is not a complete basis-bound inventory"
                     )
+                if manifest.get("schema") == "banana-smasher-mixed-backpack-physical-members-v1":
+                    for member_index, member in enumerate(members):
+                        member_label = f"physical manifest {index} member {member_index}"
+                        if not isinstance(member, dict) or set(member) != {
+                            "cell_id",
+                            "tier",
+                            "artifact",
+                        }:
+                            raise DynamicDimensionsError(
+                                f"{member_label} must contain cell_id, tier, and artifact"
+                            )
+                        cell_id = member["cell_id"]
+                        tier = member["tier"]
+                        artifact = member["artifact"]
+                        if (
+                            not isinstance(cell_id, str)
+                            or not re.fullmatch(
+                                r"L\d{3}\.E\d{3}\.(?:down|fused13)", cell_id
+                            )
+                            or not isinstance(tier, str)
+                            or not tier
+                            or not isinstance(artifact, dict)
+                            or set(artifact) != {"host", "path", "sha256", "bytes"}
+                            or not isinstance(artifact["host"], str)
+                            or not artifact["host"]
+                            or not isinstance(artifact["path"], str)
+                            or not artifact["path"]
+                            or isinstance(artifact["bytes"], bool)
+                            or not isinstance(artifact["bytes"], int)
+                            or artifact["bytes"] <= 0
+                        ):
+                            raise DynamicDimensionsError(f"{member_label} is invalid")
+                        _sha_field(
+                            artifact["sha256"], f"{member_label}.artifact.sha256"
+                        )
+                        key = (cell_id, tier)
+                        if key in physical_member_keys:
+                            raise DynamicDimensionsError(
+                                f"duplicate physical member binding {key!r}"
+                            )
+                        physical_member_keys.add(key)
+                        physical_members.append(dict(member))
                 admitted.append(
                     {
                         "kind": "physical_inventory",
@@ -550,7 +600,7 @@ def _resolve_mixed_dimension_sources(
                 "bytes": len(locator_raw),
             }
         admitted.append(source_receipt)
-    return rows, admitted, pending
+    return rows, admitted, pending, physical_members
 
 
 def preflight_mixed_backpack_config(config: str | Path) -> dict[str, Any]:
@@ -598,7 +648,7 @@ def preflight_mixed_backpack_config(config: str | Path) -> dict[str, Any]:
     ):
         raise DynamicDimensionsError("topology geometry is invalid")
 
-    rows, admitted, pending = _resolve_mixed_dimension_sources(
+    rows, admitted, pending, _physical_members = _resolve_mixed_dimension_sources(
         config_path, value.get("dimensions"), basis
     )
     available: set[tuple[str, str]] = set()
@@ -718,7 +768,7 @@ def solve_mixed_backpack_config(
     if not isinstance(target["exact"], bool):
         raise DynamicDimensionsError("target.exact must be boolean")
 
-    rows, dimension_sources, pending_locators = _resolve_mixed_dimension_sources(
+    rows, dimension_sources, pending_locators, physical_members = _resolve_mixed_dimension_sources(
         config_path, value.get("dimensions"), basis
     )
     if pending_locators:
@@ -891,6 +941,55 @@ def solve_mixed_backpack_config(
         }
         for tier in tiers
     }
+    output_root = Path(output).expanduser().resolve()
+    physical_member_map = {
+        (member["cell_id"], member["tier"]): member for member in physical_members
+    }
+    bound_tiers = {member["tier"] for member in physical_members}
+    selected_projection_keys = {
+        (projection_cell, assignment[cell])
+        for cell in cells
+        for projection_cell in projections_by_cell[cell]
+    }
+    missing_selected_members = sorted(
+        key
+        for key in selected_projection_keys
+        if key[1] in bound_tiers and key not in physical_member_map
+    )
+    if missing_selected_members:
+        raise DynamicDimensionsError(
+            f"missing physical member binding {missing_selected_members[0]!r}"
+        )
+    selected_members = sorted(
+        (
+            member
+            for member in physical_members
+            if (member["cell_id"], member["tier"]) in selected_projection_keys
+        ),
+        key=lambda member: (member["cell_id"], member["tier"]),
+    )
+    selected_member_descriptor: dict[str, Any] | None = None
+    if physical_members:
+        selected_member_document = {
+            "schema": "banana-smasher-mixed-backpack-selected-members-v1",
+            "status": "PRE_REPAIR_SELECTED",
+            "basis_sha256": basis,
+            "assignment_sha256": assignment_sha,
+            "members_expected": len(selected_members),
+            "members_complete": len(selected_members),
+            "gaps": 0,
+            "duplicates": 0,
+            "members": selected_members,
+        }
+        selected_member_raw = _canonical_json(selected_member_document)
+        selected_member_path = output_root / "SELECTED_PHYSICAL_MEMBERS.json"
+        _write_once(selected_member_path, selected_member_raw)
+        selected_member_descriptor = {
+            "path": "SELECTED_PHYSICAL_MEMBERS.json",
+            "sha256": _sha(selected_member_raw),
+            "bytes": len(selected_member_raw),
+            "members": len(selected_members),
+        }
     identity = {
         "schema": "banana-smasher-mixed-backpack-identity-v1",
         "status": "PRE_REPAIR_SOLVED",
@@ -908,6 +1007,8 @@ def solve_mixed_backpack_config(
             ],
         },
     }
+    if selected_member_descriptor is not None:
+        identity["selected_physical_members"] = selected_member_descriptor
     whole_bytes = fixed_bytes + solved["assigned_bytes"]
     byte_accounting = {
         "fixed_nonexpert_bytes": fixed_bytes,
@@ -933,7 +1034,6 @@ def solve_mixed_backpack_config(
         "objective": solved["objective"],
         "solver": solved["solver"],
     }
-    output_root = Path(output).expanduser().resolve()
     assignment_raw = _canonical_json(assignment_document)
     identity_raw = _canonical_json(identity)
     _write_once(output_root / "ASSIGNMENT.json", assignment_raw)
@@ -962,6 +1062,8 @@ def solve_mixed_backpack_config(
         "coverage": coverage,
         "byte_accounting": byte_accounting,
     }
+    if selected_member_descriptor is not None:
+        receipt["selected_physical_members"] = selected_member_descriptor
     receipt_raw = _canonical_json(receipt)
     _write_once(output_root / "RECEIPT.json", receipt_raw)
     return {
