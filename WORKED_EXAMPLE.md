@@ -11,10 +11,12 @@ caller does not provide model-family code or a routed layer roster.
 ```python
 from banana_smasher import (
     ResidentRepairAPI,
+    capture_balanced64_teacher,
     estimate_hf_moe_uniform,
     open_hf_moe_uniform,
     plan_hf_moe_uniform,
     preflight_hf_moe_output_fit,
+    score_balanced64_pre,
 )
 
 plan = plan_hf_moe_uniform(
@@ -55,7 +57,30 @@ built = ResidentRepairAPI.build_uniform(
 )
 reopened = open_hf_moe_uniform("/local/output-filesystem/uniform-q2")
 assert reopened == built
+
+teacher = capture_balanced64_teacher(
+    "/local/hf-model",
+    revision="<immutable-hf-revision>",
+    suite_lock="Evals/configs/<model>-balanced64-v1.json",
+    corpus="/local/frozen-balanced64.json",
+    output="/local/eval/teacher",
+    receipt_path="/local/eval/TEACHER_CAPTURE.json",
+)
+pre = score_balanced64_pre(
+    "/local/output-filesystem/uniform-q2",
+    teacher_capture=teacher,
+    suite_lock="Evals/configs/<model>-balanced64-v1.json",
+    corpus="/local/frozen-balanced64.json",
+    receipt_path="/local/eval/PRE.json",
+)
 ```
+
+The caller never injects a runtime object or model-family script. The package
+selects exactly one registered `banana_smasher.balanced64_runtimes` capability
+from source config/index semantics for teacher capture and from the admitted
+artifact contract for PRE. Zero or multiple matches fail closed. Teacher capture
+must precede candidate scoring and is bound to the model-specific suite lock; a
+DeepSeek teacher bank or numeric baseline cannot satisfy a GLM lock.
 
 The receipt has `source.model_index_sha256`, `adapter.id`, sorted
 `routed_tensors` and `native_tensors`, exact source bytes and parameters for

@@ -1,0 +1,36 @@
+{
+  "schema": "banana-smasher.glm-balanced64-result.v1",
+  "status": "PENDING_PRE",
+  "model": {
+    "repo_id": "zai-org/GLM-5.3-Flash",
+    "revision": "3f1971b7b5f7a528c9c4ef6212c8785298a8c24a",
+    "architecture": "Glm5NextForConditionalGeneration",
+    "model_type": "glm5_next",
+    "model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05"
+  },
+  "suite_lock_sha256": "dc5e1a78d0b1ae0975d52b89ee6cfbdc7f8d3207784fe0d7fd5afd3abe844846",
+  "window_population_sha256": "24089eea1b3e5650265b971930571dbf249aba0b2f62e954a9628dcbfd182f09",
+  "teacher_bank": "TEACHER_GLM_5_3_FLASH_BALANCED64_V1",
+  "rows": [
+    {
+      "quant": "QTIP2 routed-only + exact native rest (PRE)",
+      "status": "PENDING_PRE",
+      "rows_sealed": 0,
+      "rows_required": 64,
+      "positions": null,
+      "support": 8192,
+      "top1_matches": null,
+      "top1_denominator": 65536,
+      "kld": null,
+      "exact_accounting_bytes": null,
+      "exact_accounting_gb_decimal": null,
+      "payload_scope": "routed experts Q2; every non-routed tensor exact native bytes",
+      "comparison_bpw": null,
+      "comparison_parameter_denominator": null,
+      "fp_basis": "GLM-5.3-Flash native FP8 e4m3 own-base teacher",
+      "artifact_receipt_sha256": null,
+      "teacher_capture_sha256": null,
+      "pre_terminal_sha256": null
+    }
+  ]
+}
