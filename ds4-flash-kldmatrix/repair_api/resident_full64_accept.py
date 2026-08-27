@@ -1017,7 +1017,7 @@ def _authenticated_l000_internal_bisect(
         first = next((name for name in order if not comparisons[name]["exact"]), None)
         local.update(boundaries=records, comparisons=comparisons,
                      first_unequal_boundary=first)
-    gathered: list[Any] = [None, None]
+    gathered: list[Any] = [None] * torch.distributed.get_world_size()
     torch.distributed.all_gather_object(gathered, local)
     receipt = {
         "schema": "banana-smasher-authenticated-l000-internal-bisect-v1",
@@ -2926,7 +2926,16 @@ def main() -> None:
             backend="nccl", init_method="env://",
             timeout=timedelta(seconds=transport_timeout_seconds),
         )
-    if torch.distributed.get_world_size() != 2 or torch.distributed.get_rank() != rank:
+    l000_single_rank = (
+        os.environ.get("AUTHENTICATED_L000_SINGLE_RANK_ONLY", "0") == "1"
+        and os.environ.get("AUTHENTICATED_L000_INTERNAL_ONLY", "0") == "1"
+        and rank == 0
+    )
+    expected_world_size = 1 if l000_single_rank else 2
+    if (
+        torch.distributed.get_world_size() != expected_world_size
+        or torch.distributed.get_rank() != rank
+    ):
         raise RuntimeError("DIST_GEOMETRY_MISMATCH")
 
     process_started = time.perf_counter()
