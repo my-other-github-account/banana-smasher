@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from banana_smasher.backpack_dimensions import (
+    DynamicDimensionsError,
     preflight_mixed_backpack_config,
     solve_mixed_backpack_config,
 )
@@ -484,3 +485,94 @@ def test_preflight_and_solve_consume_explicit_expert_sensitivity_rows(
         "L000.E000": "qtip3",
         "L001.E000": "qtip2",
     }
+
+
+def test_solve_emits_hash_bound_selected_physical_members(tmp_path: Path) -> None:
+    dimensions = tmp_path / "dimensions.jsonl"
+    _dimension_rows(dimensions)
+    physical = tmp_path / "qtip3-physical.json"
+    members = [
+        {
+            "cell_id": f"L000.E000.{projection}",
+            "tier": "qtip3",
+            "artifact": {
+                "host": "spark-7",
+                "path": f"/sealed/L000/E000_{projection}/codes.npy",
+                "sha256": digit * 64,
+                "bytes": 11,
+            },
+        }
+        for projection, digit in (("down", "1"), ("fused13", "2"))
+    ]
+    _write_json(
+        physical,
+        {
+            "schema": "banana-smasher-mixed-backpack-physical-members-v1",
+            "status": "SEALED",
+            "basis_sha256": BASIS,
+            "members_expected": 2,
+            "members_complete": 2,
+            "gaps": 0,
+            "duplicates": 0,
+            "members": members,
+        },
+    )
+    locator = tmp_path / "qtip3-locator.json"
+    _write_json(
+        locator,
+        {
+            "schema": "banana-smasher-mixed-backpack-physical-locator-v1",
+            "status": "SEALED",
+            "basis_sha256": BASIS,
+            "physical_manifest": {
+                "path": physical.name,
+                "sha256": hashlib.sha256(physical.read_bytes()).hexdigest(),
+            },
+        },
+    )
+    config = _config(tmp_path, target=13)
+    value = json.loads(config.read_text())
+    value["dimensions"] = {
+        "sources": [
+            {
+                "path": dimensions.name,
+                "sha256": hashlib.sha256(dimensions.read_bytes()).hexdigest(),
+            },
+            {"locator_path": locator.name},
+        ]
+    }
+    _write_json(config, value)
+
+    receipt = solve_mixed_backpack_config(config, output=tmp_path / "solve")
+
+    roster_path = tmp_path / "solve/SELECTED_PHYSICAL_MEMBERS.json"
+    roster = json.loads(roster_path.read_text())
+    assert roster["schema"] == "banana-smasher-mixed-backpack-selected-members-v1"
+    assert roster["basis_sha256"] == BASIS
+    assert roster["members_expected"] == 1
+    assert roster["members"] == members[:1]
+    identity = json.loads((tmp_path / "solve/identity.json").read_text())
+    assert identity["selected_physical_members"] == {
+        "path": "SELECTED_PHYSICAL_MEMBERS.json",
+        "sha256": hashlib.sha256(roster_path.read_bytes()).hexdigest(),
+        "bytes": len(roster_path.read_bytes()),
+        "members": 1,
+    }
+    assert receipt["selected_physical_members"] == identity["selected_physical_members"]
+
+    incomplete = json.loads(physical.read_text())
+    incomplete["members"] = members[1:]
+    incomplete["members_expected"] = 1
+    incomplete["members_complete"] = 1
+    _write_json(physical, incomplete)
+    locator_value = json.loads(locator.read_text())
+    locator_value["physical_manifest"]["sha256"] = hashlib.sha256(
+        physical.read_bytes()
+    ).hexdigest()
+    _write_json(locator, locator_value)
+
+    with pytest.raises(
+        DynamicDimensionsError,
+        match=r"missing physical member binding .*down.*qtip3",
+    ):
+        solve_mixed_backpack_config(config, output=tmp_path / "incomplete-solve")
