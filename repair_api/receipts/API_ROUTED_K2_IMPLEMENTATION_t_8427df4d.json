@@ -1,0 +1,61 @@
+{
+  "schema": "banana-smasher.public-routed-k2-api-implementation.v1",
+  "status": "PASS",
+  "task_id": "t_8427df4d",
+  "public_method": "ResidentRepairAPI.score_routed_k2",
+  "api_version": "official-k2-routed-resident-v1",
+  "route_kind": "routed_k2_official_k2_l034_selected_wire_v1",
+  "scope": "API_ONLY_NO_GPU_RUN_NO_REMOTE_MUTATION",
+  "canonical_route_quarantine": {
+    "resident_api_score_rejects_alternate_pre": true,
+    "alternate_pre_checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+    "policy": "quarantine-only"
+  },
+  "sealed_routed_k2_closure": {
+    "source_task": "t_36e9ce8e",
+    "manifest_sha256": "51f62c7c63d49da6115e139dda37728cc75215abcd02360bbe5b2cb5e4341f49",
+    "package_root": "/home/dnola/missions/ROUTED_K2_VALIDATION_PACKAGE_t_36e9ce8e_L034_SELECTED_WIRE_v1",
+    "package_identity_sha256": "3ea2d829b003c0d8c3fcae300e0ac70447d34e7dc784c378cd12900597605ffc",
+    "selected_binding_sha256": "418c1cd803413fb0cfad3ae93eae6ac93095de00e106114a64c6b5f7983286a5",
+    "selected_roster_sha256": "cea2d8aa9cf8ba8dde0d4b699acc24295a03d0ab0dddae1950e20f4b0e8e269e",
+    "official_source_package": "/home/dnola/missions/ROUTED_K2_VALIDATION_PACKAGE_t_cf7ed633_v5",
+    "official_class_sha256": "7687e39fc5b6bb34b30e8d4a79771affb472497f4d2f323adbe1e8e277746729",
+    "basis_model_index_sha256": "98efab455cf08dfbbaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "pre_checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+    "post_checkpoint_sha256": "23cbc9f5fcc79117f70a45c404ee15a576cf4ad62f8a6332107f3c2ca85a5819",
+    "windows": 64,
+    "positions_per_window": 1024,
+    "support": 8192
+  },
+  "implementation": {
+    "changed_files": {
+      "repair_api/api.py": "a77746a5041f09d352d65d74aafcacb1fcbd80217ec416f098e789f7948dbac1",
+      "repair_api/official_k2_resident_score.py": "9b05a23a18469548f76fb8dbd4091878b67f6035e39cce6d54ef4d8e4495b7ad",
+      "repair_api/tests/test_official_k2_resident_score.py": "ae315b1d2fee9a75f63fc7190656398e21589f6044ff927a8c1e30f0b5c54bd7",
+      "repair_api/__init__.py": "d55216eb64f8d50f8656fa939a44ac472556879b854ba3d28ddf9f341850bd8f"
+    },
+    "resident_contract": {
+      "two_rank_resident_ready_required": true,
+      "timed_model_payload_reads": 0,
+      "fallback_calls": 0,
+      "reconstruction_calls": 0,
+      "reference_fwht_calls": 0,
+      "cpu_relay_bytes": 0,
+      "exact_positions_per_checkpoint": 65536
+    }
+  },
+  "verification": {
+    "focused_command": "python -m unittest repair_api.tests.test_official_k2_resident_score -v",
+    "focused_result": "12 tests OK",
+    "focused_log": "repair_api/receipts/VERIFY_ROUTED_K2_FOCUSED_20260818.log",
+    "focused_log_sha256": "4bdce6873ab25303440937ae02885654a78bd519beb404bf216145aed781597f",
+    "full_command": "python -m unittest discover -s repair_api/tests -v",
+    "full_result": "36 tests OK",
+    "full_log": "repair_api/receipts/VERIFY_ROUTED_K2_FULL_20260818.log",
+    "full_log_sha256": "dede2bdc28c7d6eaf6e9c280f3b0fcbf6f7be65213d7488e2137df319d506e43",
+    "compile_command": "python -m compileall -q repair_api",
+    "compile_result": "PASS"
+  },
+  "exact_next_use_invocation_for_t_52167282": "from repair_api import ResidentRepairAPI, ROUTED_K2_CLOSURE, ROUTED_K2_ROUTE_KIND\napi = ResidentRepairAPI.open(ARTIFACT_ROOT)\nmanifest = api.artifact.manifest\npre = next(key for key, meta in manifest['checkpoints'].items() if meta.get('sha256') == ROUTED_K2_CLOSURE['pre_checkpoint_sha256'])\npost = next(key for key, meta in manifest['checkpoints'].items() if meta.get('sha256') == ROUTED_K2_CLOSURE['post_checkpoint_sha256'])\nconfig = manifest['score']['official_k2_resident']\nroute = {**ROUTED_K2_CLOSURE, 'route_kind': ROUTED_K2_ROUTE_KIND, 'pre_checkpoint_identity_sha256': manifest['checkpoints'][pre]['identity_sha256'], 'post_checkpoint_identity_sha256': manifest['checkpoints'][post]['identity_sha256'], 'post_parent_checkpoint_sha256': manifest['checkpoints'][post].get('parent_sha256') or manifest['checkpoints'][post].get('parent_checkpoint_sha256'), 'teacher_manifest_sha256': config['teacher_manifest_sha256'], 'corpus_manifest_sha256': config['corpus_manifest_sha256'], 'window_manifest_sha256': config['window_manifest_sha256']}\nresult = api.score_routed_k2(pre, post, route=route, windows=api.windows, receipt_path='repair_api/receipts/ROUTED_K2_PRE_POST_t_52167282.json')",
+  "successor": "t_52167282 may now resume its API-only routed-K2 PRE->UPDATE_001 physical score after fresh two-Spark allocation and exact host claims; this implementation receipt does not claim GPU scoring or numeric physical quality."
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "banana-smasher.official-k2-resident-scoring-fail-closed-v1",
+  "task_id": "t_1d62fc5e",
+  "kanban_run_id": 4442,
+  "status": "FAIL_CLOSED_PRE_SCORE_IMPLEMENTATION_PROVENANCE_MISMATCH",
+  "successful_release_emitted": false,
+  "host_claim_attempted": false,
+  "model_loaded": false,
+  "payload_loaded": false,
+  "scoring_invoked": false,
+  "handoff": {
+    "path": "repair_api/receipts/OFFICIAL_K2_RESIDENT_IMPLEMENTATION_VERIFICATION_20260818.json",
+    "sha256": "471e41f9cdbb3a553d6f0df60d0e48f9c22e9ba23d4e206e276ce9f1c2a17a15"
+  },
+  "implementation_identity_gate": {
+    "status": "FAIL",
+    "matches": {
+      "repair_api/balanced64.py": "59b880df05d91082cbe80cd657222fa9d9a0daefd7f5c3cd5823a6c64d7a9853",
+      "repair_api/production_score_guard.py": "41f0b05f0611212d3ccea0be4a4320b41266cf093c05a071f34437297df18176"
+    },
+    "mismatches": {
+      "repair_api/api.py": {
+        "required_sha256": "a279957001146cee54997ca05554c049852a0a54c32d3cc94b23f070b347c5e9",
+        "observed_sha256": "5802a1b66d0e389977a74fdb3479ba97a71a9fecc25f7293d665abf53183c2e4"
+      },
+      "repair_api/official_k2_resident_score.py": {
+        "required_sha256": "9fff2a251c69b183d0fa70595bf43657e027ed8a8717352a8670a309a879cdf3",
+        "observed_sha256": "590e411f7981e7f2fdd4e243eddc22e81e1a2e805ab683f726d18f2487badc10"
+      },
+      "repair_api/tests/test_official_k2_resident_score.py": {
+        "required_sha256": "a4192778ffa40f6bcbab46cdf9d108b74721c034b83d6f9e5ce0dd3cb93c5471",
+        "observed_sha256": "77199a472951072c304f754ff02276c148c5498ba244f15bd067987ca24e907c"
+      }
+    }
+  },
+  "additional_handoff_contract_gaps": {
+    "api_version_present": false,
+    "verified_release_format_present": false,
+    "authenticated_source_closure_path_present": false,
+    "gpu_run_performed": false,
+    "source_handoff_receipt_sha256": "b5bd6dad34f54c2b07cf2a1c8e7dcf445f6aa862d0ee869065ed15dafa59e543"
+  },
+  "required_successor_step": "Publish a new sealed handoff binding the current implementation hashes, exact API version, verified release schema, and authenticated source closure; or restore the exact implementation provenance named by the existing handoff and provide the missing closure/version/release contract."
+}
