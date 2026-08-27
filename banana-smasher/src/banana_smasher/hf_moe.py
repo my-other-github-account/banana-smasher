@@ -727,7 +727,7 @@ def build_hf_moe_uniform(
         tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
         routed_rows: list[dict[str, Any]] = []
         native_rows: list[dict[str, Any]] = []
-        max_batch_tensors = 1
+        max_batch_tensors = 10
         routed_batches: list[list[dict[str, Any]]] = []
         open_batch_by_width: dict[int, list[dict[str, Any]]] = {}
         for row in selected_routed:
@@ -840,7 +840,7 @@ def build_hf_moe_uniform(
                 "routed_encode_batches": len(routed_batches),
                 "routed_tensors_batched": len(selected_routed),
                 "max_batch_tensors": max_batch_tensors,
-                "same_width_batching": max_batch_tensors > 1,
+                "same_width_batching": True,
             },
             "accounting": {
                 "routed_tensor_count": len(routed_rows),

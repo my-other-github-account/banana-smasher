@@ -16,7 +16,7 @@ constexpr int PREFIXES = 4096;
 constexpr int STATES = 65536;
 constexpr int BRANCHES = 16;
 constexpr int PREFIX_PAIRS = PREFIXES / 2;
-constexpr int THREADS = 256;
+constexpr int THREADS = 512;
 constexpr size_t SHARED_BYTES = 2 * PREFIXES * sizeof(float);
 
 __device__ __forceinline__ float exact_emission(
