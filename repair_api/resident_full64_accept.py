@@ -2330,14 +2330,14 @@ def main() -> None:
     # their admitted single-window geometry through the existing zero-reload
     # resident API rather than the cold layer-streaming producer.
     bind_sealed_pre_resident_config(config)
-    if int(config.get("score_window_batch_size", 0)) != 1:
+    if int(config.get("score_window_batch_size", 0)) != 2:
         raise RuntimeError("FULL64_REQUIRES_ADMITTED_BATCH_GEOMETRY")
     accepted_w28_geometry = {
-        # PRE_FANIN_TERMINAL was produced by the immutable sealed builder with
-        # one physical window per forward. Keep that context through engine
-        # construction; an mb2 admission is a different measurement rail.
-        "score_window_batch_size": 1,
-        "sealed_builder_window_microbatch": 1,
+        # The immutable accepted producer scored W28 from an intact physical
+        # mb2 forward. Preserve that context while keeping the public roster
+        # singleton; mb1 changes the first model tensor before scoring.
+        "score_window_batch_size": 2,
+        "sealed_builder_window_microbatch": 2,
     }
     if (
         any(config.get(name) != value for name, value in accepted_w28_geometry.items())
@@ -2506,7 +2506,7 @@ def main() -> None:
         )
         admission_wall = float(admission_row["admission_wall_seconds"])
     else:
-        config["sealed_builder_window_microbatch"] = 1
+        config["sealed_builder_window_microbatch"] = 2
         admission_started = time.perf_counter()
         admission = _score_admission_windows(
             api, engine, (28,), Path(config["validation_teacher_root"])

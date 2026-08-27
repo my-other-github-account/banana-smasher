@@ -195,11 +195,11 @@ def test_production_rebinds_to_sealed_single_window_pre_semantics() -> None:
     body = source[gate:]
     assert "W28_KLD = 0.1364830042977786" in source
     assert "W28_TOP1 = 880" in source
-    assert 'int(config.get("score_window_batch_size", 0)) != 1' in source
-    assert '"score_window_batch_size": 1' in source
-    assert '"sealed_builder_window_microbatch": 1' in source
-    assert 'config["sealed_builder_window_microbatch"] = 1' in source
-    assert 'config["sealed_builder_window_microbatch"] = 2' not in source
+    assert 'int(config.get("score_window_batch_size", 0)) != 2' in source
+    assert '"score_window_batch_size": 2' in source
+    assert '"sealed_builder_window_microbatch": 2' in source
+    assert 'config["sealed_builder_window_microbatch"] = 2' in source
+    assert 'config["sealed_builder_window_microbatch"] = 1' not in source
     assert 'config["score_window_batch_size"] = 1' in body
     assert "engine.score_pipeline_microbatch = 1" in body
     assert 'config["score_pair_stream_concurrency"] = 1' in body
