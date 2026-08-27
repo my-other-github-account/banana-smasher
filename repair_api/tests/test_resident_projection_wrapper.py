@@ -231,6 +231,57 @@ def test_public_projection_wrapper_calls_native_bf16_w2_before_weighting() -> No
     assert native_calls[0][2] is provider.packed_w2
 
 
+def test_historical_provider_adapter_preserves_swiglu_limit() -> None:
+    """The constructor handoff must retain the accepted model clamp operand."""
+    from repair_api.modern_green_resident import _bind_historical_swiglu_limit
+
+    class HistoricalProvider:
+        def __init__(self, marker=None):
+            self.marker = marker
+
+    adapted = _bind_historical_swiglu_limit(HistoricalProvider)
+    provider = adapted(marker="ok", swiglu_limit=0.75)
+
+    assert provider.marker == "ok"
+    assert provider.limit == 0.75
+
+
+def test_provider_global_projection_clamps_swiglu_operands_before_activation() -> None:
+    """Ordinary provider instances must consume the accepted clamped operands."""
+    config = ResidentRepairAPI.bind_combined_gate_up_projection(
+        {}, provider_expert_sha256=PROVIDER_SHA256
+    )
+
+    def combined_projection(*args):
+        x = args[0]
+        return torch.full_like(x, 2.0), torch.full_like(x, -3.0)
+
+    wrapped_type = _bind_sealed_gate_up_projection_for_test(
+        Immutable942cProjectionProvider,
+        config,
+        combined_projection,
+        native_down_projection=lambda x, *_args: x,
+    )
+    for layer in (0, 1, 42):
+        provider = wrapped_type()
+        provider.L = layer
+        provider.limit = 0.5
+        provider._sealed_aligned_positions = None
+        hidden = torch.ones((1, 1), dtype=torch.bfloat16)
+        assignments = torch.zeros(1, dtype=torch.int64)
+        lut = provider.plane_source.wire_lut()
+        gate = provider._project(
+            "w1", hidden, assignments, provider.packed_w1, lut,
+            provider.su_w1, provider.sv_w1,
+        )
+        up = provider._project(
+            "w3", hidden, assignments, provider.packed_w3, lut,
+            provider.su_w3, provider.sv_w3,
+        )
+        assert torch.equal(gate, torch.full_like(gate, 0.5))
+        assert torch.equal(up, torch.full_like(up, -0.5))
+
+
 def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
     """The repaired W2 path applies identically to every layer instance."""
     config = ResidentRepairAPI.bind_combined_gate_up_projection(
