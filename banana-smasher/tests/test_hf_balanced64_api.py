@@ -192,8 +192,11 @@ def test_glm_suite_lock_and_pending_evals_are_model_local() -> None:
     assert row["comparison_bpw"] is None
 
     worked = (repository / "WORKED_EXAMPLE.md").read_text()
+    assert "source_text = recover_balanced64_source_text(" in worked
+    assert 'source_tokenizer_model="/local/historical-teacher-model"' in worked
+    assert 'historical_token_ledger="/local/historical-balanced64-token-ledger.json"' in worked
     assert "ledger = build_balanced64_token_ledger(" in worked
-    assert 'source_manifest="/local/authenticated-balanced64-source-text.json"' in worked
+    assert 'source_manifest="/local/eval/recovered-balanced64-source-text.json"' in worked
     assert 'bound_suite_lock="/local/eval/model-balanced64-suite-lock.json"' in worked
     assert 'suite_lock="/local/eval/model-balanced64-suite-lock.json"' in worked
     assert 'corpus="/local/eval/model-balanced64-token-ledger.json"' in worked

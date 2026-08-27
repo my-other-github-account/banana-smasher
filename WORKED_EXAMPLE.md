@@ -17,6 +17,7 @@ from banana_smasher import (
     open_hf_moe_uniform,
     plan_hf_moe_uniform,
     preflight_hf_moe_output_fit,
+    recover_balanced64_source_text,
     score_balanced64_pre,
 )
 
@@ -60,11 +61,20 @@ reopened = open_hf_moe_uniform("/local/output-filesystem/uniform-q2")
 assert reopened == built
 assert reopened["artifact_root"] == "/local/output-filesystem/uniform-q2"
 
+source_text = recover_balanced64_source_text(
+    historical_token_ledger="/local/historical-balanced64-token-ledger.json",
+    suite_lock="Evals/configs/<model>-balanced64-v1.json",
+    source_tokenizer_model="/local/historical-teacher-model",
+    output="/local/eval/recovered-balanced64-source-text.json",
+    receipt_path="/local/eval/SOURCE_TEXT_RECOVERY.json",
+)
+assert source_text["roundtrip_verified_rows"] == 64
+
 ledger = build_balanced64_token_ledger(
     "/local/hf-model",
     revision="<immutable-hf-revision>",
     suite_lock="Evals/configs/<model>-balanced64-v1.json",
-    source_manifest="/local/authenticated-balanced64-source-text.json",
+    source_manifest="/local/eval/recovered-balanced64-source-text.json",
     output="/local/eval/model-balanced64-token-ledger.json",
     bound_suite_lock="/local/eval/model-balanced64-suite-lock.json",
     receipt_path="/local/eval/TOKEN_LEDGER.json",
@@ -102,13 +112,18 @@ pre = score_balanced64_pre(
 ```
 
 The caller never injects a runtime object or model-family script. A historical
-model's integer token IDs are not portable to a different tokenizer. The token-
-ledger builder therefore accepts only authenticated raw source text with stable
-item/window IDs and per-item text hashes; it rejects any source row that supplies
-historical `token_ids`. It binds the selected model index and tokenizer identity,
-writes the model-specific token ledger, and derives a suite lock whose
-`source_windows_sha256` is that ledger's exact SHA-256. Teacher capture and PRE
-must use that derived lock and ledger together.
+model's integer token IDs are not portable to a different tokenizer. When the
+authenticated historical corpus has no raw-text fields,
+`recover_balanced64_source_text` first requires its exact file SHA to match the
+suite lock, decodes each selected window with the historical source tokenizer,
+and re-encodes it. Any token-ID or ordering mismatch is RED. The resulting
+source-text manifest and recovery receipt bind the original ledger SHA, source
+tokenizer SHA identity, frozen item/window/class roster, and per-item text SHA.
+This is deterministic exact-round-trip recovery, not detokenization inference.
+The token-ledger builder then accepts that authenticated text, binds the selected
+model index and tokenizer identity, writes the model-specific token ledger, and
+derives a suite lock whose `source_windows_sha256` is that ledger's exact SHA-256.
+Teacher capture and PRE must use that derived lock and ledger together.
 
 The package selects exactly one registered
 `banana_smasher.balanced64_runtimes` capability from source config/index

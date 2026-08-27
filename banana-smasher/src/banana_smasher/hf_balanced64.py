@@ -35,6 +35,8 @@ class Balanced64Tokenizer(Protocol):
 
     def encode(self, text: str) -> Any: ...
 
+    def decode(self, token_ids: list[int]) -> str: ...
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -165,6 +167,172 @@ class _TokenizerJsonAdapter:
 
     def encode(self, text: str) -> list[int]:
         return list(self._tokenizer.encode(text, add_special_tokens=False).ids)
+
+    def decode(self, token_ids: list[int]) -> str:
+        return self._tokenizer.decode(token_ids, skip_special_tokens=False)
+
+
+def _historical_rows(value: Any) -> list[Mapping[str, Any]]:
+    rows = value if isinstance(value, list) else value.get("rows") if isinstance(value, Mapping) else None
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("historical BALANCED64 token ledger must contain a non-empty row list")
+    if any(not isinstance(row, Mapping) for row in rows):
+        raise ValueError("historical BALANCED64 token-ledger rows must be objects")
+    return rows
+
+
+def _historical_window_id(row: Mapping[str, Any]) -> int:
+    fields = [field for field in ("window_id", "id_gold") if field in row]
+    if not fields:
+        raise ValueError("missing historical window identity (expected window_id or id_gold)")
+    if len(fields) != 1:
+        raise ValueError(f"ambiguous historical window identity: fields={fields}")
+    value = row[fields[0]]
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"invalid historical window identity: field={fields[0]} value={value!r}")
+    return value
+
+
+def _historical_item_id(row: Mapping[str, Any], *, window_id: int) -> str:
+    for field in ("item_id", "id_ds4", "name"):
+        if field not in row:
+            continue
+        value = row[field]
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            raise ValueError(f"invalid historical item identity: window_id={window_id} field={field}")
+        rendered = str(value)
+        if rendered:
+            return rendered
+    raise ValueError(f"missing historical item identity: window_id={window_id}")
+
+
+def recover_balanced64_source_text(
+    historical_token_ledger: str | Path,
+    *,
+    suite_lock: Mapping[str, Any] | str | Path,
+    output: str | Path,
+    receipt_path: str | Path,
+    source_tokenizer_model: str | Path | None = None,
+    tokenizer: Balanced64Tokenizer | None = None,
+) -> dict[str, Any]:
+    """Recover source text only when its authenticated tokenizer round-trips exactly."""
+
+    lock = _suite_lock(suite_lock)
+    historical_path = Path(historical_token_ledger).expanduser().resolve()
+    historical_sha256 = _sha256(historical_path)
+    if historical_sha256 != lock.get("source_windows_sha256"):
+        raise ValueError(
+            "historical BALANCED64 token-ledger SHA does not match the suite lock: "
+            f"expected={lock.get('source_windows_sha256')} actual={historical_sha256}"
+        )
+    try:
+        historical = json.loads(historical_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            f"historical BALANCED64 token ledger is not readable JSON: {historical_path}"
+        ) from exc
+    rows = _historical_rows(historical)
+    destination = Path(output).expanduser().resolve()
+    receipt_destination = Path(receipt_path).expanduser().resolve()
+    for label, path in (("source-text manifest", destination), ("recovery receipt", receipt_destination)):
+        if path.exists():
+            raise FileExistsError(f"BALANCED64 {label} already exists: {path}")
+
+    if tokenizer is not None and source_tokenizer_model is not None:
+        raise ValueError("supply either source_tokenizer_model or tokenizer, not both")
+    if tokenizer is None:
+        if source_tokenizer_model is None:
+            raise ValueError("source_tokenizer_model is required when tokenizer is not supplied")
+        tokenizer = _TokenizerJsonAdapter(Path(source_tokenizer_model).expanduser().resolve())
+    tokenizer_id = getattr(tokenizer, "tokenizer_id", None)
+    if not isinstance(tokenizer_id, str) or not tokenizer_id:
+        raise ValueError("BALANCED64 source tokenizer must declare a non-empty tokenizer_id")
+    decoder = getattr(tokenizer, "decode", None)
+    if not callable(decoder):
+        raise ValueError("BALANCED64 source tokenizer must provide decode(token_ids)")
+
+    by_window: dict[int, Mapping[str, Any]] = {}
+    for row in rows:
+        window_id = _historical_window_id(row)
+        if window_id in by_window:
+            raise ValueError(f"duplicate historical BALANCED64 window_id: {window_id}")
+        by_window[window_id] = row
+
+    items: list[dict[str, Any]] = []
+    descriptors: list[dict[str, Any]] = []
+    for window in lock["windows"]:
+        window_id = window["window_id"]
+        row = by_window.get(window_id)
+        if row is None:
+            raise ValueError(f"historical token ledger missing frozen window_id={window_id}")
+        raw_token_ids = row.get("token_ids")
+        if not isinstance(raw_token_ids, list) or not raw_token_ids or any(
+            isinstance(token, bool) or not isinstance(token, int) or token < 0
+            for token in raw_token_ids
+        ):
+            raise ValueError(f"invalid historical token_ids: window_id={window_id}")
+        real_len = row.get("real_len", len(raw_token_ids))
+        if (
+            isinstance(real_len, bool)
+            or not isinstance(real_len, int)
+            or real_len < POSITIONS_PER_WINDOW + 1
+            or real_len > len(raw_token_ids)
+        ):
+            raise ValueError(f"invalid historical real_len: window_id={window_id}")
+        token_ids = raw_token_ids[:real_len]
+        text = decoder(token_ids)
+        if not isinstance(text, str):
+            raise ValueError(f"source tokenizer decode did not return text: window_id={window_id}")
+        encoded = tokenizer.encode(text)
+        recovered_ids = list(encoded.ids) if hasattr(encoded, "ids") else list(encoded)
+        if recovered_ids != token_ids:
+            raise ValueError(f"tokenizer round-trip mismatch: window_id={window_id}")
+        item = {
+            "item_id": _historical_item_id(row, window_id=window_id),
+            "window_id": window_id,
+            "source_class": window["source_class"],
+            "text": text,
+            "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        }
+        items.append(item)
+        descriptors.append(
+            {
+                "item_id": item["item_id"],
+                "window_id": window_id,
+                "source_class": item["source_class"],
+                "text_sha256": item["text_sha256"],
+            }
+        )
+
+    manifest = {
+        "schema": "banana-smasher.balanced64-source-text.v1",
+        "source_provenance_sha256": lock["source_provenance_sha256"],
+        "item_roster_sha256": _canonical_sha256(descriptors),
+        "historical_token_ledger": {
+            "sha256": historical_sha256,
+            "source_tokenizer_id": tokenizer_id,
+        },
+        "items": items,
+    }
+    _atomic_json(destination, manifest)
+    receipt = {
+        "schema": "banana-smasher-balanced64-source-text-recovery-receipt-v1",
+        "status": "PASS",
+        "api": {"method": "recover_balanced64_source_text", "version": 1},
+        "suite_lock_sha256": lock["suite_lock_sha256"],
+        "source_provenance_sha256": lock["source_provenance_sha256"],
+        "historical_token_ledger_path": str(historical_path),
+        "historical_token_ledger_sha256": historical_sha256,
+        "source_tokenizer": {"id": tokenizer_id},
+        "row_count": len(items),
+        "roundtrip_verified_rows": len(items),
+        "item_roster_sha256": manifest["item_roster_sha256"],
+        "manifest_path": str(destination),
+        "manifest_bytes": destination.stat().st_size,
+        "manifest_sha256": _sha256(destination),
+    }
+    _atomic_json(receipt_destination, receipt)
+    return receipt
 
 
 def build_balanced64_token_ledger(

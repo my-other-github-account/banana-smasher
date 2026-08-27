@@ -34,6 +34,7 @@ from .hf_balanced64 import (
     Balanced64Tokenizer,
     build_balanced64_token_ledger,
     capture_balanced64_teacher,
+    recover_balanced64_source_text,
     score_balanced64_pre,
 )
 from .production_rails import ProductionRails, ProductionRailsError
@@ -262,6 +263,7 @@ __all__ = [
     "Balanced64Tokenizer",
     "build_balanced64_token_ledger",
     "capture_balanced64_teacher",
+    "recover_balanced64_source_text",
     "score_balanced64_pre",
     "UpdateQueue",
     "aggregate_scores",

@@ -34,6 +34,9 @@ class _Tokenizer:
     def encode(self, text: str) -> list[int]:
         return [ord(character) for character in text]
 
+    def decode(self, token_ids: list[int]) -> str:
+        return "".join(chr(token) for token in token_ids)
+
 
 def _inputs(tmp_path: Path) -> tuple[Path, dict[str, object], str]:
     items = [
@@ -160,4 +163,146 @@ def test_token_ledger_refuses_pretokenized_or_tampered_source(tmp_path: Path) ->
             bound_suite_lock=tmp_path / "bound-suite-lock.json",
             receipt_path=tmp_path / "receipt.json",
             tokenizer=_Tokenizer(),
+        )
+
+
+def test_recover_source_text_requires_exact_tokenizer_round_trip(tmp_path: Path) -> None:
+    from banana_smasher import recover_balanced64_source_text
+
+    _, lock, provenance = _inputs(tmp_path)
+    historical_path = tmp_path / "historical-token-ledger.json"
+    historical_path.write_text(
+        json.dumps(
+            {
+                "rows": [
+                    {
+                        "id_ds4": f"source-{index}",
+                        "id_gold": 1000 + index,
+                        "name": f"fixture-{index}",
+                        "real_len": 1025,
+                        "token_ids": [0x1000 + index] * 1025,
+                    }
+                    for index in range(64)
+                ]
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    lock["source_windows_sha256"] = _sha(historical_path)
+    lock["suite_lock_sha256"] = _canonical_sha(lock)
+
+    receipt = recover_balanced64_source_text(
+        historical_path,
+        suite_lock=lock,
+        output=tmp_path / "recovered-source-text.json",
+        receipt_path=tmp_path / "SOURCE_TEXT_RECOVERY.json",
+        tokenizer=_Tokenizer(),
+    )
+
+    manifest_path = tmp_path / "recovered-source-text.json"
+    manifest = json.loads(manifest_path.read_text())
+    assert receipt["status"] == "PASS"
+    assert receipt["api"] == {
+        "method": "recover_balanced64_source_text",
+        "version": 1,
+    }
+    assert receipt["historical_token_ledger_sha256"] == _sha(historical_path)
+    assert receipt["source_tokenizer"] == {"id": "fixture-tokenizer-v1"}
+    assert receipt["suite_lock_sha256"] == lock["suite_lock_sha256"]
+    assert receipt["source_provenance_sha256"] == provenance
+    assert receipt["row_count"] == 64
+    assert receipt["roundtrip_verified_rows"] == 64
+    assert receipt["manifest_sha256"] == _sha(manifest_path)
+    assert manifest["schema"] == "banana-smasher.balanced64-source-text.v1"
+    assert manifest["historical_token_ledger"] == {
+        "sha256": _sha(historical_path),
+        "source_tokenizer_id": "fixture-tokenizer-v1",
+    }
+    assert [item["window_id"] for item in manifest["items"]] == list(range(1000, 1064))
+    assert manifest["items"][0]["item_id"] == "source-0"
+    assert manifest["items"][0]["source_class"] == "fixture"
+    assert manifest["items"][0]["text"] == chr(0x1000) * 1025
+    assert manifest["items"][0]["text_sha256"] == hashlib.sha256(
+        (chr(0x1000) * 1025).encode()
+    ).hexdigest()
+    assert manifest["item_roster_sha256"] == _canonical_sha(
+        [
+            {
+                "item_id": item["item_id"],
+                "window_id": item["window_id"],
+                "source_class": item["source_class"],
+                "text_sha256": item["text_sha256"],
+            }
+            for item in manifest["items"]
+        ]
+    )
+    assert json.loads((tmp_path / "SOURCE_TEXT_RECOVERY.json").read_text()) == receipt
+
+
+def test_recover_source_text_refuses_non_roundtripping_or_ambiguous_rows(
+    tmp_path: Path,
+) -> None:
+    from banana_smasher import recover_balanced64_source_text
+
+    _, lock, _ = _inputs(tmp_path)
+    historical_path = tmp_path / "historical-token-ledger.json"
+    rows = [
+        {
+            "window_id": 1000 + index,
+            "item_id": f"source-{index}",
+            "id_gold": 1000 + index,
+            "token_ids": [0x1000 + index] * 1025,
+        }
+        for index in range(64)
+    ]
+    historical_path.write_text(json.dumps({"rows": rows}, sort_keys=True) + "\n")
+    lock["source_windows_sha256"] = _sha(historical_path)
+    lock["suite_lock_sha256"] = _canonical_sha(lock)
+
+    with pytest.raises(ValueError, match="ambiguous historical window identity"):
+        recover_balanced64_source_text(
+            historical_path,
+            suite_lock=lock,
+            output=tmp_path / "ambiguous.json",
+            receipt_path=tmp_path / "ambiguous-receipt.json",
+            tokenizer=_Tokenizer(),
+        )
+
+    del rows[0]["window_id"]
+    del rows[0]["id_gold"]
+    historical_path.write_text(json.dumps({"rows": rows}, sort_keys=True) + "\n")
+    lock.pop("suite_lock_sha256")
+    lock["source_windows_sha256"] = _sha(historical_path)
+    lock["suite_lock_sha256"] = _canonical_sha(lock)
+    with pytest.raises(ValueError, match="missing historical window identity"):
+        recover_balanced64_source_text(
+            historical_path,
+            suite_lock=lock,
+            output=tmp_path / "missing.json",
+            receipt_path=tmp_path / "missing-receipt.json",
+            tokenizer=_Tokenizer(),
+        )
+
+    for row in rows:
+        row.pop("window_id", None)
+    rows[0]["id_gold"] = 1000
+
+    class _LossyTokenizer(_Tokenizer):
+        tokenizer_id = "lossy-tokenizer-v1"
+
+        def decode(self, token_ids: list[int]) -> str:
+            return "lossy"
+
+    historical_path.write_text(json.dumps({"rows": rows}, sort_keys=True) + "\n")
+    lock.pop("suite_lock_sha256")
+    lock["source_windows_sha256"] = _sha(historical_path)
+    lock["suite_lock_sha256"] = _canonical_sha(lock)
+    with pytest.raises(ValueError, match="tokenizer round-trip mismatch: window_id=1000"):
+        recover_balanced64_source_text(
+            historical_path,
+            suite_lock=lock,
+            output=tmp_path / "lossy.json",
+            receipt_path=tmp_path / "lossy-receipt.json",
+            tokenizer=_LossyTokenizer(),
         )
