@@ -17,6 +17,8 @@ CANDIDATE_LEDGER_SCHEMAS = frozenset(
     }
 )
 DIMENSION_BINDING_SCHEMA = "banana-smasher-dynamic-backpack-dimension-binding-v1"
+SENSITIVITY_ROW_SCHEMA = "banana-smasher-sensitivity-row-v1"
+SENSITIVITY_TIER_NAMES = {"Q2": "qtip2", "QTIP3_V7": "qtip3"}
 
 
 class DynamicDimensionsError(ValueError):
@@ -110,6 +112,104 @@ def _identity(row: dict[str, Any], label: str) -> tuple[int, int, str, str]:
     if not isinstance(tier, str) or not tier:
         raise DynamicDimensionsError(f"{label} tier must be a non-empty string")
     return layer, expert, projection, tier
+
+
+def _normalize_mixed_source_rows(
+    rows: list[dict[str, Any]], basis: str, label: str
+) -> list[dict[str, Any]]:
+    """Losslessly encode explicit expert sensitivity rows as projection options.
+
+    A sensitivity row prices and sizes one complete expert (down + fused13).
+    The existing mixed solver aggregates projection rows into that same expert
+    choice, so the aggregate bytes and scalar measured damage are carried by
+    the canonical ``down`` row and the companion projection carries zero. This
+    preserves the measured expert option exactly; it does not split or infer a
+    projection-level value. The scalar objective is intentionally identical
+    for all six class lanes because the source authority is class-neutral.
+    """
+
+    normalized: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        if row.get("schema") != SENSITIVITY_ROW_SCHEMA:
+            normalized.append(row)
+            continue
+        row_label = f"{label} sensitivity row {index}"
+        if row.get("basis_sha256") != basis:
+            raise DynamicDimensionsError(f"{row_label} basis mismatch")
+        layer, expert = row.get("layer"), row.get("expert")
+        if (
+            isinstance(layer, bool)
+            or not isinstance(layer, int)
+            or layer < 0
+            or isinstance(expert, bool)
+            or not isinstance(expert, int)
+            or expert < 0
+        ):
+            raise DynamicDimensionsError(f"{row_label} layer/expert geometry is invalid")
+        source_tier = row.get("tier")
+        if not isinstance(source_tier, str):
+            raise DynamicDimensionsError(f"{row_label} tier is unsupported")
+        tier = SENSITIVITY_TIER_NAMES.get(source_tier)
+        if tier is None:
+            raise DynamicDimensionsError(f"{row_label} tier is unsupported")
+        physical_bytes = row.get("bytes")
+        if (
+            isinstance(physical_bytes, bool)
+            or not isinstance(physical_bytes, int)
+            or physical_bytes < 0
+        ):
+            raise DynamicDimensionsError(f"{row_label} bytes is invalid")
+        damage = _finite(
+            row.get("predicted_delta_contribution"),
+            f"{row_label} predicted_delta_contribution",
+            nonnegative=True,
+        )
+        routing_mass = _finite(
+            row.get("routing_mass"), f"{row_label} routing_mass", nonnegative=True
+        )
+        projections = row.get("projection_terms") or row.get("projection_metrics")
+        if routing_mass > 0.0 and (
+            not isinstance(projections, dict)
+            or not {"down", "fused13"}.issubset(projections)
+        ):
+            raise DynamicDimensionsError(
+                f"{row_label} lacks explicit down/fused13 activation evidence"
+            )
+        if routing_mass == 0.0 and row.get("coverage_status") not in {
+            "ZERO_ROUTING_MASS_NO_ACTIVATION_ROWS",
+            None,
+        }:
+            raise DynamicDimensionsError(f"{row_label} zero-route status is invalid")
+        authority = {
+            "schema": SENSITIVITY_ROW_SCHEMA,
+            "builder_sha256": row.get("builder_sha256"),
+            "split_metrics_sha256": row.get("split_metrics_sha256"),
+            "routing_mass": routing_mass,
+            "predicted_delta_contribution": damage,
+            "encoding": "expert-total-carried-by-down;class-neutral-scalar",
+        }
+        for projection in ("down", "fused13"):
+            carrier = projection == "down"
+            normalized.append(
+                {
+                    "schema": "banana-smasher-dynamic-backpack-candidate-ledger-row-v2",
+                    "status": "ADMITTED_COMPLETE_ALLOCATION_ELIGIBLE",
+                    "allocation_eligible": True,
+                    "basis_sha256": basis,
+                    "candidate_id": f"L{layer:03d}.E{expert:03d}.{projection}.{tier}",
+                    "layer": layer,
+                    "expert": expert,
+                    "projection": projection,
+                    "tier": tier,
+                    "physical_bytes": physical_bytes if carrier else 0,
+                    "six_class_predictions": {
+                        name: damage if carrier else 0.0 for name in CLASSES
+                    },
+                    "activation_artifacts": [],
+                    "sensitivity_authority": authority,
+                }
+            )
+    return normalized
 
 
 def build_dynamic_dimensions(
@@ -367,7 +467,11 @@ def _resolve_mixed_dimension_sources(
             raise DynamicDimensionsError(
                 f"mixed Backpack dimensions source {index} SHA-256 mismatch"
             )
-        rows.extend(source_rows)
+        rows.extend(
+            _normalize_mixed_source_rows(
+                source_rows, basis, f"mixed Backpack dimensions source {index}"
+            )
+        )
         source_receipt = {
             "path": str(dimensions_path),
             "sha256": expected_sha,

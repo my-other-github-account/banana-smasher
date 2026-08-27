@@ -122,7 +122,17 @@ projection cells, and returns `WAITING_FOR_DIMENSION_LOCATORS` while a declared
 locator is absent. The config does not change when a producer publishes that
 locator. A locator uses schema
 `banana-smasher-mixed-backpack-dimensions-locator-v1`, binds the model basis,
-and contains a normal `{path, sha256}` dimensions descriptor. `solve-mixed`
+and contains a normal `{path, sha256}` dimensions descriptor. A dimensions
+source may contain either allocation-ready projection rows or sealed
+`banana-smasher-sensitivity-row-v1` expert rows. Expert sensitivity rows bind
+one combined down+fused13 byte total and measured scalar damage; the API
+losslessly carries that total on the canonical down row and a zero companion
+row so the existing projection aggregator reconstructs the exact expert
+option. The class-neutral scalar is used identically by all six balancing
+lanes and this policy is recorded in the option authority; no projection or
+class-specific value is inferred.
+
+`solve-mixed`
 then auto-consumes all locators, refuses if any remains pending or if topology
 lacks QTIP2 fallback, and records every source and locator hash in its receipt.
 
