@@ -264,13 +264,40 @@ def plan_hf_moe_uniform(
     native = [row for row in rows if row["name"] not in routed_names]
     if not routed:
         raise ValueError("HF MoE adapter selected zero routed expert weights")
+    layer_pattern = re.compile(r"(?:^|\.)layers\.(\d+)\.")
+    model_layer_ids = sorted(
+        {
+            int(match.group(1))
+            for name in tensor_names
+            if (match := layer_pattern.search(name)) is not None
+        }
+    )
+    routed_layer_ids = sorted(
+        {
+            int(match.group(1))
+            for name in routed_names
+            if (match := layer_pattern.search(name)) is not None
+        }
+    )
+    expected_model_layers = _nested_positive_int(config, "num_hidden_layers")
+    if expected_model_layers is None:
+        raise ValueError("HF MoE config does not declare num_hidden_layers")
+    model_layer_gaps = sorted(set(range(expected_model_layers)) - set(model_layer_ids))
     plan = {
         "schema": HF_UNIFORM_PLAN_SCHEMA,
-        "status": "PASS" if not missing and not duplicate else "FAILED",
+        "status": (
+            "PASS" if not missing and not duplicate and not model_layer_gaps else "FAILED"
+        ),
         "api": {"method": "plan_hf_moe_uniform", "version": 1},
         "source": source,
         "intent": {"tier": "q2", "scope": scope, "native_rest": True},
         "adapter": {"id": adapter.adapter_id},
+        "geometry": {
+            "expected_model_layers": expected_model_layers,
+            "model_layer_ids": model_layer_ids,
+            "routed_layer_ids": routed_layer_ids,
+            "model_layer_gaps": model_layer_gaps,
+        },
         "routed_tensors": routed,
         "native_tensors": native,
         "accounting": {

@@ -68,7 +68,11 @@ def test_generic_hf_moe_plan_serializes_routed_and_native_inventories(
         json.dumps(
             {
                 "model_type": "fixture_numeric_moe",
-                "text_config": {"n_routed_experts": 1, "n_shared_experts": 1},
+                "text_config": {
+                    "n_routed_experts": 1,
+                    "n_shared_experts": 1,
+                    "num_hidden_layers": 1,
+                },
             },
             sort_keys=True,
         )
@@ -119,6 +123,12 @@ def test_generic_hf_moe_plan_serializes_routed_and_native_inventories(
     assert plan["accounting"]["routed_tensor_count"] == 1
     assert plan["accounting"]["native_tensor_count"] == 3
     assert plan["accounting"]["source_tensor_count"] == 4
+    assert plan["geometry"] == {
+        "expected_model_layers": 1,
+        "model_layer_gaps": [],
+        "model_layer_ids": [0],
+        "routed_layer_ids": [0],
+    }
     assert plan["coverage"] == {"duplicates": [], "gaps": []}
     assert plan["mechanisms"] == {"fallback": 0}
     assert json.loads(receipt_path.read_text()) == plan
