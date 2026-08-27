@@ -375,6 +375,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     backpack_mixed.add_argument("--config", type=Path, required=True)
     backpack_mixed.add_argument("--output", type=Path, required=True)
+    backpack_mixed_preflight = backpack_commands.add_parser(
+        "preflight-mixed",
+        help="admit available mixed inventory shards and report pending locators",
+    )
+    backpack_mixed_preflight.add_argument("--config", type=Path, required=True)
     backpack_virtual = backpack_commands.add_parser(
         "virtualize",
         help="project a completed canonical solve into zero-copy contextual wire",
@@ -1519,6 +1524,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = {
                     **solve_mixed_backpack_config(args.config, output=args.output),
                     "command": "backpack solve-mixed",
+                }
+            elif args.backpack_command == "preflight-mixed":
+                from .backpack_dimensions import preflight_mixed_backpack_config
+
+                result = {
+                    **preflight_mixed_backpack_config(args.config),
+                    "command": "backpack preflight-mixed",
                 }
             elif args.backpack_command == "providers":
                 from .backpack_providers import builtin_backpack_family_providers

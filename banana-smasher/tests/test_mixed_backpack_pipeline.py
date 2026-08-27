@@ -6,8 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from banana_smasher.backpack_dimensions import solve_mixed_backpack_config
+from banana_smasher.backpack_dimensions import (
+    preflight_mixed_backpack_config,
+    solve_mixed_backpack_config,
+)
 from banana_smasher import solve_mixed_backpack_config as public_solve_mixed_backpack_config
+from banana_smasher import (
+    preflight_mixed_backpack_config as public_preflight_mixed_backpack_config,
+)
 from banana_smasher.cli import main
 
 
@@ -204,3 +210,136 @@ def test_mixed_config_has_a_public_json_schema(tmp_path: Path) -> None:
     )
 
     jsonschema.validate(json.loads(_config(tmp_path, target=13).read_text()), schema)
+
+
+def test_preflight_accepts_partial_dimensions_and_reports_pending_locator(
+    tmp_path: Path, capsys,
+) -> None:
+    dimensions = tmp_path / "partial.jsonl"
+    _dimension_rows(dimensions)
+    config = tmp_path / "mixed.json"
+    _write_json(
+        config,
+        {
+            "schema": "banana-smasher-mixed-backpack-config-v1",
+            "basis_sha256": BASIS,
+            "target": {
+                "whole_model_bytes": 13,
+                "fixed_nonexpert_bytes": 10,
+                "exact": True,
+            },
+            "allowed_tiers": ["qtip2", "qtip3"],
+            "fallback_tier": "qtip2",
+            "topology": {
+                "layers": [0, 1, 2],
+                "experts_per_layer": 1,
+                "projections": ["down"],
+            },
+            "dimensions": {
+                "sources": [
+                    {
+                        "path": str(dimensions),
+                        "sha256": hashlib.sha256(dimensions.read_bytes()).hexdigest(),
+                    },
+                    {"locator_path": "final-dimensions-locator.json"},
+                ]
+            },
+            "class_caps": {name: 10.0 for name in CLASSES},
+        },
+    )
+
+    schema = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "schema/banana-smasher-mixed-backpack-config-v1.schema.json"
+        ).read_text()
+    )
+    pytest.importorskip("jsonschema").validate(json.loads(config.read_text()), schema)
+
+    receipt = preflight_mixed_backpack_config(config)
+
+    assert public_preflight_mixed_backpack_config is preflight_mixed_backpack_config
+    assert receipt["status"] == "WAITING_FOR_DIMENSION_LOCATORS"
+    assert receipt["ready_to_solve"] is False
+    assert receipt["sources"] == {"admitted": 1, "pending": 1}
+    assert receipt["coverage"]["qtip2"]["available_projection_cells"] == 2
+    assert receipt["coverage"]["qtip2"]["missing_layers"] == [2]
+    assert receipt["missing_fallback_projection_cells"] == ["L002.E000.down"]
+    assert main(["backpack", "preflight-mixed", "--config", str(config)]) == 0
+    emitted = json.loads(capsys.readouterr().out)
+    assert emitted["command"] == "backpack preflight-mixed"
+    assert emitted["status"] == "WAITING_FOR_DIMENSION_LOCATORS"
+
+
+def test_solve_auto_consumes_a_sealed_dimension_locator(tmp_path: Path) -> None:
+    partial = tmp_path / "partial.jsonl"
+    _dimension_rows(partial)
+    final = tmp_path / "final.jsonl"
+    final_row = {
+        "schema": "banana-smasher-dynamic-backpack-candidate-ledger-row-v2",
+        "status": "ADMITTED_COMPLETE_ALLOCATION_ELIGIBLE",
+        "allocation_eligible": True,
+        "basis_sha256": BASIS,
+        "candidate_id": "L002.E000.down.qtip2",
+        "layer": 2,
+        "expert": 0,
+        "projection": "down",
+        "tier": "qtip2",
+        "physical_bytes": 1,
+        "six_class_predictions": {name: 1.0 for name in CLASSES},
+        "activation_artifacts": [],
+    }
+    final.write_text(json.dumps(final_row, sort_keys=True) + "\n")
+    locator = tmp_path / "final-locator.json"
+    _write_json(
+        locator,
+        {
+            "schema": "banana-smasher-mixed-backpack-dimensions-locator-v1",
+            "status": "SEALED",
+            "basis_sha256": BASIS,
+            "dimensions": {
+                "path": final.name,
+                "sha256": hashlib.sha256(final.read_bytes()).hexdigest(),
+            },
+        },
+    )
+    config = tmp_path / "mixed.json"
+    _write_json(
+        config,
+        {
+            "schema": "banana-smasher-mixed-backpack-config-v1",
+            "basis_sha256": BASIS,
+            "target": {
+                "whole_model_bytes": 14,
+                "fixed_nonexpert_bytes": 10,
+                "exact": True,
+            },
+            "allowed_tiers": ["qtip2", "qtip3"],
+            "fallback_tier": "qtip2",
+            "topology": {
+                "layers": [0, 1, 2],
+                "experts_per_layer": 1,
+                "projections": ["down"],
+            },
+            "dimensions": {
+                "sources": [
+                    {
+                        "path": partial.name,
+                        "sha256": hashlib.sha256(partial.read_bytes()).hexdigest(),
+                    },
+                    {"locator_path": locator.name},
+                ]
+            },
+            "class_caps": {name: 10.0 for name in CLASSES},
+        },
+    )
+
+    receipt = solve_mixed_backpack_config(config, output=tmp_path / "solve")
+
+    assert receipt["sources"]["admitted"] == 2
+    assert receipt["sources"]["pending"] == 0
+    assert json.loads((tmp_path / "solve/identity.json").read_text())["assignment"] == {
+        "L000.E000": "qtip3",
+        "L001.E000": "qtip2",
+        "L002.E000": "qtip2",
+    }
