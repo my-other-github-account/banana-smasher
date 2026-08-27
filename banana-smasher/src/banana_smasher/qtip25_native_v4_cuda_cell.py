@@ -474,7 +474,11 @@ def run_cuda_cell(
             decode_started = time.perf_counter()
         for start in range(0, decode_extent, decode_batch):
             code = torch.from_numpy(packed[start : min(start + decode_batch, decode_extent)]).to(device)
-            observed_parts.append(dequantize_native_v4_blocks(code, table).cpu())
+            observed_parts.append(
+                dequantize_native_v4_blocks(
+                    code, table, bpw=geometry.rate_num / geometry.rate_den
+                ).cpu()
+            )
         parity_observed = torch.cat(observed_parts[:1])[:reference_blocks].numpy()
         if not np.array_equal(reference, parity_observed):
             difference = float(np.max(np.abs(reference - parity_observed)))
@@ -488,7 +492,9 @@ def run_cuda_cell(
             for _ in range(decode_repeats):
                 for start in range(0, decode_extent, decode_batch):
                     code = torch.from_numpy(packed[start : min(start + decode_batch, decode_extent)]).to(device)
-                    dequantize_native_v4_blocks(code, table)
+                    dequantize_native_v4_blocks(
+                        code, table, bpw=geometry.rate_num / geometry.rate_den
+                    )
             torch.cuda.synchronize()
             decode_seconds = time.perf_counter() - decode_started
     sse = None
