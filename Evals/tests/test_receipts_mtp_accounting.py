@@ -24,13 +24,14 @@ class PublishedMtpAccountingTest(unittest.TestCase):
 
         summary = verify_result_receipt(result, suite_lock)
 
-        self.assertEqual(summary["models"], 14)
+        self.assertEqual(summary["models"], 15)
         model_ids = {row["model_id"] for row in result["results"]}
         self.assertIn("EXL3-K2P5-greedy-full", model_ids)
         self.assertIn("EXL3-K2P5-greedy-routed-native-rest", model_ids)
         self.assertIn("EXL3-K3-routed-native-rest", model_ids)
         self.assertIn("Physical-K2K3-2P5-alternating-comparator", model_ids)
         self.assertIn("QTIP2-V7-pre-repair", model_ids)
+        self.assertIn("0xSero-REAP-K216-EXL3-3P0", model_ids)
         self.assertNotIn("QTIP2-corrected-all43", model_ids)
         self.assertNotIn("EXL3-K2P5-physical-alternating", model_ids)
 
@@ -112,6 +113,28 @@ class PublishedMtpAccountingTest(unittest.TestCase):
         )
         self.assertEqual(qtip2_v7_pre["top1"]["rate"], "0.8626251220703125")
 
+        reap_k216 = next(
+            row for row in result["results"] if row["model_id"] == "0xSero-REAP-K216-EXL3-3P0"
+        )
+        self.assertEqual(reap_k216["display_name"], "0xSero REAP-K216 EXL3 3.0")
+        self.assertEqual(reap_k216["top1"]["matches"], 55_584)
+        self.assertEqual(reap_k216["top1"]["rate"], "0.84814453125")
+        self.assertEqual(reap_k216["kld"]["mean"], "0.3869685678133764")
+        self.assertEqual(reap_k216["wire"]["bytes"], 106_816_685_560)
+        self.assertEqual(
+            reap_k216["artifact"]["revision"],
+            "22f28d32b9b29b4352eaa380ff8c2c170b2847ab",
+        )
+        self.assertEqual(
+            reap_k216["artifact"]["artifact_manifest_sha256"],
+            "ea8522d22abbbb91f9bb992884e5b1e546ff86336d17b2a64fe95b00157ed6d4",
+        )
+        self.assertEqual(reap_k216["classes"]["multilingual"]["top1_matches"], 6_492)
+        self.assertEqual(
+            reap_k216["classes"]["multilingual"]["kld_mean"],
+            "1.1624590982792047",
+        )
+
         wire_ledger = json.loads(
             (
                 evals_dir
@@ -182,6 +205,7 @@ class PublishedMtpAccountingTest(unittest.TestCase):
             scopes["EXL3-K2P5-greedy-routed-native-rest"],
             "base-plus-native-mtp",
         )
+        self.assertEqual(scopes["0xSero-REAP-K216-EXL3-3P0"], "base-plus-native-mtp")
         accounting = json.loads(accounting_receipt.read_text())
         routed_greedy_accounting = accounting["rows"][
             "EXL3-K2P5-greedy-routed-native-rest"

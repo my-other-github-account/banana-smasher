@@ -49,8 +49,34 @@ EXPECTED_VERIFICATION_SCOPE = {
     ),
     "full_gpu_replay": "blocked; see each result replay.blockers",
 }
-EXPECTED_RESULT_MODEL_COUNT = 14
+EXPECTED_RESULT_MODEL_COUNT = 15
 _PROTECTED_EXL_PUBLICATION_ROWS = {
+    "0xSero-REAP-K216-EXL3-3P0": {
+        "display_name": "0xSero REAP-K216 EXL3 3.0",
+        "kld_mean": "0.3869685678133764",
+        "top1_matches": 55_584,
+        "wire_bytes": 106_816_685_560,
+        "normalized_bpw": "3.005380217960803579052804265982957394282309584686338197582853797143706799671549697184155962081445776",
+        "total_model_bpw": "2.901145470949263453823350735768830157976192474452844358501767722990230329520178841438712186976467966",
+        "artifact_manifest_sha256": "ea8522d22abbbb91f9bb992884e5b1e546ff86336d17b2a64fe95b00157ed6d4",
+        "repository": "0xSero/deepseek-v4-flash-0731-spark",
+        "revision": "22f28d32b9b29b4352eaa380ff8c2c170b2847ab",
+        "classes": {
+            "agentic": ("0.32480143440453224", 17_079, 19_456, 19),
+            "chat": ("0.14813124229609684", 6_515, 7_168, 7),
+            "code": ("0.11152047051784912", 8_582, 9_216, 9),
+            "multilingual": ("1.1624590982792047", 6_492, 10_240, 10),
+            "prose": ("0.4670952295772638", 8_067, 10_240, 10),
+            "reasoning": ("0.028734986341330204", 8_849, 9_216, 9),
+        },
+        "sources": {
+            "0xSero REAP-K216 capture successor terminal": "9dc4b6a211af34f1b0ed50974d2ee3d5d720bda07b80b847a64d585fdcf9072a",
+            "0xSero REAP-K216 independent exact recompute": "9efe0632b6b9c0ee08390b57b267a21121e2dfab74aedf6f1573a77129b42896",
+            "0xSero REAP-K216 BALANCED64 bindings": "b40a7ca0a1f414aa058a7feb1e40246036ab026b2e3c66ceda4d9c5b138a779b",
+            "0xSero REAP-K216 Exact64 capture": "5f2ad894578d2ef4a538fc8d2350eb77d76948f34c77ff3d7f608c2b7d9d5a29",
+            "0xSero REAP-K216 complete artifact manifest": "ea8522d22abbbb91f9bb992884e5b1e546ff86336d17b2a64fe95b00157ed6d4",
+        },
+    },
     "EXL3-K2P5-greedy-full": {
         "display_name": "EXL3 K2.5 greedy optimizer full",
         "kld_mean": "0.30277489559979315",
@@ -289,10 +315,16 @@ def _verify_protected_exl_publication(rows: Sequence[Any]) -> None:
             "wire_bytes": wire.get("bytes"),
             "normalized_bpw": wire.get("normalized_bpw"),
             "total_model_bpw": wire.get("total_model_bpw"),
-            "candidate_artifact_sha256": artifact.get("candidate_artifact_sha256"),
-            "candidate_manifest_sha256": artifact.get("candidate_manifest_sha256"),
         }
-        for optional_identity in ("upstream_repository", "upstream_revision"):
+        for optional_identity in (
+            "artifact_manifest_sha256",
+            "candidate_artifact_sha256",
+            "candidate_manifest_sha256",
+            "repository",
+            "revision",
+            "upstream_repository",
+            "upstream_revision",
+        ):
             if optional_identity in expected:
                 observed[optional_identity] = artifact.get(optional_identity)
         classes = _mapping(row.get("classes"), f"{model_id}.classes")
