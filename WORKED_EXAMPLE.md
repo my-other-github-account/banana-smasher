@@ -11,6 +11,7 @@ caller does not provide model-family code or a routed layer roster.
 ```python
 from banana_smasher import (
     ResidentRepairAPI,
+    build_hf_moe_uniform_shard,
     build_balanced64_token_ledger,
     capture_balanced64_teacher,
     estimate_hf_moe_uniform,
@@ -19,6 +20,7 @@ from banana_smasher import (
     preflight_hf_moe_output_fit,
     recover_balanced64_source_text,
     score_balanced64_pre,
+    union_hf_moe_uniform_shards,
 )
 
 plan = plan_hf_moe_uniform(
@@ -67,6 +69,29 @@ built = ResidentRepairAPI.build_uniform(
 reopened = open_hf_moe_uniform("/local/output-filesystem/uniform-q2")
 assert reopened == built
 assert reopened["artifact_root"] == "/local/output-filesystem/uniform-q2"
+
+# When routed encoding dominates wall time, independent hosts may build
+# canonical half-open ordinal ranges. Each host uses the same immutable model,
+# revision, and plan. Only the range containing ordinal zero emits native-rest
+# bytes. Transfer each sealed shard directory to the fan-in host, then union in
+# any input order; gaps, overlaps, source drift, and member hash drift fail.
+shard0 = build_hf_moe_uniform_shard(
+    "/local/hf-model", revision="<immutable-hf-revision>", tier="q2",
+    scope="routed_only", native_rest=True,
+    routed_ordinal_start=0, routed_ordinal_end=17640,
+    output="/local/shards/0-17640",
+)
+shard1 = build_hf_moe_uniform_shard(
+    "/local/hf-model", revision="<immutable-hf-revision>", tier="q2",
+    scope="routed_only", native_rest=True,
+    routed_ordinal_start=17640, routed_ordinal_end=35280,
+    output="/local/shards/17640-35280",
+)
+merged = union_hf_moe_uniform_shards(
+    [shard1["artifact_root"], shard0["artifact_root"]],
+    output="/local/output-filesystem/uniform-q2-horizontal",
+)
+assert open_hf_moe_uniform(merged["artifact_root"]) == merged
 
 source_text = recover_balanced64_source_text(
     historical_token_ledger="/local/historical-balanced64-token-ledger.json",

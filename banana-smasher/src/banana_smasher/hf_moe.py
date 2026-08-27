@@ -14,6 +14,7 @@ from typing import Any, Protocol
 HF_SOURCE_ADMISSION_SCHEMA = "banana-smasher-hf-source-admission-v1"
 HF_UNIFORM_PLAN_SCHEMA = "banana-smasher-hf-moe-uniform-plan-v1"
 HF_UNIFORM_ARTIFACT_SCHEMA = "banana-smasher-hf-moe-uniform-artifact-v1"
+HF_UNIFORM_SHARD_SCHEMA = "banana-smasher-hf-moe-uniform-shard-v1"
 _REVISION_RE = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 
 
@@ -644,6 +645,7 @@ def build_hf_moe_uniform(
     native_rest: bool,
     output: str | Path,
     native_spill_root: str | Path | None = None,
+    _routed_ordinal_range: tuple[int, int] | None = None,
 ) -> dict[str, Any]:
     """Materialize a routed-Q2/native-rest HF MoE artifact and seal its receipt."""
 
@@ -672,8 +674,35 @@ def build_hf_moe_uniform(
             receipt_path=staging / "UNIFORM_PLAN.json",
         )
         root = Path(plan["source"]["model_root"])
+        total_routed = len(plan["routed_tensors"])
+        if _routed_ordinal_range is None:
+            ordinal_start, ordinal_end = 0, total_routed
+        else:
+            ordinal_start, ordinal_end = _routed_ordinal_range
+            if (
+                isinstance(ordinal_start, bool)
+                or isinstance(ordinal_end, bool)
+                or not isinstance(ordinal_start, int)
+                or not isinstance(ordinal_end, int)
+                or ordinal_start < 0
+                or ordinal_start >= ordinal_end
+                or ordinal_end > total_routed
+            ):
+                raise ValueError(
+                    f"routed ordinal range must be a non-empty subset of [0, {total_routed})"
+                )
+        selected_routed = plan["routed_tensors"][ordinal_start:ordinal_end]
+        selected_native = plan["native_tensors"] if ordinal_start == 0 else []
+        fit_plan = dict(plan)
+        fit_plan["routed_tensors"] = selected_routed
+        fit_plan["native_tensors"] = selected_native
+        fit_plan["accounting"] = {
+            **plan["accounting"],
+            "native_source_bytes": sum(row["source_bytes"] for row in selected_native),
+            "routed_parameters": sum(row["parameters"] for row in selected_routed),
+        }
         fit = preflight_hf_moe_output_fit(
-            plan,
+            fit_plan,
             output_root=destination.parent,
             native_spill_root=(
                 requested_spill
@@ -695,7 +724,6 @@ def build_hf_moe_uniform(
         headers = {
             shard: _safetensors_header(root / shard) for shard in plan["source"]["shards"]
         }
-        selected_routed = plan["routed_tensors"]
         tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
         routed_rows: list[dict[str, Any]] = []
         native_rows: list[dict[str, Any]] = []
@@ -732,7 +760,7 @@ def build_hf_moe_uniform(
                     },
                 }
             )
-        for row in plan["native_tensors"]:
+        for row in selected_native:
             native_base = spill_staging if split_native else staging
             assert native_base is not None
             member = native_base / "native" / _member_name(row["name"], "native.bin")
@@ -752,10 +780,21 @@ def build_hf_moe_uniform(
                 }
             )
         receipt = {
-            "schema": HF_UNIFORM_ARTIFACT_SCHEMA,
+            "schema": (
+                HF_UNIFORM_ARTIFACT_SCHEMA
+                if _routed_ordinal_range is None
+                else HF_UNIFORM_SHARD_SCHEMA
+            ),
             "status": "STAGED",
             "reload_verified": False,
-            "api": {"method": "build_hf_moe_uniform", "version": 1},
+            "api": {
+                "method": (
+                    "build_hf_moe_uniform"
+                    if _routed_ordinal_range is None
+                    else "build_hf_moe_uniform_shard"
+                ),
+                "version": 1,
+            },
             "source": plan["source"],
             "intent": plan["intent"],
             "adapter": plan["adapter"],
@@ -764,9 +803,11 @@ def build_hf_moe_uniform(
             "native_tensors": native_rows,
             "accounting": {
                 "routed_tensor_count": len(routed_rows),
-                "planned_routed_tensor_count": plan["accounting"]["routed_tensor_count"],
+                "planned_routed_tensor_count": len(selected_routed),
                 "native_tensor_count": len(native_rows),
-                "planned_native_tensor_count": plan["accounting"]["native_tensor_count"],
+                "planned_native_tensor_count": len(selected_native),
+                "complete_routed_tensor_count": plan["accounting"]["routed_tensor_count"],
+                "complete_native_tensor_count": plan["accounting"]["native_tensor_count"],
                 "routed_parameters": sum(row["parameters"] for row in routed_rows),
                 "native_parameters": sum(row["parameters"] for row in native_rows),
                 "routed_source_bytes": sum(row["source_bytes"] for row in routed_rows),
@@ -786,6 +827,12 @@ def build_hf_moe_uniform(
                 "fit": fit,
             },
         }
+        if _routed_ordinal_range is not None:
+            receipt["shard"] = {
+                "routed_ordinals": [ordinal_start, ordinal_end],
+                "complete_routed_tensor_count": total_routed,
+                "native_policy": "complete-on-ordinal-zero-shard-v1",
+            }
         _atomic_json(staging / "ARTIFACT.json", receipt)
         if split_native:
             assert spill_staging is not None
@@ -797,7 +844,11 @@ def build_hf_moe_uniform(
         receipt["status"] = "PASS"
         receipt["reload_verified"] = True
         _atomic_json(destination / "ARTIFACT.json", receipt)
-        return open_hf_moe_uniform(destination)
+        return (
+            open_hf_moe_uniform(destination)
+            if _routed_ordinal_range is None
+            else open_hf_moe_uniform_shard(destination)
+        )
     finally:
         import shutil
 
@@ -847,3 +898,148 @@ def open_hf_moe_uniform(output: str | Path) -> dict[str, Any]:
         raise ValueError("HF MoE artifact receipt is not an admitted reloaded PASS")
     _verify_hf_moe_members(root, receipt)
     return {**receipt, "artifact_root": str(root)}
+
+
+def build_hf_moe_uniform_shard(
+    model: str | Path,
+    *,
+    revision: str,
+    tier: str,
+    scope: str,
+    native_rest: bool,
+    routed_ordinal_start: int,
+    routed_ordinal_end: int,
+    output: str | Path,
+    native_spill_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Build one canonical half-open routed-tensor ordinal range."""
+
+    return build_hf_moe_uniform(
+        model,
+        revision=revision,
+        tier=tier,
+        scope=scope,
+        native_rest=native_rest,
+        output=output,
+        native_spill_root=native_spill_root,
+        _routed_ordinal_range=(routed_ordinal_start, routed_ordinal_end),
+    )
+
+
+def open_hf_moe_uniform_shard(output: str | Path) -> dict[str, Any]:
+    """Reload and hash-verify one partial horizontal build shard."""
+
+    root = Path(output).expanduser().resolve()
+    receipt = json.loads((root / "ARTIFACT.json").read_text(encoding="utf-8"))
+    if (
+        receipt.get("schema") != HF_UNIFORM_SHARD_SCHEMA
+        or receipt.get("status") != "PASS"
+        or receipt.get("reload_verified") is not True
+        or not isinstance(receipt.get("shard"), Mapping)
+    ):
+        raise ValueError("HF MoE shard receipt is not an admitted reloaded PASS")
+    _verify_hf_moe_members(root, receipt)
+    return {**receipt, "artifact_root": str(root)}
+
+
+def union_hf_moe_uniform_shards(
+    shards: Sequence[str | Path], *, output: str | Path
+) -> dict[str, Any]:
+    """Deterministically union a disjoint, gap-free routed shard set."""
+
+    import shutil
+
+    opened = [open_hf_moe_uniform_shard(path) for path in shards]
+    if not opened:
+        raise ValueError("HF MoE shard union requires at least one shard")
+    ordered = sorted(opened, key=lambda row: row["shard"]["routed_ordinals"])
+    ranges = [row["shard"]["routed_ordinals"] for row in ordered]
+    for previous, current in zip(ranges, ranges[1:]):
+        if current[0] < previous[1]:
+            raise ValueError("HF MoE shard ranges must be disjoint")
+    total = ordered[0]["shard"]["complete_routed_tensor_count"]
+    if ranges[0][0] != 0 or ranges[-1][1] != total or any(
+        left[1] != right[0] for left, right in zip(ranges, ranges[1:])
+    ):
+        raise ValueError("HF MoE shard ranges must be gap-free and cover the complete plan")
+    identity_keys = ("source", "intent", "adapter", "geometry")
+    if any(
+        row["shard"]["complete_routed_tensor_count"] != total
+        or any(row.get(key) != ordered[0].get(key) for key in identity_keys)
+        for row in ordered[1:]
+    ):
+        raise ValueError("HF MoE shard source/plan identity mismatch")
+    routed = sorted(
+        [member for row in ordered for member in row["routed_tensors"]],
+        key=lambda member: member["name"],
+    )
+    native = [member for row in ordered for member in row["native_tensors"]]
+    complete_native = ordered[0]["accounting"]["complete_native_tensor_count"]
+    if len(routed) != total or len({row["name"] for row in routed}) != total:
+        raise ValueError("HF MoE shard union routed inventory is incomplete or duplicated")
+    if len(native) != complete_native or len({row["name"] for row in native}) != complete_native:
+        raise ValueError("HF MoE shard union native inventory is incomplete or duplicated")
+    destination = Path(output).expanduser().resolve()
+    if destination.exists():
+        raise FileExistsError(f"HF MoE artifact output already exists: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{destination.name}.", dir=destination.parent))
+    try:
+        owner_by_name = {
+            member["name"]: Path(row["artifact_root"])
+            for row in ordered
+            for member in [*row["routed_tensors"], *row["native_tensors"]]
+        }
+        for member in routed:
+            owner = owner_by_name[member["name"]]
+            for kind in ("trellis", "scales"):
+                relative = member["wire"][kind]["path"]
+                target = staging / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(owner / relative, target)
+        for member in native:
+            owner = owner_by_name[member["name"]]
+            source = owner / member["path"]
+            target = staging / member["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+        member_hashes = [
+            member["wire"][kind]["sha256"]
+            for member in routed
+            for kind in ("trellis", "scales")
+        ] + [member["artifact_sha256"] for member in native]
+        first = ordered[0]
+        receipt = {
+            "schema": HF_UNIFORM_ARTIFACT_SCHEMA,
+            "status": "PASS",
+            "reload_verified": True,
+            "api": {"method": "union_hf_moe_uniform_shards", "version": 1},
+            **{key: first[key] for key in identity_keys},
+            "routed_tensors": routed,
+            "native_tensors": native,
+            "accounting": {
+                "routed_tensor_count": len(routed),
+                "planned_routed_tensor_count": total,
+                "native_tensor_count": len(native),
+                "planned_native_tensor_count": complete_native,
+                "complete_routed_tensor_count": total,
+                "complete_native_tensor_count": complete_native,
+                "routed_parameters": sum(row["parameters"] for row in routed),
+                "native_parameters": sum(row["parameters"] for row in native),
+                "routed_source_bytes": sum(row["source_bytes"] for row in routed),
+                "native_source_bytes": sum(row["source_bytes"] for row in native),
+            },
+            "coverage": {"duplicates": [], "gaps": []},
+            "mechanisms": {"fallback": 0, "reconstruction": 0, "relay": 0, "streaming": 0},
+            "storage": {"mode": "primary-only-v1", "primary_root": str(destination), "native_root": str(destination)},
+            "union": {
+                "input_ranges": ranges,
+                "ordered_member_sha256": hashlib.sha256("".join(member_hashes).encode()).hexdigest(),
+            },
+        }
+        _atomic_json(staging / "ARTIFACT.json", receipt)
+        _verify_hf_moe_members(staging, receipt)
+        os.replace(staging, destination)
+        return open_hf_moe_uniform(destination)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
