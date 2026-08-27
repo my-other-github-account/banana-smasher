@@ -152,6 +152,7 @@ def test_public_docs_show_the_general_hf_moe_plan_call() -> None:
     assert "estimate_hf_moe_uniform(" in worked
     assert "ResidentRepairAPI.build_uniform(" in worked
     assert "open_hf_moe_uniform(" in worked
+    assert 'reopened["artifact_root"]' in worked
     assert 'scope="routed_only"' in worked
     assert "native_rest=True" in worked
 

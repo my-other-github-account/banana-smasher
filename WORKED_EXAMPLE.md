@@ -57,6 +57,7 @@ built = ResidentRepairAPI.build_uniform(
 )
 reopened = open_hf_moe_uniform("/local/output-filesystem/uniform-q2")
 assert reopened == built
+assert reopened["artifact_root"] == "/local/output-filesystem/uniform-q2"
 
 teacher_canary = capture_balanced64_teacher(
     "/local/hf-model",
