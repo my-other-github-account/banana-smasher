@@ -112,6 +112,8 @@ def _binding_sha(config: dict) -> str:
             "layers",
             "uniform_builder",
             "backpack_mixer",
+            "score_contract",
+            "continuation_science",
         )
     }
     return hashlib.sha256(
@@ -544,6 +546,11 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
         ProductionRails, "_require_live_checkpoint_bytes", staticmethod(lambda *args: None)
     )
     monkeypatch.setattr(ArtifactIdentity, "require_canary", lambda self, **kwargs: None)
+    monkeypatch.setattr(
+        production_rails,
+        "_require_distributed_pair_binding",
+        lambda *args, **kwargs: None,
+    )
     config = _base_config()
     config["continuation"] = {"authorized_api": True, "world_size": 2, "rank": 0}
     artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
@@ -593,6 +600,32 @@ def test_production_config_rejects_session_factory_bypass(tmp_path):
             config,
             run_root=tmp_path / "run",
             session_factory=lambda **kwargs: FixtureSession(**kwargs),
+        )
+
+
+def test_distributed_pair_binding_rejects_different_rank_science() -> None:
+    class FakeDistributed:
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def is_initialized():
+            return True
+
+        @staticmethod
+        def get_world_size():
+            return 2
+
+        @staticmethod
+        def all_gather_object(output, value):
+            output[:] = [value, {**value, "provider_binding_sha256": _sha("different-rank")}]
+
+    with pytest.raises(ProductionRailsError, match="distributed pair scientific binding mismatch"):
+        production_rails._require_distributed_pair_binding(
+            "a" * 64,
+            {"world_size": 2, "basis_sha256": "b" * 64},
+            distributed=FakeDistributed(),
         )
 
 

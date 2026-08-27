@@ -15,6 +15,19 @@ from .resident_balanced64 import RepairArtifact
 
 ADMISSION_SPEC_SCHEMA = "banana-smasher-resident-admission-spec-v1"
 ADMISSION_RECEIPT_SCHEMA = "banana-smasher-resident-admission-v1"
+SHARED_CONTINUATION_BINDING_FIELDS = (
+    "basis_sha256",
+    "base_source_sha256",
+    "trainer_source_sha256",
+    "resident_expert_source_sha256",
+    "member_roster_sha256",
+    "corpus_sha256",
+    "train_corpus_sha256",
+    "score_corpus_sha256",
+    "shared_optimizer_scheduler_lineage",
+    "world_size",
+    "layer_split",
+)
 
 
 def _sha256(path: Path) -> str:
@@ -65,12 +78,32 @@ def provider_binding(spec: Mapping[str, Any]) -> tuple[dict[str, Any], str]:
     provider = spec.get("provider", {})
     if not isinstance(provider, Mapping):
         raise ValueError("spec.provider must be an object")
+    continuations = spec.get("continuations", {})
+    if not isinstance(continuations, Mapping):
+        raise ValueError("spec.continuations must be an object")
+    rank_rows: list[Mapping[str, Any]] = []
+    for rank in (0, 1):
+        row = continuations.get(str(rank))
+        if not isinstance(row, Mapping):
+            raise ValueError("continuations must bind both ranks")
+        rank_rows.append(row)
+    continuation_science = {
+        field: rank_rows[0].get(field) for field in SHARED_CONTINUATION_BINDING_FIELDS
+    }
+    if any(
+        row.get(field) != continuation_science[field]
+        for row in rank_rows[1:]
+        for field in SHARED_CONTINUATION_BINDING_FIELDS
+    ):
+        raise ValueError("continuations scientific binding mismatch")
     fields = {
         "schema": PRODUCTION_RAILS_SCHEMA,
         "pipeline_microbatch": PIPELINE_MICROBATCH,
         "layers": list(ALL_LAYERS),
         "uniform_builder": str(provider.get("uniform_builder", "banana_smasher.resident_admission:prebuilt_uniform_builder")),
         "backpack_mixer": str(provider.get("backpack_mixer", "banana_smasher.resident_admission:prebuilt_backpack_mixer")),
+        "score_contract": dict(spec.get("score", {})),
+        "continuation_science": continuation_science,
     }
     digest = hashlib.sha256(json.dumps(fields, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return fields, digest

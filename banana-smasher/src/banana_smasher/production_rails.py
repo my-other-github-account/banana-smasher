@@ -141,6 +141,38 @@ class _ArtifactBinding:
     checkpoint_sha256: str
 
 
+def _require_distributed_pair_binding(
+    provider_binding_sha256: str,
+    config: Mapping[str, Any],
+    *,
+    distributed: Any | None = None,
+) -> None:
+    world_size = config.get("world_size")
+    if not isinstance(world_size, int) or world_size <= 1:
+        return
+    if distributed is None:
+        try:
+            import torch.distributed as distributed
+        except ImportError as exc:
+            raise ProductionRailsError(
+                "distributed pair binding requires torch.distributed"
+            ) from exc
+    if (
+        not distributed.is_available()
+        or not distributed.is_initialized()
+        or distributed.get_world_size() != world_size
+    ):
+        raise ProductionRailsError("distributed pair binding requires initialized world_size")
+    value = {
+        "provider_binding_sha256": provider_binding_sha256,
+        "basis_sha256": config.get("basis_sha256"),
+    }
+    gathered: list[object] = [None] * world_size
+    distributed.all_gather_object(gathered, value)
+    if any(row != value for row in gathered):
+        raise ProductionRailsError("distributed pair scientific binding mismatch")
+
+
 def _construct_resident_engine(
     api: _ProvenResidentAPI,
     binding: _ArtifactBinding,
@@ -177,6 +209,7 @@ class _ProvenSession:
         *,
         continuation_config: Mapping[str, Any],
         receipt_root: Path,
+        provider_binding_sha256: str | None = None,
     ) -> None:
         self.root = artifact.root.resolve()
         self.api = _ProvenResidentAPI.open(self.root)
@@ -198,6 +231,11 @@ class _ProvenSession:
         self.engine = _construct_resident_engine(
             self.api, self.binding, self.continuation_config
         )
+        if provider_binding_sha256 is not None:
+            _require_distributed_pair_binding(
+                provider_binding_sha256,
+                self.continuation_config,
+            )
         self._pre_kld: float | None = None
 
     def hot_swap(self, artifact: BackpackArtifact, binding: _ArtifactBinding) -> None:
@@ -405,6 +443,8 @@ class ProductionRails:
                 "layers",
                 "uniform_builder",
                 "backpack_mixer",
+                "score_contract",
+                "continuation_science",
             )
         }
         self.provider_binding_sha256 = hashlib.sha256(
@@ -645,6 +685,7 @@ class ProductionRails:
             binding,
             continuation_config=dict(self.config.get("continuation", {})),
             receipt_root=self.run_root / "receipts",
+            provider_binding_sha256=self.provider_binding_sha256,
         )
         self._active = artifact
         self._active_binding = binding

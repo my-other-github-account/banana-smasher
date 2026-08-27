@@ -7,7 +7,11 @@ from pathlib import Path
 import pytest
 
 from banana_smasher.artifact_identity import ArtifactIdentity
-from banana_smasher.resident_admission import ADMISSION_SPEC_SCHEMA, admit_resident_artifact
+from banana_smasher.resident_admission import (
+    ADMISSION_SPEC_SCHEMA,
+    admit_resident_artifact,
+    provider_binding,
+)
 
 
 def _sha(data: bytes) -> str:
@@ -121,4 +125,39 @@ def test_admission_refuses_explicit_checkpoint_sha_mismatch(tmp_path: Path):
             tmp_path / "artifact",
             checkpoint=checkpoint,
             checkpoint_sha256=_sha(b"wrong"),
+        )
+
+
+def test_provider_binding_changes_when_balanced64_window_roster_changes(tmp_path: Path):
+    checkpoint = tmp_path / "source.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    authenticated = tmp_path / "roster.json"
+    authenticated.write_bytes(b"roster")
+    spec_path = _spec(tmp_path, checkpoint, authenticated)
+    spec = json.loads(spec_path.read_text())
+
+    _, original = provider_binding(spec)
+    spec["score"]["window_ids"] = list(range(64, 128))
+    _, changed = provider_binding(spec)
+
+    assert changed != original
+
+
+def test_admission_rejects_rank_scientific_runtime_digest_drift(tmp_path: Path):
+    checkpoint = tmp_path / "source.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    authenticated = tmp_path / "roster.json"
+    authenticated.write_bytes(b"roster")
+    spec_path = _spec(tmp_path, checkpoint, authenticated)
+    spec = json.loads(spec_path.read_text())
+    spec["continuations"]["0"]["resident_expert_source_sha256"] = _sha(b"official-runtime")
+    spec["continuations"]["1"]["resident_expert_source_sha256"] = _sha(b"different-runtime")
+    spec_path.write_text(json.dumps(spec, sort_keys=True))
+
+    with pytest.raises(ValueError, match="continuations scientific binding mismatch"):
+        admit_resident_artifact(
+            spec_path,
+            tmp_path / "artifact",
+            checkpoint=checkpoint,
+            checkpoint_sha256=_sha(checkpoint.read_bytes()),
         )

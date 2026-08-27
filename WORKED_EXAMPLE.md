@@ -166,8 +166,14 @@ dtypes, or held-out gates.
 - Published PRE checkpoint SHA-256:
   `f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70`.
 - Two reserved CUDA ranks launched with the artifact-owned distributed settings.
-  The launcher sets `RANK=0` or `RANK=1`. When admitted rank-local copies carry
-  different historical rendezvous addresses, set the conventional
+  Both ranks must be admitted from the same scientific contract: the public
+  admission binding covers the exact Balanced64 window roster plus the shared
+  resident/trainer/roster/corpus digests, and the runtime exchanges that binding
+  across the initialized process group before any score. A mixed historical
+  rank pair fails nonzero before the expensive Full64 scorer instead of emitting
+  a meaningless canary value. The launcher sets `RANK=0` or `RANK=1`. When
+  admitted rank-local copies carry different historical rendezvous addresses,
+  set the conventional
   `MASTER_ADDR` and `MASTER_PORT` environment variables to the same reachable
   rank-0 endpoint on both ranks; these override only deployment rendezvous, not
   scientific paths or geometry.
