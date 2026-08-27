@@ -375,6 +375,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     backpack_mixed.add_argument("--config", type=Path, required=True)
     backpack_mixed.add_argument("--output", type=Path, required=True)
+    backpack_provenance = backpack_commands.add_parser(
+        "solve-provenance",
+        help="solve a hash-bound tier-filtered provenance ledger from config",
+    )
+    backpack_provenance.add_argument("--config", type=Path, required=True)
+    backpack_provenance.add_argument("--output", type=Path, required=True)
     backpack_bind_physical = backpack_commands.add_parser(
         "bind-mixed-v7-physical",
         help="bind runtime-measured V7 payload/control/shared bytes to sensitivity rows",
@@ -1566,6 +1572,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = {
                     **solve_mixed_backpack_config(args.config, output=args.output),
                     "command": "backpack solve-mixed",
+                }
+            elif args.backpack_command == "solve-provenance":
+                from .provenance_wire import run_configured_provenance_solve
+
+                result = {
+                    **run_configured_provenance_solve(
+                        args.config, output=args.output
+                    ),
+                    "command": "backpack solve-provenance",
                 }
             elif args.backpack_command == "bind-mixed-v7-physical":
                 from .backpack_dimensions import bind_mixed_v7_physical_dimensions

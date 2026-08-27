@@ -183,6 +183,9 @@ def run_full_wire_provenance_solve(
     shipping_bytes_cap: int,
     class_weights: dict[str, float],
     class_caps: dict[str, float] | None = None,
+    allowed_tiers: tuple[str, ...] | None = None,
+    exact_envelope: bool = False,
+    padding_policy: str | None = None,
 ) -> dict[str, Any]:
     """Solve a full-wire provenance ledger, charging shared assets once."""
 
@@ -202,6 +205,10 @@ def run_full_wire_provenance_solve(
         or shipping_bytes_cap <= 0
     ):
         raise ValueError("shipping_bytes_cap must be a positive integer")
+    if padding_policy not in (None, "metadata_reserve"):
+        raise ValueError("padding_policy must be metadata_reserve when provided")
+    if exact_envelope and padding_policy is not None:
+        raise ValueError("exact_envelope and padding_policy are mutually exclusive")
     fixed = json.loads(fixed_raw)
     components = fixed.get("components")
     if not isinstance(components, dict):
@@ -236,7 +243,10 @@ def run_full_wire_provenance_solve(
             identity = row_identity
         elif row_identity != identity:
             raise ValueError(f"full-wire provenance identity drift at line {line_number}")
-        key = (str(row.get("cell_id")), str(row.get("tier")))
+        tier = str(row.get("tier"))
+        if allowed_tiers is not None and tier not in allowed_tiers:
+            continue
+        key = (str(row.get("cell_id")), tier)
         if key in by_key:
             raise ValueError(f"duplicate full-wire provenance option: {key}")
         activations = row.get("activation_artifacts", [])
@@ -286,10 +296,16 @@ def run_full_wire_provenance_solve(
         envelope_bytes=envelope,
         class_caps=effective_caps,
         class_weights=class_weights,
-        exact_envelope=False,
+        exact_envelope=exact_envelope,
     )
     selected_expert_bytes = int(result["assigned_bytes"])
-    whole_bytes = fixed_bytes + selected_expert_bytes
+    unpadded_whole_bytes = fixed_bytes + selected_expert_bytes
+    padding_bytes = (
+        shipping_bytes_cap - unpadded_whole_bytes
+        if padding_policy == "metadata_reserve"
+        else 0
+    )
+    whole_bytes = unpadded_whole_bytes + padding_bytes
     predicted_totals = result.get(
         "predicted_class_totals", result.get("prediction_by_class")
     )
@@ -305,6 +321,9 @@ def run_full_wire_provenance_solve(
         "repair_bytes": repair,
         "metadata_bytes": metadata,
         "fixed_nonexpert_bytes": fixed_bytes,
+        "unpadded_whole_shipping_bytes": unpadded_whole_bytes,
+        "padding_bytes": padding_bytes,
+        "padding_policy": padding_policy,
         "whole_shipping_bytes": whole_bytes,
         "shipping_slack_bytes": shipping_bytes_cap - whole_bytes,
     }
@@ -319,6 +338,10 @@ def run_full_wire_provenance_solve(
         "predicted_class_totals": predicted_totals,
         "assignments": result["assignments"],
         "solver": result["solver"],
+        "allowed_tiers": tiers,
+        "exact_envelope": exact_envelope,
+        "padding_policy": padding_policy,
+        "exact_model_size": whole_bytes == shipping_bytes_cap,
     }
     assignment_raw = _canonical(assignment)
     if assignment_path.exists() or receipt_path.exists():
@@ -337,3 +360,86 @@ def run_full_wire_provenance_solve(
     }
     _atomic_write(receipt_path, _canonical(receipt))
     return receipt
+
+
+def run_configured_provenance_solve(
+    config: str | Path, *, output: str | Path
+) -> dict[str, Any]:
+    """Run a hash-bound tier-filtered provenance solve from one JSON config."""
+
+    config_path = Path(config).expanduser().resolve()
+    config_raw = config_path.read_bytes()
+    value = json.loads(config_raw)
+    if value.get("schema") != "banana-smasher-provenance-solve-config-v1":
+        raise ValueError("provenance solve config schema mismatch")
+    inputs = value.get("inputs")
+    target = value.get("target")
+    if not isinstance(inputs, dict) or not isinstance(target, dict):
+        raise ValueError("provenance solve config lacks inputs/target")
+
+    def configured_path(name: str) -> tuple[Path, str]:
+        descriptor = inputs.get(name)
+        if not isinstance(descriptor, dict):
+            raise ValueError(f"provenance solve config lacks {name}")
+        path = Path(str(descriptor.get("path", ""))).expanduser()
+        if not path.is_absolute():
+            path = config_path.parent / path
+        expected = str(descriptor.get("sha256", ""))
+        if len(expected) != 64:
+            raise ValueError(f"provenance solve config has invalid {name} SHA-256")
+        return path.resolve(), expected
+
+    ledger, ledger_sha = configured_path("option_ledger")
+    fixed, fixed_sha = configured_path("fixed_accounting")
+    tiers = value.get("allowed_tiers")
+    if (
+        not isinstance(tiers, list)
+        or not tiers
+        or any(not isinstance(tier, str) or not tier for tier in tiers)
+        or len(set(tiers)) != len(tiers)
+    ):
+        raise ValueError("allowed_tiers must be a non-empty unique string list")
+    class_weights = value.get("class_weights")
+    if not isinstance(class_weights, dict) or not class_weights:
+        raise ValueError("class_weights must be a non-empty object")
+    class_caps = value.get("class_caps")
+    if class_caps is not None and not isinstance(class_caps, dict):
+        raise ValueError("class_caps must be an object when provided")
+    cap = target.get("whole_model_bytes")
+    if isinstance(cap, bool) or not isinstance(cap, int) or cap <= 0:
+        raise ValueError("target.whole_model_bytes must be a positive integer")
+    exact = target.get("exact", False)
+    if not isinstance(exact, bool):
+        raise ValueError("target.exact must be boolean")
+    padding_policy = target.get("padding_policy")
+    if padding_policy not in (None, "metadata_reserve"):
+        raise ValueError("target.padding_policy must be metadata_reserve when provided")
+    if padding_policy is not None and not exact:
+        raise ValueError("target.padding_policy requires target.exact=true")
+
+    destination = Path(output).expanduser().resolve()
+    destination.mkdir(parents=True, exist_ok=False)
+    receipt = run_full_wire_provenance_solve(
+        ledger,
+        fixed,
+        destination / "ASSIGNMENT.json",
+        destination / "RECEIPT.json",
+        expected_option_ledger_sha256=ledger_sha,
+        expected_fixed_accounting_sha256=fixed_sha,
+        shipping_bytes_cap=cap,
+        class_weights={str(name): float(weight) for name, weight in class_weights.items()},
+        class_caps=(
+            None
+            if class_caps is None
+            else {str(name): float(limit) for name, limit in class_caps.items()}
+        ),
+        allowed_tiers=tuple(tiers),
+        exact_envelope=exact and padding_policy is None,
+        padding_policy=padding_policy,
+    )
+    return {
+        **receipt,
+        "config": _descriptor(config_path, config_raw),
+        "allowed_tiers": tiers,
+        "exact": exact,
+    }
