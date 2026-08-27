@@ -293,6 +293,194 @@ def build_dynamic_dimensions(
     }
 
 
+def _resolve_mixed_dimension_sources(
+    config_path: Path,
+    descriptor: object,
+    basis: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    if not isinstance(descriptor, dict):
+        raise DynamicDimensionsError("dimensions must be an object")
+    if set(descriptor) == {"path", "sha256"}:
+        raw_sources = [descriptor]
+    elif set(descriptor) == {"sources"} and isinstance(descriptor["sources"], list):
+        raw_sources = descriptor["sources"]
+        if not raw_sources:
+            raise DynamicDimensionsError("dimensions.sources must be non-empty")
+    else:
+        raise DynamicDimensionsError(
+            "dimensions must contain path and sha256, or a non-empty sources array"
+        )
+
+    rows: list[dict[str, Any]] = []
+    admitted: list[dict[str, Any]] = []
+    pending: list[str] = []
+    for index, source in enumerate(raw_sources):
+        if not isinstance(source, dict):
+            raise DynamicDimensionsError(f"dimensions source {index} must be an object")
+        resolved = source
+        locator_path: Path | None = None
+        locator_raw = b""
+        if set(source) == {"locator_path"}:
+            locator_path = Path(str(source["locator_path"])).expanduser()
+            if not locator_path.is_absolute():
+                locator_path = config_path.parent / locator_path
+            locator_path = locator_path.resolve()
+            if not locator_path.exists():
+                pending.append(str(locator_path))
+                continue
+            locator, locator_raw = _read_json(locator_path, f"dimensions locator {index}")
+            if (
+                not isinstance(locator, dict)
+                or locator.get("schema")
+                != "banana-smasher-mixed-backpack-dimensions-locator-v1"
+                or locator.get("status") not in {"PASS", "SEALED"}
+                or locator.get("basis_sha256") != basis
+            ):
+                raise DynamicDimensionsError(
+                    f"dimensions locator {index} schema/status/basis mismatch"
+                )
+            resolved = locator.get("dimensions")
+            if not isinstance(resolved, dict):
+                raise DynamicDimensionsError(
+                    f"dimensions locator {index} lacks dimensions descriptor"
+                )
+        elif set(source) != {"path", "sha256"}:
+            raise DynamicDimensionsError(
+                f"dimensions source {index} must contain path and sha256, or locator_path"
+            )
+
+        if not isinstance(resolved, dict) or set(resolved) != {"path", "sha256"}:
+            raise DynamicDimensionsError(
+                f"dimensions source {index} descriptor must contain path and sha256"
+            )
+        dimensions_path = Path(str(resolved["path"])).expanduser()
+        if not dimensions_path.is_absolute():
+            dimensions_path = (locator_path or config_path).parent / dimensions_path
+        dimensions_path = dimensions_path.resolve()
+        expected_sha = _sha_field(
+            resolved["sha256"], f"dimensions source {index}.sha256"
+        )
+        source_rows, source_raw = _read_jsonl(
+            dimensions_path, f"mixed Backpack dimensions source {index}"
+        )
+        if _sha(source_raw) != expected_sha:
+            raise DynamicDimensionsError(
+                f"mixed Backpack dimensions source {index} SHA-256 mismatch"
+            )
+        rows.extend(source_rows)
+        source_receipt = {
+            "path": str(dimensions_path),
+            "sha256": expected_sha,
+            "bytes": len(source_raw),
+            "rows": len(source_rows),
+        }
+        if locator_path is not None:
+            source_receipt["locator"] = {
+                "path": str(locator_path),
+                "sha256": _sha(locator_raw),
+                "bytes": len(locator_raw),
+            }
+        admitted.append(source_receipt)
+    return rows, admitted, pending
+
+
+def preflight_mixed_backpack_config(config: str | Path) -> dict[str, Any]:
+    """Admit available dimension shards and report exact pending coverage."""
+
+    config_path = Path(config).expanduser().resolve()
+    value, config_raw = _read_json(config_path, "mixed Backpack config")
+    if not isinstance(value, dict) or value.get("schema") != "banana-smasher-mixed-backpack-config-v1":
+        raise DynamicDimensionsError(
+            "mixed Backpack config must use banana-smasher-mixed-backpack-config-v1"
+        )
+    basis = _sha_field(value.get("basis_sha256"), "basis_sha256")
+    tiers = value.get("allowed_tiers")
+    if not isinstance(tiers, list) or not tiers or any(
+        not isinstance(tier, str) or not tier for tier in tiers
+    ):
+        raise DynamicDimensionsError("allowed_tiers must be a non-empty string array")
+    fallback = value.get("fallback_tier")
+    if fallback not in tiers:
+        raise DynamicDimensionsError("fallback_tier must be present in allowed_tiers")
+    topology = value.get("topology")
+    if not isinstance(topology, dict) or set(topology) != {
+        "layers",
+        "experts_per_layer",
+        "projections",
+    }:
+        raise DynamicDimensionsError(
+            "topology must contain layers, experts_per_layer, and projections"
+        )
+    layers = topology["layers"]
+    experts = topology["experts_per_layer"]
+    projections = topology["projections"]
+    if (
+        not isinstance(layers, list)
+        or not layers
+        or len(layers) != len(set(layers))
+        or any(isinstance(layer, bool) or not isinstance(layer, int) or layer < 0 for layer in layers)
+        or isinstance(experts, bool)
+        or not isinstance(experts, int)
+        or experts <= 0
+        or not isinstance(projections, list)
+        or not projections
+        or len(projections) != len(set(projections))
+        or any(projection not in {"down", "fused13"} for projection in projections)
+    ):
+        raise DynamicDimensionsError("topology geometry is invalid")
+
+    rows, admitted, pending = _resolve_mixed_dimension_sources(
+        config_path, value.get("dimensions"), basis
+    )
+    available: set[tuple[str, str]] = set()
+    for index, row in enumerate(rows):
+        if row.get("basis_sha256") != basis:
+            raise DynamicDimensionsError(f"mixed dimension row {index} basis mismatch")
+        if row.get("allocation_eligible") is not True or row.get("status") != "ADMITTED_COMPLETE_ALLOCATION_ELIGIBLE":
+            raise DynamicDimensionsError(f"mixed dimension row {index} is not allocation eligible")
+        layer, expert, projection, tier = _identity(row, f"mixed dimension row {index}")
+        projection = "fused13" if projection == "13" else projection
+        key = (f"L{layer:03d}.E{expert:03d}.{projection}", tier)
+        if key in available:
+            raise DynamicDimensionsError(f"duplicate mixed option {key!r}")
+        available.add(key)
+    expected = [
+        f"L{layer:03d}.E{expert:03d}.{projection}"
+        for layer in sorted(layers)
+        for expert in range(experts)
+        for projection in projections
+    ]
+    coverage = {
+        tier: {
+            "available_projection_cells": sum((cell, tier) in available for cell in expected),
+            "missing_layers": [
+                layer
+                for layer in sorted(layers)
+                if not any(
+                    (f"L{layer:03d}.E{expert:03d}.{projection}", tier) in available
+                    for expert in range(experts)
+                    for projection in projections
+                )
+            ],
+        }
+        for tier in tiers
+    }
+    missing_fallback = [cell for cell in expected if (cell, fallback) not in available]
+    ready = not pending and not missing_fallback
+    return {
+        "schema": "banana-smasher-mixed-backpack-preflight-v1",
+        "status": "READY_TO_SOLVE" if ready else "WAITING_FOR_DIMENSION_LOCATORS",
+        "ready_to_solve": ready,
+        "basis_sha256": basis,
+        "config": {"path": str(config_path), "sha256": _sha(config_raw), "bytes": len(config_raw)},
+        "sources": {"admitted": len(admitted), "pending": len(pending)},
+        "admitted_sources": admitted,
+        "pending_locators": pending,
+        "coverage": coverage,
+        "missing_fallback_projection_cells": missing_fallback,
+    }
+
+
 def solve_mixed_backpack_config(
     config: str | Path, *, output: str | Path
 ) -> dict[str, Any]:
@@ -317,6 +505,7 @@ def solve_mixed_backpack_config(
         "target",
         "allowed_tiers",
         "fallback_tier",
+        "topology",
         "dimensions",
         "class_caps",
         "class_weights",
@@ -360,19 +549,22 @@ def solve_mixed_backpack_config(
     if not isinstance(target["exact"], bool):
         raise DynamicDimensionsError("target.exact must be boolean")
 
-    descriptor = value.get("dimensions")
-    if not isinstance(descriptor, dict) or set(descriptor) != {"path", "sha256"}:
-        raise DynamicDimensionsError("dimensions must contain path and sha256")
-    raw_dimensions_path = Path(str(descriptor["path"])).expanduser()
-    dimensions_path = (
-        raw_dimensions_path
-        if raw_dimensions_path.is_absolute()
-        else config_path.parent / raw_dimensions_path
-    ).resolve()
-    expected_dimensions_sha = _sha_field(descriptor["sha256"], "dimensions.sha256")
-    rows, dimensions_raw = _read_jsonl(dimensions_path, "mixed Backpack dimensions")
-    if _sha(dimensions_raw) != expected_dimensions_sha:
-        raise DynamicDimensionsError("mixed Backpack dimensions SHA-256 mismatch")
+    rows, dimension_sources, pending_locators = _resolve_mixed_dimension_sources(
+        config_path, value.get("dimensions"), basis
+    )
+    if pending_locators:
+        raise DynamicDimensionsError(
+            f"mixed Backpack dimensions have {len(pending_locators)} pending locators; "
+            f"first={pending_locators[0]!r}"
+        )
+    if value.get("topology") is not None:
+        preflight = preflight_mixed_backpack_config(config_path)
+        if not preflight["ready_to_solve"]:
+            missing = preflight["missing_fallback_projection_cells"]
+            raise DynamicDimensionsError(
+                f"fallback tier {fallback!r} is missing for {len(missing)} expected projection cells; "
+                f"first={missing[0]!r}"
+            )
 
     raw_caps = value.get("class_caps")
     if not isinstance(raw_caps, dict) or set(raw_caps) != set(CLASSES):
@@ -586,11 +778,8 @@ def solve_mixed_backpack_config(
             "sha256": _sha(config_raw),
             "bytes": len(config_raw),
         },
-        "dimensions": {
-            "path": str(dimensions_path),
-            "sha256": expected_dimensions_sha,
-            "bytes": len(dimensions_raw),
-        },
+        "dimensions": {"sources": dimension_sources},
+        "sources": {"admitted": len(dimension_sources), "pending": 0},
         "assignment": {
             "path": str(output_root / "ASSIGNMENT.json"),
             "sha256": _sha(assignment_raw),

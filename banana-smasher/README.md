@@ -90,9 +90,16 @@ QTIP2 fallback must exist for every cell. Decimal GB is explicit: 102 GB is
   },
   "allowed_tiers": ["qtip2", "qtip3"],
   "fallback_tier": "qtip2",
+  "topology": {
+    "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42],
+    "experts_per_layer": 256,
+    "projections": ["down", "fused13"]
+  },
   "dimensions": {
-    "path": "./DIMENSIONS.jsonl",
-    "sha256": "DIMENSIONS_SHA256"
+    "sources": [
+      {"path": "./PARTIAL_DIMENSIONS.jsonl", "sha256": "PARTIAL_SHA256"},
+      {"locator_path": "./FINAL_DIMENSIONS_LOCATOR.json"}
+    ]
   },
   "class_caps": {
     "agentic": 1000000,
@@ -106,12 +113,24 @@ QTIP2 fallback must exist for every cell. Decimal GB is explicit: 102 GB is
 ```
 
 ```console
+smash backpack preflight-mixed --config mixed-102gb.json
 smash backpack solve-mixed --config mixed-102gb.json --output ./mixed-102gb
 ```
 
+`preflight-mixed` admits already sealed shards, reports exact missing fallback
+projection cells, and returns `WAITING_FOR_DIMENSION_LOCATORS` while a declared
+locator is absent. The config does not change when a producer publishes that
+locator. A locator uses schema
+`banana-smasher-mixed-backpack-dimensions-locator-v1`, binds the model basis,
+and contains a normal `{path, sha256}` dimensions descriptor. `solve-mixed`
+then auto-consumes all locators, refuses if any remains pending or if topology
+lacks QTIP2 fallback, and records every source and locator hash in its receipt.
+
 The output seals `ASSIGNMENT.json`, `identity.json`, and `RECEIPT.json`.
 `identity.json` records the complete cell assignment, QTIP3 coverage and
-missing layers, and per-layer tier counts. A 96/108/115 GB variant changes only
+missing layers, and per-layer tier counts. `ASSIGNMENT.json` expands each
+layer/expert choice into the projection-level materialization assignments used
+by the existing loader/contract assembly path. A 96/108/115 GB variant changes only
 `target.whole_model_bytes`; tier policy remains in `allowed_tiers`. The public
 schema is `schema/banana-smasher-mixed-backpack-config-v1.schema.json`.
 

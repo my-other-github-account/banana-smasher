@@ -18,6 +18,26 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "dimension_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "dimension_source": {
+      "oneOf": [
+        {"$ref": "#/$defs/dimension_descriptor"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["locator_path"],
+          "properties": {"locator_path": {"type": "string", "minLength": 1}}
+        }
+      ]
+    },
     "six_classes": {
       "type": "object",
       "additionalProperties": false,
@@ -52,14 +72,42 @@
       "items": {"type": "string", "minLength": 1}
     },
     "fallback_tier": {"type": "string", "minLength": 1},
-    "dimensions": {
+    "topology": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "sha256"],
+      "required": ["layers", "experts_per_layer", "projections"],
       "properties": {
-        "path": {"type": "string", "minLength": 1},
-        "sha256": {"$ref": "#/$defs/sha256"}
+        "layers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 0}
+        },
+        "experts_per_layer": {"type": "integer", "minimum": 1},
+        "projections": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["down", "fused13"]}
+        }
       }
+    },
+    "dimensions": {
+      "oneOf": [
+        {"$ref": "#/$defs/dimension_descriptor"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sources"],
+          "properties": {
+            "sources": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/dimension_source"}
+            }
+          }
+        }
+      ]
     },
     "class_caps": {"$ref": "#/$defs/six_classes"},
     "class_weights": {"$ref": "#/$defs/six_classes"}
