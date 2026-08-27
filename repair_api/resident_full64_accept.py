@@ -1964,7 +1964,29 @@ def _score_admission_windows(
     teacher_root: Path,
 ) -> dict[str, Any]:
     """The sole imported zero-reload forward used by admission and production."""
-    return api.validate(engine, windows, teacher_root)
+    call_tree_path = os.environ.get("W28_FULL_CALL_TREE_PATH")
+    if not call_tree_path:
+        return api.validate(engine, windows, teacher_root)
+    if tuple(windows) != (28,):
+        raise RuntimeError("W28_FULL_CALL_TREE_REQUIRES_EXACT_SINGLETON_28")
+    canonical_pin = os.environ.get("BANANA_SMASHER_CANONICAL_PIN")
+    if not canonical_pin:
+        raise RuntimeError("W28_FULL_CALL_TREE_CANONICAL_PIN_REQUIRED")
+    from repair_api.call_tree_trace import FullCallTreeTrace
+
+    with FullCallTreeTrace(
+        engine.student,
+        call_tree_path,
+        rail="product_w28_admission",
+        basis_sha256=BASIS,
+        canonical_code_commit=canonical_pin,
+    ) as call_tree:
+        measurement = api.validate(engine, windows, teacher_root)
+    print(json.dumps({
+        "status": "W28_PRODUCT_FULL_CALL_TREE_SEALED",
+        "terminal": str(call_tree.path.with_suffix(call_tree.path.suffix + ".terminal.json")),
+    }, sort_keys=True), flush=True)
+    return measurement
 
 
 def _prewarm_candidate_extension() -> dict[str, Any]:
