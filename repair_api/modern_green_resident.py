@@ -743,6 +743,13 @@ def _bind_sealed_gate_up_projection(
                     self.su_w3,
                     self.sv_w3,
                 )
+                limit_value = getattr(self, "limit", None)
+                if limit_value is not None:
+                    limit = float(limit_value)
+                    if not math.isfinite(limit) or limit <= 0:
+                        raise RuntimeError("SEALED_SWIGLU_LIMIT_INVALID")
+                    gate = gate.clamp(max=limit)
+                    up = up.clamp(min=-limit, max=limit)
                 self._sealed_combined_up = up
                 self._sealed_gate_up_activation_count = int(
                     getattr(self, "_sealed_gate_up_activation_count", 0)
@@ -879,6 +886,26 @@ def _bind_sealed_routed_return_accumulation(
     return SealedRoutedReturnAccumulationExpert
 
 
+def _bind_historical_swiglu_limit(provider_class: Any) -> Any:
+    """Preserve the model clamp operand for providers with the historical ABI."""
+    class HistoricalNoLimitCompatibleExpert(provider_class):
+        def __init__(
+            self, *args: Any, swiglu_limit: float | None = None, **kwargs: Any
+        ) -> None:
+            if swiglu_limit is None:
+                raise ArtifactError("historical provider requires the model SwiGLU limit")
+            limit = float(swiglu_limit)
+            if not math.isfinite(limit) or limit <= 0:
+                raise ArtifactError("historical provider model SwiGLU limit is invalid")
+            super().__init__(*args, **kwargs)
+            self.limit = limit
+
+    HistoricalNoLimitCompatibleExpert.__name__ = provider_class.__name__
+    HistoricalNoLimitCompatibleExpert.__qualname__ = provider_class.__qualname__
+    HistoricalNoLimitCompatibleExpert.__module__ = provider_class.__module__
+    return HistoricalNoLimitCompatibleExpert
+
+
 def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
     """Install explicitly hashed wrapper/expert modules under trainer names."""
     extension_value = config.get("fast_k2_extension")
@@ -984,18 +1011,8 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
         # The accepted PRE provider predates the trainer's constructor-only
         # SwiGLU field.  Adapt the public ABI outside the hash-bound provider so
         # its exact route arithmetic and source identity remain unchanged.
-        class HistoricalNoLimitCompatibleExpert(expert_class):
-            def __init__(
-                self, *args: Any, swiglu_limit: float | None = None, **kwargs: Any
-            ) -> None:
-                del swiglu_limit
-                super().__init__(*args, **kwargs)
-
-        HistoricalNoLimitCompatibleExpert.__name__ = expert_class.__name__
-        HistoricalNoLimitCompatibleExpert.__qualname__ = expert_class.__qualname__
-        HistoricalNoLimitCompatibleExpert.__module__ = expert_class.__module__
         expert_module.FullyResidentGroupedV7Experts = bind_projection_boundary(
-            HistoricalNoLimitCompatibleExpert
+            _bind_historical_swiglu_limit(expert_class)
         )
         return expert_module.FullyResidentGroupedV7Experts
     if swiglu_parameter.default is not inspect.Parameter.empty:
