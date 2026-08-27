@@ -35,6 +35,7 @@ VALIDATED_REPAIR_RECIPE = {
     "lr_scale": DEFAULT_IMPROVE_LR_SCALE,
     "heldout_validation_interval": 4,
     "heldout_kill_patience": 2,
+    "accepted_update_cadence": 1,
 }
 ALL_LAYERS = tuple(range(43))
 FORBIDDEN_SLOW_CONTROL_FIELDS = frozenset(
@@ -298,8 +299,11 @@ class _ProvenSession:
             raise ProductionRailsError("resident implementation cannot advance the live engine")
         interval = int(config["heldout_validation_interval"])
         patience = int(config["heldout_kill_patience"])
+        accepted_update_cadence = int(config["accepted_update_cadence"])
         if interval != 4:
             raise ProductionRailsError("validated resident recipe requires four-update boundaries")
+        if accepted_update_cadence != 1:
+            raise ProductionRailsError("validated resident recipe requires every update to be durable")
         previous_kld = self._pre_kld
         streak = 0
         boundaries: list[dict[str, Any]] = []
@@ -307,7 +311,7 @@ class _ProvenSession:
         result: Mapping[str, Any] = {}
         current = start_update
         while current < target:
-            boundary = min(current + interval, target)
+            boundary = min(current + accepted_update_cadence, target)
             receipt = self.receipt_root / (
                 f"CONTINUATION_U{current:03d}_U{boundary:03d}{rank_suffix}.json"
             )
@@ -336,8 +340,8 @@ class _ProvenSession:
                 checkpoint_sha256=checkpoint_sha,
             )
             receipts.append(str(receipt))
-            if boundary - current < interval:
-                current = boundary
+            current = boundary
+            if (boundary - start_update) % interval:
                 continue
             validation = dict(self.engine.score_balanced64(self.api.artifact.windows))
             try:
@@ -357,7 +361,6 @@ class _ProvenSession:
             }
             boundaries.append(boundary_row)
             previous_kld = current_kld
-            current = boundary
             gate_path = self.receipt_root / (
                 f"HELDOUT_GATES_U{start_update:03d}_U{target:03d}{rank_suffix}.json"
             )
@@ -394,6 +397,7 @@ class _ProvenSession:
         return {
             **dict(result),
             "updates": updates,
+            "accepted_update_cadence": accepted_update_cadence,
             "receipts": receipts,
             "heldout_gates": str(gate_path),
             "heldout_boundaries": boundaries,

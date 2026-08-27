@@ -518,6 +518,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     class FakeProvenAPI:
         def __init__(self):
             self.advance_kwargs = None
+            self.advance_targets = []
             self.artifact = type(
                 "Artifact",
                 (),
@@ -527,6 +528,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
         def advance_resident_engine(self, engine, start_checkpoint, target_update, **kwargs):
             del start_checkpoint
             self.advance_kwargs = kwargs
+            self.advance_targets.append(target_update)
             engine.update = target_update
             return {
                 "updates": target_update,
@@ -569,7 +571,9 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     assert trained["checkpoint"] == "UPDATE_008"
     assert post["checkpoint"] == "UPDATE_008"
     assert [row["update"] for row in trained["heldout_boundaries"]] == [4, 8]
-    assert len(trained["receipts"]) == 2
+    assert fake_api.advance_targets == list(range(1, 9))
+    assert len(trained["receipts"]) == 8
+    assert trained["accepted_update_cadence"] == 1
     assert fake_api.advance_kwargs["loss_guard_baseline"] == 0.25
     recipe = fake_api.advance_kwargs["config"]
     assert recipe["training_recipe"] == "u45_validated_v1"
@@ -587,7 +591,7 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
     assert recipe["heldout_validation_interval"] == 4
     assert recipe["heldout_kill_patience"] == 2
     assert str(fake_api.advance_kwargs["loss_guard_receipt_path"]).endswith(
-        "CONTINUATION_U004_U008.rank0.LOSS_GUARD.json"
+        "CONTINUATION_U007_U008.rank0.LOSS_GUARD.json"
     )
     lifecycle = json.loads(rails.lifecycle_path.read_text())
     assert lifecycle["counts"]["model_constructions"] == 1
