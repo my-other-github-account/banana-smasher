@@ -116,6 +116,7 @@ from .backpack_dimensions import (
     preflight_mixed_backpack_config as preflight_mixed_backpack_config,
     solve_mixed_backpack_config as solve_mixed_backpack_config,
 )
+from .mixed_transaction import prepare_mixed_backpack_transaction
 
 from .backpack_selection import select_measured_nonworse
 from .measured_backpack_spsa import (
@@ -333,6 +334,8 @@ __all__ = [
     "native_mxfp4_backpack_provider",
     "pack_qtip_states",
     "persist_fixed_d4_solve",
+    "preflight_mixed_backpack_config",
+    "prepare_mixed_backpack_transaction",
     "prepare_fixed_d4_solve_config",
     "price_backpack_candidate",
     "predict_backpack",
@@ -362,6 +365,7 @@ __all__ = [
     "run_measured_spsa",
     "serve_persistent_updates",
     "solve_backpack",
+    "solve_mixed_backpack_config",
     "solve_contextual_trust_region",
     "solve_fixed_d4_exact",
     "solve_qtip_profiles",
