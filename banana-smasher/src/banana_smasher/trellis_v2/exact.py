@@ -26,7 +26,10 @@ PREFIXES = 4096
 BRANCHES = 16
 STATES = 65536
 STEPS = 128
-MAX_CHUNK = 1024
+# Triton lowers this large prefix-DP tensor's indexing through signed 31-bit
+# byte offsets on the production CUDA path.  This static throughput cap is
+# further reduced from the actual step count before allocation.
+MAX_CHUNK = 256
 PREFIX_DP_NUM_WARPS = 8
 _PRODUCTION_LINEAGE_SHA256 = (
     "379a24289514ead53de1415fdddc9cf77026d46c7b8d9ffef783fe5632a9319b"
@@ -284,8 +287,18 @@ def trellis_v2_exact(
             raise ValueError(f"overlap prefixes must be in [0, {PREFIXES})")
     x = x.contiguous()
     outputs = []
-    for start in range(0, batch, MAX_CHUNK):
-        end = min(batch, start + MAX_CHUNK)
+    steps = int(x.shape[0]) // 2
+    max_rows_by_backpointer_offset = ((1 << 31) - 1) // (
+        steps * PREFIXES * torch.int32.itemsize
+    )
+    chunk_rows = min(MAX_CHUNK, max_rows_by_backpointer_offset)
+    if chunk_rows < 1:
+        raise RuntimeError(
+            "exact QTIP2 sequence cannot fit one prefix-DP row under the "
+            "31-bit byte-offset contract"
+        )
+    for start in range(0, batch, chunk_rows):
+        end = min(batch, start + chunk_rows)
         overlap_arg = (
             None
             if overlap is None

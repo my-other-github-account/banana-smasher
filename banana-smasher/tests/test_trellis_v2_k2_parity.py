@@ -27,13 +27,14 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
         if isinstance(node, ast.Assign)
         for target in node.targets
         if isinstance(target, ast.Name)
-        and target.id in {"BRANCHES", "PREFIXES", "STATES", "STEPS"}
+        and target.id in {"BRANCHES", "PREFIXES", "STATES", "STEPS", "MAX_CHUNK"}
     }
     assert assignments == {
         "BRANCHES": 16,
         "PREFIXES": 4096,
         "STATES": 65536,
         "STEPS": 128,
+        "MAX_CHUNK": 256,
     }
     assert '"branch_sampling": "full"' in exact_source
     assert "alternating-parity-full" not in exact_source
