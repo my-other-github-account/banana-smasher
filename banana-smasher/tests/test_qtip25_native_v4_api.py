@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
+import torch
 
 from banana_smasher import (
     anchor_qtip25_native_v4_cell,
@@ -10,9 +12,55 @@ from banana_smasher import (
 )
 from banana_smasher.qtip1 import gaussian_tlut
 from banana_smasher.cli import main
+from banana_smasher.qtip25_native_v4_api import (
+    build_qtip_native_transform_control,
+    qtip_transform_seed,
+)
 
 
 CLASSES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
+
+
+def test_source_transform_control_is_seeded_basis_bound_and_idempotent(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.npy"
+    output = tmp_path / "L004/E007_down/QTIP_UNIT.pt"
+    np.save(source, np.ones((32, 16), dtype=np.float32), allow_pickle=False)
+    seed = qtip_transform_seed("domain-v1", "sealed-material", 4, 7, "down")
+    assert seed == qtip_transform_seed("domain-v1", "sealed-material", 4, 7, "down")
+    receipt = build_qtip_native_transform_control(
+        source,
+        output,
+        transform_seed=seed,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        device="cpu",
+    )
+    payload = torch.load(output, map_location="cpu", weights_only=True)
+    assert receipt["status"] == "PASS"
+    assert payload["shape"] == [32, 16]
+    assert payload["SU"].dtype == torch.float16
+    assert payload["SV"].dtype == torch.float16
+    assert set(payload["SU"].tolist()) <= {-1.0, 1.0}
+    assert set(payload["SV"].tolist()) <= {-1.0, 1.0}
+    assert build_qtip_native_transform_control(
+        source,
+        output,
+        transform_seed=seed,
+        intended_basis_sha256="9" * 64,
+        observed_basis_sha256="9" * 64,
+        device="cpu",
+    )["sha256"] == receipt["sha256"]
+    with pytest.raises(ValueError, match="basis mismatch"):
+        build_qtip_native_transform_control(
+            source,
+            tmp_path / "bad.pt",
+            transform_seed=seed,
+            intended_basis_sha256="9" * 64,
+            observed_basis_sha256="8" * 64,
+            device="cpu",
+        )
 
 
 def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:

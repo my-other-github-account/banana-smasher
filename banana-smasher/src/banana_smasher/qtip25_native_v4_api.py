@@ -206,6 +206,132 @@ def _load_control(path: str | Path) -> tuple[dict[str, Any], Path]:
     }, control_path
 
 
+def qtip_transform_seed(
+    seed_domain: str,
+    seed_material: str,
+    layer: int,
+    expert: int,
+    projection: Literal["down", "fused13"],
+) -> int:
+    """Derive the public QTIP transform seed for one routed cell."""
+
+    if not seed_domain or not seed_material:
+        raise ValueError("QTIP transform seed domain and material must be non-empty")
+    if layer < 0 or expert < 0 or projection not in {"down", "fused13"}:
+        raise ValueError("invalid routed-cell identity for QTIP transform seed")
+    identity = f"L{layer:03d}_E{expert:03d}_{projection}"
+    digest = hashlib.sha256(
+        f"{seed_domain}|{seed_material}|{identity}".encode()
+    ).digest()
+    return int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
+
+
+def build_qtip_native_transform_control(
+    source: str | Path,
+    output: str | Path,
+    *,
+    transform_seed: int,
+    intended_basis_sha256: str,
+    observed_basis_sha256: str,
+    device: Literal["cpu", "cuda"] = "cuda",
+    qtip_k: int = 3,
+) -> dict[str, Any]:
+    """Materialize a deterministic source-shaped QTIP transform control.
+
+    This is the public recovery seam for a missing historical ``QTIP_UNIT.pt``
+    when only its transform role is consumed by a newer native-QTIP build.  It
+    recreates the proven seeded RHT sign mechanism and uses unit ``Wscale``;
+    the native V6 ``rms_ratio`` path derives and serializes the physical scale.
+    """
+
+    intended = _basis(intended_basis_sha256, "intended_basis_sha256")
+    observed = _basis(observed_basis_sha256, "observed_basis_sha256")
+    if intended != observed:
+        raise ValueError(f"native QTIP control basis mismatch: {observed} != {intended}")
+    if (
+        isinstance(transform_seed, bool)
+        or not isinstance(transform_seed, int)
+        or not 0 <= transform_seed < (1 << 63)
+    ):
+        raise ValueError("transform_seed must be an integer in [0, 2^63)")
+    if qtip_k < 1:
+        raise ValueError("qtip_k must be positive")
+    source_path = Path(source).expanduser().resolve()
+    if source_path.is_symlink() or not source_path.is_file():
+        raise ValueError(f"native QTIP control source must be a regular NPY file: {source_path}")
+    weights = np.load(source_path, mmap_mode="r", allow_pickle=False)
+    if (
+        weights.dtype != np.float32
+        or weights.ndim != 2
+        or any(int(value) <= 0 or int(value) % 16 for value in weights.shape)
+    ):
+        raise ValueError(
+            "native QTIP control source must be a tile-compatible float32 matrix"
+        )
+    rows, columns = (int(value) for value in weights.shape)
+    del weights
+
+    try:
+        import torch
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("building a QTIP transform control requires torch") from exc
+    if device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA required for production QTIP transform controls")
+    if device not in {"cpu", "cuda"}:
+        raise ValueError("QTIP transform-control device must be cpu or cuda")
+    fork_devices = [torch.cuda.current_device()] if device == "cuda" else []
+    with torch.random.fork_rng(devices=fork_devices):
+        torch.manual_seed(transform_seed)
+        su = (torch.randn(columns, device=device).sign() + 1e-5).sign().half().cpu()
+        sv = (torch.randn(rows, device=device).sign() + 1e-5).sign().half().cpu()
+    payload = {
+        "schema": "banana-smasher-source-transform-control-v1",
+        "basis_sha256": intended,
+        "transform_seed": transform_seed,
+        "shape": [rows, columns],
+        "SU": su,
+        "SV": sv,
+        "Wscale": torch.tensor(1.0, dtype=torch.float32),
+        "qtip_k": qtip_k,
+    }
+    output_path = Path(output).expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output_path.with_name(f".{output_path.name}.tmp-{os.getpid()}")
+    with temporary.open("wb") as stream:
+        torch.save(payload, stream)
+        stream.flush()
+        os.fsync(stream.fileno())
+    if output_path.exists():
+        existing, _ = _load_control(output_path)
+        if (
+            existing["shape"] != (rows, columns)
+            or not np.array_equal(existing["SU_storage"], su.numpy())
+            or not np.array_equal(existing["SV_storage"], sv.numpy())
+            or float(existing["Wscale"]) != 1.0
+        ):
+            temporary.unlink(missing_ok=True)
+            raise RuntimeError(f"existing QTIP transform control differs: {output_path}")
+        temporary.unlink(missing_ok=True)
+    else:
+        os.replace(temporary, output_path)
+        directory_fd = os.open(output_path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    return {
+        "schema": "banana-smasher-source-transform-control-receipt-v1",
+        "status": "PASS",
+        "basis_sha256": intended,
+        "transform_seed": transform_seed,
+        "shape": [rows, columns],
+        "qtip_k": qtip_k,
+        "path": str(output_path),
+        "bytes": output_path.stat().st_size,
+        "sha256": _sha_file(output_path),
+    }
+
+
 def _to_normalized_blocks(source: np.ndarray, control: Mapping[str, Any]) -> np.ndarray:
     su = np.asarray(control["SU"], dtype=np.float32)
     sv = np.asarray(control["SV"], dtype=np.float32)
