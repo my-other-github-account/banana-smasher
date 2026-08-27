@@ -1,0 +1,77 @@
+{
+  "schema": "banana-smasher.official-k2-resident-scoring-fail-closed-v1",
+  "status": "FAIL_CLOSED_PRE_SCORE_IDENTITY_MISMATCH",
+  "task_id": "t_1d62fc5e",
+  "kanban_run_id": 4443,
+  "created_utc": "2026-08-19T00:44:11Z",
+  "created_unix": 1787100251,
+  "sealed_handoff": {
+    "path": "repair_api/receipts/OFFICIAL_K2_RESIDENT_IMPLEMENTATION_VERIFICATION_20260818.json",
+    "sha256": "471e41f9cdbb3a553d6f0df60d0e48f9c22e9ba23d4e206e276ce9f1c2a17a15",
+    "gpu_run_performed": false,
+    "source_handoff_receipt_sha256": "b5bd6dad34f54c2b07cf2a1c8e7dcf445f6aa862d0ee869065ed15dafa59e543",
+    "public_route_entrypoint": "ResidentRepairAPI.score(checkpoint, windows)",
+    "api_version_present": false,
+    "release_format_present": false
+  },
+  "implementation_identity_gate": {
+    "required_source": "sealed_handoff.implementation_file_sha256",
+    "outcome": "FAIL",
+    "files": {
+      "repair_api/api.py": {
+        "required_sha256": "a279957001146cee54997ca05554c049852a0a54c32d3cc94b23f070b347c5e9",
+        "observed_sha256": "5802a1b66d0e389977a74fdb3479ba97a71a9fecc25f7293d665abf53183c2e4",
+        "match": false
+      },
+      "repair_api/balanced64.py": {
+        "required_sha256": "59b880df05d91082cbe80cd657222fa9d9a0daefd7f5c3cd5823a6c64d7a9853",
+        "observed_sha256": "59b880df05d91082cbe80cd657222fa9d9a0daefd7f5c3cd5823a6c64d7a9853",
+        "match": true
+      },
+      "repair_api/official_k2_resident_score.py": {
+        "required_sha256": "9fff2a251c69b183d0fa70595bf43657e027ed8a8717352a8670a309a879cdf3",
+        "observed_sha256": "590e411f7981e7f2fdd4e243eddc22e81e1a2e805ab683f726d18f2487badc10",
+        "match": false
+      },
+      "repair_api/production_score_guard.py": {
+        "required_sha256": "41f0b05f0611212d3ccea0be4a4320b41266cf093c05a071f34437297df18176",
+        "observed_sha256": "41f0b05f0611212d3ccea0be4a4320b41266cf093c05a071f34437297df18176",
+        "match": true
+      },
+      "repair_api/tests/test_official_k2_resident_score.py": {
+        "required_sha256": "a4192778ffa40f6bcbab46cdf9d108b74721c034b83d6f9e5ce0dd3cb93c5471",
+        "observed_sha256": "77199a472951072c304f754ff02276c148c5498ba244f15bd067987ca24e907c",
+        "match": false
+      }
+    },
+    "matched_files": 2,
+    "mismatched_files": 3
+  },
+  "fail_closed_actions": {
+    "host_claim_attempted": false,
+    "shard_claim_attempted": false,
+    "model_loaded": false,
+    "payload_loaded": false,
+    "resident_ready_entered": false,
+    "timed_region_entered": false,
+    "score_invoked": false,
+    "successful_release_emitted": false
+  },
+  "unreached_gates": [
+    "basis",
+    "teacher",
+    "corpus",
+    "UPDATE_000 checkpoint",
+    "UPDATE_001 checkpoint",
+    "CLEAN_U0_LOCK",
+    "two-rank resident_ready",
+    "zero timed model reads",
+    "zero timed payload reads"
+  ],
+  "additional_contract_defects": [
+    "The sealed handoff does not specify an API version, although the card requires invoking exactly the API version specified in the handoff.",
+    "The sealed handoff does not contain the verified resident scoring release format the card requires on success.",
+    "The sealed handoff contains only a source-handoff receipt SHA and no authenticated source-closure path."
+  ],
+  "required_repair": "Restore the exact five-file implementation provenance named by the sealed handoff, or publish a new sealed handoff binding the current implementation plus explicit API version, release format, and authenticated source closure."
+}

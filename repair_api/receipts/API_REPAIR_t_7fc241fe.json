@@ -1,0 +1,111 @@
+{
+  "schema": "banana-smasher.public-resident-api-memory-fit-repair-v1",
+  "status": "API_REPAIR_PASS_PHYSICAL_SUCCESSOR_REQUIRED",
+  "task_id": "t_7fc241fe",
+  "host_compute": false,
+  "remote_mutation": false,
+  "hardware_terminology": "inspected seats are NVIDIA GB10 systems; this policy gates current free unified/CUDA memory and does not infer undersized hardware",
+  "public_api": {
+    "method": "ResidentRepairAPI.score",
+    "version": "official-k2-resident-v2",
+    "execution_mode": "resident_in_memory",
+    "resident_required": true,
+    "timed_score_file_reads": 0,
+    "forbidden_paths": [
+      "layer streaming",
+      "fallback",
+      "CPU relay",
+      "dense reconstruction",
+      "direct scorer runner"
+    ]
+  },
+  "basis_gate": {
+    "basis_sha256": "98efab455cf08dfbbba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "canonical_u0_checkpoint_sha256": "7978d1002d7e4ecfa280f646f70cc76638c0e7bd833cc3cc13a2de999050133f",
+    "canonical_u1_checkpoint_sha256": "65cedb1c46f7bb57ad42dcc44686d00410f955f4e1b8e38a18a4520c68b3b865",
+    "clean_u0_lock_sha256": "7eb5edeb8583abba450a6f94de3cfe4fee0ab053c962bfcc1d035bd2d0c30fc2",
+    "official_physical_layer_unchanged": true
+  },
+  "memory_fit_policy": {
+    "schema": "rank-local-cuda-reserve-v1",
+    "cuda_reserve_bytes_by_rank": {
+      "0": 1073741824,
+      "1": 1073741824
+    },
+    "default_cuda_reserve_bytes": 4294967296,
+    "predicate": "resident_estimate_bytes + reserve_bytes <= cuda_free_bytes",
+    "peak_estimate_source": "measured rank-local resident estimate; no physical score numbers invented",
+    "measured_predecessor_evidence": {
+      "rank0": {
+        "cuda_free_bytes": 43399942144,
+        "resident_estimate_bytes": 41201023756,
+        "reserve_bytes": 1073741824,
+        "margin_bytes": 1125176564,
+        "default_4gib_margin_bytes": -2096048908
+      },
+      "rank1": {
+        "cuda_free_bytes": 30876954624,
+        "resident_estimate_bytes": 43146481404,
+        "reserve_bytes": 1073741824,
+        "margin_bytes": -13343268604,
+        "default_4gib_margin_bytes": -16564494076
+      },
+      "interpretation": "rank-local free memory differed due runtime allocations/cache/ownership; no hardware-capacity claim"
+    },
+    "error_receipt_fields": [
+      "cuda_free_bytes",
+      "estimated_resident_bytes",
+      "peak_estimate_bytes",
+      "reserve_bytes",
+      "required_cuda_free_bytes",
+      "margin_bytes",
+      "predicate"
+    ]
+  },
+  "changed_files": {
+    "repair_api/api.py": {
+      "sha256": "69408f30cc0e86788045fca413cf505d2918dd6ceb7738d37c7b45a04fd8c588",
+      "changes": "public score error receipts include memory preflight provenance; resident API rejects fallback/reconstruction/relay counters"
+    },
+    "repair_api/official_k2_resident_score.py": {
+      "sha256": "18385d7a52727a3897155de3c6b801f78703ca9d89c045d68a07347c4d5202e9",
+      "changes": "rank-local positive reserve resolver; default 4GiB gate; explicit peak/free/resident/reserve/margin receipt fields; preserved resident predicate and CUDA-fit error provenance"
+    },
+    "repair_api/tests/test_memory_fit_policy.py": {
+      "sha256": "47061451d97edd5de9d6673ff7f626a47e3c346252a57bf75be34bd66fd310ef",
+      "changes": "default rejection, bounded acceptance, insufficient margin, rank-local validation, error receipt, zero-read/fallback guards"
+    },
+    "stage_manifest_s3_v8e.json": {
+      "sha256": "eb26abc2b90191bb553262458399ff480d4322de95cbc1c6d488a0f484a1b19a",
+      "changes": "explicit rank-local reserve and measured peak policy"
+    },
+    "stage_manifest_s7_v8g.json": {
+      "sha256": "938e020e74c8a2fa5ff63eb69c12df2e55fb85c4d68e5351e1bc5e7f1b6be328",
+      "changes": "explicit rank-local reserve and measured peak policy"
+    }
+  },
+  "verification": [
+    {
+      "command": "python3 -m unittest repair_api.tests.test_memory_fit_policy -v",
+      "result": "Ran 5 tests; OK"
+    },
+    {
+      "command": "python3 -m unittest discover -s repair_api/tests -v",
+      "result": "Ran 46 tests; OK"
+    },
+    {
+      "command": "python3 -m compileall -q repair_api",
+      "result": "PASS"
+    },
+    {
+      "command": "python3 JSON parse of stage_manifest_s3_v8e.json and stage_manifest_s7_v8g.json",
+      "result": "PASS; both declare cuda_reserve_bytes rank map {0:1073741824,1:1073741824}, rank peak estimates, and rank-local policy"
+    }
+  ],
+  "next_use": {
+    "successor_task": "t_1d62fc5e",
+    "invocation": "Use only ResidentRepairAPI.score through the current public manifest; re-read current free CUDA/unified memory on each selected released seat before launch and require resident_estimate + explicit rank-local reserve <= free",
+    "required_checks": "fresh seat/claim read, basis/U0/U1 identity, resident_ready, timed_score_file_reads=0, zero fallback/reconstruction/relay counters, memory_preflight fields in both rank receipts",
+    "no_score_claim": "this implementation receipt contains no score/product and authorizes no host/GPU launch"
+  }
+}

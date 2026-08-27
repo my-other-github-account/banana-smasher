@@ -1,0 +1,45 @@
+{
+  "schema": "banana-smasher.official-k2-resident-pre-physical-gate-v2",
+  "status": "BLOCKED_NO_EXACT_TWO_SPARK_ALLOCATION_AND_CANONICAL_METRICS",
+  "task_id": "t_33abad08",
+  "captured_from_fresh_readback": true,
+  "user_identity_correction": {
+    "canonical_pre_checkpoint_sha256": "7978d1002d7e4ecfa280f646f70cc76638c0e7bd833cc3cc13a2de999050133f",
+    "canonical_pre_label": "clean-U0 UPDATE_000",
+    "alternate_pre_checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+    "alternate_pre_policy": "QUARANTINE_ONLY",
+    "source": "operator out-of-band identity correction during continuation"
+  },
+  "intended_basis_sha256": "98efab455cf08dfbbba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "required_pair": ["spark-1", "spark-3"],
+  "required_windows": 64,
+  "required_positions": 65536,
+  "fresh_physical_readback": {
+    "spark-1": {
+      "host_claim_sha256": "1931ddeb8cf88962c1ae1b564783e500a256cc9601843e610e56b1c92d4d826c",
+      "status": "RELEASED",
+      "state": "RELEASED",
+      "allocation": "HOST_ALLOCATION t_823790dd spark-1 qtip3-v7-missing-layer-remainder",
+      "do_not_preempt": true,
+      "release_rc": 1,
+      "workload_pid": null,
+      "matching_t_8f313c29_processes": []
+    },
+    "spark-3": {
+      "host_claim_sha256": "d5133b29db62577b37e7371feacc865361d7ae2f9a20fe15565606d38f946007",
+      "status": "RELEASED",
+      "state": "RELEASED",
+      "held_before_paired_resume": true,
+      "released_task_id": "t_8f313c29",
+      "workload_pid": null,
+      "matching_t_8f313c29_processes": []
+    }
+  },
+  "physical_run_performed": false,
+  "quality_metrics": {
+    "canonical_clean_u0_kld": null,
+    "canonical_clean_u0_top1": null,
+    "reason": "No sealed canonical clean-U0 PRE quality terminal is available in the workspace; the previous 0.2293201724587741/56566 values are tied to alternate f9bffe04 and must not be reused."
+  },
+  "next_action": "Driver must allocate an exact two-Spark pair to this task or successor, provide the sealed canonical clean-U0 PRE metric receipt, then exact-CAS both HOST_CLAIM files and SHARDS before launch."
+}

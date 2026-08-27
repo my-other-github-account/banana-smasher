@@ -1,0 +1,33 @@
+{
+  "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "entrypoint": "ResidentRepairAPI.score",
+  "kld_mean": 0.0,
+  "operation": "score",
+  "positions": 1024,
+  "preflight": {
+    "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "checkpoint": "UPDATE_000",
+    "claim": {
+      "status": "NOT_REQUESTED"
+    },
+    "memory": {
+      "available_after_bytes": null,
+      "available_before_bytes": null,
+      "cache_drop": {
+        "reason": "no-/proc/sys/vm/drop_caches",
+        "status": "UNAVAILABLE"
+      },
+      "peak_estimate_gib": 0.0,
+      "reserve_gib": 4,
+      "status": "PASS"
+    },
+    "operation": "score",
+    "status": "PASS",
+    "windows": [
+      0
+    ]
+  },
+  "status": "PASS",
+  "support": 8192,
+  "windows": 1
+}
