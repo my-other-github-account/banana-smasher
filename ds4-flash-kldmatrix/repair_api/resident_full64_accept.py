@@ -749,6 +749,107 @@ def _run_one_layer_with_attention(engine: Any, layer: Any, hidden: Any, ids: Any
     return output, attention["tensor"]
 
 
+def _authenticated_l000_internal_bisect(
+    engine: Any, *, window: int, root: Path, rank: int, pin: str
+) -> dict[str, Any]:
+    """Capture only the authorized high-level L000 internal boundaries."""
+    control_path = root / "control" / "ACCEPTED_BUILDER_L000_INTERNAL.json"
+    control_sha = os.environ.get("ACCEPTED_L000_INTERNAL_SHA256", "")
+    if not control_sha or sha(control_path) != control_sha:
+        raise RuntimeError("ACCEPTED_L000_INTERNAL_IDENTITY_RED")
+    control = json.loads(control_path.read_text())
+    if control.get("source_builder_parent_sha256") != "11ead706db562197e76cdc320d5d13044bb254a411b6412326667f524ddf29ed":
+        raise RuntimeError("ACCEPTED_L000_INTERNAL_SOURCE_RED")
+    local: dict[str, Any] = {"rank": rank}
+    if rank == 0:
+        prepared = engine.preload_validation((window,), engine.config["validation_teacher_root"])
+        ids = prepared["ids"][window]
+        layer = engine.student.model.model.layers[0]
+        embeddings = engine.student.model.model.embed_tokens(ids)
+        hidden = embeddings.unsqueeze(2).expand(
+            -1, -1, engine.student.config.hc_mult, -1
+        ).contiguous()
+        from transformers.cache_utils import DynamicCache
+        cache = DynamicCache(config=engine.student.config)
+        template = hidden[:, :, 0, :]
+        pos, pe, mask = engine._positional(ids, template, cache)
+        router: dict[str, Any] = {}
+
+        def router_hook(_module: Any, args: Any, output: Any) -> None:
+            router["input"] = args[0].detach()
+            router["output"] = output
+
+        handle = layer.mlp.gate.register_forward_hook(router_hook)
+        with torch.no_grad():
+            dtype = hidden.dtype
+            records: dict[str, Any] = {"layer_input": _tensor_tap(hidden)}
+            post_a, comb_a, collapsed_a = layer.attn_hc(hidden)
+            norm_a = layer.input_layernorm(collapsed_a)
+            attn_output, _ = layer.self_attn(
+                norm_a, position_embeddings=pe, position_ids=pos,
+                attention_mask=mask, input_ids=ids, past_key_values=cache,
+            )
+            records["attention_return"] = _tensor_tap(attn_output)
+            residual_a = (
+                post_a.to(dtype).unsqueeze(-1) * attn_output.unsqueeze(-2)
+                + torch.matmul(comb_a.to(dtype).transpose(-1, -2), hidden)
+            )
+            records["post_attention_residual"] = _tensor_tap(residual_a)
+            post_f, comb_f, collapsed_f = layer.ffn_hc(residual_a)
+            norm_f = layer.post_attention_layernorm(collapsed_f)
+            mlp_output = layer.mlp(norm_f, input_ids=ids)
+            handle.remove()
+            if set(router) != {"input", "output"}:
+                raise RuntimeError("L000_ROUTER_HOOK_RED")
+            records["router_input"] = _tensor_tap(router["input"])
+            router_output = router["output"]
+            if not isinstance(router_output, tuple) or len(router_output) != 3:
+                raise RuntimeError("L000_ROUTER_OUTPUT_GEOMETRY_RED")
+            records["router_output"] = {
+                "logits": _tensor_tap(router_output[0]),
+                "weights": _tensor_tap(router_output[1]),
+                "indices": _tensor_tap(router_output[2]),
+            }
+            records["moe_return"] = _tensor_tap(mlp_output)
+            output = (
+                post_f.to(dtype).unsqueeze(-1) * mlp_output.unsqueeze(-2)
+                + torch.matmul(comb_f.to(dtype).transpose(-1, -2), residual_a)
+            )
+            records["final_residual"] = _tensor_tap(output)
+        order = (
+            "layer_input", "attention_return", "post_attention_residual",
+            "router_input", "router_output", "moe_return", "final_residual",
+        )
+        expected = control["boundaries"]
+        comparisons: dict[str, Any] = {}
+        for name in order:
+            product = records[name]
+            accepted = expected[name]
+            comparisons[name] = {
+                "exact": product == accepted, "product": product, "accepted": accepted,
+            }
+        first = next((name for name in order if not comparisons[name]["exact"]), None)
+        local.update(boundaries=records, comparisons=comparisons,
+                     first_unequal_boundary=first)
+    gathered: list[Any] = [None, None]
+    torch.distributed.all_gather_object(gathered, local)
+    receipt = {
+        "schema": "banana-smasher-authenticated-l000-internal-bisect-v1",
+        "status": "EXACT_L000_INTERNAL_PARITY" if gathered[0].get("first_unequal_boundary") is None else "AUTHENTICATED_FIRST_UNEQUAL_INTERNAL",
+        "task_id": TASK, "rank": rank, "canonical_code_commit": pin,
+        "basis_sha256": BASIS, "window": window,
+        "accepted_control_path": str(control_path),
+        "accepted_control_sha256": control_sha,
+        "boundary_order": list(control["boundary_order"]),
+        "first_unequal_boundary": gathered[0].get("first_unequal_boundary"),
+        "ranks": gathered, "created_unix": time.time(),
+    }
+    path = root / "receipts" / f"AUTHENTICATED_L000_INTERNAL.rank{rank}.json"
+    receipt["receipt_sha256"] = atomic(path, receipt)
+    print(json.dumps({"receipt_path": str(path), **receipt}, sort_keys=True), flush=True)
+    return receipt
+
+
 def _run_one_layer_with_expert_trace(
     engine: Any, layer: Any, hidden: Any, ids: Any, *, resident: bool
 ) -> tuple[Any, dict[str, Any]]:
@@ -2316,6 +2417,14 @@ def main() -> None:
 
     if os.environ.get("WHOLE_CHAIN_BISECT_ONLY", "0") == "1":
         _whole_chain_bisect(engine, window=28, root=root, rank=rank, pin=pin)
+        engine.close()
+        if torch.distributed.is_initialized():
+            torch.distributed.destroy_process_group()
+        return
+
+    if os.environ.get("AUTHENTICATED_L000_INTERNAL_ONLY", "0") == "1":
+        _authenticated_l000_internal_bisect(
+            engine, window=28, root=root, rank=rank, pin=pin)
         engine.close()
         if torch.distributed.is_initialized():
             torch.distributed.destroy_process_group()
