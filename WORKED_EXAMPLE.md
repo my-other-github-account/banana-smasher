@@ -86,7 +86,8 @@ dtypes, or held-out gates.
 - Two reserved CUDA ranks launched with the artifact-owned distributed settings.
   The launcher sets only `RANK=0` or `RANK=1`; scientific paths and geometry come
   from the corresponding rank config.
-- Python 3.11 or newer. Install with `python -m pip install ./banana-smasher`.
+- Python 3.11 or newer. Install the runtime dependencies with
+  `python -m pip install './banana-smasher[solve]'`.
 
 Admission is the staging boundary: it copies and re-hashes the explicit
 checkpoint, verifies every `authenticated_inputs` row, writes rank configs, and
