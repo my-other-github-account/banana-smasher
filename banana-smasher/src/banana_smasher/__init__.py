@@ -110,6 +110,7 @@ from .backpack_virtual import (
 from .locality import require_local_backpack_inputs, require_local_path
 from .staging import stage_qsfp_manifest
 from .evaluate import evaluate_paired, verify_evaluation
+from .exl3_loader import admit_exl3_storage_alias, resolve_exl3_storage_prefix
 from .fixed_d4 import (
     materialize_fixed_d4,
     persist_fixed_d4_solve,
@@ -234,6 +235,7 @@ __all__ = [
     "UpdateQueue",
     "aggregate_scores",
     "aggregate_balanced64",
+    "admit_exl3_storage_alias",
     "anchor_backpack",
     "anchor_backpack_candidates",
     "anchor_qtip25_native_v4_cell",
@@ -305,6 +307,7 @@ __all__ = [
     "require_comparable_bpw",
     "record_contextual_swap_measurement",
     "resolve_bank_identities",
+    "resolve_exl3_storage_prefix",
     "resolve_backpack_family_provider",
     "reuse_backpack_receipts",
     "require_local_backpack_inputs",
