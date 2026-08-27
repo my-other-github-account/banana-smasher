@@ -19,5 +19,7 @@ def test_qtip3_regenerate_entrypoint_accepts_authorized_routed_scope_and_batches
     assert next(keyword.value.value for keyword in run.keywords if keyword.arg == "batch_size") == 40
     assert "QTIP3 recovery scope must be exactly" not in source.read_text()
     assert "QTIP3_CELL_ROSTER_PATH" in source.read_text()
+    assert "QTIP3_CELL_ROSTER_EXPECTED_COUNT" in source.read_text()
+    assert ".issubset(set(LAYERS))" in source.read_text()
     assert "load_cell_roster" in source.read_text()
     assert "QTIP3_OUTPUT_ROOT" in source.read_text()

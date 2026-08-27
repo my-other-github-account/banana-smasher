@@ -53,12 +53,19 @@ from banana_smasher import qtip3_api_producer as producer_module
 producer_module.LAYERS = LAYERS
 producer_module.EXPECTED_CELLS = len(LAYERS) * 512
 CELL_ROSTER_PATH = os.environ.get("QTIP3_CELL_ROSTER_PATH")
+CELL_ROSTER_EXPECTED_COUNT = int(os.environ.get("QTIP3_CELL_ROSTER_EXPECTED_COUNT", "5992"))
+if CELL_ROSTER_EXPECTED_COUNT <= 0:
+    raise RuntimeError("QTIP3_CELL_ROSTER_EXPECTED_COUNT must be positive")
 CELL_ROSTER = (
-    load_cell_roster(CELL_ROSTER_PATH, intended_basis_sha256=BASIS, expected_count=5992)
+    load_cell_roster(
+        CELL_ROSTER_PATH,
+        intended_basis_sha256=BASIS,
+        expected_count=CELL_ROSTER_EXPECTED_COUNT,
+    )
     if CELL_ROSTER_PATH else ()
 )
-if CELL_ROSTER and {row[0] for row in CELL_ROSTER} != set(LAYERS):
-    raise RuntimeError("cell roster layers do not match QTIP3_LAYERS")
+if CELL_ROSTER and not {row[0] for row in CELL_ROSTER}.issubset(set(LAYERS)):
+    raise RuntimeError("cell roster contains a layer outside QTIP3_LAYERS")
 PROJECTIONS = ("fused13", "down")
 EXPERTS = tuple(range(256))
 REC = ROOT / "receipts"
