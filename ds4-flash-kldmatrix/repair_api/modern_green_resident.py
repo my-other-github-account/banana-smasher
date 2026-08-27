@@ -585,6 +585,52 @@ def _sealed_builder_combined_gate_up_projection(
     return gate, up
 
 
+def _sealed_builder_native_moe_return(
+    module: Any,
+    hidden_states: Any,
+    top_k_index: Any,
+    top_k_weights: Any,
+    *,
+    full_weight_builder: Any,
+) -> Any:
+    """Execute the accepted DeepseekV4Experts MoE return from resident planes."""
+    import torch
+    import torch.nn.functional as F
+
+    final = torch.zeros_like(hidden_states)
+    lut_master = module.plane_source.wire_lut().reshape(-1).contiguous()
+    expert_count = int(module.packed_w1.shape[0])
+    with torch.no_grad():
+        mask = F.one_hot(top_k_index, num_classes=expert_count).permute(2, 1, 0)
+        hit = torch.greater(mask.sum(dim=(-1, -2)), 0).nonzero()
+    for expert_index_row in hit:
+        expert_index = expert_index_row[0]
+        if int(expert_index) == expert_count:
+            continue
+        top_k_pos, token_index = torch.where(mask[expert_index])
+        routed = hidden_states[token_index]
+        gate_weight = full_weight_builder(
+            module.packed_w1[expert_index], lut_master,
+            module.su_w1[expert_index], module.sv_w1[expert_index],
+        ).transpose(0, 1).contiguous()
+        up_weight = full_weight_builder(
+            module.packed_w3[expert_index], lut_master,
+            module.su_w3[expert_index], module.sv_w3[expert_index],
+        ).transpose(0, 1).contiguous()
+        gate_up = F.linear(routed, torch.cat((gate_weight, up_weight), dim=0))
+        gate, up = gate_up.chunk(2, dim=-1)
+        limit = float(module.limit)
+        current = module.act(gate.clamp(max=limit)) * up.clamp(min=-limit, max=limit)
+        down_weight = full_weight_builder(
+            module.packed_w2[expert_index], lut_master,
+            module.su_w2[expert_index], module.sv_w2[expert_index],
+        ).transpose(0, 1).contiguous()
+        current = F.linear(current, down_weight)
+        current = current * top_k_weights[token_index, top_k_pos, None]
+        final.index_add_(0, token_index, current.to(final.dtype))
+    return final
+
+
 def _sealed_builder_down_projection(
     x: Any,
     assignments: Any,
@@ -872,6 +918,42 @@ def _bind_installed_projection_runtime(
     }
 
 
+def _bind_sealed_native_moe_return_provider(
+    provider_class: Any,
+    config: Mapping[str, Any],
+    *,
+    full_weight_builder: Any,
+) -> Any:
+    """Replace the complete custom routed path with the accepted native expert loop."""
+    requested = (
+        config.get("resident_native_moe_return")
+        == "accepted_deepseek_v4_expert_loop_v1"
+        and config.get("resident_native_moe_provider_sha256")
+        == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+    )
+    if not requested:
+        return provider_class
+    if not callable(full_weight_builder):
+        raise ArtifactError("accepted native MoE return requires the sealed full-weight builder")
+
+    class SealedNativeMoeReturnExpert(provider_class):
+        def forward(
+            self, hidden_states: Any, top_k_index: Any, top_k_weights: Any
+        ) -> Any:
+            return _sealed_builder_native_moe_return(
+                self,
+                hidden_states,
+                top_k_index,
+                top_k_weights,
+                full_weight_builder=full_weight_builder,
+            )
+
+    SealedNativeMoeReturnExpert.__name__ = provider_class.__name__
+    SealedNativeMoeReturnExpert.__qualname__ = provider_class.__qualname__
+    SealedNativeMoeReturnExpert.__module__ = provider_class.__module__
+    return SealedNativeMoeReturnExpert
+
+
 def _bind_sealed_routed_return_accumulation(
     provider_class: Any, config: Mapping[str, Any]
 ) -> Any:
@@ -961,6 +1043,7 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
 
     combined_projection = None
     down_projection = None
+    full_weight_builder = None
     if (
         config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
         and config.get("resident_gate_up_provider_sha256")
@@ -992,6 +1075,12 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
             down_projection = bound_down_projection
 
     def bind_projection_boundary(current_class: Any) -> Any:
+        if config.get("resident_native_moe_return") == "accepted_deepseek_v4_expert_loop_v1":
+            return _bind_sealed_native_moe_return_provider(
+                current_class,
+                config,
+                full_weight_builder=full_weight_builder,
+            )
         projection_class = current_class
         if _uses_exact_sealed_reconstruction(config):
             class SealedBuilderProjectionBoundaryExpert(current_class):
