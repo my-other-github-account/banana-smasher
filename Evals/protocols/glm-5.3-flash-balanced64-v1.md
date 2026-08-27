@@ -15,28 +15,81 @@ binds GLM's own native FP8 source and rejects the DeepSeek bank and baseline.
 
 ## Public producer
 
-Use only the documented public calls:
+Use only the documented public calls. The checked-in lock is the immutable
+population/model template. Its historical `source_windows_sha256` is not a GLM
+token ledger and therefore must not be passed directly to teacher capture. First
+recover authenticated source text, tokenize it with GLM, and use the public
+builder's derived suite lock for both capture and PRE:
 
 ```python
+from banana_smasher import (
+    build_balanced64_token_ledger,
+    capture_balanced64_teacher,
+    recover_balanced64_source_text,
+    score_balanced64_pre,
+)
+
+model = "/local/hf/GLM-5.3-Flash"
+revision = "3f1971b7b5f7a528c9c4ef6212c8785298a8c24a"
+template_lock = "Evals/configs/glm-5.3-flash-balanced64-v1.json"
+source_text_manifest = "/local/eval/recovered-balanced64-source-text.json"
+glm_token_ledger = "/local/eval/glm-balanced64-token-ledger.json"
+derived_suite_lock = "/local/eval/glm-balanced64-derived-suite-lock.json"
+
+source_text = recover_balanced64_source_text(
+    historical_token_ledger="/local/eval/historical-balanced64-token-ledger.json",
+    suite_lock=template_lock,
+    source_tokenizer_model="/local/hf/historical-source-model",
+    output=source_text_manifest,
+    receipt_path="/local/eval/SOURCE_TEXT_RECOVERY.json",
+)
+assert source_text["roundtrip_verified_rows"] == 64
+
+ledger = build_balanced64_token_ledger(
+    model,
+    revision=revision,
+    suite_lock=template_lock,
+    source_manifest=source_text_manifest,
+    output=glm_token_ledger,
+    bound_suite_lock=derived_suite_lock,
+    receipt_path="/local/eval/GLM_TOKEN_LEDGER.json",
+)
+assert ledger["row_count"] == 64
+assert ledger["positions"] == 65536
+
+canary = capture_balanced64_teacher(
+    model,
+    revision=revision,
+    suite_lock=derived_suite_lock,
+    corpus=glm_token_ledger,
+    output="/local/eval/teacher-canary",
+    receipt_path="/local/eval/TEACHER_CANARY.json",
+    windows=[28],
+)
+assert canary["status"] == "PASS_DIAGNOSTIC"
+assert canary["artifact_admissible"] is False
+
 teacher = capture_balanced64_teacher(
     model,
     revision=revision,
-    suite_lock="Evals/configs/glm-5.3-flash-balanced64-v1.json",
-    corpus=balanced64_corpus,
-    output=teacher_output,
-    receipt_path=teacher_receipt,
+    suite_lock=derived_suite_lock,
+    corpus=glm_token_ledger,
+    output="/local/eval/teacher-full64",
+    receipt_path="/local/eval/TEACHER_CAPTURE.json",
 )
 pre = score_balanced64_pre(
-    admitted_artifact,
+    "/local/artifacts/glm-routed-q2-native-rest",
     teacher_capture=teacher,
-    suite_lock="Evals/configs/glm-5.3-flash-balanced64-v1.json",
-    corpus=balanced64_corpus,
-    receipt_path=pre_receipt,
+    suite_lock=derived_suite_lock,
+    corpus=glm_token_ledger,
+    receipt_path="/local/eval/PRE.json",
 )
 ```
 
-No runtime object is supplied. The package resolves exactly one registered
-capability from config/index and admitted-artifact semantics.
+The one-window canary is diagnostic only and never enters the results table.
+The Full64 capture must follow it. No runtime object is supplied. The package
+resolves exactly one registered capability from config/index and the reopened
+admitted-artifact semantics.
 
 ## PRE acceptance
 

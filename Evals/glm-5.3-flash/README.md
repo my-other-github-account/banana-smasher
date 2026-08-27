@@ -19,12 +19,21 @@ row will replace this same pending row; no repair/Post result may precede it.
 
 ## Public API path
 
-The package-owned path is `capture_balanced64_teacher(...)` followed by
-`score_balanced64_pre(...)`, as shown in [`WORKED_EXAMPLE.md`](../../WORKED_EXAMPLE.md).
-Callers supply the pinned model, suite lock, frozen corpus, and output locations;
-they do not construct a runtime plugin or name ranks, hosts, teacher paths, or a
+The model-family path is source recovery, a model-specific token ledger and
+derived suite lock, one diagnostic teacher canary, Full64 teacher capture, and
+PRE scoring. Use `recover_balanced64_source_text(...)`,
+`build_balanced64_token_ledger(...)`, `capture_balanced64_teacher(...)`, and
+`score_balanced64_pre(...)` exactly as shown in the
+[model-specific protocol](../protocols/glm-5.3-flash-balanced64-v1.md). The
+checked-in lock is a population/model template; teacher and PRE calls consume
+the derived suite lock and GLM token ledger together, never the historical
+ledger directly.
+
+Callers supply pinned local model and authenticated input/output locations; they
+do not construct a runtime plugin or name ranks, hosts, teacher paths, or a
 model-family script. Capability selection must resolve exactly one registered
-package runtime and otherwise fails closed.
+package runtime and otherwise fails closed. The one-window canary must report
+`PASS_DIAGNOSTIC` and `artifact_admissible=false`; it is not a measured row.
 
 ## Machine and protocol files
 

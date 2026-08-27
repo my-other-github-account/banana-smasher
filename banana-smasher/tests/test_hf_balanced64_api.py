@@ -203,3 +203,24 @@ def test_glm_suite_lock_and_pending_evals_are_model_local() -> None:
     assert "capture_balanced64_teacher(" in worked
     assert "score_balanced64_pre(" in worked
     assert "runtime=" not in worked.split("teacher = capture_balanced64_teacher(", 1)[1].split("pre =", 1)[0]
+
+    protocol = (
+        repository / "Evals/protocols/glm-5.3-flash-balanced64-v1.md"
+    ).read_text()
+    for public_call in (
+        "recover_balanced64_source_text(",
+        "build_balanced64_token_ledger(",
+        "capture_balanced64_teacher(",
+        "score_balanced64_pre(",
+    ):
+        assert public_call in protocol
+    assert 'bound_suite_lock=derived_suite_lock' in protocol
+    assert 'suite_lock=derived_suite_lock' in protocol
+    assert 'corpus=glm_token_ledger' in protocol
+    assert "PASS_DIAGNOSTIC" in protocol
+    assert "artifact_admissible" in protocol
+
+    glm_page = (repository / "Evals/glm-5.3-flash/README.md").read_text()
+    assert "source recovery" in glm_page
+    assert "model-specific token ledger" in glm_page
+    assert "derived suite lock" in glm_page
