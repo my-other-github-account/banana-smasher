@@ -210,6 +210,12 @@ def test_production_rebinds_to_sealed_single_window_pre_semantics() -> None:
     assert "validate_scheduled_pair_group(" in source[production:]
     assert "validate_full64_admission_pairs(" not in source[production:]
     assert "first_pair_index=0" in source[production:]
+    assert (
+        'ADOPTED_PROVIDER_EXPERT_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"'
+        in source
+    )
+    assert "bind_combined_gate_up_projection(" not in source[production:]
+    assert "bind_routed_return_accumulation(" not in source[production:]
 
 
 def test_resident_full64_accept_uses_explicit_authenticated_attempt_config(monkeypatch) -> None:

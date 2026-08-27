@@ -219,15 +219,12 @@ class FullyResidentGroupedV7Experts(nn.Module):
             if hidden_states.shape[0] % sealed_group_tokens:
                 raise RuntimeError("packed V7 batch must divide sealed group2 geometry")
             launch_stream = torch.cuda.current_stream(device=hidden_states.device)
-            group_count = hidden_states.shape[0] // sealed_group_tokens
-            stream_count = min(2, group_count)
             streams = [
                 torch.cuda.Stream(device=hidden_states.device)
-                for _ in range(stream_count)
+                for _ in range(hidden_states.shape[0] // sealed_group_tokens)
             ]
             outputs = []
-            for group in range(group_count):
-                stream = streams[group % stream_count]
+            for group, stream in enumerate(streams):
                 start = group * sealed_group_tokens
                 stop = start + sealed_group_tokens
                 stream.wait_stream(launch_stream)

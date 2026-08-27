@@ -419,7 +419,7 @@ def test_static_resident_expert_preserves_attempt25_ordinary_provider_boundaries
     assert "sealed_bf16_full_weight" not in static_source
 
 
-def test_exact_942c_provider_is_kept_duplicated_without_tp_configuration() -> None:
+def test_exact_accepted_provider_is_kept_duplicated_without_tp_configuration() -> None:
     from repair_api import modern_green_resident
 
     config = {
@@ -435,4 +435,4 @@ def test_exact_942c_provider_is_kept_duplicated_without_tp_configuration() -> No
 
     assert modern_green_resident._configure_resident_tensor_parallel(
         config, {0: object()}, rank=0
-    ) == "exact-942c-duplicated-all43-no-tp"
+    ) == "exact-accepted-0eeb-duplicated-all43-no-tp"
