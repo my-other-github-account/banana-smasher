@@ -701,6 +701,16 @@ def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():
     engine._load_optimizer_scheduler_state()
 
 
+def test_published_pre_starts_with_fresh_optimizer_and_scheduler_state():
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.score_only = False
+    engine.payload = {"next_update": 0}
+
+    engine._load_optimizer_scheduler_state()
+
+    assert engine.scheduler_state_action == "FRESH_PRE_OPTIMIZER_AND_SCHEDULE"
+
+
 def test_public_resident_score_engine_loads_exact_state_without_training_lineage(tmp_path, monkeypatch):
     checkpoint = tmp_path / "SERIALIZED_PRE.pt"
     checkpoint.write_bytes(b"exact-pre")

@@ -844,8 +844,14 @@ class ModernGreenResidentEngine:
             self.scheduler_state_action = "SCORE_ONLY_NO_TRAINING_LINEAGE"
             return
         optimizer_payload = self.payload.get("optimizer", self.payload.get("optimizer_state"))
+        scheduler_payload = self.payload.get("scheduler", self.payload.get("scheduler_state"))
+        if _checkpoint_cursor(self.payload) == 0:
+            if isinstance(optimizer_payload, Mapping) or isinstance(scheduler_payload, Mapping):
+                raise ArtifactError("published PRE must start with fresh optimizer and scheduler state")
+            self.scheduler_state_action = "FRESH_PRE_OPTIMIZER_AND_SCHEDULE"
+            return
         if not isinstance(optimizer_payload, Mapping):
-            raise ArtifactError("U16 checkpoint is missing the shared Adam optimizer state")
+            raise ArtifactError("continuation checkpoint is missing the shared Adam optimizer state")
         groups = optimizer_payload.get("param_groups")
         global_state = optimizer_payload.get("state")
         if not isinstance(groups, list) or len(groups) != 3 or not isinstance(global_state, Mapping):
