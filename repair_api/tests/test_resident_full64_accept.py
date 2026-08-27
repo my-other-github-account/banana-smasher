@@ -204,7 +204,9 @@ def test_production_rebinds_to_sealed_single_window_pre_semantics() -> None:
     assert "engine.score_pipeline_microbatch = 1" in body
     assert 'config["score_pair_stream_concurrency"] = 1' in body
     assert 'config["score_pipeline_overlap"] = True' in body
-    assert "published PRE validation requires sealed single-window microbatch" in engine_source
+    assert 'self.config.get("sealed_builder_window_microbatch", 2)' in engine_source
+    assert "published PRE validation requires sealed mb=2 microbatch" in engine_source
+    assert "physical_batch_size != 2" in engine_source
     assert "_physical_canary_batch_windows(ordered" not in engine_source
     assert "scheduled PRE pair group requires exact sealed mb=2" not in engine_source
     assert "validate_scheduled_pair_group(" in source[production:]
