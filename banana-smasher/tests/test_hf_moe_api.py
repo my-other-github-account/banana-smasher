@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import struct
 from pathlib import Path
 
 import numpy as np
@@ -311,3 +312,44 @@ def test_public_bounded_canary_is_diagnostic_and_projects_complete_build(
     assert estimate["projection"]["complete_wall_seconds"] > 0
     assert estimate["projection"]["complete_payload_bytes"] > 0
     assert json.loads(receipt_path.read_text()) == estimate
+
+
+def test_public_bounded_canary_reads_safetensors_float8_e4m3(tmp_path: Path) -> None:
+    from banana_smasher import estimate_hf_moe_uniform
+
+    model = tmp_path / "float8-numeric-experts-model"
+    model.mkdir()
+    (model / "config.json").write_text(
+        json.dumps({"n_routed_experts": 1, "num_hidden_layers": 1}) + "\n"
+    )
+    shard = model / "model-00001-of-00001.safetensors"
+    routed_name = "layers.0.experts.0.down_proj.weight"
+    native_name = "layers.0.router.weight"
+    header = {
+        routed_name: {"dtype": "F8_E4M3", "shape": [2, 8], "data_offsets": [0, 16]},
+        native_name: {"dtype": "F16", "shape": [2, 4], "data_offsets": [16, 32]},
+    }
+    header_bytes = json.dumps(header, separators=(",", ":")).encode()
+    header_bytes += b" " * (-len(header_bytes) % 8)
+    shard.write_bytes(
+        struct.pack("<Q", len(header_bytes))
+        + header_bytes
+        + bytes([0x38]) * 16
+        + np.arange(8, dtype=np.float16).tobytes()
+    )
+    (model / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": {routed_name: shard.name, native_name: shard.name}}) + "\n"
+    )
+
+    estimate = estimate_hf_moe_uniform(
+        model,
+        revision="3f1971b7b5f7a528c9c4ef6212c8785298a8c24a",
+        tier="q2",
+        scope="routed_only",
+        native_rest=True,
+        receipt_path=tmp_path / "FLOAT8_ESTIMATE.json",
+    )
+
+    assert estimate["status"] == "PASS_DIAGNOSTIC"
+    assert estimate["canary"]["source_dtype"] == "F8_E4M3"
+    assert estimate["canary"]["parameters"] == 16

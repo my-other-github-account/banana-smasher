@@ -424,8 +424,6 @@ def estimate_hf_moe_uniform(
     import time
     import tracemalloc
 
-    from safetensors import safe_open
-
     from .qtip1 import QTIP2_GEOMETRY, encode_qtip, gaussian_tlut
 
     destination = Path(receipt_path).expanduser().resolve()
@@ -443,8 +441,7 @@ def estimate_hf_moe_uniform(
     tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
     tracemalloc.start()
     started = time.perf_counter()
-    with safe_open(root / selected["shard"], framework="numpy") as handle:
-        matrix = handle.get_tensor(selected["name"])
+    matrix = _load_safetensors_matrix(root / selected["shard"], selected)
     encoded = encode_qtip(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
     wall_seconds = time.perf_counter() - started
     _, traced_peak = tracemalloc.get_traced_memory()
@@ -477,6 +474,7 @@ def estimate_hf_moe_uniform(
             "shape": selected["shape"],
             "parameters": selected["parameters"],
             "source_bytes": selected["source_bytes"],
+            "source_dtype": selected["dtype"],
             "wall_seconds": wall_seconds,
             "peak_memory_bytes": peak_memory_bytes,
             "q2_code_bytes": encoded.packed.nbytes,
@@ -519,6 +517,43 @@ def _copy_tensor_data_bytes(
     return hashlib.sha256(payload).hexdigest()
 
 
+def _load_safetensors_matrix(source: Path, row: Mapping[str, Any]):
+    import numpy as np
+
+    if row["dtype"] != "F8_E4M3":
+        from safetensors import safe_open
+
+        with safe_open(source, framework="numpy") as handle:
+            return np.asarray(handle.get_tensor(row["name"]), dtype=np.float32)
+    metadata = _safetensors_header(source)[row["name"]]
+    offsets = metadata["data_offsets"]
+    with source.open("rb") as stream:
+        header_length = struct.unpack("<Q", stream.read(8))[0]
+        stream.seek(8 + header_length + int(offsets[0]))
+        raw = np.frombuffer(
+            stream.read(int(offsets[1]) - int(offsets[0])), dtype=np.uint8
+        )
+    bits = np.arange(256, dtype=np.uint16)
+    exponent = (bits >> 3) & 0xF
+    mantissa = bits & 0x7
+    magnitude = np.where(
+        exponent == 0,
+        np.ldexp(mantissa.astype(np.float32) / 8.0, -6),
+        np.ldexp(
+            1.0 + mantissa.astype(np.float32) / 8.0,
+            exponent.astype(int) - 7,
+        ),
+    ).astype(np.float32)
+    magnitude[(exponent == 15) & (mantissa == 7)] = np.nan
+    lookup = np.where(bits & 0x80, -magnitude, magnitude).astype(np.float32)
+    matrix = lookup[raw].reshape(tuple(row["shape"]))
+    if not np.isfinite(matrix).all():
+        raise ValueError(
+            f"F8_E4M3 routed tensor contains non-finite values: {row['name']}"
+        )
+    return matrix
+
+
 def build_hf_moe_uniform(
     model: str | Path,
     *,
@@ -529,8 +564,6 @@ def build_hf_moe_uniform(
     output: str | Path,
 ) -> dict[str, Any]:
     """Materialize a routed-Q2/native-rest HF MoE artifact and seal its receipt."""
-
-    from safetensors import safe_open
 
     from .qtip1 import QTIP2_GEOMETRY, encode_qtip, gaussian_tlut
 
@@ -559,8 +592,7 @@ def build_hf_moe_uniform(
         native_rows: list[dict[str, Any]] = []
         for row in selected_routed:
             shard = root / row["shard"]
-            with safe_open(shard, framework="numpy") as handle:
-                matrix = handle.get_tensor(row["name"])
+            matrix = _load_safetensors_matrix(shard, row)
             if matrix.ndim != 2:
                 raise ValueError(f"Q2 routed tensor must be a matrix: {row['name']}")
             encoded = encode_qtip(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
