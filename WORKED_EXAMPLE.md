@@ -216,9 +216,14 @@ refuses basis, corpus, teacher, or checkpoint identity drift. When an admitted
 resident expert source is external, admission also auto-binds its authenticated
 `fast_k2_grouped.py` sibling (or the explicit hashed wrapper), and refuses the
 artifact before launch if that dependency was not staged. An optional prebuilt
-grouped-K2 extension remains path-and-SHA bound in the same continuation. On
-the two Spark ranks, run under a service scope with `MemoryMax=105G` and
-`LimitMEMLOCK=infinity`; these are host safety limits, not recipe knobs. The
+grouped-K2 extension remains path-and-SHA bound in the same continuation. The
+resident loader drops each clean immutable wire file from the source page cache
+immediately after copying it into the rank-local CUDA tensor; this keeps the
+~34 GiB input tree from overlapping the complete unified-memory resident set
+during construction without deleting or mutating sealed inputs. On the two
+Spark ranks, run under service scopes with `MemoryMax=95G` for rank 0 and
+`MemoryMax=90G` for rank 1 plus `LimitMEMLOCK=infinity`; these are host safety
+limits, not recipe knobs. The
 service launcher supplies `RANK=0` or `RANK=1`, a shared `MASTER_ADDR` /
 `MASTER_PORT` when the admitted copies do not already agree, optionally points
 `BANANA_SMASHER_RUN_ROOT` at durable local storage, and invokes the same API

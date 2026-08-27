@@ -513,6 +513,38 @@ def test_resident_binds_the_sealed_parity_expert_implementation():
     assert "torch.argsort(top_k_index, dim=1, stable=True)" in text
 
 
+def test_resident_wire_read_evicts_clean_source_pages(monkeypatch, tmp_path: Path):
+    grouped = ModuleType("fast_k2_grouped")
+    setattr(grouped, "grouped_k2_stats", lambda: {})
+    setattr(grouped, "grouped_packed_projection", lambda *args: None)
+    setattr(grouped, "grouped_sealed_gate_up_projection", lambda *args: None)
+    monkeypatch.setitem(sys.modules, "fast_k2_grouped", grouped)
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "repair_api"
+        / "assets"
+        / "fast_v7_expert_base.py"
+    )
+    spec = importlib.util.spec_from_file_location("resident_eviction_test", source)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    payload = tmp_path / "wire.bin"
+    payload.write_bytes(b"wire-payload")
+    calls = []
+    monkeypatch.setattr(module.os, "POSIX_FADV_DONTNEED", 4, raising=False)
+    monkeypatch.setattr(
+        module.os,
+        "posix_fadvise",
+        lambda fd, offset, length, advice: calls.append((fd, offset, length, advice)),
+        raising=False,
+    )
+
+    assert module._read_wire_payload(payload) == b"wire-payload"
+    assert len(calls) == 1
+    assert calls[0][1:] == (0, 0, module.os.POSIX_FADV_DONTNEED)
+
+
 def test_resident_accepts_config_bound_packaged_expert_source(tmp_path: Path):
     source = tmp_path / "fast_v7_expert_base.py"
     source.write_bytes(_official_expert_source_path().read_bytes())
