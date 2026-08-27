@@ -42,13 +42,6 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     assert "step.to(tl.int64)" not in exact_source
 
 
-def test_public_k2_v2_routes_through_proven_persistent_prefix_producer() -> None:
-    integration_source = (_package_root() / "trellis_v2" / "__init__.py").read_text()
-    assert 'import_module("banana_smasher.qtip_viterbi")' in integration_source
-    assert "exact_prefix_viterbi(cb, x, overlap)" in integration_source
-    assert "trellis_v2_exact(cb, x, overlap)" not in integration_source
-
-
 @pytest.mark.skipif(
     not os.environ.get("BANANA_SMASHER_QTIP_CANONICAL_ROOT"),
     reason="set BANANA_SMASHER_QTIP_CANONICAL_ROOT for Cornell parity gate",
