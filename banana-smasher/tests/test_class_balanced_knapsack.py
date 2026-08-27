@@ -1,9 +1,10 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import scipy.optimize
 
-from banana_smasher.knapsack import solve_class_balanced_options
+from banana_smasher.knapsack import KnapsackValidationError, solve_class_balanced_options
 
 
 def test_solver_rejects_scalar_best_assignment_that_breaks_code_cap():
@@ -81,6 +82,48 @@ def test_exact_envelope_selects_exact_option_instead_of_cheaper_underfill():
     assert result["assignments"][0]["tier"] == "exact"
 
 
+def test_class_balanced_solver_forces_fallback_when_q3_is_unavailable():
+    cells = ["L000.E000.down", "L001.E000.down"]
+    tiers = ["qtip2", "qtip3"]
+    options = {(cell, tier) for cell in cells for tier in tiers}
+
+    result = solve_class_balanced_options(
+        cells=cells,
+        tiers=tiers,
+        bytes_by_option={key: 1 if key[1] == "qtip2" else 2 for key in options},
+        class_costs_by_option={
+            key: {"quality": 1.0 if key[1] == "qtip2" else 0.0} for key in options
+        },
+        envelope_bytes=3,
+        class_caps={"quality": 10.0},
+        available_options={
+            ("L000.E000.down", "qtip2"),
+            ("L000.E000.down", "qtip3"),
+            ("L001.E000.down", "qtip2"),
+        },
+    )
+
+    assert {row["cell_id"]: row["tier"] for row in result["assignments"]} == {
+        "L000.E000.down": "qtip3",
+        "L001.E000.down": "qtip2",
+    }
+
+
+def test_class_balanced_solver_rejects_cell_without_available_tier():
+    cells = ["L000.E000.down"]
+    tiers = ["qtip2", "qtip3"]
+    options = {(cell, tier) for cell in cells for tier in tiers}
+
+    with pytest.raises(KnapsackValidationError, match="no available tier"):
+        solve_class_balanced_options(
+            cells=cells,
+            tiers=tiers,
+            bytes_by_option={key: 1 for key in options},
+            class_costs_by_option={key: {"quality": 1.0} for key in options},
+            envelope_bytes=1,
+            class_caps={"quality": 10.0},
+            available_options=set(),
+        )
 def test_status_zero_integral_solution_accepts_representational_nonzero_gap(monkeypatch):
     monkeypatch.setattr(
         scipy.optimize,

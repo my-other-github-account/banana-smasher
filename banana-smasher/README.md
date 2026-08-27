@@ -69,6 +69,53 @@ smash backpack status --run-root ./backpack-run
 smash verify ./backpack-run/pre-repair-pack
 ```
 
+### Sparse mixed Q2/Q3 inventories at an exact model size
+
+`smash backpack solve-mixed` is the config-driven allocation seam for a
+partially available QTIP3 inventory. It consumes the sealed per-candidate rows
+emitted by `backpack-dimensions`, verifies their basis and ledger SHA, and calls
+the same `solve_class_balanced_options` MILP used by normal Backpack plans.
+Missing QTIP3 rows are disabled options, never inferred data; the configured
+QTIP2 fallback must exist for every cell. Decimal GB is explicit: 102 GB is
+`102000000000` bytes.
+
+```json
+{
+  "schema": "banana-smasher-mixed-backpack-config-v1",
+  "basis_sha256": "MODEL_INDEX_SHA256",
+  "target": {
+    "whole_model_bytes": 102000000000,
+    "fixed_nonexpert_bytes": 9032112614,
+    "exact": true
+  },
+  "allowed_tiers": ["qtip2", "qtip3"],
+  "fallback_tier": "qtip2",
+  "dimensions": {
+    "path": "./DIMENSIONS.jsonl",
+    "sha256": "DIMENSIONS_SHA256"
+  },
+  "class_caps": {
+    "agentic": 1000000,
+    "chat": 1000000,
+    "code": 1000000,
+    "multilingual": 1000000,
+    "prose": 1000000,
+    "reasoning": 1000000
+  }
+}
+```
+
+```console
+smash backpack solve-mixed --config mixed-102gb.json --output ./mixed-102gb
+```
+
+The output seals `ASSIGNMENT.json`, `identity.json`, and `RECEIPT.json`.
+`identity.json` records the complete cell assignment, QTIP3 coverage and
+missing layers, and per-layer tier counts. A 96/108/115 GB variant changes only
+`target.whole_model_bytes`; tier policy remains in `allowed_tiers`. The public
+schema is `schema/banana-smasher-mixed-backpack-config-v1.schema.json`.
+
+
 Migration: callers using `generate_vector_vq_backpack_candidate`,
 `generate_qtip_backpack_candidate`, or `materialize_backpack_source` may keep
 those specialized functions. New integrations should use

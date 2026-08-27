@@ -369,6 +369,12 @@ def _parser() -> argparse.ArgumentParser:
     backpack_commands.add_parser(
         "providers", help="list built-in family providers and their public operations"
     )
+    backpack_mixed = backpack_commands.add_parser(
+        "solve-mixed",
+        help="solve a config-bound sparse Q2/Q3 inventory at an exact model size",
+    )
+    backpack_mixed.add_argument("--config", type=Path, required=True)
+    backpack_mixed.add_argument("--output", type=Path, required=True)
     backpack_virtual = backpack_commands.add_parser(
         "virtualize",
         help="project a completed canonical solve into zero-copy contextual wire",
@@ -1507,6 +1513,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = _build_backpack(plan, run_root=args.run_root)
             elif args.backpack_command == "status":
                 result = status_backpack(args.run_root)
+            elif args.backpack_command == "solve-mixed":
+                from .backpack_dimensions import solve_mixed_backpack_config
+
+                result = {
+                    **solve_mixed_backpack_config(args.config, output=args.output),
+                    "command": "backpack solve-mixed",
+                }
             elif args.backpack_command == "providers":
                 from .backpack_providers import builtin_backpack_family_providers
 

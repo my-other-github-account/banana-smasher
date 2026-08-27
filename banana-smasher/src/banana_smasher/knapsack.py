@@ -1142,6 +1142,7 @@ def solve_class_balanced_options(
     class_caps: dict[str, float],
     class_weights: dict[str, float] | None = None,
     exact_envelope: bool = False,
+    available_options: set[tuple[str, str]] | None = None,
     activation_artifacts_by_option: dict[
         tuple[str, str], tuple[dict[str, Any], ...]
     ]
@@ -1218,6 +1219,15 @@ def solve_class_balanced_options(
             parsed_concentration_caps[group] = parsed
 
     expected_options = {(cell, tier) for cell in cells for tier in tiers}
+    available = expected_options if available_options is None else set(available_options)
+    if not available <= expected_options:
+        extra = sorted(available - expected_options)
+        raise KnapsackValidationError(
+            f"available_options contains unknown cell/tier pairs: extra={extra[:3]}"
+        )
+    for cell in cells:
+        if not any((cell, tier) in available for tier in tiers):
+            raise KnapsackValidationError(f"cell {cell!r} has no available tier")
     if set(bytes_by_option) != expected_options:
         missing = sorted(expected_options - set(bytes_by_option))
         extra = sorted(set(bytes_by_option) - expected_options)
@@ -1295,7 +1305,10 @@ def solve_class_balanced_options(
             raise KnapsackValidationError(f"class costs must be finite for {key!r}")
         predictions[key] = parsed
 
-    minimum_required_bytes = sum(min(costs[(cell, tier)] for tier in tiers) for cell in cells)
+    minimum_required_bytes = sum(
+        min(costs[(cell, tier)] for tier in tiers if (cell, tier) in available)
+        for cell in cells
+    )
     if minimum_required_bytes > envelope_bytes:
         raise KnapsackValidationError(
             f"envelope infeasible: minimum required {minimum_required_bytes} bytes exceeds {envelope_bytes}"
@@ -1308,7 +1321,10 @@ def solve_class_balanced_options(
     except ImportError as exc:  # pragma: no cover - installation contract
         raise RuntimeError("class-balanced exact solver requires scipy") from exc
 
-    baseline_by_cell = {cell: min(costs[(cell, tier)] for tier in tiers) for cell in cells}
+    baseline_by_cell = {
+        cell: min(costs[(cell, tier)] for tier in tiers if (cell, tier) in available)
+        for cell in cells
+    }
     remaining_envelope = envelope_bytes - minimum_required_bytes
     byte_deltas = {
         (cell, tier): costs[(cell, tier)] - baseline_by_cell[cell]
@@ -1319,7 +1335,11 @@ def solve_class_balanced_options(
         artifact_id: int(row["bytes"])
         for artifact_id, row in activation_registry.items()
     }
-    positive = [delta for delta in byte_deltas.values() if 0 < delta <= remaining_envelope]
+    positive = [
+        delta
+        for key, delta in byte_deltas.items()
+        if key in available and 0 < delta <= remaining_envelope
+    ]
     positive.extend(
         size for size in activation_sizes.values() if 0 < size <= remaining_envelope
     )
@@ -1333,7 +1353,12 @@ def solve_class_balanced_options(
         key: delta // byte_divisor for key, delta in byte_deltas.items() if delta <= remaining_envelope
     }
     maximum_scaled_use = sum(
-        max(scaled_deltas.get((cell, tier), 0) for tier in tiers) for cell in cells
+        max(
+            scaled_deltas.get((cell, tier), 0)
+            for tier in tiers
+            if (cell, tier) in available
+        )
+        for cell in cells
     ) + sum(size // byte_divisor for size in activation_sizes.values())
     enforce_bytes = exact_envelope or scaled_capacity < maximum_scaled_use
     if enforce_bytes and (
@@ -1384,15 +1409,18 @@ def solve_class_balanced_options(
         for tier_index, tier in enumerate(tiers):
             variable_index = cell_index * len(tiers) + tier_index
             key = (cell, tier)
+            if key not in available:
+                variable_upper[variable_index] = 0.0
             equal_option_key = (
                 costs[key],
                 tuple(predictions[key][name] for name in classes),
                 option_activation_ids[key],
             )
-            if equal_option_key in seen_equal_options:
-                variable_upper[variable_index] = 0.0
-            else:
-                seen_equal_options.add(equal_option_key)
+            if key in available:
+                if equal_option_key in seen_equal_options:
+                    variable_upper[variable_index] = 0.0
+                else:
+                    seen_equal_options.add(equal_option_key)
             objective[variable_index] = math.fsum(
                 weights[name] * predictions[key][name] for name in classes
             )

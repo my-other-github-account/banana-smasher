@@ -90,6 +90,7 @@ from .backpack_contextual_candidate import materialize_contextual_change
 from .backpack_contextual_measure import record_contextual_swap_measurement
 from .backpack_contextual_prepare import prepare_contextual_iteration
 from .backpack_exact64 import EXACT64_TERMINAL_SCHEMA, bind_backpack_exact64
+from .backpack_dimensions import solve_mixed_backpack_config
 
 from .backpack_selection import select_measured_nonworse
 from .measured_backpack_spsa import (
