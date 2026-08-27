@@ -17,7 +17,7 @@
     },
     {
       "K": 2,
-      "backend": "qtip-trellis-v2-graph-replay-b256-chunked-batch-exact-v46"
+      "backend": "persistent-prefix-generic-aot-v1"
     },
     {
       "K": 3,
