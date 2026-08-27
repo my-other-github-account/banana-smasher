@@ -47,7 +47,7 @@ __device__ __forceinline__ uint8_t packed_q(
 // One CTA owns one complete source row. Both FP32 cost banks remain resident for
 // every step; only exact four-bit q winners leave the CTA. This is the bounded
 // full-row specialization of the package QTIP/K2 producer's packed traceback.
-__global__ __launch_bounds__(THREADS, 3) void full_row_k2_viterbi(
+__global__ __launch_bounds__(THREADS, 2) void full_row_k2_viterbi(
     const float* __restrict__ x,
     const float* __restrict__ lut_aos,
     const int32_t* __restrict__ overlap,

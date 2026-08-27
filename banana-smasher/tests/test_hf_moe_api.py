@@ -227,7 +227,7 @@ def test_public_hf_moe_build_materializes_one_q2_tensor_and_reopens_native_bytes
     }
 
 
-def test_public_hf_moe_build_batches_equal_width_routed_tensors_exactly(
+def test_public_hf_moe_build_uses_isolated_routed_encodes_after_rate_red(
     tmp_path: Path,
 ) -> None:
     from banana_smasher import build_hf_moe_uniform, build_hf_moe_uniform_shard
@@ -293,10 +293,10 @@ def test_public_hf_moe_build_batches_equal_width_routed_tensors_exactly(
     ]
 
     assert batched["acceleration"] == {
-        "routed_encode_batches": 2,
+        "routed_encode_batches": 6,
         "routed_tensors_batched": 6,
-        "max_batch_tensors": 10,
-        "same_width_batching": True,
+        "max_batch_tensors": 1,
+        "same_width_batching": False,
     }
     assert [
         (
