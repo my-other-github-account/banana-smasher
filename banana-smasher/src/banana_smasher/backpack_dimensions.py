@@ -241,6 +241,229 @@ def _normalize_mixed_source_rows(
     return normalized
 
 
+def bind_mixed_v7_physical_dimensions(
+    *,
+    sensitivity_ledger: str | Path,
+    member_contract: str | Path,
+    qtip3_terminals: str | Path,
+    basis_sha256: str,
+    output: str | Path,
+    receipt: str | Path,
+) -> dict[str, Any]:
+    """Bind measured V7 payload, control, and shared-table bytes to solver rows.
+
+    The materialized member contract is the runtime authority for physical
+    bytes. Per-expert controls are charged with their QTIP3 expert option;
+    deduplicated LUTs are emitted as activation artifacts and charged once by
+    the existing class-balanced solver.
+    """
+
+    basis = _sha_field(basis_sha256, "basis_sha256")
+    ledger_path = Path(sensitivity_ledger).expanduser().resolve()
+    contract_path = Path(member_contract).expanduser().resolve()
+    terminals_root = Path(qtip3_terminals).expanduser().resolve()
+    output_path = Path(output).expanduser().resolve()
+    receipt_path = Path(receipt).expanduser().resolve()
+    if output_path == receipt_path:
+        raise DynamicDimensionsError("output and receipt paths must differ")
+    rows, ledger_raw = _read_jsonl(ledger_path, "sensitivity ledger")
+    contract, contract_raw = _read_json(contract_path, "mixed V7 member contract")
+    if (
+        not isinstance(contract, dict)
+        or contract.get("schema") != "banana-smasher-mixed-v7-member-contract-v1"
+        or contract.get("status") != "PASS_ADMISSION_READY"
+        or contract.get("basis_sha256") != basis
+    ):
+        raise DynamicDimensionsError("mixed V7 member contract schema/status/basis mismatch")
+    members = contract.get("members")
+    if not isinstance(members, list) or not members:
+        raise DynamicDimensionsError("mixed V7 member contract has no members")
+
+    qtip3: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
+    shared: dict[tuple[str, str, str], dict[str, Any]] = {}
+    qtip2_lut: dict[str, Any] | None = None
+    for index, member in enumerate(members):
+        label = f"mixed V7 member {index}"
+        if not isinstance(member, dict):
+            raise DynamicDimensionsError(f"{label} must be an object")
+        tier, cell = member.get("tier"), member.get("cell_id")
+        payload, metadata = member.get("payload"), member.get("unit_metadata")
+        if tier not in {"qtip2", "qtip3"} or not isinstance(cell, str):
+            raise DynamicDimensionsError(f"{label} identity is invalid")
+        if not isinstance(payload, dict) or not isinstance(metadata, dict):
+            raise DynamicDimensionsError(f"{label} payload/metadata is invalid")
+        for descriptor_name, descriptor in [("payload", payload), *metadata.items()]:
+            if (
+                not isinstance(descriptor, dict)
+                or set(descriptor) != {"path", "sha256", "bytes"}
+                or not isinstance(descriptor["path"], str)
+                or not descriptor["path"]
+                or isinstance(descriptor["bytes"], bool)
+                or not isinstance(descriptor["bytes"], int)
+                or descriptor["bytes"] < 0
+            ):
+                raise DynamicDimensionsError(f"{label} {descriptor_name} is invalid")
+            _sha_field(descriptor["sha256"], f"{label} {descriptor_name}.sha256")
+        tlut = metadata.get("tlut")
+        if not isinstance(tlut, dict):
+            raise DynamicDimensionsError(f"{label} lacks tlut metadata")
+        shared_key = (tier, tlut["path"], tlut["sha256"])
+        prior_shared = shared.get(shared_key)
+        if prior_shared is not None and prior_shared != tlut:
+            raise DynamicDimensionsError(f"{label} shared tlut conflicts")
+        shared[shared_key] = dict(tlut)
+        if tier == "qtip2":
+            if qtip2_lut is not None and qtip2_lut != tlut:
+                raise DynamicDimensionsError("QTIP2 shared tlut conflicts")
+            qtip2_lut = dict(tlut)
+            continue
+        match = re.fullmatch(r"L(\d{3})\.E(\d{3})\.(down|fused13)", cell)
+        control = metadata.get("control")
+        if match is None or not isinstance(control, dict):
+            raise DynamicDimensionsError(f"{label} QTIP3 identity/control is invalid")
+        key = (int(match.group(1)), int(match.group(2)))
+        projection = match.group(3)
+        projections = qtip3.setdefault(key, {})
+        if projection in projections:
+            raise DynamicDimensionsError(f"duplicate QTIP3 contract member {cell}")
+        projections[projection] = {
+            "payload": dict(payload),
+            "control": dict(control),
+            "tlut": dict(tlut),
+        }
+
+    if qtip2_lut is None:
+        raise DynamicDimensionsError("mixed V7 member contract lacks QTIP2 shared tlut")
+    for key, projections in qtip3.items():
+        if set(projections) != {"down", "fused13"}:
+            raise DynamicDimensionsError(f"incomplete QTIP3 projection contract for {key}")
+
+    terminal_sources: list[dict[str, Any]] = []
+    for terminal_path in sorted(terminals_root.glob("L*/LAYER_PRODUCT_TERMINAL.json")):
+        terminal, terminal_raw = _read_json(terminal_path, "QTIP3 layer terminal")
+        layer = terminal.get("layer") if isinstance(terminal, dict) else None
+        terminal_members = terminal.get("members") if isinstance(terminal, dict) else None
+        lut = terminal.get("method", {}).get("lut") if isinstance(terminal, dict) else None
+        if (
+            terminal.get("schema") != "banana-smasher-qtip3-full43-layer-product-v2"
+            or terminal.get("status") != "PASS"
+            or terminal.get("basis_sha256") != basis
+            or isinstance(layer, bool)
+            or not isinstance(layer, int)
+            or terminal.get("cells") != 512
+            or terminal.get("complete_members") != 512
+            or terminal.get("gaps") != 0
+            or terminal.get("duplicates") != 0
+            or not isinstance(terminal_members, list)
+            or len(terminal_members) != 512
+            or not isinstance(lut, dict)
+        ):
+            raise DynamicDimensionsError(f"QTIP3 layer terminal is incomplete: {terminal_path}")
+        terminal_sources.append(
+            {"path": str(terminal_path), "sha256": _sha(terminal_raw), "bytes": len(terminal_raw), "layer": layer}
+        )
+        terminal_by_expert: dict[int, dict[str, dict[str, Any]]] = {}
+        for member_index, member in enumerate(terminal_members):
+            if not isinstance(member, dict):
+                raise DynamicDimensionsError(f"invalid QTIP3 terminal member {member_index}")
+            match = re.fullmatch(r"E(\d{3})_(down|fused13)", str(member.get("cell", "")))
+            codes, control = member.get("codes"), member.get("control")
+            if match is None or not isinstance(codes, dict) or not isinstance(control, dict):
+                raise DynamicDimensionsError(f"invalid QTIP3 terminal member {member_index}")
+            expert, projection = int(match.group(1)), match.group(2)
+            terminal_by_expert.setdefault(expert, {})[projection] = {
+                "payload": dict(codes), "control": dict(control), "tlut": dict(lut)
+            }
+        if set(terminal_by_expert) != set(range(256)) or any(
+            set(projections) != {"down", "fused13"}
+            for projections in terminal_by_expert.values()
+        ):
+            raise DynamicDimensionsError(f"QTIP3 layer terminal geometry mismatch: {terminal_path}")
+        for expert, projections in terminal_by_expert.items():
+            qtip3[(layer, expert)] = projections
+
+    enriched: list[dict[str, Any]] = []
+    qtip3_bound = 0
+    qtip2_bound = 0
+    for index, row in enumerate(rows):
+        if row.get("schema") != SENSITIVITY_ROW_SCHEMA or row.get("basis_sha256") != basis:
+            raise DynamicDimensionsError(f"sensitivity row {index} schema/basis mismatch")
+        source_tier = row.get("tier")
+        if not isinstance(source_tier, str):
+            raise DynamicDimensionsError(f"sensitivity row {index} tier is unsupported")
+        tier = SENSITIVITY_TIER_NAMES.get(source_tier)
+        layer, expert = row.get("layer"), row.get("expert")
+        if (
+            isinstance(layer, bool)
+            or not isinstance(layer, int)
+            or isinstance(expert, bool)
+            or not isinstance(expert, int)
+        ):
+            raise DynamicDimensionsError(f"sensitivity row {index} geometry is invalid")
+        updated = dict(row)
+        if tier == "qtip2":
+            updated["activation_artifacts"] = [
+                {
+                    "id": f"qtip2:tlut:{qtip2_lut['sha256']}",
+                    "bytes": qtip2_lut["bytes"],
+                    "path": qtip2_lut["path"],
+                    "sha256": qtip2_lut["sha256"],
+                }
+            ]
+            qtip2_bound += 1
+        elif tier == "qtip3":
+            key = (layer, expert)
+            projections = qtip3.get(key)
+            if projections is None:
+                raise DynamicDimensionsError(f"QTIP3 sensitivity row {index} lacks physical contract")
+            updated["physical_bytes"] = sum(
+                part[name]["bytes"]
+                for part in projections.values()
+                for name in ("payload", "control")
+            )
+            tlut = projections["down"]["tlut"]
+            updated["activation_artifacts"] = [
+                {
+                    "id": f"qtip3:L{key[0]:03d}:tlut:{tlut['sha256']}",
+                    "bytes": tlut["bytes"],
+                    "path": tlut["path"],
+                    "sha256": tlut["sha256"],
+                }
+            ]
+            qtip3_bound += 1
+        else:
+            raise DynamicDimensionsError(f"sensitivity row {index} tier is unsupported")
+        updated["physical_dimension_authority"] = {
+            "member_contract_path": str(contract_path),
+            "member_contract_sha256": _sha(contract_raw),
+        }
+        enriched.append(updated)
+
+    output_raw = _canonical_jsonl(enriched)
+    receipt_value = {
+        "schema": "banana-smasher-mixed-v7-physical-dimensions-receipt-v1",
+        "status": "PASS_PHYSICAL_DIMENSIONS_BOUND",
+        "basis_sha256": basis,
+        "rows": len(enriched),
+        "qtip2_rows": qtip2_bound,
+        "qtip3_rows": qtip3_bound,
+        "shared_activation_artifacts": len(shared),
+        "sources": {
+            "sensitivity_ledger": {"path": str(ledger_path), "sha256": _sha(ledger_raw), "bytes": len(ledger_raw)},
+            "member_contract": {"path": str(contract_path), "sha256": _sha(contract_raw), "bytes": len(contract_raw)},
+            "qtip3_terminals": terminal_sources,
+        },
+        "output": {"path": str(output_path), "sha256": _sha(output_raw), "bytes": len(output_raw)},
+    }
+    receipt_raw = _canonical_json(receipt_value)
+    _write_once(output_path, output_raw)
+    _write_once(receipt_path, receipt_raw)
+    return {
+        **receipt_value,
+        "receipt": {"path": str(receipt_path), "sha256": _sha(receipt_raw), "bytes": len(receipt_raw)},
+    }
+
+
 def build_dynamic_dimensions(
     *,
     ledger: str | Path,
