@@ -21,10 +21,15 @@ class FakeExpert(torch.nn.Module):
         return grouped_packed_projection(value)
 
 
+class WrappedFakeExpert(FakeExpert):
+    def forward(self, value: torch.Tensor) -> torch.Tensor:
+        return super().forward(value)
+
+
 class FakeStudent(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.experts = {0: FakeExpert(), 1: FakeExpert()}
+        self.experts = {0: WrappedFakeExpert(), 1: WrappedFakeExpert()}
 
 
 def test_static_w28_grouped_dispatch_lines_are_named() -> None:
@@ -48,7 +53,8 @@ def test_provider_dispatch_identity_binds_installed_expert_and_callable(tmp_path
     assert identity["layers"] == [0, 1]
     assert len(identity["implementations"]) == 1
     implementation = identity["implementations"][0]
-    assert implementation["expert_class"].endswith(".FakeExpert")
+    assert implementation["expert_class"].endswith(".WrappedFakeExpert")
+    assert implementation["dispatch_owner_class"].endswith(".FakeExpert")
     assert implementation["dispatch_callable"].endswith(".grouped_packed_projection")
     assert implementation["dispatch_source_sha256"]
 

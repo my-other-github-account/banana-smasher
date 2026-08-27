@@ -44,6 +44,18 @@ _SEMANTIC_LINE_BOUNDARIES: dict[tuple[str, str, int], tuple[str, tuple[str, ...]
     ("static_w28_fast_v7_expert_base.py", "_project", 151): (
         "grouped_mm_dispatch_output", ("value",),
     ),
+    ("static_w28_fast_v7_expert_base.py", "_project", 184): (
+        "grouped_mm_dispatch_input", ("x",),
+    ),
+    ("static_w28_fast_v7_expert_base.py", "_project", 189): (
+        "grouped_mm_dispatch_output", ("value",),
+    ),
+    ("fast_v7_expert_base.py", "_project", 195): (
+        "grouped_mm_dispatch_input", ("x",),
+    ),
+    ("fast_v7_expert_base.py", "_project", 196): (
+        "grouped_mm_dispatch_output", ("value",),
+    ),
     ("fast_v7_expert_base.py", "forward", 297): ("w2_output", ("routed_output",)),
     ("fast_v7_expert_base.py", "forward", 302): (
         "route_weight_multiply_inputs", ("routed_output", "route_weight"),
@@ -106,7 +118,19 @@ def _provider_dispatch_identity(model: Any) -> dict[str, Any]:
         layers.append(int(layer))
         forward = type(expert).forward
         forward_identity = _callable_source_identity(forward)
-        dispatcher = getattr(forward, "__globals__", {}).get("grouped_packed_projection")
+        dispatcher = None
+        dispatch_owner = None
+        for owner in type(expert).__mro__:
+            candidate = owner.__dict__.get("forward")
+            candidate_globals = getattr(candidate, "__globals__", {})
+            candidate_names = getattr(getattr(candidate, "__code__", None), "co_names", ())
+            if (
+                "grouped_packed_projection" in candidate_names
+                and callable(candidate_globals.get("grouped_packed_projection"))
+            ):
+                dispatcher = candidate_globals["grouped_packed_projection"]
+                dispatch_owner = owner
+                break
         dispatch_identity = (
             _callable_source_identity(dispatcher) if callable(dispatcher)
             else {"callable": "<missing>", "source_file": "<unknown>",
@@ -118,6 +142,10 @@ def _provider_dispatch_identity(model: Any) -> dict[str, Any]:
             "expert_source_file": forward_identity["source_file"],
             "expert_source_sha256": forward_identity["source_sha256"],
             "expert_forward_firstlineno": forward_identity["firstlineno"],
+            "dispatch_owner_class": (
+                f"{dispatch_owner.__module__}.{dispatch_owner.__qualname__}"
+                if dispatch_owner is not None else "<missing>"
+            ),
             "dispatch_callable": dispatch_identity["callable"],
             "dispatch_source_file": dispatch_identity["source_file"],
             "dispatch_source_sha256": dispatch_identity["source_sha256"],
