@@ -3,6 +3,7 @@ import concurrent.futures
 import inspect
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -224,14 +225,30 @@ def test_published_pre_can_split_pipeline_microbatch_without_changing_window_dos
     assert "for index in range(1, len(groups))" in pipeline_source
 
 
-def test_1f1b_exchange_complements_known_green_one_way_operations_by_rank():
+def test_1f1b_exchange_and_warmup_complement_known_green_one_way_operations_by_rank():
+    class Tensor:
+        def __init__(self, value):
+            self.value = value
+
+        def item(self):
+            return self.value
+
     exchanges = {}
+    warmups = {}
     for rank in (0, 1):
         engine = official.ModernGreenResidentEngine.__new__(
             official.ModernGreenResidentEngine
         )
         engine.rank = rank
+        engine.student = SimpleNamespace(device="cuda:0")
+        engine.torch = SimpleNamespace(
+            int32=object(),
+            full=lambda *args, rank=rank, **kwargs: Tensor(rank),
+            empty_like=lambda tensor, rank=rank: Tensor(1 - rank),
+            cuda=SimpleNamespace(synchronize=lambda: warmups[rank].append("sync")),
+        )
         exchanges[rank] = []
+        warmups[rank] = []
         engine._batch_p2p_send = lambda tensor, *, dst, rank=rank: exchanges[rank].append(
             ("send", tensor, dst)
         )
@@ -242,11 +259,18 @@ def test_1f1b_exchange_complements_known_green_one_way_operations_by_rank():
             engine, f"out-{rank}", dst=1 - rank,
             incoming=f"in-{rank}", src=1 - rank,
         )
+        engine._batch_p2p_send = lambda tensor, *, dst, rank=rank: warmups[rank].append(
+            ("send", tensor.item(), dst)
+        )
+        engine._batch_p2p_recv = lambda tensor, *, src, rank=rank: warmups[rank].append(
+            ("recv", tensor.item(), src)
+        )
+        official.ModernGreenResidentEngine._warm_p2p_communicator(engine)
 
     assert exchanges[0] == [("send", "out-0", 1), ("recv", "in-0", 1)]
     assert exchanges[1] == [("recv", "in-1", 0), ("send", "out-1", 0)]
-    warmup_source = inspect.getsource(official.ModernGreenResidentEngine._warm_p2p_communicator)
-    assert "operations = [send, receive] if self.rank == 0 else [receive, send]" in warmup_source
+    assert warmups[0] == [("send", 0, 1), ("recv", 1, 1), "sync"]
+    assert warmups[1] == [("recv", 0, 0), ("send", 1, 0), "sync"]
 
 
 def test_resume_equivalence_bootstrap_is_progress_marked_and_time_bounded():

@@ -40,7 +40,7 @@ BASIS_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b
 # Canonical grouped implementation aligned to the sealed DeepseekV4 expert
 # boundary: FP32 projection/clamp arithmetic with one final output cast. Keep
 # the executing asset hash explicit and synchronized with the pinned source.
-OFFICIAL_PHYSICAL_LAYER_SHA256 = "89017da6cda63c0d218b34c3309c89948aed7fed5293f2fa31103b9115e48892"
+OFFICIAL_PHYSICAL_LAYER_SHA256 = "791d90cb43b068f5f58f1e3049b434ffe8f235af8c8279670b7a5fff047298ba"
 LP4_PACK_SOURCE_SHA256 = "7a8e48547824a87a48db4c7142ec53f73303a91ce6a0c95cf1a88b1b87d22350"
 LP4_TRAIN_SOURCE_SHA256 = "10abc4b04a9bc88bf348cd121d3d072456a54de1cd801a1425edc15b104e4523"
 T8192_BUILDER_SOURCE_SHA256 = "ed6a1d0f0666027372a726ea96d7d6f7c3487b60da8c5d8f8be591330ccb7137"
@@ -101,6 +101,34 @@ def _deserialize_resident_storage_ipc(payload: bytes) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ArtifactError("resident storage IPC descriptor is not a mapping")
     return value
+
+
+def _unique_tensor_storage_bytes(value: Any) -> int:
+    """Count unique tensor storages reachable through a broker descriptor."""
+    seen: set[tuple[str, int]] = set()
+    total = 0
+
+    def visit(current: Any) -> None:
+        nonlocal total
+        if isinstance(current, Mapping):
+            for child in current.values():
+                visit(child)
+            return
+        if isinstance(current, (tuple, list)):
+            for child in current:
+                visit(child)
+            return
+        storage_method = getattr(current, "untyped_storage", None)
+        if not callable(storage_method):
+            return
+        storage: Any = storage_method()
+        key = (str(getattr(current, "device", "unknown")), int(storage.data_ptr()))
+        if key not in seen:
+            seen.add(key)
+            total += int(storage.nbytes())
+
+    visit(value)
+    return total
 
 
 def _install_ordinary_fork_payload(path: Path, expected_sha256: str) -> Mapping[str, Any]:
@@ -209,7 +237,21 @@ def _release_or_retain_checkpoint_payload(
     if ordinary_load_fork_broker:
         if checkpoint_sha256:
             inherited = _ORDINARY_FORK_PAYLOADS.get(checkpoint_sha256)
-            if inherited is None or inherited.get("payload") is not payload:
+            registered = inherited.get("payload") if inherited is not None else None
+            # Canonical raw checkpoints receive an in-memory identity envelope
+            # through a shallow outer mapping copy.  The copy is still bound to
+            # the broker only when every non-envelope value is the exact frozen
+            # object registered by the hash-bound ordinary load.  This admits
+            # the canonical adapter without accepting a copied/replaced state.
+            broker_bound = registered is payload
+            if isinstance(registered, Mapping) and isinstance(payload, Mapping):
+                registered_keys = set(registered) - {"identity"}
+                payload_keys = set(payload) - {"identity"}
+                broker_bound = broker_bound or (
+                    registered_keys == payload_keys
+                    and all(payload[key] is registered[key] for key in registered_keys)
+                )
+            if not broker_bound:
                 raise ArtifactError("ordinary-load fork broker payload identity mismatch")
         elif not isinstance(payload, MappingProxyType):
             raise ArtifactError("ordinary-load fork broker payload must be read-only")
@@ -564,6 +606,25 @@ def _effective_score_window_batch_size(configured: int, window_count: int) -> in
     if configured < 1 or window_count < 1:
         raise ArtifactError("official-K2 resident score window counts must be positive")
     return min(configured, window_count)
+
+
+def _sealed_pair_groups(
+    windows: Iterable[int], concurrency: int
+) -> tuple[tuple[tuple[int, int], ...], ...]:
+    """Group the immutable sealed mb=2 walk without changing any pair."""
+    ordered = tuple(int(window) for window in windows)
+    if concurrency < 1:
+        raise ArtifactError("official-K2 sealed pair concurrency must be positive")
+    if len(ordered) % 2:
+        raise ArtifactError("official-K2 sealed pair roster must contain whole pairs")
+    pairs = tuple(
+        (ordered[index], ordered[index + 1])
+        for index in range(0, len(ordered), 2)
+    )
+    return tuple(
+        pairs[index : index + concurrency]
+        for index in range(0, len(pairs), concurrency)
+    )
 
 
 def _physical_canary_batch_windows(
@@ -1532,8 +1593,15 @@ class OfficialK2ResidentRankEngine:
             config.get("route_kind"),
             config.get("parity_tap_mode"),
         )
-        ranges = self._layer_ranges(config.get("layer_split"))
-        self.first, self.last = ranges[self.rank]
+        self.expert_parallel_all_layers = bool(
+            config.get("expert_parallel_all_layers", False)
+        )
+        if self.expert_parallel_all_layers:
+            ranges = {0: (0, 42), 1: (0, 42)}
+            self.first, self.last = (0, 42)
+        else:
+            ranges = self._layer_ranges(config.get("layer_split"))
+            self.first, self.last = ranges[self.rank]
         self.gpu_resident_storage_broker = bool(
             config.get("gpu_resident_storage_broker", False)
         )
@@ -1584,6 +1652,18 @@ class OfficialK2ResidentRankEngine:
             status_cb=self._status,
             defer_dense_l034=False,
         )
+        if self.expert_parallel_all_layers:
+            for expert in self.student.experts.values():
+                expert.expert_parallel_rank = self.rank
+                expert.expert_parallel_world_size = self.world_size
+                expert.expert_parallel_group = None
+            if self.rank == 1:
+                from torch import nn
+                self.student.model.model.embed_tokens.weight = nn.Parameter(
+                    self.student.get_tensor("embed.weight")
+                    .to(self.device).to(torch.bfloat16),
+                    requires_grad=False,
+                )
         self._gpu_storage_broker_owned: dict[int, tuple[Any, Any]] = {}
         if self.gpu_resident_storage_broker and self.rank == 0:
             self._publish_brokered_resident_storage(admission, ranges[1])
@@ -1862,6 +1942,20 @@ class OfficialK2ResidentRankEngine:
             raise ArtifactError(
                 f"estimated_peak_bytes_by_rank rank{self.rank} is below resident estimate"
             )
+        brokered_resident_bytes = 0
+        if (
+            self.rank == 1
+            and bool(self.config.get("gpu_resident_storage_broker", False))
+            and self.local_dual_shard
+        ):
+            coordinator = self.local_coordinator
+            if coordinator is None:
+                raise ArtifactError("rank1 brokered resident coordinator is missing")
+            brokered_resident_bytes = _unique_tensor_storage_bytes(coordinator.storage)
+            if brokered_resident_bytes <= 0:
+                raise ArtifactError("rank1 brokered resident storage byte inventory is empty")
+        incremental_expected = max(0, expected - brokered_resident_bytes)
+        incremental_peak = max(incremental_expected, peak - brokered_resident_bytes)
         reserve, reserve_policy = resolve_rank_local_bytes(
             self.config.get("cuda_reserve_bytes"),
             self.rank,
@@ -1876,7 +1970,7 @@ class OfficialK2ResidentRankEngine:
         # so this only makes the preflight measurement honest.
         free_bytes, total_bytes = self.torch.cuda.mem_get_info()
         free_bytes = int(free_bytes)
-        required = expected + reserve
+        required = incremental_peak + reserve
         if free_bytes < required:
             try:
                 subprocess.run(
@@ -1907,17 +2001,21 @@ class OfficialK2ResidentRankEngine:
             "cuda_total_bytes": int(total_bytes),
             "estimated_resident_bytes": expected,
             "peak_estimate_bytes": peak,
+            "brokered_resident_bytes": brokered_resident_bytes,
+            "incremental_resident_bytes": incremental_expected,
+            "incremental_peak_bytes": incremental_peak,
             "reserve_bytes": reserve,
             "reserve_policy": reserve_policy,
             "required_cuda_free_bytes": required,
             "margin_bytes": margin,
-            "predicate": "resident_estimate_bytes + reserve_bytes <= cuda_free_bytes + task_local_prunable_cold_source_bytes",
+            "predicate": "incremental_peak_bytes + reserve_bytes <= cuda_free_bytes + task_local_prunable_cold_source_bytes",
         }
         if margin < 0:
             error = ArtifactError(
                 f"official-K2 resident CUDA preflight refused rank{self.rank}: "
                 f"free={free_bytes} required={required} resident={expected} "
-                f"peak={peak} reserve={reserve} margin={margin}"
+                f"peak={peak} brokered={brokered_resident_bytes} "
+                f"incremental_peak={incremental_peak} reserve={reserve} margin={margin}"
             )
             error.__dict__["memory_preflight"] = dict(self.memory_preflight)
             raise error
@@ -2420,21 +2518,71 @@ class OfficialK2ResidentRankEngine:
     def _attention_workspace_for(
         self, query: Any, key: Any, chunk_size: int, logits_dtype: Any
     ) -> tuple[Any, Any, Any]:
-        """Own one reusable output plus weights and in-place logits workspace."""
+        """Own one reusable workspace per CUDA stream.
+
+        Concurrent sealed pairs must never alias attention scratch.  CPU tests
+        and the single-stream path retain one stable cache key.
+        """
         batch, heads, query_rows, width = query.shape
         key_rows = int(key.shape[-2])
         rows = min(int(chunk_size), int(query_rows))
-        workspace_key = self._attention_workspace_key(query, key, rows, logits_dtype)
-        current = getattr(self, "_attention_workspace", None)
-        if current is None or current[0] != workspace_key:
+        device = getattr(query, "device", None)
+        stream_key: Any = "cpu"
+        if getattr(device, "type", None) == "cuda":
+            stream_key = int(self.torch.cuda.current_stream(device=device).cuda_stream)
+        workspace_key = (
+            stream_key,
+            *self._attention_workspace_key(query, key, rows, logits_dtype),
+        )
+        workspaces = getattr(self, "_attention_workspaces", None)
+        if workspaces is None:
+            workspaces = {}
+            self._attention_workspaces = workspaces
+        current = workspaces.get(workspace_key)
+        if current is None:
             output = query.new_empty((batch, query_rows, heads, width))
             weights = query.new_empty((batch, heads, rows, key_rows))
             logits = self.torch.empty(
                 (batch, heads, rows, key_rows + 1), device=query.device, dtype=logits_dtype
             )
             current = (workspace_key, output, weights, logits)
-            self._attention_workspace = current
+            workspaces[workspace_key] = current
+        elif current[1] is None:
+            current = (
+                workspace_key,
+                query.new_empty((batch, query_rows, heads, width)),
+                current[2],
+                current[3],
+            )
+            workspaces[workspace_key] = current
+        active = getattr(self, "_active_attention_workspace_by_stream", None)
+        if active is None:
+            active = {}
+            self._active_attention_workspace_by_stream = active
+        active[stream_key] = workspace_key
+        self._attention_workspace = current
         return current[1], current[2], current[3]
+
+    def _release_attention_output_workspace(self, attention_output: Any) -> None:
+        """Retire only the attention value bank after public attention consumed it."""
+        device = getattr(attention_output, "device", None)
+        stream_key: Any = "cpu"
+        if getattr(device, "type", None) == "cuda":
+            stream_key = int(self.torch.cuda.current_stream(device=device).cuda_stream)
+        active = getattr(self, "_active_attention_workspace_by_stream", None)
+        workspaces = getattr(self, "_attention_workspaces", None)
+        workspace_key = active.get(stream_key) if isinstance(active, dict) else None
+        current = workspaces.get(workspace_key) if isinstance(workspaces, dict) else None
+        if current is None or current[1] is None:
+            raise ArtifactError("official-K2 attention output workspace lifetime drift")
+        output_storage = current[1].untyped_storage()
+        public_storage = attention_output.untyped_storage()
+        if int(output_storage.data_ptr()) == int(public_storage.data_ptr()):
+            raise ArtifactError("official-K2 public attention aliases output workspace")
+        replacement = (current[0], None, current[2], current[3])
+        assert isinstance(workspaces, dict)
+        workspaces[workspace_key] = replacement
+        self._attention_workspace = replacement
 
     @staticmethod
     def _chunked_eager_attention_forward(
@@ -2549,16 +2697,15 @@ class OfficialK2ResidentRankEngine:
         position_ids: Any,
         attention_mask: Any,
         past_key_values: Any,
-        output: Any,
-        residual: Any,
+        scratch: Any,
     ) -> Any:
-        """Execute the public decoder arithmetic with three full-shape banks.
+        """Execute exact public decoder arithmetic with hidden plus one scratch bank.
 
-        The stock expression briefly retains its input, product, residual
-        matmul, and sum.  Product-first ``out=`` operations preserve that exact
-        operation order while reusing caller-owned output/residual storage.
-        Once the attention residual is complete, the original input bank is
-        dead and becomes the MoE output bank.
+        Each residual matmul is written to scratch while the input bank is live;
+        the product then overwrites that dead input bank and the same elementwise
+        add as the public expression completes the boundary.  The two banks
+        exchange input/output roles at each boundary without changing any
+        product, matmul, or add arithmetic.
         """
         dtype = hidden.dtype
         post, comb, collapsed = layer.attn_hc(hidden)
@@ -2570,27 +2717,56 @@ class OfficialK2ResidentRankEngine:
             attention_mask=attention_mask,
             past_key_values=past_key_values,
         )
-        self.torch.mul(
-            post.to(dtype).unsqueeze(-1), attention_output.unsqueeze(-2), out=output
-        )
+        self._release_attention_output_workspace(attention_output)
         self.torch.matmul(
-            comb.to(dtype).transpose(-1, -2), hidden, out=residual
+            comb.to(dtype).transpose(-1, -2), hidden, out=scratch
         )
-        output.add_(residual)
+        self.torch.mul(
+            post.to(dtype).unsqueeze(-1), attention_output.unsqueeze(-2), out=hidden
+        )
+        hidden.add_(scratch)
         del post, comb, collapsed, attention_output
 
-        post, comb, collapsed = layer.ffn_hc(output)
+        post, comb, collapsed = layer.ffn_hc(hidden)
         mlp_output = layer.mlp(
             layer.post_attention_layernorm(collapsed), input_ids=ids
+        )
+        self.torch.matmul(
+            comb.to(dtype).transpose(-1, -2), hidden, out=scratch
         )
         self.torch.mul(
             post.to(dtype).unsqueeze(-1), mlp_output.unsqueeze(-2), out=hidden
         )
-        self.torch.matmul(
-            comb.to(dtype).transpose(-1, -2), output, out=residual
-        )
-        hidden.add_(residual)
+        hidden.add_(scratch)
         return hidden
+
+
+    def _decoder_workspace_for(
+        self, hidden: Any, *, stream_key: Any | None = None
+    ) -> Any:
+        """Own one exact streamed-decoder scratch bank per pair CUDA stream."""
+        if stream_key is None:
+            device = getattr(hidden, "device", None)
+            stream_key = "cpu"
+            if getattr(device, "type", None) == "cuda":
+                stream_key = int(
+                    self.torch.cuda.current_stream(device=device).cuda_stream
+                )
+        key = (
+            stream_key,
+            str(getattr(hidden, "device", "cpu")),
+            str(hidden.dtype),
+            tuple(int(value) for value in hidden.shape),
+        )
+        workspaces = getattr(self, "_decoder_workspaces", None)
+        if workspaces is None:
+            workspaces = {}
+            self._decoder_workspaces = workspaces
+        current = workspaces.get(key)
+        if current is None:
+            current = self.torch.empty_like(hidden)
+            workspaces[key] = current
+        return current
 
     @staticmethod
     def _release_completed_layer_cache(cache: Any, index: int) -> None:
@@ -2613,6 +2789,37 @@ class OfficialK2ResidentRankEngine:
         entry.values = values.new_empty((0,))
         entry.is_initialized = False
 
+    def _append_decoder_memory_probe(self, *, phase: str, layer: int) -> None:
+        """Fsync one opt-in allocator sample around the public decoder layer."""
+        configured = self.config.get("resident_validation_memory_probe_path")
+        if not configured:
+            return
+        meminfo: dict[str, int] = {}
+        meminfo_path = Path("/proc/meminfo")
+        for line in meminfo_path.read_text().splitlines() if meminfo_path.is_file() else ():
+            name, value = line.split(":", 1)
+            if name in {"MemAvailable", "SwapFree"}:
+                meminfo[name + "_kb"] = int(value.split()[0])
+        free_bytes, total_bytes = self.torch.cuda.mem_get_info(self.student.device)
+        row = {
+            "schema": "banana-smasher-decoder-memory-probe-v1",
+            "rank": int(self.rank),
+            "phase": str(phase),
+            "layer": int(layer),
+            "allocated_bytes": int(self.torch.cuda.memory_allocated(self.student.device)),
+            "reserved_bytes": int(self.torch.cuda.memory_reserved(self.student.device)),
+            "device_free_bytes": int(free_bytes),
+            "device_total_bytes": int(total_bytes),
+            **meminfo,
+            "created_unix": time.time(),
+        }
+        path = Path(str(configured))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(row, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+
     def _run_layers(self, hidden: Any, ids: Any, taps: dict[str, Any] | None = None) -> Any:
         from transformers.cache_utils import DynamicCache
 
@@ -2622,17 +2829,18 @@ class OfficialK2ResidentRankEngine:
         layer_cache = DynamicCache(config=self.student.config)
         pos, pe, mask = self._positional(ids, template, layer_cache)
         hidden = hidden.detach()
-        output = self.torch.empty_like(hidden)
-        residual = self.torch.empty_like(hidden)
+        scratch = self._decoder_workspace_for(hidden)
         for index in range(self.first, self.last + 1):
+            self._append_decoder_memory_probe(phase="before", layer=index)
             hidden = self._streamed_decoder_layer(
                 self.student.model.model.layers[index], hidden, ids,
-                pe, pos, mask, layer_cache, output, residual,
+                pe, pos, mask, layer_cache, scratch,
             )
+            self._append_decoder_memory_probe(phase="after", layer=index)
             self._release_completed_layer_cache(layer_cache, index)
             if taps is not None:
                 taps[f"L{index:03d}"] = self._tensor_tap(hidden)
-        del layer_cache, output, residual
+        del layer_cache, scratch
         return hidden
 
     def parity_tap(self, window: int) -> dict[str, Any]:
@@ -2810,11 +3018,34 @@ class OfficialK2ResidentRankEngine:
         )) if reported_windows == (28,) else reported_windows
         if not set(reported_windows).issubset(batch_windows):
             raise ArtifactError("official-K2 physical score batch omits a reported window")
+        pair_stream_concurrency = int(
+            self.config.get("score_pair_stream_concurrency", 1)
+        )
+        pair_parallel = pair_stream_concurrency > 1 and len(batch_windows) > 2
+        if pair_parallel:
+            if len(batch_windows) % 2 or len(batch_windows) > 2 * pair_stream_concurrency:
+                raise ArtifactError(
+                    "official-K2 concurrent score group must contain only whole sealed pairs"
+                )
+            pair_windows = tuple(
+                batch_windows[index : index + 2]
+                for index in range(0, len(batch_windows), 2)
+            )
+        else:
+            pair_windows = (batch_windows,)
+        pair_ids = tuple(
+            torch.cat([self.ids_cache[window] for window in pair], dim=0)
+            for pair in pair_windows
+        )
         ids = torch.cat([self.ids_cache[window] for window in batch_windows], dim=0)
         shared_cuda = bool(self.config.get("shared_cuda_device_process_group", False))
         local_cuda = bool(getattr(self, "local_dual_shard", False))
         pipeline_overlap = bool(self.config.get("score_pipeline_overlap", False))
-        network_pipeline = pipeline_overlap and not shared_cuda and not local_cuda
+        expert_parallel = self.expert_parallel_all_layers
+        network_pipeline = (
+            pipeline_overlap and not shared_cuda and not local_cuda
+            and not expert_parallel
+        )
         ipc_key = f"cuda-ipc-{self.checkpoint_sha256}-{'-'.join(map(str, batch_windows))}"
         shape = (
             len(batch_windows),
@@ -2823,12 +3054,35 @@ class OfficialK2ResidentRankEngine:
             int(self.student.config.hidden_size),
         )
         with torch.no_grad():
-            if self.rank == 0:
-                embeds = self.student.model.model.embed_tokens(ids)
-                hidden = embeds.unsqueeze(2).expand(-1, -1, self.student.config.hc_mult, -1).contiguous()
-                torch.cuda.synchronize()
-                embedding_done = time.perf_counter()
-                hidden = self._run_layers(hidden, ids)
+            if self.rank == 0 and not expert_parallel:
+                if pair_parallel:
+                    launch_stream = torch.cuda.current_stream(device=self.student.device)
+                    pair_streams = [
+                        torch.cuda.Stream(device=self.student.device)
+                        for _ in pair_windows
+                    ]
+                    hidden_pairs = []
+                    for pair_id_tensor, stream in zip(pair_ids, pair_streams):
+                        stream.wait_stream(launch_stream)
+                        with torch.cuda.stream(stream):
+                            pair_embeds = self.student.model.model.embed_tokens(pair_id_tensor)
+                            pair_hidden = pair_embeds.unsqueeze(2).expand(
+                                -1, -1, self.student.config.hc_mult, -1
+                            ).contiguous()
+                            pair_hidden = self._run_layers(pair_hidden, pair_id_tensor)
+                            hidden_pairs.append(pair_hidden)
+                    embedding_done = time.perf_counter()
+                    for stream in pair_streams:
+                        launch_stream.wait_stream(stream)
+                    hidden = torch.cat(hidden_pairs, dim=0)
+                else:
+                    embeds = self.student.model.model.embed_tokens(ids)
+                    hidden = embeds.unsqueeze(2).expand(
+                        -1, -1, self.student.config.hc_mult, -1
+                    ).contiguous()
+                    torch.cuda.synchronize()
+                    embedding_done = time.perf_counter()
+                    hidden = self._run_layers(hidden, ids)
                 torch.cuda.synchronize()
                 layers_done = time.perf_counter()
                 if tuple(hidden.shape) != shape or hidden.dtype != torch.bfloat16:
@@ -2889,11 +3143,17 @@ class OfficialK2ResidentRankEngine:
                     "consumer_wait_ms": consumer_wait * 1000.0,
                     "pipeline_inflight_batches": len(getattr(self, "_pipeline_inflight", [])),
                     "network_pipeline": network_pipeline,
+                    "sealed_pair_stream_concurrency": len(pair_windows),
                     "wall_seconds": time.perf_counter() - window_started,
                 }
                 return None
             receive_started = time.perf_counter()
-            if local_cuda:
+            if expert_parallel:
+                embeds = self.student.model.model.embed_tokens(ids)
+                hidden = embeds.unsqueeze(2).expand(
+                    -1, -1, self.student.config.hc_mult, -1
+                ).contiguous()
+            elif local_cuda:
                 self.local_coordinator.rank0._score_window(reported_windows)
                 hidden = self.local_coordinator.activations.pop(ipc_key)
             elif shared_cuda:
@@ -2907,12 +3167,51 @@ class OfficialK2ResidentRankEngine:
                 hidden = torch.empty(shape, dtype=torch.bfloat16, device=self.student.device)
                 self._batch_p2p_recv(hidden, src=0)
             receive_done = time.perf_counter()
-            hidden = self._run_layers(hidden, ids)
+            if expert_parallel:
+                hidden = self._run_layers(hidden, ids)
+                if self.rank == 0:
+                    torch.cuda.synchronize()
+                    layers_done = time.perf_counter()
+                    self.last_window_profile = {
+                        "batch_windows": list(batch_windows),
+                        "rank": self.rank,
+                        "activation_wait_ms": 0.0,
+                        "layer_forward_ms": (layers_done - receive_done) * 1000.0,
+                        "expert_parallel_all_layers": True,
+                        "wall_seconds": layers_done - window_started,
+                    }
+                    return None
+                final = self.student.model.model.norm(
+                    self.student.model.model.hc_head(hidden)
+                )
+            elif pair_parallel:
+                launch_stream = torch.cuda.current_stream(device=self.student.device)
+                pair_streams = [
+                    torch.cuda.Stream(device=self.student.device)
+                    for _ in pair_windows
+                ]
+                final_pairs = []
+                for pair_hidden, pair_id_tensor, stream in zip(
+                    hidden.split(2, dim=0), pair_ids, pair_streams
+                ):
+                    stream.wait_stream(launch_stream)
+                    with torch.cuda.stream(stream):
+                        pair_output = self._run_layers(pair_hidden, pair_id_tensor)
+                        pair_final = self.student.model.model.norm(
+                            self.student.model.model.hc_head(pair_output)
+                        )
+                        final_pairs.append(pair_final)
+                for stream in pair_streams:
+                    launch_stream.wait_stream(stream)
+                final = torch.cat(final_pairs, dim=0)
+            else:
+                hidden = self._run_layers(hidden, ids)
+                final = self.student.model.model.norm(
+                    self.student.model.model.hc_head(hidden)
+                )
             torch.cuda.synchronize()
             layers_done = time.perf_counter()
-            final = self.student.model.model.norm(self.student.model.model.hc_head(hidden))
-            torch.cuda.synchronize()
-            readout_done = time.perf_counter()
+            readout_done = layers_done
             score_rows: list[tuple[list[float], int]] = []
             logits_seconds = 0.0
             teacher_gather_seconds = 0.0
@@ -2967,6 +3266,7 @@ class OfficialK2ResidentRankEngine:
                 "teacher_gather_ms": teacher_gather_seconds * 1000.0,
                 "binary64_reduce_ms": binary64_reduce_seconds * 1000.0,
                 "glue_ms": (glue_done - glue_started) * 1000.0,
+                "sealed_pair_stream_concurrency": len(pair_windows),
                 "wall_seconds": glue_done - window_started,
             }
             row_by_window = dict(zip(batch_windows, score_rows))
@@ -3009,10 +3309,29 @@ class OfficialK2ResidentRankEngine:
         batch_size = _effective_score_window_batch_size(
             int(self.config.get("score_window_batch_size", 1)), len(self.windows)
         )
+        pair_stream_concurrency = int(
+            self.config.get("score_pair_stream_concurrency", 1)
+        )
+        if pair_stream_concurrency > 1:
+            if batch_size != 2 or completed_before % 2:
+                raise ArtifactError(
+                    "official-K2 pair concurrency requires the exact sealed mb=2 frontier"
+                )
+            scheduled_batches = tuple(
+                tuple(window for pair in group for window in pair)
+                for group in _sealed_pair_groups(
+                    self.windows[completed_before:], pair_stream_concurrency
+                )
+            )
+        else:
+            scheduled_batches = tuple(
+                self.windows[start : start + batch_size]
+                for start in range(completed_before, len(self.windows), batch_size)
+            )
         batch_phase_profiles: list[dict[str, Any]] = []
         rank0_local_phase_profiles: list[dict[str, Any]] = []
-        for start in range(completed_before, len(self.windows), batch_size):
-            batch_windows = self.windows[start : start + batch_size]
+        start = completed_before
+        for batch_windows in scheduled_batches:
             rows = self._score_window(batch_windows)
             self.torch.cuda.synchronize()
             batch_phase_profiles.append(dict(self.last_window_profile))
@@ -3073,6 +3392,7 @@ class OfficialK2ResidentRankEngine:
                     "cumulative_scoring_wall_seconds": cumulative_now,
                 },
             )
+            start = completed_now
         if self.rank == 0 and bool(self.config.get("score_pipeline_overlap", False)):
             self._drain_pipeline_inflight()
         self.torch.cuda.synchronize()
@@ -3397,7 +3717,18 @@ class OfficialK2ResidentScorer:
 
     def score(self, checkpoint: str, windows: Iterable[int]) -> ScoreResult:
         selected = tuple(int(value) for value in windows)
-        geometry = _validate_public_score_windows(selected, self.artifact.windows)
+        admitted_ep_canary = tuple(
+            int(value) for value in self.config.get("expert_parallel_canary_windows", ())
+        )
+        if (
+            bool(self.config.get("expert_parallel_all_layers", False))
+            and len(admitted_ep_canary) == 2
+            and 28 not in admitted_ep_canary
+            and selected == admitted_ep_canary
+        ):
+            geometry = "EXPERT_PARALLEL_CANARY"
+        else:
+            geometry = _validate_public_score_windows(selected, self.artifact.windows)
         if geometry == "W28_CANARY":
             self.config["physical_canary_windows"] = list(_physical_canary_batch_windows(
                 selected,

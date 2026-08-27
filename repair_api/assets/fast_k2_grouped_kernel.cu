@@ -1,8 +1,8 @@
 #include <torch/extension.h>
 
+#include <ATen/cuda/CUDAContext.h>
 #include <c10/cuda/CUDAGuard.h>
 #include <c10/cuda/CUDAException.h>
-#include <c10/cuda/CUDAStream.h>
 #include <cuda_fp16.h>
 #include <mma.h>
 #include <cuda_runtime.h>
@@ -236,7 +236,7 @@ torch::Tensor grouped_inner_forward_cuda(
     auto output = torch::empty({rows, tiles_m * kTile}, x.options());
     if (rows == 0 || work_experts.numel() == 0) return output;
     const dim3 grid(static_cast<unsigned>(work_experts.numel()), static_cast<unsigned>(tiles_m));
-    const cudaStream_t stream = c10::cuda::getCurrentCUDAStream().stream();
+    const cudaStream_t stream = at::cuda::getCurrentCUDAStream().stream();
     grouped_forward_kernel<<<grid, kThreads, 0, stream>>>(
         x.data_ptr<float>(), offsets.data_ptr<int32_t>(), work_experts.data_ptr<int32_t>(),
         work_starts.data_ptr<int32_t>(), packed.data_ptr<int16_t>(), lut.data_ptr<float>(),
@@ -264,7 +264,7 @@ std::vector<torch::Tensor> grouped_inner_backward_cuda(
     auto grad_input = torch::empty_like(x);
     auto grad_lut = torch::zeros_like(lut);
     if (rows == 0 || work_experts.numel() == 0) return {grad_input, grad_lut};
-    const cudaStream_t stream = c10::cuda::getCurrentCUDAStream().stream();
+    const cudaStream_t stream = at::cuda::getCurrentCUDAStream().stream();
     const dim3 input_grid(static_cast<unsigned>(work_experts.numel()), static_cast<unsigned>(tiles_k));
     grouped_grad_input_kernel<<<input_grid, kThreads, 0, stream>>>(
         grad_output.data_ptr<float>(), offsets.data_ptr<int32_t>(),

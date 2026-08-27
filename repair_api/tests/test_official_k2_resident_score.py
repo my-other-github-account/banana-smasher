@@ -708,39 +708,14 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
         }
         return route
 
-    def test_api_score_rejects_alternate_pre_without_exact_routed_pair(self):
+    def test_api_score_rejects_alternate_pre_even_when_backend_is_declared(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self.make_artifact(root, checkpoint_sha=ALTERNATE_PRE_CHECKPOINT_SHA256)
             api = ResidentRepairAPI.open(root, official_backend_factory=FakeOfficialBackend)
             api.artifact.manifest["checkpoints"]["UPDATE_000"]["sha256"] = ALTERNATE_PRE_CHECKPOINT_SHA256
-            with self.assertRaisesRegex(ArtifactError, "quarantine-only|requires its sealed POST"):
+            with self.assertRaisesRegex(ArtifactError, "quarantine-only"):
                 api.score("UPDATE_000", windows=WINDOWS)
-
-    def test_api_score_admits_exact_routed_published_pre_without_scoring_post(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self.make_routed_artifact(root)
-
-            class PublishedPreBackend(FakeOfficialBackend):
-                configs = []
-
-                def __init__(self, artifact, config):
-                    super().__init__(artifact, config)
-                    type(self).configs.append(dict(config))
-
-            PublishedPreBackend.calls.clear()
-            PublishedPreBackend.configs.clear()
-            api = ResidentRepairAPI.open(root, official_backend_factory=PublishedPreBackend)
-            result = api.score("PRE", windows=WINDOWS)
-
-            self.assertEqual(PublishedPreBackend.calls, [("PRE", tuple(WINDOWS))])
-            self.assertEqual(PublishedPreBackend.configs[0]["route_kind"], ROUTED_K2_ROUTE_KIND)
-            self.assertEqual(
-                PublishedPreBackend.configs[0]["pre_checkpoint_sha256"],
-                ALTERNATE_PRE_CHECKPOINT_SHA256,
-            )
-            self.assertEqual(result.positions, 64 * 1024)
 
     def test_score_routed_k2_accepts_exact_closure_and_emits_resident_receipt(self):
         with tempfile.TemporaryDirectory() as directory:

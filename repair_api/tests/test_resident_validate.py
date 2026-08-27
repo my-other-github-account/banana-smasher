@@ -7,12 +7,19 @@ from types import MethodType, SimpleNamespace
 
 import pytest
 
-from repair_api.api import ArtifactError, ResidentRepairAPI
+from repair_api.api import (
+    ArtifactError,
+    ResidentRepairAPI,
+    _controlled_schedule_source_row,
+    _validate_fresh_published_pre_resume,
+)
 from repair_api.modern_green_resident import (
     ModernGreenResidentEngine,
     _checkpoint_topk_route,
     _install_runtime_modules,
     _published_pre_recipe_policy,
+    _resolve_trainer_source,
+    _resolve_validation_corpus,
 )
 
 
@@ -33,6 +40,30 @@ def test_published_pre_lr_scale_is_the_only_policy_delta() -> None:
     assert candidate_lrs == baseline_lrs
     assert candidate_windows == baseline_windows == [28, 56]
     assert candidate_multiplier == baseline_multiplier * 0.25
+
+
+def test_static_w28_missing_validation_corpus_reconstructs_accepted_eval_root(tmp_path) -> None:
+    teacher_root = tmp_path / "DS4_TEACHER" / "t8192_eval"
+    teacher_root.mkdir(parents=True)
+    training_corpus = tmp_path / "training" / "BASIC_COMBINED_768.json"
+    path, expected = _resolve_validation_corpus(
+        {},
+        teacher_root=teacher_root,
+        training_corpus=training_corpus,
+        published_pre_proof=True,
+    )
+    assert path == Path(
+        "/home/dnola/missions/DS4_TEACHER/static/windows_ds4_eval.json"
+    ).resolve()
+    assert expected == "5aadaacbb486ae4f528c5e51ae70beff863337bd908fc727e6e49fc3ac520ebd"
+    ordinary, ordinary_sha = _resolve_validation_corpus(
+        {},
+        teacher_root=teacher_root,
+        training_corpus=training_corpus,
+        published_pre_proof=False,
+    )
+    assert ordinary == training_corpus.resolve()
+    assert ordinary_sha is None
 
 
 def test_validation_forward_reuses_one_sealed_builder_dynamic_cache() -> None:
@@ -86,15 +117,18 @@ def test_published_pre_validation_uses_imported_sealed_builder_attention(monkeyp
     assert __import__("os").environ["FAST_K2_SEALED_NO_SWIGLU_CLAMP"] == "1"
     assert engine.sealed_builder_binding == {
         "builder_source_sha256": "ed6a1d0f0666027372a726ea96d7d6f7c3487b60da8c5d8f8be591330ccb7137",
+        "provider_wrapper_sha256": "fb8f66b20f3fa61b9304d5f874d90c7e6a5c55149bfaa44e7784d6683cbd67ef",
+        "provider_expert_sha256": "6bd9c83eb41fb147b19e0d5884cc4f448faa11c54f65c3e9de339030110f2878",
         "attention_implementation": "eager",
-        "expert_arithmetic": "sealed-full-width-bf16-transformed-weight-matmul",
-        "expert_swiglu_clamp": "disabled-to-match-run1698-joint-v7-expert",
+        "expert_arithmetic": "accepted-static-w28-grouped-k2-provider",
+        "expert_swiglu_clamp": "accepted-static-w28-provider-boundary",
         "fixture": "canonical-eval-corpus-token_ids-padded-to-2048",
         "readout": "full-softmax-gather-at-teacher-idx-fp16",
     }
 
 
 def test_static_w28_identical_pre_and_zero_lr_u1_use_same_sealed_provider(monkeypatch) -> None:
+    import hashlib
     import os
     import torch
     import repair_api.official_k2_resident_score as sealed_builder_binding
@@ -138,18 +172,29 @@ def test_static_w28_identical_pre_and_zero_lr_u1_use_same_sealed_provider(monkey
         }
         return provider_tensors, provider_output
 
+    recipe = "published_pre_lower_lr_warmup16_cosine64_v1"
+    pre_identity = {
+        "recipe_id": recipe,
+        "resident_validation_proof": True,
+        "trainer_source": "/foreign/pre-trainer.py",
+        "trainer_source_sha256": "1" * 64,
+    }
+    u1_identity = {
+        "recipe_id": recipe,
+        "static_w28_gate": {
+            "windows": [28],
+            "updates": [1, 2, 4],
+            "red_kld": 0.20,
+            "dead_kld": 0.28,
+        },
+        "trainer_source": "/foreign/u1-trainer.py",
+        "trainer_source_sha256": "2" * 64,
+    }
     pre_provider_tensors, pre_output = bind(
-        {"resident_validation_proof": True}, pre_tensors
+        pre_identity, pre_tensors
     )
     u1_provider_tensors, u1_output = bind(
-        {
-            "static_w28_gate": {
-                "windows": [28],
-                "updates": [1, 2, 4],
-                "red_kld": 0.20,
-                "dead_kld": 0.28,
-            }
-        },
+        u1_identity,
         zero_lr_u1_tensors,
     )
 
@@ -158,6 +203,79 @@ def test_static_w28_identical_pre_and_zero_lr_u1_use_same_sealed_provider(monkey
         for name in pre_provider_tensors
     )
     assert pre_output == u1_output
+    pre_trainer = _resolve_trainer_source(pre_identity)
+    u1_trainer = _resolve_trainer_source(u1_identity)
+    assert pre_trainer == u1_trainer
+    assert pre_trainer[1] == "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
+    assert pre_trainer[0].name == "static_w28_modern_green_clean_u0.py"
+    assert hashlib.sha256(pre_trainer[0].read_bytes()).hexdigest() == pre_trainer[1]
+
+
+def test_static_w28_provider_adapts_current_trainer_swiglu_abi_outside_provider(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    import hashlib
+    import repair_api.modern_green_resident as resident
+
+    extension = tmp_path / "grouped.so"
+    extension.write_bytes(b"extension")
+    calls = []
+    modules = []
+
+    class AcceptedHistoricalExpert:
+        def __init__(self, layer, pilot=True, *, plane_source):
+            calls.append((layer, pilot, plane_source))
+
+    def fake_load(name, _path):
+        module = SimpleNamespace(FullyResidentGroupedV7Experts=AcceptedHistoricalExpert)
+        modules.append((name, module))
+        return module
+
+    monkeypatch.setattr(resident, "_load_source_module", fake_load)
+    _install_runtime_modules({
+        "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+        "static_w28_gate": {"windows": [28]},
+        "fast_k2_extension": str(extension),
+        "fast_k2_extension_sha256": hashlib.sha256(extension.read_bytes()).hexdigest(),
+        "fast_k2_wrapper_source": "/foreign/wrapper.py",
+        "fast_k2_wrapper_source_sha256": "f" * 64,
+        "fast_v7_expert_source": "/foreign/expert.py",
+        "fast_v7_expert_source_sha256": "e" * 64,
+    })
+
+    adapted = modules[-1][1].FullyResidentGroupedV7Experts
+    plane_source = object()
+    adapted(layer=7, plane_source=plane_source, swiglu_limit=42.0)
+    adapted(layer=8, plane_source=plane_source)
+    assert calls == [(7, True, plane_source), (8, True, plane_source)]
+
+
+def test_static_w28_provider_matches_accepted_pre_artifact_and_route_state() -> None:
+    import hashlib
+
+    assets = Path(__file__).parents[1] / "assets"
+    wrapper_path = assets / "static_w28_fast_k2_grouped.py"
+    expert_path = assets / "static_w28_fast_v7_expert_base.py"
+    wrapper = wrapper_path.read_text()
+    expert = expert_path.read_text()
+
+    # The accepted f9bffe04 PRE artifact binds these exact provider bytes.  Its
+    # first public route-state boundary stably sorts each token's route slots by
+    # expert id, casts each weighted route to the hidden dtype, then performs
+    # one out-of-place hidden-dtype add per slot.  16c6 instead bound different
+    # provider bytes and used expert-wise in-place index_add_ accumulation.
+    assert hashlib.sha256(wrapper_path.read_bytes()).hexdigest() == (
+        "fb8f66b20f3fa61b9304d5f874d90c7e6a5c55149bfaa44e7784d6683cbd67ef"
+    )
+    assert hashlib.sha256(expert_path.read_bytes()).hexdigest() == (
+        "6bd9c83eb41fb147b19e0d5884cc4f448faa11c54f65c3e9de339030110f2878"
+    )
+    assert "expert_order = torch.argsort(top_k_index, dim=1, stable=True)" in expert
+    assert "ordered_output = torch.gather(" in expert
+    assert "for route_slot in range(route_shape[1]):" in expert
+    assert "final = (final + ordered_output[:, route_slot]).to(hidden_states.dtype)" in expert
+    assert "final.index_add_(" not in expert
+    assert 'FAST_K2_SEALED_FULL_WEIGHT_BF16' not in wrapper
 
 
 def test_published_pre_w28_uses_sealed_run1698_mb2_fixture(monkeypatch, tmp_path: Path) -> None:
@@ -318,9 +436,87 @@ def test_published_pre_proof_installs_runtime_assets_from_canonical_pin(monkeypa
 
     assets = Path(resident.__file__).parent / "assets"
     assert loaded == [
-        ("fast_k2_grouped", assets / "fast_k2_grouped.py"),
-        ("fast_v7_expert_base", assets / "fast_v7_expert_base.py"),
+        ("fast_k2_grouped", assets / "static_w28_fast_k2_grouped.py"),
+        ("fast_v7_expert_base", assets / "static_w28_fast_v7_expert_base.py"),
     ]
+
+
+def test_identical_pre_and_zero_lr_u1_bind_same_provider_tensor_and_output(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Checkpoint identity cannot select different arithmetic for identical tensors."""
+    import hashlib
+    import torch
+    import repair_api.modern_green_resident as resident
+
+    extension = tmp_path / "grouped.so"
+    extension.write_bytes(b"extension")
+    model_root = tmp_path / "model"
+    model_root.mkdir()
+    (model_root / "config.json").write_text('{"swiglu_limit": 10.0}')
+    model_tensors = {
+        "PRE": torch.tensor([1.0, -2.0, 3.5], dtype=torch.float32),
+        "ZERO_LR_U1": torch.tensor([1.0, -2.0, 3.5], dtype=torch.float32),
+    }
+    current_identity = [""]
+    provider_rows: dict[str, list[dict[str, object]]] = {}
+
+    class Expert:
+        def __init__(self, layer, pilot=True, *, plane_source, swiglu_limit):
+            pass
+
+    def fake_load(name, path):
+        source_sha = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        provider_tensor = model_tensors[current_identity[0]].clone()
+        # Fold the selected provider bytes into a tiny deterministic readout: if
+        # PRE and U1 ever resolve different source bytes, this output diverges.
+        binding_scalar = int(source_sha[:8], 16) / float(2**32)
+        provider_output = provider_tensor.to(torch.float64) + binding_scalar
+        provider_rows.setdefault(current_identity[0], []).append({
+            "module": name,
+            "source_sha256": source_sha,
+            "provider_tensor": provider_tensor,
+            "provider_output": provider_output,
+        })
+        return SimpleNamespace(FullyResidentGroupedV7Experts=Expert)
+
+    monkeypatch.setattr(resident, "_load_source_module", fake_load)
+    common = {
+        "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+        "static_w28_gate": {"windows": [28], "updates": [1, 2, 4]},
+        "model_root": str(model_root),
+        "fast_k2_extension": str(extension),
+        "fast_k2_extension_sha256": hashlib.sha256(extension.read_bytes()).hexdigest(),
+        "fast_k2_module_name": "grouped",
+        "fast_k2_wrapper_source": "/foreign/mutable-wrapper.py",
+        "fast_k2_wrapper_source_sha256": "f" * 64,
+        "fast_v7_expert_source": "/foreign/mutable-expert.py",
+        "fast_v7_expert_source_sha256": "e" * 64,
+    }
+    identities = {
+        "PRE": {"checkpoint": "UPDATE_000", "lr_scale": 0.125},
+        "ZERO_LR_U1": {"checkpoint": "UPDATE_001", "lr_scale": 0.0},
+    }
+    for identity, fields in identities.items():
+        current_identity[0] = identity
+        _install_runtime_modules({**common, **fields})
+
+    assert torch.equal(model_tensors["PRE"], model_tensors["ZERO_LR_U1"])
+    assert [row["module"] for row in provider_rows["PRE"]] == [
+        "fast_k2_grouped", "fast_v7_expert_base"
+    ]
+    assert [row["source_sha256"] for row in provider_rows["PRE"]] == [
+        row["source_sha256"] for row in provider_rows["ZERO_LR_U1"]
+    ]
+    for pre, u1 in zip(provider_rows["PRE"], provider_rows["ZERO_LR_U1"]):
+        pre_tensor, u1_tensor = pre["provider_tensor"], u1["provider_tensor"]
+        pre_output, u1_output = pre["provider_output"], u1["provider_output"]
+        assert isinstance(pre_tensor, torch.Tensor)
+        assert isinstance(u1_tensor, torch.Tensor)
+        assert isinstance(pre_output, torch.Tensor)
+        assert isinstance(u1_output, torch.Tensor)
+        assert torch.equal(pre_tensor, u1_tensor)
+        assert torch.equal(pre_output, u1_output)
 
 
 def test_activation_checkpoint_recompute_restores_exact_pre_layer_cache_snapshot() -> None:
@@ -709,6 +905,11 @@ def test_public_fresh_pre_u1_u4_binds_controlled_schedule_and_fresh_steps(
                 window: object() for row in source_rows for window in row["windows"]
             }
             self.policy._load_controlled_window_schedule()
+            assert set(self.policy.controlled_windows) == set(range(64))
+            assert self.policy.controlled_windows[4] == source_rows[0]["windows"]
+            assert self.policy.controlled_windows[7] == source_rows[3]["windows"]
+            assert self.policy.controlled_schedule_source_rows[4] == 21
+            assert self.policy.controlled_schedule_source_rows[7] == 24
             events.append(("construct", config))
 
         def advance_to(self, target, *, gather_state=True):
@@ -773,6 +974,22 @@ def test_public_fresh_pre_u1_u4_binds_controlled_schedule_and_fresh_steps(
         "controlled_windows_per_update": 6,
     }
 
+    proof_config = dict(
+        config,
+        resident_validation_proof=True,
+        validation_windows=[28],
+        validation_teacher_root="teacher",
+    )
+    with pytest.raises(
+        ArtifactError,
+        match="fresh published-PRE U1..U4 forbids resident_validation_proof",
+    ):
+        api.continue_two_spark_real(
+            "PRE", [1, 2, 3, 4], config=proof_config,
+            receipt_path=tmp_path / "INVALID_PROOF_U1_U4.json",
+        )
+    assert events == []
+
     result = api.continue_two_spark_real(
         "PRE", [1, 2, 3, 4], config=config, receipt_path=tmp_path / "U1_U4.json"
     )
@@ -794,3 +1011,101 @@ def test_public_fresh_pre_u1_u4_binds_controlled_schedule_and_fresh_steps(
     assert [row["rank_reports"][0]["windows"] for row in result["milestones"]] == [
         row["windows"] for row in source_rows
     ]
+
+
+def test_fresh_controlled_schedule_persistence_uses_schedule_bound_namespace() -> None:
+    schedule_sha = "66669507a653c5c5826d74e3cd8947700bc9f9aa479e28ef04df38b31f2ac99d"
+    assert ResidentRepairAPI._continuation_checkpoint_key(1, {
+        "fresh_published_pre_lineage": True,
+        "controlled_window_schedule_sha256": schedule_sha,
+    }) == "SCHEDULE_66669507A653_UPDATE_001"
+    assert ResidentRepairAPI._continuation_checkpoint_key(16, {}) == "UPDATE_016"
+
+
+def test_fresh_published_pre_resume_admits_only_exact_schedule_chain() -> None:
+    published = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+    schedule_sha = "66669507a653c5c5826d74e3cd8947700bc9f9aa479e28ef04df38b31f2ac99d"
+    u1_sha = "d" * 64
+    u2_sha = "c" * 64
+    checkpoints = {
+        "UPDATE_000": {"sha256": published, "next_update": 0},
+        "SCHEDULE_66669507A653_UPDATE_001": {
+            "sha256": u1_sha,
+            "identity_sha256": "1" * 64,
+            "next_update": 1,
+            "parent_sha256": published,
+            "optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
+        },
+        "SCHEDULE_66669507A653_UPDATE_002": {
+            "sha256": u2_sha,
+            "identity_sha256": "2" * 64,
+            "next_update": 2,
+            "parent_sha256": u1_sha,
+            "optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
+        },
+    }
+    config = {
+        "checkpoint_sha256": u2_sha,
+        "published_pre_checkpoint_sha256": published,
+        "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+        "fresh_published_pre_lineage": True,
+        "controlled_window_schedule_sha256": schedule_sha,
+        "shared_optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
+    }
+    proof = _validate_fresh_published_pre_resume(
+        "SCHEDULE_66669507A653_UPDATE_002", 2, checkpoints, config
+    )
+    assert proof["published_pre_checkpoint_sha256"] == published
+    assert proof["resume_update"] == 2
+    assert proof["chain"] == [
+        "SCHEDULE_66669507A653_UPDATE_001",
+        "SCHEDULE_66669507A653_UPDATE_002",
+    ]
+
+    drifted = {key: dict(value) for key, value in checkpoints.items()}
+    drifted["SCHEDULE_66669507A653_UPDATE_002"]["parent_sha256"] = "0" * 64
+    with pytest.raises(ArtifactError, match="parent checkpoint SHA"):
+        _validate_fresh_published_pre_resume(
+            "SCHEDULE_66669507A653_UPDATE_002", 2, drifted, config
+        )
+
+
+def test_fresh_published_pre_resume_admits_healthy_u5_checkpoint() -> None:
+    published = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+    schedule_sha = "66669507a653c5c5826d74e3cd8947700bc9f9aa479e28ef04df38b31f2ac99d"
+    shas = ["a" * 64, "b" * 64, "c" * 64, "d" * 64, "e" * 64]
+    checkpoints = {"UPDATE_000": {"sha256": published, "next_update": 0}}
+    parent = published
+    for update, checkpoint_sha in enumerate(shas, 1):
+        checkpoints[f"SCHEDULE_66669507A653_UPDATE_{update:03d}"] = {
+            "sha256": checkpoint_sha,
+            "identity_sha256": str(update) * 64,
+            "next_update": update,
+            "parent_sha256": parent,
+            "optimizer_scheduler_lineage": "fresh-published-pre",
+        }
+        parent = checkpoint_sha
+    config = {
+        "checkpoint_sha256": shas[-1],
+        "published_pre_checkpoint_sha256": published,
+        "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+        "fresh_published_pre_lineage": True,
+        "controlled_window_schedule_sha256": schedule_sha,
+        "shared_optimizer_scheduler_lineage": "fresh-published-pre",
+    }
+    proof = _validate_fresh_published_pre_resume(
+        "SCHEDULE_66669507A653_UPDATE_005", 5, checkpoints, config
+    )
+    assert proof["resume_update"] == 5
+    assert proof["checkpoint_sha256"] == shas[-1]
+    assert proof["chain"][-1] == "SCHEDULE_66669507A653_UPDATE_005"
+    public_source = inspect.getsource(ResidentRepairAPI.continue_two_spark_real)
+    assert "if 1 <= start_update < 64" in public_source
+
+
+def test_fresh_schedule_receipt_source_rows_cycle_beyond_u4() -> None:
+    binding = {"source_row_labels": [21, 22, 23, 24]}
+    assert [
+        _controlled_schedule_source_row(binding, update)
+        for update in range(1, 9)
+    ] == [21, 22, 23, 24, 21, 22, 23, 24]

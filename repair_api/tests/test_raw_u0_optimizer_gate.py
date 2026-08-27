@@ -3,7 +3,7 @@ import unittest
 from repair_api.balanced64 import ArtifactError
 from repair_api.official_k2_resident_score import (
     BASIS_SHA256,
-    CANONICAL_CORPUS_SHA256,
+    CANONICAL_U0_LOCK_CORPUS_SHA256,
     _validate_raw_u0_gates,
 )
 
@@ -17,7 +17,7 @@ class CanonicalRawU0OptimizerGateTests(unittest.TestCase):
                 "input_checkpoint_sha256": None,
                 "parent_checkpoint_sha256": None,
                 "model_index_sha256": BASIS_SHA256,
-                "corpus_sha256": CANONICAL_CORPUS_SHA256,
+                "corpus_sha256": CANONICAL_U0_LOCK_CORPUS_SHA256,
                 "optimizer_state_entries": 0,
             },
             "identity_sha256": "d602de92d998c0e649b0bc4fdf35a857384ff3cf6d1021bdbb76a8070af73a88",

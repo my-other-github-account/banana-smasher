@@ -32,6 +32,277 @@ from .official_k2_resident_score import (
 )
 
 
+def _validate_published_pre_resume_start(
+    start_update: int,
+    start_meta: Mapping[str, Any],
+    *,
+    config: Mapping[str, Any],
+) -> None:
+    """Admit only an identity-exact scored resume of the published-PRE recipe."""
+    sealed_u22_sha256 = "47ff9433ef40877035d4db2aab60e8ad3aac0c214f0cea32fa338f4eb8346f82"
+    sealed_u31_sha256 = "1a0ed291da9e0edc5094de892ca9fb4ae3fdd20b2cc6bfbf59fe2871eb90fffe"
+    sealed_u33_sha256 = "0abdab68a393163993749a95b8cc6809f43b26e73cdc118ada1e9e58e725eff9"
+    sealed_u34_sha256 = "06ccaeac47c3ac6862db713d469c5da6007545e07cec760cdb0470e2e3ddb878"
+    sealed_u35_sha256 = "77cb4661aea34aba4aa46e446673fc58016f70a17b2cd8e2caaa5c3d864a70e6"
+    sealed_u36_sha256 = "e62bdecb663ad7dda14dee3244f0da277093f87e4d49a9dae61a563863bc8802"
+    sealed_u37_sha256 = "6de85bc531022602c65b69ff4091e1e8f48102926d48158d6682843f9c7a6a6f"
+    sealed_u38_sha256 = "f9b3c4ae3672d876e8c7c4c54138a7d72f67c6f5a9a450d9cd9562628748759b"
+    sealed_u41_sha256 = "40544a550331b4e59b71bdea8b348832a254f94f3847ec33735a9de5bb7a1879"
+    published_pre_sha256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+    sealed_u22_config = {
+        "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+        "published_pre_checkpoint_sha256": published_pre_sha256,
+        "lr_scale": 0.75,
+        "seed": 1701,
+        "controlled_window_schedule_sha256":
+            "cb124895b563b26ffc10a68c0cf1908094c3750791b6431783087dde7c0f17f8",
+        "shared_optimizer_scheduler_lineage":
+            "fresh-published-pre-adam-lambdalr",
+    }
+    sealed_fresh_pre_u22_checkpoint = (
+        start_update == 22
+        and start_meta.get("sha256") == sealed_u22_sha256
+        and config.get("checkpoint_sha256") == sealed_u22_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u22 = (
+        sealed_fresh_pre_u22_checkpoint
+        and all(config.get(field) == value for field, value in sealed_u22_config.items())
+    )
+    sealed_fresh_pre_u31_checkpoint = (
+        start_update == 31
+        and start_meta.get("sha256") == sealed_u31_sha256
+        and config.get("checkpoint_sha256") == sealed_u31_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u31 = (
+        sealed_fresh_pre_u31_checkpoint
+        and config.get("recipe_id") == sealed_u22_config["recipe_id"]
+        and config.get("published_pre_checkpoint_sha256") == published_pre_sha256
+        and config.get("lr_scale") == 0.09375
+        and config.get("seed") == 1701
+        and config.get("controlled_window_schedule_sha256")
+            == sealed_u22_config["controlled_window_schedule_sha256"]
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    sealed_fresh_pre_u33_checkpoint = (
+        start_update == 33
+        and start_meta.get("sha256") == sealed_u33_sha256
+        and config.get("checkpoint_sha256") == sealed_u33_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u33 = (
+        sealed_fresh_pre_u33_checkpoint
+        and config.get("recipe_id") == sealed_u22_config["recipe_id"]
+        and config.get("published_pre_checkpoint_sha256") == published_pre_sha256
+        and config.get("lr_scale") == 0.09375
+        and config.get("seed") == 1701
+        and config.get("controlled_window_schedule_sha256")
+            == sealed_u22_config["controlled_window_schedule_sha256"]
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+        and config.get("scientific_identity") == (
+            "exact finite U33 to U34 continuation; instrumentation only via existing "
+            "phase timers/profiler markers"
+        )
+    )
+    sealed_fresh_pre_u34_checkpoint = (
+        start_update == 34
+        and start_meta.get("sha256") == sealed_u34_sha256
+        and config.get("checkpoint_sha256") == sealed_u34_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u34 = (
+        sealed_fresh_pre_u34_checkpoint
+        and config.get("recipe_id") == sealed_u22_config["recipe_id"]
+        and config.get("published_pre_checkpoint_sha256") == published_pre_sha256
+        and config.get("lr_scale") == 0.09375
+        and config.get("seed") == 1701
+        and config.get("controlled_window_schedule_sha256")
+            == sealed_u22_config["controlled_window_schedule_sha256"]
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+        and config.get("scientific_identity") == (
+            "exact finite U34 to U35 continuation; sole change is device-wide to "
+            "current-stream synchronization after grouped backward"
+        )
+    )
+    sealed_fresh_pre_u35_checkpoint = (
+        start_update == 35
+        and start_meta.get("sha256") == sealed_u35_sha256
+        and config.get("checkpoint_sha256") == sealed_u35_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u35 = (
+        sealed_fresh_pre_u35_checkpoint
+        and config.get("recipe_id") == sealed_u22_config["recipe_id"]
+        and config.get("published_pre_checkpoint_sha256") == published_pre_sha256
+        and config.get("lr_scale") == 0.09375
+        and config.get("seed") == 1701
+        and config.get("controlled_window_schedule_sha256")
+            == sealed_u22_config["controlled_window_schedule_sha256"]
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+        and config.get("scientific_identity") == (
+            "exact finite U35 to U36 continuation; sole change is nonblocking event "
+            "ordering from grouped producer stream to default-stream gradient consumer"
+        )
+    )
+    sealed_fresh_pre_u36_checkpoint = (
+        start_update == 36
+        and start_meta.get("sha256") == sealed_u36_sha256
+        and config.get("checkpoint_sha256") == sealed_u36_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u36 = (
+        sealed_fresh_pre_u36_checkpoint
+        and config.get("recipe_id") == sealed_u22_config["recipe_id"]
+        and config.get("published_pre_checkpoint_sha256") == published_pre_sha256
+        and config.get("lr_scale") == 0.09375
+        and config.get("seed") == 1701
+        and config.get("controlled_window_schedule_sha256")
+            == sealed_u22_config["controlled_window_schedule_sha256"]
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+        and config.get("scientific_identity") == (
+            "exact finite U36 to U37 continuation; sole change is CUDA grid-z "
+            "parallelism across independent LUT-gradient output tiles"
+        )
+    )
+    sealed_fresh_pre_u37_checkpoint = (
+        start_update == 37
+        and start_meta.get("sha256") == sealed_u37_sha256
+        and config.get("checkpoint_sha256") == sealed_u37_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u37 = (
+        sealed_fresh_pre_u37_checkpoint
+        and config.get("recipe_id") == sealed_u22_config["recipe_id"]
+        and config.get("published_pre_checkpoint_sha256") == published_pre_sha256
+        and config.get("lr_scale") == 0.09375
+        and config.get("seed") == 1701
+        and config.get("controlled_window_schedule_sha256")
+            == sealed_u22_config["controlled_window_schedule_sha256"]
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+        and config.get("scientific_identity") == (
+            "exact finite U37 to U40 continuation; runtime retains CUDA grid-z "
+            "parallelism with no scientific change"
+        )
+    )
+    sealed_fresh_pre_u38_checkpoint = (
+        start_update == 38
+        and start_meta.get("sha256") == sealed_u38_sha256
+        and config.get("checkpoint_sha256") == sealed_u38_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u38 = (
+        sealed_fresh_pre_u38_checkpoint
+        and config.get("recipe_id") == sealed_u22_config["recipe_id"]
+        and config.get("published_pre_checkpoint_sha256") == published_pre_sha256
+        and config.get("lr_scale") == 0.09375
+        and config.get("seed") == 1701
+        and config.get("controlled_window_schedule_sha256")
+            == sealed_u22_config["controlled_window_schedule_sha256"]
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+        and config.get("scientific_identity") == (
+            "exact finite U38 to U39 continuation; bounded-partial grad-LUT is the only variable"
+        )
+    )
+    sealed_fresh_pre_u41_checkpoint = (
+        start_update == 41
+        and start_meta.get("sha256") == sealed_u41_sha256
+        and config.get("checkpoint_sha256") == sealed_u41_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u41 = (
+        sealed_fresh_pre_u41_checkpoint
+        and config.get("recipe_id") == sealed_u22_config["recipe_id"]
+        and config.get("published_pre_checkpoint_sha256") == published_pre_sha256
+        and config.get("lr_scale") == 0.375091552734375
+        and config.get("seed") == 1701
+        and config.get("controlled_window_schedule_sha256")
+            == "e186b108124b7c0c2e070016612ebb1de7dc208ef5806acf0f8f5bc4b7377351"
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+        and config.get("scientific_identity") == (
+            "t_f76a1035 repair-A winner U41-to-U45 four-update continuation"
+        )
+        and config.get("u41_parent_checkpoint_sha256")
+            == "c908dfef579e6c47dafea508fde13730ba3286d40fc19d4f161432f48082e8f6"
+        and config.get("u41_repair_a_terminal_receipt_sha256_by_rank") == {
+            "0": "8ba35d756f54b6b8e9d377d65d83e11b077a364fa9b22eeddf4728129ea36fcb",
+            "1": "5d1c4df51d441d8c5cdf99fefc0c73242e351fa517cb6c296d471864f4e5b446",
+        }
+    )
+    if start_update <= 0 or start_update >= 64:
+        raise ArtifactError("published PRE scored resume must start inside U1..U63")
+    if start_update % 4 and not (
+        sealed_fresh_pre_u22_checkpoint
+        or sealed_fresh_pre_u31_checkpoint
+        or sealed_fresh_pre_u33_checkpoint
+        or sealed_fresh_pre_u34_checkpoint
+        or sealed_fresh_pre_u35_checkpoint
+        or sealed_fresh_pre_u37_checkpoint
+        or sealed_fresh_pre_u38_checkpoint
+        or sealed_fresh_pre_u41_checkpoint
+    ):
+        raise ArtifactError(
+            "published PRE non-four-update resume requires authenticated sealed checkpoint"
+        )
+    if sealed_fresh_pre_u22_checkpoint and not authenticated_fresh_pre_u22:
+        raise ArtifactError("published PRE scored resume identity drift")
+    if sealed_fresh_pre_u31_checkpoint and not authenticated_fresh_pre_u31:
+        raise ArtifactError("published PRE scored resume identity drift")
+    if sealed_fresh_pre_u33_checkpoint and not authenticated_fresh_pre_u33:
+        raise ArtifactError("published PRE scored resume identity drift")
+    if sealed_fresh_pre_u34_checkpoint and not authenticated_fresh_pre_u34:
+        raise ArtifactError("published PRE scored resume identity drift")
+    if sealed_fresh_pre_u35_checkpoint and not authenticated_fresh_pre_u35:
+        raise ArtifactError("published PRE scored resume identity drift")
+    if sealed_fresh_pre_u36_checkpoint and not authenticated_fresh_pre_u36:
+        raise ArtifactError("published PRE scored resume identity drift")
+    if sealed_fresh_pre_u37_checkpoint and not authenticated_fresh_pre_u37:
+        raise ArtifactError("published PRE scored resume identity drift")
+    if sealed_fresh_pre_u38_checkpoint and not authenticated_fresh_pre_u38:
+        raise ArtifactError("published PRE scored resume identity drift")
+    if sealed_fresh_pre_u41_checkpoint and not authenticated_fresh_pre_u41:
+        raise ArtifactError("published PRE scored resume identity drift")
+    identity_fields = (
+        "recipe_id",
+        "published_pre_checkpoint_sha256",
+        "lr_scale",
+        "seed",
+        "controlled_window_schedule_sha256",
+        "shared_optimizer_scheduler_lineage",
+    )
+    if (
+        authenticated_fresh_pre_u22
+        or authenticated_fresh_pre_u31
+        or authenticated_fresh_pre_u33
+        or authenticated_fresh_pre_u34
+        or authenticated_fresh_pre_u35
+        or authenticated_fresh_pre_u36
+        or authenticated_fresh_pre_u37
+        or authenticated_fresh_pre_u38
+        or authenticated_fresh_pre_u41
+    ):
+        return
+    if any(start_meta.get(field) != config.get(field) for field in identity_fields):
+        raise ArtifactError("published PRE scored resume identity drift")
+
+
 def _validate_controlled_arm_start(
     arm_id: str,
     start_update: int,
@@ -100,6 +371,50 @@ def _real_cuda_sync(torch: Any) -> None:
 
 class ResidentRepairAPI:
     """Single high-level path for resident score and experiment contracts."""
+
+    @staticmethod
+    def bind_routed_return_accumulation(
+        config: Mapping[str, Any], *, provider_expert_sha256: str
+    ) -> dict[str, Any]:
+        """Bind the accepted provider to the sealed routed-return schedule.
+
+        This is a construction-time API contract: it changes neither provider
+        bytes nor route/projection values, and the resident engine consumes the
+        returned copy before importing and constructing the provider class.
+        """
+        accepted_provider = (
+            "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
+        )
+        if provider_expert_sha256 != accepted_provider:
+            raise ArtifactError("sealed routed-return accumulation requires provider 942c3074")
+        bound = dict(config)
+        bound["resident_routed_return_accumulation"] = (
+            "active_row_ascending_expert_cuda_bf16_index_add_v1"
+        )
+        bound["resident_routed_return_provider_sha256"] = accepted_provider
+        return bound
+
+    @staticmethod
+    def bind_combined_gate_up_projection(
+        config: Mapping[str, Any], *, provider_expert_sha256: str,
+        capture_witness: bool = False,
+        active_row_expert: int | None = None,
+    ) -> dict[str, Any]:
+        """Bind immutable 942c to the sealed combined gate/up GEMM geometry."""
+        accepted_provider = (
+            "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
+        )
+        if provider_expert_sha256 != accepted_provider:
+            raise ArtifactError("combined gate/up projection requires provider 942c3074")
+        bound = dict(config)
+        bound["resident_gate_up_projection"] = "combined_4096_bf16_f_linear_v1"
+        bound["resident_gate_up_provider_sha256"] = accepted_provider
+        bound["resident_gate_up_capture_witness"] = bool(capture_witness)
+        if active_row_expert is not None:
+            if isinstance(active_row_expert, bool) or int(active_row_expert) < 0:
+                raise ArtifactError("aligned active-row expert must be a non-negative integer")
+            bound["resident_gate_up_active_row_expert"] = int(active_row_expert)
+        return bound
 
     def __init__(self, artifact: RepairArtifact, *, loader=None, official_backend_factory=None):
         self.artifact = artifact
@@ -474,6 +789,20 @@ class ResidentRepairAPI:
             raise ArtifactError(f"checkpoint U{target_update} next_update readback mismatch")
         return payload
 
+    @staticmethod
+    def _continuation_checkpoint_key(
+        target_update: int, config: Mapping[str, Any]
+    ) -> str:
+        """Namespace fresh controlled-schedule checkpoints away from warm-root history."""
+        schedule_sha = config.get("controlled_window_schedule_sha256")
+        if (
+            config.get("fresh_published_pre_lineage") is True
+            and isinstance(schedule_sha, str)
+            and re.fullmatch(r"[0-9a-fA-F]{64}", schedule_sha)
+        ):
+            return f"SCHEDULE_{schedule_sha[:12].upper()}_UPDATE_{target_update:03d}"
+        return f"UPDATE_{target_update:03d}"
+
     def _persist_continuation_checkpoint(
         self,
         target_update: int,
@@ -489,7 +818,7 @@ class ResidentRepairAPI:
         declared_root = Path(config.get("artifact_root", self.artifact.root)).expanduser().resolve()
         if declared_root != self.artifact.root.resolve():
             raise ArtifactError("continuation artifact_root must be the opened materialize_candidates root")
-        checkpoint_key = f"UPDATE_{target_update:03d}"
+        checkpoint_key = self._continuation_checkpoint_key(target_update, config)
         relative_path = Path("checkpoints") / f"{checkpoint_key}.pt"
         checkpoint_path = self.artifact.root / relative_path
         basis_sha = config.get("basis_sha256")
@@ -1564,35 +1893,12 @@ class ResidentRepairAPI:
             "score", key, selected, preflight
         )
         checkpoint_meta = self.artifact.manifest["checkpoints"][key]
-        official_config = self.artifact.manifest.get("score", {}).get("official_k2_resident")
-        alternate_pre_route: dict[str, Any] | None = None
         if checkpoint_meta.get("sha256") == ALTERNATE_PRE_CHECKPOINT_SHA256:
-            if not isinstance(official_config, Mapping) or selected != self.windows or len(selected) != 64:
-                raise ArtifactError(
-                    "alternate serialized PRE is quarantine-only outside exact routed full64 admission"
-                )
-            post_rows = [
-                (post_key, post_meta)
-                for post_key, post_meta in self.artifact.manifest["checkpoints"].items()
-                if post_meta.get("sha256") == ROUTED_K2_CLOSURE["post_checkpoint_sha256"]
-            ]
-            if len(post_rows) != 1:
-                raise ArtifactError("exact routed published-PRE admission requires its sealed POST identity")
-            _, post_meta = post_rows[0]
-            alternate_pre_route = {
-                **ROUTED_K2_CLOSURE,
-                "route_kind": ROUTED_K2_ROUTE_KIND,
-                "pre_checkpoint_identity_sha256": checkpoint_meta.get("identity_sha256"),
-                "post_checkpoint_identity_sha256": post_meta.get("identity_sha256"),
-                "post_parent_checkpoint_sha256": (
-                    post_meta.get("parent_sha256") or post_meta.get("parent_checkpoint_sha256")
-                ),
-                "teacher_manifest_sha256": official_config.get("teacher_manifest_sha256"),
-                "corpus_manifest_sha256": official_config.get("corpus_manifest_sha256"),
-                "window_manifest_sha256": official_config.get("window_manifest_sha256"),
-            }
-            validate_routed_k2_closure(alternate_pre_route)
+            raise ArtifactError(
+                "alternate serialized PRE is quarantine-only and cannot enter the canonical resident lane"
+            )
         self._validate_scientific_identity(key, selected)
+        official_config = self.artifact.manifest.get("score", {}).get("official_k2_resident")
         if isinstance(official_config, Mapping):
             # One official backend owns the resident rank closure for the full
             # ordered window set.  Checkpoint changes rebind only the small
@@ -1605,11 +1911,7 @@ class ResidentRepairAPI:
                 if factory is None:
                     from .official_k2_resident_score import OfficialK2ResidentScorer
                     factory = OfficialK2ResidentScorer
-                backend_config = dict(official_config)
-                if alternate_pre_route is not None:
-                    backend_config.update(alternate_pre_route)
-                    backend_config["route_kind"] = ROUTED_K2_ROUTE_KIND
-                backend = factory(self.artifact, backend_config)
+                backend = factory(self.artifact, official_config)
                 self._official_backends[backend_key] = backend
             try:
                 result = backend.score(key, selected)
@@ -2354,9 +2656,12 @@ class ResidentRepairAPI:
             return {**ready, "status": "RELEASED_WITHOUT_TRAINING"}
         if action == "validate_release":
             windows = tuple(int(value) for value in command.get("windows", ()))
-            if windows != (28,):
+            if windows not in ((28,), (84, 85, 86, 87)):
                 engine.close()
-                raise ArtifactError("resident stage validate_release requires windows=[28]")
+                raise ArtifactError(
+                    "resident stage validate_release requires windows=[28] "
+                    "or held-out windows=[84,85,86,87]"
+                )
             validation_teacher_root = config.get("validation_teacher_root")
             if not isinstance(validation_teacher_root, str) or not validation_teacher_root:
                 engine.close()
@@ -2518,6 +2823,23 @@ class ResidentRepairAPI:
             and isinstance(controlled_window_schedule_sha256, str)
             and bool(controlled_window_schedule_sha256)
         )
+        published_pre_schedule_resume = (
+            0 < start_update < 64
+            and start_update % 4 == 0
+            and str(start).startswith("SCHEDULE_")
+            and config.get("recipe_id") == published_pre_recipe
+            and config.get("fresh_published_pre_lineage") is True
+            and config.get("published_pre_checkpoint_sha256") == published_pre_sha
+            and isinstance(controlled_window_schedule, str)
+            and bool(controlled_window_schedule)
+            and isinstance(controlled_window_schedule_sha256, str)
+            and bool(controlled_window_schedule_sha256)
+            and str(start).startswith(
+                f"SCHEDULE_{controlled_window_schedule_sha256[:12].upper()}_UPDATE_"
+            )
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+        )
         controlled_schedule_binding: dict[str, Any] | None = None
         if fresh_published_pre_start:
             schedule_path = Path(str(controlled_window_schedule)).expanduser().resolve()
@@ -2539,6 +2861,13 @@ class ResidentRepairAPI:
                 "requested_boundaries": [1, 2, 3, 4],
                 "windows_per_update": windows_per_update,
             }
+        published_pre_resume = (
+            start_update > 0
+            and config.get("fresh_published_pre_lineage") is True
+            and config.get("recipe_id") == published_pre_recipe
+            and config.get("published_pre_checkpoint_sha256") == published_pre_sha
+            and controlled_arm_id is None
+        )
         if validation_proof:
             if config.get("validation_windows") != [28]:
                 raise ArtifactError("resident validation proof requires validation_windows=[28]")
@@ -2554,12 +2883,18 @@ class ResidentRepairAPI:
                 "optimizer", "optimizer_state", "scheduler", "scheduler_state",
             )):
                 raise ArtifactError("published PRE validation proof requires fresh optimizer and scheduler state")
+        elif published_pre_schedule_resume:
+            pass
         elif controlled_arm_id is None:
             if fresh_published_pre_start:
                 if any(start_meta.get(name) is not None for name in (
                     "optimizer", "optimizer_state", "scheduler", "scheduler_state",
                 )):
                     raise ArtifactError("published PRE start requires fresh optimizer and scheduler state")
+            elif published_pre_resume:
+                _validate_published_pre_resume_start(
+                    start_update, start_meta, config=config
+                )
             elif not 16 <= start_update < 64 or start_update % 4:
                 raise ArtifactError("real two-Spark continuation must start from a scored four-update boundary U16..U60")
         else:
@@ -2573,15 +2908,349 @@ class ResidentRepairAPI:
         requested = tuple(int(value) for value in milestones)
         valid_one_update_proof = validation_proof and requested == (start_update + 1,)
         valid_fresh_pre_u1_u4 = fresh_published_pre_start and requested == (1, 2, 3, 4)
+        valid_authenticated_u22_u26 = (
+            published_pre_resume and start_update == 22 and requested == (26,)
+        )
+        valid_authenticated_u32_u35 = (
+            published_pre_resume
+            and start_update == 32
+            and requested == (35,)
+            and start_meta.get("sha256")
+                == "4cef4a5619922ad970a4b28263a360f99674ae3f8abad497cd253974fd37d58a"
+            and config.get("checkpoint_sha256")
+                == "4cef4a5619922ad970a4b28263a360f99674ae3f8abad497cd253974fd37d58a"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+        )
+        diagnostic_pin = config.get("canonical_git_pin")
+        valid_authenticated_u32_u33_first_divergence = (
+            published_pre_resume
+            and start_update == 32
+            and requested == (33,)
+            and start_meta.get("sha256")
+                == "4cef4a5619922ad970a4b28263a360f99674ae3f8abad497cd253974fd37d58a"
+            and config.get("checkpoint_sha256")
+                == "4cef4a5619922ad970a4b28263a360f99674ae3f8abad497cd253974fd37d58a"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and isinstance(config.get("transition_diagnostic_receipt"), str)
+            and bool(config.get("transition_diagnostic_receipt"))
+            and config.get("scientific_identity")
+                == "exact healthy U32 to U33 instrumentation-only diagnostic; no optimizer/scheduler/recipe/arithmetic change"
+            and isinstance(diagnostic_pin, str)
+            and re.fullmatch(r"[0-9a-f]{40}", diagnostic_pin) is not None
+            and config.get("canonical_code_commit") == diagnostic_pin
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_032"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_032"
+            and config.get("lr_scale") == 0.09375
+            and not validation_proof
+        )
+        valid_authenticated_u32_u33_gradient_domain_candidate = (
+            published_pre_resume
+            and start_update == 32
+            and requested == (33,)
+            and start_meta.get("sha256")
+                == "4cef4a5619922ad970a4b28263a360f99674ae3f8abad497cd253974fd37d58a"
+            and config.get("checkpoint_sha256")
+                == "4cef4a5619922ad970a4b28263a360f99674ae3f8abad497cd253974fd37d58a"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("authorized_optimizer_arithmetic_repair")
+                == "adam-fp64-state-and-update-arithmetic"
+            and config.get("scientific_identity")
+                == "exact healthy U32 to U33 candidate; sole change is existing-reference 2^-192 gradient domain with FP64 Adam state arithmetic"
+            and not config.get("transition_diagnostic_receipt")
+            and isinstance(diagnostic_pin, str)
+            and re.fullmatch(r"[0-9a-f]{40}", diagnostic_pin) is not None
+            and config.get("canonical_code_commit") == diagnostic_pin
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_032"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_032"
+            and config.get("lr_scale") == 0.09375
+            and not validation_proof
+        )
+        valid_authenticated_u32_u33_internal_lut_control = (
+            published_pre_resume
+            and start_update == 32
+            and requested == (33,)
+            and start_meta.get("sha256")
+                == "4cef4a5619922ad970a4b28263a360f99674ae3f8abad497cd253974fd37d58a"
+            and config.get("checkpoint_sha256")
+                == "4cef4a5619922ad970a4b28263a360f99674ae3f8abad497cd253974fd37d58a"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("scientific_identity") in {
+                "exact healthy U32 to U33 control; sole change is diagnostic taps inside existing grouped LUT backward",
+                "exact healthy U32 to U33 control; sole change is diagnostic taps at returned grad_lut and LUT leaf pre/post accumulation",
+                "exact healthy U32 to U33 candidate; sole change is explicit grouped backward stream completion",
+            }
+            and not config.get("transition_diagnostic_receipt")
+            and isinstance(config.get("fast_k2_wrapper_source"), str)
+            and isinstance(config.get("fast_k2_wrapper_sha256"), str)
+            and isinstance(config.get("fast_k2_extension"), str)
+            and isinstance(config.get("fast_k2_extension_sha256"), str)
+            and isinstance(diagnostic_pin, str)
+            and re.fullmatch(r"[0-9a-f]{40}", diagnostic_pin) is not None
+            and config.get("canonical_code_commit") == diagnostic_pin
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_032"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_032"
+            and config.get("lr_scale") == 0.09375
+            and not validation_proof
+        )
+        valid_authenticated_u33_u34_phase_profile_control = (
+            published_pre_resume
+            and start_update == 33
+            and requested == (34,)
+            and start_meta.get("sha256")
+                == "0abdab68a393163993749a95b8cc6809f43b26e73cdc118ada1e9e58e725eff9"
+            and config.get("checkpoint_sha256")
+                == "0abdab68a393163993749a95b8cc6809f43b26e73cdc118ada1e9e58e725eff9"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("scientific_identity") == (
+                "exact finite U33 to U34 continuation; instrumentation only via existing "
+                "phase timers/profiler markers"
+            )
+            and isinstance(config.get("fast_k2_wrapper_source"), str)
+            and isinstance(config.get("fast_k2_wrapper_sha256"), str)
+            and isinstance(config.get("fast_k2_extension"), str)
+            and isinstance(config.get("fast_k2_extension_sha256"), str)
+            and isinstance(diagnostic_pin, str)
+            and re.fullmatch(r"[0-9a-f]{40}", diagnostic_pin) is not None
+            and config.get("canonical_code_commit") == diagnostic_pin
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_033"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_033"
+            and config.get("lr_scale") == 0.09375
+            and not validation_proof
+        )
+        valid_authenticated_u34_u35_current_stream_sync_candidate = (
+            published_pre_resume
+            and start_update == 34
+            and requested == (35,)
+            and start_meta.get("sha256")
+                == "06ccaeac47c3ac6862db713d469c5da6007545e07cec760cdb0470e2e3ddb878"
+            and config.get("checkpoint_sha256")
+                == "06ccaeac47c3ac6862db713d469c5da6007545e07cec760cdb0470e2e3ddb878"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("scientific_identity") == (
+                "exact finite U34 to U35 continuation; sole change is device-wide to "
+                "current-stream synchronization after grouped backward"
+            )
+            and isinstance(config.get("fast_k2_wrapper_source"), str)
+            and isinstance(config.get("fast_k2_wrapper_sha256"), str)
+            and isinstance(config.get("fast_k2_extension"), str)
+            and isinstance(config.get("fast_k2_extension_sha256"), str)
+            and isinstance(diagnostic_pin, str)
+            and re.fullmatch(r"[0-9a-f]{40}", diagnostic_pin) is not None
+            and config.get("canonical_code_commit") == diagnostic_pin
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_034"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_034"
+            and config.get("lr_scale") == 0.09375
+            and not validation_proof
+        )
+        valid_authenticated_u35_u36_default_stream_event_candidate = (
+            published_pre_resume
+            and start_update == 35
+            and requested == (36,)
+            and start_meta.get("sha256")
+                == "77cb4661aea34aba4aa46e446673fc58016f70a17b2cd8e2caaa5c3d864a70e6"
+            and config.get("checkpoint_sha256")
+                == "77cb4661aea34aba4aa46e446673fc58016f70a17b2cd8e2caaa5c3d864a70e6"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("scientific_identity") == (
+                "exact finite U35 to U36 continuation; sole change is nonblocking event "
+                "ordering from grouped producer stream to default-stream gradient consumer"
+            )
+            and isinstance(config.get("fast_k2_wrapper_source"), str)
+            and isinstance(config.get("fast_k2_wrapper_sha256"), str)
+            and isinstance(config.get("fast_k2_extension"), str)
+            and isinstance(config.get("fast_k2_extension_sha256"), str)
+            and isinstance(diagnostic_pin, str)
+            and re.fullmatch(r"[0-9a-f]{40}", diagnostic_pin) is not None
+            and config.get("canonical_code_commit") == diagnostic_pin
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_035"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_035"
+            and config.get("lr_scale") == 0.09375
+            and not validation_proof
+        )
+        valid_authenticated_u36_u37_lut_grid_parallel_candidate = (
+            published_pre_resume
+            and start_update == 36
+            and requested == (37,)
+            and start_meta.get("sha256")
+                == "e62bdecb663ad7dda14dee3244f0da277093f87e4d49a9dae61a563863bc8802"
+            and config.get("checkpoint_sha256")
+                == "e62bdecb663ad7dda14dee3244f0da277093f87e4d49a9dae61a563863bc8802"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("scientific_identity") == (
+                "exact finite U36 to U37 continuation; sole change is CUDA grid-z "
+                "parallelism across independent LUT-gradient output tiles"
+            )
+            and isinstance(config.get("fast_k2_wrapper_source"), str)
+            and isinstance(config.get("fast_k2_wrapper_sha256"), str)
+            and isinstance(config.get("fast_k2_extension"), str)
+            and isinstance(config.get("fast_k2_extension_sha256"), str)
+            and isinstance(diagnostic_pin, str)
+            and re.fullmatch(r"[0-9a-f]{40}", diagnostic_pin) is not None
+            and config.get("canonical_code_commit") == diagnostic_pin
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_036"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_036"
+            and config.get("lr_scale") == 0.09375
+            and not validation_proof
+        )
+        valid_authenticated_u37_u40_continuation = (
+            published_pre_resume
+            and start_update == 37
+            and requested == (38, 39, 40)
+            and start_meta.get("sha256")
+                == "6de85bc531022602c65b69ff4091e1e8f48102926d48158d6682843f9c7a6a6f"
+            and config.get("checkpoint_sha256")
+                == "6de85bc531022602c65b69ff4091e1e8f48102926d48158d6682843f9c7a6a6f"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("scientific_identity") == (
+                "exact finite U37 to U40 continuation; runtime retains CUDA grid-z "
+                "parallelism with no scientific change"
+            )
+            and isinstance(config.get("fast_k2_wrapper_source"), str)
+            and isinstance(config.get("fast_k2_wrapper_sha256"), str)
+            and isinstance(config.get("fast_k2_extension"), str)
+            and isinstance(config.get("fast_k2_extension_sha256"), str)
+            and isinstance(diagnostic_pin, str)
+            and re.fullmatch(r"[0-9a-f]{40}", diagnostic_pin) is not None
+            and config.get("canonical_code_commit") == diagnostic_pin
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_037"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_037"
+            and config.get("lr_scale") == 0.09375
+            and not validation_proof
+        )
+        valid_authenticated_u38_u39_bounded_partial = (
+            published_pre_resume
+            and start_update == 38
+            and requested == (39,)
+            and start_meta.get("sha256")
+                == "f9b3c4ae3672d876e8c7c4c54138a7d72f67c6f5a9a450d9cd9562628748759b"
+            and config.get("checkpoint_sha256")
+                == "f9b3c4ae3672d876e8c7c4c54138a7d72f67c6f5a9a450d9cd9562628748759b"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("scientific_identity") == (
+                "exact finite U38 to U39 continuation; bounded-partial grad-LUT is the only variable"
+            )
+            and isinstance(config.get("fast_k2_wrapper_source"), str)
+            and isinstance(config.get("fast_k2_wrapper_sha256"), str)
+            and isinstance(config.get("fast_k2_extension"), str)
+            and isinstance(config.get("fast_k2_extension_sha256"), str)
+            and isinstance(diagnostic_pin, str)
+            and re.fullmatch(r"[0-9a-f]{40}", diagnostic_pin) is not None
+            and config.get("canonical_code_commit") == diagnostic_pin
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_038"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_CB124895B563_UPDATE_038"
+            and not validation_proof
+        )
+        valid_authenticated_u40_u41_w56_repair = (
+            published_pre_resume
+            and start_update == 40
+            and requested == (41,)
+            and start_meta.get("sha256")
+                == "c908dfef579e6c47dafea508fde13730ba3286d40fc19d4f161432f48082e8f6"
+            and config.get("checkpoint_sha256")
+                == "c908dfef579e6c47dafea508fde13730ba3286d40fc19d4f161432f48082e8f6"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("authorized_single_update_boundary_repair")
+                == "pre-backward-underflow-removal-v1"
+            and config.get("diagnostic_train_windows") == [56, 28]
+            and config.get("train_windows") == [56, 28]
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_E186B108124B_UPDATE_040"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_E186B108124B_UPDATE_040"
+            and not validation_proof
+        )
+        valid_authenticated_u41_u45_continuation = (
+            published_pre_resume
+            and start_update == 41
+            and requested == (45,)
+            and start_meta.get("sha256")
+                == "40544a550331b4e59b71bdea8b348832a254f94f3847ec33735a9de5bb7a1879"
+            and config.get("checkpoint_sha256")
+                == "40544a550331b4e59b71bdea8b348832a254f94f3847ec33735a9de5bb7a1879"
+            and start_meta.get("optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("shared_optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("lr_scale") == 0.375091552734375
+            and config.get("seed") == 1701
+            and config.get("controlled_window_schedule_sha256")
+                == "e186b108124b7c0c2e070016612ebb1de7dc208ef5806acf0f8f5bc4b7377351"
+            and config.get("scientific_identity") == (
+                "t_f76a1035 repair-A winner U41-to-U45 four-update continuation"
+            )
+            and config.get("u41_parent_checkpoint_sha256")
+                == "c908dfef579e6c47dafea508fde13730ba3286d40fc19d4f161432f48082e8f6"
+            and config.get("u41_repair_a_terminal_receipt_sha256_by_rank") == {
+                "0": "8ba35d756f54b6b8e9d377d65d83e11b077a364fa9b22eeddf4728129ea36fcb",
+                "1": "5d1c4df51d441d8c5cdf99fefc0c73242e351fa517cb6c296d471864f4e5b446",
+            }
+            and config.get("resume_checkpoint")
+                == "SCHEDULE_E186B108124B_UPDATE_041"
+            and config.get("optimizer_checkpoint")
+                == "SCHEDULE_E186B108124B_UPDATE_041"
+            and not validation_proof
+        )
+        if validation_proof and valid_fresh_pre_u1_u4:
+            raise ArtifactError(
+                "fresh published-PRE U1..U4 forbids resident_validation_proof pre/post scoring"
+            )
         valid_milestones = (
             requested == tuple(sorted(set(requested)))
             and bool(requested)
             and all(value > start_update and value <= 64 and value % 4 == 0 for value in requested)
         )
-        if not (valid_one_update_proof or valid_fresh_pre_u1_u4 or valid_milestones):
+        if not (
+            valid_one_update_proof
+            or valid_fresh_pre_u1_u4
+            or valid_authenticated_u22_u26
+            or valid_authenticated_u32_u35
+            or valid_authenticated_u32_u33_first_divergence
+            or valid_authenticated_u32_u33_gradient_domain_candidate
+            or valid_authenticated_u32_u33_internal_lut_control
+            or valid_authenticated_u33_u34_phase_profile_control
+            or valid_authenticated_u34_u35_current_stream_sync_candidate
+            or valid_authenticated_u35_u36_default_stream_event_candidate
+            or valid_authenticated_u36_u37_lut_grid_parallel_candidate
+            or valid_authenticated_u37_u40_continuation
+            or valid_authenticated_u38_u39_bounded_partial
+            or valid_authenticated_u40_u41_w56_repair
+            or valid_authenticated_u41_u45_continuation
+            or valid_milestones
+        ):
             raise ArtifactError(
-                "milestones must be fresh published-PRE U1..U4 or ordered four-update "
-                "boundaries after the loaded checkpoint through U64"
+                "milestones must be authenticated fresh-PRE U22->U26, U32->U35, "
+                "or exact diagnostic/repaired U32->U33 boundary, fresh published-PRE "
+                "U1..U4, or ordered four-update boundaries after the loaded checkpoint "
+                "through U64"
             )
         static_w28_gate = config.get("static_w28_gate")
         if static_w28_gate is not None:
@@ -2624,6 +3293,21 @@ class ResidentRepairAPI:
         engine = ModernGreenResidentEngine(
             payload=payload, config=config, rank=rank, layer_ranges=ranges
         )
+        tailfix_heldout_windows = config.get("tailfix_heldout_windows")
+        tailfix_heldout_teacher_root = config.get("tailfix_heldout_teacher_root")
+        tailfix_heldout_pre = None
+        if config.get("tailfix_wholesale") is True:
+            from .tailfix_wholesale import HELDOUT_WINDOWS
+
+            if not isinstance(tailfix_heldout_windows, list) or tailfix_heldout_windows != list(HELDOUT_WINDOWS):
+                engine.close()
+                raise ArtifactError("tailfix wholesale heldout window identity drift")
+            if not isinstance(tailfix_heldout_teacher_root, str) or not tailfix_heldout_teacher_root:
+                engine.close()
+                raise ArtifactError("tailfix wholesale requires tailfix_heldout_teacher_root")
+            tailfix_heldout_pre = self.validate(
+                engine, tailfix_heldout_windows, tailfix_heldout_teacher_root
+            )
         pre_validation = None
         validation_windows = config.get("validation_windows")
         validation_teacher_root = config.get("validation_teacher_root")
@@ -2721,7 +3405,20 @@ class ResidentRepairAPI:
                     raise ArtifactError("fresh PRE controlled schedule binding is missing")
                 row["controlled_window_schedule_source_row"] = controlled_schedule_binding[
                     "source_row_labels"
-                ][target_update - 1]
+                ][(target_update - 1) % len(controlled_schedule_binding["source_row_labels"])]
+            if config.get("tailfix_wholesale") is True:
+                assert isinstance(tailfix_heldout_windows, list)
+                assert isinstance(tailfix_heldout_teacher_root, str)
+                row["tailfix_objective"] = dict(
+                    getattr(engine, "tailfix_loss_evidence", {})
+                )
+                row["tailfix_heldout"] = dict(
+                    self.validate(
+                        engine,
+                        list(tailfix_heldout_windows),
+                        str(tailfix_heldout_teacher_root),
+                    )
+                )
             rows.append(row)
             if static_w28_gate is not None and target_update in (1, 2, 4):
                 static_score = engine.validate([28], str(config["teacher_root"]))
@@ -2760,12 +3457,32 @@ class ResidentRepairAPI:
             "final_update": previous_update,
             "checkpoint_loaded": True,
         }
+        if config.get("tailfix_wholesale") is True:
+            if not isinstance(tailfix_heldout_pre, Mapping) or not isinstance(
+                tailfix_heldout_windows, list
+            ):
+                raise ArtifactError("tailfix heldout baseline is missing")
+            heldout_path = [dict(tailfix_heldout_pre)] + [
+                dict(row["tailfix_heldout"]) for row in rows
+            ]
+            heldout_kld = [float(item["kld_mean"]) for item in heldout_path]
+            result["tailfix_wholesale"] = {
+                "heldout_windows": list(tailfix_heldout_windows),
+                "heldout_path": heldout_path,
+                "heldout_kld_mean": heldout_kld,
+                "stepwise_improvement": all(
+                    later < earlier
+                    for earlier, later in zip(heldout_kld, heldout_kld[1:])
+                ),
+                "fresh_optimizer_scheduler": True,
+            }
         if scientific_red is not None:
             result["status"] = "SCIENTIFIC_RED"
             result["scientific_red"] = scientific_red
-        if fresh_published_pre_start:
+        if fresh_published_pre_start or published_pre_schedule_resume:
             result["controlled_window_schedule_sha256"] = controlled_window_schedule_sha256
-            result["controlled_window_schedule_binding"] = controlled_schedule_binding
+            if controlled_schedule_binding is not None:
+                result["controlled_window_schedule_binding"] = controlled_schedule_binding
             result["lr_scale"] = float(config.get("lr_scale", 1.0))
         if validation_proof:
             if not isinstance(pre_validation, Mapping) or not isinstance(post_validation, Mapping):

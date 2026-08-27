@@ -174,9 +174,9 @@ class MemoryFitPolicyTests(unittest.TestCase):
             manifest = {
                 "schema": "repair-artifact-v1",
                 "identity": {
-                    "basis_sha256": "basis",
-                    "builder_eval_corpus_sha256": "builder",
-                    "train_score_corpus_sha256": "train",
+                    "basis_sha256": "b" * 64,
+                    "builder_eval_corpus_sha256": "c" * 64,
+                    "train_score_corpus_sha256": "d" * 64,
                     "teacher_inventory": ["teacher"],
                 },
                 "checkpoints": {

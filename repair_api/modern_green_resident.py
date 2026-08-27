@@ -36,8 +36,8 @@ PUBLISHED_PRE_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb
 PUBLISHED_PRE_BASE_LRS = {"luts": 1.0e-3, "norms": 1.0e-4, "outputs": 1.0e-3}
 STATIC_W28_VALIDATION_CORPUS_SHA256 = "5aadaacbb486ae4f528c5e51ae70beff863337bd908fc727e6e49fc3ac520ebd"
 STATIC_W28_TEACHER_SHA256 = "561753481a1e08aee88e28f5fa0c6e727f4af679494c39679e87ed5189e2653d"
-SEALED_GROUPED_WRAPPER_SHA256 = "37b919ae6adb34987e0e20ba4318352d9bf07b5183008d023a1822b3daf75126"
-SEALED_GROUPED_EXPERT_SHA256 = "8080d1e6ef6752c7823a4db0426c6ea048b830a1ece173b30a7b12f716d1685b"
+SEALED_GROUPED_WRAPPER_SHA256 = "5ff7e60b1b7d21abee2dbdc3202a1cf2c3787c3bd4744af34f1a9b6ace5ff361"
+SEALED_GROUPED_EXPERT_SHA256 = "42f672c68730a8ab9b9e6a83cee295ff8e0cb114a75336d712c4e469adce73aa"
 ACCEPTED_W28_PRODUCER_COMMIT = "0eebc78245129bcdc47fbb08964f6c2145b7ff7b"
 ACCEPTED_W28_EXTENSION_SHA256 = "dedb8798912f0ad31f9002f53407cde153ee50e1b8da272c2b4b976cb1a6922d"
 ACCEPTED_W28_RECEIPT_SHA256_BY_RANK = {
@@ -45,10 +45,22 @@ ACCEPTED_W28_RECEIPT_SHA256_BY_RANK = {
     1: "7c3fbd8435cc2712933ce19b4cddd939d76f5ce36bab7d7b06fc00e52dbe95e7",
 }
 STATIC_W28_GROUPED_WRAPPER_SHA256 = "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
-STATIC_W28_GROUPED_EXPERT_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
-FAST_K2_EXTENSION_CPP_SHA256 = "de5e3f522fe3ef02d1b82edebd85569f5f1fe6d2b7c17261e010e40883063dee"
-FAST_K2_EXTENSION_CUDA_SHA256 = "dbc226dc6bcf4b467f0193824c41adc8e62bcf6fea762370796b24707ff2a9e1"
-FAST_K2_EXTENSION_SOURCE_BUNDLE_SHA256 = "9f27d9911108712b6a7366490f51144d58bd19a8182de2105f000fa81db17266"
+STATIC_W28_GROUPED_EXPERT_SHA256 = "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
+
+
+def _validation_attention_query_chunk_size(config: Mapping[str, Any]) -> int:
+    """Fail closed when the bounded official decoder rail loses its chunk."""
+    chunk_size = int(config.get("attention_query_chunk_size", 0))
+    if bool(config.get("resident_validation_official_decoder_dispatch", False)) and chunk_size <= 0:
+        raise ArtifactError(
+            "official decoder dispatch requires attention_query_chunk_size"
+        )
+    return chunk_size
+
+
+FAST_K2_EXTENSION_CPP_SHA256 = "59f2ec65c5d0f0ff5475564378e1993c960cef904c2ea5b78d08ef0503f636e8"
+FAST_K2_EXTENSION_CUDA_SHA256 = "252c84856a9ba207b9ab5145d9fd64617b114dfa7db3d51500d0abb6c0842e69"
+FAST_K2_EXTENSION_SOURCE_BUNDLE_SHA256 = "fe68afbb44cf83aee2d7b75bb0d3de1ef74878cb4bb59abab8db34cd13d911e7"
 CONTROLLED_ARM_IDS = {
     "lr_scale_only",
     "cosine_restart_only",
@@ -65,6 +77,105 @@ FROM_U0_ARM_IDS = {
     "from_u0_cosine_only",
     "from_u0_window_dose6_only",
 }
+
+
+def _fp64_state_adam(
+    torch: Any, param_groups: list[dict[str, Any]], *, gradient_scale: float = 1.0
+):
+    """Adam in an exact power-of-two gradient domain with FP64 state arithmetic."""
+    if gradient_scale <= 0.0 or not math.isfinite(gradient_scale):
+        raise ArtifactError("FP64 Adam gradient scale must be finite and positive")
+
+    class FP64StateAdam(torch.optim.Optimizer):
+        def __init__(self, groups):
+            super().__init__(groups, {
+                "lr": 1.0e-3, "betas": (0.9, 0.999), "eps": 1.0e-8,
+                "weight_decay": 0.0, "amsgrad": False,
+            })
+
+        def load_state_dict(self, state_dict):
+            source_groups = state_dict["param_groups"]
+            if len(source_groups) != len(self.param_groups):
+                raise ArtifactError("FP64 Adam checkpoint param-group count mismatch")
+            source_states_by_group = []
+            for source_group, target_group in zip(source_groups, self.param_groups):
+                source_ids = source_group["params"]
+                if len(source_ids) != len(target_group["params"]):
+                    raise ArtifactError("FP64 Adam checkpoint parameter count mismatch")
+                source_states_by_group.append(
+                    [state_dict["state"].get(source_id, {}) for source_id in source_ids]
+                )
+            result = super().load_state_dict(state_dict)
+            for group, source_states in zip(self.param_groups, source_states_by_group):
+                for parameter, source_state in zip(group["params"], source_states):
+                    if not source_state:
+                        continue
+                    state = self.state[parameter]
+                    source_scale = float(source_state.get("gradient_scale", 1.0))
+                    scale_ratio = gradient_scale / source_scale
+                    for name in ("exp_avg", "exp_avg_sq", "max_exp_avg_sq"):
+                        value = source_state.get(name)
+                        if value is not None:
+                            power = 1 if name == "exp_avg" else 2
+                            state[name] = value.detach().to(
+                                device=parameter.device, dtype=torch.float64
+                            ).mul_(scale_ratio ** power)
+                    state["gradient_scale"] = gradient_scale
+            return result
+
+        @torch.no_grad()
+        def step(self, closure=None):
+            loss = None if closure is None else closure()
+            for group in self.param_groups:
+                beta1, beta2 = group["betas"]
+                for parameter_index, parameter in enumerate(group["params"]):
+                    gradient = parameter.grad
+                    if gradient is None:
+                        continue
+                    if gradient.is_sparse:
+                        raise RuntimeError("FP64-state Adam does not support sparse gradients")
+                    if not bool(torch.isfinite(gradient).all().item()):
+                        raise ArtifactError(
+                            "nonfinite gradient before FP64 Adam update: "
+                            f"group={group.get('group_name', 'unnamed')} "
+                            f"parameter_index={parameter_index}"
+                        )
+                    state = self.state[parameter]
+                    if not state:
+                        state["step"] = torch.zeros((), dtype=torch.float64, device=parameter.device)
+                        state["exp_avg"] = torch.zeros_like(parameter, dtype=torch.float64)
+                        state["exp_avg_sq"] = torch.zeros_like(parameter, dtype=torch.float64)
+                        state["gradient_scale"] = gradient_scale
+                    state["step"].add_(1)
+                    gradient64 = gradient.detach().to(dtype=torch.float64)
+                    if group["weight_decay"]:
+                        gradient64.add_(
+                            parameter.detach().to(dtype=torch.float64),
+                            alpha=group["weight_decay"] * gradient_scale,
+                        )
+                    exp_avg = state["exp_avg"]
+                    exp_avg_sq = state["exp_avg_sq"]
+                    exp_avg.mul_(beta1).add_(gradient64, alpha=1.0 - beta1)
+                    exp_avg_sq.mul_(beta2).addcmul_(gradient64, gradient64, value=1.0 - beta2)
+                    if not bool(torch.isfinite(exp_avg).all().item()) or not bool(
+                        torch.isfinite(exp_avg_sq).all().item()
+                    ):
+                        raise ArtifactError(
+                            "nonfinite FP64 Adam state during mutation: "
+                            f"group={group.get('group_name', 'unnamed')} "
+                            f"parameter_index={parameter_index}"
+                        )
+                    step = float(state["step"].item())
+                    bias_correction1 = 1.0 - beta1 ** step
+                    bias_correction2 = 1.0 - beta2 ** step
+                    denominator = exp_avg_sq.sqrt().div_(math.sqrt(bias_correction2)).add_(
+                        group["eps"] * gradient_scale
+                    )
+                    delta64 = exp_avg.div(denominator).mul_(-group["lr"] / bias_correction1)
+                    parameter.add_(delta64.to(dtype=parameter.dtype))
+            return loss
+
+    return FP64StateAdam(param_groups)
 
 
 def _controlled_arm_origin(arm_id: str) -> int:
@@ -279,14 +390,22 @@ def _resolve_validation_corpus(
     return path, expected
 
 
-def _require_static_w28_teacher(teacher_root: Path) -> str:
+def _require_static_w28_teacher(
+    teacher_root: Path,
+    expected_sha256: str = STATIC_W28_TEACHER_SHA256,
+) -> str:
     """Bind the public static-W28 rail to its accepted teacher tensor bytes."""
     path = teacher_root / "t8192_win28.pt"
     observed = _sha256_file(path)
-    if observed != STATIC_W28_TEACHER_SHA256:
+    if (
+        len(expected_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in expected_sha256)
+    ):
+        raise ArtifactError("static W28 validation teacher SHA is malformed")
+    if observed != expected_sha256:
         raise ArtifactError(
             "static W28 validation teacher SHA mismatch: "
-            f"{observed} != {STATIC_W28_TEACHER_SHA256}"
+            f"expected={expected_sha256} observed={observed}"
         )
     return observed
 
@@ -324,6 +443,19 @@ def _resolve_trainer_source(config: Mapping[str, Any]) -> tuple[Path, str]:
     )
 
 
+def _uses_exact_sealed_reconstruction(config: Mapping[str, Any]) -> bool:
+    sealed_pre_binding = config.get("sealed_pre_source_binding")
+    return bool(
+        isinstance(sealed_pre_binding, Mapping)
+        and sealed_pre_binding.get("builder_sha256")
+        == "d66890669faa578339a8f3fa6a4c23617fbe925c0d0ac6e38fd9481ad0cd7026"
+        and sealed_pre_binding.get("planesource_sha256")
+        == "167603b5662437a2f9fc4b3ead1561d777a7a831a898133993b9e1c0c26c9f87"
+        and config.get("resident_validation_expert_implementation")
+        == "sealed_bf16_full_weight"
+    )
+
+
 def _resolve_runtime_provider_files(config: Mapping[str, Any]) -> dict[str, Any]:
     """Resolve the exact provider files that the trainer will import at runtime."""
     wrapper_value = config.get("fast_k2_wrapper_source")
@@ -339,10 +471,33 @@ def _resolve_runtime_provider_files(config: Mapping[str, Any]) -> dict[str, Any]
         # that produced the accepted PRE W28 value.  The mutable training assets
         # later acquired candidate-arithmetic experiments; rebinding validation
         # to those files made byte-identical model states score differently.
-        wrapper = assets / "static_w28_fast_k2_grouped.py"
-        expert = assets / "static_w28_fast_v7_expert_base.py"
-        wrapper_sha = STATIC_W28_GROUPED_WRAPPER_SHA256
-        expert_sha = STATIC_W28_GROUPED_EXPERT_SHA256
+        exact_sealed_reconstruction = _uses_exact_sealed_reconstruction(config)
+        # The accepted static wrapper does not implement the sealed builder's
+        # dense-BF16 expert reconstruction; setting the mode flag while loading
+        # it left the ordinary grouped CUDA path active.  Keep the same resident
+        # packed payload and expert forward, but select the existing canonical
+        # provider whose hash-bound branch reconstructs each active full weight,
+        # rounds it to BF16, and issues the builder-equivalent BF16 GEMM.
+        wrapper = assets / (
+            "fast_k2_grouped.py"
+            if exact_sealed_reconstruction
+            else "static_w28_fast_k2_grouped.py"
+        )
+        expert = assets / (
+            "fast_v7_expert_base.py"
+            if exact_sealed_reconstruction
+            else "static_w28_fast_v7_expert_base.py"
+        )
+        wrapper_sha = (
+            SEALED_GROUPED_WRAPPER_SHA256
+            if exact_sealed_reconstruction
+            else STATIC_W28_GROUPED_WRAPPER_SHA256
+        )
+        expert_sha = (
+            SEALED_GROUPED_EXPERT_SHA256
+            if exact_sealed_reconstruction
+            else STATIC_W28_GROUPED_EXPERT_SHA256
+        )
     else:
         wrapper = Path(str(wrapper_value)).expanduser().resolve()
         expert = Path(str(expert_value)).expanduser().resolve()
@@ -356,13 +511,370 @@ def _resolve_runtime_provider_files(config: Mapping[str, Any]) -> dict[str, Any]
     }
 
 
-def _install_runtime_modules(config: Mapping[str, Any]) -> None:
+def _configure_resident_tensor_parallel(
+    config: Mapping[str, Any], experts: Mapping[Any, Any], *, rank: int
+) -> str:
+    """Apply TP only when the selected resident provider implements TP arithmetic."""
+    exact_duplicated_all43 = (
+        bool(config.get("expert_parallel_all_layers", False))
+        and _uses_static_w28_provider(config)
+        and STATIC_W28_GROUPED_EXPERT_SHA256
+        == "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
+    )
+    if exact_duplicated_all43:
+        return "exact-942c-duplicated-all43-no-tp"
+    for expert in experts.values():
+        expert.configure_tensor_parallel(rank, 2, None)
+    return "tensor-parallel-configured"
+
+
+def _sealed_builder_accumulate_routes(
+    hidden_states: Any,
+    routed_output: Any,
+    top_k_index: Any,
+    top_k_weights: Any,
+    *,
+    route_observer: Any = None,
+) -> Any:
+    """Match the sealed builder's ascending-expert BF16 index-add boundary."""
+    import torch
+
+    token_index = (
+        torch.arange(hidden_states.shape[0], device=hidden_states.device)
+        .unsqueeze(1)
+        .expand_as(top_k_index)
+        .reshape(-1)
+    )
+    expert_index = top_k_index.reshape(-1).to(torch.int64)
+    route_weights = top_k_weights.reshape(-1, 1).float()
+    weighted = (routed_output * route_weights).to(hidden_states.dtype)
+    final = torch.zeros_like(hidden_states)
+    for expert in torch.unique(expert_index, sorted=True):
+        mask = expert_index == expert
+        final.index_add_(0, token_index[mask], weighted[mask])
+    if route_observer is not None:
+        routed = weighted.reshape(
+            top_k_index.shape[0], top_k_index.shape[1], weighted.shape[-1]
+        )
+        expert_order = torch.argsort(top_k_index, dim=1, stable=True)
+        ordered_weighted = torch.gather(
+            routed, 1, expert_order.unsqueeze(-1).expand_as(routed)
+        )
+        route_observer.capture_route(
+            routed_output, expert_index, route_weights, weighted, ordered_weighted
+        )
+    return final
+
+
+SEALED_ROUTED_RETURN_ACCUMULATION = (
+    "active_row_ascending_expert_cuda_bf16_index_add_v1"
+)
+SEALED_GATE_UP_PROJECTION = "combined_4096_bf16_f_linear_v1"
+SEALED_GATE_UP_RUNTIME_MARKER = "sealed_combined_gate_up_projection_v1"
+ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256 = (
+    "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
+)
+
+
+def _sealed_builder_combined_gate_up_projection(
+    x: Any,
+    assignments: Any,
+    packed_w1: Any,
+    packed_w3: Any,
+    lut_master: Any,
+    su_w1: Any,
+    sv_w1: Any,
+    su_w3: Any,
+    sv_w3: Any,
+    *,
+    full_weight_builder: Any,
+) -> tuple[Any, Any]:
+    """Execute the builder's expert-local contiguous 4096-wide BF16 F.linear."""
+    import torch
+
+    gate_up_width = int(sv_w1.shape[1]) * 2
+    gate_up = torch.empty(
+        (x.shape[0], gate_up_width), device=x.device, dtype=torch.bfloat16
+    )
+    for expert_index in torch.unique(assignments, sorted=True).tolist():
+        mask = assignments == expert_index
+        expert_x = x[mask].to(torch.bfloat16).contiguous()
+        gate_weight = full_weight_builder(
+            packed_w1[expert_index], lut_master, su_w1[expert_index], sv_w1[expert_index]
+        ).transpose(0, 1).contiguous()
+        up_weight = full_weight_builder(
+            packed_w3[expert_index], lut_master, su_w3[expert_index], sv_w3[expert_index]
+        ).transpose(0, 1).contiguous()
+        gate_up[mask] = torch.nn.functional.linear(
+            expert_x, torch.cat((gate_weight, up_weight), dim=0)
+        )
+    gate, up = gate_up.chunk(2, dim=-1)
+    return gate, up
+
+
+def _sealed_builder_native_down_projection(
+    x: Any,
+    assignments: Any,
+    packed_w2: Any,
+    lut_master: Any,
+    su_w2: Any,
+    sv_w2: Any,
+    *,
+    full_weight_builder: Any,
+) -> Any:
+    """Execute the builder's expert-local native-BF16 W2 F.linear."""
+    import torch
+
+    down = torch.empty(
+        (x.shape[0], int(sv_w2.shape[1])), device=x.device, dtype=torch.bfloat16
+    )
+    for expert_index in torch.unique(assignments, sorted=True).tolist():
+        mask = assignments == expert_index
+        expert_x = x[mask].to(torch.bfloat16).contiguous()
+        down_weight = full_weight_builder(
+            packed_w2[expert_index], lut_master, su_w2[expert_index], sv_w2[expert_index]
+        ).transpose(0, 1).contiguous()
+        down[mask] = torch.nn.functional.linear(expert_x, down_weight)
+    return down
+
+
+def _bind_sealed_gate_up_projection(
+    provider_class: Any,
+    config: Mapping[str, Any],
+    *,
+    combined_projection: Any,
+    native_down_projection: Any = None,
+) -> Any:
+    """Replace only 942c's separate gate/up GEMMs with the sealed combined GEMM."""
+    explicitly_bound = (
+        config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
+        and config.get("resident_gate_up_provider_sha256")
+        == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+    )
+    if not explicitly_bound:
+        return provider_class
+    if not callable(combined_projection):
+        raise ArtifactError("sealed combined gate/up projection helper is unavailable")
+    capture_witness = config.get("resident_gate_up_capture_witness") is True
+    active_row_expert = config.get("resident_gate_up_active_row_expert")
+    if active_row_expert is not None and (
+        isinstance(active_row_expert, bool) or not isinstance(active_row_expert, int)
+        or active_row_expert < 0 or not capture_witness
+    ):
+        raise ArtifactError("aligned active-row capture configuration is invalid")
+
+    class SealedCombinedGateUpProjectionExpert(provider_class):
+        _sealed_gate_up_runtime_marker = SEALED_GATE_UP_RUNTIME_MARKER
+
+        @staticmethod
+        def _sealed_tensor_witness(value: Any) -> dict[str, Any]:
+            import torch
+
+            detached = value.detach().contiguous()
+            raw = detached.view(torch.uint8).cpu().numpy().tobytes()
+            return {
+                "dtype": str(detached.dtype),
+                "shape": [int(size) for size in detached.shape],
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+
+        def sealed_gate_up_runtime_witness(
+            self, *, require_activation: bool = False
+        ) -> dict[str, Any]:
+            activation_count = int(
+                getattr(self, "_sealed_gate_up_activation_count", 0)
+            )
+            witness = getattr(self, "_sealed_gate_up_last_witness", None)
+            if require_activation and (activation_count < 1 or not isinstance(witness, Mapping)):
+                raise RuntimeError("SEALED_GATE_UP_RUNTIME_ACTIVATION_MISSING")
+            return {
+                "activation_count": activation_count,
+                **(dict(witness) if isinstance(witness, Mapping) else {}),
+            }
+
+        def forward(
+            self, hidden_states: Any, top_k_index: Any, top_k_weights: Any
+        ) -> Any:
+            self._sealed_combined_up = None
+            self._sealed_aligned_positions = None
+            if active_row_expert is not None:
+                import torch
+
+                flat_experts = top_k_index.reshape(-1).to(torch.int64)
+                positions = torch.nonzero(
+                    flat_experts == active_row_expert, as_tuple=False
+                ).reshape(-1)
+                if positions.numel() == 0:
+                    raise RuntimeError(
+                        f"SEALED_ALIGNED_ACTIVE_EXPERT_{active_row_expert}_INACTIVE"
+                    )
+                route_count = int(top_k_index.shape[1])
+                token_count = int(top_k_index.shape[0])
+                tokens = torch.div(positions, route_count, rounding_mode="floor")
+                slots = positions.remainder(route_count)
+                order = torch.argsort(slots * token_count + tokens, stable=True)
+                positions = positions[order]
+                self._sealed_aligned_positions = positions
+                self._sealed_aligned_route_key = torch.stack(
+                    (slots[order], tokens[order]), dim=1
+                )
+            try:
+                return super().forward(hidden_states, top_k_index, top_k_weights)
+            finally:
+                self._sealed_combined_up = None
+                self._sealed_aligned_positions = None
+
+        def _project(self, *args: Any, **kwargs: Any) -> Any:
+            projection = args[0] if args else kwargs.get("projection")
+            if projection == "w1":
+                if len(args) < 5:
+                    raise RuntimeError("SEALED_COMBINED_GATE_UP_CALL_GEOMETRY_DRIFT")
+                gate, up = combined_projection(
+                    args[1],
+                    args[2],
+                    self.packed_w1,
+                    self.packed_w3,
+                    args[4],
+                    self.su_w1,
+                    self.sv_w1,
+                    self.su_w3,
+                    self.sv_w3,
+                )
+                self._sealed_combined_up = up
+                self._sealed_gate_up_activation_count = int(
+                    getattr(self, "_sealed_gate_up_activation_count", 0)
+                ) + 1
+                if capture_witness:
+                    self._sealed_gate_up_last_witness = {
+                        "gate": self._sealed_tensor_witness(gate),
+                        "up": self._sealed_tensor_witness(up),
+                    }
+                    positions = self._sealed_aligned_positions
+                    if positions is not None:
+                        self._sealed_gate_up_last_witness["aligned_active_rows"] = {
+                            "expert": int(active_row_expert),
+                            "route_key": self._sealed_tensor_witness(
+                                self._sealed_aligned_route_key
+                            ),
+                            "gate": self._sealed_tensor_witness(gate[positions]),
+                            "up": self._sealed_tensor_witness(up[positions]),
+                        }
+                return gate
+            if projection == "w3":
+                up = self._sealed_combined_up
+                if up is None:
+                    raise RuntimeError("SEALED_COMBINED_GATE_UP_CACHE_MISSING")
+                self._sealed_combined_up = None
+                return up
+            if projection == "w2":
+                if len(args) < 7:
+                    raise RuntimeError("SEALED_W2_HANDOFF_CALL_GEOMETRY_DRIFT")
+                if not callable(native_down_projection):
+                    raise RuntimeError("SEALED_NATIVE_BF16_W2_HELPER_MISSING")
+                # Attempt106bq: import/call the accepted builder's native BF16
+                # expert-local F.linear instead of grouped FP32 projection + cast.
+                value = native_down_projection(
+                    args[1], args[2], self.packed_w2, args[4], self.su_w2, self.sv_w2
+                )
+            else:
+                value = super()._project(*args, **kwargs)
+            if projection == "w2" and self._sealed_aligned_positions is not None:
+                witness = getattr(self, "_sealed_gate_up_last_witness", None)
+                aligned = witness.get("aligned_active_rows") if isinstance(witness, dict) else None
+                if not isinstance(aligned, dict) or len(args) < 2:
+                    raise RuntimeError("SEALED_ALIGNED_ACTIVE_ROW_CAPTURE_MISSING")
+                positions = self._sealed_aligned_positions
+                aligned["activated"] = self._sealed_tensor_witness(args[1][positions])
+                aligned["w2_down"] = self._sealed_tensor_witness(value[positions])
+            return value
+
+    SealedCombinedGateUpProjectionExpert.__name__ = provider_class.__name__
+    SealedCombinedGateUpProjectionExpert.__qualname__ = provider_class.__qualname__
+    SealedCombinedGateUpProjectionExpert.__module__ = provider_class.__module__
+    return SealedCombinedGateUpProjectionExpert
+
+
+def _bind_installed_projection_runtime(
+    trainer_module: Any,
+    installed_expert_class: Any,
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Bind the config-selected wrapper to the trainer's static class global."""
+    explicitly_bound = (
+        config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
+        and config.get("resident_gate_up_provider_sha256")
+        == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+    )
+    if not explicitly_bound:
+        return {"status": "NOT_REQUESTED"}
+    if installed_expert_class is None:
+        raise ArtifactError("installed runtime expert is missing for combined gate/up binding")
+    marker = getattr(installed_expert_class, "_sealed_gate_up_runtime_marker", None)
+    if marker != SEALED_GATE_UP_RUNTIME_MARKER:
+        raise ArtifactError("installed runtime expert marker mismatch")
+    if not hasattr(trainer_module, "FullyResidentGroupedV7Experts"):
+        raise ArtifactError("trainer is missing static FullyResidentGroupedV7Experts global")
+    trainer_module.FullyResidentGroupedV7Experts = installed_expert_class
+    return {
+        "status": "BOUND_TO_ORDINARY_TRAINER_GLOBAL",
+        "implementation": SEALED_GATE_UP_PROJECTION,
+        "provider_expert_sha256": ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256,
+        "runtime_class_marker": SEALED_GATE_UP_RUNTIME_MARKER,
+    }
+
+
+def _bind_sealed_routed_return_accumulation(
+    provider_class: Any, config: Mapping[str, Any]
+) -> Any:
+    """Wrap immutable provider construction at its routed-return seam only."""
+    explicitly_bound = (
+        config.get("resident_routed_return_accumulation")
+        == SEALED_ROUTED_RETURN_ACCUMULATION
+        and config.get("resident_routed_return_provider_sha256")
+        == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+    )
+    if not explicitly_bound and not _uses_exact_sealed_reconstruction(config):
+        return provider_class
+
+    class SealedRoutedReturnAccumulationExpert(provider_class):
+        def forward(
+            self, hidden_states: Any, top_k_index: Any, top_k_weights: Any
+        ) -> Any:
+            self._sealed_capture_w2 = True
+            self._sealed_routed_output = None
+            try:
+                super().forward(hidden_states, top_k_index, top_k_weights)
+                routed_output = self._sealed_routed_output
+                if routed_output is None:
+                    raise RuntimeError("SEALED_BUILDER_W2_CAPTURE_MISSING")
+                return _sealed_builder_accumulate_routes(
+                    hidden_states, routed_output, top_k_index, top_k_weights,
+                    route_observer=getattr(self, "_a30_route_capture", None),
+                )
+            finally:
+                self._sealed_capture_w2 = False
+                self._sealed_routed_output = None
+
+        def _project(self, *args: Any, **kwargs: Any) -> Any:
+            value = super()._project(*args, **kwargs)
+            projection = args[0] if args else kwargs.get("projection")
+            if self._sealed_capture_w2 and projection == "w2":
+                self._sealed_routed_output = value
+            return value
+
+    SealedRoutedReturnAccumulationExpert.__name__ = provider_class.__name__
+    SealedRoutedReturnAccumulationExpert.__qualname__ = provider_class.__qualname__
+    SealedRoutedReturnAccumulationExpert.__module__ = provider_class.__module__
+    return SealedRoutedReturnAccumulationExpert
+
+
+def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
     """Install explicitly hashed wrapper/expert modules under trainer names."""
     extension_value = config.get("fast_k2_extension")
     wrapper_value = config.get("fast_k2_wrapper_source")
     expert_value = config.get("fast_v7_expert_source")
     if extension_value is None and wrapper_value is None and expert_value is None:
-        return
+        return None
     if not all(isinstance(value, str) for value in (extension_value, wrapper_value, expert_value)):
         raise ArtifactError("resident runtime module paths must be supplied together")
     extension = Path(str(extension_value)).expanduser().resolve()
@@ -390,11 +902,72 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> None:
     os.environ["FAST_K2_EXTENSION"] = str(extension)
     os.environ["FAST_K2_EXTENSION_SHA256"] = extension_sha
     os.environ["FAST_K2_MODULE_NAME"] = str(config.get("fast_k2_module_name", extension.stem))
-    _load_source_module("fast_k2_grouped", wrapper)
+    wrapper_module = _load_source_module("fast_k2_grouped", wrapper)
+    stream_sync = getattr(wrapper_module, "bind_backward_stream_sync", None)
+    if callable(stream_sync):
+        stream_sync(_cuda_default_stream_wait_for_current)
     expert_module = _load_source_module("fast_v7_expert_base", expert)
     expert_class = getattr(expert_module, "FullyResidentGroupedV7Experts", None)
     if expert_class is None:
-        return
+        return None
+
+    combined_projection = None
+    native_down_projection = None
+    if (
+        config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
+        and config.get("resident_gate_up_provider_sha256")
+        == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+    ):
+        sealed_wrapper = Path(__file__).resolve().parent / "assets" / "fast_k2_grouped.py"
+        _require_file(
+            sealed_wrapper,
+            SEALED_GROUPED_WRAPPER_SHA256,
+            "sealed combined gate/up projection wrapper",
+        )
+        sealed_module = _load_source_module(
+            "banana_smasher_sealed_gate_up_projection", sealed_wrapper
+        )
+        full_weight_builder = getattr(sealed_module, "sealed_bf16_full_weight", None)
+        if callable(full_weight_builder):
+            def bound_combined_projection(*args: Any) -> tuple[Any, Any]:
+                return _sealed_builder_combined_gate_up_projection(
+                    *args, full_weight_builder=full_weight_builder
+                )
+
+            combined_projection = bound_combined_projection
+
+            def bound_native_down_projection(*args: Any) -> Any:
+                return _sealed_builder_native_down_projection(
+                    *args, full_weight_builder=full_weight_builder
+                )
+
+            native_down_projection = bound_native_down_projection
+
+    def bind_projection_boundary(current_class: Any) -> Any:
+        projection_class = current_class
+        if _uses_exact_sealed_reconstruction(config):
+            class SealedBuilderProjectionBoundaryExpert(current_class):
+                def _project(self, *args: Any, **kwargs: Any) -> Any:
+                    import torch
+
+                    value = super()._project(*args, **kwargs)
+                    # The sealed builder executes dense BF16 F.linear before the
+                    # clamp/SwiGLU seam. Consume that exact tensor dtype here rather
+                    # than exposing a numerically rounded value as FP32.
+                    return value.to(dtype=torch.bfloat16)
+
+            SealedBuilderProjectionBoundaryExpert.__name__ = current_class.__name__
+            SealedBuilderProjectionBoundaryExpert.__qualname__ = current_class.__qualname__
+            SealedBuilderProjectionBoundaryExpert.__module__ = current_class.__module__
+            projection_class = SealedBuilderProjectionBoundaryExpert
+        projection_class = _bind_sealed_gate_up_projection(
+            projection_class,
+            config,
+            combined_projection=combined_projection,
+            native_down_projection=native_down_projection,
+        )
+        return _bind_sealed_routed_return_accumulation(projection_class, config)
+
     swiglu_parameter = inspect.signature(expert_class).parameters.get("swiglu_limit")
     if swiglu_parameter is None:
         # The accepted PRE provider predates the trainer's constructor-only
@@ -410,10 +983,13 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> None:
         HistoricalNoLimitCompatibleExpert.__name__ = expert_class.__name__
         HistoricalNoLimitCompatibleExpert.__qualname__ = expert_class.__qualname__
         HistoricalNoLimitCompatibleExpert.__module__ = expert_class.__module__
-        expert_module.FullyResidentGroupedV7Experts = HistoricalNoLimitCompatibleExpert
-        return
+        expert_module.FullyResidentGroupedV7Experts = bind_projection_boundary(
+            HistoricalNoLimitCompatibleExpert
+        )
+        return expert_module.FullyResidentGroupedV7Experts
     if swiglu_parameter.default is not inspect.Parameter.empty:
-        return
+        expert_module.FullyResidentGroupedV7Experts = bind_projection_boundary(expert_class)
+        return expert_module.FullyResidentGroupedV7Experts
     model_config_path = Path(str(config["model_root"])).expanduser().resolve() / "config.json"
     _require_file(model_config_path, None, "model config")
     model_config = json.loads(model_config_path.read_text())
@@ -428,11 +1004,187 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> None:
     HistoricalConstructorCompatibleExpert.__name__ = expert_class.__name__
     HistoricalConstructorCompatibleExpert.__qualname__ = expert_class.__qualname__
     HistoricalConstructorCompatibleExpert.__module__ = expert_class.__module__
-    expert_module.FullyResidentGroupedV7Experts = HistoricalConstructorCompatibleExpert
+    expert_module.FullyResidentGroupedV7Experts = bind_projection_boundary(
+        HistoricalConstructorCompatibleExpert
+    )
+    return expert_module.FullyResidentGroupedV7Experts
 
 
 def _cuda_sync(torch: Any) -> None:
     torch.cuda.synchronize()
+
+
+def _cuda_current_stream_sync(torch: Any) -> None:
+    """Wait only for the stream used by the grouped CUDA extension."""
+    torch.cuda.current_stream().synchronize()
+
+
+def _cuda_default_stream_wait_for_current(torch: Any) -> None:
+    """Order default-stream gradient consumption without blocking the host."""
+    producer = torch.cuda.current_stream()
+    completed = producer.record_event()
+    torch.cuda.default_stream().wait_event(completed)
+
+
+def _json_finite_tree(value: Any) -> Any:
+    """Make diagnostic-only nonfinite scalars explicit and JSON compliant."""
+    if isinstance(value, float) and not math.isfinite(value):
+        if math.isnan(value):
+            return "nan"
+        return "inf" if value > 0 else "-inf"
+    if isinstance(value, Mapping):
+        return {key: _json_finite_tree(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_finite_tree(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_finite_tree(item) for item in value]
+    return value
+
+
+class _AdamForeachDiagnosticTap:
+    """Observe the installed foreach Adam stages without replacing its arithmetic."""
+
+    def __init__(self, torch: Any, optimizer: Any, luts: list[tuple[str, Any]]) -> None:
+        self.torch = torch
+        self.optimizer = optimizer
+        self.luts = list(luts)
+        self._names = {id(parameter): name for name, parameter in self.luts}
+        self._boundaries: dict[str, Any] = {}
+        self._original_addcmul: Any = None
+        self._original_addcdiv: Any = None
+        self._installed_source = self._inspect_installed_adam()
+
+    def _inspect_installed_adam(self) -> dict[str, Any]:
+        module = importlib.import_module("torch.optim.adam")
+        implementation = getattr(module, "_multi_tensor_adam", None)
+        path_text = inspect.getsourcefile(implementation) if implementation is not None else None
+        if implementation is None or not path_text:
+            raise ArtifactError("foreach Adam diagnostic requires installed torch.optim.adam._multi_tensor_adam")
+        path = Path(path_text).resolve()
+        source_lines, first_line = inspect.getsourcelines(implementation)
+        source = "".join(source_lines)
+        required = (
+            "torch._foreach_lerp_",
+            "torch._foreach_addcmul_",
+            "torch._foreach_sqrt",
+            "torch._foreach_addcdiv_",
+        )
+        missing = [marker for marker in required if marker not in source]
+        if missing:
+            raise ArtifactError(f"installed foreach Adam diagnostic markers missing: {missing}")
+        return {
+            "path": str(path),
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "multi_tensor_adam_lines": [first_line, first_line + len(source_lines) - 1],
+            "torch_version": str(self.torch.__version__),
+            "required_markers": list(required),
+        }
+
+    def _tensor_row(self, value: Any) -> dict[str, Any] | None:
+        if value is None or not self.torch.is_tensor(value):
+            return None
+        detached = value.detach()
+        finite = self.torch.isfinite(detached)
+        finite_count = int(finite.sum().item())
+        element_count = int(detached.numel())
+        finite_values = detached[finite]
+        maximum = float(finite_values.abs().max().cpu()) if finite_values.numel() else None
+        first_bad = None
+        if finite_count != element_count:
+            flat = detached.reshape(-1)
+            index = int(self.torch.nonzero(~finite.reshape(-1), as_tuple=False)[0].item())
+            raw = flat[index].item()
+            if isinstance(raw, complex):
+                rendered = str(raw)
+            elif math.isnan(float(raw)):
+                rendered = "nan"
+            elif math.isinf(float(raw)):
+                rendered = "inf" if float(raw) > 0 else "-inf"
+            else:
+                rendered = str(raw)
+            first_bad = {"flat_index": index, "value": rendered}
+        return {
+            "dtype": str(detached.dtype),
+            "shape": list(detached.shape),
+            "finite_count": finite_count,
+            "element_count": element_count,
+            "max_abs": maximum,
+            "first_bad": first_bad,
+        }
+
+    def record_boundary(self, name: str, denominators: Mapping[int, Any] | None = None) -> None:
+        if name in self._boundaries:
+            raise ArtifactError(f"duplicate foreach Adam diagnostic boundary: {name}")
+        rows: dict[str, Any] = {}
+        for tensor_name, parameter in self.luts:
+            state = self.optimizer.state.get(parameter, {})
+            row = {
+                "parameter": self._tensor_row(parameter),
+                "gradient": self._tensor_row(parameter.grad),
+                "exp_avg": self._tensor_row(state.get("exp_avg")),
+                "exp_avg_sq": self._tensor_row(state.get("exp_avg_sq")),
+            }
+            if denominators is not None:
+                row["denominator"] = self._tensor_row(denominators.get(id(parameter)))
+            rows[tensor_name] = row
+        self._boundaries[name] = rows
+
+    def __enter__(self) -> "_AdamForeachDiagnosticTap":
+        if self.optimizer.defaults.get("foreach") is not True:
+            raise ArtifactError("internal Adam diagnostic requires the admitted foreach=True optimizer")
+        self._original_addcmul = self.torch._foreach_addcmul_
+        self._original_addcdiv = self.torch._foreach_addcdiv_
+
+        def addcmul(values: Any, left: Any, right: Any, scalar: Any) -> Any:
+            result = self._original_addcmul(values, left, right, scalar)
+            tracked_states = {
+                id(self.optimizer.state.get(parameter, {}).get("exp_avg_sq"))
+                for _name, parameter in self.luts
+            }
+            if any(id(value) in tracked_states for value in values):
+                self.record_boundary("after_adam_moment_update")
+            return result
+
+        def addcdiv(params: Any, exp_avgs: Any, denominators: Any, step_size: Any = None) -> Any:
+            tracked = any(id(parameter) in self._names for parameter in params)
+            if tracked:
+                denominator_by_parameter = {
+                    id(parameter): denominator
+                    for parameter, denominator in zip(params, denominators)
+                    if id(parameter) in self._names
+                }
+                self.record_boundary(
+                    "after_denominator_step_size_formation", denominator_by_parameter
+                )
+            if step_size is None:
+                result = self._original_addcdiv(params, exp_avgs, denominators)
+            else:
+                result = self._original_addcdiv(params, exp_avgs, denominators, step_size)
+            if tracked:
+                self.record_boundary("post_parameter_copy")
+            return result
+
+        self.torch._foreach_addcmul_ = addcmul
+        self.torch._foreach_addcdiv_ = addcdiv
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        self.torch._foreach_addcmul_ = self._original_addcmul
+        self.torch._foreach_addcdiv_ = self._original_addcdiv
+
+    def report(self) -> dict[str, Any]:
+        required = (
+            "after_adam_moment_update",
+            "after_denominator_step_size_formation",
+            "post_parameter_copy",
+        )
+        missing = [name for name in required if name not in self._boundaries]
+        if missing:
+            raise ArtifactError(f"foreach Adam diagnostic boundaries missing: {missing}")
+        return {
+            "installed_torch_adam": self._installed_source,
+            "boundaries": self._boundaries,
+        }
 
 
 def _checkpoint_route_replay_supported(gate: Any) -> bool:
@@ -479,6 +1231,26 @@ def _checkpoint_topk_route(
     weights = scores.gather(1, indices)
     weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-20)
     return logits, weights * gate.routed_scaling_factor, indices
+
+
+def _builder_frame_readout_logits(
+    model: Any,
+    final: Any,
+    *,
+    batch_index: int,
+    real_length: int,
+    score_positions: int,
+) -> Any:
+    """Match the sealed builder's full-row LM-head launch before scoring."""
+    if real_length < score_positions or real_length > int(final.shape[1]):
+        raise ArtifactError(
+            f"sealed readout length drift: real={real_length} score={score_positions} "
+            f"context={int(final.shape[1])}"
+        )
+    logits = model.lm_head(
+        final[batch_index, :real_length].to(final.dtype)
+    ).float()
+    return logits[:score_positions]
 
 
 class ModernGreenResidentEngine:
@@ -586,9 +1358,12 @@ class ModernGreenResidentEngine:
         self.vq3b_dir = Path(str(config["vq3b_dir"])).expanduser().resolve()
         self._configure_import_environment()
         self._prepare_import_paths()
-        _install_runtime_modules(config)
+        installed_runtime_expert = _install_runtime_modules(config)
         self.trainer = _load_source_module(
             f"banana_smasher_modern_green_api_{os.getpid()}_{rank}", self.trainer_path
+        )
+        self.projection_runtime_binding = _bind_installed_projection_runtime(
+            self.trainer, installed_runtime_expert, config
         )
         if getattr(self.trainer, "MODEL_INDEX_SHA256", None) != MODEL_INDEX_SHA256:
             raise ArtifactError("official trainer model-index identity drift")
@@ -635,8 +1410,9 @@ class ModernGreenResidentEngine:
             defer_dense_l034=False,
         )
         if self.expert_parallel_all_layers:
-            for expert in self.student.experts.values():
-                expert.configure_tensor_parallel(self.rank, 2, None)
+            self.expert_parallel_configuration = _configure_resident_tensor_parallel(
+                self.config, self.student.experts, rank=self.rank
+            )
             if self.rank == 1:
                 from torch import nn
                 self.student.model.model.embed_tokens.weight = nn.Parameter(
@@ -646,6 +1422,8 @@ class ModernGreenResidentEngine:
                 )
         self.luts, self.norms, self.outputs = self.trainer.expose_local_dense(torch, self.student, admission)
         self._load_local_trainable_state()
+        self._install_lut_accumulation_diagnostic()
+        self.equivalent_gradient_scale = 1.0
         if self.tailfix_wholesale:
             from .tailfix_wholesale import build_fresh_adam_cosine
 
@@ -661,13 +1439,14 @@ class ModernGreenResidentEngine:
                 PUBLISHED_PRE_BASE_LRS if self.published_pre_recipe
                 else HISTORICAL_BASE_LRS if self.controlled_arm else BASE_LRS
             )
-            self.optimizer = torch.optim.Adam(
+            self.optimizer = _fp64_state_adam(
+                torch,
                 [
                     {"params": [p for _name, p in self.luts], "lr": optimizer_lrs["luts"], "group_name": "luts"},
                     {"params": [p for _name, p in self.norms], "lr": optimizer_lrs["norms"], "group_name": "norms"},
                     {"params": [p for _name, p in self.outputs], "lr": optimizer_lrs["outputs"], "group_name": "outputs"},
                 ],
-                foreach=True,
+                gradient_scale=self.equivalent_gradient_scale,
             )
             if self.published_pre_recipe:
                 lr_lambda = lambda local_step: _published_pre_recipe_policy(
@@ -686,6 +1465,32 @@ class ModernGreenResidentEngine:
         self._load_training_data()
         self._load_controlled_window_schedule()
         self._init_distributed()
+
+    def sealed_gate_up_runtime_witness(
+        self, *, require_activation: bool = False
+    ) -> dict[str, Any]:
+        """Return the ordinary resident instances' exact projection witnesses."""
+        binding = dict(getattr(self, "projection_runtime_binding", {}))
+        requested = binding.get("status") == "BOUND_TO_ORDINARY_TRAINER_GLOBAL"
+        rows: dict[str, Any] = {}
+        for layer, expert in sorted(self.student.experts.items()):
+            witness_fn = getattr(expert, "sealed_gate_up_runtime_witness", None)
+            if callable(witness_fn):
+                rows[str(int(layer))] = witness_fn(require_activation=False)
+            elif requested:
+                raise RuntimeError(
+                    f"SEALED_GATE_UP_RUNTIME_INSTANCE_UNBOUND:{int(layer)}"
+                )
+        activation_count = sum(
+            int(row.get("activation_count", 0)) for row in rows.values()
+        )
+        if require_activation and (not requested or activation_count < 1):
+            raise RuntimeError("SEALED_GATE_UP_RUNTIME_ACTIVATION_MISSING")
+        return {
+            **binding,
+            "activation_count": activation_count,
+            "layers": rows,
+        }
 
     def _prepare_import_paths(self) -> None:
         for path in (
@@ -1053,18 +1858,48 @@ class ModernGreenResidentEngine:
         pos = self.torch.arange(ids.shape[1], device=self.student.device).unsqueeze(0)
         from transformers.masking_utils import create_sliding_window_causal_mask
         embeddings = self.student.model.model.rotary_emb
+        mask_config = self.student.model.config
+        mask_implementation = str(mask_config._attn_implementation)
+        sink_corrected_sdpa = mask_implementation == "official_k2_sink_corrected_sdpa"
         pe = {
             "main": embeddings(template, position_ids=pos, layer_type="main"),
             "compress": embeddings(template, position_ids=pos, layer_type="compress"),
         }
-        mask = create_sliding_window_causal_mask(
-            config=self.student.config,
-            inputs_embeds=template,
-            attention_mask=None,
-            past_key_values=cache,
-            position_ids=pos,
-        )
+
+        def build_mask(implementation: str) -> Any:
+            mask_config._attn_implementation = implementation
+            mask_config._attn_implementation_internal = implementation
+            try:
+                return create_sliding_window_causal_mask(
+                    config=mask_config,
+                    inputs_embeds=template,
+                    attention_mask=None,
+                    past_key_values=cache,
+                    position_ids=pos,
+                )
+            finally:
+                mask_config._attn_implementation = mask_implementation
+                mask_config._attn_implementation_internal = mask_implementation
+
+        if sink_corrected_sdpa:
+            # Plain decoder layers retain SDPA's boolean/is_causal fast path.
+            # Compressor layers concatenate numeric block_bias inside
+            # DeepseekV4Attention, so they must receive the additive eager mask;
+            # bool-casting block_bias destroys its finite values at L002+.
+            mask = {
+                "plain": build_mask("sdpa"),
+                "compressor": build_mask("eager"),
+            }
+        else:
+            mask = build_mask(mask_implementation)
         return pos, pe, mask
+
+    @staticmethod
+    def _attention_mask_for_layer(layer: Any, mask: Any) -> Any:
+        if not isinstance(mask, dict):
+            return mask
+        compressor = getattr(getattr(layer, "self_attn", None), "compressor", None)
+        return mask["compressor" if compressor is not None else "plain"]
 
     @staticmethod
     def _attention_workspace_key(
@@ -1106,6 +1941,66 @@ class ModernGreenResidentEngine:
         return current[1], current[2], current[3]
 
     @staticmethod
+    def _chunked_indexer_scorer_forward(
+        module: Any,
+        q: Any,
+        compressed_kv: Any,
+        hidden_states: Any,
+        *,
+        query_chunk_size: int,
+        _chunk_observer: Any = None,
+    ) -> Any:
+        """Run the installed DeepseekV4 index scorer over bounded query rows."""
+        torch = __import__("torch")
+        if query_chunk_size <= 0:
+            raise ArtifactError("resident indexer scorer query chunk must be positive")
+        query_rows = int(q.shape[1])
+        q_float = q.float()
+        compressed_float = compressed_kv.transpose(-1, -2).float().unsqueeze(1)
+        weights = module.weights_proj(hidden_states).float() * module.weights_scaling
+        outputs = []
+        for start in range(0, query_rows, query_chunk_size):
+            end = min(start + query_chunk_size, query_rows)
+            if _chunk_observer is not None:
+                _chunk_observer(end - start)
+            scores = torch.matmul(q_float[:, start:end], compressed_float)
+            scores = torch.nn.functional.relu(scores) * module.softmax_scale
+            outputs.append((scores * weights[:, start:end].unsqueeze(-1)).sum(dim=2))
+        return torch.cat(outputs, dim=1)
+
+    def _install_chunked_indexer_scorer(self) -> None:
+        if getattr(self, "_chunked_indexer_scorer_installed", False):
+            return
+        from types import MethodType
+
+        installed = 0
+        query_chunk_size = int(self.config["indexer_scorer_query_chunk_size"])
+        for layer in self.student.model.model.layers[self.first : self.last + 1]:
+            attention = getattr(layer, "self_attn", None)
+            compressor = getattr(attention, "compressor", None)
+            indexer = getattr(compressor, "indexer", None)
+            scorer = getattr(indexer, "scorer", None)
+            if scorer is None:
+                continue
+            if getattr(scorer, "_banana_smasher_chunked", False):
+                installed += 1
+                continue
+
+            def chunked_forward(scorer_module: Any, q: Any, compressed_kv: Any,
+                                hidden_states: Any) -> Any:
+                return self._chunked_indexer_scorer_forward(
+                    scorer_module, q, compressed_kv, hidden_states,
+                    query_chunk_size=query_chunk_size,
+                )
+
+            scorer.forward = MethodType(chunked_forward, scorer)
+            scorer._banana_smasher_chunked = True
+            installed += 1
+        if not installed:
+            raise ArtifactError("DeepseekV4 indexer scorer seam drift")
+        self._chunked_indexer_scorer_installed = True
+
+    @staticmethod
     def _chunked_eager_attention_forward(
         module: Any,
         query: Any,
@@ -1120,12 +2015,14 @@ class ModernGreenResidentEngine:
         torch = __import__("torch")
         chunk_size = int(kwargs.pop("query_chunk_size", 512))
         observer = kwargs.pop("_chunk_observer", None)
-        workspace_observer = kwargs.pop("_workspace_observer", None)
-        workspace_factory = kwargs.pop("_resident_workspace_factory", None)
+        # The physical W28 differential proved that persistent ``out=`` buffers
+        # are not the installed eager arithmetic boundary on CUDA. Keep the
+        # wrapper chunking only; each chunk must execute the exact Transformers
+        # 5.12.1 eager expression order and allocation pattern.
+        kwargs.pop("_workspace_observer", None)
+        kwargs.pop("_resident_workspace_factory", None)
         if chunk_size <= 0:
             raise ArtifactError("resident eager attention query chunk must be positive")
-        if not callable(workspace_factory):
-            raise ArtifactError("resident eager attention caller workspace is required")
 
         def repeat_kv(states: Any, repeats: int) -> Any:
             batch, heads, length, width = states.shape
@@ -1134,48 +2031,37 @@ class ModernGreenResidentEngine:
             states = states[:, :, None, :, :].expand(batch, heads, repeats, length, width)
             return states.reshape(batch, heads * repeats, length, width)
 
-        batch, heads, query_rows, _width = query.shape
+        batch, _heads, query_rows, _width = query.shape
         repeats = int(module.num_key_value_groups)
-        if int(key.shape[1]) == 1 and repeats == heads:
-            key_states = key
-            value_states = value
-        else:
-            key_states = repeat_kv(key, repeats)
-            value_states = repeat_kv(value, repeats)
-        logits_dtype = torch.promote_types(query.dtype, module.sinks.dtype)
-        factory = cast(Callable[..., tuple[Any, Any, Any]], workspace_factory)
-        output, weight_workspace, logits_workspace = factory(
-            query, key, chunk_size, logits_dtype
-        )
+        key_states = repeat_kv(key, repeats)
+        value_states = repeat_kv(value, repeats)
+        outputs = []
         for start in range(0, query_rows, chunk_size):
             end = min(start + chunk_size, query_rows)
             rows = end - start
             if observer is not None:
                 observer(rows)
             query_chunk = query[:, :, start:end]
-            logits = logits_workspace[:, :, :rows]
-            if workspace_observer is not None:
-                workspace_observer(output, weight_workspace, logits_workspace)
-            weights = weight_workspace[:, :, :rows]
-            torch.matmul(query_chunk, key_states.transpose(2, 3), out=weights)
-            weights.mul_(scaling)
+            weights = torch.matmul(query_chunk, key_states.transpose(2, 3)) * scaling
             if attention_mask is not None:
                 mask = attention_mask
                 if int(mask.shape[-2]) == query_rows:
                     mask = mask[..., start:end, :]
-                weights.add_(mask)
-            logits[..., :-1].copy_(weights)
-            logits[..., -1:].copy_(
-                module.sinks.reshape(1, -1, 1, 1).expand(batch, -1, rows, -1)
+                weights = weights + mask
+            sinks = module.sinks.reshape(1, -1, 1, 1).expand(batch, -1, rows, -1)
+            combined_logits = torch.cat([weights, sinks], dim=-1)
+            combined_logits = combined_logits - combined_logits.max(
+                dim=-1, keepdim=True
+            ).values
+            probabilities = torch.nn.functional.softmax(
+                combined_logits, dim=-1, dtype=combined_logits.dtype
             )
-            logits.sub_(logits.max(dim=-1, keepdim=True).values)
-            torch.ops.aten._softmax.out(logits, -1, False, out=logits)
-            scores = logits[..., :-1]
+            scores = probabilities[..., :-1]
             scores = torch.nn.functional.dropout(
                 scores, p=dropout, training=bool(getattr(module, "training", False))
             ).to(value_states.dtype)
-            torch.matmul(scores, value_states, out=output[:, start:end].transpose(1, 2))
-        return output, None
+            outputs.append(torch.matmul(scores, value_states).transpose(1, 2).contiguous())
+        return torch.cat(outputs, dim=1), None
 
     def _install_chunked_eager(self) -> None:
         if getattr(self, "_chunked_eager_installed", False):
@@ -1218,10 +2104,11 @@ class ModernGreenResidentEngine:
     ) -> tuple[Any, None]:
         """Run fused SDPA while retaining DeepseekV4 attention-sink semantics.
 
-        The ordinary Transformers SDPA adapter drops ``module.sinks``. Encode the
-        sink as one extra zero-value KV token: an added constant query coordinate
-        dotted with a per-head sink coordinate reproduces the exact sink logit,
-        while the zero value reproduces eager's dropped sink contribution.
+        Eager computes ``softmax([A, sink])[..., :-1] @ V``.  The exact
+        decomposition is ``SDPA(A, V) * sigmoid(logsumexp(A) - sink)`` per
+        query row and head.  Compute that row normalizer in bounded query chunks
+        so the fused value reduction stays resident without materializing the
+        full attention matrix.
         """
         torch = __import__("torch")
         heads = int(query.shape[1])
@@ -1231,26 +2118,75 @@ class ModernGreenResidentEngine:
             repeats = heads // int(key.shape[1])
             key = key.repeat_interleave(repeats, dim=1)
             value = value.repeat_interleave(repeats, dim=1)
-        width = int(query.shape[-1])
-        pad_width = 8 - (width % 8)
-        query_aug = torch.nn.functional.pad(query, (0, pad_width))
-        query_aug[..., width] = 1
-        key_aug = torch.nn.functional.pad(key, (0, pad_width))
-        value_aug = torch.nn.functional.pad(value, (0, pad_width))
-        sink_key = key_aug.new_zeros((*key_aug.shape[:-2], 1, width + pad_width))
-        sink_key[..., width] = module.sinks.reshape(1, -1, 1) / float(scaling)
-        sink_value = value_aug.new_zeros((*value_aug.shape[:-2], 1, width + pad_width))
-        key_aug = torch.cat((key_aug, sink_key), dim=-2)
-        value_aug = torch.cat((value_aug, sink_value), dim=-2)
-        mask_aug = (
-            torch.nn.functional.pad(attention_mask, (0, 1), value=0.0)
-            if attention_mask is not None else None
+        query_length = int(query.shape[-2])
+        key_length = int(key.shape[-2])
+        causal_without_mask = (
+            attention_mask is None
+            and bool(getattr(module, "is_causal", True))
+            and query_length > 1
         )
-        output = torch.nn.functional.scaled_dot_product_attention(
-            query_aug, key_aug, value_aug, attn_mask=mask_aug,
-            dropout_p=float(dropout), is_causal=False, scale=float(scaling),
+        # The fused CUDA value reduction is not bitwise-equivalent to the BF16
+        # eager equation even after the exact sink-mass rescale.  Use SDPA's math
+        # backend so the original Q/K/V problem and the explicit LSE pass share
+        # the same stable reduction semantics required by the parity rail.
+        with torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
+            output = torch.nn.functional.scaled_dot_product_attention(
+                query, key, value, attn_mask=attention_mask,
+                dropout_p=float(dropout), is_causal=causal_without_mask,
+                scale=float(scaling),
+            )
+        key_t = key.transpose(2, 3)
+        lse_chunks = []
+        exact_bf16_chunks = []
+        chunk_size = min(query_length, 128)
+        offset = max(key_length - query_length, 0)
+        key_positions = torch.arange(key_length, device=query.device)
+        for start in range(0, query_length, chunk_size):
+            stop = min(start + chunk_size, query_length)
+            logits = torch.matmul(query[:, :, start:stop, :], key_t) * float(scaling)
+            if attention_mask is not None:
+                mask = attention_mask[..., start:stop, :]
+                if mask.dtype == torch.bool:
+                    logits = logits.masked_fill(~mask, torch.finfo(logits.dtype).min)
+                else:
+                    logits = logits + mask
+            elif causal_without_mask:
+                query_positions = torch.arange(
+                    start, stop, device=query.device
+                ) + offset
+                allowed = key_positions.unsqueeze(0) <= query_positions.unsqueeze(1)
+                logits = logits.masked_fill(
+                    ~allowed[None, None, :, :], torch.finfo(logits.dtype).min
+                )
+            lse_chunks.append(torch.logsumexp(logits, dim=-1))
+            # HF eager preserves the sink parameter dtype at concatenation, so a
+            # FP32 sink promotes the combined row before the explicit rowmax shift
+            # and softmax. Reproduce that source-level promotion and clamp exactly.
+            sink_column = module.sinks.to(device=logits.device).reshape(
+                1, heads, 1, 1
+            ).expand(
+                int(logits.shape[0]), heads, stop - start, 1
+            )
+            combined = torch.cat((logits, sink_column), dim=-1)
+            combined = combined - combined.max(dim=-1, keepdim=True).values
+            scores = torch.nn.functional.softmax(
+                combined, dim=-1, dtype=combined.dtype
+            )[..., :-1]
+            exact_bf16_chunks.append(
+                torch.matmul(scores.to(value.dtype), value)
+            )
+        lse = torch.cat(lse_chunks, dim=-1)
+        sinks = module.sinks.to(dtype=lse.dtype, device=lse.device).reshape(
+            1, heads, 1
         )
-        return output[..., :width].transpose(1, 2).contiguous(), None
+        keep_probability = torch.sigmoid(lse - sinks)
+        rescaled_output = output * keep_probability.to(output.dtype).unsqueeze(-1)
+        # Keep the algebraic SDPA decomposition above explicit and tested, but
+        # publish the exact BF16-clamped correction required by HF's source
+        # semantics.  Attention is not the dominant full64 term.
+        output = torch.cat(exact_bf16_chunks, dim=2)
+        del rescaled_output
+        return output.transpose(1, 2).contiguous(), None
 
     def _install_sink_corrected_sdpa(self) -> None:
         if getattr(self, "_sink_sdpa_installed", False):
@@ -1296,17 +2232,130 @@ class ModernGreenResidentEngine:
         if cumulative_length is not None:
             layer_cache.cumulative_length = cumulative_length
 
+    def _official_streamed_decoder_layer(self, *args: Any, **kwargs: Any) -> Any:
+        """Reuse the accepted scorer's decoder layer without a local rewrite."""
+        from .official_k2_resident_score import OfficialK2ResidentRankEngine
+
+        return cast(Any, OfficialK2ResidentRankEngine._streamed_decoder_layer)(
+            self, *args, **kwargs
+        )
+
+    def _official_call_chunked_self_attention(
+        self, attention: Any, hidden: Any, **kwargs: Any
+    ) -> Any:
+        """Reuse the accepted scorer's public-attention dispatch."""
+        from .official_k2_resident_score import OfficialK2ResidentRankEngine
+
+        return cast(Any, OfficialK2ResidentRankEngine._call_chunked_self_attention)(
+            self, attention, hidden, **kwargs
+        )
+
+    def _official_decoder_workspace_for(
+        self, hidden: Any, *, stream_key: Any | None = None
+    ) -> Any:
+        """Reuse the accepted decoder's stream-isolated workspace owner."""
+        from .official_k2_resident_score import OfficialK2ResidentRankEngine
+
+        return cast(Any, OfficialK2ResidentRankEngine._decoder_workspace_for)(
+            self, hidden, stream_key=stream_key
+        )
+
+    def _official_attention_workspace_for(
+        self, query: Any, key: Any, chunk_size: int, logits_dtype: Any
+    ) -> tuple[Any, Any, Any]:
+        """Reuse the accepted decoder's output-retirable attention workspace."""
+        from .official_k2_resident_score import OfficialK2ResidentRankEngine
+
+        return cast(Any, OfficialK2ResidentRankEngine._attention_workspace_for)(
+            self, query, key, chunk_size, logits_dtype
+        )
+
+    def _official_release_attention_output_workspace(
+        self, attention_output: Any
+    ) -> None:
+        """Reuse the accepted decoder's exact post-attention lifetime seam."""
+        from .official_k2_resident_score import OfficialK2ResidentRankEngine
+
+        cast(Any, OfficialK2ResidentRankEngine._release_attention_output_workspace)(
+            self, attention_output
+        )
+
+    @staticmethod
+    def _official_release_completed_layer_cache(cache: Any, index: int) -> None:
+        """Reuse the accepted scorer's completed-cache release."""
+        from .official_k2_resident_score import OfficialK2ResidentRankEngine
+
+        OfficialK2ResidentRankEngine._release_completed_layer_cache(cache, index)
+
+    def _official_append_decoder_memory_probe(self, *, phase: str, layer: int) -> None:
+        """Reuse the accepted decoder's opt-in fsynced memory probe."""
+        from .official_k2_resident_score import OfficialK2ResidentRankEngine
+
+        cast(Any, OfficialK2ResidentRankEngine._append_decoder_memory_probe)(
+            self, phase=phase, layer=layer
+        )
+
+    def _run_official_decoder_layers(self, hidden: Any, ids: Any) -> Any:
+        """Dispatch evaluation through the existing accepted decoder implementation."""
+        from .official_k2_resident_score import OfficialK2ResidentRankEngine
+
+        # The imported implementation calls these seams on ``self``. Bind them
+        # to thin delegates so its source remains the single arithmetic authority
+        # and Modern Green does not grow a second decoder scorer.
+        self._streamed_decoder_layer = self._official_streamed_decoder_layer
+        self._call_chunked_self_attention = self._official_call_chunked_self_attention
+        self._decoder_workspace_for = self._official_decoder_workspace_for
+        self._attention_workspace_for = self._official_attention_workspace_for
+        self._release_attention_output_workspace = (
+            self._official_release_attention_output_workspace
+        )
+        self._release_completed_layer_cache = self._official_release_completed_layer_cache
+        self._append_decoder_memory_probe = self._official_append_decoder_memory_probe
+        self._chunked_eager_attention_forward = (
+            OfficialK2ResidentRankEngine._chunked_eager_attention_forward
+        )
+        return cast(Any, OfficialK2ResidentRankEngine._run_layers)(self, hidden, ids)
+
     def _run_layers(self, hidden: Any, ids: Any, train: bool) -> Any:
+        if (
+            not train
+            and self.config.get("resident_validation_official_decoder_dispatch") is True
+        ):
+            return self._run_official_decoder_layers(hidden, ids)
         from transformers.cache_utils import DynamicCache
         template = hidden[:, :, 0, :] if hidden.ndim == 4 else hidden
-        cache = DynamicCache(config=self.student.config)
+        cache = DynamicCache(config=self.student.model.config)
         attention_implementation = str(
             self.config.get("resident_validation_attention_implementation", "eager")
         ).lower()
-        if attention_implementation == "sdpa":
+        stock_hf_attention = bool(
+            self.config.get("resident_validation_stock_hf_attention", False)
+        )
+        if bool(self.config.get("resident_validation_stock_hf_sdpa_math_backend", False)):
+            # Installed DeepseekV4 eager computes the sink-augmented softmax in
+            # ``combined_logits.dtype``. Keep MATH dispatch for the maintained
+            # sink-token adapter, but permit its BF16 reduction so the backend
+            # does not silently substitute a different FP32 intermediate seam.
+            self.torch.backends.cuda.enable_flash_sdp(False)
+            self.torch.backends.cuda.enable_mem_efficient_sdp(False)
+            self.torch.backends.cuda.enable_cudnn_sdp(False)
+            self.torch.backends.cuda.enable_math_sdp(True)
+            self.torch.backends.cuda.allow_fp16_bf16_reduction_math_sdp(True)
+            self.sealed_builder_binding["stock_hf_sdpa_backend"] = "math_eager_dtype_reduction"
+        if attention_implementation == "sdpa" and stock_hf_attention:
+            runtime_attention = str(
+                self.student.model.config._attn_implementation
+            ).lower()
+            if runtime_attention != "sdpa":
+                raise ArtifactError("stock HF SDPA runtime binding drift")
+            self.sealed_builder_binding["runtime_attention_implementation"] = runtime_attention
+            self.sealed_builder_binding["custom_attention_registration"] = "false"
+        elif attention_implementation == "sdpa":
             self._install_sink_corrected_sdpa()
-        elif int(self.config.get("attention_query_chunk_size", 0)) > 0:
+        elif _validation_attention_query_chunk_size(self.config) > 0:
             self._install_chunked_eager()
+        if int(self.config.get("indexer_scorer_query_chunk_size", 0)) > 0:
+            self._install_chunked_indexer_scorer()
         pos, pe, mask = self._positional(ids, template, cache)
         if (
             train
@@ -1374,7 +2423,7 @@ class ModernGreenResidentEngine:
                     # otherwise each layer appends another full 8192-token KV plane,
                     # producing quadratic growth, wrong logits, and eventual OOM.
                     active_cache = (
-                        DynamicCache(config=self.student.config)
+                        DynamicCache(config=self.student.model.config)
                         if not train or snapshots is not None
                         else cache
                     )
@@ -1382,7 +2431,7 @@ class ModernGreenResidentEngine:
                         current,
                         position_embeddings=pe,
                         position_ids=pos,
-                        attention_mask=mask,
+                        attention_mask=self._attention_mask_for_layer(layer, mask),
                         input_ids=ids,
                         past_key_values=active_cache,
                     )
@@ -1463,6 +2512,70 @@ class ModernGreenResidentEngine:
             return loss
         return self.torch.stack([values.mean() for values in token_values]).mean()
 
+    def _record_optimizer_diagnostic_boundary(self, name: str) -> None:
+        tap = getattr(self, "_active_adam_diagnostic", None)
+        if tap is not None:
+            tap.record_boundary(name)
+
+    def _install_lut_accumulation_diagnostic(self) -> None:
+        """Tap AccumulateGrad without changing the gradient or trainable state."""
+        configured = os.environ.get("LUT_ACCUMULATION_DIAGNOSTIC")
+        if not configured:
+            self._lut_accumulation_diagnostic_path = None
+            self._lut_accumulation_diagnostic_handles = []
+            return
+        path = Path(configured)
+        if path.exists():
+            raise ArtifactError(f"LUT accumulation diagnostic already exists: {path}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._lut_accumulation_diagnostic_path = path
+        self._lut_accumulation_diagnostic_handles = []
+
+        for tensor_name, parameter in self.luts:
+            def pre_accumulate(gradient: Any, name: str = tensor_name) -> Any:
+                self._append_lut_accumulation_diagnostic(
+                    "leaf_pre_accumulate", name, gradient
+                )
+                return gradient
+
+            def post_accumulate(leaf: Any, name: str = tensor_name) -> None:
+                self._append_lut_accumulation_diagnostic(
+                    "leaf_post_accumulate", name, leaf.grad
+                )
+
+            self._lut_accumulation_diagnostic_handles.append(
+                parameter.register_hook(pre_accumulate)
+            )
+            self._lut_accumulation_diagnostic_handles.append(
+                parameter.register_post_accumulate_grad_hook(post_accumulate)
+            )
+
+    def _append_lut_accumulation_diagnostic(
+        self, stage: str, tensor_name: str, tensor: Any
+    ) -> None:
+        """Append one fsynced receipt row at a LUT leaf accumulation boundary."""
+        path = self._lut_accumulation_diagnostic_path
+        if path is None:
+            return
+        finite = bool(self.torch.isfinite(tensor).all().item())
+        maximum = float(tensor.detach().abs().max().item()) if tensor.numel() else 0.0
+        row = {
+            "schema": "banana-smasher-lut-accumulation-diagnostic-v1",
+            "stage": stage,
+            "tensor_name": tensor_name,
+            "rank": self.rank,
+            "finite": finite,
+            "max_abs": maximum,
+            "dtype": str(tensor.dtype),
+            "shape": list(tensor.shape),
+            "data_ptr": int(tensor.data_ptr()),
+            "created_unix": time.time(),
+        }
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(row, allow_nan=False, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+
     def _pipeline_pass(self, group: list[int], *, loss_divisor: int = 1) -> tuple[float | None, dict[str, float]]:
         if len(group) != self.pipeline_microbatch:
             raise ArtifactError(f"official pipeline group must contain {self.pipeline_microbatch} windows")
@@ -1485,6 +2598,7 @@ class ModernGreenResidentEngine:
             hidden.backward(grad)
             _cuda_sync(torch)
             backward_seconds = time.perf_counter() - backward_started
+            self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
             return None, {"forward_seconds": forward_seconds, "backward_seconds": backward_seconds}
         activation = torch.empty(shape, dtype=torch.bfloat16, device=self.student.device)
         receive_started = time.perf_counter()
@@ -1500,6 +2614,7 @@ class ModernGreenResidentEngine:
         backward_seconds = time.perf_counter() - backward_started
         if activation.grad is None:
             raise ArtifactError("official pipeline boundary gradient is missing")
+        self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
         self._batch_p2p_send(activation.grad.contiguous(), dst=0)
         return float(loss.detach().cpu()), {"forward_seconds": forward_seconds, "backward_seconds": backward_seconds}
 
@@ -1560,6 +2675,7 @@ class ModernGreenResidentEngine:
             pending.backward(gradient)
             _cuda_sync(torch)
             backward_seconds += time.perf_counter() - started
+            self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
         else:
             activation = torch.empty(
                 shape, dtype=torch.bfloat16, device=self.student.device
@@ -1590,6 +2706,7 @@ class ModernGreenResidentEngine:
                     )
                     activation = next_activation
                 else:
+                    self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
                     self._batch_p2p_send(activation.grad.contiguous(), dst=0)
         return (
             sum(losses) / len(losses) if losses else None,
@@ -1604,6 +2721,99 @@ class ModernGreenResidentEngine:
 
     def _local_norm(self, values: list[Any]) -> float:
         return sum(float(value.detach().float().pow(2).sum().cpu()) for value in values) ** 0.5
+
+    def _transition_tensor_scan(self, values: list[tuple[str, Any]]) -> dict[str, Any]:
+        """Summarize finite state at an existing optimizer mutation boundary."""
+        torch = self.torch
+        rows: list[dict[str, Any]] = []
+        bad_tensors = 0
+        bad_elements = 0
+        for name, value in values:
+            if value is None or not torch.is_tensor(value):
+                continue
+            detached = value.detach()
+            if not (detached.is_floating_point() or detached.is_complex()):
+                continue
+            finite = torch.isfinite(detached)
+            bad = int((~finite).sum().item())
+            finite_values = detached[finite]
+            maximum = float(finite_values.abs().max().cpu()) if finite_values.numel() else None
+            if bad:
+                bad_tensors += 1
+                bad_elements += bad
+            rows.append(
+                {
+                    "name": name,
+                    "dtype": str(detached.dtype),
+                    "shape": list(detached.shape),
+                    "bad_elements": bad,
+                    "finite_max_abs": maximum,
+                }
+            )
+        return {
+            "tensor_count": len(rows),
+            "bad_tensors": bad_tensors,
+            "bad_elements": bad_elements,
+            "max_abs": max((row["finite_max_abs"] for row in rows if row["finite_max_abs"] is not None), default=None),
+            "first_nonfinite": next((row for row in rows if row["bad_elements"]), None),
+            "tensors": rows,
+        }
+
+    def _diagnostic_norm(self, values: list[Any]) -> float:
+        norm = 0.0
+        for value in values:
+            tensor_norm = float(self.torch.linalg.vector_norm(value.detach().double()).cpu())
+            norm = math.hypot(norm, tensor_norm)
+        return norm
+
+    def _optimizer_transition_scan(
+        self, params: list[tuple[str, Any]], before: list[Any], boundary: str
+    ) -> dict[str, Any]:
+        parameter_values = [(name, parameter) for name, parameter in params]
+        gradient_values = [(name + ".grad", parameter.grad) for name, parameter in params]
+        state_values: list[tuple[str, Any]] = []
+        for name, parameter in params:
+            for state_name, value in self.optimizer.state.get(parameter, {}).items():
+                state_values.append((f"{name}.adam.{state_name}", value))
+        report = {
+            "boundary": boundary,
+            "parameters": self._transition_tensor_scan(parameter_values),
+            "gradients": self._transition_tensor_scan(gradient_values),
+            "adam_state": self._transition_tensor_scan(state_values),
+            "gradient_norm": self._diagnostic_norm(
+                [parameter.grad for _name, parameter in params if parameter.grad is not None]
+            ),
+        }
+        if boundary == "post_optimizer_step":
+            report["update_delta"] = self._transition_tensor_scan(
+                [
+                    (name + ".update_delta", parameter.detach() - old)
+                    for (name, parameter), old in zip(params, before)
+                ]
+            )
+        return report
+
+    def _write_transition_diagnostic(self, report: Mapping[str, Any]) -> None:
+        target = self.config.get("transition_diagnostic_receipt")
+        if not target:
+            return
+        path = Path(str(target)).expanduser().resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = (
+            json.dumps(_json_finite_tree(dict(report)), indent=2, sort_keys=True, allow_nan=False)
+            + "\n"
+        ).encode()
+        temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        with temporary.open("xb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        directory = os.open(str(path.parent), os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
 
     def _step(self, global_step: int) -> dict[str, Any]:
         torch = self.torch
@@ -1653,6 +2863,13 @@ class ModernGreenResidentEngine:
         groups = [group_windows[index:index + self.pipeline_microbatch] for index in range(0, len(group_windows), self.pipeline_microbatch)]
         if not groups or any(len(group) != self.pipeline_microbatch for group in groups):
             raise ArtifactError("controlled arm pipeline grouping drift")
+        transition_diagnostic = bool(self.config.get("transition_diagnostic_receipt"))
+        adam_diagnostic = (
+            _AdamForeachDiagnosticTap(torch, self.optimizer, self.luts)
+            if transition_diagnostic
+            else None
+        )
+        self._active_adam_diagnostic = adam_diagnostic
         dist_started = time.perf_counter()
         if len(groups) > 1:
             loss, timing = self._pipeline_update_1f1b(
@@ -1661,8 +2878,93 @@ class ModernGreenResidentEngine:
         else:
             loss, timing = self._pipeline_pass(groups[0], loss_divisor=len(groups))
         forward_backward_seconds = time.perf_counter() - dist_started
+        if adam_diagnostic is not None:
+            adam_diagnostic.record_boundary("post_reduction_p2p_complete")
+        pre_optimizer_scan = (
+            self._optimizer_transition_scan(params, before, "pre_optimizer_step")
+            if transition_diagnostic
+            else None
+        )
+        _cuda_sync(torch)
         optimizer_started = time.perf_counter()
-        self.optimizer.step()
+        if adam_diagnostic is not None:
+            adam_diagnostic.record_boundary("immediately_pre_adam")
+        if adam_diagnostic is not None:
+            with adam_diagnostic:
+                self.optimizer.step()
+            adam_report = adam_diagnostic.report()
+            self._active_adam_diagnostic = None
+        else:
+            self.optimizer.step()
+            adam_report = None
+        post_optimizer_scan = (
+            self._optimizer_transition_scan(params, before, "post_optimizer_step")
+            if transition_diagnostic
+            else None
+        )
+        if transition_diagnostic:
+            local_transition = {
+                "rank": self.rank,
+                "update": global_step + 1,
+                "pre_optimizer_step": pre_optimizer_scan,
+                "post_optimizer_step": post_optimizer_scan,
+                "adam_foreach_diagnostic": adam_report,
+            }
+            transition_rows: list[Any] = [None, None]
+            self.dist.all_gather_object(transition_rows, local_transition)
+            first_nonfinite = None
+            boundary_order = (
+                "post_backward_pre_reduction",
+                "post_reduction_p2p_complete",
+                "immediately_pre_adam",
+                "after_adam_moment_update",
+                "after_denominator_step_size_formation",
+                "post_parameter_copy",
+            )
+            for boundary in boundary_order:
+                for row in transition_rows:
+                    detail = row["adam_foreach_diagnostic"]["boundaries"][boundary]
+                    for tensor_name, tensor_row in detail.items():
+                        for tensor_class, scan in tensor_row.items():
+                            if scan is not None and scan.get("first_bad") is not None:
+                                first_nonfinite = {
+                                    "rank": row["rank"],
+                                    "boundary": boundary,
+                                    "operation": "torch.optim.Adam.step",
+                                    "tensor_class": tensor_class,
+                                    "tensor": tensor_name,
+                                    "first_bad": scan["first_bad"],
+                                }
+                                break
+                        if first_nonfinite is not None:
+                            break
+                    if first_nonfinite is not None:
+                        break
+                if first_nonfinite is not None:
+                    break
+            self._write_transition_diagnostic(
+                {
+                    "schema": "banana-smasher-public-optimizer-first-divergence-v2",
+                    "status": "NONFINITE" if first_nonfinite else "FINITE",
+                    "arithmetic": "unchanged-installed-torch-foreach-adam",
+                    "canonical_trainer_mutation_boundary": "repair_api/modern_green_resident.py:OfficialResidentEngine._step:self.optimizer.step",
+                    "task_id": self.config.get("task_id"),
+                    "basis_sha256": self.config.get("basis_sha256"),
+                    "published_pre_checkpoint_sha256": self.config.get("published_pre_checkpoint_sha256"),
+                    "canonical_git_pin": self.config.get("canonical_git_pin"),
+                    "resume_checkpoint": self.config.get("resume_checkpoint"),
+                    "update": global_step + 1,
+                    "first_nonfinite": first_nonfinite,
+                    "rank_rows": transition_rows,
+                    "created_unix": time.time(),
+                }
+            )
+            if first_nonfinite is not None:
+                raise ArtifactError(
+                    f"official resident U{global_step + 1} optimizer transition produced nonfinite "
+                    f"{first_nonfinite['tensor_class']} at {first_nonfinite['tensor']} "
+                    f"during {first_nonfinite['boundary']}"
+                )
         self.scheduler.step()
         _cuda_sync(torch)
         optimizer_seconds = time.perf_counter() - optimizer_started
@@ -1788,7 +3090,6 @@ class ModernGreenResidentEngine:
         from .official_k2_resident_score import (
             SOURCE_CONTEXT_TOKENS,
             _canonical_causal_score_tokens,
-            _physical_canary_batch_windows,
         )
 
         ordered = tuple(int(value) for value in windows)
@@ -1799,26 +3100,29 @@ class ModernGreenResidentEngine:
         published_pre_proof = (
             self.published_pre_recipe and _has_static_w28_binding(self.config)
         )
-        if published_pre_proof and ordered == (28,):
-            # RUN1698 produced the trusted W28 candidate in the sealed builder's
-            # first mb=2 group (W28, W56). W56 is execution context only: the
-            # public validation contract still reports and reduces W28 alone.
-            physical_batch_size = int(self.config.get("sealed_builder_window_microbatch", 2))
-            physical = _physical_canary_batch_windows(ordered, physical_batch_size, (28, 56))
-        elif published_pre_proof and len(ordered) == 64:
-            # Full64 preserves the exact ordered windows and per-window scorer
-            # arithmetic, but executes them in the same bounded physical groups
-            # as the sealed W28 fixture. A single batch of 64 expands the rank-0
-            # activation to tens of GiB and OOMs before the first P2P send.
-            physical_batch_size = int(self.config.get("sealed_builder_window_microbatch", 2))
-            if physical_batch_size < 1 or len(ordered) % physical_batch_size:
-                raise ArtifactError("published PRE full64 physical batch must divide 64")
+        if published_pre_proof:
+            # PRE_FANIN_TERMINAL's immutable builder_B2_PUBLISHED_PRE source
+            # sliced every selected row through a sealed PRE single-window
+            # microbatch. Never add W56 as hidden W28 context or regroup full64:
+            # physical batching changes every row on this rail.
+            physical_batch_size = int(
+                self.config.get("sealed_builder_window_microbatch", 1)
+            )
+            if physical_batch_size != 1:
+                raise ArtifactError(
+                    "published PRE validation requires sealed single-window microbatch"
+                )
         root = Path(teacher_root).expanduser().resolve()
         if not root.is_dir():
             raise ArtifactError(f"resident validation teacher root is missing: {root}")
         teacher_sha256_by_window: dict[str, str] = {}
         if published_pre_proof and ordered == (28,):
-            teacher_sha256_by_window["28"] = _require_static_w28_teacher(root)
+            teacher_sha256_by_window["28"] = _require_static_w28_teacher(
+                root,
+                str(self.config.get(
+                    "matched_sdpa_teacher_sha256", STATIC_W28_TEACHER_SHA256
+                )),
+            )
         cache_key = (ordered, str(root))
         cache = getattr(self, "_validation_input_cache", {})
         cached = cache.get(cache_key)
@@ -1844,6 +3148,7 @@ class ModernGreenResidentEngine:
             raise ArtifactError("resident validation corpus must be a list")
         pad_token = int(self.config.get("pad_token_id", 1))
         ids_cache: dict[int, Any] = {}
+        real_lengths: dict[int, int] = {}
         teacher_cache: dict[int, tuple[Any, Any]] = {}
         for window in physical:
             if window < 0 or window >= len(corpus) or not isinstance(corpus[window], Mapping):
@@ -1860,6 +3165,7 @@ class ModernGreenResidentEngine:
                 tokens, dtype=self.torch.long, device=self.student.device
             )
             ids_cache[window] = ids
+            real_lengths[window] = real_len
             if self.rank == 1 and window in ordered:
                 teacher = _load_torch(root / f"t8192_win{window}.pt")
                 idx = teacher.get("idx") if isinstance(teacher, Mapping) else None
@@ -1882,7 +3188,8 @@ class ModernGreenResidentEngine:
             "corpus_path": validation_corpus_path,
             "corpus_sha256": expected_corpus_sha or _sha256_file(validation_corpus_path),
             "teacher_sha256_by_window": teacher_sha256_by_window,
-            "ids": ids_cache, "teachers": teacher_cache,
+            "ids": ids_cache, "real_lengths": real_lengths,
+            "teachers": teacher_cache,
         }
         cache[cache_key] = prepared
         self._validation_input_cache = cache
@@ -1974,6 +3281,9 @@ class ModernGreenResidentEngine:
         pair_stream_concurrency = int(
             self.config.get("score_pair_stream_concurrency", 1)
         )
+        pair_group_single_stream = bool(
+            self.config.get("score_pair_group_single_stream", False)
+        )
         if pair_stream_concurrency > 1:
             if physical_batch_size != 2:
                 raise ArtifactError(
@@ -1989,6 +3299,7 @@ class ModernGreenResidentEngine:
                 for offset in range(0, len(physical), physical_batch_size)
             )
         ids_cache = prepared["ids"]
+        real_lengths = prepared["real_lengths"]
         teacher_cache = prepared["teachers"]
         roots = (
             self.model_root, self.asset_root, self.parent_root,
@@ -2007,7 +3318,11 @@ class ModernGreenResidentEngine:
         previous_hidden: Any | None = None
         try:
             for batch in scheduled_batches:
-                pair_parallel = pair_stream_concurrency > 1 and len(batch) > 2
+                pair_parallel = (
+                    pair_stream_concurrency > 1
+                    and len(batch) > 2
+                    and not pair_group_single_stream
+                )
                 pair_windows = (
                     tuple(batch[index:index + 2] for index in range(0, len(batch), 2))
                     if pair_parallel else (batch,)
@@ -2107,6 +3422,9 @@ class ModernGreenResidentEngine:
                         _cuda_sync(torch)
                     p2p_ms = (time.perf_counter() - p2p_started) * 1000.0
                     forward_started = time.perf_counter()
+                    boundary_tap = getattr(
+                        self, "authentic_scoring_readout_boundary_tap", None
+                    )
                     if pair_parallel:
                         launch_stream = torch.cuda.current_stream(device=self.student.device)
                         pair_streams = self._score_pair_stream_pool(
@@ -2162,9 +3480,14 @@ class ModernGreenResidentEngine:
                             })
                             del hidden, ids
                             continue
-                        final = self.student.model.model.norm(
-                            self.student.model.model.hc_head(hidden)
-                        )
+                        if callable(boundary_tap):
+                            boundary_tap("L042", hidden)
+                        hc = self.student.model.model.hc_head(hidden)
+                        if callable(boundary_tap):
+                            boundary_tap("hc_head", hc)
+                        final = self.student.model.model.norm(hc)
+                        if callable(boundary_tap):
+                            boundary_tap("norm", final)
                     _cuda_sync(torch)
                     forward_ms = (time.perf_counter() - forward_started) * 1000.0
                     readout_started = time.perf_counter()
@@ -2172,15 +3495,26 @@ class ModernGreenResidentEngine:
                         if window not in ordered:
                             continue
                         teacher_idx, teacher_logprob = teacher_cache[window]
-                        logits = self.student.model.lm_head(
-                            final[batch_index, :POSITIONS_PER_WINDOW].to(torch.bfloat16)
-                        ).float()
+                        logits = _builder_frame_readout_logits(
+                            self.student.model,
+                            final,
+                            batch_index=batch_index,
+                            real_length=real_lengths[window],
+                            score_positions=POSITIONS_PER_WINDOW,
+                        )
+                        if callable(boundary_tap):
+                            boundary_tap("logits", logits)
                         logprob = torch.log_softmax(logits, dim=-1)
                         idx_device = teacher_idx.to(device=self.student.device, non_blocking=False)
-                        q_lp = logprob.gather(1, idx_device).to(torch.float16).cpu().numpy().astype(
+                        q_lp_tensor = logprob.gather(1, idx_device).to(torch.float16)
+                        q_argmax_tensor = logprob.argmax(-1).to(torch.int64)
+                        if callable(boundary_tap):
+                            boundary_tap("q_lp", q_lp_tensor)
+                            boundary_tap("q_argmax", q_argmax_tensor)
+                        q_lp = q_lp_tensor.cpu().numpy().astype(
                             np.float64, copy=False
                         )
-                        q_argmax = logprob.argmax(-1).to(torch.int64).cpu().numpy()
+                        q_argmax = q_argmax_tensor.cpu().numpy()
                         ref_lp = teacher_logprob.numpy().astype(np.float64, copy=False)
                         idx0 = teacher_idx[:, 0].numpy()
                         ref_max = np.max(ref_lp, axis=1, keepdims=True)

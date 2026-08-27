@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 import time
 from types import MappingProxyType
+from typing import Any
 
 import pytest
 import torch
@@ -22,6 +23,7 @@ from repair_api.official_k2_resident_score import (
     _ORDINARY_FORK_PAYLOADS,
     _load_score_checkpoint,
     _release_or_retain_checkpoint_payload,
+    _unique_tensor_storage_bytes,
 )
 
 
@@ -126,9 +128,18 @@ def test_registered_broker_identity_is_the_read_only_authority() -> None:
             checkpoint_sha256=checkpoint_sha,
         )
         assert result == "inherited_read_only"
+
+        adapted: dict[str, Any] = dict(payload)
+        adapted["identity"] = MappingProxyType({"checkpoint_loaded": True})
+        assert _release_or_retain_checkpoint_payload(
+            adapted,
+            ordinary_load_fork_broker=True,
+            checkpoint_sha256=checkpoint_sha,
+        ) == "inherited_read_only"
+
         with pytest.raises(ArtifactError, match="identity mismatch"):
             _release_or_retain_checkpoint_payload(
-                dict(payload),
+                {"state": MappingProxyType(dict(payload["state"]))},
                 ordinary_load_fork_broker=True,
                 checkpoint_sha256=checkpoint_sha,
             )
@@ -145,6 +156,27 @@ def test_same_process_rank_boundary_releases_allocator_before_rank1() -> None:
     assert rank0 < release < receipt < rank1
     assert '"required_cuda_free_bytes"' in source
     assert '"margin_bytes"' in source
+
+
+def test_rank1_preflight_deducts_exact_brokered_storage_from_incremental_peak() -> None:
+    owner = torch.arange(16)
+    alias = owner.view(4, 4)
+    distinct = torch.arange(7)
+    assert _unique_tensor_storage_bytes({
+        "owner": owner,
+        "aliases": (alias, owner),
+        "distinct": distinct,
+    }) == owner.untyped_storage().nbytes() + distinct.untyped_storage().nbytes()
+
+    source = inspect.getsource(OfficialK2ResidentRankEngine._preflight_memory)
+    assert 'self.config.get("gpu_resident_storage_broker", False)' in source
+    assert "self.gpu_resident_storage_broker" not in source
+    inventory = source.index("_unique_tensor_storage_bytes")
+    deduction = source.index(
+        "incremental_peak = max(incremental_expected, peak - brokered_resident_bytes)"
+    )
+    required = source.index("required = incremental_peak + reserve")
+    assert inventory < deduction < required
 
 
 def test_nonbroker_payload_still_transfers_ownership_by_clear() -> None:

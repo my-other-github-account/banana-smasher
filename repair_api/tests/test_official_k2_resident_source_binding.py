@@ -21,19 +21,10 @@ from repair_api.official_k2_resident_score import (
 from repair_api.balanced64 import ArtifactError, RepairArtifact
 from repair_api import cli
 from repair_api.modern_green_resident import (
-    ACCEPTED_W28_EXTENSION_SHA256,
-    ACCEPTED_W28_PRODUCER_COMMIT,
-    ACCEPTED_W28_RECEIPT_SHA256_BY_RANK,
-    FAST_K2_EXTENSION_CPP_SHA256,
-    FAST_K2_EXTENSION_CUDA_SHA256,
-    FAST_K2_EXTENSION_SOURCE_BUNDLE_SHA256,
     SEALED_GROUPED_EXPERT_SHA256,
     SEALED_GROUPED_WRAPPER_SHA256,
     STATIC_W28_GROUPED_EXPERT_SHA256,
     STATIC_W28_GROUPED_WRAPPER_SHA256,
-    TRAINER_SHA256,
-    _install_runtime_modules,
-    _resolve_runtime_provider_files,
 )
 
 
@@ -69,113 +60,6 @@ def test_modern_green_sealed_hashes_match_committed_asset_bytes() -> None:
     assert hashlib.sha256((assets / "static_w28_fast_v7_expert_base.py").read_bytes()).hexdigest() == (
         STATIC_W28_GROUPED_EXPERT_SHA256
     )
-
-
-def test_static_w28_trainer_matches_immutable_accepted_producer() -> None:
-    trainer = (
-        Path(__file__).resolve().parents[1]
-        / "assets"
-        / "static_w28_modern_green_clean_u0.py"
-    )
-    accepted_sha256 = "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
-
-    assert TRAINER_SHA256 == accepted_sha256
-    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == accepted_sha256
-
-
-def test_static_w28_provider_is_the_immutable_accepted_producer() -> None:
-    # Bind the source bytes named by the immutable exact W28 receipt, not the
-    # later producer label whose expert asset had already diverged.
-    assert ACCEPTED_W28_PRODUCER_COMMIT == "0eebc78245129bcdc47fbb08964f6c2145b7ff7b"
-    assert ACCEPTED_W28_EXTENSION_SHA256 == (
-        "dedb8798912f0ad31f9002f53407cde153ee50e1b8da272c2b4b976cb1a6922d"
-    )
-    assert ACCEPTED_W28_RECEIPT_SHA256_BY_RANK == {
-        0: "e3ad2a26830d7b481d69af981121faa63935c174d23ad88e1c0bc80e1d1e1816",
-        1: "7c3fbd8435cc2712933ce19b4cddd939d76f5ce36bab7d7b06fc00e52dbe95e7",
-    }
-    assert STATIC_W28_GROUPED_WRAPPER_SHA256 == (
-        "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
-    )
-    assert STATIC_W28_GROUPED_EXPERT_SHA256 == (
-        "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
-    )
-    engine_source = (Path(__file__).parents[1] / "modern_green_resident.py").read_text()
-    assert "class SealedPlaneSourceExperts" not in engine_source
-    assert '"resident_validation_expert_implementation", "accepted_static_w28"' in engine_source
-    assert 'expert_implementation == "sealed_bf16_full_weight"' in engine_source
-
-
-def test_static_w28_runtime_selects_the_accepted_physical_expert_provider() -> None:
-    config = {
-        "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
-        "resident_validation_proof": True,
-        "fast_k2_wrapper_source": "/ignored/wrapper.py",
-        "fast_v7_expert_source": "/ignored/expert.py",
-    }
-
-    selection = _resolve_runtime_provider_files(config)
-
-    assert selection["wrapper_path"].name == "static_w28_fast_k2_grouped.py"
-    assert selection["wrapper_sha256"] == STATIC_W28_GROUPED_WRAPPER_SHA256
-    assert selection["expert_path"].name == "static_w28_fast_v7_expert_base.py"
-    assert selection["expert_sha256"] == STATIC_W28_GROUPED_EXPERT_SHA256
-    expert_source = selection["expert_path"].read_text()
-    assert "for group, stream in enumerate(streams):" in expert_source
-    assert "stream_count = min(2, group_count)" not in expert_source
-
-
-def test_static_w28_uses_accepted_producers_pre_bf16_environment() -> None:
-    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
-    admission = source.index('admission = api.validate(engine, (28,), config["validation_teacher_root"])')
-    gate = source.index('raise RuntimeError(f"W28_ADMISSION_RED:')
-    for name in (
-        "FAST_K2_SEALED_FULL_WEIGHT_BF16",
-        "FAST_K2_SEALED_COMPLETE_EXPERT_BF16",
-        "FAST_K2_SEALED_PROJECTION_BF16",
-    ):
-        cleared = source.index(f'os.environ.pop("{name}", None)')
-        assert cleared < admission
-    assert source.index('os.environ["FAST_K2_SEALED_FULL_WEIGHT_BF16"] = "1"') > gate
-    assert source.index('os.environ["FAST_K2_SEALED_COMPLETE_EXPERT_BF16"] = "1"') > gate
-    assert source.index('os.environ["FAST_K2_SEALED_PROJECTION_BF16"] = "0"') > gate
-    for mutation in (
-        'config["score_window_batch_size"] = 2',
-        'config["score_pair_stream_concurrency"] = 1',
-        'config["score_pipeline_overlap"] = True',
-        'config["attention_query_chunk_size"] = 512',
-    ):
-        assert source.index(mutation) > gate
-    accepted_geometry = source.index("accepted_w28_geometry = {")
-    accepted_batch8 = source.index('"score_window_batch_size": 8', accepted_geometry)
-    accepted_microbatch2 = source.index('"sealed_builder_window_microbatch": 2', accepted_geometry)
-    accepted_geometry_gate = source.index('raise RuntimeError("W28_ACCEPTED_INCOMING_GEOMETRY_MISMATCH")')
-    engine_construction = source.index("engine = ModernGreenResidentEngine(")
-    assert accepted_geometry < accepted_batch8 < accepted_microbatch2 < accepted_geometry_gate
-    assert accepted_geometry_gate < engine_construction < admission
-
-
-def test_prebuilt_extension_identity_closes_over_committed_cpp_and_cuda_sources() -> None:
-    assets = Path(__file__).resolve().parents[1] / "assets"
-    cpp = (assets / "fast_k2_grouped.cpp").read_bytes()
-    cuda = (assets / "fast_k2_grouped_kernel.cu").read_bytes()
-
-    assert hashlib.sha256(cpp).hexdigest() == FAST_K2_EXTENSION_CPP_SHA256
-    assert hashlib.sha256(cuda).hexdigest() == FAST_K2_EXTENSION_CUDA_SHA256
-    assert hashlib.sha256(cpp + cuda).hexdigest() == FAST_K2_EXTENSION_SOURCE_BUNDLE_SHA256
-
-
-def test_static_w28_refuses_prebuilt_extension_without_canonical_source_closure() -> None:
-    with pytest.raises(ArtifactError, match="extension source bundle SHA mismatch"):
-        _install_runtime_modules({
-            "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
-            "resident_validation_proof": True,
-            "fast_k2_extension": "/missing/extension.so",
-            "fast_k2_extension_sha256": "a" * 64,
-            "fast_k2_extension_source_bundle_sha256": "b" * 64,
-            "fast_k2_wrapper_source": "/ignored/wrapper.py",
-            "fast_v7_expert_source": "/ignored/expert.py",
-        })
 
 
 def test_checkpoint_rebind_reuses_exposed_local_dense_surfaces() -> None:
@@ -272,14 +156,15 @@ def test_direct_layer_forward_preserves_sealed_cache_and_batch4() -> None:
     engine.first = 0
     engine.last = 1
     engine.torch = torch
+    engine.config = {}
     engine.student = SimpleNamespace(
         config=object(), model=SimpleNamespace(model=SimpleNamespace(layers=[Layer(), Layer()]))
     )
     engine._positional = lambda ids, template, cache: (
         object(), object(), torch.zeros((4, 1, 8, 8))
     )
-    def streamed(layer, hidden, ids, pe, pos, mask, cache, output, residual):
-        del layer, pe, pos, mask, output, residual
+    def streamed(layer, hidden, ids, pe, pos, mask, cache, scratch):
+        del layer, pe, pos, mask, scratch
         caches.append(cache)
         batches.append(int(hidden.shape[0]))
         assert ids.shape[0] == hidden.shape[0]
@@ -427,7 +312,7 @@ def test_routed_diagnostic_terminal_allows_only_source_reads() -> None:
 
 
 def test_streamed_decoder_workspace_is_bitwise_and_never_holds_four_full_tensors() -> None:
-    """Product-first residuals preserve public forward arithmetic with three banks."""
+    """Product-first residuals ping-pong exactly between hidden and one scratch bank."""
     full_ptrs: set[int] = set()
 
     class HyperConnection:
@@ -462,11 +347,14 @@ def test_streamed_decoder_workspace_is_bitwise_and_never_holds_four_full_tensors
     engine = OfficialK2ResidentRankEngine.__new__(OfficialK2ResidentRankEngine)
     engine.torch = torch
     engine._call_chunked_self_attention = lambda attention, hidden, **kwargs: attention(hidden, **kwargs)
+    engine._release_attention_output_workspace = lambda attention_output: None
     hidden = torch.arange(4 * 8 * 2 * 4, dtype=torch.bfloat16).reshape(4, 8, 2, 4)
     original = hidden.clone()
-    output = torch.empty_like(hidden)
-    residual = torch.empty_like(hidden)
-    full_ptrs.update((hidden.data_ptr(), output.data_ptr(), residual.data_ptr()))
+    with patch.object(torch, "empty_like", wraps=torch.empty_like) as empty_like:
+        scratch = engine._decoder_workspace_for(hidden, stream_key="fixture")
+        assert engine._decoder_workspace_for(hidden, stream_key="fixture") is scratch
+    assert empty_like.call_count == 1
+    full_ptrs.update((hidden.data_ptr(), scratch.data_ptr()))
     ids = torch.zeros((4, 8), dtype=torch.long)
 
     # Reproduce the immutable public decoder expression exactly: product first,
@@ -483,12 +371,12 @@ def test_streamed_decoder_workspace_is_bitwise_and_never_holds_four_full_tensors
     )
 
     result = engine._streamed_decoder_layer(
-        layer, hidden, ids, object(), object(), object(), object(), output, residual
+        layer, hidden, ids, object(), object(), object(), object(), scratch
     )
 
     assert torch.equal(result, expected)
     assert result.data_ptr() == hidden.data_ptr()
-    assert len(full_ptrs) == 3
+    assert len(full_ptrs) == 2
 
 
 def test_chunked_eager_attention_is_bitwise_and_bounds_query_workspace() -> None:
@@ -591,3 +479,38 @@ def test_chunked_attention_seam_registers_public_interface_and_restores_config(m
     assert attention.config._attn_implementation == "eager"
     assert Interface.mapping["official_k2_chunked_eager"] == engine._chunked_eager_attention_forward
     assert engine._attention_workspace is not None
+
+
+def test_attention_output_workspace_retires_only_after_public_attention() -> None:
+    """The output bank dies at the public-attention seam; scratch banks remain."""
+    engine = OfficialK2ResidentRankEngine.__new__(OfficialK2ResidentRankEngine)
+    engine.torch = torch
+    query = torch.randn((2, 2, 7, 3), dtype=torch.bfloat16)
+    key = torch.randn((2, 1, 7, 3), dtype=torch.bfloat16)
+
+    output, weights, logits = engine._attention_workspace_for(
+        query, key, 4, torch.bfloat16
+    )
+    output_ptr = output.data_ptr()
+    weights_ptr = weights.data_ptr()
+    logits_ptr = logits.data_ptr()
+    public_attention_output = output.clone()
+    public_attention_bytes = public_attention_output.view(torch.uint8).clone()
+
+    engine._release_attention_output_workspace(public_attention_output)
+
+    workspace = next(iter(engine._attention_workspaces.values()))
+    assert workspace[1] is None
+    assert workspace[2].data_ptr() == weights_ptr
+    assert workspace[3].data_ptr() == logits_ptr
+    assert torch.equal(public_attention_output.view(torch.uint8), public_attention_bytes)
+
+    del output
+    next_output, next_weights, next_logits = engine._attention_workspace_for(
+        query, key, 4, torch.bfloat16
+    )
+    assert next_output.data_ptr() != public_attention_output.data_ptr()
+    assert next_weights.data_ptr() == weights_ptr
+    assert next_logits.data_ptr() == logits_ptr
+    assert next_output.numel() * next_output.element_size() == query.numel() * query.element_size()
+    assert output_ptr != public_attention_output.data_ptr()

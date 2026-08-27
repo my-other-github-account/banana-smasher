@@ -101,8 +101,7 @@ def test_resident_stage_release_loads_exact_state_without_training():
             "asset_root": "/asset",
             "parent_root": "/parent",
             "l034_roster": "/roster.json",
-            "teacher_root": "/training-teacher",
-            "validation_teacher_root": "/validation-teacher",
+            "teacher_root": "/teacher",
             "corpus": "/corpus.json",
             "manifest": "/manifest.json",
             "delta_dir": "/delta",
@@ -141,7 +140,7 @@ def test_resident_stage_release_loads_exact_state_without_training():
         validate_control.write_text(json.dumps({
             "action": "validate_release",
             "windows": [28],
-            "teacher_root": "/validation-teacher",
+            "teacher_root": "/teacher",
             "receipt_path": str(validate_receipt),
         }))
         with patch("repair_api.api._load_torch", return_value=payload), patch(
@@ -157,7 +156,7 @@ def test_resident_stage_release_loads_exact_state_without_training():
         validate_engine = FakeEngine.instances[-1]
         assert validated["status"] == "VALIDATED_AND_RELEASED_WITHOUT_TRAINING"
         assert validated["validation"]["kld_mean"] == 0.13712959240533734
-        assert validate_engine.validate_calls == [((28,), Path("/validation-teacher"))]
+        assert validate_engine.validate_calls == [((28,), Path("/teacher"))]
         assert validate_engine.advance_calls == []
         assert validate_engine.closed is True
         assert json.loads(validate_receipt.read_text())["kld_mean"] == 0.13712959240533734

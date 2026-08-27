@@ -168,6 +168,59 @@ def build_parser() -> argparse.ArgumentParser:
     continuation.add_argument("--receipt", type=Path, required=True)
     _add_preflight_arguments(continuation)
 
+    diagnostic = verbs.add_parser("diagnostic-perturb-validate")
+    diagnostic.add_argument("--artifact-root", type=Path, required=True)
+    diagnostic.add_argument("--start-checkpoint", required=True)
+    diagnostic.add_argument("--config", type=Path, required=True)
+    diagnostic.add_argument("--direction", type=int, choices=(-1, 1), default=-1)
+    diagnostic.add_argument("--train-windows")
+    diagnostic.add_argument(
+        "--objective-composition",
+        choices=(
+            "equal_norm",
+            "pcgrad_equal_norm",
+            "symmetric_always_project_equal_norm",
+            "symmetric_always_project_residual_equal_norm",
+            "symmetric_always_project_residual_reciprocal_original_mean_norm",
+            "symmetric_always_project_residual_reciprocal_second_original_mean_norm",
+            "symmetric_always_project_residual_original_mean_norm",
+            "symmetric_always_project_residual_second_only_original_mean_norm",
+            "symmetric_always_project_residual_first_only_original_mean_norm",
+            "symmetric_always_project_residual_first_only_original_mean_projection",
+            "symmetric_always_project_residual_second_only_original_mean_projection",
+            "symmetric_always_project_residual_common_original_mean_projection",
+            "symmetric_always_project_residual_reciprocal_original_mean_projection",
+            "symmetric_always_project_residual_reciprocal_second_original_mean_projection",
+            "symmetric_always_project_residual_reciprocal_second_first_constituent_projection",
+            "symmetric_always_project_residual_reciprocal_second_second_constituent_projection",
+            "symmetric_always_project_residual_reciprocal_first_second_constituent_projection",
+            "symmetric_always_project_residual_reciprocal_first_first_constituent_projection",
+            "symmetric_always_project_residual_reciprocal_first_first_constituent_projected_mean_target",
+            "symmetric_always_project_residual_reciprocal_first_second_constituent_projected_mean_target",
+            "symmetric_always_project_residual_reciprocal_second_first_constituent_projected_mean_target",
+            "symmetric_always_project_residual_reciprocal_second_second_constituent_projected_mean_target",
+            "symmetric_always_project_residual_reciprocal_second_projected_mean_axis_projected_mean_target",
+            "symmetric_always_project_residual_reciprocal_second_projected_mean_axis_renormalized_projected_mean_target",
+            "ordered_second_project_residual_equal_norm",
+            "ordered_first_project_residual_equal_norm",
+            "ordered_first_project_equal_norm",
+            "ordered_second_project_equal_norm",
+            "ordered_second_project_original_mean_norm",
+            "ordered_second_project_residual_equal_norm_original_mean_norm",
+            "ordered_second_project_residual_equal_norm_residual_only_original_mean_norm",
+            "ordered_second_project_residual_equal_norm_first_only_original_mean_norm",
+            "ordered_second_project_residual_equal_norm_reciprocal_original_mean_norm",
+            "ordered_second_project_residual_equal_norm_reciprocal_residual_original_mean_norm",
+            "ordered_second_project_residual_reciprocal_original_mean_norm",
+            "ordered_second_project_residual_reciprocal_first_original_mean_norm",
+            "ordered_first_project_residual_reciprocal_second_original_mean_norm",
+            "ordered_first_project_residual_reciprocal_first_original_mean_norm",
+        ),
+    )
+    diagnostic.add_argument("--windows", default="28")
+    diagnostic.add_argument("--receipt", type=Path, required=True)
+    _add_preflight_arguments(diagnostic)
+
     stage = verbs.add_parser("resident-stage")
     stage.add_argument("--artifact-root", type=Path, required=True)
     stage.add_argument("--checkpoint", required=True)
@@ -297,6 +350,19 @@ def main(argv: list[str] | None = None) -> int:
             args.start_checkpoint,
             [int(value) for value in args.milestones.split(",")],
             config=config,
+            receipt_path=args.receipt,
+        )
+    elif args.verb == "diagnostic-perturb-validate":
+        identity = distributed_identity()
+        config = json.loads(args.config.read_text())
+        config.update(identity)
+        result = ResidentRepairAPI.open(args.artifact_root).diagnostic_perturb_and_validate(
+            args.start_checkpoint,
+            config=config,
+            train_windows=_windows(args.train_windows),
+            windows=_windows(args.windows),
+            direction=args.direction,
+            objective_composition=args.objective_composition,
             receipt_path=args.receipt,
         )
     else:

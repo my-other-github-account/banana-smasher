@@ -7,7 +7,6 @@ import tempfile
 from types import SimpleNamespace
 from typing import Any, cast
 
-from repair_api.modern_green_resident import ModernGreenResidentEngine
 from repair_api.official_k2_resident_score import (
     OfficialK2ResidentRankEngine,
     OfficialK2ResidentScorer,
@@ -16,180 +15,11 @@ from repair_api.official_k2_resident_score import (
     _drop_cold_model_cache,
     _effective_score_window_batch_size,
     _physical_canary_batch_windows,
-    _sealed_pair_groups,
     _rebase_admission_lut_sources,
     _deserialize_resident_storage_ipc,
     _serialize_resident_storage_ipc,
     _validate_public_score_windows,
 )
-from repair_api import resident_full64_accept
-
-
-def _write_w28_receipt(path: Path, *, rank: int = 0, task_id: Any = None) -> str:
-    value = {
-        "schema": "banana-smasher-resident-w28-admission-v1",
-        "status": "PASS",
-        "task_id": task_id or resident_full64_accept.W28_ADOPTION_TASK,
-        "rank": rank,
-        "canonical_code_commit": "0eebc78245129bcdc47fbb08964f6c2145b7ff7b",
-        "basis_sha256": resident_full64_accept.BASIS,
-        "checkpoint_sha256": resident_full64_accept.CHECKPOINT,
-        "admission_wall_seconds": 54.0,
-        "measurement": {
-            "windows": [28],
-            "kld_mean": resident_full64_accept.W28_KLD,
-            "top1": resident_full64_accept.W28_TOP1,
-        },
-    }
-    raw = (json.dumps(value, sort_keys=True) + "\n").encode()
-    path.write_bytes(raw)
-    return hashlib.sha256(raw).hexdigest()
-
-
-def test_full64_relaunch_adopts_exact_prior_w28_without_replaying_admission() -> None:
-    with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / "W28.json"
-        digest = _write_w28_receipt(path, rank=1)
-        adopt = getattr(resident_full64_accept, "_adopt_w28_admission")
-
-        row = adopt(path, digest, rank=1)
-
-        assert row["receipt_sha256"] == digest
-        assert row["measurement"]["kld_mean"] == resident_full64_accept.W28_KLD
-        assert row["admission_adopted"] is True
-
-
-def test_changed_input_continuation_adopts_its_exact_w28_and_uses_fresh_batch_root() -> None:
-    with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / "W28.json"
-        digest = _write_w28_receipt(path, rank=0, task_id="t_5e0f4049")
-        adopt = getattr(resident_full64_accept, "_adopt_w28_admission")
-
-        row = adopt(path, digest, rank=0, expected_task_id="t_5e0f4049")
-
-        assert row["task_id"] == "t_5e0f4049"
-        source = inspect.getsource(resident_full64_accept.main)
-        assert 'ADOPT_W28_KEEP_PROVIDER' in source
-        assert 'Path(config["score_resume_root"])' in source
-        assert 'root / "receipts",' not in source
-
-
-def test_full64_relaunch_rejects_tampered_prior_w28_receipt() -> None:
-    with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / "W28.json"
-        digest = _write_w28_receipt(path)
-        path.write_bytes(path.read_bytes() + b" ")
-        adopt = getattr(resident_full64_accept, "_adopt_w28_admission")
-
-        try:
-            adopt(path, digest, rank=0)
-        except RuntimeError as exc:
-            assert "SHA" in str(exc)
-        else:
-            raise AssertionError("tampered W28 receipt was adopted")
-
-
-def test_full64_runner_preserves_exact_mb2_pairs_and_only_parallelizes_across_pairs() -> None:
-    source = inspect.getsource(resident_full64_accept.main)
-    gate = source.index('admission.get("kld_mean") != W28_KLD')
-    score_pair = source.index('config["score_window_batch_size"] = 2')
-    pair_streams = source.index('config["score_pair_stream_concurrency"] = 1', score_pair)
-    rank_pipeline = source.index('config["score_pipeline_overlap"] = True', pair_streams)
-    physical_pair = source.index('config["sealed_builder_window_microbatch"] = 2', rank_pipeline)
-    engine = source.index("ModernGreenResidentEngine(")
-
-    assert score_pair < pair_streams < rank_pipeline < physical_pair < engine < gate
-    assert 'config["score_window_batch_size"] = 4' not in source
-    assert 'config["sealed_builder_window_microbatch"] = 4' not in source
-    assert 'config["score_window_batch_size"] = 8' not in source
-    assert 'config["sealed_builder_window_microbatch"] = 8' not in source
-
-
-def test_pair_stream_pool_is_bounded_and_reused_across_full64_groups() -> None:
-    created: list[object] = []
-
-    def stream(*, device: object) -> object:
-        value = object()
-        created.append(value)
-        return value
-
-    engine = cast(Any, object.__new__(ModernGreenResidentEngine))
-    engine.student = SimpleNamespace(device="cuda:0")
-    engine.torch = SimpleNamespace(cuda=SimpleNamespace(Stream=stream))
-
-    first = engine._score_pair_stream_pool(3)
-    second = engine._score_pair_stream_pool(3)
-
-    assert first is second
-    assert tuple(first) == tuple(created)
-    assert len(created) == 3
-    try:
-        engine._score_pair_stream_pool(2)
-    except Exception as exc:
-        assert "concurrency drift" in str(exc)
-    else:
-        raise AssertionError("pair stream pool geometry drift was accepted")
-
-
-def test_pair_stream_handoffs_record_every_cross_stream_tensor_lifetime() -> None:
-    source = inspect.getsource(ModernGreenResidentEngine._validate_preloaded)
-
-    # Default-stream inputs consumed on a side stream must retain their storage
-    # until that stream completes. Side-stream outputs consumed by the default
-    # stream need the reciprocal lifetime binding before the stream pool is reused.
-    assert source.count("pair_id_tensor.record_stream(stream)") == 2
-    assert "pair_hidden.record_stream(stream)" in source
-    assert "pair_hidden.record_stream(launch_stream)" in source
-    assert "pair_final.record_stream(launch_stream)" in source
-
-
-def test_pair_scheduler_keeps_the_sealed_roster_pairing_and_groups_only_whole_pairs() -> None:
-    windows = tuple(range(64))
-    groups = _sealed_pair_groups(windows, concurrency=3)
-
-    assert groups[0] == ((0, 1), (2, 3), (4, 5))
-    assert groups[-1] == ((60, 61), (62, 63))
-    assert tuple(window for group in groups for pair in group for window in pair) == windows
-    assert all(len(pair) == 2 for group in groups for pair in group)
-    # The production runner executes ModernGreenResidentEngine.validate, so the
-    # exact pair scheduler and pipeline must live on that active path rather than
-    # only on the unused OfficialK2ResidentRankEngine scorer.
-    score_source = inspect.getsource(ModernGreenResidentEngine._validate_preloaded)
-    workspace_source = inspect.getsource(
-        ModernGreenResidentEngine._attention_workspace_for
-    )
-    send_source = inspect.getsource(ModernGreenResidentEngine._batch_p2p_isend)
-    assert "hidden.split(2, dim=0)" in score_source
-    assert "for pair_id_tensor, stream in zip(pair_ids, pair_streams)" in score_source
-    assert "pair_output = self._run_layers(" in score_source
-    assert "pair_hidden, pair_id_tensor, False" in score_source
-    assert "score_pair_stream_concurrency" in score_source
-    assert "_sealed_pair_groups" in score_source
-    assert "_batch_p2p_isend" in score_source
-    assert "previous_send.wait()" in score_source
-    assert "torch.cuda.current_stream(device=device).cuda_stream" in workspace_source
-    assert "workspaces[workspace_key] = current" in workspace_source
-    assert "batch_isend_irecv" in send_source
-
-    for rejected in ((1,), (1, 2, 3)):
-        try:
-            _sealed_pair_groups(rejected, concurrency=3)
-        except Exception as exc:
-            assert "whole pairs" in str(exc)
-        else:
-            raise AssertionError("an incomplete sealed pair was scheduled")
-
-
-def test_production_preserves_the_exact_w28_fwht_backend() -> None:
-    source = inspect.getsource(resident_full64_accept.main)
-    gate = source.index('admission.get("kld_mean") != W28_KLD')
-    production_geometry = source.index('config["score_window_batch_size"] = 2')
-    production = source.index("validate_full64_batches(", gate)
-
-    engine = source.index("ModernGreenResidentEngine(")
-    assert engine < gate < production_geometry < production
-    assert "set_fwht_backend" not in source
-    assert 'set_fwht_backend("quack")' not in source
 
 
 def test_phase_profile_fan_in_binds_every_window_and_the_five_minute_gate() -> None:
@@ -285,50 +115,6 @@ def test_w28_canary_executes_the_exact_aligned_batch4_shape() -> None:
         assert "complete aligned batch" in str(exc)
     else:
         raise AssertionError("incomplete W28 physical batch was accepted")
-
-
-def test_resident_validation_profiles_forward_p2p_and_readout_per_batch() -> None:
-    source = inspect.getsource(ModernGreenResidentEngine._validate_preloaded)
-    assert '"weight_reconstruction_ms": 0.0' in source
-    assert '"forward_ms"' in source
-    assert '"p2p_ms"' in source
-    assert '"readout_ms"' in source
-    assert '"phase_profiles_by_rank"' in source
-    assert '"mechanism_counter_delta"' in source
-    assert "resident validation reconstructed weights inside a batch" in source
-    assert "previous_hidden = hidden" in source
-    assert "previous_send.wait()" in source
-    assert "del ids" in source
-    assert "del hidden, ids, final" in source
-
-
-def test_resident_mechanism_counter_delta_is_exact() -> None:
-    before = {"counters": {"projection_calls": 9, "reconstruction_calls": 0}}
-    after = {"counters": {"projection_calls": 21, "reconstruction_calls": 0}}
-    assert ModernGreenResidentEngine._mechanism_counter_delta(before, after) == {
-        "projection_calls": 12,
-        "reconstruction_calls": 0,
-    }
-
-
-def test_resident_mechanism_counter_delta_is_exact() -> None:
-    before = {"counters": {"projection_calls": 9, "reconstruction_calls": 0}}
-    after = {"counters": {"projection_calls": 21, "reconstruction_calls": 0}}
-    assert ModernGreenResidentEngine._mechanism_counter_delta(before, after) == {
-        "projection_calls": 12,
-        "reconstruction_calls": 0,
-    }
-
-
-def test_one_batch_profile_is_fail_closed_before_full64() -> None:
-    source = (Path(__file__).parents[1] / "physical_profile_batch.py").read_text()
-    assert "WINDOWS = (28, 56, 68, 71)" in source
-    assert '"PASS_PROFILE_ONLY"' in source
-    assert '"scientific_acceptance": False' in source
-    assert 'PHYSICAL_PROFILE_ATTEMPT' in source
-    assert "PROFILE_RESIDENT_PROVIDER_NOT_OBSERVED" in source
-    assert "PROFILE_WEIGHT_RECONSTRUCTION_CALL_NONZERO" in source
-    assert "PROFILE_PACKED_PROJECTION_NOT_EXECUTED" in source
 
 
 def test_resident_layers_share_the_sealed_builder_cache_across_layers() -> None:

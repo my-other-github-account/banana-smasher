@@ -10,7 +10,11 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from fast_k2_grouped import grouped_k2_stats, grouped_packed_projection
+from fast_k2_grouped import (
+    grouped_k2_stats,
+    grouped_packed_projection,
+    grouped_sealed_gate_up_projection,
+)
 
 EXPERTS = 256
 PACKED_BYTES = 2_097_152
@@ -230,7 +234,17 @@ class FullyResidentGroupedV7Experts(nn.Module):
             .reshape(-1)
         )
         expert_index = top_k_index.reshape(-1).to(torch.int64)
-        route_weight = top_k_weights.reshape(-1, 1).float()
+        authentic_trace = getattr(self, "_authentic_expert_trace", None)
+        if authentic_trace is not None:
+            slot_index = (
+                torch.arange(top_k_index.shape[1], device=top_k_index.device)
+                .unsqueeze(0).expand_as(top_k_index).reshape(-1)
+            )
+            authentic_trace["route_key"] = torch.stack(
+                (expert_index, slot_index, token_index), dim=1,
+            ).detach()
+            authentic_trace["route_weight"] = top_k_weights.reshape(-1).detach()
+        route_weight = top_k_weights.reshape(-1, 1)
         routed_hidden = hidden_states[token_index].contiguous()
         lut_master = self.plane_source.wire_lut().reshape(-1).contiguous()
         if self.trace_enabled:
@@ -241,28 +255,36 @@ class FullyResidentGroupedV7Experts(nn.Module):
         # The sealed DeepseekV4Experts path runs every BF16 linear before its
         # clamp/SwiGLU seam. The grouped kernel accumulates in FP32, so round
         # each projection back to the public layer dtype at the same boundary.
-        gate = self._project(
-            "w1",
-            routed_hidden,
-            expert_index,
-            self.packed_w1,
-            lut_master,
-            self.su_w1,
-            self.sv_w1,
-        )
-        up = self._project(
-            "w3",
-            routed_hidden,
-            expert_index,
-            self.packed_w3,
-            lut_master,
-            self.su_w3,
-            self.sv_w3,
-        )
+        if os.environ.get("FAST_K2_SEALED_FULL_WEIGHT_BF16", "0") == "1":
+            gate, up = grouped_sealed_gate_up_projection(
+                routed_hidden,
+                expert_index,
+                self.packed_w1,
+                self.packed_w3,
+                lut_master,
+                self.su_w1,
+                self.sv_w1,
+                self.su_w3,
+                self.sv_w3,
+            )
+        else:
+            gate = self._project(
+                "w1", routed_hidden, expert_index, self.packed_w1,
+                lut_master, self.su_w1, self.sv_w1,
+            )
+            up = self._project(
+                "w3", routed_hidden, expert_index, self.packed_w3,
+                lut_master, self.su_w3, self.sv_w3,
+            )
         if os.environ.get("FAST_K2_SEALED_NO_SWIGLU_CLAMP", "0") != "1":
             gate = gate.clamp(max=self.limit)
             up = up.clamp(min=-self.limit, max=self.limit)
+        if authentic_trace is not None:
+            authentic_trace["gate"] = gate.detach()
+            authentic_trace["up"] = up.detach()
         activated = self.act(gate) * up
+        if authentic_trace is not None:
+            authentic_trace["activated"] = activated.detach()
         routed_output = self._project(
             "w2",
             activated,
@@ -272,21 +294,24 @@ class FullyResidentGroupedV7Experts(nn.Module):
             self.su_w2,
             self.sv_w2,
         )
-        routed_output = routed_output * route_weight
-        # Mirror JointV7ExpertBase exactly: visit experts in ascending order and
-        # perform one in-place BF16 index_add_ per expert.  A route-slot-wise
-        # out-of-place add has a different CUDA arithmetic boundary.
-        final = torch.zeros_like(hidden_states)
-        for expert_idx in torch.unique(expert_index, sorted=True):
-            expert_mask = expert_index == expert_idx
-            final.index_add_(
-                0,
-                token_index[expert_mask],
-                routed_output[expert_mask].to(final.dtype),
-            )
+        if authentic_trace is not None:
+            authentic_trace["w2_down"] = routed_output.detach()
+        # Match the selected grouped_mm provider's return operator: round each
+        # route weight to the BF16 projection dtype before the single token-major
+        # accumulation, then cast the completed routed tensor to the layer dtype.
+        routed_output = routed_output * route_weight.to(dtype=routed_output.dtype)
+        if authentic_trace is not None:
+            authentic_trace["weighted_routed_output"] = routed_output.detach()
+        # Match transformers/integrations/moe.py:470-474 exactly: restore the
+        # original token/slot geometry and use its FP32-accumulating reduction.
+        # The all-active census proved every weighted row exact and localized
+        # the first difference to resident BF16 index_add_ versus this sum.
+        final = routed_output.view(
+            hidden_states.shape[0], top_k_index.shape[1], hidden_states.shape[-1]
+        ).sum(dim=1)
         self.cpu_relay_bytes += 0
         self.reconstruction_calls += 0
-        return final
+        return final.to(hidden_states.dtype)
 
 
 __all__ = ["FullyResidentGroupedV7Experts"]

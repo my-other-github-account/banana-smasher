@@ -55,9 +55,9 @@ class ResidentApiTests(unittest.TestCase):
             "schema": "repair-artifact-v1",
             "artifact_id": "resident-api-test",
             "identity": {
-                "basis_sha256": "basis" * 16,
-                "builder_eval_corpus_sha256": "builder" * 16,
-                "train_score_corpus_sha256": "train" * 16,
+                "basis_sha256": "b" * 64,
+                "builder_eval_corpus_sha256": "c" * 64,
+                "train_score_corpus_sha256": "d" * 64,
                 "teacher_inventory": ["teacher-v1"],
             },
             "checkpoints": entries,
@@ -94,7 +94,7 @@ class ResidentApiTests(unittest.TestCase):
             second = api.score("UPDATE_016", windows=[28])
             self.assertEqual(len(calls), 2)
             self.assertEqual(first.as_dict()["execution_mode"], "resident_in_memory")
-            self.assertEqual(first.as_dict()["identity"]["basis_sha256"], "basis" * 16)
+            self.assertEqual(first.as_dict()["identity"]["basis_sha256"], "b" * 64)
             self.assertEqual(first.as_dict()["runtime_counters"]["file_reads_during_timed_score"], 0)
             self.assertEqual(first.as_dict()["kld_mean"], second.as_dict()["kld_mean"])
 
@@ -226,8 +226,8 @@ class ResidentApiTests(unittest.TestCase):
                         setattr(scheduler, "epochs", scheduler.epochs + 1),
                     ),
                     "geometry": {"layers": 1, "hidden": 4},
-                    "basis_sha256": "basis" * 16,
-                    "corpus_sha256": "builder" * 16,
+                    "basis_sha256": "b" * 64,
+                    "corpus_sha256": "c" * 64,
                     "seed": 1701,
                 },
             )
@@ -282,8 +282,8 @@ class ResidentApiTests(unittest.TestCase):
                     "scheduler_factory": lambda optimizer: torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _: 1.0),
                     "update_fn": update,
                     "geometry": {"layers": 43},
-                    "basis_sha256": "basis" * 16,
-                    "corpus_sha256": "builder" * 16,
+                    "basis_sha256": "b" * 64,
+                    "corpus_sha256": "c" * 64,
                     "seed": 1701,
                 },
                 total_updates=4,
@@ -331,8 +331,8 @@ class ResidentApiTests(unittest.TestCase):
             with self.assertRaisesRegex(ArtifactError, "model_factory"):
                 api.construct_from_clean_u0(
                     "UPDATE_000_MIDPOINT", "UPDATE_016",
-                    replay={"geometry": {"layers": 1}, "basis_sha256": "basis" * 16,
-                            "corpus_sha256": "builder" * 16, "seed": 1701},
+                    replay={"geometry": {"layers": 1}, "basis_sha256": "b" * 64,
+                            "corpus_sha256": "c" * 64, "seed": 1701},
                 )
 
     def test_two_spark_continuation_requires_explicit_resident_two_rank_config(self) -> None:
@@ -363,7 +363,7 @@ class ResidentApiTests(unittest.TestCase):
                 "layer_split": {0: [0, 20], 1: [21, 42]},
                 "shared_optimizer_scheduler_lineage": "modern-green-u16-lineage",
                 "local_only": True,
-                "basis_sha256": "basis" * 16,
+                "basis_sha256": "b" * 64,
                 "checkpoint_sha256": api.artifact.manifest["checkpoints"]["UPDATE_016"]["sha256"],
                 "resident_model": {"value": 16},
                 "resident_planes": {"layers": [0, 1]},
@@ -402,7 +402,7 @@ class ResidentApiTests(unittest.TestCase):
                 "layer_split": {0: [0, 20], 1: [21, 42]},
                 "shared_optimizer_scheduler_lineage": "modern-green-u16-lineage",
                 "local_only": True,
-                "basis_sha256": "basis" * 16,
+                "basis_sha256": "b" * 64,
                 "checkpoint_sha256": manifest["checkpoints"]["UPDATE_016"]["sha256"],
                 "artifact_root": str(root),
             }
@@ -454,9 +454,9 @@ class ResidentApiTests(unittest.TestCase):
             manifest = {
                 "schema": "repair-artifact-v1", "artifact_id": "materialize-test",
                 "identity": {
-                    "basis_sha256": "basis" * 16,
-                    "builder_eval_corpus_sha256": "builder" * 16,
-                    "train_score_corpus_sha256": "train" * 16,
+                    "basis_sha256": "b" * 64,
+                    "builder_eval_corpus_sha256": "c" * 64,
+                    "train_score_corpus_sha256": "d" * 64,
                     "teacher_inventory": ["teacher-v1"],
                 },
                 "checkpoints": checkpoints,
@@ -538,7 +538,7 @@ class ResidentApiTests(unittest.TestCase):
             "layer_split": {0: [0, 20], 1: [21, 42]},
             "shared_optimizer_scheduler_lineage": "modern-green-u16-lineage",
             "local_only": True, "artifact_root": str(root),
-            "basis_sha256": "basis" * 16,
+            "basis_sha256": "b" * 64,
             "checkpoint_sha256": manifest["checkpoints"]["UPDATE_016"]["sha256"],
         }
         return api, config
