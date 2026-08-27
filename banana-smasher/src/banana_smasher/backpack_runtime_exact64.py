@@ -203,6 +203,8 @@ def _run_backpack_exact64(
     qtip2_v7_shared_lut_path: str | Path | None = None,
     qtip2_v7_member_roster_path: str | Path | None = None,
     mixed_v7_member_contract_path: str | Path | None = None,
+    checkpoint_path: str | Path,
+    checkpoint_sha256: str,
     output_root: str | Path,
     basis_sha256: str,
     expected_windows: int = 64,
@@ -218,6 +220,15 @@ def _run_backpack_exact64(
     model_root = Path(model_root).resolve()
     bank_path = Path(bank_path).resolve()
     teacher_manifest_path = Path(teacher_manifest_path).resolve()
+    checkpoint_path = Path(checkpoint_path).resolve()
+    if (
+        not isinstance(checkpoint_sha256, str)
+        or len(checkpoint_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in checkpoint_sha256)
+        or not checkpoint_path.is_file()
+        or _sha256_file(checkpoint_path) != checkpoint_sha256
+    ):
+        raise ValueError("exact64 checkpoint bytes do not match explicit checkpoint SHA")
     virtual_manifest_path = Path(virtual_manifest_path).resolve()
     materialization_index_path = Path(materialization_index_path).resolve()
     qtip2_root_map_path = (
@@ -419,6 +430,8 @@ def _run_backpack_exact64(
                 "basis_sha256": basis_sha256,
                 "bank_sha256": bank_sha256,
                 "teacher_manifest_sha256": _sha256_file(teacher_manifest_path),
+                "checkpoint_path": str(checkpoint_path),
+                "checkpoint_sha256": checkpoint_sha256,
                 "pack_sha256": pack_sha256,
                 "materialization_index_sha256": _sha256_file(
                     materialization_index_path
@@ -632,6 +645,8 @@ def _run_backpack_exact64(
         "status": "PASS",
         "binding_sha256": binding,
         "basis_sha256": basis_sha256,
+        "checkpoint_path": str(checkpoint_path),
+        "checkpoint_sha256": checkpoint_sha256,
         "bank_sha256": bank_sha256,
         "pack_sha256": pack_sha256,
         "assignment_sha256": virtual_manifest["assignment_map_sha256"],
