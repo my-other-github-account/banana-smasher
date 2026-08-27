@@ -5,6 +5,7 @@ import json
 
 from banana_smasher.provenance_wire import (
     build_full_wire_provenance_ledger,
+    preflight_provenance_physical,
     run_configured_provenance_solve,
     run_full_wire_provenance_solve,
 )
@@ -219,3 +220,39 @@ def test_configured_provenance_solve_filters_tiers_and_hits_exact_cap(tmp_path) 
     assert assignment["exact_envelope"] is True
     assert {row["tier"] for row in assignment["assignments"]} == {"qtip3"}
     assert receipt["whole_model_accounting"]["whole_shipping_bytes"] == 11
+
+
+def test_physical_preflight_durably_refuses_missing_cells(tmp_path) -> None:
+    assignment = tmp_path / "ASSIGNMENT.json"
+    assignment.write_text(json.dumps({
+        "schema": "banana-smasher-provenance-weighted-assignment-v1",
+        "basis_sha256": "a" * 64,
+        "assignments": [
+            {"cell_id": "L000:E000:down", "tier": "qtip3", "bytes": 3},
+            {"cell_id": "L000:E000:fused13", "tier": "qtip2", "bytes": 2},
+        ],
+    }) + "\n")
+    locate = tmp_path / "LOCATE_MANIFEST.json"
+    locate.write_text(json.dumps({
+        "schema": "banana-smasher-mixed-backpack-locate-manifest-v1",
+        "basis_sha256": "a" * 64,
+        "assignment": {"sha256": _sha(assignment)},
+        "rows": [{
+            "cell_id": "L000:E000:down",
+            "layer": 0,
+            "basis_sha256": "a" * 64,
+            "selected_physical_bytes": 3,
+            "status": "ARCHIVED_AUTHORITY_ONLY_NOT_LIVE_LOCATED",
+        }],
+    }) + "\n")
+
+    result = preflight_provenance_physical(
+        assignment, locate, tmp_path / "PHYSICAL_PREFLIGHT.json"
+    )
+
+    assert result["status"] == "REFUSED_MISSING_PHYSICAL"
+    assert result["selected_qtip3_cells"] == 1
+    assert result["live_qtip3_cells"] == 0
+    assert result["missing_qtip3_cells"] == 1
+    assert result["missing_qtip3_bytes"] == 3
+    assert result["missing_by_layer"] == {"L000": 1}

@@ -381,6 +381,13 @@ def _parser() -> argparse.ArgumentParser:
     )
     backpack_provenance.add_argument("--config", type=Path, required=True)
     backpack_provenance.add_argument("--output", type=Path, required=True)
+    backpack_provenance_physical = backpack_commands.add_parser(
+        "preflight-provenance-physical",
+        help="bind a provenance assignment to live basis-exact physical cells",
+    )
+    backpack_provenance_physical.add_argument("--assignment", type=Path, required=True)
+    backpack_provenance_physical.add_argument("--locate-manifest", type=Path, required=True)
+    backpack_provenance_physical.add_argument("--output", type=Path, required=True)
     backpack_bind_physical = backpack_commands.add_parser(
         "bind-mixed-v7-physical",
         help="bind runtime-measured V7 payload/control/shared bytes to sensitivity rows",
@@ -1624,6 +1631,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                         canonical_commit_sha=args.canonical_commit_sha,
                     ),
                     "command": "backpack prepare-mixed-transaction",
+                }
+            elif args.backpack_command == "preflight-provenance-physical":
+                from .provenance_wire import preflight_provenance_physical
+
+                result = {
+                    **preflight_provenance_physical(
+                        args.assignment, args.locate_manifest, args.output
+                    ),
+                    "command": "backpack preflight-provenance-physical",
                 }
             elif args.backpack_command == "stage-mixed-v7-members":
                 from .mixed_transaction import stage_mixed_v7_member_index

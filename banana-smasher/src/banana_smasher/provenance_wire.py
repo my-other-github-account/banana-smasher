@@ -40,6 +40,90 @@ def _atomic_write(path: Path, raw: bytes) -> None:
             os.unlink(temporary)
 
 
+def preflight_provenance_physical(
+    assignment_path: str | Path,
+    locate_manifest_path: str | Path,
+    output_path: str | Path,
+) -> dict[str, Any]:
+    """Bind a provenance solve to live physical cells, refusing gaps durably."""
+
+    assignment_file = Path(assignment_path).expanduser().resolve()
+    locate_file = Path(locate_manifest_path).expanduser().resolve()
+    destination = Path(output_path).expanduser().resolve()
+    assignment_raw = assignment_file.read_bytes()
+    locate_raw = locate_file.read_bytes()
+    assignment = json.loads(assignment_raw)
+    locate = json.loads(locate_raw)
+    if assignment.get("schema") != "banana-smasher-provenance-weighted-assignment-v1":
+        raise ValueError("provenance physical preflight assignment schema mismatch")
+    if locate.get("schema") != "banana-smasher-mixed-backpack-locate-manifest-v1":
+        raise ValueError("provenance physical preflight locate schema mismatch")
+    basis = assignment.get("basis_sha256")
+    if locate.get("basis_sha256") != basis:
+        raise ValueError("provenance physical preflight basis mismatch")
+    descriptor = locate.get("assignment")
+    if not isinstance(descriptor, dict) or descriptor.get("sha256") != _sha256(assignment_raw):
+        raise ValueError("provenance physical preflight assignment descriptor mismatch")
+
+    selected = {
+        str(row["cell_id"]): row
+        for row in assignment.get("assignments", [])
+        if isinstance(row, dict) and row.get("tier") == "qtip3"
+    }
+    located = {
+        str(row["cell_id"]): row
+        for row in locate.get("rows", [])
+        if isinstance(row, dict)
+    }
+    if set(selected) != set(located):
+        raise ValueError("provenance physical preflight selected-cell coverage mismatch")
+    live_statuses = {
+        "LIVE_BASIS_EXACT_PRIOR_MATERIALIZED_WIRE",
+        "LIVE_BASIS_EXACT_PUBLIC_API",
+        "LIVE_BASIS_EXACT_QTIP_UNIT",
+    }
+    missing: list[dict[str, Any]] = []
+    live = 0
+    for cell_id, option in sorted(selected.items()):
+        row = located[cell_id]
+        if row.get("basis_sha256") != basis:
+            raise ValueError(f"provenance physical preflight row basis mismatch: {cell_id}")
+        if row.get("selected_physical_bytes") != option.get("bytes"):
+            raise ValueError(f"provenance physical preflight byte mismatch: {cell_id}")
+        if row.get("status") not in live_statuses:
+            missing.append({
+                "cell_id": cell_id,
+                "layer": row.get("layer"),
+                "bytes": row.get("selected_physical_bytes"),
+                "status": row.get("status"),
+                "authority": row.get("authority"),
+            })
+        else:
+            live += 1
+    by_layer: dict[str, int] = {}
+    for row in missing:
+        key = f"L{int(row['layer']):03d}"
+        by_layer[key] = by_layer.get(key, 0) + 1
+    document = {
+        "schema": "banana-smasher-provenance-physical-preflight-v1",
+        "status": "PASS_ADMISSION_READY" if not missing else "REFUSED_MISSING_PHYSICAL",
+        "basis_sha256": basis,
+        "assignment": _descriptor(assignment_file, assignment_raw),
+        "locate_manifest": _descriptor(locate_file, locate_raw),
+        "selected_qtip3_cells": len(selected),
+        "live_qtip3_cells": live,
+        "missing_qtip3_cells": len(missing),
+        "missing_qtip3_bytes": sum(int(row["bytes"]) for row in missing),
+        "missing_by_layer": by_layer,
+        "missing": missing,
+    }
+    if destination.exists():
+        raise FileExistsError("refusing to overwrite provenance physical preflight")
+    raw = _canonical(document)
+    _atomic_write(destination, raw)
+    return {**document, "output": _descriptor(destination, raw)}
+
+
 def build_full_wire_provenance_ledger(
     provenance_option_ledger: str | Path,
     full_wire_option_ledger: str | Path,
