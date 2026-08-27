@@ -580,6 +580,48 @@ def test_official_expert_binding_loads_its_pinned_grouped_dependency_first(monke
     assert sys.modules["fast_k2_grouped"] is trainer_grouped
 
 
+def test_official_expert_binding_uses_authenticated_prebuilt_extension(monkeypatch, tmp_path: Path):
+    expert = tmp_path / "expert.py"
+    wrapper = tmp_path / "grouped.py"
+    extension = tmp_path / "banana_fast_k2.so"
+    expert.write_text("# expert\n")
+    wrapper.write_text("# grouped\n")
+    extension.write_bytes(b"prebuilt-extension")
+
+    def digest(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    calls = []
+    monkeypatch.setattr(
+        continuation_module,
+        "_load_source_module",
+        lambda name, path: calls.append((name, path)) or name,
+    )
+    monkeypatch.delenv("FAST_K2_EXTENSION", raising=False)
+    monkeypatch.delenv("FAST_K2_EXTENSION_SHA256", raising=False)
+    monkeypatch.delenv("FAST_K2_MODULE_NAME", raising=False)
+
+    assert _bind_official_expert_source(
+        {
+            "resident_expert_source": str(expert),
+            "resident_expert_source_sha256": digest(expert),
+            "fast_k2_wrapper_source": str(wrapper),
+            "fast_k2_wrapper_source_sha256": digest(wrapper),
+            "fast_k2_extension": str(extension),
+            "fast_k2_extension_sha256": digest(extension),
+            "fast_k2_module_name": "banana_fast_k2_test",
+        }
+    ) == "fast_v7_expert_base"
+
+    assert calls == [
+        ("fast_k2_grouped", wrapper.resolve()),
+        ("fast_v7_expert_base", expert.resolve()),
+    ]
+    assert os.environ["FAST_K2_EXTENSION"] == str(extension.resolve())
+    assert os.environ["FAST_K2_EXTENSION_SHA256"] == digest(extension)
+    assert os.environ["FAST_K2_MODULE_NAME"] == "banana_fast_k2_test"
+
+
 def test_score_configuration_forces_a1_eager_attention(monkeypatch):
     monkeypatch.setenv("BR_ATTN_IMPL", "sdpa")
     engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)

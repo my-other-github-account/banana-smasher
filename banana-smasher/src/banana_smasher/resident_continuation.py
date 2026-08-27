@@ -542,9 +542,28 @@ def _bind_official_expert_source(config: Mapping[str, Any] | None = None) -> Any
         else _official_expert_source_path(config)
     )
     runner = source.parent
+    grouped_source = runner / "fast_k2_grouped.py"
+    if config is not None and config.get("fast_k2_wrapper_source"):
+        grouped_source = Path(str(config["fast_k2_wrapper_source"])).expanduser().resolve()
+        grouped_sha = config.get("fast_k2_wrapper_source_sha256")
+        if not isinstance(grouped_sha, str) or len(grouped_sha) != 64:
+            raise ArtifactError("grouped-K2 wrapper source SHA is required")
+        _require_file(grouped_source, grouped_sha, "grouped-K2 wrapper source")
+    if config is not None and config.get("fast_k2_extension"):
+        extension = Path(str(config["fast_k2_extension"])).expanduser().resolve()
+        extension_sha = config.get("fast_k2_extension_sha256")
+        if not isinstance(extension_sha, str) or len(extension_sha) != 64:
+            raise ArtifactError("grouped-K2 prebuilt extension SHA is required")
+        _require_file(extension, extension_sha, "grouped-K2 prebuilt extension")
+        module_name = config.get("fast_k2_module_name")
+        if not isinstance(module_name, str) or not module_name.isidentifier():
+            raise ArtifactError("grouped-K2 prebuilt extension module name is required")
+        os.environ["FAST_K2_EXTENSION"] = str(extension)
+        os.environ["FAST_K2_EXTENSION_SHA256"] = extension_sha
+        os.environ["FAST_K2_MODULE_NAME"] = module_name
     previous = sys.modules.get("fast_k2_grouped")
     try:
-        _load_source_module("fast_k2_grouped", runner / "fast_k2_grouped.py")
+        _load_source_module("fast_k2_grouped", grouped_source)
         return _load_source_module("fast_v7_expert_base", source)
     finally:
         if previous is None:
