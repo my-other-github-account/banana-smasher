@@ -145,6 +145,8 @@ def test_public_docs_show_the_general_hf_moe_plan_call() -> None:
     worked = (repository / "WORKED_EXAMPLE.md").read_text(encoding="utf-8")
 
     assert "Python 3.11 or newer" in readme
+    assert "Start with `CODEBASE_MAP.md`" not in readme
+    assert "WORKED_EXAMPLE.md" in readme
     assert "plan_hf_moe_uniform(" in worked
     assert "preflight_hf_moe_output_fit(" in worked
     assert "estimate_hf_moe_uniform(" in worked
