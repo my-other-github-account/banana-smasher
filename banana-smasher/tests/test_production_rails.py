@@ -91,6 +91,7 @@ def _base_config() -> dict:
         "layers": list(ALL_LAYERS),
         "uniform_builder": "test_production_rails:fixture_builder",
         "backpack_mixer": "test_production_rails:fixture_mixer",
+
         "allowed_artifacts": {
             _sha("placeholder"): {
                 "basis_sha256": _sha("basis"),
@@ -159,7 +160,8 @@ def _artifact(root: Path, provider_binding_sha256: str) -> BackpackArtifact:
         "composition": {
             "kind": "mixed-qtip-v7-backpack",
             "layers": [
-                {"layer": layer, "tiers": {"qtip2_v7": 512}} for layer in ALL_LAYERS
+                {"layer": layer, "tiers": {"qtip2_v7": 512}}
+                for layer in ALL_LAYERS
             ],
         },
         "canary": {
@@ -167,7 +169,9 @@ def _artifact(root: Path, provider_binding_sha256: str) -> BackpackArtifact:
             "tolerance": {"kld_abs": 0.0, "top1_abs": 0},
         },
         "runtime": {
-            "production_rails": {"provider_binding_sha256": provider_binding_sha256}
+            "production_rails": {
+                "provider_binding_sha256": provider_binding_sha256
+            }
         },
     }
     (root / "identity.json").write_text(json.dumps(document, sort_keys=True))
@@ -185,9 +189,7 @@ def _admit(config: dict, artifact: BackpackArtifact) -> None:
         artifact.identity.sha256: {
             "basis_sha256": artifact.identity.basis_sha256,
             "checkpoint": "UPDATE_000",
-            "artifact_manifest_sha256": hashlib.sha256(
-                manifest.read_bytes()
-            ).hexdigest(),
+            "artifact_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
             "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
         }
     }
@@ -199,9 +201,7 @@ def test_production_rails_one_construction_across_score_updates_swap_and_post(
     FixtureSession.constructions = 0
     monkeypatch.setattr(production_rails, "_ProvenSession", FixtureSession)
     monkeypatch.setattr(
-        ProductionRails,
-        "_require_live_checkpoint_bytes",
-        staticmethod(lambda *args: None),
+        ProductionRails, "_require_live_checkpoint_bytes", staticmethod(lambda *args: None)
     )
     config = _base_config()
     artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
@@ -302,9 +302,7 @@ def test_one_window_resident_score_matches_sealed_fixture_oracle(tmp_path):
 
     artifact = RepairArtifact.open(root)
     file_result = artifact.score("UPDATE_000", windows=(0,), loader=loader)
-    resident_result = artifact.score_in_memory(
-        "UPDATE_000", windows=(0,), loader=loader
-    )
+    resident_result = artifact.score_in_memory("UPDATE_000", windows=(0,), loader=loader)
     assert file_result.kld == resident_result.kld == 0.0
     assert file_result.top1 == resident_result.top1 == 1024
     assert file_result.positions == resident_result.positions == 1024
@@ -363,7 +361,9 @@ def test_continuation_geometry_is_sealed_to_pipeline_microbatch_four():
         [32, 33, 34, 35],
     ]
     with pytest.raises(ArtifactError, match="geometry"):
-        _window_microbatches({"windows_per_update": 16, "pipeline_microbatch": 2}, 16)
+        _window_microbatches(
+            {"windows_per_update": 16, "pipeline_microbatch": 2}, 16
+        )
 
 
 def test_artifact_admission_binds_manifest_and_checkpoint_bytes(tmp_path):
@@ -394,10 +394,7 @@ def test_public_session_defaults_checkpoint_lut_materialization_inside_run_root(
         artifact = type(
             "Artifact",
             (),
-            {
-                "windows": tuple(range(64)),
-                "manifest": {"checkpoints": {"UPDATE_000": {"next_update": 0}}},
-            },
+            {"windows": tuple(range(64)), "manifest": {"checkpoints": {"UPDATE_000": {"next_update": 0}}}},
         )()
 
     def construct(api, binding, config):
@@ -405,9 +402,7 @@ def test_public_session_defaults_checkpoint_lut_materialization_inside_run_root(
         observed.update(config)
         return object()
 
-    monkeypatch.setattr(
-        production_rails._ProvenResidentAPI, "open", lambda root: FakeProvenAPI()
-    )
+    monkeypatch.setattr(production_rails._ProvenResidentAPI, "open", lambda root: FakeProvenAPI())
     monkeypatch.setattr(production_rails, "_construct_resident_engine", construct)
     config = _base_config()
     artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
@@ -420,18 +415,14 @@ def test_public_session_defaults_checkpoint_lut_materialization_inside_run_root(
             basis_sha256=artifact.identity.basis_sha256,
             checkpoint="UPDATE_000",
             score_checkpoints={"pre": "UPDATE_000"},
-            artifact_manifest_sha256=hashlib.sha256(
-                (artifact.root / "ARTIFACT.json").read_bytes()
-            ).hexdigest(),
+            artifact_manifest_sha256=hashlib.sha256((artifact.root / "ARTIFACT.json").read_bytes()).hexdigest(),
             checkpoint_sha256=artifact.checkpoint_sha256,
         ),
         continuation_config={},
         receipt_root=receipt_root,
     )
 
-    assert observed["checkpoint_lut_root"] == str(
-        (receipt_root / "checkpoint-luts").resolve()
-    )
+    assert observed["checkpoint_lut_root"] == str((receipt_root / "checkpoint-luts").resolve())
 
 
 def test_resident_score_normalizes_authenticated_checkpoint_alias(
@@ -528,15 +519,10 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
             self.artifact = type(
                 "Artifact",
                 (),
-                {
-                    "windows": tuple(range(64)),
-                    "manifest": {"checkpoints": {"UPDATE_000": {"next_update": 0}}},
-                },
+                {"windows": tuple(range(64)), "manifest": {"checkpoints": {"UPDATE_000": {"next_update": 0}}}},
             )()
 
-        def advance_resident_engine(
-            self, engine, start_checkpoint, target_update, **kwargs
-        ):
+        def advance_resident_engine(self, engine, start_checkpoint, target_update, **kwargs):
             del start_checkpoint
             self.advance_kwargs = kwargs
             engine.update = target_update
@@ -548,18 +534,14 @@ def test_default_provider_reuses_one_physical_engine_and_scores_trained_state(
 
     fake_api = FakeProvenAPI()
     FakeEngine.constructions = 0
-    monkeypatch.setattr(
-        production_rails._ProvenResidentAPI, "open", lambda root: fake_api
-    )
+    monkeypatch.setattr(production_rails._ProvenResidentAPI, "open", lambda root: fake_api)
     monkeypatch.setattr(
         production_rails,
         "_construct_resident_engine",
         lambda api, binding, config: FakeEngine(),
     )
     monkeypatch.setattr(
-        ProductionRails,
-        "_require_live_checkpoint_bytes",
-        staticmethod(lambda *args: None),
+        ProductionRails, "_require_live_checkpoint_bytes", staticmethod(lambda *args: None)
     )
     monkeypatch.setattr(ArtifactIdentity, "require_canary", lambda self, **kwargs: None)
     config = _base_config()
@@ -627,7 +609,9 @@ def test_production_config_rejects_session_factory_bypass(tmp_path):
         "reload_path",
     ),
 )
-def test_production_config_rejects_notification_and_slow_path_controls(tmp_path, field):
+def test_production_config_rejects_notification_and_slow_path_controls(
+    tmp_path, field
+):
     config = _base_config()
     config[field] = "callable-or-path"
     with pytest.raises(ProductionRailsError, match=field):

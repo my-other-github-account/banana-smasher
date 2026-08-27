@@ -4,7 +4,6 @@ The provider is deliberately configuration-bound: executable hooks and every
 accepted artifact identity live in one SHA-pinned document.  An artifact not in
 that document cannot be loaded, swapped, scored, or trained.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -78,9 +77,7 @@ def _callable(reference: object, field: str) -> Callable[..., Any]:
 
 
 def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
-    payload = (
-        json.dumps(dict(value), indent=2, sort_keys=True, allow_nan=False) + "\n"
-    ).encode()
+    payload = (json.dumps(dict(value), indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
@@ -152,9 +149,7 @@ def _construct_resident_engine(
     """Construct the one physical model owned by a resident arm session."""
     method = getattr(api, "construct_resident_engine", None)
     if not callable(method):
-        raise ProductionRailsError(
-            "resident implementation cannot construct a physical engine"
-        )
+        raise ProductionRailsError("resident implementation cannot construct a physical engine")
     options = dict(config)
     for field, expected in (
         ("basis_sha256", binding.basis_sha256),
@@ -220,9 +215,7 @@ class _ProvenSession:
     def score(self, phase: str) -> Mapping[str, Any]:
         method = getattr(self.engine, "score_balanced64", None)
         if not callable(method):
-            raise ProductionRailsError(
-                "physical resident engine cannot score in memory"
-            )
+            raise ProductionRailsError("physical resident engine cannot score in memory")
         raw_result: Any = method(self.api.artifact.windows)
         result: dict[str, Any] = dict(raw_result)
         scored_checkpoint = result.get("checkpoint")
@@ -246,43 +239,29 @@ class _ProvenSession:
             try:
                 self._pre_kld = float(result["mean_kld"])
             except (KeyError, TypeError, ValueError) as exc:
-                raise ProductionRailsError(
-                    "resident pre-score lacks a loss-guard baseline"
-                ) from exc
+                raise ProductionRailsError("resident pre-score lacks a loss-guard baseline") from exc
         return result
 
     def train(self, updates: int) -> Mapping[str, Any]:
         if updates == 0:
             return {"updates": 0, "checkpoint": self.binding.checkpoint}
         try:
-            start_update = int(
-                self.api.artifact.manifest["checkpoints"][self.binding.checkpoint][
-                    "next_update"
-                ]
-            )
+            start_update = int(self.api.artifact.manifest["checkpoints"][self.binding.checkpoint]["next_update"])
         except (KeyError, TypeError, ValueError) as exc:
-            raise ProductionRailsError(
-                "selected checkpoint has no integer next_update"
-            ) from exc
+            raise ProductionRailsError("selected checkpoint has no integer next_update") from exc
         target = start_update + updates
         config = dict(self.continuation_config)
         rank = self.continuation_config.get("rank")
         rank_suffix = f".rank{rank}" if rank in (0, 1) else ""
         if self._pre_kld is None:
-            raise ProductionRailsError(
-                "resident training requires a measured pre-score baseline"
-            )
+            raise ProductionRailsError("resident training requires a measured pre-score baseline")
         method = getattr(self.api, "advance_resident_engine", None)
         if not callable(method):
-            raise ProductionRailsError(
-                "resident implementation cannot advance the live engine"
-            )
+            raise ProductionRailsError("resident implementation cannot advance the live engine")
         interval = int(config["heldout_validation_interval"])
         patience = int(config["heldout_kill_patience"])
         if interval != 4:
-            raise ProductionRailsError(
-                "validated resident recipe requires four-update boundaries"
-            )
+            raise ProductionRailsError("validated resident recipe requires four-update boundaries")
         previous_kld = self._pre_kld
         streak = 0
         boundaries: list[dict[str, Any]] = []
@@ -294,7 +273,9 @@ class _ProvenSession:
             receipt = self.receipt_root / (
                 f"CONTINUATION_U{current:03d}_U{boundary:03d}{rank_suffix}.json"
             )
-            loss_guard_receipt = receipt.with_name(f"{receipt.stem}.LOSS_GUARD.json")
+            loss_guard_receipt = receipt.with_name(
+                f"{receipt.stem}.LOSS_GUARD.json"
+            )
             result = method(
                 self.engine,
                 self.binding.checkpoint,
@@ -307,9 +288,7 @@ class _ProvenSession:
             checkpoint = result.get("checkpoint")
             checkpoint_sha = result.get("checkpoint_sha256")
             if not isinstance(checkpoint, str) or not isinstance(checkpoint_sha, str):
-                raise ProductionRailsError(
-                    "resident training did not return a bound checkpoint"
-                )
+                raise ProductionRailsError("resident training did not return a bound checkpoint")
             self.binding = _ArtifactBinding(
                 identity_sha256=self.binding.identity_sha256,
                 basis_sha256=self.binding.basis_sha256,
@@ -326,9 +305,7 @@ class _ProvenSession:
             try:
                 current_kld = float(validation["mean_kld"])
             except (KeyError, TypeError, ValueError) as exc:
-                raise ProductionRailsError(
-                    "held-out boundary score lacks mean_kld"
-                ) from exc
+                raise ProductionRailsError("held-out boundary score lacks mean_kld") from exc
             decision = _heldout_decision(
                 previous_kld, current_kld, streak, patience=patience
             )
@@ -406,9 +383,7 @@ class ProductionRails:
         if isinstance(config, Mapping):
             self.config_path = None
             self.config = dict(config)
-            encoded = json.dumps(
-                self.config, sort_keys=True, separators=(",", ":")
-            ).encode()
+            encoded = json.dumps(self.config, sort_keys=True, separators=(",", ":")).encode()
             self.config_sha256 = hashlib.sha256(encoded).hexdigest()
         else:
             self.config_path = Path(config).expanduser().resolve()
@@ -416,13 +391,9 @@ class ProductionRails:
                 raw = self.config_path.read_bytes()
                 value = json.loads(raw)
             except (OSError, ValueError) as exc:
-                raise ProductionRailsError(
-                    f"cannot read production rails config: {exc}"
-                ) from exc
+                raise ProductionRailsError(f"cannot read production rails config: {exc}") from exc
             if not isinstance(value, Mapping):
-                raise ProductionRailsError(
-                    "production rails config root must be an object"
-                )
+                raise ProductionRailsError("production rails config root must be an object")
             self.config = dict(value)
             self.config_sha256 = hashlib.sha256(raw).hexdigest()
         self._validate_config()
@@ -465,11 +436,7 @@ class ProductionRails:
 
     @classmethod
     def from_file(
-        cls,
-        config: str | Path,
-        *,
-        run_root: str | Path,
-        clock: Callable[[], float] = time.monotonic,
+        cls, config: str | Path, *, run_root: str | Path, clock: Callable[[], float] = time.monotonic
     ) -> "ProductionRails":
         return cls(config, run_root=run_root, clock=clock)
 
@@ -480,30 +447,20 @@ class ProductionRails:
                 f"production resident rail forbids slowness control {forbidden}"
             )
         if self.config.get("schema") != PRODUCTION_RAILS_SCHEMA:
-            raise ProductionRailsError(
-                f"production rails schema must be {PRODUCTION_RAILS_SCHEMA}"
-            )
+            raise ProductionRailsError(f"production rails schema must be {PRODUCTION_RAILS_SCHEMA}")
         if self.config.get("pipeline_microbatch") != PIPELINE_MICROBATCH:
-            raise ProductionRailsError(
-                "production rails require sealed PIPELINE_MICROBATCH=4"
-            )
+            raise ProductionRailsError("production rails require sealed PIPELINE_MICROBATCH=4")
         layers = self.config.get("layers")
         if layers != list(ALL_LAYERS):
-            raise ProductionRailsError(
-                "production rails must declare generic ordered layers 0..42"
-            )
+            raise ProductionRailsError("production rails must declare generic ordered layers 0..42")
         if "session_factory" in self.config:
             raise ProductionRailsError("production session_factory is forbidden")
         for field in ("uniform_builder", "backpack_mixer"):
             if field not in self.config:
-                raise ProductionRailsError(
-                    f"production rails config is missing {field}"
-                )
+                raise ProductionRailsError(f"production rails config is missing {field}")
         allowed = self.config.get("allowed_artifacts")
         if not isinstance(allowed, Mapping) or not allowed:
-            raise ProductionRailsError(
-                "production rails require a non-empty allowed_artifacts map"
-            )
+            raise ProductionRailsError("production rails require a non-empty allowed_artifacts map")
         for identity_sha, row in allowed.items():
             if (
                 not isinstance(identity_sha, str)
@@ -514,9 +471,7 @@ class ProductionRails:
                 or not isinstance(row.get("artifact_manifest_sha256"), str)
                 or not isinstance(row.get("checkpoint_sha256"), str)
             ):
-                raise ProductionRailsError(
-                    "allowed_artifacts contains an invalid identity binding"
-                )
+                raise ProductionRailsError("allowed_artifacts contains an invalid identity binding")
 
     def _publish(self, event: str, **fields: Any) -> None:
         row = {
@@ -553,15 +508,15 @@ class ProductionRails:
         _atomic_json(self.lifecycle_path, payload)
         if self._rank is not None:
             rank_paths = [
-                self.run_root / f"RESIDENT_LIFECYCLE.rank{rank}.json" for rank in (0, 1)
+                self.run_root / f"RESIDENT_LIFECYCLE.rank{rank}.json"
+                for rank in (0, 1)
             ]
             if all(path.is_file() for path in rank_paths):
                 rows = [json.loads(path.read_text()) for path in rank_paths]
                 if any(
                     row.get("rank") != rank
                     or row.get("status") != "PASS"
-                    or row.get("provider_binding_sha256")
-                    != self.provider_binding_sha256
+                    or row.get("provider_binding_sha256") != self.provider_binding_sha256
                     or row.get("counts") != complete_counts
                     for rank, row in enumerate(rows)
                 ):
@@ -590,27 +545,17 @@ class ProductionRails:
                 "artifact identity bytes are unreadable or invalid"
             ) from exc
         if current_identity.sha256 != artifact.identity.sha256:
-            raise ProductionRailsError(
-                "artifact identity.json bytes changed after selection"
-            )
+            raise ProductionRailsError("artifact identity.json bytes changed after selection")
         runtime = artifact.identity.runtime.get("production_rails")
         if not isinstance(runtime, Mapping):
-            raise ProductionRailsError(
-                "artifact identity has no production_rails binding"
-            )
+            raise ProductionRailsError("artifact identity has no production_rails binding")
         if runtime.get("provider_binding_sha256") != self.provider_binding_sha256:
-            raise ProductionRailsError(
-                "artifact production_rails provider identity mismatch"
-            )
+            raise ProductionRailsError("artifact production_rails provider identity mismatch")
         raw = self.config["allowed_artifacts"].get(artifact.identity.sha256)
         if not isinstance(raw, Mapping):
-            raise ProductionRailsError(
-                "unknown artifact identity; refusing resident operation"
-            )
+            raise ProductionRailsError("unknown artifact identity; refusing resident operation")
         if raw.get("basis_sha256") != artifact.identity.basis_sha256:
-            raise ProductionRailsError(
-                "artifact basis does not match pinned provider binding"
-            )
+            raise ProductionRailsError("artifact basis does not match pinned provider binding")
         if (
             self._active is not None
             and self._active_binding is not None
@@ -625,9 +570,7 @@ class ProductionRails:
         if not manifest_path.is_file() or _sha256(manifest_path) != raw.get(
             "artifact_manifest_sha256"
         ):
-            raise ProductionRailsError(
-                "artifact ARTIFACT.json bytes do not match pinned binding"
-            )
+            raise ProductionRailsError("artifact ARTIFACT.json bytes do not match pinned binding")
         try:
             manifest = json.loads(manifest_path.read_text())
             checkpoint_row = manifest["checkpoints"][raw["checkpoint"]]
@@ -636,17 +579,13 @@ class ProductionRails:
             ).resolve()
             checkpoint_path.relative_to(artifact.root.resolve())
         except (OSError, ValueError, KeyError, TypeError) as exc:
-            raise ProductionRailsError(
-                "artifact checkpoint binding is invalid"
-            ) from exc
+            raise ProductionRailsError("artifact checkpoint binding is invalid") from exc
         if (
             not checkpoint_path.is_file()
             or checkpoint_row.get("sha256") != raw.get("checkpoint_sha256")
             or _sha256(checkpoint_path) != raw.get("checkpoint_sha256")
         ):
-            raise ProductionRailsError(
-                "artifact checkpoint bytes do not match pinned binding"
-            )
+            raise ProductionRailsError("artifact checkpoint bytes do not match pinned binding")
         layers = [row.get("layer") for row in artifact.identity.composition]
         if layers != list(ALL_LAYERS):
             raise ProductionRailsError(
@@ -662,9 +601,7 @@ class ProductionRails:
             identity_sha256=artifact.identity.sha256,
             basis_sha256=artifact.identity.basis_sha256,
             checkpoint=str(raw["checkpoint"]),
-            score_checkpoints={
-                str(key): str(value) for key, value in checkpoints.items()
-            },
+            score_checkpoints={str(key): str(value) for key, value in checkpoints.items()},
             artifact_manifest_sha256=str(raw["artifact_manifest_sha256"]),
             checkpoint_sha256=str(raw["checkpoint_sha256"]),
         )
@@ -674,16 +611,12 @@ class ProductionRails:
         artifact: BackpackArtifact, binding: _ArtifactBinding
     ) -> None:
         try:
-            manifest = json.loads(
-                (artifact.root.resolve() / "ARTIFACT.json").read_text()
-            )
+            manifest = json.loads((artifact.root.resolve() / "ARTIFACT.json").read_text())
             row = manifest["checkpoints"][binding.checkpoint]
             checkpoint_path = (artifact.root.resolve() / Path(row["path"])).resolve()
             checkpoint_path.relative_to(artifact.root.resolve())
         except (OSError, ValueError, KeyError, TypeError) as exc:
-            raise ProductionRailsError(
-                "live resident checkpoint binding is invalid"
-            ) from exc
+            raise ProductionRailsError("live resident checkpoint binding is invalid") from exc
         if (
             not checkpoint_path.is_file()
             or row.get("sha256") != binding.checkpoint_sha256
@@ -694,18 +627,13 @@ class ProductionRails:
             )
 
     def build_uniform(self, model: Path, tier: str, output: Path) -> str | Path:
-        return self._builder(
-            model=model, tier=tier, output=output, config=dict(self.config)
-        )
+        return self._builder(model=model, tier=tier, output=output, config=dict(self.config))
 
     def mix(
         self, builds: Sequence[UniformBuild], bpw_target: float, output: Path
     ) -> str | Path:
         return self._mixer(
-            builds=tuple(builds),
-            bpw_target=float(bpw_target),
-            output=output,
-            config=dict(self.config),
+            builds=tuple(builds), bpw_target=float(bpw_target), output=output, config=dict(self.config)
         )
 
     def load_resident(self, artifact: BackpackArtifact) -> None:
@@ -723,9 +651,7 @@ class ProductionRails:
         self._counts["model_constructions"] += 1
         self._counts["resident_loads"] += 1
         self._phase_state = "loaded"
-        self._publish(
-            "model_constructed", artifact_identity_sha256=artifact.identity.sha256
-        )
+        self._publish("model_constructed", artifact_identity_sha256=artifact.identity.sha256)
 
     def hot_swap(self, artifact: BackpackArtifact) -> None:
         if self._session is None:
@@ -733,19 +659,13 @@ class ProductionRails:
         binding = self._binding(artifact)
         method = getattr(self._session, "hot_swap", None)
         if not callable(method):
-            raise ProductionRailsError(
-                "resident session does not implement in-memory hot_swap"
-            )
+            raise ProductionRailsError("resident session does not implement in-memory hot_swap")
         method(artifact, binding)
         self._active = artifact
         live_binding = getattr(self._session, "binding", binding)
-        self._active_binding = (
-            live_binding if isinstance(live_binding, _ArtifactBinding) else binding
-        )
+        self._active_binding = live_binding if isinstance(live_binding, _ArtifactBinding) else binding
         self._counts["hot_swaps"] += 1
-        self._publish(
-            "checkpoint_hot_swap", artifact_identity_sha256=artifact.identity.sha256
-        )
+        self._publish("checkpoint_hot_swap", artifact_identity_sha256=artifact.identity.sha256)
 
     def score(self, artifact: BackpackArtifact, phase: str) -> Mapping[str, Any]:
         if self._session is None or self._active is None:
@@ -764,9 +684,7 @@ class ProductionRails:
             or binding.identity_sha256 != self._active_binding.identity_sha256
             or binding.basis_sha256 != self._active_binding.basis_sha256
         ):
-            raise ProductionRailsError(
-                "score artifact is not the active pinned checkpoint"
-            )
+            raise ProductionRailsError("score artifact is not the active pinned checkpoint")
         method = getattr(self._session, "score", None)
         if not callable(method):
             raise ProductionRailsError("resident session does not implement score")
@@ -778,9 +696,7 @@ class ProductionRails:
             counters = result["runtime_counters"]
             scored_checkpoint = result["checkpoint"]
         except (KeyError, TypeError, ValueError) as exc:
-            raise ProductionRailsError(
-                "resident scorer returned an incomplete full64 receipt"
-            ) from exc
+            raise ProductionRailsError("resident scorer returned an incomplete full64 receipt") from exc
         if not math.isfinite(kld):
             raise ProductionRailsError("resident scorer returned non-finite KLD")
         if (
@@ -792,9 +708,7 @@ class ProductionRails:
             or counters.get("candidate_file_reads_during_score") != 0
             or scored_checkpoint != binding.checkpoint
         ):
-            raise ProductionRailsError(
-                "resident scorer did not prove physical full64 execution"
-            )
+            raise ProductionRailsError("resident scorer did not prove physical full64 execution")
         score_attempt = {
             "schema": "banana-smasher-resident-score-attempt-v1",
             "status": "MEASURED_UNACCEPTED",
@@ -840,28 +754,26 @@ class ProductionRails:
     def train(self, artifact: BackpackArtifact, updates: int) -> Mapping[str, Any]:
         if self._session is None or self._active is None:
             raise ProductionRailsError("train requires a resident model/session")
-        if isinstance(updates, bool) or not isinstance(updates, int) or updates <= 0:
+        if (
+            isinstance(updates, bool)
+            or not isinstance(updates, int)
+            or updates <= 0
+        ):
             raise ProductionRailsError(
                 "production resident repair requires a positive update count"
             )
         if self._phase_state != "pre_scored":
-            raise ProductionRailsError(
-                "resident training requires one published pre-score"
-            )
+            raise ProductionRailsError("resident training requires one published pre-score")
         binding = self._binding(artifact)
         if (
             self._active_binding is None
             or binding.identity_sha256 != self._active_binding.identity_sha256
             or binding.basis_sha256 != self._active_binding.basis_sha256
         ):
-            raise ProductionRailsError(
-                "train artifact is not the active pinned checkpoint"
-            )
+            raise ProductionRailsError("train artifact is not the active pinned checkpoint")
         method = getattr(self._session, "train", None)
         if not callable(method):
-            raise ProductionRailsError(
-                "resident session does not implement continuation training"
-            )
+            raise ProductionRailsError("resident session does not implement continuation training")
         result = dict(method(updates))
         if int(result.get("updates", updates)) != updates:
             raise ProductionRailsError("resident continuation update count mismatch")
