@@ -238,7 +238,7 @@ def test_public_hf_moe_build_batches_equal_width_routed_tensors_exactly(
         json.dumps(
             {
                 "model_type": "fixture_numeric_moe",
-                "n_routed_experts": 3,
+                "n_routed_experts": 2,
                 "num_hidden_layers": 1,
             },
             sort_keys=True,
@@ -247,10 +247,15 @@ def test_public_hf_moe_build_batches_equal_width_routed_tensors_exactly(
     )
     shard = model / "model-00001-of-00001.safetensors"
     tensors = {
-        f"layers.0.experts.{expert}.down_proj.weight": (
-            np.arange(16, dtype=np.float16).reshape(2, 8) + expert
+        f"layers.0.experts.{expert}.{projection}_proj.weight": (
+            np.arange(2 * width, dtype=np.float16).reshape(2, width)
+            + expert
+            + projection_ordinal
         )
-        for expert in range(3)
+        for expert in range(2)
+        for projection_ordinal, (projection, width) in enumerate(
+            (("down", 8), ("gate", 16), ("up", 16))
+        )
     }
     save_file(tensors, shard)
     (model / "model.safetensors.index.json").write_text(
@@ -284,12 +289,12 @@ def test_public_hf_moe_build_batches_equal_width_routed_tensors_exactly(
             routed_ordinal_end=ordinal + 1,
             output=tmp_path / f"isolated-{ordinal}",
         )
-        for ordinal in range(3)
+        for ordinal in range(6)
     ]
 
     assert batched["acceleration"] == {
-        "routed_encode_batches": 1,
-        "routed_tensors_batched": 3,
+        "routed_encode_batches": 2,
+        "routed_tensors_batched": 6,
         "max_batch_tensors": 10,
         "same_width_batching": True,
     }

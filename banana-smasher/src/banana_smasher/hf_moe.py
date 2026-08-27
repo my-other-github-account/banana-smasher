@@ -729,17 +729,18 @@ def build_hf_moe_uniform(
         native_rows: list[dict[str, Any]] = []
         max_batch_tensors = 10
         routed_batches: list[list[dict[str, Any]]] = []
+        open_batch_by_width: dict[int, list[dict[str, Any]]] = {}
         for row in selected_routed:
             width = int(row["shape"][1])
-            if (
-                not routed_batches
-                or len(routed_batches[-1]) >= max_batch_tensors
-                or int(routed_batches[-1][0]["shape"][1]) != width
-            ):
-                routed_batches.append([])
-            routed_batches[-1].append(row)
+            batch = open_batch_by_width.get(width)
+            if batch is None or len(batch) >= max_batch_tensors:
+                batch = []
+                routed_batches.append(batch)
+                open_batch_by_width[width] = batch
+            batch.append(row)
         import numpy as np
 
+        routed_row_by_name: dict[str, dict[str, Any]] = {}
         for batch in routed_batches:
             matrices = []
             for row in batch:
@@ -774,8 +775,7 @@ def build_hf_moe_uniform(
                 trellis.parent.mkdir(parents=True, exist_ok=True)
                 np.save(trellis, encoded.packed, allow_pickle=False)
                 np.save(scales, encoded.scales, allow_pickle=False)
-                routed_rows.append(
-                    {
+                routed_row_by_name[row["name"]] = {
                         **row,
                         "wire": {
                             "geometry": QTIP2_GEOMETRY.as_mapping(),
@@ -793,8 +793,8 @@ def build_hf_moe_uniform(
                             "encoder": encoder,
                         },
                     }
-                )
                 row_offset = row_end
+        routed_rows = [routed_row_by_name[row["name"]] for row in selected_routed]
         for row in selected_native:
             native_base = spill_staging if split_native else staging
             assert native_base is not None
