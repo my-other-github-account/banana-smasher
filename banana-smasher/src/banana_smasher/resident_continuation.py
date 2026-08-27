@@ -1099,8 +1099,14 @@ class ModernGreenResidentEngine:
                 raise ArtifactError("existing process group does not match the exact two-Spark rank")
             self.dist.barrier()
             return
-        master_addr = str(self.config.get("master_addr", "127.0.0.1"))
-        master_port = int(self.config.get("master_port", 29598))
+        master_addr = os.environ.get(
+            "MASTER_ADDR", str(self.config.get("master_addr", "127.0.0.1"))
+        ).strip()
+        if not master_addr:
+            raise ArtifactError("MASTER_ADDR/master_addr must be non-empty")
+        master_port = int(
+            os.environ.get("MASTER_PORT", str(self.config.get("master_port", 29598)))
+        )
         init_method = str(self.config.get("init_method", f"tcp://{master_addr}:{master_port}"))
         socket_interface = self.config.get("distributed_socket_interface")
         if socket_interface is not None:

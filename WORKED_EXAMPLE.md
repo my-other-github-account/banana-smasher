@@ -159,8 +159,11 @@ dtypes, or held-out gates.
 - Published PRE checkpoint SHA-256:
   `f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70`.
 - Two reserved CUDA ranks launched with the artifact-owned distributed settings.
-  The launcher sets only `RANK=0` or `RANK=1`; scientific paths and geometry come
-  from the corresponding rank config.
+  The launcher sets `RANK=0` or `RANK=1`. When admitted rank-local copies carry
+  different historical rendezvous addresses, set the conventional
+  `MASTER_ADDR` and `MASTER_PORT` environment variables to the same reachable
+  rank-0 endpoint on both ranks; these override only deployment rendezvous, not
+  scientific paths or geometry.
 - Python 3.11 or newer. Install the runtime dependencies into the interpreter
   that launches the API with `python -m pip install './banana-smasher[solve]'`.
   The admitted API verifies the solve extra and restores its packaged `ninja`
@@ -172,7 +175,8 @@ checkpoint, verifies every `authenticated_inputs` row, writes rank configs, and
 refuses basis, corpus, teacher, or checkpoint identity drift. On the two Spark
 ranks, run under a service scope with `MemoryMax=105G` and
 `LimitMEMLOCK=infinity`; these are host safety limits, not recipe knobs. The
-service launcher supplies `RANK=0` or `RANK=1`, optionally points
+service launcher supplies `RANK=0` or `RANK=1`, a shared `MASTER_ADDR` /
+`MASTER_PORT` when the admitted copies do not already agree, optionally points
 `BANANA_SMASHER_RUN_ROOT` at durable local storage, and invokes the same API
 program below; it does not supply corpus, teacher, source-model, layer-split, or
 recipe paths.

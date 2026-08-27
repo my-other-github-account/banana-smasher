@@ -785,3 +785,43 @@ def test_distributed_socket_interface_binds_nccl_peer_transport(monkeypatch):
         ),
         ("barrier",),
     ]
+
+
+def test_distributed_rendezvous_honors_standard_environment_override(monkeypatch):
+    calls = []
+
+    class FakeDist:
+        def is_initialized(self):
+            return False
+
+        def init_process_group(self, **kwargs):
+            calls.append(("init", dict(kwargs)))
+
+        def barrier(self):
+            calls.append(("barrier",))
+
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.dist = FakeDist()
+    engine.rank = 1
+    engine.config = {
+        "distributed_backend": "nccl",
+        "master_addr": "192.168.200.2",
+        "master_port": 30151,
+    }
+    monkeypatch.setenv("MASTER_ADDR", "192.168.200.1")
+    monkeypatch.setenv("MASTER_PORT", "30171")
+
+    engine._init_distributed()
+
+    assert calls == [
+        (
+            "init",
+            {
+                "backend": "nccl",
+                "init_method": "tcp://192.168.200.1:30171",
+                "rank": 1,
+                "world_size": 2,
+            },
+        ),
+        ("barrier",),
+    ]
