@@ -936,6 +936,149 @@ def materialize_provenance_virtual_backpack(
     return verify_virtual_backpack(output_path)
 
 
+def materialize_mixed_v7_virtual_backpack(
+    solve_root: str | Path,
+    materialized_members: str | Path,
+    output: str | Path,
+) -> dict[str, Any]:
+    """Project solve-mixed output plus sealed V7 members into canonical runtime wire."""
+
+    from .repack import bind_mixed_v7_member_contract
+
+    solve = Path(solve_root).expanduser().resolve()
+    destination = Path(output).expanduser().resolve()
+    if destination.exists() and any(destination.iterdir()):
+        if (destination / VIRTUAL_MANIFEST).is_file():
+            return verify_virtual_backpack(destination)
+        raise FileExistsError(f"refusing non-empty virtual output: {destination}")
+    destination.mkdir(parents=True, exist_ok=True)
+    contract_path = destination / "MIXED_V7_MEMBER_CONTRACT.json"
+    bind_receipt = bind_mixed_v7_member_contract(
+        solve, materialized_members, output=contract_path
+    )
+    identity, identity_raw = _load_object(solve / "identity.json")
+    contract, contract_raw = _load_object(contract_path)
+    by_expert: dict[tuple[int, int], list[dict[str, Any]]] = {}
+    for member in contract["members"]:
+        layer_text, expert_text, _ = member["cell_id"].split(".")
+        key = (
+            int(layer_text.removeprefix("L")),
+            int(expert_text.removeprefix("E")),
+        )
+        by_expert.setdefault(key, []).append(member)
+    assignment_rows: list[dict[str, Any]] = []
+    index_rows: list[dict[str, Any]] = []
+    tier_counts: Counter[str] = Counter()
+    source_counts: Counter[str] = Counter()
+    payload_bytes = 0
+    for (layer, expert), rows in sorted(by_expert.items()):
+        tier = rows[0]["tier"]
+        source_key = f"{tier}_v7"
+        by_projection = {row["cell_id"].split(".")[2]: row for row in rows}
+        physical_by_logical = (
+            {"down": ["w2"], "fused13": ["w1", "w3"]}
+            if tier == "qtip2"
+            else {"down": ["down"], "fused13": ["fused13"]}
+        )
+        for projection, physical in physical_by_logical.items():
+            cell_id = f"L{layer}:E{expert}:{projection}"
+            byte_count = sum(
+                int(by_projection[name]["payload"]["bytes"]) for name in physical
+            )
+            assignment_rows.append(
+                {"cell_id": cell_id, "tier": tier}
+            )
+            index_rows.append(
+                {
+                    "cell_id": cell_id,
+                    "selection_group": f"L{layer}.E{expert}",
+                    "layer": layer,
+                    "expert": expert,
+                    "projection": projection,
+                    "tier": tier,
+                    "source_key": source_key,
+                    "physical_bytes": byte_count,
+                    "activation_artifact_ids": [],
+                    "mixed_v7_members": [by_projection[name]["cell_id"] for name in physical],
+                }
+            )
+            tier_counts[tier] += 1
+            source_counts[source_key] += 1
+            payload_bytes += byte_count
+    assignment = _assignment_from_rows(assignment_rows)
+    assignment_raw = _canonical(assignment)
+    index_raw = b"".join(_canonical(row) for row in index_rows)
+    _atomic_write(destination / ASSIGNMENT_FILE, assignment_raw)
+    _atomic_write(destination / INDEX_FILE, index_raw)
+    fixed_bytes = 0
+    receipt_path = solve / "RECEIPT.json"
+    if receipt_path.is_file():
+        solve_receipt, _ = _load_object(receipt_path)
+        accounting = solve_receipt.get("byte_accounting")
+        if isinstance(accounting, dict):
+            fixed_bytes = int(accounting.get("fixed_nonexpert_bytes", 0))
+    source_bindings = {
+        source: {
+            "root": str(destination),
+            "identity": contract_path.name,
+            "identity_sha256": _sha256(contract_raw),
+            "identity_bytes": len(contract_raw),
+            "basis_sha256": identity["basis_sha256"],
+        }
+        for source in sorted(source_counts)
+    }
+    manifest = {
+        "schema": SCHEMA,
+        "status": "PASS_LOGICAL_FULL_WIRE",
+        "storage": {
+            "kind": "mixed-v7-member-contract-v1",
+            "tensor_payload_copy_bytes": 0,
+            "source_roots_bound_once": True,
+        },
+        "basis_sha256": identity["basis_sha256"],
+        "arm_name": "solve-mixed-v7",
+        "assignment_map_sha256": _sha256(assignment_raw),
+        "source_receipt": _evidence(solve / "identity.json", identity_raw),
+        "source_bindings": source_bindings,
+        "mixed_v7_member_contract": _evidence(contract_path, contract_raw),
+        "mixed_v7_bind_receipt": bind_receipt,
+        "runtime_binding": {
+            "basis_sha256": identity["basis_sha256"],
+            "virtual_manifest": str(destination / VIRTUAL_MANIFEST),
+            "materialization_index": str(destination / INDEX_FILE),
+            "mixed_v7_member_contract": str(contract_path),
+        },
+        "assignment": {
+            "file": ASSIGNMENT_FILE,
+            "sha256": _sha256(assignment_raw),
+            "bytes": len(assignment_raw),
+            "rows": len(index_rows),
+        },
+        "materialization_index": {
+            "file": INDEX_FILE,
+            "sha256": _sha256(index_raw),
+            "bytes": len(index_raw),
+            "rows": len(index_rows),
+        },
+        "tier_counts": dict(sorted(tier_counts.items())),
+        "source_component_counts": dict(sorted(source_counts.items())),
+        "byte_accounting": {
+            "payload_bytes": payload_bytes,
+            "activation_bytes": 0,
+            "assigned_expert_bytes": payload_bytes,
+            "fixed_nonexpert_bytes": fixed_bytes,
+            "assigned_package_bytes": payload_bytes + fixed_bytes,
+            "tier_payload_bytes": {},
+        },
+        "activated_artifacts": [],
+        "expert_parameter_denominator": 1,
+        "expert_wire_bpw": float(payload_bytes * 8),
+        "geometry": {"cells": len(index_rows)},
+    }
+    _atomic_write(destination / VIRTUAL_MANIFEST, _canonical(manifest))
+    return verify_virtual_backpack(destination)
+
+
 def materialize_virtual_backpack(
     source_receipt: str | Path,
     option_ledger: str | Path,
