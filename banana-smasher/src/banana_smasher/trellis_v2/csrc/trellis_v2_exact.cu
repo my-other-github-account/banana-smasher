@@ -139,10 +139,8 @@ __global__ __launch_bounds__(THREADS, 1) void full_row_k2_viterbi(
     for (int pair = threadIdx.x; pair < PREFIX_PAIRS; pair += blockDim.x) {
       const int j0 = pair * 2;
       const int j1 = j0 + 1;
-      // j0 is even and j1 == j0 + 1, so a prefix pair never crosses a
-      // 16-prefix residue boundary. Load each row's predecessor once per
-      // branch and reuse it for both exact candidates in the pair.
-      const int residue = j0 >> 4;
+      const int residue0 = j0 >> 4;
+      const int residue1 = j1 >> 4;
       float best00 = FLT_MAX, best01 = FLT_MAX;
       float best10 = FLT_MAX, best11 = FLT_MAX;
       uint8_t q00 = 0, q01 = 0, q10 = 0, q11 = 0;
@@ -152,15 +150,13 @@ __global__ __launch_bounds__(THREADS, 1) void full_row_k2_viterbi(
         const int state1 = q * PREFIXES + j1;
         const float l00 = lut_aos[state0 * 2], l01 = lut_aos[state0 * 2 + 1];
         const float l10 = lut_aos[state1 * 2], l11 = lut_aos[state1 * 2 + 1];
-        const float predecessor0 = previous0[q * 256 + residue];
-        const float c00 = exact_candidate(predecessor0, x00, x01, l00, l01);
-        const float c01 = exact_candidate(predecessor0, x00, x01, l10, l11);
+        const float c00 = exact_candidate(previous0[q * 256 + residue0], x00, x01, l00, l01);
+        const float c01 = exact_candidate(previous0[q * 256 + residue1], x00, x01, l10, l11);
         if (c00 < best00) { best00 = c00; q00 = static_cast<uint8_t>(q); }
         if (c01 < best01) { best01 = c01; q01 = static_cast<uint8_t>(q); }
         if (has_seq1) {
-          const float predecessor1 = previous1[q * 256 + residue];
-          const float c10 = exact_candidate(predecessor1, x10, x11, l00, l01);
-          const float c11 = exact_candidate(predecessor1, x10, x11, l10, l11);
+          const float c10 = exact_candidate(previous1[q * 256 + residue0], x10, x11, l00, l01);
+          const float c11 = exact_candidate(previous1[q * 256 + residue1], x10, x11, l10, l11);
           if (c10 < best10) { best10 = c10; q10 = static_cast<uint8_t>(q); }
           if (c11 < best11) { best11 = c11; q11 = static_cast<uint8_t>(q); }
         }
