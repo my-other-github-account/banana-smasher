@@ -81,6 +81,7 @@ def source_binding(root: Path | None = None) -> dict[str, Any]:
 def bind_sealed_pre_resident_config(config: dict[str, Any]) -> dict[str, Any]:
     """Bind the exact sealed source identity to the existing resident provider."""
     config["sealed_pre_source_binding"] = source_binding()
+    config["provider_resolution_mode"] = "SEALED_BF16_FULL_WEIGHT"
     config["resident_validation_expert_implementation"] = "sealed_bf16_full_weight"
     # The accepted producer kept an intact two-window physical batch while the
     # public admission scored only W28.  This physical context is part of the

@@ -16,5 +16,7 @@ def test_sealed_pre_w28_keeps_target_producer_mb2_geometry(monkeypatch) -> None:
     observed = sealed_pre_forward.bind_sealed_pre_resident_config(config)
 
     assert observed is binding
+    assert config["provider_resolution_mode"] == "SEALED_BF16_FULL_WEIGHT"
+    assert config["resident_validation_expert_implementation"] == "sealed_bf16_full_weight"
     assert config["score_window_batch_size"] == 2
     assert config["sealed_builder_window_microbatch"] == 2
