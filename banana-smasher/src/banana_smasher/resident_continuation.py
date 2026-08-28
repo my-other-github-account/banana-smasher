@@ -1271,6 +1271,12 @@ class ModernGreenResidentEngine:
         activation_checkpointing = train and bool(
             self.config.get("activation_checkpointing", True)
         )
+        if activation_checkpointing and not hidden.requires_grad:
+            # Reentrant checkpointing needs at least one grad-bearing input or
+            # it returns a detached output. Rank 0 starts from frozen token
+            # embeddings, so arm only the pipeline activation leaf; model
+            # weights remain frozen while layer-local repair parameters train.
+            hidden.requires_grad_(True)
         for index in range(self.first, self.last + 1):
             layer = self.student.model.model.layers[index]
             def layer_fn(current: Any, layer: Any = layer) -> Any:

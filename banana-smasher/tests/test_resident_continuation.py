@@ -988,10 +988,52 @@ def test_training_checkpoint_uses_reentrant_low_memory_forward(monkeypatch):
         return call(hidden)
 
     engine.checkpoint = checkpoint
-    hidden = SimpleNamespace(ndim=3)
+    hidden = torch.ones((1, 1, 1))
 
     assert engine._run_layers(hidden, "ids", True) is hidden
     assert modes == [True, True]
+
+
+def test_reentrant_checkpoint_arms_frozen_pipeline_input_for_backward(monkeypatch):
+    class Cache:
+        def __init__(self, *, config):
+            self.config = config
+
+    class Layer(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.scale = torch.nn.Parameter(torch.tensor(2.0))
+
+        def forward(self, hidden, **_kwargs):
+            return hidden * self.scale
+
+    transformers = ModuleType("transformers")
+    cache_utils = ModuleType("transformers.cache_utils")
+    cache_utils.DynamicCache = Cache
+    transformers.cache_utils = cache_utils
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+    monkeypatch.setitem(sys.modules, "transformers.cache_utils", cache_utils)
+
+    layer = Layer()
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.config = {"activation_checkpointing": True}
+    engine.student = SimpleNamespace(
+        config="config",
+        model=SimpleNamespace(model=SimpleNamespace(layers=[layer])),
+    )
+    engine.first = 0
+    engine.last = 0
+    engine._positional = lambda ids, template, cache: ("pos", "pe", "mask")
+    from torch.utils.checkpoint import checkpoint
+
+    engine.checkpoint = checkpoint
+    hidden = torch.ones((1, 2, 3))
+
+    output = engine._run_layers(hidden, "ids", True)
+    output.sum().backward()
+
+    assert output.requires_grad is True
+    assert layer.scale.grad is not None
 
 
 def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():
