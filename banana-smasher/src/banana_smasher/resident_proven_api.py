@@ -1775,13 +1775,19 @@ class ResidentRepairAPI:
             raise ArtifactError("shared_optimizer_scheduler_lineage is required")
         start = self.artifact.checkpoint_key(start_checkpoint)
         start_update = self._checkpoint_update(start)
-        if not 16 <= start_update < 64:
+        from .resident_continuation import _validated_expert_plane_expansion
+        expert_plane_expansion = _validated_expert_plane_expansion(config)
+        if expert_plane_expansion is None and not 16 <= start_update < 64:
             raise ArtifactError("real two-Spark continuation must start within U16..U63")
+        if expert_plane_expansion is not None and start_update != 0:
+            raise ArtifactError("L028 SU/SV expansion must start from published PRE U0")
         requested = tuple(int(value) for value in milestones)
         diagnostic_zero_update = config.get("diagnostic_zero_update_roundtrip") is True
         if diagnostic_zero_update:
             if requested:
                 raise ArtifactError("zero-update load diagnosis forbids training milestones")
+        elif expert_plane_expansion is not None and requested != (1,):
+            raise ArtifactError("first L028 SU/SV canary must run exactly one U0->U1 update")
         elif (
             requested != tuple(sorted(set(requested)))
             or not requested

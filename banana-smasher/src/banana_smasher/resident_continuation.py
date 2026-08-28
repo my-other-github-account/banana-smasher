@@ -27,7 +27,7 @@ MODEL_INDEX_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e
 ADMISSION_SHA256 = "76d0674eb0cd37fc9022bac5e048c2b77c721826182222ae0a0609e29607a2c5"
 CORPUS_SHA256 = "434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5"
 TRAINER_SHA256 = "e3638f9578a1076f3b25811245a3bba5f2772a08264fe43f0c3c62bcba82b86b"
-OFFICIAL_PHYSICAL_LAYER_SHA256 = "5d4ca4ac7d25e96fd428e55b2a7e18e074bac9d8aa23004bddbb6bde15d020d5"
+OFFICIAL_PHYSICAL_LAYER_SHA256 = "fc612f7863ad9d09a9faf11e203a9d20739b7dbb273b982fc3d36ee01d15a9b4"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
 # Keep score-only attention at the proven per-step memory envelope. Balanced64
@@ -35,10 +35,131 @@ PIPELINE_MICROBATCH = 4
 SCORE_MICROBATCH = 4
 SCORE_LOGIT_MICROBATCH = 4
 BASE_LRS = {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2}
+EXPERT_PLANE_SURFACE = "expert_planes_l028_su_sv"
 HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
 HISTORICAL_SAMPLING_MODE = "historical_category_stratified_v1"
 HISTORICAL_TRAIN_BANK_SHA256 = "3553fce00efdb6d452171e6d5c429adc31580dedbf63eb821f81bc82406983b3"
 HISTORICAL_CATEGORIES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
+
+
+def _validated_expert_plane_expansion(config: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    value = config.get("expert_plane_expansion")
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ArtifactError("expert-plane expansion contract must be a mapping")
+    if value.get("surface") != EXPERT_PLANE_SURFACE or value.get("layer") != 28:
+        raise ArtifactError("expert-plane expansion is restricted to the L028 SU/SV surface")
+    if value.get("components") != ["SU", "SV"]:
+        raise ArtifactError("expert-plane expansion components must be exactly SU/SV")
+    if value.get("projections") != ["w1", "w2", "w3"]:
+        raise ArtifactError("expert-plane expansion projections must be exactly w1/w2/w3")
+    if value.get("static_w28") is not True or value.get("immutable_wire") is not True:
+        raise ArtifactError("expert-plane expansion requires static W28 and immutable wire bytes")
+    roster_sha = value.get("roster_sha256")
+    if not isinstance(roster_sha, str) or len(roster_sha) != 64 or any(
+        character not in "0123456789abcdef" for character in roster_sha
+    ):
+        raise ArtifactError("expert-plane expansion requires a lowercase SHA-256 roster identity")
+    try:
+        learning_rate = float(value.get("learning_rate"))
+    except (TypeError, ValueError) as exc:
+        raise ArtifactError("expert-plane expansion requires a finite positive learning rate") from exc
+    if not math.isfinite(learning_rate) or learning_rate <= 0.0:
+        raise ArtifactError("expert-plane expansion requires a finite positive learning rate")
+    return dict(value)
+
+
+def _activate_expert_plane_surface(
+    student: Any,
+    checkpoint_state: Mapping[str, Any],
+    contract: Mapping[str, Any],
+    *,
+    checkpoint_cursor: int,
+) -> list[tuple[str, Any]]:
+    """Promote the exact L028 module and seed PRE or restore persisted masters."""
+    experts = getattr(student, "experts", None)
+    module = experts.get(28) if isinstance(experts, Mapping) else None
+    if module is None:
+        return []
+    try:
+        rows = list(module.promote_l028_su_sv())
+    except Exception as exc:
+        raise ArtifactError(f"L028 SU/SV promotion failed: {exc}") from exc
+    saved = checkpoint_state.get(EXPERT_PLANE_SURFACE)
+    if saved is None:
+        if checkpoint_cursor != 0:
+            raise ArtifactError("continuation checkpoint is missing L028 SU/SV state")
+        return rows
+    try:
+        module.load_expert_plane_state(saved)
+    except Exception as exc:
+        raise ArtifactError(f"L028 SU/SV checkpoint state cannot load: {exc}") from exc
+    return rows
+
+
+def _merge_expanded_optimizer_state(
+    state_rows: list[Mapping[str, Any]],
+    ordered_state: Mapping[str, Mapping[str, Any]],
+    surfaces: tuple[str, ...],
+    dormant_names: set[str],
+) -> dict[str, Any]:
+    ordered_names = {surface: list(ordered_state[surface]) for surface in surfaces}
+    global_ids: dict[str, int] = {}
+    for surface in surfaces:
+        for name in ordered_names[surface]:
+            if name in global_ids:
+                raise ArtifactError(f"optimizer parameter name overlap: {name}")
+            global_ids[name] = len(global_ids)
+    merged_state: dict[int, Any] = {}
+    seen: set[int] = set()
+    templates: dict[str, dict[str, Any]] = {}
+    for row in state_rows:
+        local = row["optimizer"]
+        local_names = row["param_names"]
+        groups = local.get("param_groups")
+        if not isinstance(groups, list) or len(groups) != len(surfaces):
+            raise ArtifactError("expanded optimizer parameter-group count drift")
+        local_ids_seen: set[int] = set()
+        for surface, group in zip(surfaces, groups):
+            names = list(local_names[surface])
+            ids = list(group.get("params", []))
+            if len(names) != len(ids):
+                raise ArtifactError(f"expanded optimizer name/id drift: {surface}")
+            template = {key: value for key, value in group.items() if key != "params"}
+            if surface in templates and templates[surface] != template:
+                raise ArtifactError(f"expanded optimizer group setting drift: {surface}")
+            templates[surface] = template
+            for name, local_id in zip(names, ids):
+                if name not in global_ids or local_id in local_ids_seen:
+                    raise ArtifactError(f"expanded optimizer parameter identity drift: {name}")
+                local_ids_seen.add(local_id)
+                global_id = global_ids[name]
+                if global_id in seen:
+                    raise ArtifactError(f"expanded optimizer parameter overlap: {name}")
+                seen.add(global_id)
+                value = local["state"].get(local_id, local["state"].get(str(local_id)))
+                if value is not None:
+                    merged_state[global_id] = value
+        dangling = set(local["state"]) - local_ids_seen
+        dangling -= {str(value) for value in local_ids_seen}
+        if dangling:
+            raise ArtifactError("expanded optimizer state has unbound local ids")
+    if seen != set(range(len(global_ids))):
+        raise ArtifactError("expanded optimizer global parameter coverage drift")
+    missing = {name for name, global_id in global_ids.items() if global_id not in merged_state}
+    if missing != (set(global_ids) & dormant_names):
+        raise ArtifactError("expanded optimizer sparse-state coverage drift")
+    return {
+        "state": merged_state,
+        "param_groups": [
+            {
+                **templates[surface],
+                "params": [global_ids[name] for name in ordered_names[surface]],
+            }
+            for surface in surfaces
+        ],
+    }
 
 
 def _build_fp64_adam(torch: Any, param_groups: list[dict[str, Any]]) -> Any:
@@ -666,6 +787,9 @@ class ModernGreenResidentEngine:
         self.checkpoint = checkpoint
         self.rank = rank
         self.config = config
+        self.expert_plane_contract = _validated_expert_plane_expansion(config)
+        if self.expert_plane_contract is not None and _historical_mode(config):
+            raise ArtifactError("L028 expert-plane expansion requires fresh static-W28 lineage")
         self.score_only = config.get("score_only") is True
         self.lr_scale = _validated_lr_scale(config)
         self.base_lrs = {
@@ -688,8 +812,17 @@ class ModernGreenResidentEngine:
         self.state = payload.get("state")
         if not isinstance(self.state, Mapping):
             raise ArtifactError("U16 checkpoint state must contain official trainable surfaces")
-        if set(self.state) != {"luts", "norms", "outputs"}:
-            raise ArtifactError("U16 state must contain exactly luts, norms, and outputs")
+        base_surfaces = {"luts", "norms", "outputs"}
+        allowed_surfaces = base_surfaces | (
+            {EXPERT_PLANE_SURFACE} if self.expert_plane_contract is not None else set()
+        )
+        admissible_state_keys = (
+            (base_surfaces, allowed_surfaces)
+            if self.expert_plane_contract is not None
+            else (base_surfaces,)
+        )
+        if set(self.state) not in admissible_state_keys:
+            raise ArtifactError("resident state trainable-surface schema drift")
         self.trainer_path = Path(str(config["trainer_source"])).expanduser().resolve()
         _require_file(self.trainer_path, str(config.get("trainer_source_sha256", TRAINER_SHA256)), "trainer source")
         self.model_root = Path(str(config["model_root"])).expanduser().resolve()
@@ -770,6 +903,25 @@ class ModernGreenResidentEngine:
             status_cb=self._status,
         )
         self.luts, self.norms, self.outputs = self.trainer.expose_local_dense(torch, self.student, admission)
+        self.expert_planes = (
+            _activate_expert_plane_surface(
+                self.student,
+                self.state,
+                self.expert_plane_contract,
+                checkpoint_cursor=_checkpoint_cursor(payload),
+            )
+            if self.expert_plane_contract is not None
+            else []
+        )
+        if self.expert_plane_contract is not None:
+            expected_local = 1536 if self.first <= 28 <= self.last else 0
+            if len(self.expert_planes) != expected_local:
+                raise ArtifactError("rank-local L028 SU/SV promoted coverage drift")
+            self.base_lrs[EXPERT_PLANE_SURFACE] = float(
+                self.expert_plane_contract["learning_rate"]
+            ) * self.lr_scale
+            for surface in ("luts", "norms", "outputs"):
+                self.base_lrs[surface] = 0.0
         self._load_local_trainable_state()
         # Construction has its own immutable admission path and can transiently
         # exceed the 112 GiB rail if the score backend is activated early. Select
@@ -784,11 +936,17 @@ class ModernGreenResidentEngine:
                     {"params": [p for _name, p in self.luts], "lr": self.base_lrs["luts"], "group_name": "luts"},
                     {"params": [p for _name, p in self.norms], "lr": self.base_lrs["norms"], "group_name": "norms"},
                     {"params": [p for _name, p in self.outputs], "lr": self.base_lrs["outputs"], "group_name": "outputs"},
+                    *(
+                        [{"params": [p for _name, p in self.expert_planes], "lr": self.base_lrs[EXPERT_PLANE_SURFACE], "group_name": EXPERT_PLANE_SURFACE}]
+                        if self.expert_plane_contract is not None
+                        else []
+                    ),
                 ],
             )
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer,
-                lr_lambda=[lambda step: _schedule_multiplier(self.config, step, self.trainer.current_multiplier)] * 3,
+                lr_lambda=[lambda step: _schedule_multiplier(self.config, step, self.trainer.current_multiplier)]
+                * (4 if self.expert_plane_contract is not None else 3),
             )
             self._load_optimizer_scheduler_state()
         self._load_training_data()
@@ -835,7 +993,7 @@ class ModernGreenResidentEngine:
             self.dist.barrier()
             self.dist.destroy_process_group()
         for name in (
-            "optimizer", "scheduler", "student", "luts", "norms", "outputs",
+            "optimizer", "scheduler", "student", "luts", "norms", "outputs", "expert_planes",
             "ids_cache", "real_lengths", "teacher_cache", "score_ids_cache",
             "score_real_lengths", "score_teacher_cache",
         ):
@@ -975,12 +1133,20 @@ class ModernGreenResidentEngine:
             raise ArtifactError("continuation checkpoint is missing the shared Adam optimizer state")
         groups = optimizer_payload.get("param_groups")
         global_state = optimizer_payload.get("state")
-        if not isinstance(groups, list) or len(groups) != 3 or not isinstance(global_state, Mapping):
-            raise ArtifactError("U16 Adam state has no canonical three-surface lineage")
+        surfaces = ("luts", "norms", "outputs") + (
+            (EXPERT_PLANE_SURFACE,) if self.expert_plane_contract is not None else ()
+        )
+        if not isinstance(groups, list) or len(groups) != len(surfaces) or not isinstance(global_state, Mapping):
+            raise ArtifactError("resident Adam state has no canonical trainable-surface lineage")
         local_state = self.optimizer.state_dict()
         local_groups = local_state["param_groups"]
-        local_rows = {"luts": self.luts, "norms": self.norms, "outputs": self.outputs}
-        for index, surface in enumerate(("luts", "norms", "outputs")):
+        local_rows = {
+            "luts": self.luts,
+            "norms": self.norms,
+            "outputs": self.outputs,
+            **({EXPERT_PLANE_SURFACE: self.expert_planes} if self.expert_plane_contract is not None else {}),
+        }
+        for index, surface in enumerate(surfaces):
             names = [name for name, _param in local_rows[surface]]
             global_names = list(self.state[surface])
             source_group = groups[index]
@@ -1356,7 +1522,7 @@ class ModernGreenResidentEngine:
         return float(loss.detach().cpu()), {"forward_seconds": forward_seconds, "backward_seconds": backward_seconds}
 
     def _local_params(self) -> list[tuple[str, Any]]:
-        return [*self.luts, *self.norms, *self.outputs]
+        return [*self.luts, *self.norms, *self.outputs, *self.expert_planes]
 
     def _local_norm(self, values: list[Any]) -> float:
         return sum(float(value.detach().float().pow(2).sum().cpu()) for value in values) ** 0.5
@@ -1398,6 +1564,36 @@ class ModernGreenResidentEngine:
         gradients = [parameter.grad for _name, parameter in params if parameter.grad is not None]
         gradient_norm = self._local_norm(gradients)
         delta_norm = self._local_norm([parameter.detach() - old for (_name, parameter), old in zip(params, before)])
+        expert_coverage = None
+        if self.expert_plane_contract is not None:
+            expert_before = before[-len(self.expert_planes):] if self.expert_planes else []
+            missing_gradient = [
+                name for name, parameter in self.expert_planes
+                if parameter.grad is None
+                or not bool(torch.isfinite(parameter.grad).all().item())
+                or not bool(torch.count_nonzero(parameter.grad).item())
+            ]
+            missing_delta = [
+                name for (name, parameter), old in zip(self.expert_planes, expert_before)
+                if not bool(torch.isfinite(parameter).all().item())
+                or not bool(torch.count_nonzero(parameter.detach() - old).item())
+            ]
+            frozen_count = len(params) - len(self.expert_planes)
+            mutated_frozen = [
+                name for (name, parameter), old in zip(params[:frozen_count], before[:frozen_count])
+                if bool(torch.count_nonzero(parameter.detach() - old).item())
+            ]
+            if missing_gradient or missing_delta or mutated_frozen:
+                raise ArtifactError(
+                    "L028 SU/SV coverage gate failed: "
+                    f"missing_gradient={missing_gradient[:3]} "
+                    f"missing_delta={missing_delta[:3]} mutated_frozen={mutated_frozen[:3]}"
+                )
+            expert_coverage = {
+                "gradient": f"{len(self.expert_planes)}/{len(self.expert_planes)}",
+                "delta": f"{len(self.expert_planes)}/{len(self.expert_planes)}",
+                "frozen_mutations": 0,
+            }
         local = {
             "rank": self.rank,
             "loss": loss,
@@ -1425,6 +1621,7 @@ class ModernGreenResidentEngine:
             "base_learning_rates": dict(self.base_lrs),
             "nonzero_gradients": sum(int(torch.count_nonzero(gradient).item()) for gradient in gradients),
             "trainable_tensors": len(params),
+            "expert_plane_coverage": expert_coverage,
             "process_gpu_evidence": {
                 "pid": os.getpid(),
                 "hostname": os.uname().nodename,
@@ -1453,7 +1650,12 @@ class ModernGreenResidentEngine:
     def _gather_state(self) -> tuple[Mapping[str, Any] | None, Mapping[str, Any] | None, Mapping[str, Any]]:
         torch = self.torch
         rows: list[Any] = [None, None]
-        local_params = {"luts": self.luts, "norms": self.norms, "outputs": self.outputs}
+        local_params = {
+            "luts": self.luts,
+            "norms": self.norms,
+            "outputs": self.outputs,
+            **({EXPERT_PLANE_SURFACE: self.expert_planes} if self.expert_plane_contract is not None else {}),
+        }
         local_state = {
             "rank": self.rank,
             **{surface: {name: parameter.detach().cpu().clone() for name, parameter in values} for surface, values in local_params.items()},
@@ -1464,16 +1666,28 @@ class ModernGreenResidentEngine:
         if self.rank != 0:
             self.dist.barrier()
             return None, None, {"rank_rows": rows}
-        merged = {"luts": {}, "norms": {}, "outputs": {}}
+        merged = {surface: {} for surface in local_params}
         for row in rows:
             for surface in merged:
                 overlap = set(merged[surface]) & set(row[surface])
                 if overlap:
                     raise ArtifactError(f"official resident state overlap: {surface} {sorted(overlap)[:3]}")
                 merged[surface].update(row[surface])
-        if {surface: len(values) for surface, values in merged.items()} != {"luts": 43, "norms": 235, "outputs": 43}:
+        expected_coverage = {"luts": 43, "norms": 235, "outputs": 43}
+        if self.expert_plane_contract is not None:
+            expected_coverage[EXPERT_PLANE_SURFACE] = 1536
+        if {surface: len(values) for surface, values in merged.items()} != expected_coverage:
             raise ArtifactError("official resident merged trainable surface coverage drift")
-        optimizer = self.trainer.merge_optimizer_state(rows, merged)
+        optimizer = (
+            _merge_expanded_optimizer_state(
+                rows,
+                merged,
+                tuple(merged),
+                set(getattr(self.trainer, "DORMANT_NORMS", set())),
+            )
+            if self.expert_plane_contract is not None
+            else self.trainer.merge_optimizer_state(rows, merged)
+        )
         scheduler = _cpu_tree(torch, self.scheduler.state_dict())
         report = {"rank_rows": rows, "optimizer": optimizer, "scheduler": scheduler}
         self.dist.barrier()
@@ -1569,8 +1783,11 @@ class ModernGreenResidentEngine:
             "optimizer_state": optimizer_state,
             "scheduler_state": (report_state or {}).get("scheduler") if isinstance(report_state, Mapping) else None,
             "model_engine": "official-ShardStudent-grouped-K2-FWHT-resident",
-            "frozen_surfaces": ["packed_codes", "assignments", "scales"],
-            "trainable_surfaces": ["luts", "rmsnorms", "output_gains"],
+            "frozen_surfaces": ["packed_codes", "assignments", "wscale"],
+            "trainable_surfaces": [
+                "luts", "rmsnorms", "output_gains",
+                *([EXPERT_PLANE_SURFACE] if self.expert_plane_contract is not None else []),
+            ],
         }
         return merged_state, step_report, report_state
 

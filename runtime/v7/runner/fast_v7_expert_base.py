@@ -20,6 +20,7 @@ PROJECTION_SHAPES = {
     "w2": (4096, 2048),
     "w3": (2048, 4096),
 }
+_PLANE_COMPONENTS = ("SU", "SV")
 
 
 class FullyResidentGroupedV7Experts(nn.Module):
@@ -141,6 +142,71 @@ class FullyResidentGroupedV7Experts(nn.Module):
     def codebooks(self) -> list[torch.Tensor]:
         return [self.plane_source.master]
 
+    def promote_l028_su_sv(self) -> list[tuple[str, nn.Parameter]]:
+        """Promote exact L028 SU/SV wire rows to checkpointable FP32 leaves."""
+        if self.L != 28:
+            raise RuntimeError("expert-plane expansion is restricted to L028")
+        if hasattr(self, "_expert_plane_rows"):
+            return list(self._expert_plane_rows)
+        rows: list[tuple[str, nn.Parameter]] = []
+        for projection in PROJECTIONS:
+            for component in _PLANE_COMPONENTS:
+                buffer_name = f"{component.lower()}_{projection}"
+                wire = getattr(self, buffer_name)
+                if wire.dtype != torch.float16 or wire.ndim != 2 or wire.shape[0] != EXPERTS:
+                    raise RuntimeError(f"L028 {projection}/{component} wire geometry drift")
+                delattr(self, buffer_name)
+                masters = nn.ParameterList(
+                    [nn.Parameter(row.detach().float().clone()) for row in wire]
+                )
+                setattr(self, f"{component.lower()}_master_{projection}", masters)
+                rows.extend(
+                    (
+                        f"model.layers.28.mlp.experts.E{expert:03d}.{projection}.{component}",
+                        parameter,
+                    )
+                    for expert, parameter in enumerate(masters)
+                )
+        self._expert_plane_rows = rows
+        if len(rows) != 1536 or sum(parameter.numel() for _name, parameter in rows) != 4_718_592:
+            raise RuntimeError("L028 SU/SV promoted roster coverage drift")
+        return list(rows)
+
+    def expert_plane_parameters(self) -> list[tuple[str, nn.Parameter]]:
+        if not hasattr(self, "_expert_plane_rows"):
+            raise RuntimeError("L028 SU/SV masters have not been promoted")
+        return list(self._expert_plane_rows)
+
+    def expert_plane_wire_view(self, projection: str, component: str) -> torch.Tensor:
+        if projection not in PROJECTIONS or component not in _PLANE_COMPONENTS:
+            raise RuntimeError("expert-plane wire view must be one of L028 SU/SV w1/w2/w3")
+        masters = getattr(self, f"{component.lower()}_master_{projection}", None)
+        if masters is None:
+            return getattr(self, f"{component.lower()}_{projection}")
+        return torch.stack(tuple(masters), dim=0).to(torch.float16)
+
+    def expert_plane_state(self) -> dict[str, torch.Tensor]:
+        return {
+            name: parameter.detach().cpu().clone()
+            for name, parameter in self.expert_plane_parameters()
+        }
+
+    def load_expert_plane_state(self, state: Any) -> None:
+        rows = self.expert_plane_parameters()
+        if not isinstance(state, dict) or set(state) != {name for name, _parameter in rows}:
+            raise RuntimeError("L028 SU/SV checkpoint roster drift")
+        with torch.no_grad():
+            for name, parameter in rows:
+                value = state[name]
+                if tuple(value.shape) != tuple(parameter.shape):
+                    raise RuntimeError(f"L028 SU/SV checkpoint shape drift: {name}")
+                parameter.copy_(value.to(device=parameter.device, dtype=torch.float32))
+
+    def _projection_plane(self, projection: str, component: str) -> torch.Tensor:
+        if hasattr(self, f"{component.lower()}_master_{projection}"):
+            return self.expert_plane_wire_view(projection, component)
+        return getattr(self, f"{component.lower()}_{projection}")
+
     def mechanism_stats(self) -> dict[str, int]:
         return {
             **grouped_k2_stats(),
@@ -183,8 +249,8 @@ class FullyResidentGroupedV7Experts(nn.Module):
             expert_index,
             self.packed_w1,
             lut_master,
-            self.su_w1,
-            self.sv_w1,
+            self._projection_plane("w1", "SU"),
+            self._projection_plane("w1", "SV"),
         )
         up = self._project(
             "w3",
@@ -192,8 +258,8 @@ class FullyResidentGroupedV7Experts(nn.Module):
             expert_index,
             self.packed_w3,
             lut_master,
-            self.su_w3,
-            self.sv_w3,
+            self._projection_plane("w3", "SU"),
+            self._projection_plane("w3", "SV"),
         )
         activated = self.act(gate) * up
         routed_output = self._project(
@@ -202,8 +268,8 @@ class FullyResidentGroupedV7Experts(nn.Module):
             expert_index,
             self.packed_w2,
             lut_master,
-            self.su_w2,
-            self.sv_w2,
+            self._projection_plane("w2", "SU"),
+            self._projection_plane("w2", "SV"),
         )
         routed_output = (
             routed_output * route_weight
