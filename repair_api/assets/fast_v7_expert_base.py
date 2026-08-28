@@ -26,20 +26,6 @@ PROJECTION_SHAPES = {
 }
 
 
-def _read_wire_payload(path: Path) -> bytes:
-    """Read one immutable wire and release its clean source-cache pages."""
-    with path.open("rb") as stream:
-        payload = stream.read()
-        advise = getattr(os, "posix_fadvise", None)
-        dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
-        if advise is not None and dontneed is not None:
-            try:
-                advise(stream.fileno(), 0, 0, dontneed)
-            except OSError as exc:
-                raise RuntimeError(f"wire source page-cache eviction failed: {path}: {exc}") from exc
-    return payload
-
-
 class FullyResidentGroupedV7Experts(nn.Module):
     """One routed layer whose complete immutable K2 wire stays on CUDA."""
 
@@ -133,7 +119,7 @@ class FullyResidentGroupedV7Experts(nn.Module):
             expected = PACKED_BYTES + (k + m) * 2 + 4
             for expert in range(EXPERTS):
                 path = plane_source.member_path(expert, projection)
-                payload = _read_wire_payload(Path(path))
+                payload = Path(path).read_bytes()
                 if len(payload) != expected:
                     raise RuntimeError(
                         f"L{self.L:03d} E{expert:03d}/{projection} byte geometry drift"

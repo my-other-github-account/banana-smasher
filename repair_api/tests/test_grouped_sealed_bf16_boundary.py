@@ -421,6 +421,8 @@ def test_authenticated_106br_mode_selects_sealed_bf16_provider() -> None:
     assert resolved["expert_path"].name == "fast_v7_expert_base.py"
     assert resolved["wrapper_sha256"] == modern_green_resident.SEALED_GROUPED_WRAPPER_SHA256
     assert resolved["expert_sha256"] == modern_green_resident.SEALED_GROUPED_EXPERT_SHA256
+    assert hashlib.sha256(resolved["wrapper_path"].read_bytes()).hexdigest() == resolved["wrapper_sha256"]
+    assert hashlib.sha256(resolved["expert_path"].read_bytes()).hexdigest() == resolved["expert_sha256"]
 
 
 def test_static_resident_expert_preserves_attempt25_ordinary_provider_boundaries():
