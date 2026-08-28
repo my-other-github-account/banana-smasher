@@ -107,9 +107,9 @@ __global__ __launch_bounds__(THREADS, 1) void full_row_k2_viterbi(
 #pragma unroll
       for (int q = 0; q < BRANCHES; ++q) {
         const int state0 = q * PREFIXES + j0;
-        const float4 lut_pair = reinterpret_cast<const float4*>(lut_aos)[state0 >> 1];
-        const float l00 = lut_pair.x, l01 = lut_pair.y;
-        const float l10 = lut_pair.z, l11 = lut_pair.w;
+        const int state1 = q * PREFIXES + j1;
+        const float l00 = lut_aos[state0 * 2], l01 = lut_aos[state0 * 2 + 1];
+        const float l10 = lut_aos[state1 * 2], l11 = lut_aos[state1 * 2 + 1];
         const float c00 = exact_emission(first_x00, first_x01, l00, l01);
         const float c01 = exact_emission(first_x00, first_x01, l10, l11);
         if (c00 < best00) { best00 = c00; q00 = static_cast<uint8_t>(q); }
@@ -147,9 +147,9 @@ __global__ __launch_bounds__(THREADS, 1) void full_row_k2_viterbi(
 #pragma unroll
       for (int q = 0; q < BRANCHES; ++q) {
         const int state0 = q * PREFIXES + j0;
-        const float4 lut_pair = reinterpret_cast<const float4*>(lut_aos)[state0 >> 1];
-        const float l00 = lut_pair.x, l01 = lut_pair.y;
-        const float l10 = lut_pair.z, l11 = lut_pair.w;
+        const int state1 = q * PREFIXES + j1;
+        const float l00 = lut_aos[state0 * 2], l01 = lut_aos[state0 * 2 + 1];
+        const float l10 = lut_aos[state1 * 2], l11 = lut_aos[state1 * 2 + 1];
         const float c00 = exact_candidate(previous0[q * 256 + residue0], x00, x01, l00, l01);
         const float c01 = exact_candidate(previous0[q * 256 + residue1], x00, x01, l10, l11);
         if (c00 < best00) { best00 = c00; q00 = static_cast<uint8_t>(q); }
