@@ -852,6 +852,48 @@ def test_score_only_engine_omits_optimizer_and_has_fail_closed_phase_release():
     assert "allocated >= limit" in close
 
 
+def test_phase_close_releases_all_score_and_training_teacher_caches():
+    events = []
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.student = SimpleNamespace(model=SimpleNamespace(named_modules=lambda: ()))
+    engine.optimizer = object()
+    engine.scheduler = object()
+    engine.luts = [object()]
+    engine.norms = [object()]
+    engine.outputs = [object()]
+    engine.ids_cache = {20: object()}
+    engine.real_lengths = {20: 1024}
+    engine.teacher_cache = {20: object()}
+    engine.score_ids_cache = {0: object()}
+    engine.score_real_lengths = {0: 1024}
+    engine.score_teacher_cache = {0: object()}
+    engine.dist = SimpleNamespace(
+        is_initialized=lambda: False,
+        barrier=lambda: events.append("barrier"),
+        destroy_process_group=lambda: events.append("destroy"),
+    )
+    engine.torch = SimpleNamespace(
+        cuda=SimpleNamespace(
+            memory_allocated=lambda: 0,
+            memory_reserved=lambda: 0,
+            synchronize=lambda: events.append("synchronize"),
+            empty_cache=lambda: events.append("empty_cache"),
+            ipc_collect=lambda: events.append("ipc_collect"),
+        )
+    )
+
+    release = engine.close(phase="score_pre")
+
+    for name in (
+        "student", "optimizer", "scheduler", "luts", "norms", "outputs",
+        "ids_cache", "real_lengths", "teacher_cache", "score_ids_cache",
+        "score_real_lengths", "score_teacher_cache",
+    ):
+        assert not hasattr(engine, name), name
+    assert release["post_release_allocated_bytes"] == 0
+    assert events == ["synchronize", "empty_cache", "ipc_collect"]
+
+
 def test_warm_training_can_disable_layer_checkpoint_recompute(monkeypatch):
     class Cache:
         def __init__(self, *, config):

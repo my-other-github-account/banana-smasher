@@ -820,7 +820,8 @@ class ModernGreenResidentEngine:
             self.dist.destroy_process_group()
         for name in (
             "optimizer", "scheduler", "student", "luts", "norms", "outputs",
-            "train_rows", "train_ids_cache", "train_teacher_cache", "score_ids_cache",
+            "ids_cache", "real_lengths", "teacher_cache", "score_ids_cache",
+            "score_real_lengths", "score_teacher_cache",
         ):
             if hasattr(self, name):
                 delattr(self, name)
