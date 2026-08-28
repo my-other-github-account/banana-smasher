@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import gc
 import hashlib
 import json
 import math
@@ -499,30 +498,6 @@ class ShardStudent:
                 handles[shard] = safe_open(str(model_root / shard), framework="pt")
             return handles[shard].get_tensor(name)
 
-        def release_model_source_cache(layer: int) -> None:
-            """Drop clean source-shard pages after their CUDA copies are sealed."""
-            prefix = f"layers.{layer}."
-            shards = sorted({
-                shard for name, shard in self.wm.items() if name.startswith(prefix)
-            })
-            handles.clear()
-            gc.collect()
-            advise = getattr(os, "posix_fadvise", None)
-            dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
-            if advise is None or dontneed is None:
-                raise RuntimeError("model source page-cache eviction is unavailable")
-            for shard in shards:
-                path = model_root / shard
-                descriptor = os.open(path, os.O_RDONLY)
-                try:
-                    advise(descriptor, 0, 0, dontneed)
-                except OSError as exc:
-                    raise RuntimeError(
-                        f"L{layer:03d} model source page-cache eviction failed: {path}: {exc}"
-                    ) from exc
-                finally:
-                    os.close(descriptor)
-
         self.get_tensor = get_tensor
         m = self.model
         if rank == 0:
@@ -555,33 +530,15 @@ class ShardStudent:
                 l034_roster=l034_roster,
                 device=self.device,
             )
-            # Materialize the native layer before allocating its ~1.6 GiB routed
-            # payload.  The old order overlapped that payload with FP8
-            # dequantization temporaries and could starve the NVIDIA UMA driver
-            # before the post-layer cache-release callback was reachable.
-            # Capture the native expert clamp before replacing the meta module;
-            # the authenticated resident implementation requires the exact seam.
-            swiglu_limit = float(m.model.layers[layer].mlp.experts.limit)
-            m.model.layers[layer].mlp.experts = nn.Identity()
-            sd = base.T.build_nonexpert_sd(layer, self.wm, get_tensor)
-            base.v3.materialize_layer(m, layer, sd, self.config)
-            del sd
-            # FP8 dequantization and assign=True enqueue CUDA work.  Drain that
-            # stream before the routed resident constructor reserves its next
-            # ~1.6 GiB payload; empty_cache alone cannot release blocks still in
-            # use by pending kernels on unified-memory hosts.
-            torch.cuda.synchronize()
-            release_model_source_cache(layer)
-            torch.cuda.empty_cache()
             resident = FullyResidentGroupedV7Experts(
-                layer=layer,
-                pilot=True,
-                plane_source=source,
-                swiglu_limit=swiglu_limit,
+                layer=layer, pilot=True, plane_source=source
             )
             m.model.layers[layer].mlp.experts = resident
             self.sources[layer] = source
             self.experts[layer] = resident
+            sd = base.T.build_nonexpert_sd(layer, self.wm, get_tensor)
+            base.v3.materialize_layer(m, layer, sd, self.config)
+            del sd
             status_cb(
                 phase="loading",
                 loaded_layer=layer,
