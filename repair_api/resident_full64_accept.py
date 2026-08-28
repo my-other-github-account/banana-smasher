@@ -2491,8 +2491,8 @@ def main() -> None:
             torch.distributed.destroy_process_group()
         return
 
-    # The accepted W28 gate was captured in the sealed builder's aligned mb=2
-    # fixture. Production then switches only the physical validation geometry
+    # The accepted W28 gate was captured as one sealed physical window.
+    # Production then switches only the physical validation geometry
     # to the admitted batch4 resident path; the engine and weights stay loaded.
     adopt_path_value = os.environ.get("ADOPT_W28_RECEIPT")
     if adopt_path_value:
@@ -2506,7 +2506,7 @@ def main() -> None:
         )
         admission_wall = float(admission_row["admission_wall_seconds"])
     else:
-        config["sealed_builder_window_microbatch"] = 2
+        config["sealed_builder_window_microbatch"] = 1
         admission_started = time.perf_counter()
         admission = _score_admission_windows(
             api, engine, (28,), Path(config["validation_teacher_root"])

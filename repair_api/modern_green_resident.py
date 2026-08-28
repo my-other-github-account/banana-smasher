@@ -3152,15 +3152,19 @@ class ModernGreenResidentEngine:
             self.published_pre_recipe and _has_static_w28_binding(self.config)
         )
         if published_pre_proof:
-            # The immutable accepted producer scored singleton W28 while
-            # preserving an intact physical mb2 forward. Do not add W56 as
-            # hidden context or regroup full64: both alter the admitted rail.
+            # The immutable accepted producer scored singleton W28 as one
+            # physical window. Keep paired geometry for non-singleton runs;
+            # never add hidden context to the public singleton fixture.
+            expected_physical_batch_size = 1 if ordered == (28,) else 2
             physical_batch_size = int(
-                self.config.get("sealed_builder_window_microbatch", 2)
+                self.config.get(
+                    "sealed_builder_window_microbatch", expected_physical_batch_size
+                )
             )
-            if physical_batch_size != 2:
+            if physical_batch_size != expected_physical_batch_size:
                 raise ArtifactError(
-                    "published PRE validation requires sealed mb=2 microbatch"
+                    "published PRE validation physical microbatch disagrees "
+                    "with the sealed fixture"
                 )
         root = Path(teacher_root).expanduser().resolve()
         if not root.is_dir():

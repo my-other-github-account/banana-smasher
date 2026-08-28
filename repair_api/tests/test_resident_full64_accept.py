@@ -187,6 +187,18 @@ def test_scheduled_pair_group_calls_the_admitted_forward_once_and_seals_each_pai
         assert all(Path(row["path"]).is_file() for row in result["scheduled_pair_receipts"])
 
 
+def test_w28_singleton_gate_uses_a_single_physical_window() -> None:
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    engine_source = (Path(__file__).parents[1] / "modern_green_resident.py").read_text()
+    admission = source.index("admission_started = time.perf_counter()")
+    score = source.index("admission = _score_admission_windows(", admission)
+    admission_setup = source[admission - 120:score]
+
+    assert 'config["sealed_builder_window_microbatch"] = 1' in admission_setup
+    assert 'config["sealed_builder_window_microbatch"] = 2' not in admission_setup
+    assert "expected_physical_batch_size = 1 if ordered == (28,) else 2" in engine_source
+
+
 def test_production_rebinds_to_sealed_single_window_pre_semantics() -> None:
     source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
     engine_source = (Path(__file__).parents[1] / "modern_green_resident.py").read_text()
@@ -198,15 +210,13 @@ def test_production_rebinds_to_sealed_single_window_pre_semantics() -> None:
     assert 'int(config.get("score_window_batch_size", 0)) != 2' in source
     assert '"score_window_batch_size": 2' in source
     assert '"sealed_builder_window_microbatch": 2' in source
-    assert 'config["sealed_builder_window_microbatch"] = 2' in source
-    assert 'config["sealed_builder_window_microbatch"] = 1' not in source
+    assert 'config["sealed_builder_window_microbatch"] = 1' in source
     assert 'config["score_window_batch_size"] = 1' in body
     assert "engine.score_pipeline_microbatch = 1" in body
     assert 'config["score_pair_stream_concurrency"] = 1' in body
     assert 'config["score_pipeline_overlap"] = True' in body
-    assert 'self.config.get("sealed_builder_window_microbatch", 2)' in engine_source
-    assert "published PRE validation requires sealed mb=2 microbatch" in engine_source
-    assert "physical_batch_size != 2" in engine_source
+    assert "expected_physical_batch_size = 1 if ordered == (28,) else 2" in engine_source
+    assert "physical_batch_size != expected_physical_batch_size" in engine_source
     assert "_physical_canary_batch_windows(ordered" not in engine_source
     assert "scheduled PRE pair group requires exact sealed mb=2" not in engine_source
     assert "validate_scheduled_pair_group(" in source[production:]
