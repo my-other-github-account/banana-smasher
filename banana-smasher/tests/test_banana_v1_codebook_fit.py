@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from banana_smasher import banana_v1
+from banana_smasher.banana_v1_train import fit_source_matrix_once
 
 
 def test_fit_banana_v1_codebook_is_deterministic_and_preserves_fp16() -> None:
@@ -28,6 +29,17 @@ def test_fit_banana_v1_codebook_is_deterministic_and_preserves_fp16() -> None:
         alpha=1.0,
     )
     np.testing.assert_array_equal(streamed, fitted)
+
+
+def test_fit_source_matrix_once_runs_assignment_then_centroid_update() -> None:
+    source = np.arange(256, dtype=np.float32).reshape(16, 16) / np.float32(256.0)
+    result, evidence = fit_source_matrix_once(source, seed=1701)
+    assert result.codebook.shape == (1024,)
+    assert result.codebook.dtype == np.float16
+    assert evidence["assignment_count"] == 256
+    assert evidence["level_count_sum"] == 256
+    assert 0 < evidence["occupied_levels"] <= 1024
+    assert evidence["fitted_distortion"] <= evidence["initial_distortion"]
 
 
 @pytest.mark.parametrize("alpha", [-0.1, 1.1, float("nan")])
