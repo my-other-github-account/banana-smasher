@@ -8,6 +8,7 @@ import types
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
 
 from banana_smasher import materialize_provenance_virtual_backpack
@@ -573,3 +574,42 @@ def test_verify_virtual_backpack_charges_explicit_whole_model_padding(tmp_path) 
     result = verify_virtual_backpack(tmp_path / "virtual")
 
     assert result["logical_materialized_bytes"] == 34
+
+
+def test_verify_virtual_backpack_rejects_missing_sampled_qtip_payload(tmp_path) -> None:
+    test_materialize_provenance_assignment_for_exact64(tmp_path)
+    virtual = tmp_path / "virtual"
+    index_path = virtual / "MATERIALIZATION_INDEX.jsonl"
+    rows = [json.loads(line) for line in index_path.read_text().splitlines()]
+    for row, tier in zip(rows, ("qtip2", "qtip3"), strict=True):
+        unit = tmp_path / tier / f"L{row['layer']:03d}" / f"E{row['expert']:03d}_{row['projection']}"
+        unit.mkdir(parents=True, exist_ok=True)
+        artifact = unit / "QTIP_UNIT.pt"
+        artifact.write_bytes(f"physical-{tier}".encode())
+        artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        receipt = unit / "QTIP_SOLVE_RECEIPT.json"
+        receipt.write_text(
+            json.dumps({"status": "PASS", "artifact_sha256": artifact_sha}, sort_keys=True)
+            + "\n"
+        )
+        row.update(
+            tier=tier,
+            source_key=tier,
+            physical_receipt_path=str(receipt),
+            physical_receipt_sha256=hashlib.sha256(receipt.read_bytes()).hexdigest(),
+            physical_artifact_sha256=artifact_sha,
+        )
+    index_raw = "".join(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n" for row in rows).encode()
+    index_path.write_bytes(index_raw)
+    manifest_path = virtual / "BACKPACK_VIRTUAL_MANIFEST.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["materialization_index"].update(
+        sha256=hashlib.sha256(index_raw).hexdigest(), bytes=len(index_raw)
+    )
+    manifest["tier_counts"] = {"qtip2": 1, "qtip3": 1}
+    manifest["source_component_counts"] = {"qtip2": 1, "qtip3": 1}
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+    (tmp_path / "qtip3/L000/E000_fused13/QTIP_UNIT.pt").unlink()
+
+    with pytest.raises(ValueError, match="content spot-check"):
+        verify_virtual_backpack(virtual)

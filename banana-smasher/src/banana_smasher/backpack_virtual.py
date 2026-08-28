@@ -1142,6 +1142,57 @@ def materialize_virtual_backpack(
     )
 
 
+def _sample_rows(rows: list[dict[str, Any]], count: int = 5) -> list[dict[str, Any]]:
+    if len(rows) <= count:
+        return rows
+    positions = [index * (len(rows) - 1) // (count - 1) for index in range(count)]
+    return [rows[index] for index in positions]
+
+
+def _verify_qtip_content_samples(index_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    samples: list[dict[str, Any]] = []
+    for tier in ("qtip3", "qtip2"):
+        tier_rows = [row for row in index_rows if row.get("source_key") == tier]
+        for row in _sample_rows(tier_rows):
+            receipt_value = row.get("physical_receipt_path")
+            expected_receipt_sha = row.get("physical_receipt_sha256")
+            expected_artifact_sha = row.get("physical_artifact_sha256")
+            if not all(
+                isinstance(value, str) and len(value) == 64
+                for value in (expected_receipt_sha, expected_artifact_sha)
+            ) or not isinstance(receipt_value, str):
+                raise ValueError("virtual Backpack content spot-check identity is missing")
+            receipt_path = Path(receipt_value).expanduser()
+            if receipt_path.is_symlink() or not receipt_path.is_file():
+                raise ValueError(
+                    f"virtual Backpack content spot-check receipt is missing: {row.get('cell_id')}"
+                )
+            receipt_raw = receipt_path.read_bytes()
+            if _sha256(receipt_raw) != expected_receipt_sha:
+                raise ValueError(
+                    f"virtual Backpack content spot-check receipt drift: {row.get('cell_id')}"
+                )
+            receipt = json.loads(receipt_raw)
+            artifact_path = receipt_path.parent / "QTIP_UNIT.pt"
+            if artifact_path.is_symlink() or not artifact_path.is_file():
+                raise ValueError(
+                    f"virtual Backpack content spot-check payload is missing: {row.get('cell_id')}"
+                )
+            artifact_sha = _sha256(artifact_path.read_bytes())
+            if artifact_sha != expected_artifact_sha or receipt.get("artifact_sha256") != artifact_sha:
+                raise ValueError(
+                    f"virtual Backpack content spot-check tier payload drift: {row.get('cell_id')}"
+                )
+            samples.append(
+                {
+                    "cell_id": row.get("cell_id"),
+                    "tier": tier,
+                    "artifact_sha256": artifact_sha,
+                }
+            )
+    return {"required": len(samples), "matched": len(samples), "samples": samples}
+
+
 def verify_virtual_backpack(root: str | Path) -> dict[str, Any]:
     root_path = Path(root).expanduser().resolve()
     manifest_path = root_path / VIRTUAL_MANIFEST
@@ -1178,6 +1229,7 @@ def verify_virtual_backpack(root: str | Path) -> dict[str, Any]:
     cells = [str(row.get("cell_id")) for row in index_rows]
     if len(set(cells)) != len(cells):
         raise ValueError("virtual Backpack index cells are not unique")
+    content_spot_check = _verify_qtip_content_samples(index_rows)
     payload_bytes = 0
     tier_counts: Counter[str] = Counter()
     source_counts: Counter[str] = Counter()
@@ -1302,6 +1354,7 @@ def verify_virtual_backpack(root: str | Path) -> dict[str, Any]:
         "basis_sha256": manifest["basis_sha256"],
         "tier_counts": manifest["tier_counts"],
         "source_component_counts": manifest["source_component_counts"],
+        "content_spot_check": content_spot_check,
         "byte_accounting": manifest["byte_accounting"],
         "expert_parameter_denominator": manifest["expert_parameter_denominator"],
         "expert_wire_bpw": manifest["expert_wire_bpw"],
