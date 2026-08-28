@@ -34,6 +34,8 @@ HISTORICAL_BASE_LRS = {"luts": 2.5e-4, "norms": 2.5e-5, "outputs": 2.5e-4}
 PUBLISHED_PRE_RECIPE_ID = "published_pre_lower_lr_warmup16_cosine64_v1"
 PUBLISHED_PRE_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
 PUBLISHED_PRE_BASE_LRS = {"luts": 1.0e-3, "norms": 1.0e-4, "outputs": 1.0e-3}
+EXPERT_PLANE_SURFACE = "expert_planes_l028_su_sv"
+EXPERT_PLANE_ROSTER_SHA256 = "3f2c6f97cb65f6e2e862881b8096993797c4d86b373c27632a287163215fc1ec"
 STATIC_W28_VALIDATION_CORPUS_SHA256 = "5aadaacbb486ae4f528c5e51ae70beff863337bd908fc727e6e49fc3ac520ebd"
 STATIC_W28_TEACHER_SHA256 = "561753481a1e08aee88e28f5fa0c6e727f4af679494c39679e87ed5189e2653d"
 SEALED_GROUPED_WRAPPER_SHA256 = "5ff7e60b1b7d21abee2dbdc3202a1cf2c3787c3bd4744af34f1a9b6ace5ff361"
@@ -77,6 +79,131 @@ FROM_U0_ARM_IDS = {
     "from_u0_cosine_only",
     "from_u0_window_dose6_only",
 }
+
+
+def _validated_expert_plane_expansion(
+    config: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    value = config.get("expert_plane_expansion")
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ArtifactError("expert-plane expansion contract must be a mapping")
+    if config.get("tailfix_wholesale") is True:
+        raise ArtifactError("L028 expert-plane expansion cannot combine with tailfix wholesale")
+    if value.get("surface") != EXPERT_PLANE_SURFACE or value.get("layer") != 28:
+        raise ArtifactError("expert-plane expansion is restricted to the L028 SU/SV surface")
+    if value.get("components") != ["SU", "SV"]:
+        raise ArtifactError("expert-plane expansion components must be exactly SU/SV")
+    if value.get("projections") != ["w1", "w2", "w3"]:
+        raise ArtifactError("expert-plane expansion projections must be exactly w1/w2/w3")
+    if value.get("static_w28") is not True or value.get("immutable_wire") is not True:
+        raise ArtifactError("expert-plane expansion requires static W28 and immutable wire bytes")
+    roster_sha = value.get("roster_sha256")
+    if not isinstance(roster_sha, str) or len(roster_sha) != 64 or any(
+        character not in "0123456789abcdef" for character in roster_sha
+    ):
+        raise ArtifactError("expert-plane expansion requires a lowercase SHA-256 roster identity")
+    if roster_sha != EXPERT_PLANE_ROSTER_SHA256:
+        raise ArtifactError("L028 SU/SV roster identity drift")
+    try:
+        learning_rate = float(value.get("learning_rate"))
+    except (TypeError, ValueError) as exc:
+        raise ArtifactError("expert-plane expansion requires a finite positive learning rate") from exc
+    if not math.isfinite(learning_rate) or learning_rate <= 0.0:
+        raise ArtifactError("expert-plane expansion requires a finite positive learning rate")
+    return dict(value)
+
+
+def _activate_expert_plane_surface(
+    student: Any,
+    checkpoint_state: Mapping[str, Any],
+    contract: Mapping[str, Any],
+    *,
+    checkpoint_cursor: int,
+) -> list[tuple[str, Any]]:
+    experts = getattr(student, "experts", None)
+    module = experts.get(28) if isinstance(experts, Mapping) else None
+    if module is None:
+        return []
+    try:
+        rows = list(module.promote_l028_su_sv())
+    except Exception as exc:
+        raise ArtifactError(f"L028 SU/SV promotion failed: {exc}") from exc
+    saved = checkpoint_state.get(EXPERT_PLANE_SURFACE)
+    if saved is None:
+        if checkpoint_cursor != 0:
+            raise ArtifactError("continuation checkpoint is missing L028 SU/SV state")
+        return rows
+    try:
+        module.load_expert_plane_state(saved)
+    except Exception as exc:
+        raise ArtifactError(f"L028 SU/SV checkpoint state cannot load: {exc}") from exc
+    return rows
+
+
+def _merge_expanded_optimizer_state(
+    state_rows: list[Mapping[str, Any]],
+    ordered_state: Mapping[str, Mapping[str, Any]],
+    surfaces: tuple[str, ...],
+    dormant_names: set[str],
+) -> dict[str, Any]:
+    ordered_names = {surface: list(ordered_state[surface]) for surface in surfaces}
+    global_ids: dict[str, int] = {}
+    for surface in surfaces:
+        for name in ordered_names[surface]:
+            if name in global_ids:
+                raise ArtifactError(f"optimizer parameter name overlap: {name}")
+            global_ids[name] = len(global_ids)
+    merged_state: dict[int, Any] = {}
+    seen: set[int] = set()
+    templates: dict[str, dict[str, Any]] = {}
+    for row in state_rows:
+        local = row["optimizer"]
+        local_names = row["param_names"]
+        groups = local.get("param_groups")
+        if not isinstance(groups, list) or len(groups) != len(surfaces):
+            raise ArtifactError("expanded optimizer parameter-group count drift")
+        local_ids_seen: set[int] = set()
+        for surface, group in zip(surfaces, groups):
+            names = list(local_names[surface])
+            ids = list(group.get("params", []))
+            if len(names) != len(ids):
+                raise ArtifactError(f"expanded optimizer name/id drift: {surface}")
+            template = {key: value for key, value in group.items() if key != "params"}
+            if surface in templates and templates[surface] != template:
+                raise ArtifactError(f"expanded optimizer group setting drift: {surface}")
+            templates[surface] = template
+            for name, local_id in zip(names, ids):
+                if name not in global_ids or local_id in local_ids_seen:
+                    raise ArtifactError(f"expanded optimizer parameter identity drift: {name}")
+                local_ids_seen.add(local_id)
+                global_id = global_ids[name]
+                if global_id in seen:
+                    raise ArtifactError(f"expanded optimizer parameter overlap: {name}")
+                seen.add(global_id)
+                value = local["state"].get(local_id, local["state"].get(str(local_id)))
+                if value is not None:
+                    merged_state[global_id] = value
+        dangling = set(local["state"]) - local_ids_seen
+        dangling -= {str(value) for value in local_ids_seen}
+        if dangling:
+            raise ArtifactError("expanded optimizer state has unbound local ids")
+    if seen != set(range(len(global_ids))):
+        raise ArtifactError("expanded optimizer global parameter coverage drift")
+    missing = {name for name, global_id in global_ids.items() if global_id not in merged_state}
+    if missing != (set(global_ids) & dormant_names):
+        raise ArtifactError("expanded optimizer sparse-state coverage drift")
+    return {
+        "state": merged_state,
+        "param_groups": [
+            {
+                **templates[surface],
+                "params": [global_ids[name] for name in ordered_names[surface]],
+            }
+            for surface in surfaces
+        ],
+    }
 
 
 def _fp64_state_adam(
@@ -1381,6 +1508,9 @@ class ModernGreenResidentEngine:
         self.controlled_arm_id = config.get("controlled_arm_id")
         self.controlled_arm = self.controlled_arm_id is not None
         self.published_pre_recipe = config.get("recipe_id") == PUBLISHED_PRE_RECIPE_ID
+        self.expert_plane_contract = _validated_expert_plane_expansion(config)
+        if self.expert_plane_contract is not None and not self.published_pre_recipe:
+            raise ArtifactError("L028 expert-plane expansion requires published PRE lineage")
         self.tailfix_wholesale = config.get("tailfix_wholesale") is True
         if self.tailfix_wholesale:
             from .tailfix_wholesale import validate_wholesale_config
@@ -1424,8 +1554,16 @@ class ModernGreenResidentEngine:
         self.state = payload.get("state")
         if not isinstance(self.state, Mapping):
             raise ArtifactError("U16 checkpoint state must contain official trainable surfaces")
-        if set(self.state) != {"luts", "norms", "outputs"}:
-            raise ArtifactError("U16 state must contain exactly luts, norms, and outputs")
+        base_surfaces = {"luts", "norms", "outputs"}
+        allowed_surfaces = base_surfaces | (
+            {EXPERT_PLANE_SURFACE} if self.expert_plane_contract is not None else set()
+        )
+        if set(self.state) not in (
+            (base_surfaces, allowed_surfaces)
+            if self.expert_plane_contract is not None
+            else (base_surfaces,)
+        ):
+            raise ArtifactError("resident state trainable-surface schema drift")
         identity_value = payload.get("identity")
         identity = identity_value if isinstance(identity_value, Mapping) else {}
         self.global_step = int(payload.get("next_update", identity.get("next_update", 16)))
@@ -1519,6 +1657,20 @@ class ModernGreenResidentEngine:
                     requires_grad=False,
                 )
         self.luts, self.norms, self.outputs = self.trainer.expose_local_dense(torch, self.student, admission)
+        self.expert_planes = (
+            _activate_expert_plane_surface(
+                self.student,
+                self.state,
+                self.expert_plane_contract,
+                checkpoint_cursor=self.global_step,
+            )
+            if self.expert_plane_contract is not None
+            else []
+        )
+        if self.expert_plane_contract is not None:
+            expected_local = 1536 if self.first <= 28 <= self.last else 0
+            if len(self.expert_planes) != expected_local:
+                raise ArtifactError("rank-local L028 SU/SV promoted coverage drift")
         self._load_local_trainable_state()
         self._install_lut_accumulation_diagnostic()
         self.equivalent_gradient_scale = 1.0
@@ -1537,12 +1689,30 @@ class ModernGreenResidentEngine:
                 PUBLISHED_PRE_BASE_LRS if self.published_pre_recipe
                 else HISTORICAL_BASE_LRS if self.controlled_arm else BASE_LRS
             )
+            if self.expert_plane_contract is not None:
+                optimizer_lrs = {
+                    "luts": 0.0,
+                    "norms": 0.0,
+                    "outputs": 0.0,
+                    EXPERT_PLANE_SURFACE: float(
+                        self.expert_plane_contract["learning_rate"]
+                    ),
+                }
             self.optimizer = _fp64_state_adam(
                 torch,
                 [
                     {"params": [p for _name, p in self.luts], "lr": optimizer_lrs["luts"], "group_name": "luts"},
                     {"params": [p for _name, p in self.norms], "lr": optimizer_lrs["norms"], "group_name": "norms"},
                     {"params": [p for _name, p in self.outputs], "lr": optimizer_lrs["outputs"], "group_name": "outputs"},
+                    *(
+                        [{
+                            "params": [p for _name, p in self.expert_planes],
+                            "lr": optimizer_lrs[EXPERT_PLANE_SURFACE],
+                            "group_name": EXPERT_PLANE_SURFACE,
+                        }]
+                        if self.expert_plane_contract is not None
+                        else []
+                    ),
                 ],
                 gradient_scale=self.equivalent_gradient_scale,
             )
@@ -1557,7 +1727,9 @@ class ModernGreenResidentEngine:
             else:
                 lr_lambda = self.trainer.current_multiplier
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer, lr_lambda=[lr_lambda] * 3
+                self.optimizer,
+                lr_lambda=[lr_lambda]
+                * (4 if self.expert_plane_contract is not None else 3),
             )
         self._load_optimizer_scheduler_state()
         self._load_training_data()
@@ -1732,12 +1904,30 @@ class ModernGreenResidentEngine:
             raise ArtifactError("U16 checkpoint is missing the shared Adam optimizer state")
         groups = optimizer_payload.get("param_groups")
         global_state = optimizer_payload.get("state")
-        if not isinstance(groups, list) or len(groups) != 3 or not isinstance(global_state, Mapping):
-            raise ArtifactError("U16 Adam state has no canonical three-surface lineage")
+        surfaces = ("luts", "norms", "outputs") + (
+            (EXPERT_PLANE_SURFACE,)
+            if getattr(self, "expert_plane_contract", None) is not None
+            else ()
+        )
+        if (
+            not isinstance(groups, list)
+            or len(groups) != len(surfaces)
+            or not isinstance(global_state, Mapping)
+        ):
+            raise ArtifactError("resident Adam state has no canonical trainable-surface lineage")
         local_state = self.optimizer.state_dict()
         local_groups = local_state["param_groups"]
-        local_rows = {"luts": self.luts, "norms": self.norms, "outputs": self.outputs}
-        for index, surface in enumerate(("luts", "norms", "outputs")):
+        local_rows = {
+            "luts": self.luts,
+            "norms": self.norms,
+            "outputs": self.outputs,
+            **(
+                {EXPERT_PLANE_SURFACE: self.expert_planes}
+                if getattr(self, "expert_plane_contract", None) is not None
+                else {}
+            ),
+        }
+        for index, surface in enumerate(surfaces):
             names = [name for name, _param in local_rows[surface]]
             global_names = list(self.state[surface])
             source_group = groups[index]
@@ -2832,6 +3022,8 @@ class ModernGreenResidentEngine:
         )
 
     def _local_params(self) -> list[tuple[str, Any]]:
+        if getattr(self, "expert_plane_contract", None) is not None:
+            return list(self.expert_planes)
         return [*self.luts, *self.norms, *self.outputs]
 
     def _local_norm(self, values: list[Any]) -> float:
@@ -2955,6 +3147,15 @@ class ModernGreenResidentEngine:
                 base_lrs, multiplier, default_windows = _published_pre_recipe_policy(
                     self.config, global_step
                 )
+                if self.expert_plane_contract is not None:
+                    base_lrs = {
+                        "luts": 0.0,
+                        "norms": 0.0,
+                        "outputs": 0.0,
+                        EXPERT_PLANE_SURFACE: float(
+                            self.expert_plane_contract["learning_rate"]
+                        ),
+                    }
             group_windows = (
                 self.controlled_windows[global_step % len(self.controlled_windows)]
                 if self.published_pre_controlled_windows
@@ -3133,7 +3334,16 @@ class ModernGreenResidentEngine:
     def _gather_state(self) -> tuple[Mapping[str, Any] | None, Mapping[str, Any] | None, Mapping[str, Any]]:
         torch = self.torch
         rows: list[Any] = [None, None]
-        local_params = {"luts": self.luts, "norms": self.norms, "outputs": self.outputs}
+        local_params = {
+            "luts": self.luts,
+            "norms": self.norms,
+            "outputs": self.outputs,
+            **(
+                {EXPERT_PLANE_SURFACE: self.expert_planes}
+                if self.expert_plane_contract is not None
+                else {}
+            ),
+        }
         local_state = {
             "rank": self.rank,
             **{surface: {name: parameter.detach().cpu().clone() for name, parameter in values} for surface, values in local_params.items()},
@@ -3144,16 +3354,28 @@ class ModernGreenResidentEngine:
         if self.rank != 0:
             self.dist.barrier()
             return None, None, {"rank_rows": rows}
-        merged = {"luts": {}, "norms": {}, "outputs": {}}
+        merged = {surface: {} for surface in local_params}
         for row in rows:
             for surface in merged:
                 overlap = set(merged[surface]) & set(row[surface])
                 if overlap:
                     raise ArtifactError(f"official resident state overlap: {surface} {sorted(overlap)[:3]}")
                 merged[surface].update(row[surface])
-        if {surface: len(values) for surface, values in merged.items()} != {"luts": 43, "norms": 235, "outputs": 43}:
+        expected_coverage = {"luts": 43, "norms": 235, "outputs": 43}
+        if self.expert_plane_contract is not None:
+            expected_coverage[EXPERT_PLANE_SURFACE] = 1536
+        if {surface: len(values) for surface, values in merged.items()} != expected_coverage:
             raise ArtifactError("official resident merged trainable surface coverage drift")
-        optimizer = self.trainer.merge_optimizer_state(rows, merged)
+        optimizer = (
+            _merge_expanded_optimizer_state(
+                rows,
+                merged,
+                tuple(merged),
+                set(getattr(self.trainer, "DORMANT_NORMS", set())),
+            )
+            if self.expert_plane_contract is not None
+            else self.trainer.merge_optimizer_state(rows, merged)
+        )
         scheduler = _cpu_tree(torch, self.scheduler.state_dict())
         report = {"rank_rows": rows, "optimizer": optimizer, "scheduler": scheduler}
         self.dist.barrier()
@@ -3195,7 +3417,11 @@ class ModernGreenResidentEngine:
             "state_gathered": gather_state,
             "model_engine": "official-ShardStudent-grouped-K2-FWHT-resident",
             "frozen_surfaces": ["packed_codes", "assignments", "scales"],
-            "trainable_surfaces": ["luts", "rmsnorms", "output_gains"],
+            "trainable_surfaces": (
+                [EXPERT_PLANE_SURFACE]
+                if self.expert_plane_contract is not None
+                else ["luts", "rmsnorms", "output_gains"]
+            ),
         }
         return merged_state, step_report, report_state
 
