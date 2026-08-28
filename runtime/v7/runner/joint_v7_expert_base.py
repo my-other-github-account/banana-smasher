@@ -114,6 +114,7 @@ class JointV7ExpertBase(nn.Module):
     def _projection(self, expert: int, projection: str) -> OfficialQtipK2PhysicalLayer:
         source = self.plane_source
         path = source.member_path(expert, projection)
+        source.wire_lut()  # accounting only; official numerical path remains source.master
         device = source.master.device
         parsed = packed_k2_from_member(path, projection, device)
         # Keep parse_v7_member as a geometry check against the admitted contract.

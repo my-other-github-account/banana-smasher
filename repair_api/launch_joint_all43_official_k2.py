@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-OFFICIAL_SOURCE_SHA256 = "00c0d888b017f7d93a0f5c214673c7579f296d3ba23274ac6355c1f80511a16b"
+OFFICIAL_SOURCE_SHA256 = "7dc96771e7601771c2ffdde889cc1a4218b6a753c86b541acc1a5c8defd60929"
 CANONICAL_REFERENCE = (
     "419790fad2cc5370fc2b9ec4c9b0b96652862b94:"
     "runtime/v7/runner/joint_v7_expert_base.py:67-152"
