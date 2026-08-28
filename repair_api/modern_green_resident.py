@@ -46,6 +46,10 @@ ACCEPTED_W28_RECEIPT_SHA256_BY_RANK = {
 }
 STATIC_W28_GROUPED_WRAPPER_SHA256 = "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
 STATIC_W28_GROUPED_EXPERT_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
+AUTHENTICATED_106BR_BUILDER_SHA256 = "11ead706db562197e76cdc320d5d13044bb254a411b6412326667f524ddf29ed"
+SEALED_PLANESOURCE_SHA256 = "167603b5662437a2f9fc4b3ead1561d777a7a831a898133993b9e1c0c26c9f87"
+STATIC_W28_PROVIDER_MODE = "STATIC_W28_GROUPED"
+SEALED_BF16_PROVIDER_MODE = "SEALED_BF16_FULL_WEIGHT"
 
 
 def _validation_attention_query_chunk_size(config: Mapping[str, Any]) -> int:
@@ -445,6 +449,27 @@ def _resolve_trainer_source(config: Mapping[str, Any]) -> tuple[Path, str]:
 
 def _uses_exact_sealed_reconstruction(config: Mapping[str, Any]) -> bool:
     sealed_pre_binding = config.get("sealed_pre_source_binding")
+    provider_mode = config.get("provider_resolution_mode")
+    if provider_mode is not None:
+        if provider_mode == STATIC_W28_PROVIDER_MODE:
+            return False
+        if provider_mode != SEALED_BF16_PROVIDER_MODE:
+            raise ArtifactError(f"unknown provider_resolution_mode: {provider_mode}")
+        if not isinstance(sealed_pre_binding, Mapping):
+            raise ArtifactError("sealed BF16 provider mode requires source binding")
+        if (
+            sealed_pre_binding.get("builder_sha256")
+            != AUTHENTICATED_106BR_BUILDER_SHA256
+        ):
+            raise ArtifactError("sealed BF16 provider builder identity drift")
+        if sealed_pre_binding.get("planesource_sha256") != SEALED_PLANESOURCE_SHA256:
+            raise ArtifactError("sealed BF16 provider planesource identity drift")
+        if (
+            config.get("resident_validation_expert_implementation")
+            != "sealed_bf16_full_weight"
+        ):
+            raise ArtifactError("sealed BF16 provider implementation drift")
+        return True
     return bool(
         isinstance(sealed_pre_binding, Mapping)
         and sealed_pre_binding.get("builder_sha256")
