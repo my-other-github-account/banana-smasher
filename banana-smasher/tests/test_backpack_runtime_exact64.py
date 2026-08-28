@@ -12,6 +12,7 @@ import pytest
 import torch
 
 from banana_smasher import materialize_provenance_virtual_backpack
+from banana_smasher.backpack_runtime_exact64 import _validate_whole_model_accounting
 from banana_smasher.backpack_virtual import verify_virtual_backpack
 from banana_smasher.d4_wire import decode_d4_expert, unpack_d4_codes
 from banana_smasher.hf_deepseek_v4_backpack_adapter import (
@@ -19,6 +20,30 @@ from banana_smasher.hf_deepseek_v4_backpack_adapter import (
     _available_materialization_bytes,
     _fwht,
 )
+
+
+def test_exact64_whole_model_accounting_includes_sealed_envelope_padding() -> None:
+    accounting = {
+        "expert_physical_wire_bytes": 92_967_396_864,
+        "dense_nonrouted_bytes": 9_017_356_608,
+        "repair_bytes": 0,
+        "metadata_bytes": 14_756_006,
+        "fixed_nonexpert_bytes": 9_032_112_614,
+        "padding_bytes": 490_522,
+        "whole_shipping_bytes": 102_000_000_000,
+        "shipping_bytes_cap": 102_000_000_000,
+        "shipping_slack_bytes": 0,
+        "logical_base_parameters": 236_000_000_000,
+        "whole_model_bpw_numerator_bits": 816_000_000_000,
+        "whole_model_bpw_exact_ratio": "816000000000/236000000000",
+        "whole_model_bpw_decimal": (
+            "3.4576271186440677966101694915254237288135593220338983050847457627118644067796610"
+        ),
+    }
+
+    assert _validate_whole_model_accounting(
+        {"whole_model_accounting": accounting}
+    ) == accounting
 
 
 def test_gb10_materialization_admission_uses_reclaimable_host_memory(tmp_path) -> None:

@@ -131,6 +131,12 @@ def _validate_whole_model_accounting(document: Mapping[str, Any]) -> Mapping[str
                 f"exact64 whole-model accounting field is invalid: {field}"
             )
         values[field] = value
+    padding = accounting.get("padding_bytes", 0)
+    if isinstance(padding, bool) or not isinstance(padding, int) or padding < 0:
+        raise ValueError(
+            "exact64 whole-model accounting field is invalid: padding_bytes"
+        )
+    values["padding_bytes"] = padding
     if values["shipping_bytes_cap"] == 0 or values["logical_base_parameters"] == 0:
         raise ValueError(
             "exact64 whole-model target and logical denominator must be positive"
@@ -143,7 +149,11 @@ def _validate_whole_model_accounting(document: Mapping[str, Any]) -> Mapping[str
     )
     if values["fixed_nonexpert_bytes"] != fixed:
         raise ValueError("exact64 fixed_nonexpert_bytes equation mismatch")
-    whole = values["expert_physical_wire_bytes"] + fixed
+    whole = (
+        values["expert_physical_wire_bytes"]
+        + fixed
+        + values["padding_bytes"]
+    )
     if values["whole_shipping_bytes"] != whole:
         raise ValueError("exact64 whole_shipping_bytes equation mismatch")
     if whole > values["shipping_bytes_cap"]:
