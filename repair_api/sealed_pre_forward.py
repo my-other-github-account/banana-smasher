@@ -16,6 +16,7 @@ PLANESOURCE_SHA256 = "167603b5662437a2f9fc4b3ead1561d777a7a831a898133993b9e1c0c2
 BASIS_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 CHECKPOINT_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
 CANDIDATE_IDENTITY = "51074d5fedfc922b8442cb6cf988773f32991c16e6cf34ca21131c4f7b1726f8"
+TRAINER_SHA256 = "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
 SEALED_MODEL_ROOT = Path("/home/dnola/models/hf/DeepSeek-V4-Flash-0731")
 W28_KLD = 0.1364830042977786
 W28_TOP1 = 880
@@ -91,6 +92,10 @@ def bind_sealed_pre_resident_config(config: dict[str, Any]) -> dict[str, Any]:
     # tensor arithmetic even though the reported validation roster is singleton.
     config["score_window_batch_size"] = 2
     config["sealed_builder_window_microbatch"] = 2
+    config["trainer_source"] = str(
+        (Path(__file__).resolve().parent / "assets" / "static_w28_modern_green_clean_u0.py")
+    )
+    config["trainer_source_sha256"] = TRAINER_SHA256
     return config["sealed_pre_source_binding"]
 
 

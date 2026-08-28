@@ -394,6 +394,24 @@ def test_static_w28_provider_honors_explicit_immutable_trainer_binding():
     assert 'str(configured_sha)' in resolver
 
 
+def test_sealed_pre_binding_owns_accepted_trainer_identity() -> None:
+    from repair_api.sealed_pre_forward import bind_sealed_pre_resident_config
+
+    config = {
+        "trainer_source": "/stale/inherited/trainer.py",
+        "trainer_source_sha256": "0" * 64,
+    }
+    bind_sealed_pre_resident_config(config)
+
+    expected = (
+        Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
+    ).resolve()
+    assert Path(config["trainer_source"]) == expected
+    assert config["trainer_source_sha256"] == (
+        "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
+    )
+
+
 def test_public_full64_binds_exact_sealed_pre_sources_to_resident_zero_reload_api() -> None:
     root = Path(__file__).parents[1]
     runner = (root / "resident_full64_accept.py").read_text()
