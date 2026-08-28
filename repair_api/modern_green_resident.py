@@ -433,6 +433,13 @@ def _resolve_scorer_aligned_training_teacher_root(config: Mapping[str, Any]) -> 
 def _resolve_trainer_source(config: Mapping[str, Any]) -> tuple[Path, str]:
     """Bind static PRE/U1 validation to the accepted trainer bytes."""
     if _uses_static_w28_provider(config):
+        configured = config.get("trainer_source")
+        configured_sha = config.get("trainer_source_sha256")
+        if configured is not None and configured_sha is not None:
+            return (
+                Path(str(configured)).expanduser().resolve(),
+                str(configured_sha),
+            )
         return (
             Path(__file__).resolve().parent / "assets" / "static_w28_modern_green_clean_u0.py",
             TRAINER_SHA256,

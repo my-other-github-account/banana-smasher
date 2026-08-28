@@ -365,6 +365,11 @@ def test_resident_full64_accept_binds_the_dispatched_task_from_environment():
     assert 'TASK = os.environ.get("BANANA_SMASHER_TASK_ID", "t_d4dac464")' in source
     assert 'W28_ADOPTION_TASK = "t_8b1b3a3f"' in source
     assert 'row.get("task_id") != W28_ADOPTION_TASK' in source
+    assert 'FULL64_REQUIRES_ACCEPTED_PROVIDER' in source
+    assert 'len(rows) != 64' in source
+    assert 'checkpoint_reloads' in source
+    assert 'per_window_diff' in source
+    assert 'reference_terminal_sha256' in source
 
 
 def test_exact102_w28_only_consumes_admission_and_returns_before_full64():
@@ -376,11 +381,17 @@ def test_exact102_w28_only_consumes_admission_and_returns_before_full64():
     assert gate < admission < terminal < full64
     assert 'int(exact102_admission.get("provenance_members", -1)) != 22016' in source
     assert '"exact102_virtual_artifact_sha256": exact102_admission[' in source
-    assert 'FULL64_REQUIRES_ACCEPTED_PROVIDER' in source
-    assert 'len(rows) != 64' in source
-    assert 'checkpoint_reloads' in source
-    assert 'per_window_diff' in source
-    assert 'reference_terminal_sha256' in source
+
+
+def test_static_w28_provider_honors_explicit_immutable_trainer_binding():
+    source = (Path(__file__).parents[1] / "modern_green_resident.py").read_text()
+    resolver = source[source.index("def _resolve_trainer_source(") :]
+    resolver = resolver[: resolver.index("\n\ndef ", 1)]
+    configured = resolver.index('configured = config.get("trainer_source")')
+    bundled = resolver.index('Path(__file__).resolve().parent / "assets"')
+    assert configured < bundled
+    assert 'Path(str(configured)).expanduser().resolve()' in resolver
+    assert 'str(configured_sha)' in resolver
 
 
 def test_public_full64_binds_exact_sealed_pre_sources_to_resident_zero_reload_api() -> None:
