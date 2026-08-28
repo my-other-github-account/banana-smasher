@@ -45,21 +45,9 @@ __device__ __forceinline__ uint8_t packed_q(
   return static_cast<uint8_t>((pair >> ((prefix & 1) * 4)) & 15u);
 }
 
-__device__ __forceinline__ void reduce_branch_min(float& cost, int& q) {
-#pragma unroll
-  for (int offset = 8; offset > 0; offset >>= 1) {
-    const float other_cost = __shfl_down_sync(0xffffffffu, cost, offset, 16);
-    const int other_q = __shfl_down_sync(0xffffffffu, q, offset, 16);
-    if (other_cost < cost) {
-      cost = other_cost;
-      q = other_q;
-    }
-  }
-}
-
-// One CTA owns two source rows. Each 16-lane subgroup evaluates one prefix pair
-// with one branch per lane, then reduces the exact strict-minimum in increasing-q
-// order. LUT arithmetic, state order, tie order, and packed winners are unchanged.
+// One CTA owns two source rows. The pair shares every LUT load while retaining
+// independent FP32 cost banks and exact four-bit winners. This changes only the
+// source-backed rows-per-CTA work-amortization variable; state order is unchanged.
 __global__ __launch_bounds__(THREADS, 1) void full_row_k2_viterbi(
     const float* __restrict__ x,
     const float* __restrict__ lut_aos,
@@ -88,54 +76,57 @@ __global__ __launch_bounds__(THREADS, 1) void full_row_k2_viterbi(
   const int required_residue0 = has_overlap ? required0 & 255 : 0;
   const int required_residue1 = has_overlap && has_seq1 ? required1 & 255 : 0;
 
-  const int branch = threadIdx.x & 15;
-  const int subgroup = threadIdx.x >> 4;
-  const int subgroups = blockDim.x >> 4;
-  for (int pair = subgroup; pair < PREFIX_PAIRS; pair += subgroups) {
+  for (int pair = threadIdx.x; pair < PREFIX_PAIRS; pair += blockDim.x) {
     const int j0 = pair * 2;
     const int j1 = j0 + 1;
-    float best00 = CUDART_INF_F, best01 = CUDART_INF_F;
-    float best10 = CUDART_INF_F, best11 = CUDART_INF_F;
+    float best00 = CUDART_INF_F;
+    float best01 = CUDART_INF_F;
+    float best10 = CUDART_INF_F;
+    float best11 = CUDART_INF_F;
+    uint8_t q00 = 0, q01 = 0, q10 = 0, q11 = 0;
     if (has_overlap) {
-      if (branch == required_q0 && (j0 >> 4) == required_residue0) {
+      if ((j0 >> 4) == required_residue0) {
         const int state = required_q0 * PREFIXES + j0;
         best00 = exact_emission(first_x00, first_x01, lut_aos[state * 2], lut_aos[state * 2 + 1]);
       }
-      if (branch == required_q0 && (j1 >> 4) == required_residue0) {
+      if ((j1 >> 4) == required_residue0) {
         const int state = required_q0 * PREFIXES + j1;
         best01 = exact_emission(first_x00, first_x01, lut_aos[state * 2], lut_aos[state * 2 + 1]);
       }
-      if (has_seq1 && branch == required_q1 && (j0 >> 4) == required_residue1) {
+      if (has_seq1 && (j0 >> 4) == required_residue1) {
         const int state = required_q1 * PREFIXES + j0;
         best10 = exact_emission(first_x10, first_x11, lut_aos[state * 2], lut_aos[state * 2 + 1]);
       }
-      if (has_seq1 && branch == required_q1 && (j1 >> 4) == required_residue1) {
+      if (has_seq1 && (j1 >> 4) == required_residue1) {
         const int state = required_q1 * PREFIXES + j1;
         best11 = exact_emission(first_x10, first_x11, lut_aos[state * 2], lut_aos[state * 2 + 1]);
       }
+      q00 = q01 = static_cast<uint8_t>(required_q0);
+      q10 = q11 = static_cast<uint8_t>(required_q1);
     } else {
-      const int state0 = branch * PREFIXES + j0;
-      const int state1 = branch * PREFIXES + j1;
-      const float l00 = lut_aos[state0 * 2], l01 = lut_aos[state0 * 2 + 1];
-      const float l10 = lut_aos[state1 * 2], l11 = lut_aos[state1 * 2 + 1];
-      best00 = exact_emission(first_x00, first_x01, l00, l01);
-      best01 = exact_emission(first_x00, first_x01, l10, l11);
-      if (has_seq1) {
-        best10 = exact_emission(first_x10, first_x11, l00, l01);
-        best11 = exact_emission(first_x10, first_x11, l10, l11);
+#pragma unroll
+      for (int q = 0; q < BRANCHES; ++q) {
+        const int state0 = q * PREFIXES + j0;
+        const int state1 = q * PREFIXES + j1;
+        const float l00 = lut_aos[state0 * 2], l01 = lut_aos[state0 * 2 + 1];
+        const float l10 = lut_aos[state1 * 2], l11 = lut_aos[state1 * 2 + 1];
+        const float c00 = exact_emission(first_x00, first_x01, l00, l01);
+        const float c01 = exact_emission(first_x00, first_x01, l10, l11);
+        if (c00 < best00) { best00 = c00; q00 = static_cast<uint8_t>(q); }
+        if (c01 < best01) { best01 = c01; q01 = static_cast<uint8_t>(q); }
+        if (has_seq1) {
+          const float c10 = exact_emission(first_x10, first_x11, l00, l01);
+          const float c11 = exact_emission(first_x10, first_x11, l10, l11);
+          if (c10 < best10) { best10 = c10; q10 = static_cast<uint8_t>(q); }
+          if (c11 < best11) { best11 = c11; q11 = static_cast<uint8_t>(q); }
+        }
       }
     }
-    int q00 = branch, q01 = branch, q10 = branch, q11 = branch;
-    reduce_branch_min(best00, q00); reduce_branch_min(best01, q01);
-    reduce_branch_min(best10, q10); reduce_branch_min(best11, q11);
-    if (branch == 0) {
-      if (has_overlap) { q00 = q01 = required_q0; q10 = q11 = required_q1; }
-      previous0[j0] = best00; previous0[j1] = best01;
-      backpointer[static_cast<int64_t>(seq0) * PREFIX_PAIRS + pair] = static_cast<uint8_t>(q00 | (q01 << 4));
-      if (has_seq1) {
-        previous1[j0] = best10; previous1[j1] = best11;
-        backpointer[static_cast<int64_t>(seq1) * PREFIX_PAIRS + pair] = static_cast<uint8_t>(q10 | (q11 << 4));
-      }
+    previous0[j0] = best00; previous0[j1] = best01;
+    backpointer[static_cast<int64_t>(seq0) * PREFIX_PAIRS + pair] = static_cast<uint8_t>(q00 | (q01 << 4));
+    if (has_seq1) {
+      previous1[j0] = best10; previous1[j1] = best11;
+      backpointer[static_cast<int64_t>(seq1) * PREFIX_PAIRS + pair] = static_cast<uint8_t>(q10 | (q11 << 4));
     }
   }
   __syncthreads();
@@ -145,36 +136,38 @@ __global__ __launch_bounds__(THREADS, 1) void full_row_k2_viterbi(
     const float x01 = x[(static_cast<int64_t>(step) * 2 + 1) * batch + seq0];
     const float x10 = has_seq1 ? x[(static_cast<int64_t>(step) * 2) * batch + seq1] : 0.0f;
     const float x11 = has_seq1 ? x[(static_cast<int64_t>(step) * 2 + 1) * batch + seq1] : 0.0f;
-    for (int pair = subgroup; pair < PREFIX_PAIRS; pair += subgroups) {
+    for (int pair = threadIdx.x; pair < PREFIX_PAIRS; pair += blockDim.x) {
       const int j0 = pair * 2;
       const int j1 = j0 + 1;
       const int residue0 = j0 >> 4;
       const int residue1 = j1 >> 4;
-      const int state0 = branch * PREFIXES + j0;
-      const int state1 = branch * PREFIXES + j1;
-      const float l00 = lut_aos[state0 * 2], l01 = lut_aos[state0 * 2 + 1];
-      const float l10 = lut_aos[state1 * 2], l11 = lut_aos[state1 * 2 + 1];
-      const float predecessor0 = previous0[branch * 256 + residue0];
-      float best00 = exact_candidate(predecessor0, x00, x01, l00, l01);
-      float best01 = exact_candidate(predecessor0, x00, x01, l10, l11);
+      float best00 = FLT_MAX, best01 = FLT_MAX;
       float best10 = FLT_MAX, best11 = FLT_MAX;
-      if (has_seq1) {
-        const float predecessor1 = previous1[branch * 256 + residue1];
-        best10 = exact_candidate(predecessor1, x10, x11, l00, l01);
-        best11 = exact_candidate(predecessor1, x10, x11, l10, l11);
-      }
-      int q00 = branch, q01 = branch, q10 = branch, q11 = branch;
-      reduce_branch_min(best00, q00); reduce_branch_min(best01, q01);
-      reduce_branch_min(best10, q10); reduce_branch_min(best11, q11);
-      if (branch == 0) {
-        current0[j0] = best00; current0[j1] = best01;
-        const int64_t sink0 = (static_cast<int64_t>(step) * batch + seq0) * PREFIX_PAIRS + pair;
-        backpointer[sink0] = static_cast<uint8_t>(q00 | (q01 << 4));
+      uint8_t q00 = 0, q01 = 0, q10 = 0, q11 = 0;
+#pragma unroll
+      for (int q = 0; q < BRANCHES; ++q) {
+        const int state0 = q * PREFIXES + j0;
+        const int state1 = q * PREFIXES + j1;
+        const float l00 = lut_aos[state0 * 2], l01 = lut_aos[state0 * 2 + 1];
+        const float l10 = lut_aos[state1 * 2], l11 = lut_aos[state1 * 2 + 1];
+        const float c00 = exact_candidate(previous0[q * 256 + residue0], x00, x01, l00, l01);
+        const float c01 = exact_candidate(previous0[q * 256 + residue1], x00, x01, l10, l11);
+        if (c00 < best00) { best00 = c00; q00 = static_cast<uint8_t>(q); }
+        if (c01 < best01) { best01 = c01; q01 = static_cast<uint8_t>(q); }
         if (has_seq1) {
-          current1[j0] = best10; current1[j1] = best11;
-          const int64_t sink1 = (static_cast<int64_t>(step) * batch + seq1) * PREFIX_PAIRS + pair;
-          backpointer[sink1] = static_cast<uint8_t>(q10 | (q11 << 4));
+          const float c10 = exact_candidate(previous1[q * 256 + residue0], x10, x11, l00, l01);
+          const float c11 = exact_candidate(previous1[q * 256 + residue1], x10, x11, l10, l11);
+          if (c10 < best10) { best10 = c10; q10 = static_cast<uint8_t>(q); }
+          if (c11 < best11) { best11 = c11; q11 = static_cast<uint8_t>(q); }
         }
+      }
+      current0[j0] = best00; current0[j1] = best01;
+      const int64_t sink0 = (static_cast<int64_t>(step) * batch + seq0) * PREFIX_PAIRS + pair;
+      backpointer[sink0] = static_cast<uint8_t>(q00 | (q01 << 4));
+      if (has_seq1) {
+        current1[j0] = best10; current1[j1] = best11;
+        const int64_t sink1 = (static_cast<int64_t>(step) * batch + seq1) * PREFIX_PAIRS + pair;
+        backpointer[sink1] = static_cast<uint8_t>(q10 | (q11 << 4));
       }
     }
     __syncthreads();

@@ -40,8 +40,6 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     assert '"backpointer_dtype": "packed-uint4-q"' in exact_source
     assert '"rows_per_cta": 2' in exact_source
     assert '"lut_load_amortization_rows": 2' in exact_source
-    assert '"branch_execution": "half-warp-parallel-ascending-q-reduction"' in exact_source
-    assert '"branches_per_subgroup": 16' in exact_source
     assert '"minimum_ctas_per_sm": 1' in exact_source
     assert '"effective_rows_per_sm": 2' in exact_source
     assert '"fallback": 0' in exact_source
@@ -54,9 +52,6 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     assert "constexpr int THREADS = 512;" in cuda_source
     assert "constexpr int ROWS_PER_CTA = 2;" in cuda_source
     assert "__launch_bounds__(THREADS, 1)" in cuda_source
-    assert "const int branch = threadIdx.x & 15;" in cuda_source
-    assert "__shfl_down_sync(0xffffffffu, cost, offset, 16)" in cuda_source
-    assert "if (other_cost < cost)" in cuda_source
     assert "const int blocks = (batch + ROWS_PER_CTA - 1) / ROWS_PER_CTA;" in cuda_source
     assert "cudaFuncAttributeMaxDynamicSharedMemorySize" in cuda_source
 
