@@ -92,11 +92,16 @@ def _write_progress_monotone(path: Path, payload: dict[str, Any]) -> str:
     """Never replace a durable checkpoint with an earlier counter/frontier."""
     if path.is_file():
         current = json.loads(path.read_text())
+        current_run = current.get("board_run_id")
+        candidate_run = payload.get("board_run_id")
         current_count = int(current.get("accepted_cells", current.get("cells_passed", -1)))
         candidate_count = int(payload["accepted_cells"])
-        if current_count > candidate_count or (
-            current_count == candidate_count
-            and current.get("last_cell") != payload.get("last_cell")
+        if current_run == candidate_run and (
+            current_count > candidate_count
+            or (
+                current_count == candidate_count
+                and current.get("last_cell") != payload.get("last_cell")
+            )
         ):
             return sha256_file(path)
     return _atomic_json(path, payload)

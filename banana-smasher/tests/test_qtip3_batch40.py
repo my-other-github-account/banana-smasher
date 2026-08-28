@@ -236,3 +236,25 @@ def test_admission_adopts_released_same_task_irregular_shard(tmp_path, monkeypat
     receipt = producer.admit_host_and_shard(plan, gpu_probe=lambda: (), pid=1)
     assert receipt["status"] == "PASS"
     assert receipt["cells"] == 3
+
+
+def test_progress_counter_is_monotone_within_run_but_resets_for_new_run(tmp_path, monkeypatch):
+    producer = load_producer(monkeypatch)
+    path = tmp_path / "PROGRESS.json"
+    producer._write_progress_monotone(
+        path,
+        {"board_run_id": 10, "accepted_cells": 3160, "last_cell": "old"},
+    )
+
+    producer._write_progress_monotone(
+        path,
+        {"board_run_id": 11, "accepted_cells": 40, "last_cell": "new"},
+    )
+
+    import json
+
+    assert json.loads(path.read_text()) == {
+        "board_run_id": 11,
+        "accepted_cells": 40,
+        "last_cell": "new",
+    }
