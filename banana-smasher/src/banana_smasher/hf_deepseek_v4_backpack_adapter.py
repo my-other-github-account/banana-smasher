@@ -223,18 +223,72 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             for rows in self.rows_by_layer.values()
             for row in rows
         }
+        self.provenance_qtip_rows: dict[
+            tuple[str, int, int, str], dict[str, Any]
+        ] = {}
+        provenance_sources: set[str] = set()
+        for source_key in ("qtip2", "qtip3"):
+            source_rows = [
+                row
+                for rows in self.rows_by_layer.values()
+                for row in rows
+                if row["source_key"] == source_key
+            ]
+            if source_rows and all(
+                isinstance(row.get("physical_receipt_path"), str)
+                and isinstance(row.get("physical_receipt_sha256"), str)
+                and len(row["physical_receipt_sha256"]) == 64
+                and isinstance(row.get("physical_artifact_sha256"), str)
+                and len(row["physical_artifact_sha256"]) == 64
+                for row in source_rows
+            ):
+                provenance_sources.add(source_key)
+                for row in source_rows:
+                    key = (
+                        source_key,
+                        int(row["layer"]),
+                        int(row["expert"]),
+                        str(row["projection"]),
+                    )
+                    self.provenance_qtip_rows[key] = row
+        mixed_v7_selected = bool(
+            selected_source_keys.intersection(
+                {"qtip2", "qtip3", "qtip2_v7", "qtip3_v7"}
+            )
+        )
+        mixed_v7_bound = mixed_v7_group.issubset(binding)
         for source_key, fields in qtip_groups.items():
-            if (source_key in selected_source_keys) != fields.issubset(binding):
+            selected = source_key in selected_source_keys
+            directly_bound = fields.issubset(binding)
+            backing_count = sum(
+                (
+                    directly_bound,
+                    mixed_v7_bound,
+                    source_key in provenance_sources,
+                )
+            )
+            if selected and backing_count > 1:
+                raise ValueError(
+                    f"backpack_runtime {source_key} has ambiguous physical bindings"
+                )
+            if (selected and backing_count == 0) or (
+                not selected and directly_bound
+            ):
                 raise ValueError(
                     f"backpack_runtime {source_key} binding/selection mismatch"
                 )
-        mixed_v7_selected = bool(
-            selected_source_keys.intersection({"qtip2_v7", "qtip3_v7"})
-        )
-        mixed_v7_bound = mixed_v7_group.issubset(binding)
-        if (("qtip2_v7" in selected_source_keys) and not mixed_v7_bound) != v7_group.issubset(binding):
+        qtip2_v7_directly_bound = v7_group.issubset(binding)
+        if qtip2_v7_directly_bound and mixed_v7_bound:
+            raise ValueError(
+                "backpack_runtime qtip2_v7 has ambiguous root-map/member-contract bindings"
+            )
+        qtip2_v7_selected = "qtip2_v7" in selected_source_keys
+        if (
+            qtip2_v7_selected
+            and not (qtip2_v7_directly_bound or mixed_v7_bound)
+        ) or (not qtip2_v7_selected and qtip2_v7_directly_bound):
             raise ValueError("backpack_runtime qtip2_v7 binding/selection mismatch")
-        if mixed_v7_selected != mixed_v7_bound:
+        if mixed_v7_bound and not mixed_v7_selected:
             raise ValueError("backpack_runtime mixed V7 binding/selection mismatch")
         source_bindings = manifest.get("source_bindings")
         if not isinstance(source_bindings, Mapping):
@@ -270,7 +324,10 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             self._record_path(identity)
         self.root_maps: dict[str, dict[str, str]] = {}
         for source_key in ("qtip2", "qtip3"):
-            if source_key not in selected_source_keys:
+            if (
+                source_key not in selected_source_keys
+                or f"{source_key}_root_map" not in binding
+            ):
                 continue
             path = Path(str(binding[f"{source_key}_root_map"])).resolve()
             root_map = json.loads(path.read_text())
@@ -301,6 +358,34 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             self._record_path(
                 Path(str(binding["mixed_v7_member_contract"])).resolve()
             )
+            for rows in self.rows_by_layer.values():
+                for row in rows:
+                    source_key = str(row["source_key"])
+                    if source_key not in {
+                        "qtip2",
+                        "qtip3",
+                        "qtip2_v7",
+                        "qtip3_v7",
+                    }:
+                        continue
+                    tier = source_key.removesuffix("_v7")
+                    projection = str(row["projection"])
+                    physical_projections = (
+                        (("w2",) if projection == "down" else ("w1", "w3"))
+                        if tier == "qtip2"
+                        else (projection,)
+                    )
+                    for physical_projection in physical_projections:
+                        member = self.mixed_v7_loader.member(
+                            int(row["layer"]),
+                            int(row["expert"]),
+                            physical_projection,
+                        )
+                        if member["tier"] != tier:
+                            raise ValueError(
+                                "mixed V7 member contract selection mismatch: "
+                                f"{row['cell_id']} expected={tier} actual={member['tier']}"
+                            )
         if v7_group.issubset(binding):
             path = Path(str(binding["qtip2_v7_root_map"])).resolve()
             root_map = json.loads(path.read_text())
@@ -379,11 +464,10 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
     def _load_verified_native_qtip3_payload(
         self, layer: int, expert: int, projection: str
     ) -> Mapping[str, Any]:
-        root = Path(self.root_maps["qtip3"][str(layer)])
-        unit_root = root / f"L{layer:03d}" / f"E{expert:03d}_{projection}"
-        receipt_path = unit_root / "QTIP_SOLVE_RECEIPT.json"
-        artifact_path = unit_root / "QTIP_UNIT.pt"
-        receipt = json.loads(receipt_path.read_text())
+        receipt_path, artifact_path, receipt = self._qtip_member_binding(
+            "qtip3", layer, expert, projection
+        )
+        unit_root = receipt_path.parent
         basis = receipt.get("basis_gate")
         if (
             receipt.get("schema") != "banana-smasher-qtip-solve-v1"
@@ -419,11 +503,10 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         self, source_key: str, layer: int, expert: int, projection: str
     ) -> Any:
         torch = self.torch
-        root = Path(self.root_maps[source_key][str(layer)])
-        unit_root = root / f"L{layer:03d}" / f"E{expert:03d}_{projection}"
-        receipt_path = unit_root / "QTIP_SOLVE_RECEIPT.json"
-        artifact_path = unit_root / "QTIP_UNIT.pt"
-        receipt = json.loads(receipt_path.read_text())
+        receipt_path, artifact_path, receipt = self._qtip_member_binding(
+            source_key, layer, expert, projection
+        )
+        unit_root = receipt_path.parent
         basis = receipt.get("basis_gate")
         if (
             receipt.get("schema") != "banana-smasher-qtip-solve-v1"
@@ -509,6 +592,39 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         decoded = _fwht(torch, decoded.T).T * payload["SV"].float().to(device)[:, None]
         decoded = _fwht(torch, decoded) * payload["SU"].float().to(device)
         return decoded.to(torch.bfloat16)
+
+    def _qtip_member_binding(
+        self, source_key: str, layer: int, expert: int, projection: str
+    ) -> tuple[Path, Path, dict[str, Any]]:
+        """Resolve one QTIP member from a root map or the sealed provenance index."""
+
+        provenance = self.provenance_qtip_rows.get(
+            (source_key, layer, expert, projection)
+        )
+        if provenance is None:
+            root = Path(self.root_maps[source_key][str(layer)])
+            unit_root = root / f"L{layer:03d}" / f"E{expert:03d}_{projection}"
+            receipt_path = unit_root / "QTIP_SOLVE_RECEIPT.json"
+        else:
+            receipt_path = Path(str(provenance["physical_receipt_path"])).resolve()
+        raw = receipt_path.read_bytes()
+        if provenance is not None and hashlib.sha256(raw).hexdigest() != provenance[
+            "physical_receipt_sha256"
+        ]:
+            raise ValueError(f"QTIP provenance receipt identity mismatch: {receipt_path}")
+        receipt = json.loads(raw)
+        artifact_path = receipt_path.parent / "QTIP_UNIT.pt"
+        if (
+            provenance is not None
+            and receipt.get("closure_split_payload") is None
+            and (
+                not artifact_path.is_file()
+                or hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+                != provenance["physical_artifact_sha256"]
+            )
+        ):
+            raise ValueError(f"QTIP provenance artifact identity mismatch: {artifact_path}")
+        return receipt_path, artifact_path, receipt
 
     def _load_qtip_payload(
         self,
@@ -702,7 +818,8 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
 
         if self.mixed_v7_loader is None:
             raise ValueError("mixed V7 source selected without its member contract")
-        if source_key == "qtip2_v7":
+        tier = source_key.removesuffix("_v7")
+        if tier == "qtip2":
             wire_projections = ("w2",) if projection == "down" else ("w1", "w3")
             values = []
             for wire_projection in wire_projections:
@@ -738,7 +855,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 decoded = _fwht(torch, decoded.T).T * sv[:, None]
                 values.append((_fwht(torch, decoded) * su).to(torch.bfloat16))
             return values[0] if len(values) == 1 else self.torch.cat(values, dim=0)
-        if source_key != "qtip3_v7":
+        if tier != "qtip3":
             raise ValueError(f"unsupported mixed V7 source: {source_key}")
         member = self.mixed_v7_loader.member(layer, expert, projection)
         control_path = Path(member["unit_metadata"]["control"]["resolved_path"])
@@ -930,7 +1047,9 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             qtip3_rows = [
                 row
                 for row in rows
-                if row["source_key"] == "qtip3" and row["projection"] == projection
+                if self.mixed_v7_loader is None
+                and row["source_key"] == "qtip3"
+                and row["projection"] == projection
             ]
             for start in range(0, len(qtip3_rows), 32):
                 batch_rows = qtip3_rows[start : start + 32]
@@ -969,9 +1088,17 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 if source_key == "native_mxfp4":
                     value = self._native(layer, expert, projection)
                 elif source_key == "qtip2":
-                    value = self._decode_qtip(source_key, layer, expert, projection)
+                    value = (
+                        self._decode_mixed_v7(source_key, layer, expert, projection)
+                        if self.mixed_v7_loader is not None
+                        else self._decode_qtip(source_key, layer, expert, projection)
+                    )
                 elif source_key == "qtip3":
-                    value = qtip3_values.pop(key)
+                    value = (
+                        self._decode_mixed_v7(source_key, layer, expert, projection)
+                        if self.mixed_v7_loader is not None
+                        else qtip3_values.pop(key)
+                    )
                 elif source_key == "qtip2_v7":
                     value = (
                         self._decode_mixed_v7(source_key, layer, expert, projection)

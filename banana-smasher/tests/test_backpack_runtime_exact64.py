@@ -231,6 +231,69 @@ def test_runtime_batches_native_qtip3_payloads_through_one_public_decode(monkeyp
     )
 
 
+def test_runtime_admits_provenance_qtip_member_map_without_family_roots(
+    tmp_path, monkeypatch
+) -> None:
+    receipt = tmp_path / "QTIP_SOLVE_RECEIPT.json"
+    receipt.write_text("{}\n")
+    receipt_sha = hashlib.sha256(receipt.read_bytes()).hexdigest()
+    rows = []
+    for layer in range(43):
+        for expert in range(256):
+            for projection in ("down", "fused13"):
+                rows.append(
+                    {
+                        "cell_id": f"L{layer}:E{expert}:{projection}",
+                        "layer": layer,
+                        "expert": expert,
+                        "projection": projection,
+                        "source_key": "qtip2",
+                        "physical_receipt_path": str(receipt),
+                        "physical_receipt_sha256": receipt_sha,
+                        "physical_artifact_sha256": "b" * 64,
+                    }
+                )
+    index = tmp_path / "MATERIALIZATION_INDEX.jsonl"
+    index.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    manifest = tmp_path / "BACKPACK_VIRTUAL_MANIFEST.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "basis_sha256": "a" * 64,
+                "materialization_index": {
+                    "sha256": hashlib.sha256(index.read_bytes()).hexdigest()
+                },
+                "source_bindings": {},
+            }
+        )
+        + "\n"
+    )
+
+    def fake_base_init(runtime, *, model_root, parameters):
+        runtime._recorded_paths = []
+        runtime._record_path = runtime._recorded_paths.append
+
+    monkeypatch.setattr(
+        "banana_smasher.hf_deepseek_v4_backpack_adapter.DeepseekV4D4Runtime.__init__",
+        fake_base_init,
+    )
+
+    runtime = DeepseekV4BackpackRuntime(
+        model_root=tmp_path,
+        parameters={
+            "backpack_runtime": {
+                "basis_sha256": "a" * 64,
+                "virtual_manifest": str(manifest),
+                "materialization_index": str(index),
+            }
+        },
+    )
+
+    assert runtime.root_maps == {}
+    assert runtime.mixed_v7_loader is None
+    assert len(runtime.provenance_qtip_rows) == 43 * 256 * 2
+
+
 def test_runtime_composes_closure_bound_legacy_qtip2_split_payload(tmp_path) -> None:
     control_path = tmp_path / "control.pt"
     codes_path = tmp_path / "codes.npy"
