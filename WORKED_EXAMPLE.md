@@ -244,10 +244,40 @@ service launcher supplies `RANK=0` or `RANK=1`, a shared `MASTER_ADDR` /
 program below; it does not supply corpus, teacher, source-model, layer-split, or
 recipe paths.
 
-## Exact API calls
+## Exact one-command journey
 
-Run the same program on both reserved ranks. `model` is the local admitted
-artifact directory on that rank.
+Run `smash improve` on each admitted rank. The command is the public lifecycle
+boundary; it launches three fresh Python processes in order and refuses to
+advance unless the preceding phase receipt is a matching PASS:
+
+```bash
+export RANK=0  # use RANK=1 on the peer admitted copy
+export MASTER_ADDR=<rank-0-qsfp-address>
+export MASTER_PORT=<reserved-port>
+
+smash improve /local/admitted-q2-pre \
+  --checkpoint-sha f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70 \
+  --run-root /local/durable/q2-u45 \
+  --updates 45
+```
+
+The command executes the same package-owned API sequence, but never keeps CUDA
+allocator or Python lifecycle state across phase boundaries:
+
+1. fresh process: `ResidentRepairAPI.build_uniform(...)` → `score_pre()` → exit;
+2. fresh process: restore the authenticated PRE receipt → `repair_train(updates=45)` → exit;
+3. fresh process: restore PRE plus trained-checkpoint receipts → `score_post()` → exit.
+
+The phase receipts are `score_pre.json`, `repair_train.json`, and
+`score_post.json`; the terminal verdict is `IMPROVE_RESULT.json`. A child-process
+failure stops the command nonzero. A completed command also exits nonzero unless
+`post_kld < pre_kld`.
+
+## Equivalent API calls
+
+The calls below describe the phase API used by the command. Do not put this
+whole snippet in one long-lived GPU process; `smash improve` provides the
+required process isolation.
 
 ```python
 from banana_smasher import ResidentRepairAPI

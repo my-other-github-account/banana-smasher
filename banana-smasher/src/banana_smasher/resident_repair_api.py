@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import hashlib
 import importlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -608,6 +609,71 @@ class ResidentRepairAPI:
             phase_name,
             execute,
         )
+
+    def restore_pre_score(
+        self,
+        pre: Mapping[str, Any],
+        artifact: BackpackArtifact | None = None,
+        *,
+        checkpoint_sha: str | None = None,
+    ) -> None:
+        """Restore a sealed PRE result in a fresh isolated phase process."""
+        checkpoint_sha = self._selected_checkpoint_sha(
+            checkpoint_sha, "restore_pre_score"
+        )
+        selected = artifact or self._mixed
+        if selected is None:
+            raise ValueError("restore_pre_score requires a selected artifact")
+        _checkpoint_sha(selected.identity, checkpoint_sha, operation="restore_pre_score")
+        if pre.get("input_checkpoint_sha256") != checkpoint_sha:
+            raise ValueError("restored PRE receipt checkpoint SHA mismatch")
+        try:
+            kld = float(pre["mean_kld"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("restored PRE receipt lacks mean_kld") from exc
+        if not math.isfinite(kld):
+            raise ValueError("restored PRE receipt has non-finite mean_kld")
+        restore = getattr(self.rails, "restore_pre_score", None)
+        if not callable(restore):
+            raise RuntimeError("production rails cannot restore isolated PRE state")
+        self._activate(selected)
+        restore(selected, dict(pre))
+        self._phase_state = "pre_scored"
+        self._pre_result = dict(pre)
+
+    def restore_training(
+        self,
+        pre: Mapping[str, Any],
+        training: Mapping[str, Any],
+        artifact: BackpackArtifact | None = None,
+        *,
+        checkpoint_sha: str | None = None,
+    ) -> None:
+        """Restore sealed PRE and training results for a fresh POST process."""
+        checkpoint_sha = self._selected_checkpoint_sha(
+            checkpoint_sha, "restore_training"
+        )
+        selected = artifact or self._mixed
+        if selected is None:
+            raise ValueError("restore_training requires a selected artifact")
+        _checkpoint_sha(selected.identity, checkpoint_sha, operation="restore_training")
+        if (
+            pre.get("input_checkpoint_sha256") != checkpoint_sha
+            or training.get("input_checkpoint_sha256") != checkpoint_sha
+        ):
+            raise ValueError("restored phase receipt checkpoint SHA mismatch")
+        if not isinstance(training.get("updates"), int) or training["updates"] <= 0:
+            raise ValueError("restored training receipt lacks a positive update count")
+        restore = getattr(self.rails, "restore_training", None)
+        if not callable(restore):
+            raise RuntimeError("production rails cannot restore isolated training state")
+        if self._resident_loaded:
+            raise RuntimeError("isolated training state requires a fresh resident process")
+        restore(selected, dict(pre), dict(training))
+        self._resident_loaded = True
+        self._phase_state = "trained"
+        self._pre_result = dict(pre)
+        self._training_result = dict(training)
 
     def score_pre(
         self,

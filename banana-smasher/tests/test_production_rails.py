@@ -250,6 +250,60 @@ def test_production_rails_one_construction_across_score_updates_swap_and_post(
     ]
 
 
+def test_isolated_process_restore_runs_pre_train_post_without_shared_session(
+    tmp_path, monkeypatch
+):
+    FixtureSession.constructions = 0
+    monkeypatch.setattr(production_rails, "_ProvenSession", FixtureSession)
+    monkeypatch.setattr(
+        ProductionRails, "_require_live_checkpoint_bytes", staticmethod(lambda *args: None)
+    )
+    config = _base_config()
+    artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
+    _admit(config, artifact)
+
+    pre_rails = ProductionRails(config, run_root=tmp_path / "pre-run")
+    pre_api = ResidentRepairAPI(rails=pre_rails, run_root=tmp_path / "pre-facade")
+    pre = pre_api.score_pre(artifact, checkpoint_sha=artifact.checkpoint_sha256)
+
+    train_rails = ProductionRails(config, run_root=tmp_path / "train-run")
+    train_api = ResidentRepairAPI(rails=train_rails, run_root=tmp_path / "train-facade")
+    train_api.restore_pre_score(pre, artifact, checkpoint_sha=artifact.checkpoint_sha256)
+    training = train_api.repair_train(
+        artifact, updates=4, checkpoint_sha=artifact.checkpoint_sha256
+    )
+    training.update(
+        {
+            "checkpoint": "UPDATE_004",
+            "checkpoint_sha256": _sha("checkpoint-4"),
+        }
+    )
+
+    trained_checkpoint = artifact.root / "checkpoints" / "UPDATE_004.pt"
+    trained_checkpoint.write_bytes(b"trained-checkpoint")
+    trained_sha = hashlib.sha256(trained_checkpoint.read_bytes()).hexdigest()
+    training["checkpoint_sha256"] = trained_sha
+    manifest_path = artifact.root / "ARTIFACT.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["checkpoints"]["UPDATE_004"] = {
+        "path": "checkpoints/UPDATE_004.pt",
+        "sha256": trained_sha,
+        "identity_sha256": _sha("checkpoint-4-identity"),
+        "next_update": 4,
+    }
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True))
+
+    post_rails = ProductionRails(config, run_root=tmp_path / "post-run")
+    post_api = ResidentRepairAPI(rails=post_rails, run_root=tmp_path / "post-facade")
+    post_api.restore_training(
+        pre, training, artifact, checkpoint_sha=artifact.checkpoint_sha256
+    )
+    post = post_api.score_post(artifact, checkpoint_sha=artifact.checkpoint_sha256)
+
+    assert post["phase"] == "post"
+    assert FixtureSession.constructions == 3
+
+
 def test_unknown_artifact_and_geometry_drift_fail_closed(tmp_path):
     config = _base_config()
     artifact = _artifact(tmp_path / "artifact", _binding_sha(config))

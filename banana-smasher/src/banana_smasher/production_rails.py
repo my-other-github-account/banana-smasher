@@ -774,6 +774,97 @@ class ProductionRails:
         self._counts["hot_swaps"] += 1
         self._publish("checkpoint_hot_swap", artifact_identity_sha256=artifact.identity.sha256)
 
+    def restore_pre_score(
+        self, artifact: BackpackArtifact, pre: Mapping[str, Any]
+    ) -> None:
+        """Bind a sealed PRE result to a fresh training process."""
+        if self._session is None or self._active_binding is None:
+            raise ProductionRailsError("restoring PRE requires one loaded resident session")
+        try:
+            pre_kld = float(pre["mean_kld"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ProductionRailsError("restored PRE result lacks mean_kld") from exc
+        if not math.isfinite(pre_kld):
+            raise ProductionRailsError("restored PRE mean_kld is non-finite")
+        self._session._pre_kld = pre_kld
+        self._pre_checkpoint = self._active_binding.checkpoint
+        self._phase_state = "pre_scored"
+        self._counts["scores"] = 1
+        self._counts["canary_passes"] = 1
+        self._publish("pre_score_restored", mean_kld=pre_kld)
+
+    def restore_training(
+        self,
+        artifact: BackpackArtifact,
+        pre: Mapping[str, Any],
+        training: Mapping[str, Any],
+    ) -> None:
+        """Bind an authenticated trained checkpoint to a fresh POST process."""
+        if self._session is not None:
+            raise ProductionRailsError("restoring training requires a fresh process")
+        raw = self.config["allowed_artifacts"].get(artifact.identity.sha256)
+        if not isinstance(raw, Mapping):
+            raise ProductionRailsError("unknown artifact identity; refusing training restore")
+        if raw.get("basis_sha256") != artifact.identity.basis_sha256:
+            raise ProductionRailsError("restored training basis does not match admission")
+        try:
+            pre_kld = float(pre["mean_kld"])
+            updates = int(training["updates"])
+            checkpoint = str(training["checkpoint"])
+            checkpoint_sha = str(training["checkpoint_sha256"])
+            manifest = json.loads((artifact.root / "ARTIFACT.json").read_text())
+            checkpoint_row = manifest["checkpoints"][checkpoint]
+            checkpoint_path = (artifact.root / checkpoint_row["path"]).resolve()
+            checkpoint_path.relative_to(artifact.root.resolve())
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise ProductionRailsError("restored training checkpoint receipt is invalid") from exc
+        if (
+            not math.isfinite(pre_kld)
+            or updates <= 0
+            or len(checkpoint_sha) != 64
+            or checkpoint_row.get("sha256") != checkpoint_sha
+            or not checkpoint_path.is_file()
+            or _sha256(checkpoint_path) != checkpoint_sha
+        ):
+            raise ProductionRailsError("restored training checkpoint bytes do not match receipt")
+        binding = _ArtifactBinding(
+            identity_sha256=artifact.identity.sha256,
+            basis_sha256=artifact.identity.basis_sha256,
+            checkpoint=checkpoint,
+            score_checkpoints={"post": checkpoint},
+            artifact_manifest_sha256=str(raw["artifact_manifest_sha256"]),
+            checkpoint_sha256=checkpoint_sha,
+        )
+        self._session = _ProvenSession(
+            artifact,
+            binding,
+            continuation_config=dict(self.config.get("continuation", {})),
+            receipt_root=self.run_root / "receipts",
+            provider_binding_sha256=self.provider_binding_sha256,
+        )
+        self._session._pre_kld = pre_kld
+        self._active = artifact
+        self._active_binding = binding
+        self._pre_checkpoint = str(raw["checkpoint"])
+        self._requested_updates = updates
+        self._phase_state = "trained"
+        self._counts.update(
+            {
+                "model_constructions": 1,
+                "resident_loads": 1,
+                "scores": 1,
+                "canary_passes": 1,
+                "training_calls": 1,
+                "updates": updates,
+            }
+        )
+        self._publish(
+            "training_restored",
+            updates=updates,
+            checkpoint=checkpoint,
+            checkpoint_sha256=checkpoint_sha,
+        )
+
     def score(self, artifact: BackpackArtifact, phase: str) -> Mapping[str, Any]:
         if self._session is None or self._active is None:
             raise ProductionRailsError("score requires a resident model/session")

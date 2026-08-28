@@ -1,0 +1,100 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from banana_smasher.cli import main
+from banana_smasher.improve import _execute_phase, run_improve
+
+
+CHECKPOINT_SHA = "f" * 64
+
+
+def _write_phase(path: Path, phase: str, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"schema": "banana-smasher-improve-phase-v1", "status": "PASS", "phase": phase, "result": value}))
+
+
+def test_run_improve_uses_three_fresh_processes_and_seals_verdict(tmp_path: Path, monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(command, *, check, env):
+        calls.append(list(command))
+        phase = command[command.index("--phase") + 1]
+        run_root = Path(command[command.index("--run-root") + 1])
+        values = {
+            "score_pre": {"mean_kld": 0.2284983253897188, "top1_matches": 56533},
+            "repair_train": {"updates": 45, "checkpoint": "UPDATE_049", "checkpoint_sha256": "a" * 64},
+            "score_post": {"mean_kld": 0.211277616743619, "top1_matches": 56508},
+        }
+        _write_phase(run_root / f"{phase}.json", phase, values[phase])
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    receipt = run_improve(tmp_path / "artifact", CHECKPOINT_SHA, tmp_path / "run", updates=45)
+
+    assert [row[row.index("--phase") + 1] for row in calls] == ["score_pre", "repair_train", "score_post"]
+    assert all(row[:3] == [sys.executable, "-m", "banana_smasher.improve"] for row in calls)
+    assert receipt["status"] == "PASS"
+    assert receipt["improvement"]["post_kld"] < receipt["improvement"]["pre_kld"]
+    assert json.loads((tmp_path / "run" / "IMPROVE_RESULT.json").read_text()) == receipt
+
+
+def test_run_improve_fails_nonzero_when_post_does_not_improve(tmp_path: Path, monkeypatch) -> None:
+    def fake_run(command, *, check, env):
+        phase = command[command.index("--phase") + 1]
+        run_root = Path(command[command.index("--run-root") + 1])
+        value = {"score_pre": {"mean_kld": 0.2}, "repair_train": {"updates": 45}, "score_post": {"mean_kld": 0.2}}[phase]
+        _write_phase(run_root / f"{phase}.json", phase, value)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(ValueError, match="did not improve"):
+        run_improve(tmp_path / "artifact", CHECKPOINT_SHA, tmp_path / "run", updates=45)
+    assert json.loads((tmp_path / "run" / "IMPROVE_RESULT.json").read_text())["status"] == "FAILED"
+
+
+def test_smash_improve_is_one_documented_command(tmp_path: Path, monkeypatch, capsys) -> None:
+    expected = {"status": "PASS", "improvement": {"improved": True}}
+    monkeypatch.setattr("banana_smasher.improve.run_improve", lambda *args, **kwargs: expected)
+    assert main(["improve", str(tmp_path / "artifact"), "--checkpoint-sha", CHECKPOINT_SHA, "--run-root", str(tmp_path / "run")]) == 0
+    assert json.loads(capsys.readouterr().out) == expected
+
+
+def test_execute_phase_restores_only_sealed_prior_phase_state(tmp_path: Path) -> None:
+    events: list[tuple] = []
+
+    class FakeAPI:
+        def score_pre(self):
+            events.append(("score_pre",))
+            return {"mean_kld": 0.2284983253897188}
+
+        def restore_pre_score(self, pre):
+            events.append(("restore_pre_score", pre["mean_kld"]))
+
+        def repair_train(self, *, updates):
+            events.append(("repair_train", updates))
+            return {"updates": updates, "checkpoint": "UPDATE_049", "checkpoint_sha256": "a" * 64}
+
+        def restore_training(self, pre, training):
+            events.append(("restore_training", pre["mean_kld"], training["updates"]))
+
+        def score_post(self):
+            events.append(("score_post",))
+            return {"mean_kld": 0.211277616743619}
+
+    def factory(artifact_root, *, tier, checkpoint_sha, run_root):
+        events.append(("build_uniform", Path(artifact_root), tier, checkpoint_sha, Path(run_root)))
+        return FakeAPI()
+
+    root = tmp_path / "run"
+    assert _execute_phase("score_pre", tmp_path / "artifact", CHECKPOINT_SHA, root, 45, api_factory=factory)["mean_kld"] == 0.2284983253897188
+    assert _execute_phase("repair_train", tmp_path / "artifact", CHECKPOINT_SHA, root, 45, api_factory=factory)["updates"] == 45
+    assert _execute_phase("score_post", tmp_path / "artifact", CHECKPOINT_SHA, root, 45, api_factory=factory)["mean_kld"] == 0.211277616743619
+    assert ("restore_pre_score", 0.2284983253897188) in events
+    assert ("restore_training", 0.2284983253897188, 45) in events
+    assert json.loads((root / "score_post.json").read_text())["status"] == "PASS"

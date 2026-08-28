@@ -30,6 +30,15 @@ def _parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    improve = subparsers.add_parser(
+        "improve",
+        help="run PRE, repair training, and POST in three isolated processes",
+    )
+    improve.add_argument("artifact_root", type=Path)
+    improve.add_argument("--checkpoint-sha", required=True)
+    improve.add_argument("--run-root", type=Path, required=True)
+    improve.add_argument("--updates", type=int, default=45)
+
     export = subparsers.add_parser("export", help="export quantizer output to bs-pack")
     export.add_argument("--source-root", type=Path, required=True)
     export.add_argument(
@@ -913,7 +922,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         tokens[0] = "verify"
     args = parser.parse_args(tokens)
     try:
-        if args.command == "export":
+        if args.command == "improve":
+            from .improve import run_improve
+
+            result = run_improve(
+                args.artifact_root,
+                args.checkpoint_sha,
+                args.run_root,
+                updates=args.updates,
+            )
+        elif args.command == "export":
             if args.refresh_metadata:
                 if args.serving_model_root is None:
                     raise ValueError("--refresh-metadata requires --serving-model-root")

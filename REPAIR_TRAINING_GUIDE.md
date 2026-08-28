@@ -104,11 +104,12 @@ this is what keeps the result apples-to-apples with the Evals table rows at matc
 ```bash
 # 0. Pin: canonical repair_api @ <pin>; verify basis 98efab45… and checkpoint f9bffe04… by SHA.
 # 1. Stage: QSFP-copy checkpoint + TRAIN corpus + teacher bank to both ranks; verify SHAs local.
-# 2. Boot: ResidentRepairAPI admission (path+SHA); zero-update score → must read PRE numbers.
-# 3. Loss check: one batch through the loss at U0 → ~0.137-class or STOP.
+# 2. Boot: run `smash improve <artifact> --checkpoint-sha <sha> --run-root <durable-root> --updates 45`.
+#    The CLI launches PRE, training, and POST in three fresh processes with sealed receipts.
+# 3. PRE/loss gates: restore the authenticated zero-update score; loss must be ~0.137-class.
 # 4. Train: broad rotation, FP32-safe backward, FP64 Adam, per-class LRs, sealed marker/update.
 # 5. Every 4 updates: held-out multi-window validation; kill if not decreasing twice.
-# 6. Candidate checkpoints: full-64 on the sealed 4-shard fan-out; accept only below-PRE.
+# 6. POST: fresh process restores the trained checkpoint; command accepts only POST < PRE.
 ```
 
 The U45 acceptance receipt chain lives in the kanban board (t_e12abea8 / t_f76a1035 lineage)

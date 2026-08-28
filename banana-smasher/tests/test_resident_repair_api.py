@@ -216,6 +216,41 @@ def test_documented_separate_calls_fail_and_seal_when_post_is_not_better(
     }
 
 
+def test_isolated_process_state_restore_delegates_bound_receipts(tmp_path: Path) -> None:
+    class IsolatedRails(Rails):
+        def restore_pre_score(self, artifact, pre):
+            self.calls.append(("restore_pre_score", artifact.root, pre["mean_kld"]))
+
+        def restore_training(self, artifact, pre, training):
+            self.calls.append(
+                ("restore_training", artifact.root, pre["mean_kld"], training["updates"])
+            )
+
+    checkpoint_sha = sha("u0")
+    rails = IsolatedRails(tmp_path)
+    api = ResidentRepairAPI(rails=rails, run_root=tmp_path / "run")
+    build = api.build_uniform(
+        tmp_path / "model", "qtip1_v7", checkpoint_sha=checkpoint_sha
+    )
+    pre = {
+        "mean_kld": 0.25,
+        "top1_matches": 7,
+        "input_checkpoint_sha256": checkpoint_sha,
+    }
+    api.restore_pre_score(pre, build, checkpoint_sha=checkpoint_sha)
+    assert api.repair_train(build, updates=4, checkpoint_sha=checkpoint_sha)["updates"] == 4
+    assert ("restore_pre_score", build.root, 0.25) in rails.calls
+
+    post_rails = IsolatedRails(tmp_path)
+    post_api = ResidentRepairAPI(rails=post_rails, run_root=tmp_path / "post")
+    training = {"updates": 4, "input_checkpoint_sha256": checkpoint_sha}
+    post_api.restore_training(
+        pre, training, build, checkpoint_sha=checkpoint_sha
+    )
+    assert post_api.score_post(build, checkpoint_sha=checkpoint_sha)["phase"] == "post"
+    assert ("restore_training", build.root, 0.25, 4) in post_rails.calls
+
+
 def test_repair_train_accepts_any_positive_update_count(tmp_path: Path) -> None:
     checkpoint_sha = sha("u0")
     rails = Rails(tmp_path)
