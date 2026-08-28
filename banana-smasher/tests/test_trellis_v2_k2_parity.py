@@ -54,6 +54,10 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     assert "__launch_bounds__(THREADS, 1)" in cuda_source
     assert "const int blocks = (batch + ROWS_PER_CTA - 1) / ROWS_PER_CTA;" in cuda_source
     assert "cudaFuncAttributeMaxDynamicSharedMemorySize" in cuda_source
+    assert "const int residue = j0 >> 4;" in cuda_source
+    assert "const float predecessor0 = previous0[q * 256 + residue];" in cuda_source
+    assert "const float predecessor1 = previous1[q * 256 + residue];" in cuda_source
+    assert "const int residue1 = j1 >> 4;" not in cuda_source
 
 
 @pytest.mark.skipif(
