@@ -30,7 +30,7 @@
       "variant": "QTIP2-corrected-all43"
     }
   ],
-  "finished_evidence_manifest_sha256": "7ac3d4b402a8deb5749515eff1c07fc0b721cc6e70239e639b3e3f4c66dc47ea",
+  "finished_evidence_manifest_sha256": "db70bae00ab6e3bc13dc29a466bbebe58e1452201f70349c59deee643ded0281",
   "independent_recomputation": "PASS",
   "intelligence_density": {
     "formula": "(MMLU percentage - 25) / exact base-equivalent comparison BPW",
@@ -487,9 +487,46 @@
       "raw_mmlu_per_bpw": "29.17200684835412690216172730700343249303791742880481558659918674469925276904100750898703723162594817",
       "relative_intelligence_density": "1.3393849444485760637231942493570975764364949350963",
       "variant": "QTIP2-V7-U45-repaired"
+    },
+    {
+      "base_equivalent_bpw": "2.515487537393179030504882353653487081235072278387024486348262001770745366655152827898047671931839507",
+      "choice_token_ids": [
+        35,
+        36,
+        37,
+        38
+      ],
+      "complete_artifact_bytes": 89405007628,
+      "complete_decimal_gb": 89.405007628,
+      "correct": 412,
+      "gold_cross_entropy_bits": 0.7762609248002557,
+      "label": "QTIP2 V7 published PRE f9bffe04",
+      "mmlu_capability_density": 0.6420222034858747,
+      "mmlu_intelligence_density": "22.8186381950769291197716534241018699284261080025238874419527609505546610275604908200724347014984407662119219177670895236",
+      "mmlu_per_gb": "0.642022203485874747606369053840577789878335873922643629753083074139950902751015198425771113564319061924659645866520008167",
+      "mmlu_percent": 82.4,
+      "n": 500,
+      "provenance": {
+        "artifact_accounting_sha256": "b132929fb160b41a72e6da0854f498fd4d3c41e3f91523974d17b1e713c1d87e",
+        "checkpoint_identity_sha256": "51074d5fedfc922b8442cb6cf988773f32991c16e6cf34ca21131c4f7b1726f8",
+        "checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+        "independent_reaggregation_sha256": "86e8f9d41545afabff349eee896310554fe3aafa494e489068ae8b3e321d81fd",
+        "independent_recomputation": "PASS",
+        "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+        "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+        "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "publication_receipt_sha256": "4d4e7075a72d2e36d272b728c9148e8251e6b8d75002bb4e442be168be253b06",
+        "qrows_sha256": "4d8339096683a1049f614a49db34acd6f42fbbdbdbae4cf95c2a814bd46d3cf5",
+        "sanitization_receipt_sha256": "b65111099a28546943b45c82bd28adb694c658041a0afd94f610721e0d804fd9",
+        "terminal_sha256": "81bf5581880b099ea43675d3e479bce1257b9cdf078d714db8f0738436983437"
+      },
+      "qrows_sha256": "4d8339096683a1049f614a49db34acd6f42fbbdbdbae4cf95c2a814bd46d3cf5",
+      "raw_mmlu_per_bpw": "32.7570694647097379698464153683971094442911376203478802302597125840714994541983352539018923241022912741439436589548462848",
+      "relative_intelligence_density": "1.50240282766876600759821273127540365654507788933576050965826200456974722957078856900740436656049896182842086853925049886",
+      "variant": "QTIP2-V7-PRE-f9bffe04"
     }
   ],
-  "schema": "banana-smasher.mmlu500-fourteen-row-density-terminal.v6",
+  "schema": "banana-smasher.mmlu500-fifteen-row-density-terminal.v7",
   "source_scoring_basis_sha256": "83ace3f25a4f77325479690a47e7b86f7dee5ef44513996b551f24145ff88f8e",
   "status": "PASS"
 }

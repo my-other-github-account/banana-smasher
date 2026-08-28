@@ -1,0 +1,22 @@
+{
+  "accounting": {
+    "base_equivalent_bpw": "2.515487537393179030504882353653487081235072278387024486348262001770745366655152827898047671931839507",
+    "complete_artifact_bytes": 89405007628,
+    "complete_decimal_gb": "89.405007628",
+    "wire_ledger_sha256": "dd8fdf59c2b9dd6aca60e3af70554c3b60445a5037e56bbc3f1197cd86e5137d"
+  },
+  "checkpoint_identity_sha256": "51074d5fedfc922b8442cb6cf988773f32991c16e6cf34ca21131c4f7b1726f8",
+  "checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+  "excluded_historical_artifact": {
+    "complete_artifact_bytes": 100636011256,
+    "reason": "different historical partial-native-MTP artifact; not the published same-lineage PRE measured here"
+  },
+  "physical_resident_readback": {
+    "pre_rank_bytes": [41219604236, 43230333692],
+    "reference_u45_rank_bytes": [41219604236, 43230333692],
+    "rank_deltas_bytes": [0, 0]
+  },
+  "schema": "banana-smasher.mmlu500-pre-artifact-accounting.v1",
+  "status": "PASS",
+  "variant": "QTIP2-V7-PRE-f9bffe04"
+}

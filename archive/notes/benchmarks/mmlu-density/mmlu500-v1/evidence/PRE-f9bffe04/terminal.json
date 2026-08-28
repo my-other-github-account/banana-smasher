@@ -1,0 +1,17 @@
+{
+  "checkpoint_identity_sha256": "51074d5fedfc922b8442cb6cf988773f32991c16e6cf34ca21131c4f7b1726f8",
+  "checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+  "complete_artifact_bytes": 89405007628,
+  "correct": 412,
+  "harness_sha256": "e6655859ec5f09e6fb35da1d5fc70d9910f238c218a186a37f71b16d53c42fb5",
+  "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+  "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+  "mmlu_percent": 82.4,
+  "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "n": 500,
+  "qrows_sha256": "4d8339096683a1049f614a49db34acd6f42fbbdbdbae4cf95c2a814bd46d3cf5",
+  "resident_module_sha256": "0ec54e900d497977d59cc9742a5431e140cb933b4eb37b27eeab7a08480bf545",
+  "schema": "banana-smasher.pre-mmlu500-public-terminal.v1",
+  "status": "PASS",
+  "variant": "QTIP2-V7-PRE-f9bffe04"
+}

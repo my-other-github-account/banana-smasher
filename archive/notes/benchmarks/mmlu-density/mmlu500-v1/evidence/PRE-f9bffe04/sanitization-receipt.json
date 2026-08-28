@@ -1,0 +1,28 @@
+{
+  "bank": {
+    "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+    "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d"
+  },
+  "forbidden_public_fields": [
+    "board_run_id",
+    "completed_unix",
+    "elapsed_seconds",
+    "host",
+    "path",
+    "task_id"
+  ],
+  "qrows": {
+    "bytes": 432259,
+    "output_sha256": "4d8339096683a1049f614a49db34acd6f42fbbdbdbae4cf95c2a814bd46d3cf5",
+    "rows": 500,
+    "source_sha256": "4d8339096683a1049f614a49db34acd6f42fbbdbdbae4cf95c2a814bd46d3cf5",
+    "transform": "byte-for-byte copy after ordered-bank and forbidden-field validation"
+  },
+  "schema": "banana-smasher.mmlu500-public-sanitization-receipt.v1",
+  "status": "PASS",
+  "terminal": {
+    "output_sha256": "81bf5581880b099ea43675d3e479bce1257b9cdf078d714db8f0738436983437",
+    "transform": "allowlist copy of immutable identity, accounting, bank, score, and qrow fields"
+  },
+  "variant": "QTIP2-V7-PRE-f9bffe04"
+}

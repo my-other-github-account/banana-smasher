@@ -1,0 +1,29 @@
+{
+  "artifact": {
+    "complete_artifact_bytes": 89405007628,
+    "checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+  },
+  "bank": {
+    "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+    "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d"
+  },
+  "measurement": {
+    "correct": 412,
+    "mmlu_percent_exact": "82.4",
+    "n": 500
+  },
+  "qrows": {
+    "bytes": 432259,
+    "rows": 500,
+    "sha256": "4d8339096683a1049f614a49db34acd6f42fbbdbdbae4cf95c2a814bd46d3cf5"
+  },
+  "receipts": {
+    "artifact_accounting_sha256": "b132929fb160b41a72e6da0854f498fd4d3c41e3f91523974d17b1e713c1d87e",
+    "independent_reaggregation_sha256": "86e8f9d41545afabff349eee896310554fe3aafa494e489068ae8b3e321d81fd",
+    "sanitization_sha256": "b65111099a28546943b45c82bd28adb694c658041a0afd94f610721e0d804fd9",
+    "terminal_sha256": "81bf5581880b099ea43675d3e479bce1257b9cdf078d714db8f0738436983437"
+  },
+  "schema": "banana-smasher.mmlu500-pre-publication-receipt.v1",
+  "status": "PASS",
+  "variant": "QTIP2-V7-PRE-f9bffe04"
+}

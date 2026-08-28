@@ -1,0 +1,16 @@
+{
+  "choice_logit_width": 4,
+  "complete_artifact_bytes": 89405007628,
+  "correct": 412,
+  "duplicates": 0,
+  "gaps": 0,
+  "gold_cross_entropy_bits": 0.7762609248002557,
+  "mmlu_percent": 82.4,
+  "n": 500,
+  "nonfinite_logits": 0,
+  "ordered_sample_ordinals": true,
+  "qrows_sha256": "4d8339096683a1049f614a49db34acd6f42fbbdbdbae4cf95c2a814bd46d3cf5",
+  "schema": "banana-smasher.mmlu500-independent-reaggregation.v1",
+  "status": "PASS",
+  "variant": "QTIP2-V7-PRE-f9bffe04"
+}

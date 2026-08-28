@@ -21,23 +21,31 @@ U45_TERMINAL = U45_EVIDENCE / "terminal.json"
 U45_REAGGREGATION = U45_EVIDENCE / "independent-reaggregation.json"
 U45_SANITIZATION = U45_EVIDENCE / "sanitization-receipt.json"
 U45_PUBLICATION = U45_EVIDENCE / "publication-receipt.json"
+PRE_EVIDENCE = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/evidence/PRE-f9bffe04"
+PRE_QROWS = PRE_EVIDENCE / "qrows.jsonl"
+PRE_TERMINAL = PRE_EVIDENCE / "terminal.json"
+PRE_REAGGREGATION = PRE_EVIDENCE / "independent-reaggregation.json"
+PRE_ACCOUNTING = PRE_EVIDENCE / "artifact-accounting-receipt.json"
+PRE_SANITIZATION = PRE_EVIDENCE / "sanitization-receipt.json"
+PRE_PUBLICATION = PRE_EVIDENCE / "publication-receipt.json"
 
 
 class MMLUDensityPublicationTest(unittest.TestCase):
-    def test_fourteen_row_result_and_evals_table_are_consistent(self):
+    def test_fifteen_row_result_and_evals_table_are_consistent(self):
         getcontext().prec = 120
         result = json.loads(RESULTS.read_text())
         schema = json.loads(SCHEMA.read_text())
         rows = result["rows"]
 
-        self.assertEqual(result["schema"], "banana-smasher.mmlu500-fourteen-row-density-terminal.v6")
+        self.assertEqual(result["schema"], "banana-smasher.mmlu500-fifteen-row-density-terminal.v7")
         self.assertEqual(schema["properties"]["schema"]["const"], result["schema"])
-        self.assertEqual(schema["properties"]["rows"]["minItems"], 14)
-        self.assertEqual(schema["properties"]["rows"]["maxItems"], 14)
+        self.assertEqual(schema["properties"]["rows"]["minItems"], 15)
+        self.assertEqual(schema["properties"]["rows"]["maxItems"], 15)
         self.assertIn("QTIP2-V7-U45-repaired", schema["properties"]["rows"]["items"]["properties"]["variant"]["enum"])
         self.assertIn("mmlu_per_gb", schema["properties"]["rows"]["items"]["required"])
         self.assertIn("raw_mmlu_per_bpw", schema["properties"]["rows"]["items"]["required"])
-        self.assertEqual(len(rows), 14)
+        self.assertIn("QTIP2-V7-PRE-f9bffe04", schema["properties"]["rows"]["items"]["properties"]["variant"]["enum"])
+        self.assertEqual(len(rows), 15)
         self.assertEqual(
             [row["variant"] for row in rows],
             [
@@ -55,6 +63,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 "EXL3-K2-uniform-exact",
                 "Physical-alternating-K2K3-full",
                 "QTIP2-V7-U45-repaired",
+                "QTIP2-V7-PRE-f9bffe04",
             ],
         )
 
@@ -85,6 +94,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             "EXL3-K2-uniform-exact": (369, Decimal("73.8"), 77861675750, "2.1907058696825606173737276358734996088908236748322939650200806709327704680850651", "22.2759251597163319465289057819950657817687670304218953314782722230326515930399810618438699876324023710314001979897142511"),
             "Physical-alternating-K2K3-full": (374, Decimal("74.8"), 94832907712, "2.668206220359224284525477307187490489073009403333264769375373564232111492365228415584687878052563670", "18.6642245340749401654284688564374618845811310854177935005465036267515179910378492391997573341263574048420606555109602646"),
             "QTIP2-V7-U45-repaired": (413, Decimal("82.6"), 100636011256, "2.831481578534603263235376275888125565194357238266015863087325200113206153869260839371695918636102327", "20.34270695478447590271810524071910062468503685107938714029192683407599224572351128955996785159388153"),
+            "QTIP2-V7-PRE-f9bffe04": (412, Decimal("82.4"), 89405007628, "2.515487537393179030504882353653487081235072278387024486348262001770745366655152827898047671931839507", "22.8186381950769291197716534241018699284261080025238874419527609505546610275604908200724347014984407662119219177670895236"),
         }
         for row in rows[4:]:
             correct, percent, complete_bytes, bpw, density = expected_new[row["variant"]]
@@ -106,7 +116,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             expected_raw_per_bpw = Decimal(str(row["mmlu_percent"])) / Decimal(row["base_equivalent_bpw"])
             self.assertLess(abs(expected_raw_per_bpw - Decimal(row["raw_mmlu_per_bpw"])), Decimal("1e-49"))
 
-        u45 = rows[-1]
+        u45 = rows[-2]
         qrows_bytes = U45_QROWS.read_bytes()
         qrows = [json.loads(line) for line in qrows_bytes.splitlines() if line.strip()]
         terminal_bytes = U45_TERMINAL.read_bytes()
@@ -161,6 +171,58 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             self.assertTrue(all(forbidden not in row for row in qrows))
             self.assertNotIn(forbidden, terminal)
 
+        pre = rows[-1]
+        pre_qrows_bytes = PRE_QROWS.read_bytes()
+        pre_qrows = [json.loads(line) for line in pre_qrows_bytes.splitlines() if line.strip()]
+        pre_terminal_bytes = PRE_TERMINAL.read_bytes()
+        pre_terminal = json.loads(pre_terminal_bytes)
+        pre_reaggregation_bytes = PRE_REAGGREGATION.read_bytes()
+        pre_reaggregation = json.loads(pre_reaggregation_bytes)
+        pre_accounting_bytes = PRE_ACCOUNTING.read_bytes()
+        pre_accounting = json.loads(pre_accounting_bytes)
+        pre_sanitization_bytes = PRE_SANITIZATION.read_bytes()
+        pre_sanitization = json.loads(pre_sanitization_bytes)
+        pre_publication_bytes = PRE_PUBLICATION.read_bytes()
+        pre_publication = json.loads(pre_publication_bytes)
+        pre_qrows_sha = "4d8339096683a1049f614a49db34acd6f42fbbdbdbae4cf95c2a814bd46d3cf5"
+
+        self.assertEqual(hashlib.sha256(pre_qrows_bytes).hexdigest(), pre_qrows_sha)
+        self.assertEqual([row["sample_ordinal"] for row in pre_qrows], list(range(500)))
+        self.assertEqual([row["row_sha256"] for row in pre_qrows], [item["row_sha256"] for item in items])
+        self.assertEqual(sum(bool(row["correct"]) for row in pre_qrows), 412)
+        self.assertTrue(all(row["choice_token_ids"] == [35, 36, 37, 38] for row in pre_qrows))
+        self.assertTrue(all(all(math.isfinite(value) for value in row["choice_logits"]) for row in pre_qrows))
+        self.assertTrue(all(len(set(row["choice_logits"])) == 4 for row in pre_qrows))
+        pre_ce = math.fsum(-row["choice_logprobs"][row["gold_index"]] for row in pre_qrows) / (500 * math.log(2))
+        self.assertAlmostEqual(pre_ce, pre_reaggregation["gold_cross_entropy_bits"], places=15)
+        self.assertEqual((pre_terminal["n"], pre_terminal["correct"], pre_terminal["mmlu_percent"]), (500, 412, 82.4))
+        self.assertEqual(pre_terminal["complete_artifact_bytes"], 89405007628)
+        self.assertEqual(pre_reaggregation["complete_artifact_bytes"], 89405007628)
+        self.assertEqual(pre_accounting["accounting"]["complete_artifact_bytes"], 89405007628)
+        self.assertEqual(pre_accounting["physical_resident_readback"]["rank_deltas_bytes"], [0, 0])
+        self.assertEqual(pre_accounting["excluded_historical_artifact"]["complete_artifact_bytes"], 100636011256)
+
+        pre_provenance = pre["provenance"]
+        self.assertEqual(hashlib.sha256(pre_terminal_bytes).hexdigest(), pre_provenance["terminal_sha256"])
+        self.assertEqual(hashlib.sha256(pre_reaggregation_bytes).hexdigest(), pre_provenance["independent_reaggregation_sha256"])
+        self.assertEqual(hashlib.sha256(pre_accounting_bytes).hexdigest(), pre_provenance["artifact_accounting_sha256"])
+        self.assertEqual(hashlib.sha256(pre_sanitization_bytes).hexdigest(), pre_provenance["sanitization_receipt_sha256"])
+        self.assertEqual(hashlib.sha256(pre_publication_bytes).hexdigest(), pre_provenance["publication_receipt_sha256"])
+        self.assertEqual(pre_sanitization["qrows"]["bytes"], len(pre_qrows_bytes))
+        self.assertEqual(pre_sanitization["qrows"]["output_sha256"], pre_qrows_sha)
+        self.assertEqual(pre_publication["qrows"], {"bytes": len(pre_qrows_bytes), "rows": 500, "sha256": pre_qrows_sha})
+        self.assertEqual(pre_publication["artifact"]["complete_artifact_bytes"], 89405007628)
+        self.assertEqual(pre_publication["receipts"], {
+            "artifact_accounting_sha256": pre_provenance["artifact_accounting_sha256"],
+            "independent_reaggregation_sha256": pre_provenance["independent_reaggregation_sha256"],
+            "sanitization_sha256": pre_provenance["sanitization_receipt_sha256"],
+            "terminal_sha256": pre_provenance["terminal_sha256"],
+        })
+        for forbidden in pre_sanitization["forbidden_public_fields"]:
+            self.assertTrue(all(forbidden not in row for row in pre_qrows))
+            self.assertNotIn(forbidden, pre_terminal)
+            self.assertNotIn(forbidden, pre_accounting)
+
         finished_manifest = json.loads(FINISHED_EVIDENCE_MANIFEST.read_text())
         self.assertEqual(
             result["finished_evidence_manifest_sha256"],
@@ -176,6 +238,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 ("EXL3-K2P5-greedy-full", "ARTIFACT_UNAVAILABLE"),
                 ("EXL3-K2P5-greedy-routed-native-rest", "PASS"),
                 ("QTIP2-V7-U45-repaired", "PASS"),
+                ("QTIP2-V7-PRE-f9bffe04", "PASS"),
             ],
         )
         for entry in finished_manifest["entries"]:
@@ -231,6 +294,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             "EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** | **73.80%** (369/500) | **22.276**",
             "Physical alternating K2/K3 2.5-BPW comparator** | **83.29%** (54,585/65,536) | **0.299604** | **74.80%** (374/500) | **18.664**",
             "QTIP2 V7 U45 repaired** | **86.22%** (56,508/65,536) | **0.211278** | **82.60%** (413/500) | **20.343**",
+            "QTIP2 V7 published PRE f9bffe04** | **86.26%** (56,533/65,536) | **0.229392** | **82.40%** (412/500) | **22.819**",
             "ARTIFACT_UNAVAILABLE",
         ):
             self.assertIn(fragment, evals)
