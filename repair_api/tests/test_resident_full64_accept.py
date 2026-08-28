@@ -365,6 +365,17 @@ def test_resident_full64_accept_binds_the_dispatched_task_from_environment():
     assert 'TASK = os.environ.get("BANANA_SMASHER_TASK_ID", "t_d4dac464")' in source
     assert 'W28_ADOPTION_TASK = "t_8b1b3a3f"' in source
     assert 'row.get("task_id") != W28_ADOPTION_TASK' in source
+
+
+def test_exact102_w28_only_consumes_admission_and_returns_before_full64():
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    gate = source.index('w28_only = os.environ.get("W28_ONLY", "0") == "1"')
+    admission = source.index('"banana-smasher-exact102-public-admission-v2"', gate)
+    terminal = source.index('"banana-smasher-exact102-imported-w28-v1"', admission)
+    full64 = source.index("full_started = time.perf_counter()", terminal)
+    assert gate < admission < terminal < full64
+    assert 'int(exact102_admission.get("provenance_members", -1)) != 22016' in source
+    assert '"exact102_virtual_artifact_sha256": exact102_admission[' in source
     assert 'FULL64_REQUIRES_ACCEPTED_PROVIDER' in source
     assert 'len(rows) != 64' in source
     assert 'checkpoint_reloads' in source

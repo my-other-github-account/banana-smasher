@@ -2281,6 +2281,27 @@ def main() -> None:
     root = Path(os.environ["PHYSICAL_ROOT"])
     config_path = _resolve_config_path(root, task=TASK, rank=rank)
     config = json.loads(config_path.read_text())
+    w28_only = os.environ.get("W28_ONLY", "0") == "1"
+    exact102_admission = None
+    if w28_only:
+        admission_value = os.environ.get("EXACT102_ADMISSION_RECEIPT")
+        admission_sha = os.environ.get("EXACT102_ADMISSION_SHA256")
+        if not admission_value or not admission_sha:
+            raise RuntimeError("W28_ONLY_REQUIRES_EXACT102_ADMISSION")
+        exact102_path = Path(admission_value).expanduser().resolve()
+        if sha(exact102_path) != admission_sha:
+            raise RuntimeError("EXACT102_ADMISSION_SHA_MISMATCH")
+        exact102_admission = json.loads(exact102_path.read_text())
+        if (
+            exact102_admission.get("schema")
+            != "banana-smasher-exact102-public-admission-v2"
+            or exact102_admission.get("status") != "PASS_ADMISSION_READY"
+            or exact102_admission.get("task_id") != TASK
+            or exact102_admission.get("basis_sha256") != BASIS
+            or exact102_admission.get("checkpoint_sha256") != CHECKPOINT
+            or int(exact102_admission.get("provenance_members", -1)) != 22016
+        ):
+            raise RuntimeError("EXACT102_ADMISSION_CONTRACT_MISMATCH")
     packed_boundary_tap_only = os.environ.get("PACKED_BOUNDARY_TAP_ONLY", "0") == "1"
     sealed_runtime_tensor_ab_only = os.environ.get("SEALED_RUNTIME_TENSOR_AB_ONLY", "0") == "1"
     aligned_active_row_capture_only = os.environ.get(
@@ -2593,6 +2614,33 @@ def main() -> None:
                          "resident_load_seconds": resident_load_seconds, "admission_wall_seconds": admission_wall,
                          "measurement": admission}
         admission_row["receipt_sha256"] = atomic(admission_path, admission_row)
+
+    if w28_only:
+        assert exact102_admission is not None
+        terminal_path = root / "receipts" / f"W28_ONLY_TERMINAL.{TASK}.rank{rank}.json"
+        terminal = {
+            "schema": "banana-smasher-exact102-imported-w28-v1",
+            "status": "PASS",
+            "task_id": TASK,
+            "rank": rank,
+            "canonical_code_commit": pin,
+            "basis_sha256": BASIS,
+            "checkpoint_sha256": CHECKPOINT,
+            "exact102_admission_sha256": os.environ["EXACT102_ADMISSION_SHA256"],
+            "exact102_virtual_artifact_sha256": exact102_admission[
+                "virtual_artifact_sha256"
+            ],
+            "provenance_members": exact102_admission["provenance_members"],
+            "resident_load_seconds": resident_load_seconds,
+            "admission_wall_seconds": admission_wall,
+            "measurement": admission_row["measurement"],
+        }
+        terminal["receipt_sha256"] = atomic(terminal_path, terminal)
+        print(json.dumps({"terminal_path": str(terminal_path), **terminal}, sort_keys=True), flush=True)
+        engine.close()
+        if torch.distributed.is_initialized():
+            torch.distributed.destroy_process_group()
+        return
 
     # W28 is now sealed against the immutable accepted producer. Production
     # retains its single-window physical context and calls the same admission
