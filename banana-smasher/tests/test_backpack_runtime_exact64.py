@@ -466,14 +466,16 @@ def test_materialize_provenance_assignment_for_exact64(tmp_path) -> None:
     ledger.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in ledger_rows))
     ledger_sha = hashlib.sha256(ledger.read_bytes()).hexdigest()
     whole = {
-        "shipping_bytes_cap": 34,
+        "shipping_bytes_cap": 35,
         "expert_envelope_bytes": 27,
         "selected_expert_bytes": 27,
         "dense_nonrouted_bytes": 5,
         "repair_bytes": 0,
         "metadata_bytes": 2,
         "fixed_nonexpert_bytes": 7,
-        "whole_shipping_bytes": 34,
+        "padding_bytes": 1,
+        "padding_policy": "metadata_reserve",
+        "whole_shipping_bytes": 35,
         "shipping_slack_bytes": 0,
     }
     assignment = tmp_path / "assignment.json"
@@ -550,10 +552,12 @@ def test_materialize_provenance_assignment_for_exact64(tmp_path) -> None:
 
     assert result["status"] == "PASS"
     assert result["tier_counts"] == {"d4_k2048": 1, "native_mxfp4": 1}
-    assert result["byte_accounting"]["assigned_package_bytes"] == 34
+    assert result["byte_accounting"]["assigned_package_bytes"] == 35
+    assert result["byte_accounting"]["padding_bytes"] == 1
     manifest = json.loads(
         (tmp_path / "virtual" / "BACKPACK_VIRTUAL_MANIFEST.json").read_text()
     )
-    assert manifest["whole_model_accounting"]["whole_model_bpw_exact_ratio"] == "272/100"
+    assert manifest["whole_model_accounting"]["whole_model_bpw_exact_ratio"] == "280/100"
+    assert manifest["whole_model_accounting"]["padding_bytes"] == 1
     assert manifest["byte_accounting"]["activation_bytes"] == 3
     assert manifest["source_assignment"]["sha256"] == assignment_sha

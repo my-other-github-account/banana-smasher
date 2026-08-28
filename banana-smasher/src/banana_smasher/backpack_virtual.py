@@ -827,11 +827,20 @@ def materialize_provenance_virtual_backpack(
         raise ValueError("provenance whole-model accounting binding mismatch")
     payload_bytes = sum(tier_payload_bytes.values())
     fixed_bytes = int(source_accounting["fixed_nonexpert_bytes"])
+    raw_padding_bytes = source_accounting.get("padding_bytes", 0)
+    if (
+        isinstance(raw_padding_bytes, bool)
+        or not isinstance(raw_padding_bytes, int)
+        or raw_padding_bytes < 0
+    ):
+        raise ValueError("provenance padding bytes must be a non-negative integer")
+    padding_bytes = raw_padding_bytes
     whole_bytes = int(source_accounting["whole_shipping_bytes"])
     if (
         int(source_accounting["selected_expert_bytes"])
         != payload_bytes + activation_bytes
-        or whole_bytes != payload_bytes + activation_bytes + fixed_bytes
+        or whole_bytes
+        != payload_bytes + activation_bytes + fixed_bytes + padding_bytes
         or fixed_bytes
         != int(source_accounting["dense_nonrouted_bytes"])
         + int(source_accounting["repair_bytes"])
@@ -852,6 +861,8 @@ def materialize_provenance_virtual_backpack(
         "repair_bytes": int(source_accounting["repair_bytes"]),
         "metadata_bytes": int(source_accounting["metadata_bytes"]),
         "fixed_nonexpert_bytes": fixed_bytes,
+        "padding_bytes": padding_bytes,
+        "padding_policy": source_accounting.get("padding_policy"),
         "whole_shipping_bytes": whole_bytes,
         "shipping_bytes_cap": int(source_accounting["shipping_bytes_cap"]),
         "shipping_slack_bytes": int(source_accounting["shipping_slack_bytes"]),
@@ -865,6 +876,7 @@ def materialize_provenance_virtual_backpack(
         "activation_bytes": activation_bytes,
         "assigned_expert_bytes": payload_bytes + activation_bytes,
         "fixed_nonexpert_bytes": fixed_bytes,
+        "padding_bytes": padding_bytes,
         "assigned_package_bytes": whole_bytes,
         "tier_payload_bytes": dict(sorted(tier_payload_bytes.items())),
     }
@@ -1210,8 +1222,18 @@ def verify_virtual_backpack(root: str | Path) -> dict[str, Any]:
         raise ValueError("virtual Backpack logical payload accounting is invalid")
     if accounting.get("assigned_expert_bytes") != logical_payload_bytes + activation_bytes:
         raise ValueError("virtual Backpack expert accounting is inconsistent")
+    padding_bytes = accounting.get("padding_bytes", 0)
+    if (
+        isinstance(padding_bytes, bool)
+        or not isinstance(padding_bytes, int)
+        or padding_bytes < 0
+    ):
+        raise ValueError("virtual Backpack padding accounting is invalid")
     if accounting.get("assigned_package_bytes") != (
-        logical_payload_bytes + activation_bytes + accounting.get("fixed_nonexpert_bytes", -1)
+        logical_payload_bytes
+        + activation_bytes
+        + accounting.get("fixed_nonexpert_bytes", -1)
+        + padding_bytes
     ):
         raise ValueError("virtual Backpack package accounting is inconsistent")
 
