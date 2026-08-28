@@ -1324,6 +1324,33 @@ def _builder_frame_readout_logits(
     return logits[:score_positions]
 
 
+def _physical_training_row(
+    ids: Any,
+    *,
+    requested_objective_span: int,
+    required_physical_rows: int,
+    pad_token_id: int,
+) -> tuple[Any, int]:
+    """Preserve packed V7 row geometry without expanding the objective."""
+    if ids.ndim != 1:
+        raise ArtifactError("training token row must be one-dimensional")
+    objective_span = int(requested_objective_span)
+    physical_rows = int(required_physical_rows)
+    source_rows = int(ids.shape[0])
+    if objective_span <= 0 or physical_rows < objective_span:
+        raise ArtifactError("training objective/physical token geometry drift")
+    if source_rows < objective_span or source_rows > physical_rows:
+        raise ArtifactError(
+            f"training token source geometry drift: source={source_rows} "
+            f"objective={objective_span} physical={physical_rows}"
+        )
+    if source_rows == physical_rows:
+        return ids, objective_span
+    padded = ids.new_full((physical_rows,), int(pad_token_id))
+    padded[:source_rows] = ids
+    return padded, objective_span
+
+
 class ModernGreenResidentEngine:
     """One rank of the accepted two-Spark resident grouped-K2 trainer."""
 
@@ -1777,11 +1804,28 @@ class ModernGreenResidentEngine:
         else:
             ordered = list(range(20, 84))
         corpus = self.base.T.load_corpus()
-        self.ids_cache = {
-            window: self.base.T.window_ids(corpus, window)[0].unsqueeze(0).to(self.student.device)
-            for window in ordered
-        }
-        self.real_lengths = {window: self.base.T.window_ids(corpus, window)[1] for window in ordered}
+        static_w28_objective = self.config.get("w28_only_training_token_span")
+        self.training_objective_span = int(
+            static_w28_objective
+            if static_w28_objective is not None
+            else self.base.T.T_TRAIN
+        )
+        self.training_physical_rows = (
+            2048 if static_w28_objective is not None else int(self.base.T.T_TRAIN)
+        )
+        pad_token_id = int(self.config.get("pad_token_id", 1))
+        self.ids_cache = {}
+        self.real_lengths = {}
+        for window in ordered:
+            source_ids, real_length = self.base.T.window_ids(corpus, window)
+            physical_ids, objective_span = _physical_training_row(
+                source_ids,
+                requested_objective_span=self.training_objective_span,
+                required_physical_rows=self.training_physical_rows,
+                pad_token_id=pad_token_id,
+            )
+            self.ids_cache[window] = physical_ids.unsqueeze(0).to(self.student.device)
+            self.real_lengths[window] = min(int(real_length), objective_span)
         self.teacher_cache = {}
         if self.rank == 1:
             for window in ordered:
@@ -2562,7 +2606,7 @@ class ModernGreenResidentEngine:
         token_values = []
         for row, window in enumerate(group):
             idx, lp_n, p_n = self.teacher_cache[window]
-            length = self.real_lengths[window]
+            length = min(self.real_lengths[window], self.training_objective_span)
             logits = self.student.model.lm_head(final[row, :length].to(self.torch.bfloat16))
             support_logits = logits.gather(1, idx[:length]).float()
             if self.tailfix_wholesale:
@@ -2652,7 +2696,7 @@ class ModernGreenResidentEngine:
             raise ArtifactError(f"official pipeline group must contain {self.pipeline_microbatch} windows")
         torch = self.torch
         ids = torch.cat([self.ids_cache[window] for window in group], dim=0)
-        shape = (self.pipeline_microbatch, self.base.T.T_TRAIN, int(self.student.config.hc_mult), int(self.student.config.hidden_size))
+        shape = (self.pipeline_microbatch, self.training_physical_rows, int(self.student.config.hc_mult), int(self.student.config.hidden_size))
         if self.rank == 0:
             started = time.perf_counter()
             embeds = self.student.model.model.embed_tokens(ids)
@@ -2702,7 +2746,7 @@ class ModernGreenResidentEngine:
         torch = self.torch
         shape = (
             self.pipeline_microbatch,
-            self.base.T.T_TRAIN,
+            self.training_physical_rows,
             int(self.student.config.hc_mult),
             int(self.student.config.hidden_size),
         )
