@@ -1,8 +1,9 @@
 """Package-owned full-row exact CUDA Viterbi for public QTIP L16/K2/V2.
 
-One CUDA CTA owns one complete source row. FP32 prefix costs remain resident while
-exact four-bit q winners are written to a memory-admitted packed traceback. There
-is no proposal, pruning, approximation, host recurrence, or slower fallback.
+One CUDA CTA owns two source rows and shares each immutable LUT load across the
+pair. Independent FP32 prefix costs remain resident while exact four-bit q
+winners are written to a memory-admitted packed traceback. There is no proposal,
+pruning, approximation, host recurrence, or slower fallback.
 """
 from __future__ import annotations
 
@@ -69,8 +70,11 @@ def geometry(cb: Any) -> dict[str, int | str | bool]:
         "strict_tie_order": "ascending-q-strict-less-than",
         "chunk_sequences": MAX_CHUNK,
         "backpointer_dtype": "packed-uint4-q",
-        "ordering": "one-full-row-cta-with-resident-fp32-costs",
-        "minimum_ctas_per_sm": 2,
+        "ordering": "two-full-rows-per-cta-with-resident-fp32-costs",
+        "rows_per_cta": 2,
+        "lut_load_amortization_rows": 2,
+        "minimum_ctas_per_sm": 1,
+        "effective_rows_per_sm": 2,
         "production_default": True,
         "fallback": 0,
     }

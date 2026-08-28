@@ -556,7 +556,8 @@ def test_q2_full_row_cuda_source_preserves_exact_arithmetic_and_tie_contract() -
     assert "__fmul_rn" in source
     assert "__fadd_rn" in source
     assert "candidate < best" in source
-    assert "q0 | (q1 << 4)" in source
+    assert "q00 | (q01 << 4)" in source
+    assert "q10 | (q11 << 4)" in source
     assert "float2" not in source
 
 

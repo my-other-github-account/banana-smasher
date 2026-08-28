@@ -38,7 +38,10 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     }
     assert '"branch_sampling": "full"' in exact_source
     assert '"backpointer_dtype": "packed-uint4-q"' in exact_source
-    assert '"minimum_ctas_per_sm": 2' in exact_source
+    assert '"rows_per_cta": 2' in exact_source
+    assert '"lut_load_amortization_rows": 2' in exact_source
+    assert '"minimum_ctas_per_sm": 1' in exact_source
+    assert '"effective_rows_per_sm": 2' in exact_source
     assert '"fallback": 0' in exact_source
     assert "alternating-parity-full" not in exact_source
     assert "triton" not in exact_source
@@ -47,7 +50,10 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
         _package_root() / "trellis_v2" / "csrc" / "trellis_v2_exact.cu"
     ).read_text()
     assert "constexpr int THREADS = 512;" in cuda_source
-    assert "__launch_bounds__(THREADS, 2)" in cuda_source
+    assert "constexpr int ROWS_PER_CTA = 2;" in cuda_source
+    assert "__launch_bounds__(THREADS, 1)" in cuda_source
+    assert "const int blocks = (batch + ROWS_PER_CTA - 1) / ROWS_PER_CTA;" in cuda_source
+    assert "cudaFuncAttributeMaxDynamicSharedMemorySize" in cuda_source
 
 
 @pytest.mark.skipif(
@@ -101,10 +107,13 @@ def test_full16_assignments_match_cornell_canonical_with_and_without_overlap() -
     generator = torch.Generator(device="cuda").manual_seed(20260803)
     tlut = torch.randn((1 << 16, 2), generator=generator, device="cuda")
     codebook = bitshift.bitshift_codebook(L=16, K=2, V=2, tlut=tlut).to(device="cuda")
-    x = torch.randn((256, 1), generator=generator, device="cuda", dtype=torch.float16)
+    x = torch.randn((256, 3), generator=generator, device="cuda", dtype=torch.float16)
 
     parity_rows = []
-    for overlap in (None, torch.tensor([1731], device="cuda", dtype=torch.int32)):
+    for overlap in (
+        None,
+        torch.tensor([1731, 811, 3095], device="cuda", dtype=torch.int32),
+    ):
         expected = codebook.viterbi(x, overlap=overlap)
         actual = trellis_v2_exact(codebook, x, overlap=overlap)
         torch.cuda.synchronize()
@@ -114,7 +123,7 @@ def test_full16_assignments_match_cornell_canonical_with_and_without_overlap() -
         ).hexdigest()
         parity_rows.append(
             {
-                "overlap": None if overlap is None else int(overlap.item()),
+                "overlap": None if overlap is None else [int(v) for v in overlap.tolist()],
                 "assignment_sha256": assignment_sha256,
                 "steps": int(actual.shape[0]),
                 "sequences": int(actual.shape[1]),
