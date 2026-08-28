@@ -1,0 +1,16 @@
+{
+  "checkpoint_identity_sha256": "9d5837324ab8c781c393c7c4c369ea90d5c85a5ddf6674bc00ae5bb0e9df4f46",
+  "checkpoint_sha256": "ffb796ce25b4a182bdebadd0a646a91a9c72c9f811520050b2e1dafbf33419a0",
+  "correct": 413,
+  "harness_sha256": "ea96ef44dbcc41a9e55b13272172edea7d8f0072aad2e0997f3e40a285408b50",
+  "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+  "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+  "mmlu_percent": 82.6,
+  "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "n": 500,
+  "qrows_sha256": "7e684b223952a50005cb0ff6f2c842999a73dfba92533075f847432686d31f03",
+  "resident_module_sha256": "0ec54e900d497977d59cc9742a5431e140cb933b4eb37b27eeab7a08480bf545",
+  "schema": "banana-smasher.u45-mmlu500-public-terminal.v1",
+  "status": "PASS",
+  "variant": "QTIP2-V7-U45-repaired"
+}

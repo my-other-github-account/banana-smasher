@@ -17,19 +17,19 @@ QTIP2_IDENTITY = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/eviden
 
 
 class MMLUDensityPublicationTest(unittest.TestCase):
-    def test_thirteen_row_result_and_evals_table_are_consistent(self):
+    def test_fourteen_row_result_and_evals_table_are_consistent(self):
         getcontext().prec = 120
         result = json.loads(RESULTS.read_text())
         schema = json.loads(SCHEMA.read_text())
         rows = result["rows"]
 
-        self.assertEqual(result["schema"], "banana-smasher.mmlu500-thirteen-row-density-terminal.v5")
+        self.assertEqual(result["schema"], "banana-smasher.mmlu500-fourteen-row-density-terminal.v6")
         self.assertEqual(schema["properties"]["schema"]["const"], result["schema"])
-        self.assertEqual(schema["properties"]["rows"]["minItems"], 13)
-        self.assertEqual(schema["properties"]["rows"]["maxItems"], 13)
+        self.assertEqual(schema["properties"]["rows"]["minItems"], 14)
+        self.assertEqual(schema["properties"]["rows"]["maxItems"], 14)
         self.assertIn("mmlu_per_gb", schema["properties"]["rows"]["items"]["required"])
         self.assertIn("raw_mmlu_per_bpw", schema["properties"]["rows"]["items"]["required"])
-        self.assertEqual(len(rows), 13)
+        self.assertEqual(len(rows), 14)
         self.assertEqual(
             [row["variant"] for row in rows],
             [
@@ -46,6 +46,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 "EXL3-K2P5-greedy-routed-native-rest",
                 "EXL3-K2-uniform-exact",
                 "Physical-alternating-K2K3-full",
+                "QTIP2-V7-U45-repaired",
             ],
         )
 
@@ -75,6 +76,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             "EXL3-K2P5-greedy-routed-native-rest": (424, Decimal("84.8"), 106282510072, "2.990350726677318761133570203797083967844437614338647678644542139727383081773899285391977912993952953", "19.9976542773114211551230553063823955412839565138944792609771588308334509994164752793475970777033117705023648987223690617"),
             "EXL3-K2-uniform-exact": (369, Decimal("73.8"), 77861675750, "2.1907058696825606173737276358734996088908236748322939650200806709327704680850651", "22.2759251597163319465289057819950657817687670304218953314782722230326515930399810618438699876324023710314001979897142511"),
             "Physical-alternating-K2K3-full": (374, Decimal("74.8"), 94832907712, "2.668206220359224284525477307187490489073009403333264769375373564232111492365228415584687878052563670", "18.6642245340749401654284688564374618845811310854177935005465036267515179910378492391997573341263574048420606555109602646"),
+            "QTIP2-V7-U45-repaired": (413, Decimal("82.6"), 100636011256, "2.831481578534603263235376275888125565194357238266015863087325200113206153869260839371695918636102327", "20.34270695478447590271810524071910062468503685107938714029192683407599224572351128955996785159388153"),
         }
         for row in rows[4:]:
             correct, percent, complete_bytes, bpw, density = expected_new[row["variant"]]
@@ -164,6 +166,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             "EXL3 K2.5 greedy-upcast routed-only + native rest** | **88.33%** (57,885/65,536) | **0.174604** | **84.80%** (424/500) | **19.998**",
             "EXL3 K2 uniform exact** | **81.78%** (53,593/65,536) | **0.366820** | **73.80%** (369/500) | **22.276**",
             "Physical alternating K2/K3 2.5-BPW comparator** | **83.29%** (54,585/65,536) | **0.299604** | **74.80%** (374/500) | **18.664**",
+            "QTIP2 V7 U45 repaired** | **86.22%** (56,508/65,536) | **0.211278** | **82.60%** (413/500) | **20.343**",
             "ARTIFACT_UNAVAILABLE",
         ):
             self.assertIn(fragment, evals)
