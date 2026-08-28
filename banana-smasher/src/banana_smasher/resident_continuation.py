@@ -1287,7 +1287,12 @@ class ModernGreenResidentEngine:
                     past_key_values=DynamicCache(config=self.student.config),
                 )
             if activation_checkpointing:
-                hidden = self.checkpoint(layer_fn, hidden, use_reentrant=False)
+                # Reentrant checkpointing executes the layer forward under
+                # no_grad and reconstructs it during backward.  The
+                # non-reentrant variant records the full rank-local autograd
+                # graph and exceeded DGX Spark unified memory before the first
+                # pipeline send, even after allocator-cache trimming.
+                hidden = self.checkpoint(layer_fn, hidden, use_reentrant=True)
             else:
                 hidden = layer_fn(hidden)
         return hidden

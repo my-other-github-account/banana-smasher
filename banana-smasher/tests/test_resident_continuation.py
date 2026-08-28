@@ -956,6 +956,44 @@ def test_warm_training_can_disable_layer_checkpoint_recompute(monkeypatch):
     assert calls == [hidden, hidden]
 
 
+def test_training_checkpoint_uses_reentrant_low_memory_forward(monkeypatch):
+    class Cache:
+        def __init__(self, *, config):
+            self.config = config
+
+    transformers = ModuleType("transformers")
+    cache_utils = ModuleType("transformers.cache_utils")
+    cache_utils.DynamicCache = Cache
+    transformers.cache_utils = cache_utils
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+    monkeypatch.setitem(sys.modules, "transformers.cache_utils", cache_utils)
+
+    class Layer:
+        def __call__(self, hidden, **_kwargs):
+            return hidden
+
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.config = {"activation_checkpointing": True}
+    engine.student = SimpleNamespace(
+        config="config",
+        model=SimpleNamespace(model=SimpleNamespace(layers=[Layer(), Layer()])),
+    )
+    engine.first = 0
+    engine.last = 1
+    engine._positional = lambda ids, template, cache: ("pos", "pe", "mask")
+    modes = []
+
+    def checkpoint(call, hidden, *, use_reentrant):
+        modes.append(use_reentrant)
+        return call(hidden)
+
+    engine.checkpoint = checkpoint
+    hidden = SimpleNamespace(ndim=3)
+
+    assert engine._run_layers(hidden, "ids", True) is hidden
+    assert modes == [True, True]
+
+
 def test_score_only_checkpoint_does_not_require_optimizer_or_scheduler_state():
     engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
     engine.score_only = True
