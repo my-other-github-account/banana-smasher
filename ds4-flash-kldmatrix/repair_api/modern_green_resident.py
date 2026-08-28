@@ -235,8 +235,9 @@ def _published_pre_recipe_policy(
         == "t_f76a1035 repair-A U68 decision-boundary imported static W28 retry4"
         and config.get("checkpoint_sha256")
         == "41d7ecd80020a7192117adae3da1b2c2cd73abab2207582c20265e42ac8714cf"
-        and config.get("controlled_windows_per_update") == 16
-        and config.get("train_windows") == list(range(20, 84))
+        and config.get("score_checkpoint") == "SCHEDULE_7E8DEC81D865_UPDATE_068"
+        and config.get("controlled_windows_per_update") == 2
+        and config.get("train_windows") == [56, 28]
     )
     max_step = 80 if broad_rot16 else 68 if sealed_u68_static_w28 else 64
     if not 0 <= step <= max_step:

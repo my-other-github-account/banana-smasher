@@ -49,6 +49,9 @@ def test_imported_static_w28_admits_exact_sealed_u68_cursor_only() -> None:
     config = _config()
     config["scientific_identity"] = "t_f76a1035 repair-A U68 decision-boundary imported static W28 retry4"
     config["checkpoint_sha256"] = "41d7ecd80020a7192117adae3da1b2c2cd73abab2207582c20265e42ac8714cf"
+    config["score_checkpoint"] = "SCHEDULE_7E8DEC81D865_UPDATE_068"
+    config["controlled_windows_per_update"] = 2
+    config["train_windows"] = [56, 28]
     _published_pre_recipe_policy(config, 68)
     with pytest.raises(ArtifactError, match="U0..U68"):
         _published_pre_recipe_policy(config, 69)
