@@ -951,6 +951,8 @@ def materialize_mixed_v7_virtual_backpack(
 
     solve = Path(solve_root).expanduser().resolve()
     identity_path = solve / "identity.json"
+    if not identity_path.is_file():
+        identity_path = solve / ASSIGNMENT_FILE
     try:
         identity_raw = identity_path.read_bytes()
     except OSError as exc:
@@ -991,53 +993,46 @@ def materialize_mixed_v7_virtual_backpack(
     )
     identity, identity_raw = _load_object(identity_path)
     contract, contract_raw = _load_object(contract_path)
-    by_expert: dict[tuple[int, int], list[dict[str, Any]]] = {}
+    by_projection: dict[tuple[int, int, str], list[dict[str, Any]]] = {}
     for member in contract["members"]:
-        layer_text, expert_text, _ = member["cell_id"].split(".")
+        layer_text, expert_text, physical_projection = member["cell_id"].split(".")
+        logical_projection = (
+            "down" if physical_projection in {"w2", "down"} else "fused13"
+        )
         key = (
             int(layer_text.removeprefix("L")),
             int(expert_text.removeprefix("E")),
+            logical_projection,
         )
-        by_expert.setdefault(key, []).append(member)
+        by_projection.setdefault(key, []).append(member)
     assignment_rows: list[dict[str, Any]] = []
     index_rows: list[dict[str, Any]] = []
     tier_counts: Counter[str] = Counter()
     source_counts: Counter[str] = Counter()
     payload_bytes = 0
-    for (layer, expert), rows in sorted(by_expert.items()):
+    for (layer, expert, projection), rows in sorted(by_projection.items()):
         tier = rows[0]["tier"]
         source_key = f"{tier}_v7"
-        by_projection = {row["cell_id"].split(".")[2]: row for row in rows}
-        physical_by_logical = (
-            {"down": ["w2"], "fused13": ["w1", "w3"]}
-            if tier == "qtip2"
-            else {"down": ["down"], "fused13": ["fused13"]}
+        cell_id = f"L{layer}:E{expert}:{projection}"
+        byte_count = sum(int(row["payload"]["bytes"]) for row in rows)
+        assignment_rows.append({"cell_id": cell_id, "tier": tier})
+        index_rows.append(
+            {
+                "cell_id": cell_id,
+                "selection_group": f"L{layer}.E{expert}",
+                "layer": layer,
+                "expert": expert,
+                "projection": projection,
+                "tier": tier,
+                "source_key": source_key,
+                "physical_bytes": byte_count,
+                "activation_artifact_ids": [],
+                "mixed_v7_members": [row["cell_id"] for row in rows],
+            }
         )
-        for projection, physical in physical_by_logical.items():
-            cell_id = f"L{layer}:E{expert}:{projection}"
-            byte_count = sum(
-                int(by_projection[name]["payload"]["bytes"]) for name in physical
-            )
-            assignment_rows.append(
-                {"cell_id": cell_id, "tier": tier}
-            )
-            index_rows.append(
-                {
-                    "cell_id": cell_id,
-                    "selection_group": f"L{layer}.E{expert}",
-                    "layer": layer,
-                    "expert": expert,
-                    "projection": projection,
-                    "tier": tier,
-                    "source_key": source_key,
-                    "physical_bytes": byte_count,
-                    "activation_artifact_ids": [],
-                    "mixed_v7_members": [by_projection[name]["cell_id"] for name in physical],
-                }
-            )
-            tier_counts[tier] += 1
-            source_counts[source_key] += 1
-            payload_bytes += byte_count
+        tier_counts[tier] += 1
+        source_counts[source_key] += 1
+        payload_bytes += byte_count
     assignment = _assignment_from_rows(assignment_rows)
     assignment_raw = _canonical(assignment)
     index_raw = b"".join(_canonical(row) for row in index_rows)
@@ -1073,7 +1068,7 @@ def materialize_mixed_v7_virtual_backpack(
         "basis_sha256": identity["basis_sha256"],
         "arm_name": "solve-mixed-v7",
         "assignment_map_sha256": _sha256(assignment_raw),
-        "source_receipt": _evidence(solve / "identity.json", identity_raw),
+        "source_receipt": _evidence(identity_path, identity_raw),
         "source_bindings": source_bindings,
         "mixed_v7_member_contract": _evidence(contract_path, contract_raw),
         "mixed_v7_bind_receipt": bind_receipt,

@@ -52,7 +52,8 @@ def bind_mixed_v7_member_contract(
 
     identity_path = Path(mixed_identity).expanduser().resolve()
     if identity_path.is_dir():
-        identity_path = identity_path / "identity.json"
+        preferred = identity_path / "identity.json"
+        identity_path = preferred if preferred.is_file() else identity_path / "ASSIGNMENT.json"
     member_path = Path(materialized_members).expanduser().resolve()
     try:
         identity_raw = identity_path.read_bytes()
@@ -61,11 +62,27 @@ def bind_mixed_v7_member_contract(
         materialized = json.loads(member_raw)
     except (OSError, json.JSONDecodeError) as exc:
         raise PackValidationError("cannot read mixed identity/materialized member index") from exc
-    if (
-        not isinstance(identity, dict)
-        or identity.get("schema") != "banana-smasher-mixed-backpack-identity-v1"
-        or identity.get("status") != "PRE_REPAIR_SOLVED"
+    identity_schema = identity.get("schema") if isinstance(identity, dict) else None
+    if identity_schema == "banana-smasher-provenance-weighted-assignment-v1":
+        if identity.get("status") != "PASS_PREDICTION_ONLY":
+            raise PackValidationError("mixed solve identity schema/status mismatch")
+        assignment_rows = identity.get("assignments")
+        if not isinstance(assignment_rows, list):
+            raise PackValidationError("mixed projection assignments are malformed")
+        assignment = {
+            str(row.get("cell_id", "")).replace(":", "."): row.get("tier")
+            for row in assignment_rows
+            if isinstance(row, dict)
+        }
+        if len(assignment) != len(assignment_rows):
+            raise PackValidationError("mixed projection assignments are malformed")
+        identity["assignment_sha256"] = hashlib.sha256(identity_raw).hexdigest()
+    elif (
+        identity_schema == "banana-smasher-mixed-backpack-identity-v1"
+        and identity.get("status") == "PRE_REPAIR_SOLVED"
     ):
+        assignment = identity.get("assignment")
+    else:
         raise PackValidationError("mixed solve identity schema/status mismatch")
     if (
         not isinstance(materialized, dict)
@@ -77,10 +94,19 @@ def bind_mixed_v7_member_contract(
     for key in ("basis_sha256", "assignment_sha256"):
         if materialized.get(key) != identity.get(key):
             raise PackValidationError(f"mixed materialized member {key} mismatch")
-    assignment = identity.get("assignment")
     members = materialized.get("members")
     if not isinstance(assignment, dict) or not isinstance(members, list):
         raise PackValidationError("mixed assignment/materialized members are malformed")
+    projection_assignment: dict[str, str] = {}
+    for cell, tier in assignment.items():
+        pieces = str(cell).split(".")
+        if len(pieces) == 2:
+            for projection in ("down", "fused13"):
+                projection_assignment[f"{cell}.{projection}"] = str(tier)
+        elif len(pieces) == 3 and pieces[2] in {"down", "fused13"}:
+            projection_assignment[str(cell)] = str(tier)
+        else:
+            raise PackValidationError(f"mixed assignment cell {cell!r} is invalid")
     groups: dict[str, tuple[str, set[str]]] = {}
     for member in members:
         if not isinstance(member, dict):
@@ -88,22 +114,32 @@ def bind_mixed_v7_member_contract(
         pieces = str(member.get("cell_id", "")).split(".")
         if len(pieces) != 3:
             raise PackValidationError("mixed materialized member cell id is invalid")
-        expert = ".".join(pieces[:2])
+        logical_projection = "down" if pieces[2] in {"w2", "down"} else "fused13"
+        logical_cell = ".".join((*pieces[:2], logical_projection))
         tier = str(member.get("tier"))
-        group = groups.setdefault(expert, (tier, set()))
+        group = groups.setdefault(logical_cell, (tier, set()))
         if group[0] != tier:
-            raise PackValidationError(f"mixed materialized expert {expert} selects multiple tiers")
+            raise PackValidationError(f"mixed materialized cell {logical_cell} selects multiple tiers")
         group[1].add(pieces[2])
-    if set(groups) != set(assignment):
-        raise PackValidationError("mixed materialized expert coverage differs from assignment")
-    for expert, tier in assignment.items():
-        if groups[expert][0] != tier:
-            raise PackValidationError(f"mixed materialized tier mismatch for {expert}")
+    if set(groups) != set(projection_assignment):
+        raise PackValidationError("mixed materialized projection coverage differs from assignment")
+    expected_physical = {
+        ("qtip2", "down"): {"w2"},
+        ("qtip2", "fused13"): {"w1", "w3"},
+        ("qtip3", "down"): {"down"},
+        ("qtip3", "fused13"): {"fused13"},
+    }
+    for cell, tier in projection_assignment.items():
+        if groups[cell][0] != tier:
+            raise PackValidationError(f"mixed materialized tier mismatch for {cell}")
+        projection = cell.rsplit(".", 1)[1]
+        if groups[cell][1] != expected_physical.get((tier, projection)):
+            raise PackValidationError(f"mixed materialized members are incomplete for {cell}")
     tier_counts = {
         "qtip2": sum(member.get("tier") == "qtip2" for member in members),
         "qtip3": sum(member.get("tier") == "qtip3" for member in members),
         "total": len(members),
-        "experts": len(groups),
+        "experts": len({cell.rsplit(".", 1)[0] for cell in groups}),
     }
     contract = {
         "schema": MIXED_V7_MEMBER_CONTRACT_SCHEMA,

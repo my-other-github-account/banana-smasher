@@ -254,6 +254,81 @@ def test_mixed_virtualizer_projects_expert_tiers_to_runtime_cells(tmp_path: Path
     ]
 
 
+def test_mixed_virtualizer_accepts_projection_mixed_expert(tmp_path: Path) -> None:
+    materialized = tmp_path / "materialized"
+    q2_tlut = materialized / "q2.tlut"
+    q3_tlut = materialized / "q3.tlut"
+    q2_tlut.parent.mkdir(parents=True)
+    q2_tlut.write_bytes(b"q2-tlut")
+    q3_tlut.write_bytes(b"q3-tlut")
+    q2_wire = materialized / "q2-w2.wire"
+    q2_wire.write_bytes(b"w2")
+    q3_codes = materialized / "q3-fused13.npy"
+    q3_control = materialized / "q3-fused13.pt"
+    q3_codes.write_bytes(b"codes-fused13")
+    q3_control.write_bytes(b"control-fused13")
+    members = [
+        {
+            "cell_id": "L000.E000.w2",
+            "tier": "qtip2",
+            "payload": _descriptor(q2_wire, materialized),
+            "unit_metadata": {"tlut": _descriptor(q2_tlut, materialized)},
+        },
+        {
+            "cell_id": "L000.E000.fused13",
+            "tier": "qtip3",
+            "payload": _descriptor(q3_codes, materialized),
+            "unit_metadata": {
+                "control": _descriptor(q3_control, materialized),
+                "tlut": _descriptor(q3_tlut, materialized),
+            },
+        },
+    ]
+    solve = tmp_path / "solve"
+    assignment_path = solve / "ASSIGNMENT.json"
+    _write_json(
+        assignment_path,
+        {
+            "schema": "banana-smasher-provenance-weighted-assignment-v1",
+            "status": "PASS_PREDICTION_ONLY",
+            "basis_sha256": BASIS,
+            "assignments": [
+                {"cell_id": "L000:E000:down", "tier": "qtip2"},
+                {"cell_id": "L000:E000:fused13", "tier": "qtip3"},
+            ],
+        },
+    )
+    index = tmp_path / "members.json"
+    _write_json(
+        index,
+        {
+            "schema": "banana-smasher-mixed-v7-materialized-members-v1",
+            "status": "SEALED",
+            "basis_sha256": BASIS,
+            "assignment_sha256": _sha(assignment_path),
+            "materialized_root": str(materialized),
+            "members": members,
+        },
+    )
+
+    receipt = materialize_mixed_v7_virtual_backpack(
+        solve,
+        index,
+        tmp_path / "virtual",
+        expected_identity_sha=_sha(assignment_path),
+    )
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "virtual/MATERIALIZATION_INDEX.jsonl").read_text().splitlines()
+    ]
+
+    assert receipt["status"] == "PASS"
+    assert [(row["cell_id"], row["source_key"]) for row in rows] == [
+        ("L0:E0:down", "qtip2_v7"),
+        ("L0:E0:fused13", "qtip3_v7"),
+    ]
+
+
 def test_materialize_mixed_v7_refuses_wrong_expected_identity_before_output(
     tmp_path: Path,
 ) -> None:

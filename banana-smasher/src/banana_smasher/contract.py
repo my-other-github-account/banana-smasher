@@ -166,7 +166,7 @@ def verify_mixed_v7_member_contract(path: str | Path) -> dict[str, Any]:
         raise PackValidationError("mixed V7 contract has no members")
     verified: list[dict[str, Any]] = []
     seen: set[str] = set()
-    groups: dict[tuple[int, int], tuple[str, set[str]]] = {}
+    groups: dict[tuple[int, int, str], tuple[str, set[str]]] = {}
     cell_pattern = re.compile(r"L(\d{3})\.E(\d{3})\.(w[123]|down|fused13)")
     for index, member in enumerate(members):
         if not isinstance(member, dict):
@@ -180,10 +180,11 @@ def verify_mixed_v7_member_contract(path: str | Path) -> dict[str, Any]:
         if (tier == "qtip2") != projection.startswith("w"):
             raise PackValidationError(f"mixed V7 member {cell_id} tier/projection mismatch")
         seen.add(cell_id)
-        key = (int(match.group(1)), int(match.group(2)))
+        logical_projection = "down" if projection in {"w2", "down"} else "fused13"
+        key = (int(match.group(1)), int(match.group(2)), logical_projection)
         previous = groups.setdefault(key, (tier, set()))
         if previous[0] != tier:
-            raise PackValidationError(f"mixed V7 expert {key} selects multiple tiers")
+            raise PackValidationError(f"mixed V7 projection {key} selects multiple tiers")
         previous[1].add(projection)
         checked = {
             **member,
@@ -209,9 +210,14 @@ def verify_mixed_v7_member_contract(path: str | Path) -> dict[str, Any]:
                 )
             }
         verified.append(checked)
-    expected = {"qtip2": {"w1", "w2", "w3"}, "qtip3": {"down", "fused13"}}
+    expected = {
+        ("qtip2", "down"): {"w2"},
+        ("qtip2", "fused13"): {"w1", "w3"},
+        ("qtip3", "down"): {"down"},
+        ("qtip3", "fused13"): {"fused13"},
+    }
     for key, (tier, projections) in groups.items():
-        if projections != expected[tier]:
+        if projections != expected[(tier, key[2])]:
             raise PackValidationError(
                 f"mixed V7 expert {key} has incomplete {tier} projections: {sorted(projections)}"
             )
@@ -220,7 +226,7 @@ def verify_mixed_v7_member_contract(path: str | Path) -> dict[str, Any]:
         "qtip2": sum(member["tier"] == "qtip2" for member in verified),
         "qtip3": sum(member["tier"] == "qtip3" for member in verified),
         "total": len(verified),
-        "experts": len(groups),
+        "experts": len({key[:2] for key in groups}),
     }
     if declared != tier_counts:
         raise PackValidationError("mixed V7 contract member counts disagree")
