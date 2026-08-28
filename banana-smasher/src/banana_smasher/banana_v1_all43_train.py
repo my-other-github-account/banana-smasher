@@ -161,9 +161,10 @@ def _load_source(model_index: Path, index: dict[str, Any], layer: int) -> tuple[
         quantized = handle.get_slice(tensor_key)[:16, :16]
         scale = handle.get_slice(scale_key)[:16, :1]
     raw_weight = np.ascontiguousarray(quantized.numpy())
-    raw_scale = np.ascontiguousarray(scale.numpy())
+    scale_float = scale.to(dtype=torch.float32)
+    raw_scale = np.ascontiguousarray(scale_float.numpy())
     source_cuda = quantized.to(device="cuda", dtype=torch.float32)
-    source_cuda.mul_(scale.to(device="cuda", dtype=torch.float32).repeat_interleave(16, dim=1))
+    source_cuda.mul_(scale_float.to(device="cuda").repeat_interleave(16, dim=1))
     torch.cuda.synchronize()
     source = source_cuda.cpu().numpy().astype(np.float32, copy=False)
     return source, {
