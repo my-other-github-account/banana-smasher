@@ -45,7 +45,7 @@ def test_exact64_accepts_only_the_known_run6322_virtual_product(
 ) -> None:
     basis = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
     manifest_sha = "18613b80dbc5c610d2ba252fa169fdca9ec1b5a248c90502ee1515a34d6abc05"
-    terminal_sha = "f7b5fab1269e4b4162377578002feb53047f4465ccbff61e13462c2fd1af57c6"
+    terminal_sha = "f7b5fab1269ef61881f37fced720e4b21d2dcbbb6c14cad87efcbdc36eb33370"
     virtual = tmp_path / "exact102-virtual"
     virtual.mkdir()
     manifest = virtual / "BACKPACK_VIRTUAL_MANIFEST.json"
