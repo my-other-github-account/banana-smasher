@@ -51,6 +51,7 @@ def _validate_published_pre_resume_start(
     sealed_u64_sha256 = "ee4d245a624d52669a145d11ce0a21870e5a1b0db66d44bc857faf977b9fda0b"
     sealed_u65_sha256 = "f3fbc6e251b412f9dcbbce794825b1a0dc7e6979a0cc75d3650aa8a11926b7b1"
     sealed_u68_sha256 = "41d7ecd80020a7192117adae3da1b2c2cd73abab2207582c20265e42ac8714cf"
+    sealed_u69_sha256 = "bf5b0166ad249814428f22aae6bd80ffc3325009b240aa694128e52aa4e505bf"
     published_pre_sha256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
     sealed_u22_config = {
         "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
@@ -303,8 +304,28 @@ def _validate_published_pre_resume_start(
         and config.get("controlled_windows_per_update") == 16
         and config.get("train_windows") == list(range(20, 84))
     )
-    if start_update <= 0 or start_update > 68:
-        raise ArtifactError("published PRE scored resume must start inside U1..U68")
+    sealed_fresh_pre_u69_checkpoint = (
+        start_update == 69
+        and start_meta.get("sha256") == sealed_u69_sha256
+        and config.get("checkpoint_sha256") == sealed_u69_sha256
+        and start_meta.get("optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    )
+    authenticated_fresh_pre_u69 = (
+        sealed_fresh_pre_u69_checkpoint
+        and config.get("recipe_id") == sealed_u22_config["recipe_id"]
+        and config.get("published_pre_checkpoint_sha256") == published_pre_sha256
+        and config.get("lr_scale") == 0.375091552734375
+        and config.get("seed") == 1701
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+        and config.get("scientific_identity")
+            == "t_f76a1035 sealed U64 broad ROT16 sole-variable diet U65-to-U68"
+        and config.get("controlled_windows_per_update") == 16
+        and config.get("train_windows") == list(range(20, 84))
+    )
+    if start_update <= 0 or start_update > 69:
+        raise ArtifactError("published PRE scored resume must start inside U1..U69")
     if start_update % 4 and not (
         sealed_fresh_pre_u22_checkpoint
         or sealed_fresh_pre_u31_checkpoint
@@ -315,6 +336,7 @@ def _validate_published_pre_resume_start(
         or sealed_fresh_pre_u38_checkpoint
         or sealed_fresh_pre_u63_checkpoint
         or sealed_fresh_pre_u65_checkpoint
+        or sealed_fresh_pre_u69_checkpoint
     ):
         raise ArtifactError(
             "published PRE non-four-update resume requires authenticated sealed checkpoint"
@@ -343,6 +365,8 @@ def _validate_published_pre_resume_start(
         raise ArtifactError("published PRE scored resume identity drift")
     if sealed_fresh_pre_u68_checkpoint and not authenticated_fresh_pre_u68:
         raise ArtifactError("published PRE scored resume identity drift")
+    if sealed_fresh_pre_u69_checkpoint and not authenticated_fresh_pre_u69:
+        raise ArtifactError("published PRE scored resume identity drift")
     identity_fields = (
         "recipe_id",
         "published_pre_checkpoint_sha256",
@@ -364,6 +388,7 @@ def _validate_published_pre_resume_start(
         or authenticated_fresh_pre_u64
         or authenticated_fresh_pre_u65
         or authenticated_fresh_pre_u68
+        or authenticated_fresh_pre_u69
         ):
         return
     if any(start_meta.get(field) != config.get(field) for field in identity_fields):
