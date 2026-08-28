@@ -71,7 +71,7 @@ def test_public_horizontal_shards_union_disjoint_ranges_and_reopen(tmp_path: Pat
     assert merged["acceleration"] == {
         "routed_encode_batches": 2,
         "routed_tensors_batched": 2,
-        "max_batch_tensors": 40,
+        "max_batch_tensors": 10,
         "same_width_batching": True,
     }
     assert merged["union"]["input_ranges"] == [[0, 1], [1, 2]]
