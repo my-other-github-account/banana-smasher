@@ -6,6 +6,7 @@ from repair_api.modern_green_resident import _published_pre_recipe_policy
 
 U64_SHA256 = "ee4d245a624d52669a145d11ce0a21870e5a1b0db66d44bc857faf977b9fda0b"
 U65_SHA256 = "f3fbc6e251b412f9dcbbce794825b1a0dc7e6979a0cc75d3650aa8a11926b7b1"
+U68_SHA256 = "41d7ecd80020a7192117adae3da1b2c2cd73abab2207582c20265e42ac8714cf"
 IDENTITY = "t_f76a1035 sealed U64 broad ROT16 sole-variable diet U65-to-U68"
 
 
@@ -63,3 +64,11 @@ def test_authenticated_u65_broad_rot16_resume_is_admitted() -> None:
     meta = _meta()
     meta["sha256"] = U65_SHA256
     _validate_published_pre_resume_start(65, meta, config=config)
+
+
+def test_authenticated_u68_broad_rot16_resume_is_admitted() -> None:
+    config = _config()
+    config["checkpoint_sha256"] = U68_SHA256
+    meta = _meta()
+    meta["sha256"] = U68_SHA256
+    _validate_published_pre_resume_start(68, meta, config=config)
