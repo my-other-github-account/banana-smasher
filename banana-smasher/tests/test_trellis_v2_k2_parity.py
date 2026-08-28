@@ -40,8 +40,10 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     assert '"backpointer_dtype": "packed-uint4-q"' in exact_source
     assert '"rows_per_cta": 2' in exact_source
     assert '"lut_load_amortization_rows": 2' in exact_source
-    assert '"minimum_ctas_per_sm": 1' in exact_source
-    assert '"effective_rows_per_sm": 2' in exact_source
+    assert '"cost_banks_per_row": 1' in exact_source
+    assert '"predecessor_snapshot": "registers"' in exact_source
+    assert '"minimum_ctas_per_sm": 2' in exact_source
+    assert '"effective_rows_per_sm": 4' in exact_source
     assert '"fallback": 0' in exact_source
     assert "alternating-parity-full" not in exact_source
     assert "triton" not in exact_source
@@ -49,9 +51,11 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     cuda_source = (
         _package_root() / "trellis_v2" / "csrc" / "trellis_v2_exact.cu"
     ).read_text()
-    assert "constexpr int THREADS = 512;" in cuda_source
+    assert "constexpr int THREADS = 256;" in cuda_source
     assert "constexpr int ROWS_PER_CTA = 2;" in cuda_source
-    assert "__launch_bounds__(THREADS, 1)" in cuda_source
+    assert "constexpr int COST_BANKS_PER_ROW = 1;" in cuda_source
+    assert "float predecessor0[BRANCHES];" in cuda_source
+    assert "__launch_bounds__(THREADS, 2)" in cuda_source
     assert "const int blocks = (batch + ROWS_PER_CTA - 1) / ROWS_PER_CTA;" in cuda_source
     assert "cudaFuncAttributeMaxDynamicSharedMemorySize" in cuda_source
 
