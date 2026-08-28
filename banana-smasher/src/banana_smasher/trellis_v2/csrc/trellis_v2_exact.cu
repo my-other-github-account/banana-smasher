@@ -48,7 +48,7 @@ __device__ __forceinline__ uint8_t packed_q(
 // One CTA owns two source rows. The pair shares every LUT load while retaining
 // independent FP32 cost banks and exact four-bit winners. This changes only the
 // source-backed rows-per-CTA work-amortization variable; state order is unchanged.
-__global__ __launch_bounds__(THREADS, 2) void full_row_k2_viterbi(
+__global__ __launch_bounds__(THREADS, 1) void full_row_k2_viterbi(
     const float* __restrict__ x,
     const float* __restrict__ lut_aos,
     const int32_t* __restrict__ overlap,
