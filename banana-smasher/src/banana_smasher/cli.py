@@ -450,6 +450,10 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="sealed mixed-V7 member index for solve-mixed output",
     )
+    backpack_virtual.add_argument(
+        "--expected-identity-sha",
+        help="required SHA-256 of solve-mixed identity.json for mixed-V7 output",
+    )
     backpack_exact64 = backpack_commands.add_parser(
         "bind-exact64",
         help="bind a canonical 64-window Anchor score to a virtual Backpack",
@@ -1704,7 +1708,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = {
                     **(
                         materialize_mixed_v7_virtual_backpack(
-                            args.run_root, args.materialized_members, args.output
+                            args.run_root,
+                            args.materialized_members,
+                            args.output,
+                            expected_identity_sha=args.expected_identity_sha,
                         )
                         if args.materialized_members is not None
                         else materialize_virtual_backpack(args.run_root, args.output)

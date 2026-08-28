@@ -9,6 +9,8 @@ from decimal import Decimal, localcontext
 from pathlib import Path
 from typing import Any
 
+from .contract import PackValidationError
+
 VIRTUAL_MANIFEST = "BACKPACK_VIRTUAL_MANIFEST.json"
 ASSIGNMENT_FILE = "ASSIGNMENT.json"
 INDEX_FILE = "MATERIALIZATION_INDEX.jsonl"
@@ -940,12 +942,26 @@ def materialize_mixed_v7_virtual_backpack(
     solve_root: str | Path,
     materialized_members: str | Path,
     output: str | Path,
+    *,
+    expected_identity_sha: str,
 ) -> dict[str, Any]:
     """Project solve-mixed output plus sealed V7 members into canonical runtime wire."""
 
     from .repack import bind_mixed_v7_member_contract
 
     solve = Path(solve_root).expanduser().resolve()
+    identity_path = solve / "identity.json"
+    try:
+        identity_raw = identity_path.read_bytes()
+    except OSError as exc:
+        raise PackValidationError("cannot read mixed solve identity") from exc
+    if (
+        not isinstance(expected_identity_sha, str)
+        or len(expected_identity_sha) != 64
+        or any(character not in "0123456789abcdef" for character in expected_identity_sha)
+        or _sha256(identity_raw) != expected_identity_sha
+    ):
+        raise PackValidationError("mixed expected identity SHA mismatch")
     destination = Path(output).expanduser().resolve()
     if destination.exists() and any(destination.iterdir()):
         if (destination / VIRTUAL_MANIFEST).is_file():
@@ -973,7 +989,7 @@ def materialize_mixed_v7_virtual_backpack(
     bind_receipt = bind_mixed_v7_member_contract(
         solve, materialized_members, output=contract_path
     )
-    identity, identity_raw = _load_object(solve / "identity.json")
+    identity, identity_raw = _load_object(identity_path)
     contract, contract_raw = _load_object(contract_path)
     by_expert: dict[tuple[int, int], list[dict[str, Any]]] = {}
     for member in contract["members"]:

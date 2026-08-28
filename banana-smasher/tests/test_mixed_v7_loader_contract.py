@@ -234,7 +234,12 @@ def test_mixed_virtualizer_projects_expert_tiers_to_runtime_cells(tmp_path: Path
         "members": members,
     })
 
-    receipt = materialize_mixed_v7_virtual_backpack(solve, index, tmp_path / "virtual")
+    receipt = materialize_mixed_v7_virtual_backpack(
+        solve,
+        index,
+        tmp_path / "virtual",
+        expected_identity_sha=_sha(solve / "identity.json"),
+    )
     rows = [
         json.loads(line)
         for line in (tmp_path / "virtual/MATERIALIZATION_INDEX.jsonl").read_text().splitlines()
@@ -247,6 +252,37 @@ def test_mixed_virtualizer_projects_expert_tiers_to_runtime_cells(tmp_path: Path
         ("L0:E1:down", "qtip3_v7"),
         ("L0:E1:fused13", "qtip3_v7"),
     ]
+
+
+def test_materialize_mixed_v7_refuses_wrong_expected_identity_before_output(
+    tmp_path: Path,
+) -> None:
+    solve = tmp_path / "solve"
+    _identity(solve, {"L000.E000": "qtip2"})
+    members = tmp_path / "members.json"
+    _write_json(
+        members,
+        {
+            "schema": "banana-smasher-mixed-v7-materialized-members-v1",
+            "status": "SEALED",
+            "basis_sha256": BASIS,
+            "assignment_sha256": ASSIGNMENT_SHA,
+            "materialized_root": str(tmp_path / "materialized"),
+            "members": [],
+        },
+    )
+    output = tmp_path / "virtual"
+
+    with pytest.raises(PackValidationError, match="expected identity SHA mismatch"):
+        materialize_mixed_v7_virtual_backpack(
+            solve,
+            members,
+            output,
+            expected_identity_sha="0" * 64,
+        )
+
+    assert not output.exists()
+    assert _sha(solve / "identity.json") != "0" * 64
 
 
 def test_stage_mixed_v7_member_index_binds_sealed_payloads_and_metadata(
