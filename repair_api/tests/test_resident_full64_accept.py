@@ -800,6 +800,14 @@ def test_sink_token_sdpa_preserves_original_sdpa_problem(monkeypatch) -> None:
     assert torch.equal(captured["attn_mask"], mask)
 
 
+def test_exact102_resident_runner_refuses_unbound_virtual_backpack() -> None:
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    assert 'config.get("backpack_virtual_terminal_path")' in source
+    assert 'config.get("backpack_virtual_terminal_sha256")' in source
+    assert 'config.get("backpack_virtual_manifest_sha256")' in source
+    assert "EXACT102_MIXED_ARTIFACT_BINDING_MISMATCH" in source
+
+
 def test_sink_corrected_sdpa_builds_additive_mask_for_compressor_bias(monkeypatch) -> None:
     source = (Path(__file__).parents[1] / "modern_green_resident.py").read_text()
     builder = (Path(__file__).parents[1] / "assets" / "t8192_w28_sdpa_teacher_builder.py").read_text()

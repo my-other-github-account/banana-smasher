@@ -2302,6 +2302,40 @@ def main() -> None:
             or int(exact102_admission.get("provenance_members", -1)) != 22016
         ):
             raise RuntimeError("EXACT102_ADMISSION_CONTRACT_MISMATCH")
+        terminal_value = config.get("backpack_virtual_terminal_path")
+        terminal_sha = config.get("backpack_virtual_terminal_sha256")
+        manifest_sha = config.get("backpack_virtual_manifest_sha256")
+        if not all(isinstance(value, str) and value for value in (
+            terminal_value, terminal_sha, manifest_sha
+        )):
+            raise RuntimeError("EXACT102_MIXED_ARTIFACT_BINDING_MISMATCH")
+        terminal_path = Path(terminal_value).expanduser().resolve()
+        if not terminal_path.is_file() or sha(terminal_path) != terminal_sha:
+            raise RuntimeError("EXACT102_MIXED_ARTIFACT_BINDING_MISMATCH")
+        virtual_terminal = json.loads(terminal_path.read_text())
+        manifest_path = Path(str(virtual_terminal.get("virtual_manifest_path", ""))).expanduser().resolve()
+        accounting = virtual_terminal.get("whole_model_accounting", {})
+        if (
+            virtual_terminal.get("schema") != "banana-smasher-mixed-exact102-virtual-terminal-v1"
+            or virtual_terminal.get("status") != "PASS"
+            or virtual_terminal.get("task_id") != TASK
+            or virtual_terminal.get("basis_sha256") != BASIS
+            or virtual_terminal.get("virtual_manifest_sha256") != manifest_sha
+            or accounting.get("whole_shipping_bytes") != 102000000000
+            or not manifest_path.is_file()
+            or sha(manifest_path) != manifest_sha
+            or Path(str(config.get("artifact_root", ""))).expanduser().resolve()
+            != manifest_path.parent
+        ):
+            raise RuntimeError("EXACT102_MIXED_ARTIFACT_BINDING_MISMATCH")
+        virtual_manifest = json.loads(manifest_path.read_text())
+        if (
+            virtual_manifest.get("basis_sha256") != BASIS
+            or virtual_manifest.get("source_component_counts", {}).get("qtip3") != 14773
+            or virtual_manifest.get("whole_model_accounting", {}).get("whole_shipping_bytes")
+            != 102000000000
+        ):
+            raise RuntimeError("EXACT102_MIXED_ARTIFACT_BINDING_MISMATCH")
     packed_boundary_tap_only = os.environ.get("PACKED_BOUNDARY_TAP_ONLY", "0") == "1"
     sealed_runtime_tensor_ab_only = os.environ.get("SEALED_RUNTIME_TENSOR_AB_ONLY", "0") == "1"
     aligned_active_row_capture_only = os.environ.get(
