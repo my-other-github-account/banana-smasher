@@ -246,6 +246,23 @@ def test_historical_provider_adapter_preserves_swiglu_limit() -> None:
     assert provider.limit == 0.75
 
 
+def test_historical_provider_adapter_uses_sealed_model_limit() -> None:
+    """A legacy trainer may omit the constructor-only limit argument."""
+    from repair_api.modern_green_resident import _bind_historical_swiglu_limit
+
+    class HistoricalProvider:
+        def __init__(self, marker=None):
+            self.marker = marker
+
+    adapted = _bind_historical_swiglu_limit(
+        HistoricalProvider, sealed_limit=10.0
+    )
+    provider = adapted(marker="ok")
+
+    assert provider.marker == "ok"
+    assert provider.limit == 10.0
+
+
 def test_provider_global_projection_clamps_swiglu_operands_before_activation() -> None:
     """Ordinary provider instances must consume the accepted clamped operands."""
     config = ResidentRepairAPI.bind_combined_gate_up_projection(
