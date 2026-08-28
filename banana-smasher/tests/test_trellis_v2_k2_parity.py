@@ -49,7 +49,7 @@ def test_k2_exact_contract_enumerates_all_canonical_branches() -> None:
     cuda_source = (
         _package_root() / "trellis_v2" / "csrc" / "trellis_v2_exact.cu"
     ).read_text()
-    assert "constexpr int THREADS = 512;" in cuda_source
+    assert "constexpr int THREADS = 1024;" in cuda_source
     assert "constexpr int ROWS_PER_CTA = 2;" in cuda_source
     assert "__launch_bounds__(THREADS, 1)" in cuda_source
     assert "const int blocks = (batch + ROWS_PER_CTA - 1) / ROWS_PER_CTA;" in cuda_source
