@@ -564,7 +564,10 @@ def _bind_official_expert_source(config: Mapping[str, Any] | None = None) -> Any
         os.environ["FAST_K2_MODULE_NAME"] = module_name
     previous = sys.modules.get("fast_k2_grouped")
     try:
-        _load_source_module("fast_k2_grouped", grouped_source)
+        grouped = _load_source_module("fast_k2_grouped", grouped_source)
+        bind_stream_sync = getattr(grouped, "bind_backward_stream_sync", None)
+        if callable(bind_stream_sync):
+            bind_stream_sync(_cuda_default_stream_wait_for_current)
         return _load_source_module("fast_v7_expert_base", source)
     finally:
         if previous is None:
@@ -584,6 +587,13 @@ def _require_file(path: Path, expected_sha: str | None, label: str) -> None:
 
 def _cuda_sync(torch: Any) -> None:
     torch.cuda.synchronize()
+
+
+def _cuda_default_stream_wait_for_current(torch: Any) -> None:
+    """Order default-stream gradient consumption after the grouped kernel."""
+    producer = torch.cuda.current_stream()
+    completed = producer.record_event()
+    torch.cuda.default_stream().wait_event(completed)
 
 
 def _score_group_logits(

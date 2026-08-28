@@ -630,6 +630,25 @@ def test_official_expert_binding_loads_its_pinned_grouped_dependency_first(monke
     assert sys.modules["fast_k2_grouped"] is trainer_grouped
 
 
+def test_official_expert_binding_binds_backward_stream_ordering(monkeypatch):
+    callbacks = []
+    grouped = ModuleType("fast_k2_grouped")
+    grouped.bind_backward_stream_sync = callbacks.append
+
+    def load(name, _path):
+        return grouped if name == "fast_k2_grouped" else "fast_v7_expert_base"
+
+    monkeypatch.setattr(continuation_module, "_load_source_module", load)
+    monkeypatch.setattr(
+        continuation_module,
+        "_official_expert_source_path",
+        lambda: Path("/runtime/v7/runner/fast_v7_expert_base.py"),
+    )
+
+    assert _bind_official_expert_source() == "fast_v7_expert_base"
+    assert callbacks == [continuation_module._cuda_default_stream_wait_for_current]
+
+
 def test_official_expert_binding_uses_authenticated_prebuilt_extension(monkeypatch, tmp_path: Path):
     expert = tmp_path / "expert.py"
     wrapper = tmp_path / "grouped.py"
