@@ -73,6 +73,8 @@ def geometry(cb: Any) -> dict[str, int | str | bool]:
         "ordering": "two-full-rows-per-cta-with-resident-fp32-costs",
         "rows_per_cta": 2,
         "lut_load_amortization_rows": 2,
+        "branch_execution": "half-warp-parallel-ascending-q-reduction",
+        "branches_per_subgroup": 16,
         "minimum_ctas_per_sm": 1,
         "effective_rows_per_sm": 2,
         "production_default": True,
