@@ -246,6 +246,29 @@ def test_historical_provider_adapter_preserves_swiglu_limit() -> None:
     assert provider.limit == 0.75
 
 
+def test_historical_provider_adapter_uses_bound_model_swiglu_limit() -> None:
+    """Hash-bound historical callers may omit the constructor-only clamp operand."""
+    from repair_api.modern_green_resident import _bind_historical_swiglu_limit
+
+    class HistoricalProvider:
+        pass
+
+    adapted = _bind_historical_swiglu_limit(
+        HistoricalProvider, default_swiglu_limit=10.0
+    )
+
+    assert adapted().limit == 10.0
+
+
+def test_runtime_installer_binds_configured_model_swiglu_limit() -> None:
+    """The provider installer must bridge static callers without changing their bytes."""
+    import inspect
+    from repair_api.modern_green_resident import _install_runtime_modules
+
+    source = inspect.getsource(_install_runtime_modules)
+    assert "default_swiglu_limit=config.get(\"model_swiglu_limit\")" in source
+
+
 def test_provider_global_projection_clamps_swiglu_operands_before_activation() -> None:
     """Ordinary provider instances must consume the accepted clamped operands."""
     config = ResidentRepairAPI.bind_combined_gate_up_projection(

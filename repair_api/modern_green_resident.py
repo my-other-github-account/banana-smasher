@@ -886,15 +886,20 @@ def _bind_sealed_routed_return_accumulation(
     return SealedRoutedReturnAccumulationExpert
 
 
-def _bind_historical_swiglu_limit(provider_class: Any) -> Any:
+def _bind_historical_swiglu_limit(
+    provider_class: Any, *, default_swiglu_limit: float | None = None
+) -> Any:
     """Preserve the model clamp operand for providers with the historical ABI."""
     class HistoricalNoLimitCompatibleExpert(provider_class):
         def __init__(
             self, *args: Any, swiglu_limit: float | None = None, **kwargs: Any
         ) -> None:
-            if swiglu_limit is None:
+            effective_limit = (
+                default_swiglu_limit if swiglu_limit is None else swiglu_limit
+            )
+            if effective_limit is None:
                 raise ArtifactError("historical provider requires the model SwiGLU limit")
-            limit = float(swiglu_limit)
+            limit = float(effective_limit)
             if not math.isfinite(limit) or limit <= 0:
                 raise ArtifactError("historical provider model SwiGLU limit is invalid")
             super().__init__(*args, **kwargs)
@@ -1012,7 +1017,10 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
         # SwiGLU field.  Adapt the public ABI outside the hash-bound provider so
         # its exact route arithmetic and source identity remain unchanged.
         expert_module.FullyResidentGroupedV7Experts = bind_projection_boundary(
-            _bind_historical_swiglu_limit(expert_class)
+            _bind_historical_swiglu_limit(
+                expert_class,
+                default_swiglu_limit=config.get("model_swiglu_limit"),
+            )
         )
         return expert_module.FullyResidentGroupedV7Experts
     if swiglu_parameter.default is not inspect.Parameter.empty:
