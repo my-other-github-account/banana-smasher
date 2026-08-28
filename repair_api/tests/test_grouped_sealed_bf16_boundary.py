@@ -419,6 +419,25 @@ def test_static_resident_expert_preserves_attempt25_ordinary_provider_boundaries
     assert "sealed_bf16_full_weight" not in static_source
 
 
+def test_authenticated_imported_builder_selects_dense_bf16_provider() -> None:
+    from repair_api import modern_green_resident
+
+    resolved = modern_green_resident._resolve_runtime_provider_files({
+        "recipe_id": modern_green_resident.PUBLISHED_PRE_RECIPE_ID,
+        "static_w28_gate": {},
+        "sealed_pre_source_binding": {
+            "builder_sha256": "11ead706db562197e76cdc320d5d13044bb254a411b6412326667f524ddf29ed",
+            "planesource_sha256": "167603b5662437a2f9fc4b3ead1561d777a7a831a898133993b9e1c0c26c9f87",
+        },
+        "resident_validation_expert_implementation": "sealed_bf16_full_weight",
+    })
+
+    assert resolved["wrapper_path"].name == "fast_k2_grouped.py"
+    assert resolved["expert_path"].name == "fast_v7_expert_base.py"
+    assert resolved["wrapper_sha256"] == modern_green_resident.SEALED_GROUPED_WRAPPER_SHA256
+    assert resolved["expert_sha256"] == modern_green_resident.SEALED_GROUPED_EXPERT_SHA256
+
+
 def test_exact_accepted_provider_is_kept_duplicated_without_tp_configuration() -> None:
     from repair_api import modern_green_resident
 
