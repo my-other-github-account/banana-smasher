@@ -1,25 +1,33 @@
 # Production resident rail
 
-`banana_smasher.ResidentRepairAPI` is the only public scoring/training facade. The concrete provider is `banana_smasher.production_rails.ProductionRails`; the CLI keeps the complete pre-score → continuation → post-score arm in one process:
+`banana_smasher.ResidentRepairAPI` is the only public scoring/training facade.
+The concrete provider is `banana_smasher.production_rails.ProductionRails`; the
+CLI executes the complete pre-score → continuation → post-score arm as three
+fresh, receipt-bound phases:
 
 ```bash
-smash resident improve \
-  --artifact-root /local/repair-artifact \
+smash improve /local/repair-artifact \
   --run-root /local/run \
-  --checkpoint /local/repair-artifact/checkpoints/UPDATE_000.pt \
-  --checkpoint-sha CHECKPOINT_SHA256
+  --checkpoint-sha CHECKPOINT_SHA256 \
+  --updates 45
 ```
 
 The paired launcher supplies `RANK`; the verb selects the corresponding
-artifact-owned `production-rails.rankN.json`. Recipe and update-count choices
-are intentionally absent from the public command.
+artifact-owned `production-rails.rankN.json`. The update count is explicit;
+sampling, numeric policy, learning rates, and held-out gates remain package
+owned.
 
-Do not split these phases across separate CLI processes. `RESIDENT_LIFECYCLE.json` must finish with exactly one `model_constructions` and one `resident_loads`, two scores/canary passes, one training call, four updates, and in-memory checkpoint swaps between phases.
+The public command intentionally runs `score_pre`, `repair_train`, and
+`score_post` in fresh processes so phase teardown bounds peak memory. It restores
+only hash-bound prior-phase receipts and writes one receipt per phase plus
+`IMPROVE_RESULT.json`. Direct API callers may keep the facade object in one
+process; the concrete provider still constructs and closes a distinct physical
+engine for each score/train phase.
 
 The arm has three explicit deadline phases: `zero_update_score` (300 seconds,
-including the initial resident load), `four_resident_updates` (2,100 seconds,
-including the in-memory swap), and `post_update_score` (300 seconds, including
-its in-memory swap). The complete arm has one 2,700-second (45-minute) wall
+including the initial resident load), `four_resident_updates` (the historical
+receipt name for the training phase; 2,100 seconds), and `post_update_score`
+(300 seconds). The complete arm has one 2,700-second (45-minute) wall
 budget measured from the start of the first phase. After every phase the facade
 atomically updates `facade/RESIDENT_ARM_TIMING.json` with the named phase,
 phase budget, phase elapsed time, and total elapsed time. A phase or total
@@ -60,9 +68,13 @@ The formerly mission-local resident implementation now lives in the package:
 Before publishing a result:
 
 1. Verify the exact config and artifact identities.
-2. Run `smash resident arm` in one process.
-3. Require `RESIDENT_LIFECYCLE.json` to prove one construction and all phase events.
-4. Require `facade/RESIDENT_ARM_TIMING.json` to be `PASS`, contain exactly the three named phases in order, and report total wall time at or below 2,700 seconds.
-5. Require both score phases to finish within 300 seconds and the four-update phase within 2,100 seconds.
+2. Run `smash improve ... --updates 45` on both ranks.
+3. Require `score_pre.json`, `repair_train.json`, `score_post.json`, and `IMPROVE_RESULT.json` to be matching PASS receipts.
+4. Require the rank timing receipts to be `PASS`, contain exactly the three named phases in order, and report total wall time at or below 2,700 seconds.
+5. Require both score phases to finish within 300 seconds and the training phase within 2,100 seconds.
 6. Require each score receipt to report `execution_mode: resident_model_in_memory`, 64 windows, zero checkpoint loads during score, and no candidate-file reads during score.
 7. Compare the full64 score to the sealed fixture oracle; do not substitute precomputed or synthetic benchmark output.
+8. Require `IMPROVE_RESULT.json.improvement.improved == true` and POST KLD lower than PRE KLD.
+
+See `WORKED_EXAMPLE.md` and `REPAIR_TRAINING_GUIDE.md` for the pasteable API
+sequence, expected acceptance scale, process limits, and failure rules.

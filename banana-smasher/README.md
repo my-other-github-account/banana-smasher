@@ -9,21 +9,24 @@ launcher supplies `RANK=0` and `RANK=1`. The admitted artifact contains its two
 rank configs, so callers do not choose a rails config or training recipe:
 
 ```console
-smash resident improve \
-  --artifact-root /local/admitted-pre \
+smash improve /local/admitted-pre \
   --run-root /local/improve-run \
-  --checkpoint /local/admitted-pre/checkpoints/UPDATE_000.pt \
-  --checkpoint-sha CHECKPOINT_SHA256
+  --checkpoint-sha CHECKPOINT_SHA256 \
+  --updates 45
 ```
 
-This one process-resident chain performs the mandatory zero-update Balanced64
-score, four guarded in-memory updates, and the post-update Balanced64 score on
-the same constructed model. The conservative learning-rate recipe is package
-owned. Every update records its loss; a non-finite loss or loss above 2x the
-pre-score baseline halts before checkpoint acceptance and writes a loss-guard
-receipt. The command exits nonzero unless `post_kld < pre_kld` and always writes
-`facade/RESIDENT_ARM_RESULT.json` with both KLDs, the explicit checkpoint path
-and SHA, timing, training receipt, and improvement decision.
+The command runs the zero-update Balanced64 score, 45 guarded updates, and the
+post-update score in fresh phase processes, restoring only authenticated phase
+receipts. The validated U45 recipe is package owned: broad rotation, FP32-safe
+loss reduction, FP64 optimizer moments, per-class learning rates, per-update
+loss instrumentation, and held-out kill gates. The command exits nonzero unless
+`post_kld < pre_kld` and writes `score_pre.json`, `repair_train.json`,
+`score_post.json`, and `IMPROVE_RESULT.json` under the run root.
+
+For the exact `ResidentRepairAPI.build_uniform(...) -> score_pre() ->
+repair_train(updates=45) -> score_post()` sequence and the two-rank launch
+contract, see [WORKED_EXAMPLE.md](WORKED_EXAMPLE.md) and
+[REPAIR_TRAINING_GUIDE.md](REPAIR_TRAINING_GUIDE.md).
 
 ## End-to-end Backpack plans
 
