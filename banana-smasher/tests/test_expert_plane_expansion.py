@@ -11,6 +11,7 @@ from banana_smasher.resident_balanced64 import ArtifactError
 from banana_smasher.resident_continuation import (
     EXPERT_PLANE_SURFACE,
     _activate_expert_plane_surface,
+    _classify_expert_plane_update,
     _validated_expert_plane_expansion,
 )
 from banana_smasher.resident_proven_api import _persisted_surface_reload_evidence
@@ -90,6 +91,36 @@ def test_l028_su_sv_promotion_preserves_wire_views_and_exact_roster() -> None:
     module.load_expert_plane_state(state)
     restored = dict(module.expert_plane_parameters())[changed_name]
     assert restored.detach().cpu().equal(state[changed_name])
+
+
+def test_e116_zero_route_remains_trainable_and_optimizer_consumable() -> None:
+    names = [
+        "model.layers.28.mlp.experts.E116.w1.SU",
+        "model.layers.28.mlp.experts.E116.w1.SV",
+        "model.layers.28.mlp.experts.E116.w2.SU",
+    ]
+    rows = [
+        (name, torch.nn.Parameter(torch.ones(2, dtype=torch.float32)))
+        for name in names
+    ]
+    before = [parameter.detach().clone() for _name, parameter in rows]
+    for _name, parameter in rows:
+        parameter.grad = torch.zeros_like(parameter)
+
+    coverage = _classify_expert_plane_update(torch, rows, before)
+
+    assert coverage["missing_trainable"] == []
+    assert coverage["missing_gradient"] == []
+    assert coverage["missing_delta"] == []
+    assert coverage["gradient_present"] == "3/3"
+    assert coverage["gradient_nonzero"] == "0/3"
+    assert coverage["delta_nonzero"] == "0/3"
+    assert coverage["gradient"] == "3/3"
+    assert coverage["delta"] == "3/3"
+
+    optimizer = torch.optim.Adam([parameter for _name, parameter in rows], lr=1.0e-4)
+    optimizer.step()
+    assert len(optimizer.state) == 3
 
 
 def test_expert_plane_expansion_contract_is_exact_and_refuses_wscale() -> None:

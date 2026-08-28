@@ -98,6 +98,55 @@ def _activate_expert_plane_surface(
     return rows
 
 
+def _classify_expert_plane_update(
+    torch: Any,
+    rows: list[tuple[str, Any]],
+    before: list[Any],
+) -> dict[str, Any]:
+    """Prove the full promoted roster is trainable and optimizer-consumable.
+
+    Routed experts that receive no token in a finite physical batch legitimately
+    have finite zero gradients and deltas.  They remain bound to Adam and are
+    persisted; nonzero scientific motion is enforced separately at update scope.
+    """
+    if len(rows) != len(before):
+        raise ArtifactError("L028 SU/SV before-image coverage drift")
+    missing_trainable = [
+        name for name, parameter in rows if not bool(parameter.requires_grad)
+    ]
+    missing_gradient = [
+        name
+        for name, parameter in rows
+        if parameter.grad is None
+        or not bool(torch.isfinite(parameter.grad).all().item())
+    ]
+    missing_delta = [
+        name
+        for (name, parameter), old in zip(rows, before)
+        if not bool(torch.isfinite(parameter).all().item())
+        or not bool(torch.isfinite(parameter.detach() - old).all().item())
+    ]
+    gradient_nonzero = sum(
+        int(bool(torch.count_nonzero(parameter.grad).item()))
+        for _name, parameter in rows
+        if parameter.grad is not None
+    )
+    delta_nonzero = sum(
+        int(bool(torch.count_nonzero(parameter.detach() - old).item()))
+        for (_name, parameter), old in zip(rows, before)
+    )
+    return {
+        "missing_trainable": missing_trainable,
+        "missing_gradient": missing_gradient,
+        "missing_delta": missing_delta,
+        "gradient_present": f"{len(rows) - len(missing_gradient)}/{len(rows)}",
+        "gradient_nonzero": f"{gradient_nonzero}/{len(rows)}",
+        "delta_nonzero": f"{delta_nonzero}/{len(rows)}",
+        "gradient": f"{len(rows) - len(missing_gradient)}/{len(rows)}",
+        "delta": f"{len(rows) - len(missing_delta)}/{len(rows)}",
+    }
+
+
 def _merge_expanded_optimizer_state(
     state_rows: list[Mapping[str, Any]],
     ordered_state: Mapping[str, Mapping[str, Any]],
@@ -1567,33 +1616,31 @@ class ModernGreenResidentEngine:
         expert_coverage = None
         if self.expert_plane_contract is not None:
             expert_before = before[-len(self.expert_planes):] if self.expert_planes else []
-            missing_gradient = [
-                name for name, parameter in self.expert_planes
-                if parameter.grad is None
-                or not bool(torch.isfinite(parameter.grad).all().item())
-                or not bool(torch.count_nonzero(parameter.grad).item())
-            ]
-            missing_delta = [
-                name for (name, parameter), old in zip(self.expert_planes, expert_before)
-                if not bool(torch.isfinite(parameter).all().item())
-                or not bool(torch.count_nonzero(parameter.detach() - old).item())
-            ]
+            expert_coverage = _classify_expert_plane_update(
+                torch, self.expert_planes, expert_before
+            )
             frozen_count = len(params) - len(self.expert_planes)
             mutated_frozen = [
-                name for (name, parameter), old in zip(params[:frozen_count], before[:frozen_count])
+                name
+                for (name, parameter), old in zip(
+                    params[:frozen_count], before[:frozen_count]
+                )
                 if bool(torch.count_nonzero(parameter.detach() - old).item())
             ]
-            if missing_gradient or missing_delta or mutated_frozen:
+            if (
+                expert_coverage["missing_trainable"]
+                or expert_coverage["missing_gradient"]
+                or expert_coverage["missing_delta"]
+                or mutated_frozen
+            ):
                 raise ArtifactError(
                     "L028 SU/SV coverage gate failed: "
-                    f"missing_gradient={missing_gradient[:3]} "
-                    f"missing_delta={missing_delta[:3]} mutated_frozen={mutated_frozen[:3]}"
+                    f"missing_trainable={expert_coverage['missing_trainable'][:3]} "
+                    f"missing_gradient={expert_coverage['missing_gradient'][:3]} "
+                    f"missing_delta={expert_coverage['missing_delta'][:3]} "
+                    f"mutated_frozen={mutated_frozen[:3]}"
                 )
-            expert_coverage = {
-                "gradient": f"{len(self.expert_planes)}/{len(self.expert_planes)}",
-                "delta": f"{len(self.expert_planes)}/{len(self.expert_planes)}",
-                "frozen_mutations": 0,
-            }
+            expert_coverage["frozen_mutations"] = 0
         local = {
             "rank": self.rank,
             "loss": loss,
