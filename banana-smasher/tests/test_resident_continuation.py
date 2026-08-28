@@ -871,6 +871,13 @@ def test_score_only_engine_omits_optimizer_and_has_fail_closed_phase_release():
     assert "allocated >= limit" in close
 
 
+def test_training_session_trims_constructor_cache_before_first_update():
+    source = Path(continuation_module.__file__).read_text()
+    constructor = source[source.index("self._load_optimizer_scheduler_state()") : source.index("def memory_ledger")]
+    assert constructor.index("self._load_training_data()") < constructor.index("self.torch.cuda.empty_cache()")
+    assert constructor.index("self.torch.cuda.empty_cache()") < constructor.index("self.global_step =")
+
+
 def test_phase_close_releases_all_score_and_training_teacher_caches():
     events = []
     engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)

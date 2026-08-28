@@ -792,6 +792,12 @@ class ModernGreenResidentEngine:
             )
             self._load_optimizer_scheduler_state()
         self._load_training_data()
+        # CUDA unified-memory allocations are not effectively bounded by the
+        # systemd MemoryMax cgroup on DGX Spark.  Construction and checkpoint
+        # restoration can leave reclaimable allocator pages resident; return
+        # them before the first backward so the validated U45 step starts from
+        # the measured live-tensor envelope rather than a stale cache peak.
+        self.torch.cuda.empty_cache()
         self.global_step = _checkpoint_cursor(payload)
 
     def memory_ledger(self) -> dict[str, Any]:
