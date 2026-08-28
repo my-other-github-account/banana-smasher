@@ -295,7 +295,7 @@ def test_public_hf_moe_build_batches_equal_width_routed_tensors_exactly(
     assert batched["acceleration"] == {
         "routed_encode_batches": 2,
         "routed_tensors_batched": 6,
-        "max_batch_tensors": 10,
+        "max_batch_tensors": 40,
         "same_width_batching": True,
     }
     assert [

@@ -727,7 +727,10 @@ def build_hf_moe_uniform(
         tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
         routed_rows: list[dict[str, Any]] = []
         native_rows: list[dict[str, Any]] = []
-        max_batch_tensors = 10
+        # Reuse the public QTIP3 producer's proven batch-40 execution boundary:
+        # grouping independent same-width tensors changes dispatch granularity
+        # only; per-tensor slicing below preserves exact output order and bytes.
+        max_batch_tensors = 40
         routed_batches: list[list[dict[str, Any]]] = []
         open_batch_by_width: dict[int, list[dict[str, Any]]] = {}
         for row in selected_routed:
