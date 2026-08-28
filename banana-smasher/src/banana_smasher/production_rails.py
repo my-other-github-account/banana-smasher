@@ -36,10 +36,11 @@ VALIDATED_REPAIR_RECIPE = {
     "heldout_validation_interval": 4,
     "heldout_kill_patience": 2,
     "accepted_update_cadence": 1,
-    # The warm physical profile must accept each update inside ten minutes.
-    # Whole-layer activation checkpointing replayed every forward during
-    # backward and made one update take ~22 minutes despite ample MemoryMax.
-    "activation_checkpointing": False,
+    # Keep the documented public recipe on the low-memory reentrant path.
+    # Disabling this retains the full rank-local layer graph and repeatedly
+    # exhausted DGX Spark unified memory before the first pipeline send, even
+    # with MemoryMax=105 GiB and 80 GiB total swap on rank 0.
+    "activation_checkpointing": True,
 }
 ALL_LAYERS = tuple(range(43))
 FORBIDDEN_SLOW_CONTROL_FIELDS = frozenset(

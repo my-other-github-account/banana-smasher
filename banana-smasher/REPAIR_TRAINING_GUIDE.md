@@ -13,7 +13,7 @@ You need:
 
 The admitted artifact must contain `identity.json`, its authenticated checkpoint and manifest, and `production-rails.rank0.json` / `production-rails.rank1.json`. `ResidentRepairAPI.build_uniform(...)` verifies artifact identity, checkpoint bytes, basis, routed-only Q2 composition, rank geometry, and the artifact-owned provider config. It fails closed rather than selecting another tier or route.
 
-The production launcher must reserve the two hosts before starting either rank. On systemd hosts use `MemoryMax=80G`, `MemorySwapMax=16G`, and `LimitMEMLOCK=infinity`; these are process limits, not scientific recipe controls. Start rank 0 before rank 1 and use the same `MASTER_ADDR` / `MASTER_PORT` on both.
+The production launcher must reserve the two hosts before starting either rank. On measured DGX Spark hosts use `MemoryMax=105G` on both ranks, `MemorySwapMax=80G` on rank 0, `MemorySwapMax=16G` on rank 1, and `LimitMEMLOCK=infinity`; these are process limits, not scientific recipe controls. Rank 0's allowance requires 80 GiB of real swap capacity (the 16 GiB host pool plus a task-owned, nonpersistent 64 GiB swapfile). Remove that swapfile after the claimed repair process exits and before releasing the host; never add it to `fstab`. Start rank 0 before rank 1 and use the same `MASTER_ADDR` / `MASTER_PORT` on both.
 
 ## Straight API sequence
 
@@ -76,6 +76,7 @@ The command executes `score_pre`, `repair_train`, and `score_post` in three fres
 
 - broad rotation (`broad_rotation_v1`), 16 windows per update;
 - pipeline microbatch 4;
+- low-memory reentrant activation checkpointing (package-owned and enabled by default);
 - FP32 loss reduction / backward-safe reductions;
 - FP64 optimizer moments;
 - base learning rates: LUTs `1e-2`, norms `1e-4`, outputs `1e-2`, with scale `0.1`;

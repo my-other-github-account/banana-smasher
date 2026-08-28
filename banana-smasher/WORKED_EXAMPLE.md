@@ -4,13 +4,20 @@ This example uses only the public API. Replace the three path/SHA placeholders; 
 
 ## 1. Reserve and launch the two ranks
 
-Make the admitted artifact visible at the same absolute path on both hosts. Launch rank 0 first and rank 1 immediately after it, with one shared master address and port. A systemd launch should enforce:
+Make the admitted artifact visible at the same absolute path on both hosts. Launch rank 0 first and rank 1 immediately after it, with one shared master address and port. A systemd launch should enforce the measured DGX Spark envelope:
 
 ```text
-MemoryMax=80G
-MemorySwapMax=16G
+rank 0: MemoryMax=105G, MemorySwapMax=80G
+rank 1: MemoryMax=105G, MemorySwapMax=16G
 LimitMEMLOCK=infinity
 ```
+
+Rank 0's 80 GiB allowance assumes 80 GiB of real swap capacity is present
+(the 16 GiB host pool plus a task-owned, nonpersistent 64 GiB swapfile). Do
+not persist that swapfile in `fstab`; remove it after the claimed repair
+process exits and before releasing the host. The public recipe enables the
+package's reentrant activation-checkpoint path, so callers must not disable it
+to trade memory safety for speed.
 
 Each rank needs:
 
