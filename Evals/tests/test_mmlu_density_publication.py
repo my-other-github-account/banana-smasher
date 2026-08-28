@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import hashlib
+import math
 import unittest
 from decimal import Decimal, getcontext
 from pathlib import Path
@@ -14,6 +15,12 @@ EVALS = REPO / "Evals/README.md"
 FINISHED_EVIDENCE_MANIFEST = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/finished-evidence-manifest.json"
 EVIDENCE_MANIFEST = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/evidence-manifest.json"
 QTIP2_IDENTITY = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/evidence/QTIP2-corrected-all43/model-identity.json"
+U45_EVIDENCE = REPO / "archive/notes/benchmarks/mmlu-density/mmlu500-v1/evidence/U45-repaired-ffb796ce"
+U45_QROWS = U45_EVIDENCE / "qrows.jsonl"
+U45_TERMINAL = U45_EVIDENCE / "terminal.json"
+U45_REAGGREGATION = U45_EVIDENCE / "independent-reaggregation.json"
+U45_SANITIZATION = U45_EVIDENCE / "sanitization-receipt.json"
+U45_PUBLICATION = U45_EVIDENCE / "publication-receipt.json"
 
 
 class MMLUDensityPublicationTest(unittest.TestCase):
@@ -27,6 +34,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
         self.assertEqual(schema["properties"]["schema"]["const"], result["schema"])
         self.assertEqual(schema["properties"]["rows"]["minItems"], 14)
         self.assertEqual(schema["properties"]["rows"]["maxItems"], 14)
+        self.assertIn("QTIP2-V7-U45-repaired", schema["properties"]["rows"]["items"]["properties"]["variant"]["enum"])
         self.assertIn("mmlu_per_gb", schema["properties"]["rows"]["items"]["required"])
         self.assertIn("raw_mmlu_per_bpw", schema["properties"]["rows"]["items"]["required"])
         self.assertEqual(len(rows), 14)
@@ -98,6 +106,61 @@ class MMLUDensityPublicationTest(unittest.TestCase):
             expected_raw_per_bpw = Decimal(str(row["mmlu_percent"])) / Decimal(row["base_equivalent_bpw"])
             self.assertLess(abs(expected_raw_per_bpw - Decimal(row["raw_mmlu_per_bpw"])), Decimal("1e-49"))
 
+        u45 = rows[-1]
+        qrows_bytes = U45_QROWS.read_bytes()
+        qrows = [json.loads(line) for line in qrows_bytes.splitlines() if line.strip()]
+        terminal_bytes = U45_TERMINAL.read_bytes()
+        terminal = json.loads(terminal_bytes)
+        reaggregation_bytes = U45_REAGGREGATION.read_bytes()
+        reaggregation = json.loads(reaggregation_bytes)
+        sanitization_bytes = U45_SANITIZATION.read_bytes()
+        sanitization = json.loads(sanitization_bytes)
+        publication_bytes = U45_PUBLICATION.read_bytes()
+        publication = json.loads(publication_bytes)
+        expected_qrows_sha = "7e684b223952a50005cb0ff6f2c842999a73dfba92533075f847432686d31f03"
+
+        self.assertEqual(hashlib.sha256(qrows_bytes).hexdigest(), expected_qrows_sha)
+        self.assertEqual(len(qrows), 500)
+        self.assertEqual([row["sample_ordinal"] for row in qrows], list(range(500)))
+        self.assertEqual(sum(bool(row["correct"]) for row in qrows), 413)
+        self.assertTrue(all(len(row["choice_logits"]) == 4 for row in qrows))
+        self.assertTrue(all(all(math.isfinite(value) for value in row["choice_logits"]) for row in qrows))
+
+        items = [json.loads(line) for line in (RESULTS.parent / "items.jsonl").read_text().splitlines() if line.strip()]
+        self.assertEqual([row["row_sha256"] for row in qrows], [item["row_sha256"] for item in items])
+        self.assertEqual(hashlib.sha256((RESULTS.parent / "items.jsonl").read_bytes()).hexdigest(), terminal["items_sha256"])
+        self.assertEqual(hashlib.sha256((RESULTS.parent / "manifest.json").read_bytes()).hexdigest(), terminal["manifest_sha256"])
+
+        recomputed_ce = math.fsum(-row["choice_logprobs"][row["gold_index"]] for row in qrows) / (500 * math.log(2))
+        self.assertAlmostEqual(recomputed_ce, reaggregation["gold_cross_entropy_bits"], places=15)
+        self.assertEqual((reaggregation["n"], reaggregation["correct"], reaggregation["mmlu_percent"]), (500, 413, 82.6))
+        self.assertEqual(reaggregation["qrows_sha256"], expected_qrows_sha)
+
+        provenance = u45["provenance"]
+        self.assertEqual(hashlib.sha256(terminal_bytes).hexdigest(), provenance["terminal_sha256"])
+        self.assertEqual(hashlib.sha256(reaggregation_bytes).hexdigest(), provenance["independent_reaggregation_sha256"])
+        self.assertEqual(hashlib.sha256(sanitization_bytes).hexdigest(), provenance["sanitization_receipt_sha256"])
+        self.assertEqual(hashlib.sha256(publication_bytes).hexdigest(), provenance["publication_receipt_sha256"])
+        self.assertEqual(provenance["manifest_sha256"], terminal["manifest_sha256"])
+        self.assertEqual((terminal["n"], terminal["correct"], terminal["mmlu_percent"]), (500, 413, 82.6))
+        self.assertEqual(terminal["qrows_sha256"], expected_qrows_sha)
+        self.assertEqual(sanitization["status"], "PASS")
+        self.assertEqual(sanitization["qrows"]["bytes"], len(qrows_bytes))
+        self.assertEqual(sanitization["qrows"]["source_sha256"], expected_qrows_sha)
+        self.assertEqual(sanitization["qrows"]["output_sha256"], expected_qrows_sha)
+        self.assertEqual(sanitization["terminal"]["output_sha256"], provenance["terminal_sha256"])
+        self.assertEqual(publication["status"], "PASS")
+        self.assertEqual(publication["qrows"], {"bytes": len(qrows_bytes), "rows": 500, "sha256": expected_qrows_sha})
+        self.assertEqual(publication["bank"], {"items_sha256": terminal["items_sha256"], "manifest_sha256": terminal["manifest_sha256"]})
+        self.assertEqual(publication["receipts"], {
+            "independent_reaggregation_sha256": provenance["independent_reaggregation_sha256"],
+            "sanitization_sha256": provenance["sanitization_receipt_sha256"],
+            "terminal_sha256": provenance["terminal_sha256"],
+        })
+        for forbidden in sanitization["forbidden_public_fields"]:
+            self.assertTrue(all(forbidden not in row for row in qrows))
+            self.assertNotIn(forbidden, terminal)
+
         finished_manifest = json.loads(FINISHED_EVIDENCE_MANIFEST.read_text())
         self.assertEqual(
             result["finished_evidence_manifest_sha256"],
@@ -112,6 +175,7 @@ class MMLUDensityPublicationTest(unittest.TestCase):
                 ("Physical-alternating-K2K3-full", "PASS"),
                 ("EXL3-K2P5-greedy-full", "ARTIFACT_UNAVAILABLE"),
                 ("EXL3-K2P5-greedy-routed-native-rest", "PASS"),
+                ("QTIP2-V7-U45-repaired", "PASS"),
             ],
         )
         for entry in finished_manifest["entries"]:

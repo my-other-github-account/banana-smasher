@@ -30,7 +30,7 @@
       "variant": "QTIP2-corrected-all43"
     }
   ],
-  "finished_evidence_manifest_sha256": "d9047d1eba1b209dcb7e722ac5d45dabf4e0ec609e71c1e6f1b5316a8d7a05cd",
+  "finished_evidence_manifest_sha256": "7ac3d4b402a8deb5749515eff1c07fc0b721cc6e70239e639b3e3f4c66dc47ea",
   "independent_recomputation": "PASS",
   "intelligence_density": {
     "formula": "(MMLU percentage - 25) / exact base-equivalent comparison BPW",
@@ -476,8 +476,11 @@
         "independent_reaggregation_sha256": "43e56db92ca5c5f1ced107b32f7beda278d5a228d78b42477488962aeb6d1479",
         "independent_recomputation": "PASS",
         "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+        "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
         "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "publication_receipt_sha256": "80eac07514a3695b760f1ff555f5836a175bc99baed878e5fe6a489c58df9c98",
         "qrows_sha256": "7e684b223952a50005cb0ff6f2c842999a73dfba92533075f847432686d31f03",
+        "sanitization_receipt_sha256": "a5b52d6b9f93c35540f252de754c81f443ae434bf3ec8e9358176da80644d57e",
         "terminal_sha256": "0246d2a6a1692ea34620c051cf8370da6b776a283ab532ff0b093595face9d6e"
       },
       "qrows_sha256": "7e684b223952a50005cb0ff6f2c842999a73dfba92533075f847432686d31f03",

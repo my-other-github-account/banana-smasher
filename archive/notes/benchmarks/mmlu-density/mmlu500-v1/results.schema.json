@@ -140,7 +140,8 @@
               "QTIP3-uniform-exact",
               "QTIP2P5-deterministic-mixed-ring",
               "EXL3-K2-uniform-exact",
-              "Physical-alternating-K2K3-full"
+              "Physical-alternating-K2K3-full",
+              "QTIP2-V7-U45-repaired"
             ]
           }
         },
