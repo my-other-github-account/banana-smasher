@@ -18,7 +18,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import time
-from typing import Any, Callable, Mapping, Protocol, Sequence, TypeVar
+from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence, TypeVar
 
 from .artifact_identity import ArtifactIdentity
 
@@ -732,6 +732,37 @@ class ResidentRepairAPI:
         self._phase_state = "trained"
         self._training_result = result
         return result
+
+    @classmethod
+    def continue_training(
+        cls,
+        artifact_root: str | Path,
+        start_checkpoint: int | str,
+        milestones: Iterable[int],
+        *,
+        config: Mapping[str, Any],
+        receipt_path: str | Path,
+    ) -> dict[str, Any]:
+        """Run the proven continuation through the public resident facade."""
+        from .resident_proven_api import ResidentRepairAPI as ProvenResidentRepairAPI
+
+        public_entrypoint = "banana_smasher.ResidentRepairAPI.continue_training"
+        physical_config = {
+            **dict(config),
+            "public_api_entrypoint": public_entrypoint,
+        }
+        result = ProvenResidentRepairAPI.open(
+            Path(artifact_root).expanduser().resolve()
+        ).continue_two_spark_real(
+            start_checkpoint,
+            milestones,
+            config=physical_config,
+            receipt_path=Path(receipt_path).expanduser().resolve(),
+        )
+        return {
+            **dict(result),
+            "public_api": public_entrypoint,
+        }
 
     def score_post(
         self,

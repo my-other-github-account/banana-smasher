@@ -13,6 +13,7 @@ from banana_smasher.resident_continuation import (
     _activate_expert_plane_surface,
     _validated_expert_plane_expansion,
 )
+from banana_smasher.resident_proven_api import _persisted_surface_reload_evidence
 
 _RUNNER_DIR = (
     __import__("pathlib").Path(__file__).resolve().parents[2]
@@ -141,3 +142,43 @@ def test_public_surface_activation_seeds_pre_and_loads_resume_state() -> None:
 
     with pytest.raises(ArtifactError, match="missing L028 SU/SV"):
         _activate_expert_plane_surface(student, {}, contract, checkpoint_cursor=1)
+
+
+def test_persisted_surface_reload_evidence_requires_exact_expert_state() -> None:
+    state = {
+        "luts": {"layer": torch.tensor([1.0])},
+        "norms": {"norm": torch.tensor([1.0])},
+        "outputs": {"output": torch.tensor([1.0])},
+        EXPERT_PLANE_SURFACE: {
+            f"expert-{index:04d}": torch.tensor([float(index)])
+            for index in range(1536)
+        },
+    }
+
+    evidence = _persisted_surface_reload_evidence(
+        {"state": state},
+        trainable_surfaces=["luts", "rmsnorms", "output_gains", EXPERT_PLANE_SURFACE],
+    )
+
+    assert evidence == {
+        "resident_state_persisted": True,
+        "checkpoint_reload_verified": True,
+        "persisted_trainable_surfaces": [
+            "luts",
+            "norms",
+            "outputs",
+            EXPERT_PLANE_SURFACE,
+        ],
+        "persisted_expert_plane_tensors": 1536,
+    }
+    with pytest.raises(ArtifactError, match="reload omitted configured"):
+        _persisted_surface_reload_evidence(
+            {
+                "state": {
+                    key: value
+                    for key, value in state.items()
+                    if key != EXPERT_PLANE_SURFACE
+                }
+            },
+            trainable_surfaces=[EXPERT_PLANE_SURFACE],
+        )

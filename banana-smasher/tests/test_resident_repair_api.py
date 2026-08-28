@@ -328,6 +328,46 @@ def test_checkpoint_receipt_echo_cannot_overwrite_backend_mismatch(tmp_path: Pat
         api.score_pre(build, checkpoint_sha=expected)
 
 
+def test_public_continue_training_delegates_to_proven_persistence_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from banana_smasher import resident_proven_api
+
+    calls: list[object] = []
+
+    class Proven:
+        def continue_two_spark_real(self, start_checkpoint, milestones, *, config, receipt_path):
+            calls.append((start_checkpoint, tuple(milestones), config, receipt_path))
+            return {"status": "PASS", "resident_state_persisted": True}
+
+    monkeypatch.setattr(
+        resident_proven_api.ResidentRepairAPI,
+        "open",
+        classmethod(lambda cls, artifact_root: calls.append(artifact_root) or Proven()),
+    )
+    config = {"expert_plane_expansion": {"surface": "expert_planes_l028_su_sv"}}
+    receipt = tmp_path / "receipt.json"
+
+    result = ResidentRepairAPI.continue_training(
+        tmp_path / "artifact",
+        "UPDATE_000",
+        (1,),
+        config=config,
+        receipt_path=receipt,
+    )
+
+    assert result["resident_state_persisted"] is True
+    assert result["public_api"] == "banana_smasher.ResidentRepairAPI.continue_training"
+    expected_config = {
+        **config,
+        "public_api_entrypoint": "banana_smasher.ResidentRepairAPI.continue_training",
+    }
+    assert calls == [
+        (tmp_path / "artifact").resolve(),
+        ("UPDATE_000", (1,), expected_config, receipt.resolve()),
+    ]
+
+
 def test_tier_space_is_integer_v7_only_and_rejects_d4_or_fractional(
     tmp_path: Path,
 ) -> None:

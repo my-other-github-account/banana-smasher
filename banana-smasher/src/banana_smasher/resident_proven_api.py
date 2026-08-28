@@ -66,6 +66,42 @@ def _real_cuda_sync(torch: Any) -> None:
         torch.cuda.synchronize()
 
 
+def _persisted_surface_reload_evidence(
+    payload: Mapping[str, Any], *, trainable_surfaces: Iterable[str]
+) -> dict[str, Any]:
+    """Prove that the just-written checkpoint reloads every consumed surface."""
+    from .resident_continuation import EXPERT_PLANE_SURFACE
+
+    state = payload.get("state")
+    if not isinstance(state, Mapping) or not state:
+        raise ArtifactError("persisted checkpoint reload has no resident state")
+    aliases = {"rmsnorms": "norms", "output_gains": "outputs"}
+    consumed = [aliases.get(str(surface), str(surface)) for surface in trainable_surfaces]
+    missing = sorted(surface for surface in consumed if surface not in state)
+    if missing:
+        raise ArtifactError(
+            "persisted checkpoint reload omitted configured trainable surfaces: "
+            + ", ".join(missing)
+        )
+    expert_tensors = 0
+    if EXPERT_PLANE_SURFACE in consumed:
+        expert_state = state.get(EXPERT_PLANE_SURFACE)
+        if not isinstance(expert_state, Mapping) or len(expert_state) != 1536:
+            raise ArtifactError("persisted checkpoint reload has incomplete L028 SU/SV state")
+        expert_tensors = len(expert_state)
+    ordered = [
+        surface
+        for surface in ("luts", "norms", "outputs", EXPERT_PLANE_SURFACE)
+        if surface in state
+    ]
+    return {
+        "resident_state_persisted": True,
+        "checkpoint_reload_verified": True,
+        "persisted_trainable_surfaces": ordered,
+        "persisted_expert_plane_tensors": expert_tensors,
+    }
+
+
 class ResidentRepairAPI:
     """Single high-level path for resident score and experiment contracts."""
 
@@ -1914,6 +1950,16 @@ class ResidentRepairAPI:
                 )
             persisted = self._materialize_broadcast_checkpoint(transfer, rank=rank)
             engine.dist.barrier()
+            reloaded_payload = self._preflight_persisted_checkpoint(
+                self.artifact.checkpoint_path(str(persisted["checkpoint"])),
+                expected_sha=str(persisted["checkpoint_sha256"]),
+                target_update=target_update,
+                identity_sha=str(persisted["checkpoint_identity_sha256"]),
+            )
+            reload_evidence = _persisted_surface_reload_evidence(
+                reloaded_payload,
+                trainable_surfaces=step_report["trainable_surfaces"],
+            )
             row = {
                 "target_update": target_update,
                 "checkpoint": persisted["checkpoint"],
@@ -1940,6 +1986,7 @@ class ResidentRepairAPI:
                 "trainable_surfaces": step_report["trainable_surfaces"],
                 "checkpoint_loaded": True,
                 "immutable": True,
+                **reload_evidence,
                 "world_size": 2,
                 "rank": rank,
             }
@@ -1962,7 +2009,18 @@ class ResidentRepairAPI:
             "milestones": rows,
             "final_update": previous_update,
             "checkpoint_loaded": True,
+            "resident_state_persisted": all(
+                row["resident_state_persisted"] for row in rows
+            ),
+            "checkpoint_reload_verified": all(
+                row["checkpoint_reload_verified"] for row in rows
+            ),
         }
+        public_entrypoint = config.get("public_api_entrypoint")
+        if public_entrypoint is not None:
+            if public_entrypoint != "banana_smasher.ResidentRepairAPI.continue_training":
+                raise ArtifactError("public resident continuation entrypoint drift")
+            result["public_api"] = public_entrypoint
         self._write_immutable_receipt(receipt_path, result)
         engine.close()
         return result

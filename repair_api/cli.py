@@ -343,10 +343,13 @@ def main(argv: list[str] | None = None) -> int:
             control_path=args.control,
         )
     elif args.verb == "continue-training":
+        from banana_smasher import ResidentRepairAPI as PublicResidentRepairAPI
+
         identity = distributed_identity()
         config = json.loads(args.config.read_text())
         config.update(identity)
-        result = ResidentRepairAPI.open(args.artifact_root).continue_two_spark_real(
+        result = PublicResidentRepairAPI.continue_training(
+            args.artifact_root,
             args.start_checkpoint,
             [int(value) for value in args.milestones.split(",")],
             config=config,
