@@ -335,8 +335,10 @@ def test_sealed_planesource_restores_combined_native_swiglu_constructor() -> Non
     assert 'if expert_implementation == "sealed_bf16_full_weight" and hasattr(self, "trainer"):' in engine
 
 
-def test_static_w28_caller_passes_native_swiglu_limit_to_historical_provider() -> None:
-    """The static caller must preserve the model clamp across expert replacement."""
+def test_static_w28_adapter_supplies_model_swiglu_limit_to_historical_provider() -> None:
+    """Keep accepted trainer bytes while adapting their historical constructor ABI."""
+    from repair_api.modern_green_resident import _bind_historical_swiglu_limit
+
     provider = (
         Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
     ).read_text()
@@ -345,7 +347,20 @@ def test_static_w28_caller_passes_native_swiglu_limit_to_historical_provider() -
         layer_loop.index("            resident = FullyResidentGroupedV7Experts(") :
         layer_loop.index("            m.model.layers[layer].mlp.experts = resident")
     ]
-    assert "swiglu_limit=" in constructor
+    assert "swiglu_limit=" not in constructor
+
+    calls = []
+
+    class HistoricalProvider:
+        def __init__(self, layer, pilot=True, *, plane_source):
+            calls.append((layer, pilot, plane_source))
+
+    adapted = _bind_historical_swiglu_limit(HistoricalProvider, sealed_limit=42.0)
+    implicit = adapted(layer=7, plane_source="implicit")
+    explicit = adapted(layer=8, plane_source="explicit", swiglu_limit=17.0)
+    assert calls == [(7, True, "implicit"), (8, True, "explicit")]
+    assert implicit.limit == 42.0
+    assert explicit.limit == 17.0
 
 
 def test_sealed_planesource_combines_existing_w1_w3_payloads_at_w13_boundary() -> None:

@@ -913,15 +913,18 @@ def _accepted_fast_k2_extension_source_bundle_sha256(
     return accepted
 
 
-def _bind_historical_swiglu_limit(provider_class: Any) -> Any:
+def _bind_historical_swiglu_limit(
+    provider_class: Any, *, sealed_limit: float | None = None
+) -> Any:
     """Preserve the model clamp operand for providers with the historical ABI."""
     class HistoricalNoLimitCompatibleExpert(provider_class):
         def __init__(
             self, *args: Any, swiglu_limit: float | None = None, **kwargs: Any
         ) -> None:
-            if swiglu_limit is None:
+            effective_limit = sealed_limit if swiglu_limit is None else swiglu_limit
+            if effective_limit is None:
                 raise ArtifactError("historical provider requires the model SwiGLU limit")
-            limit = float(swiglu_limit)
+            limit = float(effective_limit)
             if not math.isfinite(limit) or limit <= 0:
                 raise ArtifactError("historical provider model SwiGLU limit is invalid")
             super().__init__(*args, **kwargs)
@@ -1041,8 +1044,18 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
         # The accepted PRE provider predates the trainer's constructor-only
         # SwiGLU field.  Adapt the public ABI outside the hash-bound provider so
         # its exact route arithmetic and source identity remain unchanged.
+        model_config_path = (
+            Path(str(config["model_root"])).expanduser().resolve() / "config.json"
+        )
+        _require_file(model_config_path, None, "model config")
+        model_config = json.loads(model_config_path.read_text())
+        sealed_limit = float(model_config.get("swiglu_limit", float("nan")))
+        if not math.isfinite(sealed_limit) or sealed_limit <= 0:
+            raise ArtifactError("historical provider model SwiGLU limit is invalid")
         expert_module.FullyResidentGroupedV7Experts = bind_projection_boundary(
-            _bind_historical_swiglu_limit(expert_class)
+            _bind_historical_swiglu_limit(
+                expert_class, sealed_limit=sealed_limit
+            )
         )
         return expert_module.FullyResidentGroupedV7Experts
     if swiglu_parameter.default is not inspect.Parameter.empty:
