@@ -800,6 +800,13 @@ def test_sink_token_sdpa_preserves_original_sdpa_problem(monkeypatch) -> None:
     assert torch.equal(captured["attn_mask"], mask)
 
 
+def test_w28_admission_reference_is_configurable_without_changing_default() -> None:
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    assert 'config.get("w28_admission_kld", W28_KLD)' in source
+    assert 'config.get("w28_admission_top1", W28_TOP1)' in source
+    assert 'f"expected={expected_w28_kld}:{expected_w28_top1}"' in source
+
+
 def test_sink_corrected_sdpa_builds_additive_mask_for_compressor_bias(monkeypatch) -> None:
     source = (Path(__file__).parents[1] / "modern_green_resident.py").read_text()
     builder = (Path(__file__).parents[1] / "assets" / "t8192_w28_sdpa_teacher_builder.py").read_text()

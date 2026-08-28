@@ -2605,8 +2605,18 @@ def main() -> None:
             if torch.distributed.is_initialized():
                 torch.distributed.destroy_process_group()
             return
-        if admission.get("windows") != [28] or admission.get("kld_mean") != W28_KLD or admission.get("top1") != W28_TOP1:
-            raise RuntimeError(f"W28_ADMISSION_RED:{admission.get('kld_mean')}:{admission.get('top1')}")
+        expected_w28_kld = float(config.get("w28_admission_kld", W28_KLD))
+        expected_w28_top1 = int(config.get("w28_admission_top1", W28_TOP1))
+        if (
+            admission.get("windows") != [28]
+            or admission.get("kld_mean") != expected_w28_kld
+            or admission.get("top1") != expected_w28_top1
+        ):
+            raise RuntimeError(
+                "W28_ADMISSION_RED:"
+                f"{admission.get('kld_mean')}:{admission.get('top1')}:"
+                f"expected={expected_w28_kld}:{expected_w28_top1}"
+            )
         admission_path = root / "receipts" / f"W28_ADMISSION.{TASK}.rank{rank}.json"
         admission_row = {"schema": "banana-smasher-resident-w28-admission-v1", "status": "PASS",
                          "task_id": TASK, "rank": rank, "canonical_code_commit": pin,
