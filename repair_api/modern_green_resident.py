@@ -3148,6 +3148,7 @@ class ModernGreenResidentEngine:
         from .official_k2_resident_score import (
             SOURCE_CONTEXT_TOKENS,
             _canonical_causal_score_tokens,
+            _physical_canary_batch_windows,
         )
 
         ordered = tuple(int(value) for value in windows)
@@ -3170,9 +3171,12 @@ class ModernGreenResidentEngine:
                     "published PRE validation requires sealed mb=2 microbatch"
                 )
             if ordered == (28,):
-                # Preserve accepted mb2 kernel geometry without adding an
-                # unscored foreign window. Readout scores W28 exactly once.
-                physical = (28, 28)
+                # RUN1698 produced trusted W28 in the sealed builder's first
+                # mb2 group (W28, W56). W56 is execution context only; public
+                # validation still reports and reduces W28 alone.
+                physical = _physical_canary_batch_windows(
+                    ordered, physical_batch_size, (28, 56)
+                )
         root = Path(teacher_root).expanduser().resolve()
         if not root.is_dir():
             raise ArtifactError(f"resident validation teacher root is missing: {root}")

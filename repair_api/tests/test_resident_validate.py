@@ -335,9 +335,9 @@ def test_published_pre_w28_uses_sealed_run1698_mb2_fixture(monkeypatch, tmp_path
     prepared = engine.preload_validation((28,), teacher_root)
 
     assert prepared["windows"] == (28,)
-    assert prepared["physical_windows"] == (28, 28)
+    assert prepared["physical_windows"] == (28, 56)
     assert prepared["physical_batch_size"] == 2
-    assert set(prepared["ids"]) == {28}
+    assert set(prepared["ids"]) == {28, 56}
     assert set(prepared["teachers"]) == {28}
 
 
