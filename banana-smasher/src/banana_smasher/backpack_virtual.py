@@ -1221,8 +1221,23 @@ def verify_virtual_backpack(root: str | Path) -> dict[str, Any]:
         raise ValueError("virtual Backpack logical payload accounting is invalid")
     if accounting.get("assigned_expert_bytes") != logical_payload_bytes + activation_bytes:
         raise ValueError("virtual Backpack expert accounting is inconsistent")
+    whole_model_accounting = manifest.get("whole_model_accounting", {})
+    padding_bytes = (
+        whole_model_accounting.get("padding_bytes", 0)
+        if isinstance(whole_model_accounting, dict)
+        else 0
+    )
+    if (
+        not isinstance(padding_bytes, int)
+        or isinstance(padding_bytes, bool)
+        or padding_bytes < 0
+    ):
+        raise ValueError("virtual Backpack whole-model padding accounting is invalid")
     if accounting.get("assigned_package_bytes") != (
-        logical_payload_bytes + activation_bytes + accounting.get("fixed_nonexpert_bytes", -1)
+        logical_payload_bytes
+        + activation_bytes
+        + accounting.get("fixed_nonexpert_bytes", -1)
+        + padding_bytes
     ):
         raise ValueError("virtual Backpack package accounting is inconsistent")
 

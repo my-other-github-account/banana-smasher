@@ -11,6 +11,7 @@ import numpy as np
 import torch
 
 from banana_smasher import materialize_provenance_virtual_backpack
+from banana_smasher.backpack_virtual import verify_virtual_backpack
 from banana_smasher.d4_wire import decode_d4_expert, unpack_d4_codes
 from banana_smasher.hf_deepseek_v4_backpack_adapter import (
     DeepseekV4BackpackRuntime,
@@ -557,3 +558,18 @@ def test_materialize_provenance_assignment_for_exact64(tmp_path) -> None:
     assert manifest["whole_model_accounting"]["whole_model_bpw_exact_ratio"] == "272/100"
     assert manifest["byte_accounting"]["activation_bytes"] == 3
     assert manifest["source_assignment"]["sha256"] == assignment_sha
+
+
+def test_verify_virtual_backpack_charges_explicit_whole_model_padding(tmp_path) -> None:
+    test_materialize_provenance_assignment_for_exact64(tmp_path)
+    manifest_path = tmp_path / "virtual" / "BACKPACK_VIRTUAL_MANIFEST.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["byte_accounting"]["fixed_nonexpert_bytes"] -= 1
+    manifest["whole_model_accounting"]["fixed_nonexpert_bytes"] -= 1
+    manifest["whole_model_accounting"]["metadata_bytes"] -= 1
+    manifest["whole_model_accounting"]["padding_bytes"] = 1
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+
+    result = verify_virtual_backpack(tmp_path / "virtual")
+
+    assert result["logical_materialized_bytes"] == 34
