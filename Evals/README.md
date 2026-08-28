@@ -8,6 +8,24 @@ This page compares quality and declared shipping-accounting size for fifteen mea
 
 The separate [MMLU-500 capability-density table](../archive/notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md) scores thirteen accepted sealed rows on one immutable zero-shot question bank, including the distinct routed-native greedy K2.5 artifact and full physical alternating K2/K3 comparator. The original four per-question result sets remain unchanged. Every later accepted row carries compact public-safe measurement provenance; the completed full EXL3 K2.5 greedy-optimizer search is separately recorded as `ARTIFACT_UNAVAILABLE`, with no inferred score. The quarantined QTIP2 qrows are preserved as diagnostics, not rewritten as a joint result.
 
+## Fresh-PRE U45 routed-K2 campaign result
+
+This sealed static publication records the accepted U45 checkpoint on its fresh-PRE
+BALANCED64 rail. It is not a re-score and is kept separate from the competitive
+ranking below because that table's QTIP2 V7 row is a different pre-repair artifact
+and accounting identity.
+
+| Candidate | Exact serving bytes | BALANCED64 KLD ↓ | Top-1 | Routed composition | Lineage | Campaign target | Source receipts |
+|---|---:|---:|---:|---|---|---|---|
+| **U45 fresh-PRE QTIP2 V7 K2 routed-only + complete native rest** | **89,405,007,628** (89.405007628 GB) | **0.211277616743619** | **56,508/65,536** (0.86224365234375) | 43 routed layers; 33,024 K2 members; 69,662,366,720 routed bytes; 19,742,640,908 complete native-rest bytes; **0-byte / 0% serving-composition delta from PRE** | checkpoint `ffb796ce25b4a182bdebadd0a646a91a9c72c9f811520050b2e1dafbf33419a0`; parent PRE `f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70`; teacher basis `98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b` | **NOT MET (RED): KLD < 0.19** | U45 Balanced64 fan-in `70db7691caf194c2b132b690b32689b2399c5d764fbacb29d4f7b373f254510f`; routed-K2 serving identity `2b8d525cb3b5cdfd2948940740a1226e3cce87bce338d93af241ed883b4ba1f2` |
+
+The fan-in receipt is the source for KLD, Top-1, checkpoint, teacher basis, and
+64-window/65,536-position measurement identity. The routed-K2 serving-identity
+receipt is the source for the exact byte numerator, complete-native-rest scope,
+43-layer/33,024-member composition, PRE parent identity, zero composition delta,
+and the explicit `<0.19` campaign verdict. The two SHA-256 values above bind those
+protected, non-distributed receipts without claiming public replay of their payloads.
+
 ## Results
 
 Every quant row with Top-1/KLD values ran the same 64 windows and 65,536 scored positions against the same FP8 copy of DeepSeek-V4-Flash-0731. Those measured rows are ordered by Top-1 agreement; the Official native MMLU/accounting reference is pinned above them and has no inferred BALANCED64 values. QTIP2 V7 pre-repair is the sealed all-43 artifact before joint whole-model repair; its failure of a later repair-admission Top-1 threshold does not invalidate the measurement. `EXL3 K2.5` denotes the measured greedy optimizer assignment: the full row applies it to all eligible weights, while the routed-only row applies that exact assignment only to routed experts and preserves every shared and non-routed tensor in the exact native source representation. The routed K2 and K3 rows use the same native-rest scope at homogeneous endpoints. The in-house physical alternating K2/K3 comparator is a separate control outside the EXL matrix and is not labeled EXL K2.5.
