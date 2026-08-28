@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import json
 import os
 import subprocess
@@ -11,6 +12,30 @@ from typing import Any, Mapping
 
 _PHASES = ("score_pre", "repair_train", "score_post")
 _SCHEMA = "banana-smasher-improve-phase-v1"
+
+
+def _initialize_distributed_from_env(distributed=None):
+    if int(os.environ.get("WORLD_SIZE", "1")) <= 1:
+        return None
+    if distributed is None:
+        import torch.distributed as distributed
+    if not distributed.is_available():
+        raise RuntimeError("distributed pair requested but torch.distributed is unavailable")
+    if not distributed.is_initialized():
+        backend = os.environ.get("BANANA_SMASHER_DISTRIBUTED_BACKEND", "nccl")
+        distributed.init_process_group(backend=backend, init_method="env://")
+        return distributed
+    return None
+
+
+@contextmanager
+def _distributed_phase_from_env():
+    owned = _initialize_distributed_from_env()
+    try:
+        yield
+    finally:
+        if owned is not None and owned.is_initialized():
+            owned.destroy_process_group()
 
 
 def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
@@ -116,40 +141,41 @@ def _execute_phase(
     api_factory=None,
 ) -> dict[str, Any]:
     root = Path(run_root).expanduser().resolve()
-    if api_factory is None:
-        from .resident_repair_api import ResidentRepairAPI
+    with _distributed_phase_from_env():
+        if api_factory is None:
+            from .resident_repair_api import ResidentRepairAPI
 
-        api_factory = ResidentRepairAPI.build_uniform
-    api = api_factory(
-        Path(artifact_root).expanduser().resolve(),
-        tier="q2",
-        checkpoint_sha=checkpoint_sha,
-        run_root=root,
-    )
-    if phase == "score_pre":
-        result = dict(api.score_pre())
-    elif phase == "repair_train":
-        pre = _read_phase(root, "score_pre")
-        api.restore_pre_score(pre)
-        result = dict(api.repair_train(updates=updates))
-    elif phase == "score_post":
-        pre = _read_phase(root, "score_pre")
-        training = _read_phase(root, "repair_train")
-        api.restore_training(pre, training)
-        result = dict(api.score_post())
-    else:
-        raise ValueError(f"unsupported improve phase: {phase}")
-    receipt = {
-        "schema": _SCHEMA,
-        "status": "PASS",
-        "phase": phase,
-        "pid": os.getpid(),
-        "parent_pid": os.getppid(),
-        "input_checkpoint_sha256": checkpoint_sha,
-        "result": result,
-    }
-    _atomic_json(root / f"{phase}.json", receipt)
-    return result
+            api_factory = ResidentRepairAPI.build_uniform
+        api = api_factory(
+            Path(artifact_root).expanduser().resolve(),
+            tier="q2",
+            checkpoint_sha=checkpoint_sha,
+            run_root=root,
+        )
+        if phase == "score_pre":
+            result = dict(api.score_pre())
+        elif phase == "repair_train":
+            pre = _read_phase(root, "score_pre")
+            api.restore_pre_score(pre)
+            result = dict(api.repair_train(updates=updates))
+        elif phase == "score_post":
+            pre = _read_phase(root, "score_pre")
+            training = _read_phase(root, "repair_train")
+            api.restore_training(pre, training)
+            result = dict(api.score_post())
+        else:
+            raise ValueError(f"unsupported improve phase: {phase}")
+        receipt = {
+            "schema": _SCHEMA,
+            "status": "PASS",
+            "phase": phase,
+            "pid": os.getpid(),
+            "parent_pid": os.getppid(),
+            "input_checkpoint_sha256": checkpoint_sha,
+            "result": result,
+        }
+        _atomic_json(root / f"{phase}.json", receipt)
+        return result
 
 
 def _phase_parser() -> argparse.ArgumentParser:

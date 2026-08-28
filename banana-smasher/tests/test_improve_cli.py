@@ -1,17 +1,80 @@
 from __future__ import annotations
 
 import json
+import os
+import socket
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
 
 from banana_smasher.cli import main
-from banana_smasher.improve import _execute_phase, run_improve
+from banana_smasher.improve import _execute_phase, _initialize_distributed_from_env, run_improve
 
 
 CHECKPOINT_SHA = "f" * 64
+
+
+def test_phase_initializes_distributed_pair_from_documented_launcher_env(monkeypatch) -> None:
+    events: list[tuple[str, str]] = []
+
+    class FakeDistributed:
+        @staticmethod
+        def is_available() -> bool:
+            return True
+
+        @staticmethod
+        def is_initialized() -> bool:
+            return False
+
+        @staticmethod
+        def init_process_group(*, backend: str, init_method: str) -> None:
+            events.append((backend, init_method))
+
+    monkeypatch.setenv("WORLD_SIZE", "2")
+    _initialize_distributed_from_env(FakeDistributed())
+    assert events == [("nccl", "env://")]
+
+
+def test_two_process_gloo_is_initialized_during_api_and_destroyed_after(tmp_path: Path) -> None:
+    torch = pytest.importorskip("torch")
+    assert torch.distributed.is_available()
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+    script = textwrap.dedent(
+        """
+        import json, os, pathlib, torch.distributed as dist
+        from banana_smasher.improve import _execute_phase
+        class API:
+            def score_pre(self):
+                assert dist.is_initialized()
+                return {"mean_kld": 0.2284983253897188}
+        root = pathlib.Path(os.environ["PHASE_ROOT"])
+        _execute_phase("score_pre", root / "artifact", "f" * 64, root, 1,
+                       api_factory=lambda *args, **kwargs: API())
+        assert not dist.is_initialized()
+        print(json.dumps({"rank": int(os.environ["RANK"]), "destroyed": True}))
+        """
+    )
+    processes = []
+    for rank in range(2):
+        env = dict(os.environ)
+        env.update(
+            RANK=str(rank), LOCAL_RANK=str(rank), WORLD_SIZE="2",
+            MASTER_ADDR="127.0.0.1", MASTER_PORT=str(port),
+            BANANA_SMASHER_DISTRIBUTED_BACKEND="gloo",
+            PHASE_ROOT=str(tmp_path / f"rank{rank}"),
+        )
+        processes.append(subprocess.Popen([sys.executable, "-c", script], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE))
+    rows = []
+    for process in processes:
+        stdout, stderr = process.communicate(timeout=30)
+        assert process.returncode == 0, stderr
+        rows.append(json.loads(stdout))
+    assert rows == [{"rank": 0, "destroyed": True}, {"rank": 1, "destroyed": True}]
 
 
 def _write_phase(path: Path, phase: str, value: dict) -> None:
