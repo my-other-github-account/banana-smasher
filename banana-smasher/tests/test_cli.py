@@ -79,6 +79,7 @@ def test_smash_help_preserves_lifecycle_verbs_and_adds_paired_api() -> None:
     )
     choices = list(action.choices or {})
     assert choices == [
+        "improve",
         "export",
         "verify",
         "bpw",
