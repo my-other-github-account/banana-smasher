@@ -81,11 +81,7 @@ def source_binding(root: Path | None = None) -> dict[str, Any]:
 def bind_sealed_pre_resident_config(config: dict[str, Any]) -> dict[str, Any]:
     """Bind the exact sealed source identity to the existing resident provider."""
     config["sealed_pre_source_binding"] = source_binding()
-    # The sealed 0.136483 W28 closure executes the immutable static grouped
-    # provider directly.  The full-weight wrapper is a diagnostic comparator
-    # whose first operator already diverges at L000/w1.
-    config["provider_resolution_mode"] = "STATIC_W28_GROUPED"
-    config["resident_validation_expert_implementation"] = "accepted_static_w28"
+    config["resident_validation_expert_implementation"] = "sealed_bf16_full_weight"
     config["score_window_batch_size"] = 1
     config["sealed_builder_window_microbatch"] = 1
     return config["sealed_pre_source_binding"]

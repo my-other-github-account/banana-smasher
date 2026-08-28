@@ -372,8 +372,7 @@ def test_public_full64_binds_exact_sealed_pre_sources_to_resident_zero_reload_ap
     engine = runner.index("ModernGreenResidentEngine(")
     assert resident_binding < engine
     assert "def bind_sealed_pre_resident_config(" in binding
-    assert 'config["provider_resolution_mode"] = "STATIC_W28_GROUPED"' in binding
-    assert 'config["resident_validation_expert_implementation"] = "accepted_static_w28"' in binding
+    assert 'config["resident_validation_expert_implementation"] = "sealed_bf16_full_weight"' in binding
     assert 'config["sealed_pre_source_binding"] = source_binding()' in binding
     assert 'stream_sync = getattr(wrapper_module, "bind_backward_stream_sync", None)' in resident
     assert "if callable(stream_sync):" in resident
