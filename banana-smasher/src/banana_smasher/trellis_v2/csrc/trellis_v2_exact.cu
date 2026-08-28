@@ -16,7 +16,7 @@ constexpr int PREFIXES = 4096;
 constexpr int STATES = 65536;
 constexpr int BRANCHES = 16;
 constexpr int PREFIX_PAIRS = PREFIXES / 2;
-constexpr int THREADS = 1024;
+constexpr int THREADS = 512;
 constexpr int ROWS_PER_CTA = 2;
 constexpr size_t SHARED_BYTES = ROWS_PER_CTA * 2 * PREFIXES * sizeof(float);
 
