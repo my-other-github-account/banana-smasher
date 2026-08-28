@@ -673,12 +673,9 @@ class ProductionRails:
             # later phases use only the already-resident, identity-bound state.
             return self._active_binding
         manifest_path = artifact.root.resolve() / "ARTIFACT.json"
-        if not manifest_path.is_file() or _sha256(manifest_path) != raw.get(
-            "artifact_manifest_sha256"
-        ):
-            raise ProductionRailsError("artifact ARTIFACT.json bytes do not match pinned binding")
         try:
-            manifest = json.loads(manifest_path.read_text())
+            manifest_raw = manifest_path.read_bytes()
+            manifest = json.loads(manifest_raw)
             checkpoint_row = manifest["checkpoints"][raw["checkpoint"]]
             checkpoint_path = (
                 artifact.root.resolve() / Path(checkpoint_row["path"])
@@ -686,6 +683,52 @@ class ProductionRails:
             checkpoint_path.relative_to(artifact.root.resolve())
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise ProductionRailsError("artifact checkpoint binding is invalid") from exc
+        if hashlib.sha256(manifest_raw).hexdigest() != raw.get("artifact_manifest_sha256"):
+            if set(manifest.get("checkpoints", {})) == {str(raw["checkpoint"])}:
+                raise ProductionRailsError(
+                    "artifact ARTIFACT.json bytes do not match pinned binding"
+                )
+            base_manifest = dict(manifest)
+            base_manifest["checkpoints"] = {str(raw["checkpoint"]): checkpoint_row}
+            serialized = (
+                json.dumps(base_manifest, sort_keys=True),
+                json.dumps(base_manifest, sort_keys=True) + "\n",
+                json.dumps(base_manifest, indent=2, sort_keys=True) + "\n",
+                json.dumps(base_manifest, sort_keys=True, separators=(",", ":")) + "\n",
+            )
+            if raw.get("artifact_manifest_sha256") not in {
+                hashlib.sha256(value.encode()).hexdigest() for value in serialized
+            }:
+                raise ProductionRailsError(
+                    "artifact ARTIFACT.json is not an additive extension of the pinned binding"
+                )
+            try:
+                prior_sha = str(raw["checkpoint_sha256"])
+                prior_update = int(checkpoint_row["next_update"])
+                additions = sorted(
+                    (
+                        int(row["next_update"]),
+                        str(name),
+                        row,
+                    )
+                    for name, row in manifest["checkpoints"].items()
+                    if name != raw["checkpoint"]
+                )
+                for next_update, _name, row in additions:
+                    candidate = (artifact.root.resolve() / Path(row["path"])).resolve()
+                    candidate.relative_to(artifact.root.resolve())
+                    if (
+                        next_update <= prior_update
+                        or row.get("parent_sha256") != prior_sha
+                        or row.get("sha256") != _sha256(candidate)
+                    ):
+                        raise ValueError("checkpoint continuation chain mismatch")
+                    prior_update = next_update
+                    prior_sha = str(row["sha256"])
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                raise ProductionRailsError(
+                    "artifact additive checkpoint continuation is invalid"
+                ) from exc
         if (
             not checkpoint_path.is_file()
             or checkpoint_row.get("sha256") != raw.get("checkpoint_sha256")
@@ -777,21 +820,71 @@ class ProductionRails:
     def restore_pre_score(
         self, artifact: BackpackArtifact, pre: Mapping[str, Any]
     ) -> None:
-        """Bind a sealed PRE result to a fresh training process."""
-        if self._session is None or self._active_binding is None:
-            raise ProductionRailsError("restoring PRE requires one loaded resident session")
+        """Bind sealed PRE to the newest authenticated checkpoint for training."""
+        if self._session is not None:
+            raise ProductionRailsError("restoring PRE requires a fresh process")
+        raw = self.config["allowed_artifacts"].get(artifact.identity.sha256)
+        if not isinstance(raw, Mapping):
+            raise ProductionRailsError("unknown artifact identity; refusing PRE restore")
+        if raw.get("basis_sha256") != artifact.identity.basis_sha256:
+            raise ProductionRailsError("restored PRE basis does not match admission")
         try:
             pre_kld = float(pre["mean_kld"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ProductionRailsError("restored PRE result lacks mean_kld") from exc
-        if not math.isfinite(pre_kld):
-            raise ProductionRailsError("restored PRE mean_kld is non-finite")
+            manifest = json.loads((artifact.root / "ARTIFACT.json").read_text())
+            rows = [
+                (int(row["next_update"]), str(name), row)
+                for name, row in manifest["checkpoints"].items()
+                if isinstance(row, Mapping)
+            ]
+            next_update, checkpoint, checkpoint_row = max(rows)
+            checkpoint_sha = str(checkpoint_row["sha256"])
+            checkpoint_path = (artifact.root / checkpoint_row["path"]).resolve()
+            checkpoint_path.relative_to(artifact.root.resolve())
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise ProductionRailsError("restored PRE checkpoint frontier is invalid") from exc
+        if (
+            not math.isfinite(pre_kld)
+            or next_update < 0
+            or len(checkpoint_sha) != 64
+            or not checkpoint_path.is_file()
+            or _sha256(checkpoint_path) != checkpoint_sha
+        ):
+            raise ProductionRailsError("restored PRE checkpoint frontier bytes mismatch")
+        binding = _ArtifactBinding(
+            identity_sha256=artifact.identity.sha256,
+            basis_sha256=artifact.identity.basis_sha256,
+            checkpoint=checkpoint,
+            score_checkpoints={"post": checkpoint},
+            artifact_manifest_sha256=str(raw["artifact_manifest_sha256"]),
+            checkpoint_sha256=checkpoint_sha,
+        )
+        self._session = _ProvenSession(
+            artifact,
+            binding,
+            continuation_config=dict(self.config.get("continuation", {})),
+            receipt_root=self.run_root / "receipts",
+            provider_binding_sha256=self.provider_binding_sha256,
+        )
         self._session._pre_kld = pre_kld
-        self._pre_checkpoint = self._active_binding.checkpoint
+        self._active = artifact
+        self._active_binding = binding
+        self._pre_checkpoint = checkpoint
         self._phase_state = "pre_scored"
-        self._counts["scores"] = 1
-        self._counts["canary_passes"] = 1
-        self._publish("pre_score_restored", mean_kld=pre_kld)
+        self._counts.update(
+            {
+                "model_constructions": 1,
+                "resident_loads": 1,
+                "scores": 1,
+                "canary_passes": 1,
+            }
+        )
+        self._publish(
+            "pre_score_restored",
+            mean_kld=pre_kld,
+            checkpoint=checkpoint,
+            checkpoint_sha256=checkpoint_sha,
+            next_update=next_update,
+        )
 
     def restore_training(
         self,

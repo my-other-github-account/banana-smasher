@@ -636,8 +636,10 @@ class ResidentRepairAPI:
         restore = getattr(self.rails, "restore_pre_score", None)
         if not callable(restore):
             raise RuntimeError("production rails cannot restore isolated PRE state")
-        self._activate(selected)
+        if self._resident_loaded:
+            raise RuntimeError("isolated PRE state requires a fresh resident process")
         restore(selected, dict(pre))
+        self._resident_loaded = True
         self._phase_state = "pre_scored"
         self._pre_result = dict(pre)
 

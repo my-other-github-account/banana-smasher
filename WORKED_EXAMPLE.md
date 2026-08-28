@@ -265,7 +265,9 @@ The command executes the same package-owned API sequence, but never keeps CUDA
 allocator or Python lifecycle state across phase boundaries:
 
 1. fresh process: `ResidentRepairAPI.build_uniform(...)` → `score_pre()` → exit;
-2. fresh process: restore the authenticated PRE receipt → `repair_train(updates=45)` → exit;
+2. fresh process: restore the authenticated PRE receipt, select the newest
+   parent-SHA-chained checkpoint already present in `ARTIFACT.json`, then
+   `repair_train(updates=45)` → exit;
 3. fresh process: restore PRE plus trained-checkpoint receipts → `score_post()` → exit.
 
 The phase receipts are `score_pre.json`, `repair_train.json`, and
