@@ -40,6 +40,64 @@ def test_exact64_oracle_is_private_and_has_no_cli_route() -> None:
     assert "exact64 checkpoint bytes do not match explicit checkpoint SHA" in source
 
 
+def test_exact64_accepts_only_the_known_run6322_virtual_product(
+    tmp_path, monkeypatch
+) -> None:
+    basis = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+    manifest_sha = "18613b80dbc5c610d2ba252fa169fdca9ec1b5a248c90502ee1515a34d6abc05"
+    terminal_sha = "f7b5fab1269e4b4162377578002feb53047f4465ccbff61e13462c2fd1af57c6"
+    virtual = tmp_path / "exact102-virtual"
+    virtual.mkdir()
+    manifest = virtual / "BACKPACK_VIRTUAL_MANIFEST.json"
+    terminal = tmp_path / "EXACT102_VIRTUAL_TERMINAL.json"
+    accounting = {"whole_shipping_bytes": 102_000_000_000}
+    manifest.write_text(
+        json.dumps(
+            {
+                "status": "PASS_LOGICAL_FULL_WIRE",
+                "basis_sha256": basis,
+                "whole_model_accounting": accounting,
+            }
+        )
+    )
+    terminal.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-mixed-exact102-virtual-terminal-v1",
+                "status": "PASS",
+                "basis_sha256": basis,
+                "virtual_manifest_path": str(manifest),
+                "virtual_manifest_sha256": manifest_sha,
+                "whole_model_accounting": accounting,
+            }
+        )
+    )
+    identities = {manifest: manifest_sha, terminal: terminal_sha}
+    monkeypatch.setattr(exact64, "_sha256_file", lambda path: identities[path])
+
+    accepted_manifest, accepted_terminal = exact64._validate_virtual_product_identity(
+        virtual_manifest_path=manifest,
+        virtual_manifest_sha256=manifest_sha,
+        virtual_terminal_path=terminal,
+        virtual_terminal_sha256=terminal_sha,
+        basis_sha256=basis,
+    )
+
+    assert accepted_manifest["whole_model_accounting"] == accounting
+    assert accepted_terminal["virtual_manifest_sha256"] == manifest_sha
+    rejected_terminal = json.loads(terminal.read_text())
+    rejected_terminal["virtual_manifest_sha256"] = "0" * 64
+    terminal.write_text(json.dumps(rejected_terminal))
+    with pytest.raises(ValueError, match="terminal does not bind"):
+        exact64._validate_virtual_product_identity(
+            virtual_manifest_path=manifest,
+            virtual_manifest_sha256=manifest_sha,
+            virtual_terminal_path=terminal,
+            virtual_terminal_sha256=terminal_sha,
+            basis_sha256=basis,
+        )
+
+
 def test_exact64_rejects_unbound_historical_teacher_manifest(
     tmp_path, monkeypatch
 ) -> None:

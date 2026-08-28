@@ -190,12 +190,65 @@ def _revision_bind_teacher_manifest(
     return source_path, source
 
 
+def _validate_virtual_product_identity(
+    *,
+    virtual_manifest_path: Path,
+    virtual_manifest_sha256: str,
+    virtual_terminal_path: Path,
+    virtual_terminal_sha256: str,
+    basis_sha256: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Fail closed unless exact64 is bound to one sealed virtual product."""
+
+    expected = {
+        virtual_manifest_path: virtual_manifest_sha256,
+        virtual_terminal_path: virtual_terminal_sha256,
+    }
+    for path, digest in expected.items():
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+            or not path.is_file()
+            or _sha256_file(path) != digest
+        ):
+            raise ValueError(f"exact64 virtual product SHA-256 mismatch: {path}")
+
+    manifest = json.loads(virtual_manifest_path.read_text())
+    terminal = json.loads(virtual_terminal_path.read_text())
+    accounting = manifest.get("whole_model_accounting")
+    terminal_accounting = terminal.get("whole_model_accounting")
+    if (
+        virtual_manifest_path.name != "BACKPACK_VIRTUAL_MANIFEST.json"
+        or manifest.get("status") != "PASS_LOGICAL_FULL_WIRE"
+        or manifest.get("basis_sha256") != basis_sha256
+        or not isinstance(accounting, Mapping)
+        or accounting.get("whole_shipping_bytes") != 102_000_000_000
+    ):
+        raise ValueError("exact64 virtual manifest is not the sealed exact102 product")
+    if (
+        terminal.get("schema") != "banana-smasher-mixed-exact102-virtual-terminal-v1"
+        or terminal.get("status") != "PASS"
+        or terminal.get("basis_sha256") != basis_sha256
+        or Path(str(terminal.get("virtual_manifest_path", ""))).resolve()
+        != virtual_manifest_path
+        or terminal.get("virtual_manifest_sha256") != virtual_manifest_sha256
+        or not isinstance(terminal_accounting, Mapping)
+        or terminal_accounting.get("whole_shipping_bytes") != 102_000_000_000
+    ):
+        raise ValueError("exact64 virtual terminal does not bind the sealed exact102 product")
+    return manifest, terminal
+
+
 def _run_backpack_exact64(
     *,
     model_root: str | Path,
     bank_path: str | Path,
     teacher_manifest_path: str | Path,
     virtual_manifest_path: str | Path,
+    virtual_manifest_sha256: str,
+    virtual_terminal_path: str | Path,
+    virtual_terminal_sha256: str,
     materialization_index_path: str | Path,
     qtip2_root_map_path: str | Path | None = None,
     qtip3_root_map_path: str | Path | None = None,
@@ -230,6 +283,7 @@ def _run_backpack_exact64(
     ):
         raise ValueError("exact64 checkpoint bytes do not match explicit checkpoint SHA")
     virtual_manifest_path = Path(virtual_manifest_path).resolve()
+    virtual_terminal_path = Path(virtual_terminal_path).resolve()
     materialization_index_path = Path(materialization_index_path).resolve()
     qtip2_root_map_path = (
         None if qtip2_root_map_path is None else Path(qtip2_root_map_path).resolve()
@@ -269,6 +323,13 @@ def _run_backpack_exact64(
         None
         if mixed_v7_member_contract_path is None
         else Path(mixed_v7_member_contract_path).resolve()
+    )
+    virtual_manifest, _virtual_terminal = _validate_virtual_product_identity(
+        virtual_manifest_path=virtual_manifest_path,
+        virtual_manifest_sha256=virtual_manifest_sha256,
+        virtual_terminal_path=virtual_terminal_path,
+        virtual_terminal_sha256=virtual_terminal_sha256,
+        basis_sha256=basis_sha256,
     )
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -329,7 +390,6 @@ def _run_backpack_exact64(
         ):
             raise ValueError("exact64 bank token row is invalid")
 
-    virtual_manifest = json.loads(virtual_manifest_path.read_text())
     if (
         virtual_manifest.get("status") != "PASS_LOGICAL_FULL_WIRE"
         or virtual_manifest.get("basis_sha256") != basis_sha256
@@ -432,6 +492,9 @@ def _run_backpack_exact64(
                 "teacher_manifest_sha256": _sha256_file(teacher_manifest_path),
                 "checkpoint_path": str(checkpoint_path),
                 "checkpoint_sha256": checkpoint_sha256,
+                "virtual_manifest_sha256": virtual_manifest_sha256,
+                "virtual_terminal_path": str(virtual_terminal_path),
+                "virtual_terminal_sha256": virtual_terminal_sha256,
                 "pack_sha256": pack_sha256,
                 "materialization_index_sha256": _sha256_file(
                     materialization_index_path
