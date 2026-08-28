@@ -3182,6 +3182,10 @@ class ModernGreenResidentEngine:
                 raise ArtifactError(
                     "published PRE validation requires sealed mb=2 microbatch"
                 )
+            if ordered == (28,):
+                # Preserve accepted mb2 kernel geometry without adding an
+                # unscored foreign window. Readout scores W28 exactly once.
+                physical = (28, 28)
         root = Path(teacher_root).expanduser().resolve()
         if not root.is_dir():
             raise ArtifactError(f"resident validation teacher root is missing: {root}")
@@ -3383,6 +3387,7 @@ class ModernGreenResidentEngine:
         terms: list[float] = []
         top1 = 0
         per_window: list[dict[str, Any]] = []
+        scored_windows: set[int] = set()
         rank_phase_profiles: list[dict[str, Any]] = []
         previous_send: Any | None = None
         previous_hidden: Any | None = None
@@ -3562,8 +3567,9 @@ class ModernGreenResidentEngine:
                     forward_ms = (time.perf_counter() - forward_started) * 1000.0
                     readout_started = time.perf_counter()
                     for batch_index, window in enumerate(batch):
-                        if window not in ordered:
+                        if window not in ordered or window in scored_windows:
                             continue
+                        scored_windows.add(window)
                         teacher_idx, teacher_logprob = teacher_cache[window]
                         logits = _builder_frame_readout_logits(
                             self.student.model,

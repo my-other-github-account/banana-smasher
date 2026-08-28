@@ -279,15 +279,13 @@ def test_static_w28_provider_matches_accepted_pre_artifact_and_route_state() -> 
 
 
 def test_published_pre_w28_uses_sealed_run1698_mb2_fixture(monkeypatch, tmp_path: Path) -> None:
-    import repair_api.official_k2_resident_score as sealed_builder_binding
-
-    calls = []
     monkeypatch.setattr(
-        sealed_builder_binding,
-        "_physical_canary_batch_windows",
-        lambda selected, configured, balanced: (
-            calls.append((selected, configured, balanced)) or (28, 56)
-        ),
+        "repair_api.modern_green_resident._require_static_w28_teacher",
+        lambda _root, expected: expected,
+    )
+    monkeypatch.setattr(
+        "repair_api.modern_green_resident._sha256_file",
+        lambda _path: "5aadaacbb486ae4f528c5e51ae70beff863337bd908fc727e6e49fc3ac520ebd",
     )
     corpus = [{"token_ids": [1] * 1024, "real_len": 1024} for _ in range(57)]
     corpus_path = tmp_path / "corpus.json"
@@ -336,11 +334,10 @@ def test_published_pre_w28_uses_sealed_run1698_mb2_fixture(monkeypatch, tmp_path
 
     prepared = engine.preload_validation((28,), teacher_root)
 
-    assert calls == [((28,), 2, (28, 56))]
     assert prepared["windows"] == (28,)
-    assert prepared["physical_windows"] == (28, 56)
+    assert prepared["physical_windows"] == (28, 28)
     assert prepared["physical_batch_size"] == 2
-    assert set(prepared["ids"]) == {28, 56}
+    assert set(prepared["ids"]) == {28}
     assert set(prepared["teachers"]) == {28}
 
 
