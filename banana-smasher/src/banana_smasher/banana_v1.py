@@ -142,6 +142,64 @@ def banana_v1_gaussian_codebook() -> np.ndarray:
     return np.ascontiguousarray(values.astype(np.float16))
 
 
+def fit_banana_v1_codebook_from_statistics(
+    original: np.ndarray,
+    level_counts: np.ndarray,
+    target_sums: np.ndarray,
+    *,
+    alpha: float = 1.0,
+) -> np.ndarray:
+    """Apply one deterministic TRAIN-only centroid update to the shared LUT.
+
+    Empty levels retain their input value. The result preserves the input
+    floating dtype so the production FP16[1024] wire identity remains exact.
+    """
+    codebook = np.asarray(original)
+    counts = np.asarray(level_counts)
+    sums = np.asarray(target_sums, dtype=np.float64)
+    blend = float(alpha)
+    if (
+        codebook.shape != (BANANA_V1_GEOMETRY.codebook_levels,)
+        or codebook.dtype.kind != "f"
+        or not bool(np.isfinite(codebook).all())
+    ):
+        raise ValueError("Banana V1 codebook fit requires finite floating [1024]")
+    if counts.shape != codebook.shape or counts.dtype.kind not in "iu" or bool(np.any(counts < 0)):
+        raise ValueError("Banana V1 level counts must be nonnegative integer [1024]")
+    if sums.shape != codebook.shape or not bool(np.isfinite(sums).all()):
+        raise ValueError("Banana V1 target sums must be finite [1024]")
+    if not math.isfinite(blend) or not 0.0 <= blend <= 1.0:
+        raise ValueError("Banana V1 codebook alpha must be finite in [0,1]")
+    centroids = codebook.astype(np.float64)
+    assigned = counts > 0
+    centroids[assigned] = sums[assigned] / counts[assigned]
+    fitted = (1.0 - blend) * codebook.astype(np.float64) + blend * centroids
+    return np.ascontiguousarray(fitted.astype(codebook.dtype))
+
+
+def fit_banana_v1_codebook(
+    original: np.ndarray,
+    level_ids: np.ndarray,
+    normalized_targets: np.ndarray,
+    *,
+    alpha: float = 1.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Fit the shared LUT from authentic assignments and normalized targets."""
+    levels = np.asarray(level_ids)
+    targets = np.asarray(normalized_targets, dtype=np.float64)
+    if levels.shape != targets.shape or levels.ndim != 1:
+        raise ValueError("Banana V1 fit IDs and targets must be matching vectors")
+    if levels.dtype.kind not in "iu" or bool(np.any(levels < 0) or np.any(levels >= 1024)):
+        raise ValueError("Banana V1 fit level ID outside [0,1024)")
+    if not bool(np.isfinite(targets).all()):
+        raise ValueError("Banana V1 fit targets must be finite")
+    counts = np.bincount(levels.astype(np.int64), minlength=1024).astype(np.int64)
+    sums = np.bincount(levels.astype(np.int64), weights=targets, minlength=1024)
+    return fit_banana_v1_codebook_from_statistics(
+        original, counts, sums, alpha=alpha
+    ), counts
+
+
 def expand_banana_v1_codebook(codebook: np.ndarray | None = None) -> np.ndarray:
     compact = (
         banana_v1_gaussian_codebook() if codebook is None else np.asarray(codebook)
@@ -889,6 +947,8 @@ __all__ = [
     "BananaV1MatrixResult",
     "EncodedBananaV1",
     "banana_v1_gaussian_codebook",
+    "fit_banana_v1_codebook",
+    "fit_banana_v1_codebook_from_statistics",
     "banana_v1_inverse_transform",
     "banana_v1_provider",
     "banana_v1_state_levels",
