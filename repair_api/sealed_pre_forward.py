@@ -86,7 +86,7 @@ def bind_sealed_pre_resident_config(config: dict[str, Any]) -> dict[str, Any]:
     # The full-weight reconstruction is a diagnostic comparator, not that
     # accepted provider, so never let the sealed binding silently select it.
     config["provider_resolution_mode"] = "STATIC_W28_GROUPED"
-    config["resident_validation_expert_implementation"] = "accepted_static_w28"
+    config.setdefault("resident_validation_expert_implementation", "accepted_static_w28")
     # The accepted producer kept an intact two-window physical batch while the
     # public admission scored only W28.  This physical context is part of the
     # tensor arithmetic even though the reported validation roster is singleton.
