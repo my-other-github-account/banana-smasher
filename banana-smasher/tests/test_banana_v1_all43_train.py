@@ -3,6 +3,7 @@ import hashlib
 import numpy as np
 
 from banana_smasher.banana_v1_all43_train import (
+    _scale_expansion_factor,
     _statistics_for_source,
     build_shared_results,
     fit_shared_codebook_from_sources,
@@ -43,3 +44,8 @@ def test_full_projection_statistics_cover_every_position_not_only_corner() -> No
     assert int(full_counts.sum()) == 32 * 32
     assert int(corner_counts.sum()) == 16 * 16
     assert not np.array_equal(full_counts, corner_counts)
+
+
+def test_full_projection_block_scales_expand_across_sixteen_columns() -> None:
+    assert _scale_expansion_factor((2048, 2048), (2048, 128)) == 16
+    assert _scale_expansion_factor((16, 16), (16, 1)) == 16

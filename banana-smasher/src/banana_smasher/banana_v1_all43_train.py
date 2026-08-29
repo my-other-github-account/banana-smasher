@@ -130,6 +130,20 @@ def _startticks(pid: int) -> int:
     return int(Path(f"/proc/{pid}/stat").read_text().split()[21])
 
 
+def _scale_expansion_factor(
+    weight_shape: Sequence[int], scale_shape: Sequence[int]
+) -> int:
+    if (
+        len(weight_shape) != 2
+        or len(scale_shape) != 2
+        or scale_shape[0] != weight_shape[0]
+        or scale_shape[1] <= 0
+        or weight_shape[1] % scale_shape[1]
+    ):
+        raise RuntimeError("routed scale geometry mismatch")
+    return int(weight_shape[1] // scale_shape[1])
+
+
 def _claim_host(path: Path, *, preimage_sha256: str, task_id: str, run_id: int, root: Path, basis: str, canonical_sha: str) -> tuple[int, int, str]:
     payload = path.read_bytes()
     actual = _sha_bytes(payload)
@@ -200,9 +214,12 @@ def _load_source(
     scale_float = scale.to(dtype=torch.float32)
     raw_scale = np.ascontiguousarray(scale_float.numpy())
     source_cuda = quantized.to(device="cuda", dtype=torch.float32)
-    if scale_float.ndim != 2 or scale_float.shape != (quantized.shape[0], 1):
-        raise RuntimeError(f"routed scale geometry mismatch L{layer:03d}")
-    source_cuda.mul_(scale_float.to(device="cuda").expand(-1, quantized.shape[1]))
+    try:
+        expansion = _scale_expansion_factor(quantized.shape, scale_float.shape)
+    except RuntimeError as error:
+        raise RuntimeError(f"routed scale geometry mismatch L{layer:03d}") from error
+    expanded_scale = scale_float.to(device="cuda").repeat_interleave(expansion, dim=1)
+    source_cuda.mul_(expanded_scale)
     torch.cuda.synchronize()
     source = source_cuda.cpu().numpy().astype(np.float32, copy=False)
     return source, {
