@@ -23,6 +23,29 @@ from banana_smasher.hf_deepseek_v4_backpack_adapter import (
 )
 
 
+def test_runtime_accepts_full_closure_recovered_qtip3_receipt(tmp_path) -> None:
+    artifact = tmp_path / "QTIP_UNIT.pt"
+    artifact.write_bytes(b"sealed-qtip3")
+    receipt = {
+        "schema": "banana-smasher-recovered-public-api-qtip-unit-v1",
+        "status": "PASS",
+        "basis_sha256": "a" * 64,
+        "cell_id": "L000:E000:down",
+        "tier": "qtip3",
+        "artifact_bytes": artifact.stat().st_size,
+        "artifact_sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+    }
+
+    backpack_runtime_exact64.DeepseekV4BackpackRuntime._validate_native_qtip3_receipt(
+        receipt,
+        layer=0,
+        expert=0,
+        projection="down",
+        basis_sha256="a" * 64,
+        artifact_path=artifact,
+    )
+
+
 def test_exact64_accepts_one_window_sanity_bank() -> None:
     backpack_runtime_exact64._validate_bank_window_count(
         expected_windows=1, observed_windows=1

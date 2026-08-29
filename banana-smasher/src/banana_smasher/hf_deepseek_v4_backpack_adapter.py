@@ -376,6 +376,42 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         decoded = _fwht(torch, decoded) * su[:, None, :]
         return list(decoded.to(torch.bfloat16).unbind(0))
 
+    @staticmethod
+    def _validate_native_qtip3_receipt(
+        receipt: Mapping[str, Any],
+        *,
+        layer: int,
+        expert: int,
+        projection: str,
+        basis_sha256: str,
+        artifact_path: Path,
+    ) -> None:
+        basis = receipt.get("basis_gate")
+        original = (
+            receipt.get("schema") == "banana-smasher-qtip-solve-v1"
+            and receipt.get("status") == "PASS"
+            and receipt.get("layer") == layer
+            and receipt.get("expert") == expert
+            and receipt.get("projection") == projection
+            and isinstance(basis, Mapping)
+            and basis.get("index_sha256") == basis_sha256
+        )
+        recovered = (
+            receipt.get("schema")
+            == "banana-smasher-recovered-public-api-qtip-unit-v1"
+            and receipt.get("status") == "PASS"
+            and receipt.get("basis_sha256") == basis_sha256
+            and receipt.get("cell_id") == f"L{layer:03d}:E{expert:03d}:{projection}"
+            and receipt.get("tier") == "qtip3"
+            and receipt.get("artifact_bytes") == artifact_path.stat().st_size
+            and receipt.get("artifact_sha256")
+            == hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        )
+        if not original and not recovered:
+            raise ValueError(
+                f"QTIP unit receipt identity mismatch: {artifact_path.parent}"
+            )
+
     def _load_verified_native_qtip3_payload(
         self, layer: int, expert: int, projection: str
     ) -> Mapping[str, Any]:
@@ -384,17 +420,14 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         receipt_path = unit_root / "QTIP_SOLVE_RECEIPT.json"
         artifact_path = unit_root / "QTIP_UNIT.pt"
         receipt = json.loads(receipt_path.read_text())
-        basis = receipt.get("basis_gate")
-        if (
-            receipt.get("schema") != "banana-smasher-qtip-solve-v1"
-            or receipt.get("status") != "PASS"
-            or receipt.get("layer") != layer
-            or receipt.get("expert") != expert
-            or receipt.get("projection") != projection
-            or not isinstance(basis, Mapping)
-            or basis.get("index_sha256") != self.basis_sha256
-        ):
-            raise ValueError(f"QTIP unit receipt identity mismatch: {unit_root}")
+        self._validate_native_qtip3_receipt(
+            receipt,
+            layer=layer,
+            expert=expert,
+            projection=projection,
+            basis_sha256=self.basis_sha256,
+            artifact_path=artifact_path,
+        )
         self._record_path(receipt_path)
         payload = self._load_qtip_payload(
             receipt=receipt,
