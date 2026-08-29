@@ -858,6 +858,57 @@ def test_run6524_localizes_experts_implementation_dispatch() -> None:
     assert '"SOURCE_IMPLEMENTATION_DISPATCH"' in source
 
 
+def test_run6873_compares_grouped_mm_operations_with_source_flinear() -> None:
+    import sys
+    import types
+    from repair_api.resident_full64_accept import _call_with_grouped_mm_operation_probe
+
+    class Experts:
+        config = types.SimpleNamespace(_experts_implementation="grouped_mm")
+
+    calls = 0
+
+    def fake_grouped(inputs, weights, offsets, *, bias=None, is_transposed=False):
+        nonlocal calls
+        del offsets, bias, is_transposed
+        calls += 1
+        return torch.zeros((inputs.shape[0], weights.shape[1]), dtype=inputs.dtype)
+
+    namespace = {"_grouped_linear": fake_grouped}
+    exec("def grouped_mm_experts_forward(): pass", namespace)
+    moe = types.ModuleType("transformers.integrations.moe")
+    moe.grouped_mm_experts_forward = namespace["grouped_mm_experts_forward"]
+    integrations = types.ModuleType("transformers.integrations")
+    integrations.moe = moe
+    transformers = types.ModuleType("transformers")
+    transformers.integrations = integrations
+    modules = {
+        "transformers": transformers,
+        "transformers.integrations": integrations,
+        "transformers.integrations.moe": moe,
+    }
+    with patch.dict(sys.modules, modules):
+        def forward(hidden, _index, _weights):
+            offsets = torch.tensor([hidden.shape[0]], dtype=torch.int32)
+            first = namespace["_grouped_linear"](
+                hidden, torch.ones((1, 2, 2)), offsets
+            )
+            return namespace["_grouped_linear"](
+                first, torch.ones((1, 2, 2)), offsets
+            )
+
+        output, operations = _call_with_grouped_mm_operation_probe(
+            Experts(), forward, torch.ones((2, 2)),
+            torch.zeros((2, 1), dtype=torch.int64), torch.ones((2, 1)),
+        )
+
+    assert calls == 2
+    assert namespace["_grouped_linear"] is fake_grouped
+    assert torch.equal(output, torch.zeros((2, 2)))
+    assert [item["grouped_vs_source_exact"] for item in operations] == [False, True]
+    assert operations[0]["source"].endswith("grouped_mm_experts_forward")
+
+
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
     from repair_api.resident_full64_accept import _routed_return_assembly_witness
 

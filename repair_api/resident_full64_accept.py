@@ -1509,6 +1509,68 @@ def _decode_r20_expert_w1(expert: Any) -> Any:
     ).transpose(0, 1).contiguous()
 
 
+def _call_with_grouped_mm_operation_probe(
+    experts: Any, forward: Any, hidden_states: Any, top_k_index: Any,
+    top_k_weights: Any,
+) -> tuple[Any, list[dict[str, Any]]]:
+    """Compare each authentic grouped-mm GEMM with source-shaped F.linear."""
+    import transformers.integrations.moe as moe
+
+    implementation = str(getattr(experts.config, "_experts_implementation", ""))
+    if implementation != "grouped_mm":
+        raise RuntimeError(f"GROUPED_MM_OPERATION_IMPLEMENTATION_RED:{implementation}")
+    implementation_globals = moe.grouped_mm_experts_forward.__globals__
+    original_grouped_linear = implementation_globals["_grouped_linear"]
+    operations: list[dict[str, Any]] = []
+
+    def observed_grouped_linear(
+        inputs: Any, weights: Any, offsets: Any, *, bias: Any = None,
+        is_transposed: bool = False,
+    ) -> Any:
+        grouped = original_grouped_linear(
+            inputs, weights, offsets, bias=bias, is_transposed=is_transposed
+        )
+        if is_transposed:
+            raise RuntimeError("GROUPED_MM_OPERATION_TRANSPOSED_UNSUPPORTED")
+        source = torch.empty_like(grouped)
+        start = 0
+        for expert_index, stop_value in enumerate(offsets.detach().cpu().tolist()):
+            stop = int(stop_value)
+            if stop > start:
+                expert_bias = None if bias is None else bias[expert_index]
+                source[start:stop] = torch.nn.functional.linear(
+                    inputs[start:stop], weights[expert_index], expert_bias
+                )
+            start = stop
+        if start != int(inputs.shape[0]):
+            raise RuntimeError(
+                f"GROUPED_MM_OPERATION_SENTINEL_ROWS_UNSUPPORTED:{start}:{inputs.shape[0]}"
+            )
+        operations.append({
+            "call_index": len(operations),
+            "source": "transformers/integrations/moe.py:380-481 grouped_mm_experts_forward",
+            "accepted_source": "transformers modeling_deepseek_v4.py:1006-1022 per-expert F.linear",
+            "inputs": _tensor_tap(inputs),
+            "weights": _tensor_tap(weights),
+            "offsets": _tensor_tap(offsets),
+            "grouped_mm_output": _tensor_tap(grouped),
+            "source_flinear_output": _tensor_tap(source),
+            "grouped_vs_source_exact": bool(torch.equal(grouped, source)),
+        })
+        return grouped
+
+    implementation_globals["_grouped_linear"] = observed_grouped_linear
+    try:
+        output = forward(hidden_states, top_k_index, top_k_weights)
+    finally:
+        if implementation_globals.get("_grouped_linear") is not observed_grouped_linear:
+            raise RuntimeError("GROUPED_MM_OPERATION_PROBE_ALIAS_DRIFT")
+        implementation_globals["_grouped_linear"] = original_grouped_linear
+    if len(operations) != 2:
+        raise RuntimeError(f"GROUPED_MM_OPERATION_CALL_COUNT_RED:{len(operations)}")
+    return output, operations
+
+
 def _run_one_layer_with_authentic_projection_control(
     engine: Any, layer: Any, hidden: Any, ids: Any,
 ) -> tuple[Any, dict[str, Any]]:
@@ -1526,7 +1588,13 @@ def _run_one_layer_with_authentic_projection_control(
     def transparent_forward(
         module: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any,
     ) -> Any:
-        authentic = original_forward(hidden_states, top_k_index, top_k_weights)
+        if os.environ.get("RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0") == "1":
+            authentic, grouped_mm_operations = _call_with_grouped_mm_operation_probe(
+                module, original_forward, hidden_states, top_k_index, top_k_weights
+            )
+        else:
+            authentic = original_forward(hidden_states, top_k_index, top_k_weights)
+            grouped_mm_operations = []
         immediate_duplicate = original_forward(hidden_states, top_k_index, top_k_weights)
         if inspect.ismethod(source_forward):
             undecorated_source = source_forward(
@@ -1543,6 +1611,7 @@ def _run_one_layer_with_authentic_projection_control(
             authentic=authentic.detach(),
             replay=immediate_duplicate.detach(),
             undecorated_source=undecorated_source.detach(),
+            grouped_mm_operations=grouped_mm_operations,
         )
         return authentic
 
@@ -1559,7 +1628,7 @@ def _run_one_layer_with_authentic_projection_control(
             experts.__dict__.pop("forward", None)
     required = (
         "hidden_states", "top_k_index", "top_k_weights", "authentic", "replay",
-        "undecorated_source",
+        "undecorated_source", "grouped_mm_operations",
     )
     if tuple(captured) != required:
         raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_MISSING")
@@ -1603,6 +1672,24 @@ def _run_one_layer_with_authentic_projection_control(
                 "authorize localization only when decorated duplicate is exact and "
                 "undecorated source body differs"
             ),
+            "repair_authorized": False,
+        },
+        "grouped_mm_operation_comparator": {
+            "status": (
+                "GROUPED_MM_OPERATION_LOCALIZED"
+                if captured["grouped_mm_operations"]
+                and any(
+                    not operation["grouped_vs_source_exact"]
+                    for operation in captured["grouped_mm_operations"]
+                )
+                else "GROUPED_MM_OPERATION_PARITY"
+            ),
+            "one_variable": (
+                "authentic grouped_mm GEMM versus per-expert source F.linear "
+                "on identical operands"
+            ),
+            "control": "decorated grouped_mm duplicate return is byte-exact",
+            "operations": captured["grouped_mm_operations"],
             "repair_authorized": False,
         },
         "source_caller_context": {
@@ -1693,7 +1780,7 @@ def _sealed_authentic_source_projection_control(
             )
             del control_model, control_layer, control_sd
             torch.cuda.empty_cache()
-    gathered: list[Any] = [None, None]
+    gathered: list[Any] = [None] * torch.distributed.get_world_size()
     engine.dist.all_gather_object(gathered, local)
     control = gathered[0].get("source_projection_control")
     if not isinstance(control, dict):
@@ -1701,9 +1788,14 @@ def _sealed_authentic_source_projection_control(
     dispatch_probe = os.environ.get(
         "RUN6524_SOURCE_IMPLEMENTATION_DISPATCH_ONLY", "0"
     ) == "1"
+    operation_probe = os.environ.get(
+        "RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0"
+    ) == "1"
     receipt = {
         "schema": (
-            "banana-smasher-source-implementation-dispatch-v1"
+            "banana-smasher-grouped-mm-operation-comparator-v1"
+            if operation_probe
+            else "banana-smasher-source-implementation-dispatch-v1"
             if dispatch_probe
             else "banana-smasher-authentic-source-projection-control-v1"
         ),
@@ -1721,7 +1813,8 @@ def _sealed_authentic_source_projection_control(
         "created_unix": time.time(),
     }
     receipt_stem = (
-        "SOURCE_IMPLEMENTATION_DISPATCH"
+        "GROUPED_MM_OPERATION_COMPARATOR"
+        if operation_probe else "SOURCE_IMPLEMENTATION_DISPATCH"
         if dispatch_probe else "AUTHENTIC_SOURCE_PROJECTION_CONTROL"
     )
     path = root / "receipts" / f"{receipt_stem}.rank{rank}.json"
@@ -2983,6 +3076,7 @@ def main() -> None:
     if (
         os.environ.get("RUN6522_AUTHENTIC_SOURCE_PROJECTION_CONTROL_ONLY", "0") == "1"
         or os.environ.get("RUN6524_SOURCE_IMPLEMENTATION_DISPATCH_ONLY", "0") == "1"
+        or os.environ.get("RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0") == "1"
     ):
         _sealed_authentic_source_projection_control(
             engine, window=28, root=root, rank=rank, pin=pin,
