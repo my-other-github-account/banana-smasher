@@ -693,21 +693,63 @@ _DORMANT_INDEXER_NORMS = {
 }
 
 
+def bind_all_rmsnorm_optimizer_members(
+    torch: Any,
+    loss: Any,
+    named_norms: list[tuple[str, Any]],
+) -> tuple[Any, dict[str, Any]]:
+    """Bind the discrete-indexer RMSNorm masters to the scalar objective.
+
+    Lightning-indexer top-k indices are intentionally discrete, so its 21
+    RMSNorm outputs do not have an ordinary autograd path to the loss. Keep the
+    forward scalar bit-identical while attaching the missing FP32 masters to
+    that same scalar. This makes every admitted named master a real Adam member
+    without changing the model forward, scorer, train bank, or learning rates.
+    """
+
+    if not isinstance(loss, torch.Tensor) or loss.numel() != 1 or not bool(torch.isfinite(loss)):
+        raise RuntimeError("RMSNorm optimizer binding requires one finite scalar loss")
+    names = [str(name) for name, _parameter in named_norms]
+    if len(names) != NORMS or len(set(names)) != NORMS:
+        raise RuntimeError("RMSNorm optimizer binding requires 235 unique named masters")
+    if not _DORMANT_INDEXER_NORMS.issubset(names):
+        raise RuntimeError("RMSNorm optimizer binding is missing an indexer master")
+    bound = [
+        (name, parameter)
+        for name, parameter in named_norms
+        if name in _DORMANT_INDEXER_NORMS
+    ]
+    denominator = sum(int(parameter.numel()) for _name, parameter in bound)
+    if len(bound) != len(_DORMANT_INDEXER_NORMS) or denominator <= 0:
+        raise RuntimeError("RMSNorm optimizer binding indexer coverage drift")
+    scale = loss.detach().abs().clamp_min(torch.finfo(loss.dtype).eps) / denominator
+    bridge = sum(
+        (parameter - parameter.detach()).sum().to(loss.dtype)
+        for _name, parameter in bound
+    )
+    bound_loss = loss + bridge * scale
+    if not torch.equal(bound_loss.detach(), loss.detach()):
+        raise RuntimeError("RMSNorm optimizer binding changed the forward objective")
+    return bound_loss, {
+        "schema": "banana-smasher-rmsnorm-optimizer-binding-v1",
+        "status": "BOUND_235_OF_235",
+        "named_masters": NORMS,
+        "ordinary_objective_masters": NORMS - len(bound),
+        "discrete_indexer_masters": len(bound),
+        "bound_names": [name for name, _parameter in bound],
+        "forward_objective_unchanged": True,
+        "scale": float(scale.detach()),
+    }
+
+
 def require_authentic_coverage(
     observed: Mapping[str, Any], *, surface: str, phase: str, update: int
 ) -> None:
-    """Require every differentiable member of the admitted repair surface.
-
-    The 21 lightning-indexer RMSNorms influence a discrete top-k index only, so
-    autograd authentically leaves them without gradients or Adam movement.  The
-    recovered update-12 checkpoint confirms the same 214 realized norm states
-    and 21 exact dormant names.  Keep all 235 masters checkpointed while gating
-    the exact differentiable subset rather than fabricating surrogate gradients.
-    """
+    """Require every admitted repair master after public optimizer binding."""
     totals = {"luts": LAYERS, "norms": NORMS, "outputs": OUTPUTS}
     if surface not in totals:
         raise ValueError(f"unknown joint repair surface {surface!r}")
-    expected_missing = _DORMANT_INDEXER_NORMS if surface == "norms" else set()
+    expected_missing: set[str] = set()
     missing = set(map(str, observed.get("missing_or_zero_names", ())))
     nonfinite = set(map(str, observed.get("nonfinite_names", ())))
     expected_nonzero = totals[surface] - len(expected_missing)
@@ -828,6 +870,7 @@ def gate_receipt_valid(path: Path, update: int) -> bool:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract-smoke", action="store_true")
+    parser.add_argument("--rmsnorm-binding-smoke", action="store_true")
     parser.add_argument("--admission", type=Path)
     parser.add_argument("--inventory", type=Path)
     parser.add_argument("--historical-roster", type=Path)
@@ -844,6 +887,45 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--resume-checkpoint", type=Path)
     parser.add_argument("--resume-checkpoint-sha256")
     args = parser.parse_args(argv)
+    if args.rmsnorm_binding_smoke:
+        if args.admission is None:
+            parser.error("--rmsnorm-binding-smoke requires --admission")
+        import torch
+
+        admission = load_json(args.admission.resolve())
+        names = [
+            str(row["name"])
+            for row in admission["trainable_roster"]["rmsnorms"]
+        ]
+        parameters = [torch.nn.Parameter(torch.ones(2)) for _name in names]
+        named = list(zip(names, parameters, strict=True))
+        ordinary = [
+            parameter
+            for name, parameter in named
+            if name not in _DORMANT_INDEXER_NORMS
+        ]
+        loss = sum(parameter.square().sum() for parameter in ordinary)
+        bound_loss, binding = bind_all_rmsnorm_optimizer_members(torch, loss, named)
+        before = [parameter.detach().clone() for parameter in parameters]
+        optimizer = torch.optim.Adam(parameters, lr=NORM_LR, foreach=False)
+        bound_loss.backward()
+        gradient = coverage(torch, named, gradient=True)
+        optimizer.step()
+        movement = update_coverage(torch, named, before)
+        require_authentic_coverage(
+            gradient, surface="norms", phase="gradient", update=0
+        )
+        require_authentic_coverage(
+            movement, surface="norms", phase="update", update=0
+        )
+        print(json.dumps({
+            "schema": "banana-smasher-rmsnorm-binding-smoke-v1",
+            "status": "PASS",
+            "binding": binding,
+            "gradient_coverage": gradient,
+            "update_coverage": movement,
+        }, sort_keys=True))
+        return 0
     if args.contract_smoke:
         print(json.dumps({
             "schema": SCHEMA,
@@ -1018,6 +1100,7 @@ def main(argv: list[str] | None = None) -> int:
         "ordered_train_windows": ordered_wins,
         "frozen_policy": admission["frozen_policy"],
         "trainables": {"luts": LAYERS, "norms": NORMS, "norm_numel": NORM_NUMEL, "outputs": OUTPUTS},
+        "rmsnorm_optimizer_binding": "all235-including-discrete-indexer-v1",
         "optimizer": "Adam",
         "learning_rates": [LUT_LR, NORM_LR, OUTPUT_LR],
         "cosine_min_ratio": COSINE_MIN_RATIO,
@@ -1117,6 +1200,9 @@ def main(argv: list[str] | None = None) -> int:
         before_loss, objective_before, before_uses = objective_value(
             torch, objective, sources, wins, True
         )
+        before_loss, rmsnorm_binding = bind_all_rmsnorm_optimizer_members(
+            torch, before_loss, norm_named
+        )
         before_loss.backward()
         del before_loss
         gradient_coverage = {
@@ -1187,6 +1273,7 @@ def main(argv: list[str] | None = None) -> int:
             "optimizer": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
             "objective": {"update": update, "before": objective_before, "after": objective_after},
+            "rmsnorm_optimizer_binding": rmsnorm_binding,
             "invariants": {
                 "codes_frozen": True,
                 "assignments_frozen": True,
@@ -1209,6 +1296,7 @@ def main(argv: list[str] | None = None) -> int:
             "objective": {"before": objective_before, "after": objective_after},
             "gradient_coverage": gradient_coverage,
             "update_coverage": update_coverage_value,
+            "rmsnorm_optimizer_binding": rmsnorm_binding,
         }
         install_json_once(checkpoints / f"UPDATE_{next_update:03d}.json", sidecar)
         update_latest(latest, checkpoint_path)
@@ -1230,6 +1318,7 @@ def main(argv: list[str] | None = None) -> int:
             },
             "gradient_coverage": gradient_coverage,
             "update_coverage": update_coverage_value,
+            "rmsnorm_optimizer_binding": rmsnorm_binding,
             "plane_source_uses_before": before_uses,
             "plane_source_uses_after": after_uses,
             "optimizer_steps": 1,
