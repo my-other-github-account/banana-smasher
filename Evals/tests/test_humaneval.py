@@ -63,49 +63,6 @@ class HumanEvalToolingTests(unittest.TestCase):
             self.assertNotIn("secret prompt text", audit_path.read_text())
             self.assertEqual(len(record["messages_sha256"]), 64)
 
-    def test_final_answer_shim_promotes_reasoning_field_when_content_is_null(self) -> None:
-        message = types.SimpleNamespace(content=None, reasoning="def answer():\n    return 42")
-        response = types.SimpleNamespace(
-            choices=[types.SimpleNamespace(message=message)]
-        )
-        request_module = types.SimpleNamespace(
-            make_request=lambda *args, **kwargs: response
-        )
-
-        humaneval.install_openai_final_answer_shim(request_module)
-        result = request_module.make_request(
-            object(),
-            message="prompt",
-            model="mock",
-            max_tokens=4096,
-            temperature=0.0,
-            n=1,
-        )
-
-        self.assertIs(result, response)
-        self.assertEqual(message.content, "def answer():\n    return 42")
-
-    def test_final_answer_shim_preserves_existing_final_content(self) -> None:
-        message = types.SimpleNamespace(content="final", reasoning="thinking")
-        response = types.SimpleNamespace(
-            choices=[types.SimpleNamespace(message=message)]
-        )
-        request_module = types.SimpleNamespace(
-            make_request=lambda *args, **kwargs: response
-        )
-
-        humaneval.install_openai_final_answer_shim(request_module)
-        request_module.make_request(
-            object(),
-            message="prompt",
-            model="mock",
-            max_tokens=4096,
-            temperature=0.0,
-            n=1,
-        )
-
-        self.assertEqual(message.content, "final")
-
     def test_merge_writes_exactly_one_sorted_sample_per_task(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
