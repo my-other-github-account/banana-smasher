@@ -857,6 +857,39 @@ def _replay_source_return_assemblies(
     }
 
 
+def _adjudicate_temporal_interleaving(
+    authentic_control_return: Any,
+    source_interleaved_return: Any,
+    post_materialized_return: Any,
+) -> dict[str, Any]:
+    """Adjudicate source-temporal projection/add against delayed assembly."""
+    source_exact = torch.equal(source_interleaved_return, authentic_control_return)
+    delayed_exact = torch.equal(post_materialized_return, authentic_control_return)
+    return {
+        "status": (
+            "TEMPORAL_INTERLEAVING_LOCALIZED"
+            if source_exact and not delayed_exact
+            else "TEMPORAL_INTERLEAVING_INCONCLUSIVE"
+        ),
+        "installed_provider_source": "repair_api/modern_green_resident.py:538-573",
+        "accepted_builder_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473",
+        "one_variable": (
+            "per-expert projection -> weight -> immediate index_add versus "
+            "post-materialized all-route assembly"
+        ),
+        "instrument_control_self_compare_exact": source_exact,
+        "source_interleaved_matches_authentic_control": source_exact,
+        "post_materialized_matches_authentic_control": delayed_exact,
+        "authentic_control_return": _tensor_tap(authentic_control_return),
+        "source_interleaved_return": _tensor_tap(source_interleaved_return),
+        "post_materialized_return": _tensor_tap(post_materialized_return),
+        "first_temporal_operation_divergence": (
+            "deferred_all_route_materialization_before_index_add"
+            if source_exact and not delayed_exact else None
+        ),
+    }
+
+
 def _run_one_layer_with_attention(engine: Any, layer: Any, hidden: Any, ids: Any) -> tuple[Any, Any]:
     from transformers.cache_utils import DynamicCache
 
@@ -1181,7 +1214,7 @@ def _run_one_layer_with_expert_trace(
     if tuple(replay_inputs) != ("hidden_states", "top_k_index", "top_k_weights"):
         raise RuntimeError("EXPERT_TRACE_TRANSPARENT_WRAPPER_NOT_CALLED")
     replay = replay_resident if resident else replay_control
-    replay(
+    replay_result = replay(
         experts,
         replay_inputs["hidden_states"],
         replay_inputs["top_k_index"],
@@ -1196,6 +1229,10 @@ def _run_one_layer_with_expert_trace(
             "full_weighted_routed_output", "full_route_expert", "authentic_routed_return"
         )
     }
+    if not resident:
+        # replay_control is the accepted source loop itself: each expert's
+        # projections, weighting, and index_add are temporally interleaved.
+        full_trace["temporal_interleaved_return"] = replay_result.cpu()
     if resident:
         schedules = _replay_a30_route_schedules(
             replay_inputs["hidden_states"], replay_inputs["top_k_index"],
@@ -1664,6 +1701,11 @@ def _sealed_runtime_expert_trace_ab(
                 variant_trace["authentic_routed_return"],
             )
             local["source_return_assembly"] = source_return_assembly
+            local["temporal_interleaving"] = _adjudicate_temporal_interleaving(
+                control_trace["authentic_routed_return"],
+                control_trace["temporal_interleaved_return"],
+                variant_trace["a30_expert_major_return"],
+            )
             local["a30_authentic_route_capture"] = {
                 "w2_output": _tensor_tap(variant_trace["authentic_w2_output"]),
                 "route_weights": _tensor_tap(variant_trace["authentic_route_weights"]),
@@ -1727,6 +1769,9 @@ def _sealed_runtime_expert_trace_ab(
     source_return_assembly = gathered[0].get("source_return_assembly")
     if not isinstance(source_return_assembly, dict):
         raise RuntimeError("RUN6519_SOURCE_RETURN_ASSEMBLY_MISSING")
+    temporal_interleaving = gathered[0].get("temporal_interleaving")
+    if not isinstance(temporal_interleaving, dict):
+        raise RuntimeError("RUN6520_TEMPORAL_INTERLEAVING_MISSING")
     first_assembly_operation = source_return_assembly.get(
         "first_assembly_operation_divergence"
     ) or routed_return_assembly.get("first_unequal_assembly_operation")
@@ -1756,6 +1801,7 @@ def _sealed_runtime_expert_trace_ab(
         "pre_gemm_comparison": pre_gemm,
         "routed_return_assembly": routed_return_assembly,
         "source_return_assembly": source_return_assembly,
+        "temporal_interleaving": temporal_interleaving,
         "assembly_control_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473 + accepted DeepseekV4Experts torch.where/index_add forward",
         "assembly_variant_source": "repair_api/modern_green_resident.py:520-543 (_sealed_builder_accumulate_routes)",
         "source_backed_repair_candidate": candidate,

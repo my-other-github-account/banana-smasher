@@ -720,6 +720,25 @@ def test_run6519_source_return_assembly_smoke() -> None:
     assert observed["first_assembly_operation_divergence"] is None
 
 
+def test_run6520_temporal_interleaving_adjudication() -> None:
+    from repair_api.resident_full64_accept import _adjudicate_temporal_interleaving
+
+    authentic = torch.tensor([[1.0], [2.0]], dtype=torch.bfloat16)
+    source_interleaved = authentic.clone()
+    post_materialized = torch.tensor([[1.0], [3.0]], dtype=torch.bfloat16)
+
+    observed = _adjudicate_temporal_interleaving(
+        authentic, source_interleaved, post_materialized,
+    )
+
+    assert observed["status"] == "TEMPORAL_INTERLEAVING_LOCALIZED"
+    assert observed["instrument_control_self_compare_exact"] is True
+    assert observed["post_materialized_matches_authentic_control"] is False
+    assert observed["first_temporal_operation_divergence"] == (
+        "deferred_all_route_materialization_before_index_add"
+    )
+
+
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
     from repair_api.resident_full64_accept import _routed_return_assembly_witness
 
