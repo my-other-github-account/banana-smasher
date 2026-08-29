@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -224,6 +225,21 @@ def test_public_full_surface_wrapper_pins_one_successor_and_backend():
     assert configured["world_size"] == 1
     assert configured["layer_split"] == {"0": [0, 42]}
     assert "v7_lut_only_update" not in configured
+
+
+def test_resident_loader_releases_cpu_source_duplicate_after_gpu_consumer() -> None:
+    source = (
+        Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
+    ).read_text()
+    loop = source[source.index("for layer in range(first, last + 1):") :]
+    materialize = loop.index("base.v3.materialize_layer")
+    synchronize = loop.index("torch.cuda.synchronize()", materialize)
+    release = loop.index("release_model_source_cache(layer)", synchronize)
+    empty_cache = loop.index("torch.cuda.empty_cache()", release)
+    status = loop.index("status_cb(", empty_cache)
+    assert materialize < synchronize < release < empty_cache < status
+    assert "handles.clear()" in source
+    assert "POSIX_FADV_DONTNEED" in source
 
 
 def test_exact_u20_full_surface_backend_is_an_authenticated_resume():

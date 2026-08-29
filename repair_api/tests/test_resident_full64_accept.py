@@ -438,7 +438,7 @@ def test_sealed_pre_binding_owns_accepted_trainer_identity() -> None:
     ).resolve()
     assert Path(config["trainer_source"]) == expected
     assert config["trainer_source_sha256"] == (
-        "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
+        "687b08a6a5e30bd41c0eccd42b257d526579443322822ae26ee040b1619aaf50"
     )
 
 

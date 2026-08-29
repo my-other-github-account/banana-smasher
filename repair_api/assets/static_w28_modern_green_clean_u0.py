@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import json
 import math
@@ -498,6 +499,30 @@ class ShardStudent:
                 handles[shard] = safe_open(str(model_root / shard), framework="pt")
             return handles[shard].get_tensor(name)
 
+        def release_model_source_cache(layer: int) -> None:
+            """Drop clean source-shard pages after their CUDA copies are sealed."""
+            prefix = f"layers.{layer}."
+            shards = sorted({
+                shard for name, shard in self.wm.items() if name.startswith(prefix)
+            })
+            handles.clear()
+            gc.collect()
+            advise = getattr(os, "posix_fadvise", None)
+            dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
+            if advise is None or dontneed is None:
+                raise RuntimeError("model source page-cache eviction is unavailable")
+            for shard in shards:
+                path = model_root / shard
+                descriptor = os.open(path, os.O_RDONLY)
+                try:
+                    advise(descriptor, 0, 0, dontneed)
+                except OSError as exc:
+                    raise RuntimeError(
+                        f"L{layer:03d} model source page-cache eviction failed: {path}: {exc}"
+                    ) from exc
+                finally:
+                    os.close(descriptor)
+
         self.get_tensor = get_tensor
         m = self.model
         if rank == 0:
@@ -539,6 +564,12 @@ class ShardStudent:
             sd = base.T.build_nonexpert_sd(layer, self.wm, get_tensor)
             base.v3.materialize_layer(m, layer, sd, self.config)
             del sd
+            # The safetensors mmap pages are a CPU-side duplicate once the
+            # layer's CUDA parameters are materialized.  Bound that duplicate
+            # to its consumer instead of accumulating one full model in RAM.
+            torch.cuda.synchronize()
+            release_model_source_cache(layer)
+            torch.cuda.empty_cache()
             status_cb(
                 phase="loading",
                 loaded_layer=layer,
