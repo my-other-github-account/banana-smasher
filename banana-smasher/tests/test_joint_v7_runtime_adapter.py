@@ -20,7 +20,8 @@ def _runtime_module():
 class _Indexer(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.kv_norm = nn.LayerNorm(4, elementwise_affine=True)
+        # Physical index-head width is independent of outer compressor width.
+        self.kv_norm = nn.LayerNorm(2, elementwise_affine=True)
 
 
 class _Compressor(nn.Module):

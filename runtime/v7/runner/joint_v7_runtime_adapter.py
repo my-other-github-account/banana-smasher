@@ -176,10 +176,11 @@ def _install_indexer_norm_gradient_access(student: Any) -> tuple[str, ...]:
                 raise RuntimeError(f"compressor output seam drift: {path}")
             compressed_kv, block_bias = output
             current = norm.weight
-            if current.ndim != 1 or int(compressed_kv.shape[-1]) != int(current.shape[0]):
+            if current.ndim != 1:
                 raise RuntimeError(f"compressor-indexer RMSNorm width drift: {path}")
-            zero_forward = current.float() - current.float().detach()
-            bridged = compressed_kv + compressed_kv * zero_forward.to(compressed_kv.dtype).reshape(1, 1, 1, -1)
+            access = current.float().mean()
+            zero_forward = access - access.detach()
+            bridged = compressed_kv + compressed_kv * zero_forward.to(compressed_kv.dtype)
             return bridged, block_bias
 
         handle = compressor.register_forward_hook(bridge)
