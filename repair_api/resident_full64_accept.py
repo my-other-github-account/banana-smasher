@@ -2272,6 +2272,39 @@ def validate_full64_admission_pairs(
     }
 
 
+def _admit_initial_w28_geometry(
+    config: dict[str, Any], *, singleton_public_parity_tap_only: bool
+) -> str:
+    """Admit singleton geometry only for the returning public tap diagnostic."""
+    if singleton_public_parity_tap_only:
+        if (
+            int(config.get("score_window_batch_size", 0)) != 1
+            or int(config.get("sealed_builder_window_microbatch", 0)) != 1
+        ):
+            raise RuntimeError("PARITY_TAP_REQUIRES_SINGLETON_GEOMETRY")
+        return "SINGLETON_PUBLIC_PARITY_TAP_ONLY"
+
+    if int(config.get("score_window_batch_size", 0)) != 2:
+        raise RuntimeError("FULL64_REQUIRES_ADMITTED_BATCH_GEOMETRY")
+    accepted_w28_geometry = {
+        "score_window_batch_size": 2,
+        "sealed_builder_window_microbatch": 2,
+    }
+    if (
+        any(config.get(name) != value for name, value in accepted_w28_geometry.items())
+        or any(
+            name in config
+            for name in (
+                "score_pair_stream_concurrency",
+                "score_pipeline_overlap",
+                "attention_query_chunk_size",
+            )
+        )
+    ):
+        raise RuntimeError("W28_ACCEPTED_INCOMING_GEOMETRY_MISMATCH")
+    return "FULL64_ADMITTED_MB2_GEOMETRY"
+
+
 def main() -> None:
     rank = int(os.environ["RANK"])
     attempt = os.environ.get("BANANA_SMASHER_ATTEMPT", "")
@@ -2345,6 +2378,9 @@ def main() -> None:
     changed_input_w28_only = os.environ.get("CHANGED_INPUT_W28_ONLY", "0") == "1"
     matched_sdpa_w28_only = os.environ.get("MATCHED_SDPA_W28_ONLY", "0") == "1"
     pair_scheduling_ab_only = os.environ.get("PAIR_SCHEDULING_AB_ONLY", "0") == "1"
+    singleton_public_parity_tap_only = (
+        os.environ.get("LAW4_PUBLIC_PRODUCT_TAP_ONLY", "0") == "1"
+    )
     adopted_w28 = bool(os.environ.get("ADOPT_W28_RECEIPT"))
     adopt_keep_provider = os.environ.get("ADOPT_W28_KEEP_PROVIDER", "0") == "1"
     # With authenticated W28 adoption there is no pre-production forward: bind
@@ -2392,27 +2428,10 @@ def main() -> None:
     # their admitted single-window geometry through the existing zero-reload
     # resident API rather than the cold layer-streaming producer.
     bind_sealed_pre_resident_config(config)
-    if int(config.get("score_window_batch_size", 0)) != 2:
-        raise RuntimeError("FULL64_REQUIRES_ADMITTED_BATCH_GEOMETRY")
-    accepted_w28_geometry = {
-        # The immutable accepted producer scored W28 from an intact physical
-        # mb2 forward. Preserve that context while keeping the public roster
-        # singleton; mb1 changes the first model tensor before scoring.
-        "score_window_batch_size": 2,
-        "sealed_builder_window_microbatch": 2,
-    }
-    if (
-        any(config.get(name) != value for name, value in accepted_w28_geometry.items())
-        or any(
-            name in config
-            for name in (
-                "score_pair_stream_concurrency",
-                "score_pipeline_overlap",
-                "attention_query_chunk_size",
-            )
-        )
-    ):
-        raise RuntimeError("W28_ACCEPTED_INCOMING_GEOMETRY_MISMATCH")
+    _admit_initial_w28_geometry(
+        config,
+        singleton_public_parity_tap_only=singleton_public_parity_tap_only,
+    )
     allowed_experts = {None, "accepted_static_w28"}
     if packed_boundary_tap_only:
         allowed_experts.add("packed_cuda_bf16_boundary")
@@ -2538,7 +2557,7 @@ def main() -> None:
             torch.distributed.destroy_process_group()
         return
 
-    if os.environ.get("LAW4_PUBLIC_PRODUCT_TAP_ONLY", "0") == "1":
+    if singleton_public_parity_tap_only:
         _law4_public_product_taps(
             api, engine, window=28, root=root, rank=rank, pin=pin)
         engine.close()
