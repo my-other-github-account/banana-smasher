@@ -24,6 +24,7 @@ from .balanced64 import ArtifactError, RepairArtifact, ScoreResult, _load_torch
 from .core import SharedPreflight
 from .official_k2_resident_score import (
     ALTERNATE_PRE_CHECKPOINT_SHA256,
+    BASIS_SHA256,
     ROUTED_K2_API_METHOD,
     ROUTED_K2_API_VERSION,
     ROUTED_K2_CLOSURE,
@@ -31,6 +32,33 @@ from .official_k2_resident_score import (
     _published_pre_production_admitted,
     validate_routed_k2_closure,
 )
+
+
+_STALE_SPARK5_MODEL_ROOT = Path(
+    "/home/dnola/missions/STAGE_U20_t_3a6f22a5_spark-5-work/sparse-model-rank0-v1"
+)
+
+
+def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Localize only the sealed, basis-identical stale model locator."""
+    resolved = dict(config)
+    override = os.environ.get("BANANA_SMASHER_OFFICIAL_MODEL_ROOT")
+    if not override:
+        return resolved
+    declared = Path(str(resolved.get("model_root", ""))).expanduser()
+    if declared != _STALE_SPARK5_MODEL_ROOT:
+        raise ArtifactError("official-K2 model-root localization requires the sealed stale Spark-5 locator")
+    if declared.exists():
+        raise ArtifactError("official-K2 model-root localization refuses to replace a present sealed locator")
+    candidate = Path(override).expanduser().resolve()
+    index = candidate / "model.safetensors.index.json"
+    if not index.is_file():
+        raise ArtifactError(f"official-K2 localized model index is missing: {index}")
+    observed = hashlib.sha256(index.read_bytes()).hexdigest()
+    if resolved.get("basis_sha256") != BASIS_SHA256 or observed != BASIS_SHA256:
+        raise ArtifactError("official-K2 localized model root failed the immutable basis gate")
+    resolved["model_root"] = str(candidate)
+    return resolved
 
 
 def _validate_published_pre_resume_start(
@@ -1991,7 +2019,10 @@ class ResidentRepairAPI:
                 if factory is None:
                     from .official_k2_resident_score import OfficialK2ResidentScorer
                     factory = OfficialK2ResidentScorer
-                backend = factory(self.artifact, official_config)
+                backend = factory(
+                    self.artifact,
+                    _resolve_official_k2_config_locators(official_config),
+                )
                 self._official_backends[backend_key] = backend
             try:
                 result = backend.score(key, selected)
