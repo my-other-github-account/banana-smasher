@@ -805,6 +805,54 @@ def test_run6522_authentic_source_projection_control_duplicates_exact_call() -> 
         == control["post_layer_source_projection_path_return"]
     )
     assert control["source_caller_context"]["status"] == "SOURCE_CALLER_CONTEXT_PARITY"
+    assert control["source_implementation_dispatch"]["status"] == (
+        "SOURCE_IMPLEMENTATION_DISPATCH_PARITY"
+    )
+
+
+def test_run6524_localizes_experts_implementation_dispatch() -> None:
+    import functools
+    import types
+    from repair_api.resident_full64_accept import (
+        _run_one_layer_with_authentic_projection_control,
+    )
+
+    class Experts(torch.nn.Module):
+        def source(self, hidden, top_k_index, top_k_weights):
+            del top_k_index, top_k_weights
+            return hidden + 1
+
+        @functools.wraps(source)
+        def forward(self, hidden, top_k_index, top_k_weights):
+            del top_k_index, top_k_weights
+            return hidden + 2
+
+    experts = Experts()
+    layer = types.SimpleNamespace(mlp=types.SimpleNamespace(experts=experts))
+    hidden = torch.zeros((3, 2))
+    ids = torch.zeros((1, 3), dtype=torch.int64)
+
+    def fake_layer_run(_engine, _layer, value, _ids):
+        index = torch.zeros((value.shape[0], 1), dtype=torch.int64)
+        weights = torch.ones((value.shape[0], 1))
+        return _layer.mlp.experts(value, index, weights), None
+
+    with patch(
+        "repair_api.resident_full64_accept._run_one_layer_with_attention",
+        fake_layer_run,
+    ):
+        output, control = _run_one_layer_with_authentic_projection_control(
+            object(), layer, hidden, ids,
+        )
+
+    assert torch.equal(output, hidden + 2)
+    assert control["instrument_control_self_compare_exact"] is True
+    dispatch = control["source_implementation_dispatch"]
+    assert dispatch["status"] == "SOURCE_IMPLEMENTATION_DISPATCH_LOCALIZED"
+    assert dispatch["decorated_vs_undecorated_exact"] is False
+    assert control["undecorated_source_body_return"]["sha256"] != (
+        control["authentic_projection_path_return"]["sha256"]
+    )
 
 
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:

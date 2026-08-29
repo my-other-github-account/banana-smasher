@@ -1513,12 +1513,14 @@ def _run_one_layer_with_authentic_projection_control(
     engine: Any, layer: Any, hidden: Any, ids: Any,
 ) -> tuple[Any, dict[str, Any]]:
     """Invoke the exact bound source expert path twice on identical operands."""
+    import inspect
     import types
 
     experts = layer.mlp.experts
     had_instance_forward = "forward" in experts.__dict__
     prior_instance_forward = experts.__dict__.get("forward")
     original_forward = experts.forward
+    source_forward = inspect.unwrap(original_forward)
     captured: dict[str, Any] = {}
 
     def transparent_forward(
@@ -1526,12 +1528,21 @@ def _run_one_layer_with_authentic_projection_control(
     ) -> Any:
         authentic = original_forward(hidden_states, top_k_index, top_k_weights)
         immediate_duplicate = original_forward(hidden_states, top_k_index, top_k_weights)
+        if inspect.ismethod(source_forward):
+            undecorated_source = source_forward(
+                hidden_states, top_k_index, top_k_weights
+            )
+        else:
+            undecorated_source = source_forward(
+                module, hidden_states, top_k_index, top_k_weights
+            )
         captured.update(
             hidden_states=hidden_states.detach(),
             top_k_index=top_k_index.detach(),
             top_k_weights=top_k_weights.detach(),
             authentic=authentic.detach(),
             replay=immediate_duplicate.detach(),
+            undecorated_source=undecorated_source.detach(),
         )
         return authentic
 
@@ -1546,11 +1557,17 @@ def _run_one_layer_with_authentic_projection_control(
             experts.forward = prior_instance_forward
         else:
             experts.__dict__.pop("forward", None)
-    required = ("hidden_states", "top_k_index", "top_k_weights", "authentic", "replay")
+    required = (
+        "hidden_states", "top_k_index", "top_k_weights", "authentic", "replay",
+        "undecorated_source",
+    )
     if tuple(captured) != required:
         raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_MISSING")
     exact = torch.equal(captured["authentic"], captured["replay"])
     context_exact = torch.equal(captured["authentic"], post_layer_return)
+    source_dispatch_exact = torch.equal(
+        captured["authentic"], captured["undecorated_source"]
+    )
     return output, {
         "status": (
             "AUTHENTIC_SOURCE_PROJECTION_CONTROL_EXACT"
@@ -1567,6 +1584,27 @@ def _run_one_layer_with_authentic_projection_control(
         "authentic_projection_path_return": _tensor_tap(captured["authentic"]),
         "immediate_duplicate_projection_path_return": _tensor_tap(captured["replay"]),
         "post_layer_source_projection_path_return": _tensor_tap(post_layer_return),
+        "undecorated_source_body_return": _tensor_tap(captured["undecorated_source"]),
+        "source_implementation_dispatch": {
+            "status": (
+                "SOURCE_IMPLEMENTATION_DISPATCH_PARITY"
+                if source_dispatch_exact else "SOURCE_IMPLEMENTATION_DISPATCH_LOCALIZED"
+            ),
+            "one_variable": (
+                "@use_experts_implementation decorated dispatch versus its exact "
+                "undecorated DeepseekV4Experts.forward source body"
+            ),
+            "decorated_vs_undecorated_exact": source_dispatch_exact,
+            "configured_implementation": str(
+                getattr(getattr(experts, "config", None), "_experts_implementation", None)
+            ),
+            "control": "two decorated dispatch invocations self-compare exactly",
+            "kill_gate": (
+                "authorize localization only when decorated duplicate is exact and "
+                "undecorated source body differs"
+            ),
+            "repair_authorized": False,
+        },
         "source_caller_context": {
             "status": (
                 "SOURCE_CALLER_CONTEXT_PARITY"
