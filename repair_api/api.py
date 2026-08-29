@@ -41,6 +41,10 @@ _STALE_SPARK5_MODEL_ROOT = Path(
 _SPARK3_SEALED_PARENT_ROOT = Path(
     "/home/dnola/missions/V7_CODEBOOK_FULLPARENT_t_569e9977_s3"
 )
+_SPARK3_SEALED_PARENT_MANIFEST_ROOT = Path(
+    "/home/dnola/missions/QTIP2_V7_JOINT_t_6aceaf1f_s3/"
+    "lut_parents_run1820_backup"
+)
 _SPARK3_SEALED_L034_ROSTER = Path(
     "/home/dnola/missions/QTIP2_V7_JOINT_t_6aceaf1f_s3/l034/"
     "L034_SELECTED_WIRE_PROVIDER_ROSTER.json"
@@ -60,7 +64,22 @@ def _select_exact_manifest_member(
     return present[0]
 
 
-def _validate_sealed_parent_root(*, parent_root: Path, admission_path: Path) -> None:
+def _resolve_exact_parent_manifest(
+    declared: Path, *, localized: Path, expected_sha256: str, label: str
+) -> Path:
+    """Localize an absent sealed manifest only to an identity-exact copy."""
+    candidate = declared if declared.is_file() else localized
+    if not candidate.is_file():
+        raise ArtifactError(f"official-K2 sealed parent manifest is missing: {label}")
+    observed = hashlib.sha256(candidate.read_bytes()).hexdigest()
+    if observed != expected_sha256:
+        raise ArtifactError(f"official-K2 sealed parent manifest identity drift: {label}")
+    return candidate.resolve()
+
+
+def _validate_sealed_parent_root(
+    *, parent_root: Path, admission_path: Path, manifest_root: Path
+) -> None:
     """Bind the localized parent to the sealed roster's manifest assignments."""
     admission = json.loads(admission_path.read_text())
     rows = admission.get("trainable_roster", {}).get("luts", [])
@@ -69,9 +88,12 @@ def _validate_sealed_parent_root(*, parent_root: Path, admission_path: Path) -> 
     for row in rows:
         layer = int(row["layer"])
         binding = row["source_manifest"]
-        manifest = Path(str(binding["path"])).resolve()
-        if not manifest.is_file() or hashlib.sha256(manifest.read_bytes()).hexdigest() != binding["sha256"]:
-            raise ArtifactError(f"official-K2 sealed parent manifest identity drift: L{layer:03d}")
+        manifest = _resolve_exact_parent_manifest(
+            Path(str(binding["path"])),
+            localized=manifest_root / f"L{layer:03d}" / "parent/QTIP_V7_MANIFEST.json",
+            expected_sha256=str(binding["sha256"]),
+            label=f"L{layer:03d}",
+        )
         # L034 is authenticated by its dedicated selected-wire roster below;
         # it is intentionally absent from the ordinary full-parent tree.
         if layer == 34:
@@ -143,6 +165,7 @@ def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str,
     _validate_sealed_parent_root(
         parent_root=Path(resolved["parent_root"]),
         admission_path=Path(resolved["asset_root"]) / "code/JOINT_REPAIR_ADMISSION.json",
+        manifest_root=_SPARK3_SEALED_PARENT_MANIFEST_ROOT,
     )
     bind_sealed_pre_resident_config(resolved)
     return resolved

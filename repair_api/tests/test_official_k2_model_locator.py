@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from repair_api.api import (
+    _resolve_exact_parent_manifest,
     _resolve_official_k2_config_locators,
     _select_exact_manifest_member,
 )
@@ -72,4 +73,22 @@ def test_manifest_member_selector_accepts_identical_duplicate_and_rejects_confli
     with pytest.raises(ArtifactError, match="non-identical ambiguity"):
         _select_exact_manifest_member(
             (q2, k2), expected_sha256=expected, label="L000 E000/w1"
+        )
+
+
+def test_parent_manifest_localizes_only_to_identity_exact_copy(tmp_path: Path) -> None:
+    declared = tmp_path / "stale" / "QTIP_V7_MANIFEST.json"
+    localized = tmp_path / "localized" / "QTIP_V7_MANIFEST.json"
+    localized.parent.mkdir()
+    localized.write_bytes(b"sealed-manifest")
+    expected = hashlib.sha256(b"sealed-manifest").hexdigest()
+
+    assert _resolve_exact_parent_manifest(
+        declared, localized=localized, expected_sha256=expected, label="L000"
+    ) == localized.resolve()
+
+    localized.write_bytes(b"drifted-manifest")
+    with pytest.raises(ArtifactError, match="identity drift: L000"):
+        _resolve_exact_parent_manifest(
+            declared, localized=localized, expected_sha256=expected, label="L000"
         )
