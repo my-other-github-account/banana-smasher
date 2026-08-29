@@ -931,6 +931,35 @@ def test_run6873_compares_grouped_mm_operations_with_source_flinear() -> None:
     assert "if grouped_mm_singleton_probe:" in provider_source
 
 
+def test_run6910_taps_grouped_post_second_gemm_routed_reduction() -> None:
+    import types
+    from repair_api.resident_full64_accept import _call_with_routed_reduction_probe
+
+    class Experts:
+        config = types.SimpleNamespace(_experts_implementation="grouped_mm")
+
+    weighted = torch.tensor(
+        [[[1.0, 2.0], [4.0, 8.0]], [[16.0, 32.0], [64.0, 128.0]]],
+        dtype=torch.bfloat16,
+    )
+
+    def forward(_hidden, _index, _weights):
+        return weighted.sum(dim=1)
+
+    output, reduction = _call_with_routed_reduction_probe(
+        Experts(), forward, torch.ones((2, 2)),
+        torch.zeros((2, 2), dtype=torch.int64), torch.ones((2, 2)),
+    )
+
+    assert torch.equal(output, weighted.sum(dim=1))
+    assert reduction["weighted_out_token_major"]["shape"] == [2, 2, 2]
+    assert reduction["grouped_reshape_sum"]["sha256"]
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    assert "RUN6910_ROUTED_REDUCTION_AB_ONLY" in source
+    assert 'or os.environ.get("RUN6910_ROUTED_REDUCTION_AB_ONLY", "0") == "1"' in source
+    assert '"POST_SECOND_GEMM_ROUTED_REDUCTION"' in source
+
+
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
     from repair_api.resident_full64_accept import _routed_return_assembly_witness
 

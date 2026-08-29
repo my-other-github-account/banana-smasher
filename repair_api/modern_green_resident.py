@@ -2098,6 +2098,7 @@ class ModernGreenResidentEngine:
             return
         grouped_mm_singleton_probe = (
             os.environ.get("RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0") == "1"
+            or os.environ.get("RUN6910_ROUTED_REDUCTION_AB_ONLY", "0") == "1"
         )
         socket_ifname = str(self.config.get("nccl_socket_ifname", ""))
         if not socket_ifname or not (Path("/sys/class/net") / socket_ifname).is_dir():

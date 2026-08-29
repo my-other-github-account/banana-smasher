@@ -1571,6 +1571,46 @@ def _call_with_grouped_mm_operation_probe(
     return output, operations
 
 
+def _call_with_routed_reduction_probe(
+    experts: Any, forward: Any, hidden_states: Any, top_k_index: Any,
+    top_k_weights: Any,
+) -> tuple[Any, dict[str, Any]]:
+    """Tap the grouped provider's final token-major reshape+sum."""
+    from torch.utils._python_dispatch import TorchDispatchMode
+
+    implementation = str(getattr(experts.config, "_experts_implementation", ""))
+    if implementation != "grouped_mm":
+        raise RuntimeError(f"ROUTED_REDUCTION_IMPLEMENTATION_RED:{implementation}")
+    captures: list[dict[str, Any]] = []
+
+    class ReductionMode(TorchDispatchMode):
+        def __torch_dispatch__(
+            self, func: Any, types: Any, args: Any = (), kwargs: Any = None,
+        ) -> Any:
+            del types
+            call_kwargs = {} if kwargs is None else kwargs
+            result = func(*args, **call_kwargs)
+            if func is torch.ops.aten.sum.dim_IntList:
+                source = args[0]
+                dimensions = tuple(args[1])
+                if source.ndim == 3 and dimensions == (1,):
+                    captures.append({
+                        "boundary": (
+                            "transformers.integrations.moe.grouped_mm_experts_forward "
+                            "weighted_out.view(num_tokens,num_top_k,hidden_dim).sum(dim=1)"
+                        ),
+                        "weighted_out_token_major": _tensor_tap(source),
+                        "grouped_reshape_sum": _tensor_tap(result),
+                    })
+            return result
+
+    with ReductionMode():
+        output = forward(hidden_states, top_k_index, top_k_weights)
+    if len(captures) != 1:
+        raise RuntimeError(f"ROUTED_REDUCTION_CAPTURE_COUNT_RED:{len(captures)}")
+    return output, captures[0]
+
+
 def _run_one_layer_with_authentic_projection_control(
     engine: Any, layer: Any, hidden: Any, ids: Any,
 ) -> tuple[Any, dict[str, Any]]:
@@ -1588,13 +1628,20 @@ def _run_one_layer_with_authentic_projection_control(
     def transparent_forward(
         module: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any,
     ) -> Any:
-        if os.environ.get("RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0") == "1":
+        if os.environ.get("RUN6910_ROUTED_REDUCTION_AB_ONLY", "0") == "1":
+            authentic, routed_reduction = _call_with_routed_reduction_probe(
+                module, original_forward, hidden_states, top_k_index, top_k_weights
+            )
+            grouped_mm_operations = []
+        elif os.environ.get("RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0") == "1":
             authentic, grouped_mm_operations = _call_with_grouped_mm_operation_probe(
                 module, original_forward, hidden_states, top_k_index, top_k_weights
             )
+            routed_reduction = {}
         else:
             authentic = original_forward(hidden_states, top_k_index, top_k_weights)
             grouped_mm_operations = []
+            routed_reduction = {}
         immediate_duplicate = original_forward(hidden_states, top_k_index, top_k_weights)
         if inspect.ismethod(source_forward):
             undecorated_source = source_forward(
@@ -1612,6 +1659,7 @@ def _run_one_layer_with_authentic_projection_control(
             replay=immediate_duplicate.detach(),
             undecorated_source=undecorated_source.detach(),
             grouped_mm_operations=grouped_mm_operations,
+            routed_reduction=routed_reduction,
         )
         return authentic
 
@@ -1628,7 +1676,7 @@ def _run_one_layer_with_authentic_projection_control(
             experts.__dict__.pop("forward", None)
     required = (
         "hidden_states", "top_k_index", "top_k_weights", "authentic", "replay",
-        "undecorated_source", "grouped_mm_operations",
+        "undecorated_source", "grouped_mm_operations", "routed_reduction",
     )
     if tuple(captured) != required:
         raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_MISSING")
@@ -1691,6 +1739,30 @@ def _run_one_layer_with_authentic_projection_control(
             "control": "decorated grouped_mm duplicate return is byte-exact",
             "operations": captured["grouped_mm_operations"],
             "repair_authorized": False,
+        },
+        "post_second_gemm_routed_reduction": {
+            "status": (
+                "ROUTED_REDUCTION_PARITY"
+                if captured["routed_reduction"] and source_dispatch_exact
+                else "ROUTED_REDUCTION_LOCALIZED"
+                if captured["routed_reduction"]
+                else "ROUTED_REDUCTION_NOT_RUN"
+            ),
+            "one_variable": (
+                "grouped token-major reshape+sum versus undecorated source index_add_ "
+                "after sealed grouped_mm operation parity"
+            ),
+            "control": "instrumented decorated grouped_mm return self-compares byte-exactly",
+            "grouped": captured["routed_reduction"],
+            "undecorated_source_index_add": _tensor_tap(captured["undecorated_source"]),
+            "grouped_vs_undecorated_exact": source_dispatch_exact,
+            "max_abs_delta": float(
+                (captured["authentic"].float() - captured["undecorated_source"].float())
+                .abs().max().item()
+            ),
+            "repair_authorized": bool(
+                captured["routed_reduction"] and not source_dispatch_exact
+            ),
         },
         "source_caller_context": {
             "status": (
@@ -1791,9 +1863,12 @@ def _sealed_authentic_source_projection_control(
     operation_probe = os.environ.get(
         "RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0"
     ) == "1"
+    reduction_probe = os.environ.get("RUN6910_ROUTED_REDUCTION_AB_ONLY", "0") == "1"
     receipt = {
         "schema": (
-            "banana-smasher-grouped-mm-operation-comparator-v1"
+            "banana-smasher-post-second-gemm-routed-reduction-v1"
+            if reduction_probe
+            else "banana-smasher-grouped-mm-operation-comparator-v1"
             if operation_probe
             else "banana-smasher-source-implementation-dispatch-v1"
             if dispatch_probe
@@ -1813,7 +1888,8 @@ def _sealed_authentic_source_projection_control(
         "created_unix": time.time(),
     }
     receipt_stem = (
-        "GROUPED_MM_OPERATION_COMPARATOR"
+        "POST_SECOND_GEMM_ROUTED_REDUCTION"
+        if reduction_probe else "GROUPED_MM_OPERATION_COMPARATOR"
         if operation_probe else "SOURCE_IMPLEMENTATION_DISPATCH"
         if dispatch_probe else "AUTHENTIC_SOURCE_PROJECTION_CONTROL"
     )
@@ -2930,6 +3006,7 @@ def main() -> None:
     pair_scheduling_ab_only = os.environ.get("PAIR_SCHEDULING_AB_ONLY", "0") == "1"
     singleton_public_parity_tap_only = (
         os.environ.get("LAW4_PUBLIC_PRODUCT_TAP_ONLY", "0") == "1"
+        or os.environ.get("RUN6910_ROUTED_REDUCTION_AB_ONLY", "0") == "1"
     )
     if singleton_public_parity_tap_only:
         config["singleton_public_parity_tap_only"] = True
@@ -3057,9 +3134,10 @@ def main() -> None:
     print(json.dumps({"cuda_memory_cap_path": str(cap_path), **cap_row}, sort_keys=True), flush=True)
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="nccl", init_method="env://", timeout=timedelta(seconds=900))
-    grouped_mm_operation_probe = os.environ.get(
-        "RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0"
-    ) == "1"
+    grouped_mm_operation_probe = (
+        os.environ.get("RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0") == "1"
+        or os.environ.get("RUN6910_ROUTED_REDUCTION_AB_ONLY", "0") == "1"
+    )
     expected_world_size = 1 if grouped_mm_operation_probe else 2
     if (
         torch.distributed.get_world_size() != expected_world_size
@@ -3088,6 +3166,7 @@ def main() -> None:
         os.environ.get("RUN6522_AUTHENTIC_SOURCE_PROJECTION_CONTROL_ONLY", "0") == "1"
         or os.environ.get("RUN6524_SOURCE_IMPLEMENTATION_DISPATCH_ONLY", "0") == "1"
         or os.environ.get("RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0") == "1"
+        or os.environ.get("RUN6910_ROUTED_REDUCTION_AB_ONLY", "0") == "1"
     ):
         _sealed_authentic_source_projection_control(
             engine, window=28, root=root, rank=rank, pin=pin,
