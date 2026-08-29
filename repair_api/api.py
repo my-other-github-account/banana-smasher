@@ -38,6 +38,48 @@ from .sealed_pre_forward import bind_sealed_pre_resident_config
 _STALE_SPARK5_MODEL_ROOT = Path(
     "/home/dnola/missions/STAGE_U20_t_3a6f22a5_spark-5-work/sparse-model-rank0-v1"
 )
+_SPARK3_SEALED_PARENT_ROOT = Path(
+    "/home/dnola/missions/V7_CODEBOOK_FULLPARENT_t_569e9977_s3"
+)
+
+
+def _select_exact_manifest_member(
+    candidates: Iterable[Path], *, expected_sha256: str, label: str
+) -> Path:
+    """Select only identity-equal duplicates of a sealed manifest member."""
+    present = [path.resolve() for path in candidates if path.is_file()]
+    if not present:
+        raise ArtifactError(f"official-K2 sealed parent member is missing: {label}")
+    observed = [(path, hashlib.sha256(path.read_bytes()).hexdigest()) for path in present]
+    if any(digest != expected_sha256 for _, digest in observed):
+        raise ArtifactError(f"official-K2 sealed parent non-identical ambiguity: {label}")
+    return present[0]
+
+
+def _validate_sealed_parent_root(*, parent_root: Path, admission_path: Path) -> None:
+    """Bind the localized parent to the sealed roster's manifest assignments."""
+    admission = json.loads(admission_path.read_text())
+    rows = admission.get("trainable_roster", {}).get("luts", [])
+    if len(rows) != 43:
+        raise ArtifactError("official-K2 sealed parent roster coverage drift")
+    for row in rows:
+        layer = int(row["layer"])
+        binding = row["source_manifest"]
+        manifest = Path(str(binding["path"])).resolve()
+        if not manifest.is_file() or hashlib.sha256(manifest.read_bytes()).hexdigest() != binding["sha256"]:
+            raise ArtifactError(f"official-K2 sealed parent manifest identity drift: L{layer:03d}")
+        members = json.loads(manifest.read_text()).get("members", [])
+        if not members:
+            raise ArtifactError(f"official-K2 sealed parent manifest is empty: L{layer:03d}")
+        for member in members:
+            expert = int(member["expert"])
+            projection = str(member["projection"])
+            stem = parent_root / f"L{layer:03d}" / f"E{expert:03d}_{projection}"
+            _select_exact_manifest_member(
+                (stem.with_suffix(".q2v7wire"), stem.with_suffix(".k2wire")),
+                expected_sha256=str(member["sha256"]),
+                label=f"L{layer:03d} E{expert:03d}/{projection}",
+            )
 
 
 def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str, Any]:
@@ -72,7 +114,7 @@ def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str,
         "lp4_pack_source": canonical / "runtime/v7/vendor/src_lp4/lp4_pack.py",
         "lp4_train_source": canonical / "runtime/v7/vendor/src_lp4/lp4_train.py",
         "official_expert_source": stage / "R26_joint_v7_expert_base.py",
-        "parent_root": candidate,
+        "parent_root": _SPARK3_SEALED_PARENT_ROOT,
         "resident_expert_source": stage / "repo-r30c8/repair-api/ds4-flash-kldmatrix/repair_api/assets/fast_v7_expert_base.py",
         "trainer_source": stage / "repo-r30c8/repair-api/ds4-flash-kldmatrix/repair_api/assets/modern_green_clean_u0.py",
     }
@@ -90,6 +132,10 @@ def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str,
         if expected and hashlib.sha256(replacement.read_bytes()).hexdigest() != expected:
             raise ArtifactError(f"official-K2 localized immutable SHA mismatch: {replacement}")
         resolved[field] = str(replacement.resolve())
+    _validate_sealed_parent_root(
+        parent_root=Path(resolved["parent_root"]),
+        admission_path=Path(resolved["asset_root"]) / "code/JOINT_REPAIR_ADMISSION.json",
+    )
     bind_sealed_pre_resident_config(resolved)
     return resolved
 
