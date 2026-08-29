@@ -234,11 +234,13 @@ def test_resident_loader_releases_cpu_source_duplicate_after_gpu_consumer() -> N
     loop = source[source.index("for layer in range(first, last + 1):") :]
     materialize = loop.index("base.v3.materialize_layer")
     synchronize = loop.index("torch.cuda.synchronize()", materialize)
-    release = loop.index("release_model_source_cache(layer)", synchronize)
-    empty_cache = loop.index("torch.cuda.empty_cache()", release)
+    model_release = loop.index("release_model_source_cache(layer)", synchronize)
+    wire_release = loop.index("release_expert_source_cache(source)", model_release)
+    empty_cache = loop.index("torch.cuda.empty_cache()", wire_release)
     status = loop.index("status_cb(", empty_cache)
-    assert materialize < synchronize < release < empty_cache < status
+    assert materialize < synchronize < model_release < wire_release < empty_cache < status
     assert "handles.clear()" in source
+    assert "source.member_paths.values()" in source
     assert "POSIX_FADV_DONTNEED" in source
 
 

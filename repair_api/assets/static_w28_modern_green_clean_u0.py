@@ -523,6 +523,24 @@ class ShardStudent:
                 finally:
                     os.close(descriptor)
 
+        def release_expert_source_cache(source: PlaneSource) -> None:
+            """Drop clean selected-wire pages after their CUDA copies are sealed."""
+            advise = getattr(os, "posix_fadvise", None)
+            dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
+            if advise is None or dontneed is None:
+                raise RuntimeError("expert source page-cache eviction is unavailable")
+            gc.collect()
+            for path in source.member_paths.values():
+                descriptor = os.open(path, os.O_RDONLY)
+                try:
+                    advise(descriptor, 0, 0, dontneed)
+                except OSError as exc:
+                    raise RuntimeError(
+                        f"L{source.layer:03d} expert source page-cache eviction failed: {path}: {exc}"
+                    ) from exc
+                finally:
+                    os.close(descriptor)
+
         self.get_tensor = get_tensor
         m = self.model
         if rank == 0:
@@ -569,6 +587,7 @@ class ShardStudent:
             # to its consumer instead of accumulating one full model in RAM.
             torch.cuda.synchronize()
             release_model_source_cache(layer)
+            release_expert_source_cache(source)
             torch.cuda.empty_cache()
             status_cb(
                 phase="loading",
