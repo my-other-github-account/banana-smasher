@@ -29,6 +29,7 @@ from repair_api.official_k2_resident_score import (
     ROUTED_K2_CLOSURE,
     ROUTED_K2_ROUTE_KIND,
     OfficialK2ResidentRankEngine,
+    PayloadModelReadCounter,
     _write_q_lp_capture,
     _canonical_causal_score_tokens,
     _prune_loaded_parent_members,
@@ -75,6 +76,21 @@ class FakeOfficialBackend:
 
 
 class OfficialK2ResidentScoreTests(unittest.TestCase):
+    def test_measurement_boundary_excludes_pre_ready_reads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "resident-load.bin"
+            path.write_bytes(b"resident")
+            counter = PayloadModelReadCounter([Path(directory)])
+            resident_ready = counter.mark_resident_ready()
+            self.assertEqual(resident_ready, 0)
+
+            self.assertEqual(path.read_bytes(), b"resident")
+            self.assertEqual(counter.delta(resident_ready), 1)
+
+            measurement_ready = counter.mark_measurement_ready()
+            self.assertEqual(counter.delta(measurement_ready), 0)
+            self.assertEqual(counter.paths, [])
+
     def test_q_lp_capture_is_complete_immutable_and_no_overwrite(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "q_lp.npy"

@@ -1474,6 +1474,12 @@ class PayloadModelReadCounter:
         self.active = True
         return self.reads
 
+    def mark_measurement_ready(self) -> int:
+        """Start the strict read delta after all local resident shards exist."""
+        self.active = True
+        self.paths.clear()
+        return self.reads
+
     def delta(self, start: int) -> int:
         return self.reads - start
 
@@ -3604,6 +3610,11 @@ class OfficialK2LocalDualShardEngine:
         ready = [self.rank0.local_ready, self.rank1.local_ready]
         self.rank0.resident_ready = ready
         self.rank1.resident_ready = ready
+        # Rank 0's audit hook is process-global and observes the intentional
+        # rank-1 resident construction reads.  Move both strict timer baselines
+        # to the shared resident-ready boundary immediately before measurement.
+        self.rank0.ready_counter = self.rank0.read_counter.mark_measurement_ready()
+        self.rank1.ready_counter = self.rank1.read_counter.mark_measurement_ready()
 
     def score(self) -> dict[str, Any]:
         result = self.rank1.score()
