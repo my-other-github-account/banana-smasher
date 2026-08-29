@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 import hashlib
+import json
 import math
+from pathlib import Path
 from typing import Any
 
 
@@ -16,6 +18,14 @@ def _tensor_sha256(tensor: Any) -> str:
 
     raw = tensor.detach().contiguous().view(torch.uint8).cpu().numpy().tobytes()
     return hashlib.sha256(raw).hexdigest()
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(8 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _transform_regularized_hessian_batched(
@@ -374,6 +384,208 @@ def finalize_batch_unit(
     }
 
 
+def _decode_nvfp4_source(weight: Any, scale: Any, device: Any) -> Any:
+    """Decode one native NVFP4/E8M0 source matrix exactly as the V7 producers do."""
+    import torch
+
+    packed_shape = tuple(int(value) for value in weight.shape)
+    scale_shape = tuple(int(value) for value in scale.shape)
+    if (
+        len(packed_shape) != 2
+        or len(scale_shape) != 2
+        or packed_shape[0] != scale_shape[0]
+        or packed_shape[1] != scale_shape[1] * 16
+    ):
+        raise ValueError("QTIP2 V7 NVFP4/E8M0 source geometry mismatch")
+    packed = weight.detach().contiguous().view(torch.uint8).to(device=device)
+    scales = scale.detach().contiguous().view(torch.uint8).to(device=device)
+    blocks = packed.reshape(scale_shape[0], scale_shape[1], 16)
+    codebook = torch.tensor(
+        (
+            0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0,
+            -0.0, -0.5, -1.0, -1.5, -2.0, -3.0, -4.0, -6.0,
+        ),
+        dtype=torch.float32,
+        device=device,
+    )
+    values = torch.stack(
+        (codebook[blocks.long() & 15], codebook[blocks.long() >> 4]), dim=-1
+    ).reshape(scale_shape[0], scale_shape[1], 32)
+    values *= torch.exp2(scales.float().reshape(scale_shape) - 127.0).unsqueeze(-1)
+    return values.reshape(scale_shape[0], -1).to(torch.bfloat16).contiguous()
+
+
+def _source_hessian_rows(root: Path, layer: int, basis: str) -> dict[tuple[int, str], dict[str, Any]]:
+    candidates = (
+        root / "hessians" / f"L{layer:03d}_STANDARD250_H_PLANE.json",
+        root / "receipts" / f"L{layer:03d}_STANDARD250_H_PLANE.json",
+        root / "layers" / f"L{layer:03d}_STANDARD250_H_PLANE.json",
+        root / f"L{layer:03d}_STANDARD250_H_PLANE.json",
+    )
+    manifest_path = next((path for path in candidates if path.is_file()), None)
+    if manifest_path is None:
+        raise FileNotFoundError(
+            f"authenticated model root lacks L{layer:03d} STANDARD250 Hessian plane"
+        )
+    manifest = json.loads(manifest_path.read_text())
+    manifest_basis = manifest.get("basis", manifest.get("basis_sha256"))
+    if manifest_basis != basis or int(manifest.get("layer", -1)) != layer:
+        raise ValueError(f"L{layer:03d} Hessian plane is not bound to the model index")
+    rows: dict[tuple[int, str], dict[str, Any]] = {}
+    closures = manifest.get("closures")
+    if isinstance(closures, list):
+        for closure in closures:
+            expert = int(closure["expert"])
+            projection = str(closure["member"])
+            rows[(expert, projection)] = {
+                "path": closure["raw_sum_path"],
+                "file_sha256": closure["raw_sum_file_sha256"],
+                "data_sha256": closure["raw_sum_data_sha256"],
+                "count": int(closure["count"]),
+                "manifest_path": manifest_path,
+            }
+    else:
+        matrices = manifest.get("matrices")
+        if not isinstance(matrices, list):
+            raise ValueError(f"L{layer:03d} Hessian plane has no closure roster")
+        by_label = {str(row["label"]): row for row in matrices}
+        for expert in range(256):
+            for projection in _V7_PROJECTIONS:
+                label = "shared_w1_w3" if projection in {"w1", "w3"} else f"e{expert:03d}_w2"
+                matrix = by_label.get(label)
+                if matrix is None:
+                    continue
+                raw = matrix["raw_sum"]
+                rows[(expert, projection)] = {
+                    "path": raw["path"],
+                    "file_sha256": raw["sha256"],
+                    "data_sha256": raw["data_sha256"],
+                    "count": int(matrix["count"]),
+                    "manifest_path": manifest_path,
+                }
+    return rows
+
+
+def materialize_qtip2_v7_sources(
+    model_root: str | Path,
+    published_pre_checkpoint: str | Path,
+    layers: Sequence[int] | range,
+    *,
+    experts: Sequence[int] | range = range(256),
+    device: Any = None,
+) -> dict[int, dict[str, Any]]:
+    """Materialize PRE parent LUTs and authenticated source/Hessian V7 units.
+
+    The model root owns the SHA-bound safetensors index, source shards, and each
+    requested layer's STANDARD250 Hessian plane.  The published PRE checkpoint
+    supplies the exact layer parent LUT.  Returned ``units`` and ``parent_lut``
+    can be passed unchanged to :func:`produce_qtip2_v7_batch10`.
+    """
+    import numpy as np
+    import torch
+    from safetensors import safe_open
+
+    root = Path(model_root).expanduser().resolve(strict=True)
+    index_path = root / "model.safetensors.index.json"
+    if index_path.is_symlink() or not index_path.is_file():
+        raise ValueError("authenticated model root requires a regular safetensors index")
+    basis = _file_sha256(index_path)
+    index = json.loads(index_path.read_text())
+    weight_map = index.get("weight_map")
+    if not isinstance(weight_map, dict) or not weight_map:
+        raise ValueError("authenticated model index has no weight map")
+
+    checkpoint_path = Path(published_pre_checkpoint).expanduser().resolve(strict=True)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    state = checkpoint.get("state") if isinstance(checkpoint, dict) else None
+    luts = state.get("luts") if isinstance(state, dict) else None
+    if not isinstance(luts, dict):
+        raise ValueError("published PRE checkpoint has no state.luts mapping")
+    identity = checkpoint.get("identity", {})
+    checkpoint_basis = identity.get("model_index_sha256") if isinstance(identity, dict) else None
+    if checkpoint_basis is not None and checkpoint_basis != basis:
+        raise ValueError("published PRE checkpoint is bound to a different model index")
+
+    selected_layers = tuple(int(layer) for layer in layers)
+    selected_experts = tuple(int(expert) for expert in experts)
+    if (
+        not selected_layers
+        or len(set(selected_layers)) != len(selected_layers)
+        or any(layer < 0 for layer in selected_layers)
+        or not selected_experts
+        or len(set(selected_experts)) != len(selected_experts)
+        or any(expert < 0 for expert in selected_experts)
+    ):
+        raise ValueError("QTIP2 V7 layer/expert ranges must be nonempty, unique, and nonnegative")
+    target_device = torch.device(device) if device is not None else torch.device(
+        "cuda" if torch.cuda.is_available() else "cpu"
+    )
+    materialized: dict[int, dict[str, Any]] = {}
+    for layer in selected_layers:
+        lut_name = f"layers.{layer}.qtip2_v7.layer_lut"
+        parent = luts.get(lut_name)
+        if not isinstance(parent, torch.Tensor) or tuple(parent.shape) != (1024,):
+            raise ValueError(f"published PRE checkpoint lacks FP32[1024] {lut_name}")
+        parent_lut = parent.detach().to(device=target_device, dtype=torch.float16).contiguous()
+        hessian_rows = _source_hessian_rows(root, layer, basis)
+        raw_h_cache: dict[tuple[str, str], Any] = {}
+        units: list[dict[str, Any]] = []
+        for expert in selected_experts:
+            for projection in _V7_PROJECTIONS:
+                prefix = f"layers.{layer}.ffn.experts.{expert}.{projection}"
+                weight_key = f"{prefix}.weight"
+                scale_key = f"{prefix}.scale"
+                shard_name = weight_map.get(weight_key)
+                if shard_name != weight_map.get(scale_key) or not isinstance(shard_name, str):
+                    raise ValueError(f"model index source binding mismatch for {prefix}")
+                if Path(shard_name).name != shard_name:
+                    raise ValueError(f"unsafe model shard binding for {prefix}")
+                shard_path = root / shard_name
+                with safe_open(str(shard_path), framework="pt", device="cpu") as source_file:
+                    weight = source_file.get_tensor(weight_key)
+                    scale = source_file.get_tensor(scale_key)
+                source = _decode_nvfp4_source(weight, scale, target_device)
+                hessian = hessian_rows.get((expert, projection))
+                if hessian is None:
+                    raise ValueError(f"Hessian closure missing for L{layer:03d}/E{expert:03d}/{projection}")
+                hessian_path = Path(str(hessian["path"]))
+                if not hessian_path.is_absolute():
+                    hessian_path = Path(hessian["manifest_path"]).parent / hessian_path
+                hessian_path = hessian_path.expanduser().resolve(strict=True)
+                file_sha = _file_sha256(hessian_path)
+                if file_sha != hessian["file_sha256"]:
+                    raise ValueError(f"Hessian file identity mismatch: {hessian_path}")
+                cache_key = (str(hessian_path), str(hessian["data_sha256"]))
+                if cache_key not in raw_h_cache:
+                    array = np.load(hessian_path, allow_pickle=False)
+                    data_sha = hashlib.sha256(array.tobytes(order="C")).hexdigest()
+                    if array.dtype != np.float32 or data_sha != hessian["data_sha256"]:
+                        raise ValueError(f"Hessian data identity mismatch: {hessian_path}")
+                    raw_h_cache[cache_key] = torch.from_numpy(array.copy())
+                raw_h = raw_h_cache[cache_key]
+                if tuple(raw_h.shape) != (int(source.shape[1]), int(source.shape[1])):
+                    raise ValueError(f"source/Hessian geometry mismatch for {prefix}")
+                units.append({
+                    "layer": layer,
+                    "expert": expert,
+                    "projection": projection,
+                    "source": source,
+                    "raw_h": raw_h,
+                    "raw_h_count": int(hessian["count"]),
+                    "input_identity": {
+                        "model_index_sha256": basis,
+                        "source_shard": shard_name,
+                        "source_weight_sha256": _tensor_sha256(weight),
+                        "source_scale_sha256": _tensor_sha256(scale),
+                        "raw_hessian_file_sha256": file_sha,
+                        "raw_hessian_data_sha256": str(hessian["data_sha256"]),
+                        "raw_hessian_count": int(hessian["count"]),
+                    },
+                })
+        materialized[layer] = {"units": units, "parent_lut": parent_lut}
+    return materialized
+
+
 def produce_qtip2_v7_batch10(
     units: Sequence[dict[str, Any]],
     parent_lut: Any,
@@ -469,6 +681,7 @@ __all__ = [
     "buffered_ldlq_cross_unit",
     "finalize_batch_unit",
     "group_v7_batch10",
+    "materialize_qtip2_v7_sources",
     "prepare_v7_unit",
     "produce_qtip2_v7_batch10",
 ]

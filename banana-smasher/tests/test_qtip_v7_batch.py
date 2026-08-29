@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import numpy as np
 import torch
 from pathlib import Path
+
+from safetensors.torch import save_file
 
 
 PROJECTIONS = ("w1", "w2", "w3")
@@ -233,3 +237,81 @@ def test_batch10_producer_is_exported_from_public_api() -> None:
 
     assert callable(banana_smasher.produce_qtip2_v7_batch10)
     assert "produce_qtip2_v7_batch10" in banana_smasher.__all__
+
+
+def test_public_source_materializer_binds_model_pre_and_layer_range(tmp_path: Path) -> None:
+    import banana_smasher
+
+    model = tmp_path / "authenticated-model"
+    model.mkdir()
+    shard = model / "model-00001-of-00001.safetensors"
+    tensors = {}
+    weight_map = {}
+    for expert in range(10):
+        for projection in PROJECTIONS:
+            prefix = f"layers.0.ffn.experts.{expert}.{projection}"
+            tensors[f"{prefix}.weight"] = torch.full(
+                (128, 64), 0x22 + expert, dtype=torch.uint8
+            )
+            tensors[f"{prefix}.scale"] = torch.full(
+                (128, 4), 127, dtype=torch.uint8
+            )
+            weight_map[f"{prefix}.weight"] = shard.name
+            weight_map[f"{prefix}.scale"] = shard.name
+    save_file(tensors, shard)
+    index = model / "model.safetensors.index.json"
+    index.write_text(json.dumps({"weight_map": weight_map}, sort_keys=True))
+    basis = hashlib.sha256(index.read_bytes()).hexdigest()
+
+    hessian_root = model / "hessians"
+    hessian_root.mkdir()
+    closures = []
+    paths = {}
+    for label in ["shared_w1_w3", *(f"e{expert:03d}_w2" for expert in range(10))]:
+        path = hessian_root / f"L000_{label}_H_sum.fp32.npy"
+        values = np.eye(128, dtype=np.float32) * 512_000
+        np.save(path, values, allow_pickle=False)
+        paths[label] = path
+    for expert in range(10):
+        for projection in PROJECTIONS:
+            label = "shared_w1_w3" if projection in {"w1", "w3"} else f"e{expert:03d}_w2"
+            path = paths[label]
+            closures.append({
+                "expert": expert,
+                "member": projection,
+                "count": 512_000,
+                "raw_sum_path": path.name,
+                "raw_sum_file_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "raw_sum_data_sha256": hashlib.sha256(
+                    np.load(path, allow_pickle=False).tobytes(order="C")
+                ).hexdigest(),
+            })
+    (hessian_root / "L000_STANDARD250_H_PLANE.json").write_text(json.dumps({
+        "basis": basis,
+        "layer": 0,
+        "closures": closures,
+    }, sort_keys=True))
+
+    checkpoint = tmp_path / "PRE.pt"
+    parent = torch.linspace(-1, 1, 1024, dtype=torch.float32)
+    torch.save({
+        "identity": {"model_index_sha256": basis},
+        "state": {"luts": {"layers.0.qtip2_v7.layer_lut": parent}},
+    }, checkpoint)
+
+    materialized = banana_smasher.materialize_qtip2_v7_sources(
+        model,
+        checkpoint,
+        range(0, 1),
+        experts=range(10),
+        device="cpu",
+    )
+
+    assert tuple(materialized) == (0,)
+    assert torch.equal(materialized[0]["parent_lut"], parent.half())
+    assert len(materialized[0]["units"]) == 30
+    assert {unit["projection"] for unit in materialized[0]["units"]} == set(PROJECTIONS)
+    assert all(unit["raw_h_count"] == 512_000 for unit in materialized[0]["units"])
+    assert all(unit["input_identity"]["model_index_sha256"] == basis for unit in materialized[0]["units"])
+    assert callable(banana_smasher.produce_qtip2_v7_batch10)
+    assert "materialize_qtip2_v7_sources" in banana_smasher.__all__

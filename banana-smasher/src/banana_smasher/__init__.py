@@ -186,7 +186,7 @@ from .qtip25_native_v4_api import (
     anchor_qtip25_native_v4_cell,
     build_qtip25_native_v4_cell,
 )
-from .qtip_v7_batch import produce_qtip2_v7_batch10
+from .qtip_v7_batch import materialize_qtip2_v7_sources, produce_qtip2_v7_batch10
 from .qtip_v7_joint_workflow import (
     aggregate_balanced64,
     compare_aggregates,
@@ -342,6 +342,7 @@ __all__ = [
     "materialize_bank",
     "materialize_candidate_producer",
     "materialize_fixed_d4",
+    "materialize_qtip2_v7_sources",
     "materialize_joint",
     "native_mxfp4_backpack_provider",
     "pack_qtip_states",
