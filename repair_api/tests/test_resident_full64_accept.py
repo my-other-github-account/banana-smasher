@@ -960,6 +960,52 @@ def test_run6910_taps_grouped_post_second_gemm_routed_reduction() -> None:
     assert '"POST_SECOND_GEMM_ROUTED_REDUCTION"' in source
 
 
+def test_run6910_verifies_eager_repair_against_source(
+    monkeypatch: Any,
+) -> None:
+    import functools
+    from repair_api.resident_full64_accept import (
+        _run_one_layer_with_authentic_projection_control,
+    )
+
+    class Experts(torch.nn.Module):
+        config = SimpleNamespace(_experts_implementation="eager")
+
+        def source(self, hidden, top_k_index, top_k_weights):
+            del top_k_index, top_k_weights
+            return hidden + 1
+
+        @functools.wraps(source)
+        def forward(self, hidden, top_k_index, top_k_weights):
+            return self.source(hidden, top_k_index, top_k_weights)
+
+    experts = Experts()
+    layer = SimpleNamespace(mlp=SimpleNamespace(experts=experts))
+    hidden = torch.zeros((3, 2))
+    ids = torch.zeros((1, 3), dtype=torch.int64)
+
+    def fake_layer_run(_engine, _layer, value, _ids):
+        index = torch.zeros((value.shape[0], 1), dtype=torch.int64)
+        weights = torch.ones((value.shape[0], 1))
+        return _layer.mlp.experts(value, index, weights), None
+
+    monkeypatch.setenv("RUN6910_ROUTED_REDUCTION_AB_ONLY", "1")
+    with patch(
+        "repair_api.resident_full64_accept._run_one_layer_with_attention",
+        fake_layer_run,
+    ):
+        output, control = _run_one_layer_with_authentic_projection_control(
+            object(), layer, hidden, ids,
+        )
+
+    assert torch.equal(output, hidden + 1)
+    reduction = control["post_second_gemm_routed_reduction"]
+    assert reduction["status"] == "ROUTED_REDUCTION_REPAIR_EXACT"
+    assert reduction["selected_dispatch"]["selected_implementation"] == "eager"
+    assert reduction["grouped_vs_undecorated_exact"] is True
+    assert reduction["max_abs_delta"] == 0.0
+
+
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
     from repair_api.resident_full64_accept import _routed_return_assembly_witness
 

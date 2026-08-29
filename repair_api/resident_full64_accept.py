@@ -1629,9 +1629,38 @@ def _run_one_layer_with_authentic_projection_control(
         module: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any,
     ) -> Any:
         if os.environ.get("RUN6910_ROUTED_REDUCTION_AB_ONLY", "0") == "1":
-            authentic, routed_reduction = _call_with_routed_reduction_probe(
-                module, original_forward, hidden_states, top_k_index, top_k_weights
+            implementation = str(
+                getattr(getattr(module, "config", None), "_experts_implementation", "")
             )
+            if implementation == "grouped_mm":
+                authentic, routed_reduction = _call_with_routed_reduction_probe(
+                    module, original_forward, hidden_states, top_k_index, top_k_weights
+                )
+            elif implementation == "eager":
+                authentic = original_forward(
+                    hidden_states, top_k_index, top_k_weights
+                )
+                routed_reduction = {
+                    "boundary": (
+                        "transformers use_experts_implementation selected the original "
+                        "DeepseekV4Experts.forward index_add_ source body"
+                    ),
+                    "selected_implementation": "eager",
+                    "pre_repair_control_receipt_sha256": (
+                        "4b48665f3a5aee7b3c3211f2c4d21ad1fe007fbb5bc961bac4db66a811f439fa"
+                    ),
+                    "pre_repair_grouped_output_sha256": (
+                        "9fe707b06ed5f465b22383e1adbe34445f25267b9ea6e4676bdcb4defaeb1a9d"
+                    ),
+                    "pre_repair_source_output_sha256": (
+                        "0c5e981a0189cc1b01e5b11cbd4579335499e80e238400c4cde2483cd14783ec"
+                    ),
+                    "current_source_index_add": _tensor_tap(authentic),
+                }
+            else:
+                raise RuntimeError(
+                    f"ROUTED_REDUCTION_REPAIR_IMPLEMENTATION_RED:{implementation}"
+                )
             grouped_mm_operations = []
         elif os.environ.get("RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0") == "1":
             authentic, grouped_mm_operations = _call_with_grouped_mm_operation_probe(
@@ -1695,6 +1724,7 @@ def _run_one_layer_with_authentic_projection_control(
         "one_variable": "none: immediate duplicate of the exact bound authentic source expert invocation",
         "accepted_source": "transformers modeling_deepseek_v4.py:1006-1022 DeepseekV4Experts.forward",
         "materialization_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473",
+        "provider_dispatch_binding": getattr(engine, "experts_dispatch_binding", None),
         "hidden_states": _tensor_tap(captured["hidden_states"]),
         "top_k_index": _tensor_tap(captured["top_k_index"]),
         "top_k_weights": _tensor_tap(captured["top_k_weights"]),
@@ -1742,7 +1772,12 @@ def _run_one_layer_with_authentic_projection_control(
         },
         "post_second_gemm_routed_reduction": {
             "status": (
-                "ROUTED_REDUCTION_PARITY"
+                "ROUTED_REDUCTION_REPAIR_EXACT"
+                if captured["routed_reduction"].get("selected_implementation") == "eager"
+                and source_dispatch_exact
+                else "ROUTED_REDUCTION_REPAIR_MISMATCH"
+                if captured["routed_reduction"].get("selected_implementation") == "eager"
+                else "ROUTED_REDUCTION_PARITY"
                 if captured["routed_reduction"] and source_dispatch_exact
                 else "ROUTED_REDUCTION_LOCALIZED"
                 if captured["routed_reduction"]
@@ -1753,7 +1788,7 @@ def _run_one_layer_with_authentic_projection_control(
                 "after sealed grouped_mm operation parity"
             ),
             "control": "instrumented decorated grouped_mm return self-compares byte-exactly",
-            "grouped": captured["routed_reduction"],
+            "selected_dispatch": captured["routed_reduction"],
             "undecorated_source_index_add": _tensor_tap(captured["undecorated_source"]),
             "grouped_vs_undecorated_exact": source_dispatch_exact,
             "max_abs_delta": float(
@@ -1761,7 +1796,9 @@ def _run_one_layer_with_authentic_projection_control(
                 .abs().max().item()
             ),
             "repair_authorized": bool(
-                captured["routed_reduction"] and not source_dispatch_exact
+                captured["routed_reduction"]
+                and captured["routed_reduction"].get("selected_implementation") != "eager"
+                and not source_dispatch_exact
             ),
         },
         "source_caller_context": {
