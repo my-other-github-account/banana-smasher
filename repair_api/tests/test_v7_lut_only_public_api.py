@@ -5,6 +5,7 @@ import torch
 from repair_api.api import ResidentRepairAPI
 from repair_api.modern_green_resident import (
     BASE_LRS,
+    _admit_restored_optimizer_base_lrs,
     _configure_v7_lut_only_optimizer,
     _resident_optimizer_param_groups,
 )
@@ -57,6 +58,20 @@ def test_existing_joint_all43_optimizer_path_is_unchanged():
     assert all("frozen" not in group for group in groups)
     assert manifest["mode"] == "joint_all43"
     assert all(parameter.requires_grad for _name, parameter in [*luts, *norms, *outputs])
+
+
+def test_restored_optimizer_groups_admit_checkpoint_base_lrs_and_keep_existing_groups():
+    restored_groups = [
+        {"group_name": "all43_luts", "initial_lr": 2.5e-4},
+        {"group_name": "norms", "initial_lr": 9.9},
+        {"group_name": "outputs", "initial_lr": 9.9},
+    ]
+
+    admitted = _admit_restored_optimizer_base_lrs(BASE_LRS, restored_groups)
+
+    assert admitted["all43_luts"] == 2.5e-4
+    assert admitted["norms"] == BASE_LRS["norms"]
+    assert admitted["outputs"] == BASE_LRS["outputs"]
 
 
 def test_public_api_wrapper_pins_exactly_one_successor_update():

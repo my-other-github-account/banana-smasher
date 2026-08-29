@@ -124,6 +124,36 @@ def _resident_optimizer_param_groups(
     ]
 
 
+def _admit_restored_optimizer_base_lrs(
+    base_lrs: Mapping[str, float], param_groups: list[dict[str, Any]]
+) -> dict[str, float]:
+    """Admit checkpoint-authenticated base LRs for restored group names."""
+    admitted = dict(base_lrs)
+    for group in param_groups:
+        group_name = group.get("group_name")
+        if not isinstance(group_name, str) or not group_name:
+            raise ArtifactError("restored optimizer group is missing group_name")
+        if group_name in admitted:
+            continue
+        initial_lr = group.get("initial_lr")
+        if isinstance(initial_lr, bool):
+            raise ArtifactError(
+                f"restored optimizer group {group_name} has no authenticated base LR"
+            )
+        try:
+            authenticated_lr = float(cast(Any, initial_lr))
+        except (TypeError, ValueError) as exc:
+            raise ArtifactError(
+                f"restored optimizer group {group_name} has no authenticated base LR"
+            ) from exc
+        if not math.isfinite(authenticated_lr) or authenticated_lr < 0.0:
+            raise ArtifactError(
+                f"restored optimizer group {group_name} has no authenticated base LR"
+            )
+        admitted[group_name] = authenticated_lr
+    return admitted
+
+
 def _validation_attention_query_chunk_size(config: Mapping[str, Any]) -> int:
     """Fail closed when the bounded official decoder rail loses its chunk."""
     chunk_size = int(config.get("attention_query_chunk_size", 0))
@@ -3101,6 +3131,9 @@ class ModernGreenResidentEngine:
             group_windows = [20 + 4 * (global_step % 16) + offset for offset in range(4)]
         if self.config.get("v7_lut_only_update") is True:
             base_lrs = {"luts": float(self.config["lut_lr"]), "norms": 0.0, "outputs": 0.0}
+        base_lrs = _admit_restored_optimizer_base_lrs(
+            base_lrs, self.optimizer.param_groups
+        )
         for group in self.optimizer.param_groups:
             group["lr"] = base_lrs[group["group_name"]] * multiplier
         groups = [group_windows[index:index + self.pipeline_microbatch] for index in range(0, len(group_windows), self.pipeline_microbatch)]
