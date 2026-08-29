@@ -256,6 +256,7 @@ def _law4_public_product_taps(api: Any, engine: Any, *, window: int,
     """Tap the product only while public ResidentRepairAPI.validate runs."""
     model = engine.student.model
     local: dict[str, Any] = {}
+    retained_payloads: dict[str, Any] = {}
     originals: list[tuple[Any, Any]] = []
     captured_logits: list[Any] = []
 
@@ -266,6 +267,8 @@ def _law4_public_product_taps(api: Any, engine: Any, *, window: int,
             value = forward(*args, **kwargs)
             tapped = transform(value) if transform is not None else value
             local[name] = _tensor_tap(tapped)
+            if name == "L001_attention_return":
+                retained_payloads[name] = tapped.detach().to("cpu").contiguous()
             if name == "logits":
                 captured_logits[:] = [tapped.detach()]
             return value
@@ -273,6 +276,8 @@ def _law4_public_product_taps(api: Any, engine: Any, *, window: int,
 
     if rank == 0:
         wrap(model.model.embed_tokens, "embeddings")
+        if os.environ.get("LAW4_L001_ATTENTION_PAYLOAD_ONLY", "0") == "1":
+            wrap(model.model.layers[1].self_attn, "L001_attention_return", _first_tensor)
     for index in range(engine.first, engine.last + 1):
         wrap(model.model.layers[index], f"L{index:03d}")
     if rank == 1:
@@ -287,6 +292,22 @@ def _law4_public_product_taps(api: Any, engine: Any, *, window: int,
     finally:
         for module, forward in originals:
             module.forward = forward
+    if rank == 0 and os.environ.get("LAW4_L001_ATTENTION_PAYLOAD_ONLY", "0") == "1":
+        payload = retained_payloads.get("L001_attention_return")
+        if payload is None:
+            raise RuntimeError("LAW4_L001_ATTENTION_PAYLOAD_MISSING")
+        payload_path = root / "receipts" / "RESIDENT_L001_ATTENTION_RETURN.pt"
+        payload_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = payload_path.with_name(f".{payload_path.name}.{os.getpid()}.tmp")
+        torch.save(payload, temporary)
+        with temporary.open("rb") as handle:
+            os.fsync(handle.fileno())
+        os.replace(temporary, payload_path)
+        directory_fd = os.open(payload_path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     if rank == 1:
         if len(captured_logits) != 1:
             raise RuntimeError("LAW4_PRODUCT_LOGITS_CAPTURE_RED")
