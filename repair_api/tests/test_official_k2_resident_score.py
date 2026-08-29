@@ -727,6 +727,22 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             result = api.score("UPDATE_000", windows=WINDOWS)
             self.assertEqual(result.checkpoint, "UPDATE_000")
 
+    def test_alternate_pre_diagnostic_admission_is_exact_and_parentless(self):
+        admitted = authorize_production_score(
+            0,
+            checkpoint_sha256=ALTERNATE_PRE_CHECKPOINT_SHA256,
+            checkpoint_parent_sha256=None,
+            allow_alternate_pre_diagnostic=True,
+        )
+        self.assertEqual(admitted["scope"], "ALTERNATE_PRE_DIAGNOSTIC_ONLY")
+        with self.assertRaisesRegex(ArtifactError, "parentless update 0"):
+            authorize_production_score(
+                0,
+                checkpoint_sha256=ALTERNATE_PRE_CHECKPOINT_SHA256,
+                checkpoint_parent_sha256="not-parentless",
+                allow_alternate_pre_diagnostic=True,
+            )
+
     def test_score_routed_k2_accepts_exact_closure_and_emits_resident_receipt(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

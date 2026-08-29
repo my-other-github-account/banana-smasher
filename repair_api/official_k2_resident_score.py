@@ -3775,11 +3775,17 @@ class OfficialK2ResidentScorer:
             raise ArtifactError("official-K2 resident checkpoint identity is incomplete")
         if str(self.config.get("basis_sha256", BASIS_SHA256)) != BASIS_SHA256:
             raise ArtifactError("official-K2 resident manifest basis mismatch")
+        alternate_pre_diagnostic = (
+            checkpoint_sha == ALTERNATE_PRE_CHECKPOINT_SHA256
+            and update == 0
+            and self.config.get("parity_tap_mode") == "sealed_reference"
+        )
         declared_pre = self.config.get("pre_checkpoint_sha256")
         if (
             declared_pre
             and str(declared_pre) != CANONICAL_U0_CHECKPOINT_SHA256
             and self.config.get("route_kind") != ROUTED_K2_ROUTE_KIND
+            and not alternate_pre_diagnostic
         ):
             raise ArtifactError(
                 "alternate serialized PRE is quarantine-only and cannot be a production prerequisite"
@@ -3805,6 +3811,7 @@ class OfficialK2ResidentScorer:
                 pre_calibration_receipt=pre_receipt if pre_receipt.is_file() else None,
                 scientific_question_receipt=self.config.get("scientific_question_receipt"),
                 ordered_windows_sha256=_windows_sha256(selected),
+                allow_alternate_pre_diagnostic=alternate_pre_diagnostic,
             )
         if self._engine is None and self._engine_type() is OfficialK2ResidentRankEngine:
             # Checkpoint adaptation can materialize CUDA tensors before the
