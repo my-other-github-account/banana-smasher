@@ -3450,6 +3450,8 @@ class ModernGreenResidentEngine:
             raise ArtifactError("official resident merged trainable surface coverage drift")
         if self.config.get("v7_lut_only_update") is True:
             optimizer = self._merge_v7_lut_only_optimizer_state(rows)
+        elif self.single_gpu_resident:
+            optimizer = rows[0]["optimizer"]
         else:
             optimizer = self.trainer.merge_optimizer_state(rows, merged)
         scheduler = _cpu_tree(torch, self.scheduler.state_dict())

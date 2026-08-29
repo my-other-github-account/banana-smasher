@@ -294,6 +294,12 @@ def test_single_gpu_checkpointed_backend_loads_local_teacher_rows():
     assert "if self.rank == 1 or self.single_gpu_resident:" in source
 
 
+def test_single_gpu_checkpointed_backend_persists_its_direct_optimizer_state():
+    source = inspect.getsource(ModernGreenResidentEngine._gather_state)
+    assert 'elif self.single_gpu_resident:' in source
+    assert 'optimizer = rows[0]["optimizer"]' in source
+
+
 def test_resident_loader_releases_cpu_source_duplicate_after_gpu_consumer() -> None:
     source = (
         Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
