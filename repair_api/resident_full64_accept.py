@@ -1698,8 +1698,15 @@ def _sealed_authentic_source_projection_control(
     control = gathered[0].get("source_projection_control")
     if not isinstance(control, dict):
         raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_RECEIPT_MISSING")
+    dispatch_probe = os.environ.get(
+        "RUN6524_SOURCE_IMPLEMENTATION_DISPATCH_ONLY", "0"
+    ) == "1"
     receipt = {
-        "schema": "banana-smasher-authentic-source-projection-control-v1",
+        "schema": (
+            "banana-smasher-source-implementation-dispatch-v1"
+            if dispatch_probe
+            else "banana-smasher-authentic-source-projection-control-v1"
+        ),
         "status": control["status"],
         "task_id": TASK, "canonical_code_commit": pin,
         "basis_sha256": BASIS, "checkpoint_sha256": CHECKPOINT,
@@ -1713,7 +1720,11 @@ def _sealed_authentic_source_projection_control(
         "successor_step": "read authentic source and launch one new source-backed comparator",
         "created_unix": time.time(),
     }
-    path = root / "receipts" / f"AUTHENTIC_SOURCE_PROJECTION_CONTROL.rank{rank}.json"
+    receipt_stem = (
+        "SOURCE_IMPLEMENTATION_DISPATCH"
+        if dispatch_probe else "AUTHENTIC_SOURCE_PROJECTION_CONTROL"
+    )
+    path = root / "receipts" / f"{receipt_stem}.rank{rank}.json"
     receipt["receipt_sha256"] = atomic(path, receipt)
     print(json.dumps({"receipt_path": str(path), **receipt}, sort_keys=True), flush=True)
     return receipt
@@ -2969,7 +2980,10 @@ def main() -> None:
     resident_load_seconds = time.perf_counter() - load_started
     extension_prewarm = _prewarm_candidate_extension()
 
-    if os.environ.get("RUN6522_AUTHENTIC_SOURCE_PROJECTION_CONTROL_ONLY", "0") == "1":
+    if (
+        os.environ.get("RUN6522_AUTHENTIC_SOURCE_PROJECTION_CONTROL_ONLY", "0") == "1"
+        or os.environ.get("RUN6524_SOURCE_IMPLEMENTATION_DISPATCH_ONLY", "0") == "1"
+    ):
         _sealed_authentic_source_projection_control(
             engine, window=28, root=root, rank=rank, pin=pin,
             checkpoint_path=checkpoint_path,

@@ -853,6 +853,9 @@ def test_run6524_localizes_experts_implementation_dispatch() -> None:
     assert control["undecorated_source_body_return"]["sha256"] != (
         control["authentic_projection_path_return"]["sha256"]
     )
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    assert "RUN6524_SOURCE_IMPLEMENTATION_DISPATCH_ONLY" in source
+    assert '"SOURCE_IMPLEMENTATION_DISPATCH"' in source
 
 
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
