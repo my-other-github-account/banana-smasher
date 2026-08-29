@@ -34,6 +34,7 @@ def _wrapped_type(config: dict[str, object]):
         Immutable942cProjectionProvider,
         config,
         combined_projection=combined_projection,
+        native_down_projection=lambda x, *_args: x,
     )
 
 

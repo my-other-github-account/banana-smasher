@@ -213,7 +213,7 @@ def test_production_rebinds_to_sealed_single_window_pre_semantics() -> None:
     assert "validate_full64_admission_pairs(" not in source[production:]
     assert "first_pair_index=0" in source[production:]
     assert (
-        'ADOPTED_PROVIDER_EXPERT_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"'
+        'ADOPTED_PROVIDER_EXPERT_SHA256 = "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"'
         in source
     )
     assert "bind_combined_gate_up_projection(" not in source[production:]
