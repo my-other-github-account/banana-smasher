@@ -98,7 +98,13 @@ class BananaV1All43Adapter:
         expected_basis_sha256: str,
         expected_terminal_sha256: str,
         expected_manifest_sha256: str | None = None,
+        expert: int = 0,
+        projection: str = "w1",
+        row_start: int = 0,
+        column_start: int = 0,
     ) -> "BananaV1All43Adapter":
+        if expert < 0 or row_start < 0 or column_start < 0 or not projection:
+            raise ValueError("Banana V1 surface coordinates must be nonnegative and named")
         manifest_path = Path(manifest).expanduser().resolve()
         if not manifest_path.is_file():
             raise ValueError(f"Banana V1 all43 manifest is missing: {manifest_path}")
@@ -168,14 +174,18 @@ class BananaV1All43Adapter:
             if not isinstance(row, Mapping):
                 raise ValueError("Banana V1 all43 member row must be a mapping")
             layer = int(row.get("layer", -1))
-            expected_id = f"L{expected_layer:03d}/E000/w1/tile-r000-r015-c000-c015"
+            expected_id = (
+                f"L{expected_layer:03d}/E{expert:03d}/{projection}/"
+                f"tile-r{row_start:03d}-r{row_start + 15:03d}-"
+                f"c{column_start:03d}-c{column_start + 15:03d}"
+            )
             if (
                 layer != expected_layer
                 or row.get("id") != expected_id
-                or row.get("expert") != 0
-                or row.get("projection") != "w1"
-                or row.get("row_start") != 0
-                or row.get("column_start") != 0
+                or row.get("expert") != expert
+                or row.get("projection") != projection
+                or row.get("row_start") != row_start
+                or row.get("column_start") != column_start
             ):
                 raise ValueError(f"Banana V1 all43 roster gap or mapping drift at L{expected_layer:03d}")
             root_value = row.get("member_root")
@@ -197,10 +207,10 @@ class BananaV1All43Adapter:
                 BananaV1MemberBinding(
                     id=expected_id,
                     layer=layer,
-                    expert=0,
-                    projection="w1",
-                    row_start=0,
-                    column_start=0,
+                    expert=expert,
+                    projection=projection,
+                    row_start=row_start,
+                    column_start=column_start,
                     member_root=root,
                     receipt_sha256=receipt_sha,
                 )
@@ -237,8 +247,12 @@ class BananaV1All43Adapter:
         selected = self._by_layer.get(int(layer))
         if selected is None or int(expert) != selected.expert or projection != selected.projection:
             return weight
-        if getattr(weight, "ndim", None) != 2 or min(map(int, weight.shape)) < 16:
-            raise ValueError("Banana V1 physical weight must be a matrix at least 16x16")
+        if (
+            getattr(weight, "ndim", None) != 2
+            or int(weight.shape[0]) < selected.row_start + 16
+            or int(weight.shape[1]) < selected.column_start + 16
+        ):
+            raise ValueError("Banana V1 physical weight does not contain the declared 16x16 tile")
         patched = weight.clone()
         tile = weight.new_tensor(self.decode_member(selected.layer))
         patched[
@@ -254,8 +268,12 @@ class BananaV1All43Adapter:
         selected = self._by_layer.get(int(layer))
         if selected is None or int(expert) != selected.expert or projection != selected.projection:
             return weight
-        if getattr(weight, "ndim", None) != 2 or min(map(int, weight.shape)) < 16:
-            raise ValueError("Banana V1 physical weight must be a matrix at least 16x16")
+        if (
+            getattr(weight, "ndim", None) != 2
+            or int(weight.shape[0]) < selected.row_start + 16
+            or int(weight.shape[1]) < selected.column_start + 16
+        ):
+            raise ValueError("Banana V1 physical weight does not contain the declared 16x16 tile")
         weight[
             selected.row_start : selected.row_start + 16,
             selected.column_start : selected.column_start + 16,
@@ -281,6 +299,10 @@ def bind_banana_v1_all43_from_env(sources: Mapping[int, Any]) -> BananaV1All43Ad
         expected_basis_sha256=os.environ["BANANA_V1_ALL43_BASIS_SHA256"],
         expected_terminal_sha256=os.environ["BANANA_V1_ALL43_TERMINAL_SHA256"],
         expected_manifest_sha256=os.environ["BANANA_V1_ALL43_MANIFEST_SHA256"],
+        expert=int(os.environ.get("BANANA_V1_ALL43_EXPERT", "0")),
+        projection=os.environ.get("BANANA_V1_ALL43_PROJECTION", "w1"),
+        row_start=int(os.environ.get("BANANA_V1_ALL43_ROW_START", "0")),
+        column_start=int(os.environ.get("BANANA_V1_ALL43_COLUMN_START", "0")),
     )
     adapter.bind_plane_sources(sources)
     return adapter

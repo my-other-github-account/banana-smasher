@@ -25,11 +25,40 @@ from banana_smasher.banana_v1_runtime_adapter import BananaV1All43Adapter
 BASIS = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 
 
+class _Weight:
+    def __init__(self, values):
+        self.values = np.asarray(values, dtype=np.float32)
+
+    @property
+    def ndim(self):
+        return self.values.ndim
+
+    @property
+    def shape(self):
+        return self.values.shape
+
+    def clone(self):
+        return _Weight(self.values.copy())
+
+    def new_tensor(self, values):
+        return np.asarray(values, dtype=np.float32)
+
+    def __setitem__(self, key, value):
+        self.values[key] = value
+
+
 def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _fixture(tmp_path: Path) -> tuple[Path, str, np.ndarray]:
+def _fixture(
+    tmp_path: Path,
+    *,
+    expert: int = 0,
+    projection: str = "w1",
+    row_start: int = 0,
+    column_start: int = 0,
+) -> tuple[Path, str, np.ndarray]:
     codebook = np.linspace(-2.0, 2.0, 1024, dtype=np.float16)
     states = np.zeros((1, 256), dtype=np.int32)
     packed = pack_banana_v1_states(states)
@@ -64,16 +93,20 @@ def _fixture(tmp_path: Path) -> tuple[Path, str, np.ndarray]:
     members = tmp_path / "members"
     rows = []
     for layer in range(43):
-        root = members / f"L{layer:03d}_E000_w1_tile000"
+        root = members / f"L{layer:03d}_E{expert:03d}_{projection}_tile000"
         shutil.copytree(template, root)
         rows.append(
             {
-                "id": f"L{layer:03d}/E000/w1/tile-r000-r015-c000-c015",
+                "id": (
+                    f"L{layer:03d}/E{expert:03d}/{projection}/"
+                    f"tile-r{row_start:03d}-r{row_start + 15:03d}-"
+                    f"c{column_start:03d}-c{column_start + 15:03d}"
+                ),
                 "layer": layer,
-                "expert": 0,
-                "projection": "w1",
-                "row_start": 0,
-                "column_start": 0,
+                "expert": expert,
+                "projection": projection,
+                "row_start": row_start,
+                "column_start": column_start,
                 "member_root": str(root),
                 "receipt_sha256": _sha(root / "BANANA_V1_RECEIPT.json"),
             }
@@ -183,28 +216,7 @@ def test_adapter_patches_only_the_declared_physical_tile(tmp_path: Path) -> None
         expected_terminal_sha256=terminal_sha,
     )
 
-    class Weight:
-        def __init__(self, values):
-            self.values = np.asarray(values, dtype=np.float32)
-
-        @property
-        def ndim(self):
-            return self.values.ndim
-
-        @property
-        def shape(self):
-            return self.values.shape
-
-        def clone(self):
-            return Weight(self.values.copy())
-
-        def new_tensor(self, values):
-            return np.asarray(values, dtype=np.float32)
-
-        def __setitem__(self, key, value):
-            self.values[key] = value
-
-    original = Weight(np.full((32, 32), -7.0, dtype=np.float32))
+    original = _Weight(np.full((32, 32), -7.0, dtype=np.float32))
 
     patched = adapter.patch_weight(0, 0, "w1", original)
 
@@ -214,10 +226,46 @@ def test_adapter_patches_only_the_declared_physical_tile(tmp_path: Path) -> None
     assert np.all(original.values == -7.0)
     assert adapter.patch_weight(0, 1, "w1", original) is original
 
-    fresh = Weight(np.full((32, 32), -7.0, dtype=np.float32))
+    fresh = _Weight(np.full((32, 32), -7.0, dtype=np.float32))
     observed = adapter.patch_fresh_weight(0, 0, "w1", fresh)
     assert observed is fresh
     assert np.array_equal(fresh.values[:16, :16], expected)
+
+
+def test_adapter_authenticates_and_patches_an_alternate_declared_surface(
+    tmp_path: Path,
+) -> None:
+    manifest, terminal_sha, expected = _fixture(
+        tmp_path,
+        expert=7,
+        projection="w2",
+        row_start=8,
+        column_start=16,
+    )
+    manifest_sha = _sha(manifest)
+    adapter = BananaV1All43Adapter.open(
+        manifest,
+        expected_basis_sha256=BASIS,
+        expected_terminal_sha256=terminal_sha,
+        expected_manifest_sha256=manifest_sha,
+        expert=7,
+        projection="w2",
+        row_start=8,
+        column_start=16,
+    )
+
+    original = _Weight(np.full((40, 48), -7.0, dtype=np.float32))
+    patched = adapter.patch_weight(0, 7, "w2", original)
+    changed = np.zeros((40, 48), dtype=bool)
+    changed[8:24, 16:32] = True
+
+    assert adapter.manifest_sha256 == manifest_sha
+    assert adapter.members[0].id == "L000/E007/w2/tile-r008-r023-c016-c031"
+    assert np.array_equal(patched.values[8:24, 16:32], expected)
+    assert np.all(patched.values[~changed] == -7.0)
+    assert np.all(original.values == -7.0)
+    assert adapter.patch_weight(0, 0, "w2", original) is original
+    assert adapter.patch_weight(0, 7, "w1", original) is original
 
 
 def test_joint_expert_dispatches_decoded_weight_through_bound_adapter() -> None:
