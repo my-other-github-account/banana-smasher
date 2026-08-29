@@ -217,9 +217,6 @@ def _validate_published_pre_resume_start(
         and config.get("world_size") == 1
         and config.get("rank") == 0
         and config.get("lr_scale") == 0.5
-        and config.get("recipe_id") == "published_pre_lower_lr_warmup16_cosine64_v1"
-        and config.get("published_pre_checkpoint_sha256")
-            == "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
         and config.get("fresh_published_pre_lineage") is True
         and config.get("shared_optimizer_scheduler_lineage")
             == "fresh-published-pre-adam-lambdalr"
@@ -3113,11 +3110,6 @@ class ResidentRepairAPI:
             local_rank=0,
             layer_split={"0": [0, 42]},
             resident_validation_proof=False,
-            recipe_id="published_pre_lower_lr_warmup16_cosine64_v1",
-            published_pre_checkpoint_sha256=(
-                "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
-            ),
-            fresh_published_pre_lineage=True,
         )
         configured.pop("v7_lut_only_update", None)
         return self.continue_two_spark_real(
@@ -3262,6 +3254,15 @@ class ResidentRepairAPI:
             and config.get("published_pre_checkpoint_sha256") == published_pre_sha
             and controlled_arm_id is None
         )
+        exact_checkpointed_u21_resume = (
+            single_gpu_full_surface
+            and start_update == 21
+            and start_meta.get("sha256")
+                == "11df795d56d7f9210f20bb99e91b6518dc17d0e24cbfff6b96e120168ab64830"
+            and config.get("checkpoint_sha256")
+                == "11df795d56d7f9210f20bb99e91b6518dc17d0e24cbfff6b96e120168ab64830"
+            and requested == (24,)
+        )
         published_pre_crash_resume = (
             start_update == 10
             and str(start) == "SCHEDULE_E186B108124B_UPDATE_010"
@@ -3287,6 +3288,10 @@ class ResidentRepairAPI:
         elif published_pre_crash_resume:
             _validate_published_pre_crash_resume_start(
                 str(start), start_update, start_meta, requested=requested, config=config
+            )
+        elif exact_checkpointed_u21_resume:
+            _validate_published_pre_resume_start(
+                start_update, start_meta, config=config
             )
         elif controlled_arm_id is None:
             if fresh_published_pre_start:
