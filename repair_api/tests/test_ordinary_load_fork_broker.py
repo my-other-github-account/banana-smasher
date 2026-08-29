@@ -147,6 +147,36 @@ def test_registered_broker_identity_is_the_read_only_authority() -> None:
         _ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
 
 
+def test_registered_broker_accepts_authenticated_state_mapping_view() -> None:
+    checkpoint_sha = "c" * 64
+    identity = MappingProxyType({"schema": "published-pre", "checkpoint_loaded": True})
+    state = MappingProxyType({
+        "luts": MappingProxyType({"L000": torch.arange(4)}),
+        "norms": MappingProxyType({"L000": torch.arange(3)}),
+        "outputs": MappingProxyType({"L000": torch.arange(2)}),
+    })
+    registered = MappingProxyType({"identity": identity, "state": state, "next_update": 0})
+    _ORDINARY_FORK_PAYLOADS[checkpoint_sha] = {"payload": registered}
+    try:
+        viewed = {"identity": identity, "state": dict(state), "next_update": registered["next_update"]}
+
+        assert _release_or_retain_checkpoint_payload(
+            viewed,
+            ordinary_load_fork_broker=True,
+            checkpoint_sha256=checkpoint_sha,
+        ) == "inherited_read_only"
+
+        viewed["state"]["luts"] = MappingProxyType(dict(state["luts"]))
+        with pytest.raises(ArtifactError, match="identity mismatch"):
+            _release_or_retain_checkpoint_payload(
+                viewed,
+                ordinary_load_fork_broker=True,
+                checkpoint_sha256=checkpoint_sha,
+            )
+    finally:
+        _ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
+
+
 def test_registered_broker_accepts_authenticated_state_surface_projection() -> None:
     checkpoint_sha = "b" * 64
     luts = MappingProxyType({"L000": torch.arange(4)})

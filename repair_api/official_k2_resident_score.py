@@ -285,7 +285,16 @@ def _release_or_retain_checkpoint_payload(
                 state_bound = payload_state is registered_state
                 canonical_surfaces = {"luts", "norms", "outputs"}
                 if isinstance(registered_state, Mapping) and isinstance(payload_state, Mapping):
-                    state_bound = state_bound or (
+                    exact_surface_view = (
+                        set(registered_state) == canonical_surfaces
+                        and set(payload_state) == canonical_surfaces
+                        and payload.get("identity") is registered.get("identity")
+                        and all(
+                            payload_state[surface] is registered_state[surface]
+                            for surface in canonical_surfaces
+                        )
+                    )
+                    projected_surface_view = (
                         set(registered_state) == canonical_surfaces | {"expert_planes_l028_su_sv"}
                         and set(payload_state) == canonical_surfaces
                         and all(
@@ -293,6 +302,7 @@ def _release_or_retain_checkpoint_payload(
                             for surface in canonical_surfaces
                         )
                     )
+                    state_bound = state_bound or exact_surface_view or projected_surface_view
                 broker_bound = broker_bound or (
                     registered_keys == payload_keys
                     and values_bound
