@@ -1,3 +1,4 @@
+import inspect
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -286,6 +287,11 @@ def test_exact_u20_checkpointed_full_surface_backend_is_authenticated():
             "shared_optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
         },
     )
+
+
+def test_single_gpu_checkpointed_backend_loads_local_teacher_rows():
+    source = inspect.getsource(ModernGreenResidentEngine._load_training_data)
+    assert "if self.rank == 1 or self.single_gpu_resident:" in source
 
 
 def test_resident_loader_releases_cpu_source_duplicate_after_gpu_consumer() -> None:

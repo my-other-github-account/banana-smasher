@@ -2014,7 +2014,7 @@ class ModernGreenResidentEngine:
             self.ids_cache[window] = physical_ids.unsqueeze(0).to(self.student.device)
             self.real_lengths[window] = min(int(real_length), objective_span)
         self.teacher_cache = {}
-        if self.rank == 1:
+        if self.rank == 1 or self.single_gpu_resident:
             for window in ordered:
                 self.teacher_cache[window] = self.base.T.teacher_rows(window)
 
