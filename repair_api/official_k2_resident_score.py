@@ -59,8 +59,8 @@ CANONICAL_U0_LOCK_CORPUS_SHA256 = "434a3f9eec14e54d348efde3265998c9521bb3579cba0
 # Compatibility alias for older callers. Canonical admission below binds each
 # distinct corpus role explicitly and never compares both roles to this alias.
 CANONICAL_CORPUS_SHA256 = SCORE_TRAIN_CORPUS_SHA256
-CANONICAL_U1_CHECKPOINT_SHA256 = "65cedb1c46f7bb57ad42dcc44686d00410f955f4e1b8e38a18a4520c68b3b865"
-CANONICAL_U1_IDENTITY_SHA256 = "a7ea864bb810af15cf75a03935b335020b5394f7637974e777c96319683b5ecd"
+CANONICAL_U1_CHECKPOINT_SHA256 = "1fb277193daac5f3eb81ca73acd1d1df29bd4f3537637b914e023f7deed0e546"
+CANONICAL_U1_IDENTITY_SHA256 = "53cb15a23aa2c695b2ff1ca5d0bcb6dabc7848d154785c2ffd32faec18ba3faf"
 # This exact predecessor differs only by the U1 raw-identity adapter.  Its U0
 # binary64 resume rows therefore remain byte-for-byte valid after that repair.
 U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256 = "ba94e819badadeace56ff0c48b780a1f4129f0d58daffdd2759de1d25bd98236"

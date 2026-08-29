@@ -1397,7 +1397,7 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
     def test_canonical_raw_u1_is_adapted_before_payload_identity_validation(self):
         import repair_api.official_k2_resident_score as scorer_module
 
-        u1_identity_sha256 = "a7ea864bb810af15cf75a03935b335020b5394f7637974e777c96319683b5ecd"
+        u1_identity_sha256 = "53cb15a23aa2c695b2ff1ca5d0bcb6dabc7848d154785c2ffd32faec18ba3faf"
         raw = {
             "state": {"luts": {}, "norms": {}, "outputs": {}},
             "identity": {
