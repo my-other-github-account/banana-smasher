@@ -1827,7 +1827,14 @@ def _sealed_authentic_source_projection_control(
     ids = prepared["ids"][window]
     local: dict[str, Any] = {"rank": rank}
     control_binding = None
-    known_control_hash = "11cc07869ffcf71c39699e5631fa352cdb3aba52a003b04b659ceb5cfa4c0662"
+    grouped_control_hash = "11cc07869ffcf71c39699e5631fa352cdb3aba52a003b04b659ceb5cfa4c0662"
+    repaired_control_hash = "6ede48d59b034923ae98a7f386c94645cb06909a9c0c77b8ebb34c544b7e8231"
+    dispatch_binding = getattr(engine, "experts_dispatch_binding", None) or {}
+    known_control_hash = (
+        repaired_control_hash
+        if dispatch_binding.get("selected_implementation") == "eager"
+        else grouped_control_hash
+    )
     with torch.no_grad():
         if rank == 0:
             embeddings = engine.student.model.model.embed_tokens(ids)
@@ -1917,6 +1924,7 @@ def _sealed_authentic_source_projection_control(
         "window": window, "layer": 0,
         "control_source_binding": control_binding if rank == 0 else None,
         "unmodified_control": gathered[0]["unmodified_control"],
+        "unmodified_control_expectation": known_control_hash,
         "instrumented_control": gathered[0]["instrumented_control"],
         "instrument_transparent": gathered[0]["instrument_transparent"],
         "source_projection_control": control,

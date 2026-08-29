@@ -958,6 +958,8 @@ def test_run6910_taps_grouped_post_second_gemm_routed_reduction() -> None:
     assert "RUN6910_ROUTED_REDUCTION_AB_ONLY" in source
     assert 'or os.environ.get("RUN6910_ROUTED_REDUCTION_AB_ONLY", "0") == "1"' in source
     assert '"POST_SECOND_GEMM_ROUTED_REDUCTION"' in source
+    assert 'repaired_control_hash = "6ede48d59b034923ae98a7f386c94645cb06909a9c0c77b8ebb34c544b7e8231"' in source
+    assert '"unmodified_control_expectation": known_control_hash' in source
 
 
 def test_run6910_verifies_eager_repair_against_source(
