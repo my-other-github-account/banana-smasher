@@ -64,9 +64,11 @@ CANONICAL_U1_IDENTITY_SHA256 = "53cb15a23aa2c695b2ff1ca5d0bcb6dabc7848d154785c2f
 # This exact predecessor differs only by the U1 raw-identity adapter.  Its U0
 # binary64 resume rows therefore remain byte-for-byte valid after that repair.
 U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256 = "ba94e819badadeace56ff0c48b780a1f4129f0d58daffdd2759de1d25bd98236"
-# This serialized PRE is retained solely for explicit quarantine tests and
-# historical evidence; it is never a production admission prerequisite.
+# This serialized PRE is production-admitted only through the exact published
+# identity plus fresh one-update lineage; every other use remains quarantined.
 ALTERNATE_PRE_CHECKPOINT_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+PUBLISHED_PRE_IDENTITY_SHA256 = "published-pre-f9bffe04"
+PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE = "fresh-published-pre-adam-lambdalr"
 PRE_CHECKPOINT_SHA256 = CANONICAL_U0_CHECKPOINT_SHA256
 PUBLIC_API_METHOD = "ResidentRepairAPI.score"
 PUBLIC_API_VERSION = "official-k2-resident-v2"
@@ -75,6 +77,32 @@ ROUTED_K2_API_VERSION = "official-k2-routed-resident-v1"
 
 
 _ORDINARY_FORK_PAYLOADS: dict[str, dict[str, Any]] = {}
+
+
+def _published_pre_production_admitted(manifest: Mapping[str, Any]) -> bool:
+    """Authenticate the one-update production lineage rooted at published PRE."""
+    checkpoints = manifest.get("checkpoints")
+    if not isinstance(checkpoints, Mapping):
+        return False
+    published_pre = any(
+        isinstance(meta, Mapping)
+        and meta.get("sha256") == ALTERNATE_PRE_CHECKPOINT_SHA256
+        and meta.get("identity_sha256") == PUBLISHED_PRE_IDENTITY_SHA256
+        and int(meta.get("next_update", meta.get("update", -1))) == 0
+        and not (meta.get("parent_sha256") or meta.get("parent_checkpoint_sha256"))
+        for meta in checkpoints.values()
+    )
+    fresh_child = any(
+        isinstance(meta, Mapping)
+        and int(meta.get("next_update", meta.get("update", -1))) == 1
+        and (meta.get("parent_sha256") or meta.get("parent_checkpoint_sha256"))
+            == ALTERNATE_PRE_CHECKPOINT_SHA256
+        and meta.get("parent_identity_sha256") == PUBLISHED_PRE_IDENTITY_SHA256
+        and meta.get("optimizer_scheduler_lineage")
+            == PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE
+        for meta in checkpoints.values()
+    )
+    return published_pre and fresh_child
 
 
 def _freeze_checkpoint_mappings(value: Any) -> Any:
@@ -1264,16 +1292,27 @@ def authorize_production_score(
     checkpoint_parent_sha256: str | None = None,
     ordered_windows_sha256: str | None = None,
     allow_alternate_pre_diagnostic: bool = False,
+    allow_published_pre_production: bool = False,
 ) -> dict[str, Any]:
     """Admit the canonical U0→U1 lane and gate all other updates publicly.
 
     Canonical U0 is admitted by immutable SHA. Canonical U1 requires update 1
-    and the immediate canonical U0 parent. Alternate serialized PRE evidence is
-    quarantine-only; non-canonical updates require a public calibration receipt
-    and, for U3+, a pre-registered scientific question.
+    and the immediate canonical U0 parent. Published PRE requires its exact
+    manifest identity plus fresh one-update lineage; all other alternate PRE
+    uses remain quarantine-only. Non-canonical updates require a public
+    calibration receipt and, for U3+, a pre-registered scientific question.
     """
     update = int(checkpoint_update)
     if checkpoint_sha256 == ALTERNATE_PRE_CHECKPOINT_SHA256:
+        if allow_published_pre_production:
+            if update != 0 or checkpoint_parent_sha256 is not None:
+                raise ArtifactError("published PRE production admission requires exact parentless update 0")
+            return {
+                "scope": "PUBLISHED_PRE_PRODUCTION",
+                "checkpoint_sha256": checkpoint_sha256,
+                "checkpoint_parent_sha256": None,
+                "public_api": {"method": PUBLIC_API_METHOD, "version": PUBLIC_API_VERSION},
+            }
         if not allow_alternate_pre_diagnostic:
             raise ArtifactError(
                 "alternate serialized PRE is quarantine-only and cannot enter the canonical resident lane"
@@ -3783,12 +3822,14 @@ class OfficialK2ResidentScorer:
             and update == 0
             and self.config.get("parity_tap_mode") == "sealed_reference"
         )
+        published_pre_production = _published_pre_production_admitted(self.artifact.manifest)
         declared_pre = self.config.get("pre_checkpoint_sha256")
         if (
             declared_pre
             and str(declared_pre) != CANONICAL_U0_CHECKPOINT_SHA256
             and self.config.get("route_kind") != ROUTED_K2_ROUTE_KIND
             and not alternate_pre_diagnostic
+            and not published_pre_production
         ):
             raise ArtifactError(
                 "alternate serialized PRE is quarantine-only and cannot be a production prerequisite"
@@ -3815,6 +3856,7 @@ class OfficialK2ResidentScorer:
                 scientific_question_receipt=self.config.get("scientific_question_receipt"),
                 ordered_windows_sha256=_windows_sha256(selected),
                 allow_alternate_pre_diagnostic=alternate_pre_diagnostic,
+                allow_published_pre_production=published_pre_production,
             )
         if self._engine is None and self._engine_type() is OfficialK2ResidentRankEngine:
             # Checkpoint adaptation can materialize CUDA tensors before the

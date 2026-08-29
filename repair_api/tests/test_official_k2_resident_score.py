@@ -28,6 +28,8 @@ from repair_api.official_k2_resident_score import (
     ROUTED_K2_API_VERSION,
     ROUTED_K2_CLOSURE,
     ROUTED_K2_ROUTE_KIND,
+    PUBLISHED_PRE_IDENTITY_SHA256,
+    PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
     OfficialK2ResidentRankEngine,
     _write_q_lp_capture,
     _canonical_causal_score_tokens,
@@ -716,6 +718,58 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             api.artifact.manifest["checkpoints"]["UPDATE_000"]["sha256"] = ALTERNATE_PRE_CHECKPOINT_SHA256
             with self.assertRaisesRegex(ArtifactError, "quarantine-only"):
                 api.score("UPDATE_000", windows=WINDOWS)
+
+    def test_api_score_admits_only_identity_exact_fresh_published_pre_lineage(self):
+        def manifest_for(root: Path) -> dict[str, Any]:
+            self.make_artifact(root, checkpoint_sha=ALTERNATE_PRE_CHECKPOINT_SHA256)
+            manifest = json.loads((root / "ARTIFACT.json").read_text())
+            pre = manifest["checkpoints"]["UPDATE_000"]
+            pre["identity_sha256"] = PUBLISHED_PRE_IDENTITY_SHA256
+            pre["parent_sha256"] = None
+            manifest["checkpoints"]["UPDATE_001"] = {
+                "path": "checkpoints/UPDATE_001.pt",
+                "sha256": "candidate-sha",
+                "identity_sha256": "candidate-identity",
+                "parent_sha256": ALTERNATE_PRE_CHECKPOINT_SHA256,
+                "parent_identity_sha256": PUBLISHED_PRE_IDENTITY_SHA256,
+                "optimizer_scheduler_lineage": PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
+                "next_update": 1,
+            }
+            manifest["score"]["official_k2_resident"]["pre_checkpoint_sha256"] = (
+                ALTERNATE_PRE_CHECKPOINT_SHA256
+            )
+            return manifest
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = manifest_for(root)
+            (root / "ARTIFACT.json").write_text(json.dumps(manifest))
+            api = ResidentRepairAPI.open(root, official_backend_factory=FakeOfficialBackend)
+            self.assertEqual(api.score("UPDATE_000", windows=WINDOWS).checkpoint, "UPDATE_000")
+            admitted = authorize_production_score(
+                0,
+                checkpoint_sha256=ALTERNATE_PRE_CHECKPOINT_SHA256,
+                checkpoint_parent_sha256=None,
+                allow_published_pre_production=True,
+            )
+            self.assertEqual(admitted["scope"], "PUBLISHED_PRE_PRODUCTION")
+
+        for field, bad_value in (
+            ("identity_sha256", "wrong-pre-identity"),
+            ("parent_identity_sha256", "wrong-parent-identity"),
+            ("optimizer_scheduler_lineage", "quarantine-lineage"),
+        ):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                manifest = manifest_for(root)
+                target = manifest["checkpoints"][
+                    "UPDATE_000" if field == "identity_sha256" else "UPDATE_001"
+                ]
+                target[field] = bad_value
+                (root / "ARTIFACT.json").write_text(json.dumps(manifest))
+                api = ResidentRepairAPI.open(root, official_backend_factory=FakeOfficialBackend)
+                with self.assertRaisesRegex(ArtifactError, "quarantine-only"):
+                    api.score("UPDATE_000", windows=WINDOWS)
 
     def test_api_score_allows_exact_alternate_pre_sealed_reference_diagnostic(self):
         with tempfile.TemporaryDirectory() as directory:

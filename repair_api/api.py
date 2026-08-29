@@ -28,6 +28,7 @@ from .official_k2_resident_score import (
     ROUTED_K2_API_VERSION,
     ROUTED_K2_CLOSURE,
     ROUTED_K2_ROUTE_KIND,
+    _published_pre_production_admitted,
     validate_routed_k2_closure,
 )
 
@@ -1968,9 +1969,11 @@ class ResidentRepairAPI:
             isinstance(official_config, Mapping)
             and official_config.get("parity_tap_mode") == "sealed_reference"
         )
+        published_pre_production = _published_pre_production_admitted(self.artifact.manifest)
         if (
             checkpoint_meta.get("sha256") == ALTERNATE_PRE_CHECKPOINT_SHA256
             and not alternate_pre_diagnostic
+            and not published_pre_production
         ):
             raise ArtifactError(
                 "alternate serialized PRE is quarantine-only and cannot enter the canonical resident lane"
