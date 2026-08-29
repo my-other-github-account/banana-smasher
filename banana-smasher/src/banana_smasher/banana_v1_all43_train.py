@@ -67,13 +67,12 @@ def fit_shared_codebook_from_sources(
     sums = np.zeros(1024, dtype=np.float64)
     initial_distortions: list[float] = []
     for source, seed in zip(sources, seeds):
-        first = build_banana_v1(source, seed=int(seed), codebook=original)
-        transformed, _su, _sv = banana_v1_transform(source, seed=int(seed))
-        normalized = transformed.reshape(-1) / np.repeat(first.scales, first.states.shape[1])
-        levels = state_levels[first.states.reshape(-1)]
-        counts += np.bincount(levels.astype(np.int64), minlength=1024).astype(np.int64)
-        sums += np.bincount(levels.astype(np.int64), weights=normalized, minlength=1024)
-        initial_distortions.append(float(first.distortion))
+        source_counts, source_sums, distortion = _statistics_for_source(
+            source, seed=int(seed), original=original, state_levels=state_levels
+        )
+        counts += source_counts
+        sums += source_sums
+        initial_distortions.append(distortion)
     fitted = fit_banana_v1_codebook_from_statistics(original, counts, sums, alpha=1.0)
     evidence = {
         "assignment_count": int(counts.sum()),
@@ -83,6 +82,35 @@ def fit_shared_codebook_from_sources(
         "initial_distortions": initial_distortions,
     }
     return fitted, evidence
+
+
+def _statistics_for_source(
+    source: np.ndarray,
+    *,
+    seed: int,
+    original: np.ndarray,
+    state_levels: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """Return authentic initial-codebook statistics for one routed matrix."""
+    first = build_banana_v1(source, seed=seed, codebook=original)
+    transformed, _su, _sv = banana_v1_transform(source, seed=seed)
+    rows, columns = transformed.shape
+    transformed_tiles = (
+        transformed.reshape(rows // 16, 16, columns // 16, 16)
+        .transpose(0, 2, 1, 3)
+        .reshape(-1, 256)
+    )
+    if transformed_tiles.shape != first.states.shape:
+        raise RuntimeError("TRAIN tile/state geometry mismatch")
+    normalized = transformed_tiles / first.scales[:, None]
+    levels = state_levels[first.states]
+    counts = np.bincount(levels.reshape(-1).astype(np.int64), minlength=1024).astype(np.int64)
+    sums = np.bincount(
+        levels.reshape(-1).astype(np.int64),
+        weights=normalized.reshape(-1),
+        minlength=1024,
+    )
+    return counts, sums, float(first.distortion)
 
 
 def build_shared_results(
@@ -147,7 +175,9 @@ def _claim_host(path: Path, *, preimage_sha256: str, task_id: str, run_id: int, 
     return pid, ticks, _sha_path(path)
 
 
-def _load_source(model_index: Path, index: dict[str, Any], layer: int) -> tuple[np.ndarray, dict[str, Any]]:
+def _load_source(
+    model_index: Path, index: dict[str, Any], layer: int, *, support: str
+) -> tuple[np.ndarray, dict[str, Any]]:
     import torch
     from safetensors import safe_open
 
@@ -158,13 +188,21 @@ def _load_source(model_index: Path, index: dict[str, Any], layer: int) -> tuple[
         raise RuntimeError(f"routed source/co-shard mismatch for L{layer:03d}")
     shard = model_index.parent / weight_map[tensor_key]
     with safe_open(shard, framework="pt", device="cpu") as handle:
-        quantized = handle.get_slice(tensor_key)[:16, :16]
-        scale = handle.get_slice(scale_key)[:16, :1]
+        if support == "corner16":
+            quantized = handle.get_slice(tensor_key)[:16, :16]
+            scale = handle.get_slice(scale_key)[:16, :1]
+        elif support == "full-projection":
+            quantized = handle.get_tensor(tensor_key)
+            scale = handle.get_tensor(scale_key)
+        else:
+            raise ValueError(f"unsupported TRAIN support: {support}")
     raw_weight = np.ascontiguousarray(quantized.numpy())
     scale_float = scale.to(dtype=torch.float32)
     raw_scale = np.ascontiguousarray(scale_float.numpy())
     source_cuda = quantized.to(device="cuda", dtype=torch.float32)
-    source_cuda.mul_(scale_float.to(device="cuda").repeat_interleave(16, dim=1))
+    if scale_float.ndim != 2 or scale_float.shape != (quantized.shape[0], 1):
+        raise RuntimeError(f"routed scale geometry mismatch L{layer:03d}")
+    source_cuda.mul_(scale_float.to(device="cuda").expand(-1, quantized.shape[1]))
     torch.cuda.synchronize()
     source = source_cuda.cpu().numpy().astype(np.float32, copy=False)
     return source, {
@@ -174,7 +212,8 @@ def _load_source(model_index: Path, index: dict[str, Any], layer: int) -> tuple[
         "raw_weight_sha256": _sha_bytes(raw_weight.tobytes()),
         "raw_scale_sha256": _sha_bytes(raw_scale.tobytes()),
         "source_sha256": _sha_bytes(np.ascontiguousarray(source).tobytes()),
-        "shape": [16, 16],
+        "shape": list(source.shape),
+        "train_support": support,
     }
 
 
@@ -216,19 +255,41 @@ def run_all43(args: argparse.Namespace) -> dict[str, Any]:
             "startticks": ticks,
         },
     )
-    sources: list[np.ndarray] = []
+    materialization_sources: list[np.ndarray] = []
     source_rows: list[dict[str, Any]] = []
+    original = banana_v1_gaussian_codebook()
+    state_levels = banana_v1_state_levels()
+    counts = np.zeros(1024, dtype=np.int64)
+    sums = np.zeros(1024, dtype=np.float64)
+    initial_distortions: list[float] = []
     started = time.time()
     for position, layer in enumerate(layers, 1):
-        source, metadata = _load_source(model_index, index, layer)
-        sources.append(source)
+        source, metadata = _load_source(
+            model_index, index, layer, support=args.train_support
+        )
+        source_counts, source_sums, distortion = _statistics_for_source(
+            source, seed=layer, original=original, state_levels=state_levels
+        )
+        counts += source_counts
+        sums += source_sums
+        initial_distortions.append(distortion)
+        materialization_sources.append(np.ascontiguousarray(source[:16, :16]))
         source_rows.append(metadata)
-        _atomic_json(root / "PROGRESS.json", {"status": "SOURCE_READ", "completed_members": position, "total_members": 43, "active_member": roster[position - 1], "pid": pid, "startticks": ticks, "basis_sha256": index_sha, "unix": time.time()})
-    shared, statistics = fit_shared_codebook_from_sources(sources, seeds=layers)
+        _atomic_json(root / "PROGRESS.json", {"status": "TRAIN_STATISTICS", "completed_members": position, "total_members": 43, "active_member": roster[position - 1], "train_support": args.train_support, "train_assignments": int(counts.sum()), "pid": pid, "startticks": ticks, "basis_sha256": index_sha, "unix": time.time()})
+    shared = fit_banana_v1_codebook_from_statistics(original, counts, sums, alpha=1.0)
+    statistics = {
+        "fit_calls": 1,
+        "train_support": args.train_support,
+        "assignment_count": int(counts.sum()),
+        "occupied_levels": int(np.count_nonzero(counts)),
+        "counts_sha256": _sha_bytes(np.ascontiguousarray(counts).tobytes()),
+        "target_sums_sha256": _sha_bytes(np.ascontiguousarray(sums).tobytes()),
+        "initial_distortions": initial_distortions,
+    }
     shared_path = root / "candidate" / "shared_codebook.fp16"
     shared_path.write_bytes(shared.tobytes())
     shared_sha = _sha_path(shared_path)
-    results = build_shared_results(sources, seeds=layers, codebook=shared)
+    results = build_shared_results(materialization_sources, seeds=layers, codebook=shared)
     rows: list[dict[str, Any]] = []
     total_bits = 0
     for position, (layer, result) in enumerate(zip(layers, results), 1):
@@ -244,7 +305,8 @@ def run_all43(args: argparse.Namespace) -> dict[str, Any]:
             {
                 "id": roster[position - 1],
                 "layer": layer,
-                "source": source_rows[position - 1],
+                "train_source": source_rows[position - 1],
+                "materialization_shape": [16, 16],
                 "candidate_locator": str(member_root),
                 "candidate_receipt_sha256": _sha_path(member_root / "BANANA_V1_RECEIPT.json"),
                 "shared_codebook_sha256": shared_sha,
@@ -256,6 +318,29 @@ def run_all43(args: argparse.Namespace) -> dict[str, Any]:
         )
         _atomic_json(root / "PROGRESS.json", {"status": "MATERIALIZING_FROZEN_SHARED_CODEBOOK", "completed_members": position, "total_members": 43, "active_member": roster[position - 1], "assignment_bits": total_bits, "shared_codebook_sha256": shared_sha, "pid": pid, "startticks": ticks, "basis_sha256": index_sha, "unix": time.time()})
     elapsed = time.time() - started
+    for path in sorted((root / "candidate").rglob("*"), reverse=True):
+        path.chmod(0o555 if path.is_dir() else 0o444)
+    (root / "candidate").chmod(0o555)
+    forbidden = {
+        "holdout_used": False,
+        "hessian_used": False,
+        "repair_gradients_used": False,
+        "comparator_tables_used": False,
+        "copied_exl_k2_states_used": False,
+        "u16_lineage_used": False,
+        "dev_windows_used": False,
+        "eval_windows_used": False,
+        "teacher_logits_used": False,
+        "teacher_gradients_used": False,
+        "loss_gradients_used": False,
+        "second_order_statistics_used": False,
+        "activation_statistics_used": False,
+        "external_codebook_used": False,
+        "per_member_codebook_fit_used": False,
+        "post_score_tuning_used": False,
+        "copied_quantizer_state_used": False,
+        "non_source_train_data_used": False,
+    }
     terminal = {
         "schema": "banana-smasher-native-q2-all43-shared-train-terminal-v1",
         "status": "PASS_ALL43_SHARED_SOURCE_TRAIN",
@@ -274,9 +359,10 @@ def run_all43(args: argparse.Namespace) -> dict[str, Any]:
         "single_shared_codebook": {"path": str(shared_path), "sha256": shared_sha, "dtype": "float16", "shape": [1024], "bytes": shared_path.stat().st_size, "referenced_by_members": len(rows)},
         "train_statistics": statistics,
         "assignment_accounting": {"weights": 43 * 256, "code_bits": total_bits, "code_bpw": total_bits / (43 * 256), "exact_2_bpw": total_bits == 43 * 256 * 2},
-        "safety": {"holdout_used": False, "hessian_used": False, "repair_gradients_used": False, "comparator_tables_used": False, "copied_exl_k2_states_used": False, "u16_lineage_used": False},
-        "throughput": {"elapsed_seconds": elapsed, "assignments_per_second": (43 * 256 * 2) / elapsed},
+        "safety": forbidden,
+        "throughput": {"elapsed_seconds": elapsed, "train_assignments_per_second": statistics["assignment_count"] / elapsed, "materialization_assignments_per_second": (43 * 256) / elapsed},
         "candidate_locator": str(root / "candidate"),
+        "candidate_mode": "0555-directories/0444-files",
         "pid": pid,
         "startticks": ticks,
         "unix": time.time(),
@@ -298,6 +384,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--canonical-sha", required=True)
     parser.add_argument("--host-claim", required=True)
     parser.add_argument("--claim-preimage-sha256", required=True)
+    parser.add_argument(
+        "--train-support",
+        choices=("corner16", "full-projection"),
+        required=True,
+        help="source/TRAIN support used for the one shared-codebook fit",
+    )
     args = parser.parse_args(argv)
     print(json.dumps(run_all43(args), sort_keys=True), flush=True)
     return 0
