@@ -3223,11 +3223,18 @@ class ModernGreenResidentEngine:
             physical_batch_size = int(
                 self.config.get("sealed_builder_window_microbatch", 2)
             )
-            if physical_batch_size != 2:
+            singleton_public_parity = bool(
+                self.config.get("singleton_public_parity_tap_only", False)
+            )
+            if physical_batch_size != 2 and not (
+                singleton_public_parity
+                and ordered == (28,)
+                and physical_batch_size == 1
+            ):
                 raise ArtifactError(
                     "published PRE validation requires sealed mb=2 microbatch"
                 )
-            if ordered == (28,):
+            if ordered == (28,) and not singleton_public_parity:
                 # RUN1698 produced trusted W28 in the sealed builder's first
                 # mb2 group (W28, W56). W56 is execution context only; public
                 # validation still reports and reduces W28 alone.

@@ -2381,6 +2381,8 @@ def main() -> None:
     singleton_public_parity_tap_only = (
         os.environ.get("LAW4_PUBLIC_PRODUCT_TAP_ONLY", "0") == "1"
     )
+    if singleton_public_parity_tap_only:
+        config["singleton_public_parity_tap_only"] = True
     adopted_w28 = bool(os.environ.get("ADOPT_W28_RECEIPT"))
     adopt_keep_provider = os.environ.get("ADOPT_W28_KEEP_PROVIDER", "0") == "1"
     # With authenticated W28 adoption there is no pre-production forward: bind
