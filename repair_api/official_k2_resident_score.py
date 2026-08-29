@@ -1672,6 +1672,16 @@ class OfficialK2ResidentRankEngine:
             config.get("route_kind"),
             config.get("parity_tap_mode"),
         )
+        if config.get("provider_resolution_mode") == "STATIC_W28_GROUPED":
+            # Keep the accepted provider bytes and use the canonical historical
+            # constructor adapter already exercised by the resident API.
+            from .modern_green_resident import _bind_historical_swiglu_limit
+
+            model_config = _load_json(self.model_root / "config.json")
+            expert_module.FullyResidentGroupedV7Experts = _bind_historical_swiglu_limit(
+                expert_module.FullyResidentGroupedV7Experts,
+                sealed_limit=float(model_config["swiglu_limit"]),
+            )
         self.expert_parallel_all_layers = bool(
             config.get("expert_parallel_all_layers", False)
         )
