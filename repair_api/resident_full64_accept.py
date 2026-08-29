@@ -3057,14 +3057,25 @@ def main() -> None:
     print(json.dumps({"cuda_memory_cap_path": str(cap_path), **cap_row}, sort_keys=True), flush=True)
     if not torch.distributed.is_initialized():
         torch.distributed.init_process_group(backend="nccl", init_method="env://", timeout=timedelta(seconds=900))
-    if torch.distributed.get_world_size() != 2 or torch.distributed.get_rank() != rank:
+    grouped_mm_operation_probe = os.environ.get(
+        "RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0"
+    ) == "1"
+    expected_world_size = 1 if grouped_mm_operation_probe else 2
+    if (
+        torch.distributed.get_world_size() != expected_world_size
+        or torch.distributed.get_rank() != rank
+    ):
         raise RuntimeError("DIST_GEOMETRY_MISMATCH")
 
     process_started = time.perf_counter()
     load_started = time.perf_counter()
     payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    engine = ModernGreenResidentEngine(payload=payload, config=config, rank=rank,
-                                       layer_ranges={0: (0, 20), 1: (21, 42)})
+    layer_ranges = {0: (0, 20)} if grouped_mm_operation_probe else {
+        0: (0, 20), 1: (21, 42)
+    }
+    engine = ModernGreenResidentEngine(
+        payload=payload, config=config, rank=rank, layer_ranges=layer_ranges
+    )
     del payload
     projection_binding = engine.sealed_gate_up_runtime_witness(
         require_activation=False

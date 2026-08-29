@@ -907,6 +907,8 @@ def test_run6873_compares_grouped_mm_operations_with_source_flinear() -> None:
     assert torch.equal(output, torch.zeros((2, 2)))
     assert [item["grouped_vs_source_exact"] for item in operations] == [False, True]
     assert operations[0]["source"].endswith("grouped_mm_experts_forward")
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    assert "expected_world_size = 1 if grouped_mm_operation_probe else 2" in source
 
 
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
