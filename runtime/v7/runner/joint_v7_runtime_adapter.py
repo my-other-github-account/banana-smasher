@@ -14,6 +14,7 @@ from typing import Any
 
 LAYERS = 43
 CANONICAL_BATCH = 4
+_INDEXER_NORM_LAYERS = tuple(range(2, LAYERS, 2))
 DEFAULT_BASE = Path(
     "/home/dnola/missions/P487_REPAIR_RESUME_t_277fd2a6_s8/code/base_binrepair_e2e.py"
 )
@@ -143,6 +144,49 @@ def _make_experts(base_class: type, sources: dict[int, Any]) -> type:
     return JointV7PlaneExperts
 
 
+def _install_indexer_norm_gradient_access(student: Any) -> tuple[str, ...]:
+    """Expose the 21 physical indexer RMSNorm access hooks to API consumers."""
+    try:
+        layers = student.model.model.layers
+    except AttributeError as exc:
+        raise RuntimeError("whole-model Student lacks the physical compressor layers") from exc
+    if len(layers) != LAYERS:
+        raise RuntimeError(f"whole-model compressor layer count drift: {len(layers)}")
+
+    bound: list[str] = []
+    for layer in _INDEXER_NORM_LAYERS:
+        name = f"model.layers.{layer}.self_attn.compressor.indexer.kv_norm"
+        try:
+            compressor = layers[layer].self_attn.compressor
+            indexer_norm = compressor.indexer.kv_norm
+            weight = indexer_norm.weight
+        except AttributeError as exc:
+            raise RuntimeError(f"compressor-indexer RMSNorm access seam drift: {name}") from exc
+        if getattr(compressor, "_banana_smasher_indexer_norm_access", None) is not None:
+            raise RuntimeError(f"compressor-indexer RMSNorm access already installed: {name}")
+
+        def bridge(_module: Any, _inputs: Any, output: Any, *, norm: Any = indexer_norm, path: str = name):
+            if not isinstance(output, tuple) or len(output) != 2:
+                raise RuntimeError(f"compressor output seam drift: {path}")
+            compressed_kv, block_bias = output
+            current = norm.weight
+            if current.ndim != 1:
+                raise RuntimeError(f"compressor-indexer RMSNorm width drift: {path}")
+            access = current.float().mean()
+            zero_forward = access - access.detach()
+            bridged = compressed_kv + compressed_kv * zero_forward.to(compressed_kv.dtype)
+            return bridged, block_bias
+
+        handle = compressor.register_forward_hook(bridge)
+        compressor.__dict__["_banana_smasher_indexer_norm_access"] = {
+            "name": name,
+            "handle": handle,
+            "weight_identity": id(weight),
+        }
+        bound.append(name)
+    return tuple(bound)
+
+
 def _validate_bank(base: Any, admission: Mapping[str, Any], ordered: list[int], batch: int) -> None:
     admitted = list(
         map(
@@ -236,4 +280,4 @@ def build_joint_v7_runtime(plane_sources, device, admission, ordered_train_windo
     }
 
 
-__all__ = ["build_joint_v7_runtime"]
+__all__ = ["build_joint_v7_runtime", "_install_indexer_norm_gradient_access"]

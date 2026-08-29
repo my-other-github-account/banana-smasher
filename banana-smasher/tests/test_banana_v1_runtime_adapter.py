@@ -185,6 +185,8 @@ def test_joint_runtime_binds_all43_manifest_before_expert_construction(
     assert spec is not None and spec.loader is not None
     runtime = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runtime)
+    assert callable(runtime._install_indexer_norm_gradient_access)
+    assert "_install_indexer_norm_gradient_access" in runtime.__all__
     device = SimpleNamespace(type="cuda", index=0)
     sources = {}
     for layer in range(43):
