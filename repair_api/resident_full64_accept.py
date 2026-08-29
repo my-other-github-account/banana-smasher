@@ -267,7 +267,7 @@ def _law4_public_product_taps(api: Any, engine: Any, *, window: int,
             value = forward(*args, **kwargs)
             tapped = transform(value) if transform is not None else value
             local[name] = _tensor_tap(tapped)
-            if name == "L001_attention_return":
+            if name in ("L001_attention_input", "L001_attention_return"):
                 retained_payloads[name] = tapped.detach().to("cpu").contiguous()
             if name == "logits":
                 captured_logits[:] = [tapped.detach()]
@@ -276,6 +276,8 @@ def _law4_public_product_taps(api: Any, engine: Any, *, window: int,
 
     if rank == 0:
         wrap(model.model.embed_tokens, "embeddings")
+        if os.environ.get("LAW4_L001_ATTENTION_INPUT_PAYLOAD_ONLY", "0") == "1":
+            wrap(model.model.layers[1].input_layernorm, "L001_attention_input")
         if os.environ.get("LAW4_L001_ATTENTION_PAYLOAD_ONLY", "0") == "1":
             wrap(model.model.layers[1].self_attn, "L001_attention_return", _first_tensor)
     for index in range(engine.first, engine.last + 1):
@@ -292,11 +294,17 @@ def _law4_public_product_taps(api: Any, engine: Any, *, window: int,
     finally:
         for module, forward in originals:
             module.forward = forward
-    if rank == 0 and os.environ.get("LAW4_L001_ATTENTION_PAYLOAD_ONLY", "0") == "1":
-        payload = retained_payloads.get("L001_attention_return")
+    attention_input_only = os.environ.get("LAW4_L001_ATTENTION_INPUT_PAYLOAD_ONLY", "0") == "1"
+    attention_return_only = os.environ.get("LAW4_L001_ATTENTION_PAYLOAD_ONLY", "0") == "1"
+    if attention_input_only and attention_return_only:
+        raise RuntimeError("LAW4_L001_ATTENTION_DIAGNOSTIC_AMBIGUOUS")
+    if rank == 0 and (attention_input_only or attention_return_only):
+        payload_name = "L001_attention_input" if attention_input_only else "L001_attention_return"
+        payload = retained_payloads.get(payload_name)
         if payload is None:
-            raise RuntimeError("LAW4_L001_ATTENTION_PAYLOAD_MISSING")
-        payload_path = root / "receipts" / "RESIDENT_L001_ATTENTION_RETURN.pt"
+            raise RuntimeError(f"LAW4_{payload_name.upper()}_PAYLOAD_MISSING")
+        payload_file = "RESIDENT_L001_ATTENTION_INPUT.pt" if attention_input_only else "RESIDENT_L001_ATTENTION_RETURN.pt"
+        payload_path = root / "receipts" / payload_file
         payload_path.parent.mkdir(parents=True, exist_ok=True)
         temporary = payload_path.with_name(f".{payload_path.name}.{os.getpid()}.tmp")
         torch.save(payload, temporary)
@@ -328,6 +336,8 @@ def _law4_public_product_taps(api: Any, engine: Any, *, window: int,
         merged.update(row)
     layer_taps: list[str] = []
     for index in range(43):
+        if index == 1 and os.environ.get("LAW4_L001_ATTENTION_INPUT_PAYLOAD_ONLY", "0") == "1":
+            layer_taps.append("L001_attention_input")
         if index == 1 and os.environ.get("LAW4_L001_ATTENTION_PAYLOAD_ONLY", "0") == "1":
             layer_taps.append("L001_attention_return")
         layer_taps.append(f"L{index:03d}")
