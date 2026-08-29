@@ -68,6 +68,7 @@ U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256 = "ba94e819badadeace56ff0c48b780a1f41
 # identity plus fresh one-update lineage; every other use remains quarantined.
 ALTERNATE_PRE_CHECKPOINT_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
 PUBLISHED_PRE_IDENTITY_SHA256 = "published-pre-f9bffe04"
+PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256 = "51074d5fedfc922b8442cb6cf988773f32991c16e6cf34ca21131c4f7b1726f8"
 PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE = "fresh-published-pre-adam-lambdalr"
 PRE_CHECKPOINT_SHA256 = CANONICAL_U0_CHECKPOINT_SHA256
 PUBLIC_API_METHOD = "ResidentRepairAPI.score"
@@ -1166,6 +1167,7 @@ def validate_payload_identity(
     checkpoint_sha256: str,
     checkpoint_identity_sha256: str,
     next_update: int,
+    allow_published_pre_identity_alias: bool = False,
 ) -> None:
     """Bind the one torch-loaded payload to manifest checkpoint identity.
 
@@ -1212,6 +1214,15 @@ def validate_payload_identity(
         for key, value in expected.items()
         if identity.get(key) != value
     }
+    published_pre_alias = (
+        allow_published_pre_identity_alias
+        and checkpoint_sha256 == ALTERNATE_PRE_CHECKPOINT_SHA256
+        and checkpoint_identity_sha256 == PUBLISHED_PRE_IDENTITY_SHA256
+        and int(next_update) == 0
+        and identity.get("identity_sha256") == PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256
+    )
+    if published_pre_alias:
+        drift.pop("identity_sha256", None)
     if drift:
         raise ArtifactError(f"payload checkpoint identity drift: {drift}")
     embedded_checkpoint_sha = identity.get("checkpoint_sha256")
@@ -3892,6 +3903,11 @@ class OfficialK2ResidentScorer:
             checkpoint_sha256=checkpoint_sha,
             checkpoint_identity_sha256=checkpoint_identity_sha,
             next_update=update,
+            allow_published_pre_identity_alias=(
+                published_pre_production
+                and checkpoint_sha == ALTERNATE_PRE_CHECKPOINT_SHA256
+                and update == 0
+            ),
         )
         if self._engine is None:
             self._engine = self._engine_type()(

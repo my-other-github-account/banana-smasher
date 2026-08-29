@@ -29,6 +29,7 @@ from repair_api.official_k2_resident_score import (
     ROUTED_K2_CLOSURE,
     ROUTED_K2_ROUTE_KIND,
     PUBLISHED_PRE_IDENTITY_SHA256,
+    PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256,
     PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
     OfficialK2ResidentRankEngine,
     _write_q_lp_capture,
@@ -37,6 +38,7 @@ from repair_api.official_k2_resident_score import (
     _validate_raw_u0_gates,
     _validate_qsfp_pin,
     authorize_production_score,
+    validate_payload_identity,
 )
 
 
@@ -753,6 +755,17 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
                 allow_published_pre_production=True,
             )
             self.assertEqual(admitted["scope"], "PUBLISHED_PRE_PRODUCTION")
+            validate_payload_identity(
+                {"identity": {
+                    "identity_sha256": PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256,
+                    "next_update": 0,
+                    "checkpoint_loaded": True,
+                }},
+                checkpoint_sha256=ALTERNATE_PRE_CHECKPOINT_SHA256,
+                checkpoint_identity_sha256=PUBLISHED_PRE_IDENTITY_SHA256,
+                next_update=0,
+                allow_published_pre_identity_alias=True,
+            )
 
         for field, bad_value in (
             ("identity_sha256", "wrong-pre-identity"),
