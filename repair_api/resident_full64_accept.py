@@ -2613,6 +2613,12 @@ def main() -> None:
                 torch.distributed.destroy_process_group()
             return
         if changed_input_w28_only:
+            # The construction-time binding witness is necessarily zero before
+            # the first forward. Refresh it at the W28 boundary and fail closed
+            # unless the provider-global wrapper actually served this score.
+            projection_binding = engine.sealed_gate_up_runtime_witness(
+                require_activation=True
+            )
             observed_kld = float(admission.get("kld_mean", float("nan")))
             kld_shift = observed_kld - W28_KLD
             terminal = {
@@ -2624,6 +2630,7 @@ def main() -> None:
                 "reference": {"attention_implementation": "eager", "kld_mean": W28_KLD,
                               "top1": W28_TOP1},
                 "candidate": {"attention_implementation": "sdpa", "measurement": admission},
+                "projection_runtime_witness": projection_binding,
                 "kld_shift": kld_shift, "wall_seconds": admission_wall,
             }
             terminal_path = root / "receipts" / f"CHANGED_INPUT_W28.{TASK}.rank{rank}.json"

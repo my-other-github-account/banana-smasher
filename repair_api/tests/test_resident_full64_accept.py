@@ -220,6 +220,21 @@ def test_production_rebinds_to_sealed_single_window_pre_semantics() -> None:
     assert "bind_routed_return_accumulation(" not in source[production:]
 
 
+def test_w28_gate_refreshes_and_requires_provider_activation_after_forward() -> None:
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    score = source.index("admission = _score_admission_windows(")
+    changed_input = source.index("if changed_input_w28_only:", score)
+    terminal = source.index('"schema": "banana-smasher-changed-input-w28-terminal-v1"', changed_input)
+    activation = source.index(
+        "projection_binding = engine.sealed_gate_up_runtime_witness(\n"
+        "                require_activation=True\n"
+        "            )",
+        changed_input,
+    )
+    assert score < activation < terminal
+    assert '"projection_runtime_witness": projection_binding' in source[terminal:terminal + 1200]
+
+
 def test_resident_full64_accept_uses_explicit_authenticated_attempt_config(monkeypatch) -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory).resolve()
