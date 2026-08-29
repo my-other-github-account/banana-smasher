@@ -1572,6 +1572,7 @@ class ModernGreenResidentEngine:
             raise ArtifactError("official resident LUT roster drift")
         self._configure_base()
         self.status: dict[str, Any] = {}
+        student_rank = 1 if self.single_gpu_v7_lut_only else rank
         self.student = self.trainer.ShardStudent(
             torch=torch,
             np=__import__("numpy"),
@@ -1582,7 +1583,7 @@ class ModernGreenResidentEngine:
             parent_root=self.parent_root,
             l034_roster=self.l034_roster,
             input_state=payload,
-            rank=rank,
+            rank=student_rank,
             first=self.first,
             last=self.last,
             status_cb=self._status,
@@ -1592,13 +1593,15 @@ class ModernGreenResidentEngine:
             self.expert_parallel_configuration = _configure_resident_tensor_parallel(
                 self.config, self.student.experts, rank=self.rank
             )
-            if self.rank == 1:
-                from torch import nn
-                self.student.model.model.embed_tokens.weight = nn.Parameter(
-                    self.student.get_tensor("embed.weight")
-                    .to(self.device).to(torch.bfloat16),
-                    requires_grad=False,
-                )
+        if self.single_gpu_v7_lut_only or (
+            self.expert_parallel_all_layers and self.rank == 1
+        ):
+            from torch import nn
+            self.student.model.model.embed_tokens.weight = nn.Parameter(
+                self.student.get_tensor("embed.weight")
+                .to(self.device).to(torch.bfloat16),
+                requires_grad=False,
+            )
         self.luts, self.norms, self.outputs = self.trainer.expose_local_dense(torch, self.student, admission)
         self._load_local_trainable_state()
         self.optimizer_rows, self.optimizer_surface_manifest = _configure_v7_lut_only_optimizer(
