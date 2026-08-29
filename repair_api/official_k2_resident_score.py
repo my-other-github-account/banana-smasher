@@ -958,21 +958,37 @@ def adapt_canonical_raw_u1_payload(
     if not isinstance(manifest_identity, Mapping):
         raise ArtifactError("canonical raw U1 manifest identity is missing")
     _require_equal(manifest_identity.get("basis_sha256"), BASIS_SHA256, "U1 basis SHA")
-    if not isinstance(payload.get("state"), Mapping) or set(payload["state"]) != {"luts", "norms", "outputs"}:
+    state = payload.get("state")
+    if not isinstance(state, Mapping) or set(state) not in (
+        {"luts", "norms", "outputs"},
+        {"luts", "norms", "outputs", "expert_planes_l028_su_sv"},
+    ):
         raise ArtifactError("canonical raw U1 checkpoint state geometry drift")
-    _require_equal(payload.get("identity_sha256"), CANONICAL_U1_IDENTITY_SHA256, "raw U1 identity SHA")
-    _require_equal(payload.get("next_update"), 1, "raw U1 next_update")
     source_identity = payload.get("identity")
     if not isinstance(source_identity, Mapping):
         raise ArtifactError("canonical raw U1 source identity is missing")
-    _require_equal(source_identity.get("framework"), "banana-smasher", "raw U1 framework")
-    _require_equal(source_identity.get("model_index_sha256"), BASIS_SHA256, "raw U1 model-index SHA")
-    input_checkpoint = source_identity.get("input_checkpoint_sha256")
+    if source_identity.get("schema") == "resident-continuation-checkpoint-identity-v1":
+        _require_equal(source_identity.get("basis_sha256"), BASIS_SHA256, "raw U1 basis SHA")
+        _require_equal(source_identity.get("checkpoint"), "UPDATE_001", "raw U1 checkpoint key")
+        _require_equal(source_identity.get("identity_sha256"), CANONICAL_U1_IDENTITY_SHA256, "raw U1 identity SHA")
+        _require_equal(source_identity.get("next_update"), 1, "raw U1 next_update")
+        _require_equal(source_identity.get("checkpoint_loaded"), True, "raw U1 checkpoint-loaded flag")
+        input_checkpoint = source_identity.get("parent_checkpoint_sha256")
+    else:
+        _require_equal(payload.get("identity_sha256"), CANONICAL_U1_IDENTITY_SHA256, "raw U1 identity SHA")
+        _require_equal(payload.get("next_update"), 1, "raw U1 next_update")
+        _require_equal(source_identity.get("framework"), "banana-smasher", "raw U1 framework")
+        _require_equal(source_identity.get("model_index_sha256"), BASIS_SHA256, "raw U1 model-index SHA")
+        input_checkpoint = source_identity.get("input_checkpoint_sha256")
     if input_checkpoint not in (
         None, "", CANONICAL_U0_CHECKPOINT_SHA256, ALTERNATE_PRE_CHECKPOINT_SHA256,
     ):
         raise ArtifactError("canonical raw U1 input checkpoint identity drift")
-    if source_identity.get("continuous_parent_checkpoint_sha256") not in (
+    continuous_parent = source_identity.get(
+        "continuous_parent_checkpoint_sha256",
+        source_identity.get("parent_checkpoint_sha256"),
+    )
+    if continuous_parent not in (
         CANONICAL_U0_CHECKPOINT_SHA256,
         ALTERNATE_PRE_CHECKPOINT_SHA256,
     ):

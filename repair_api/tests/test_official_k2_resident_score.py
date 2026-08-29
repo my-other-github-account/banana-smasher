@@ -1469,16 +1469,20 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             checkpoint = root / "checkpoints" / "UPDATE_001.pt"
             checkpoint.parent.mkdir(parents=True)
             source_identity = {
-                "framework": "banana-smasher",
-                "model_index_sha256": "basis-fixture",
-                "input_checkpoint_sha256": "published-pre-fixture",
-                "continuous_parent_checkpoint_sha256": "published-pre-fixture",
-            }
-            raw = {
-                "state": {"luts": {}, "norms": {}, "outputs": {}},
-                "identity": source_identity,
+                "schema": "resident-continuation-checkpoint-identity-v1",
+                "basis_sha256": "basis-fixture",
+                "checkpoint": "UPDATE_001",
+                "checkpoint_loaded": True,
                 "identity_sha256": "u1-identity-fixture",
                 "next_update": 1,
+                "parent_checkpoint_sha256": "published-pre-fixture",
+            }
+            raw = {
+                "state": {
+                    "luts": {}, "norms": {}, "outputs": {},
+                    "expert_planes_l028_su_sv": {},
+                },
+                "identity": source_identity,
                 "optimizer": {"state": {"one": {}}, "param_groups": []},
             }
             torch.save(raw, checkpoint)
