@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import torch
 
+from repair_api import ResidentRepairAPI
 from repair_api.resident_full64_accept import (
     ADOPTED_PROVIDER_EXPERT_SHA256,
     ADOPTED_PROVIDER_WRAPPER_SHA256,
@@ -219,6 +220,24 @@ def test_production_rebinds_to_sealed_single_window_pre_semantics() -> None:
     )
     assert "bind_combined_gate_up_projection(" not in source[production:]
     assert "bind_routed_return_accumulation(" not in source[production:]
+
+
+def test_production_installs_provider_global_native_bf16_w2_before_engine() -> None:
+    """The shipped main path must pass the runtime provider through the binder gate."""
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    api_open = source.index("api = ResidentRepairAPI.open(")
+    binder = source.index("config = api.bind_combined_gate_up_projection(", api_open)
+    engine = source.index("engine = ModernGreenResidentEngine(", binder)
+
+    assert api_open < binder < engine
+    assert CURRENT_PROVIDER_EXPERT_SHA256 == (
+        "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
+    )
+    bound = ResidentRepairAPI.bind_combined_gate_up_projection(
+        {}, provider_expert_sha256=CURRENT_PROVIDER_EXPERT_SHA256
+    )
+    assert bound["resident_gate_up_provider_sha256"] == CURRENT_PROVIDER_EXPERT_SHA256
+    assert bound["resident_gate_up_projection"] == "combined_4096_bf16_f_linear_v1"
 
 
 def test_w28_gate_refreshes_and_requires_provider_activation_after_forward() -> None:
