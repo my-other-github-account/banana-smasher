@@ -892,7 +892,7 @@ class ResidentRepairAPI:
             "state_sha256": state_sha,
             "optimizer_scheduler_lineage": lineage,
             "checkpoint_loaded": True,
-            "world_size": 2,
+            "world_size": int(config["world_size"]),
         }
         controlled_arm_id = config.get("controlled_arm_id")
         if controlled_arm_id is not None:
@@ -969,7 +969,7 @@ class ResidentRepairAPI:
             "optimizer_scheduler_lineage": lineage,
             "optimizer_steps": step_report["optimizer_steps"],
             "scheduler_steps": step_report["scheduler_steps"],
-            "world_size": 2,
+            "world_size": int(config["world_size"]),
             "rank": config.get("rank"),
             "state_sha256": state_sha,
             "artifact_root": str(self.artifact.root),
@@ -1017,7 +1017,7 @@ class ResidentRepairAPI:
             "scheduler_state": scheduler_state,
             "optimizer_steps": step_report["optimizer_steps"],
             "scheduler_steps": step_report["scheduler_steps"],
-            "world_size": 2,
+            "world_size": int(config["world_size"]),
             "rank": config["rank"],
             "artifact_root": str(self.artifact.root),
         }
@@ -2825,12 +2825,19 @@ class ResidentRepairAPI:
         receipt_path: str | Path,
     ) -> dict[str, Any]:
         """Run one PRE/U0 update with only explicitly named V7 LUTs mutable."""
+        if isinstance(start_checkpoint, str) and start_checkpoint.upper() == "U0":
+            start_checkpoint = "PRE"
         start = self.artifact.checkpoint_key(start_checkpoint)
         configured = dict(config)
         configured.update(
             v7_lut_only_update=True,
             trainable_luts=list(trainable_luts),
             lut_lr=lut_lr,
+            world_size=1,
+            rank=0,
+            local_rank=0,
+            layer_split={"0": [0, 42]},
+            resident_validation_proof=False,
         )
         return self.continue_two_spark_real(
             start,
@@ -2855,12 +2862,23 @@ class ResidentRepairAPI:
         never treated as a model or a loss.
         """
         if not isinstance(config, Mapping):
-            raise ArtifactError("real two-Spark continuation config is required")
-        if config.get("authorized_api") is not True or config.get("world_size") != 2:
-            raise ArtifactError("real two-Spark continuation requires authorized_api=True and world_size=2")
+            raise ArtifactError("real resident continuation config is required")
+        single_gpu_v7_lut_only = (
+            config.get("v7_lut_only_update") is True
+            and config.get("world_size") == 1
+        )
+        if config.get("authorized_api") is not True or (
+            config.get("world_size") != 2 and not single_gpu_v7_lut_only
+        ):
+            raise ArtifactError(
+                "real resident continuation requires authorized_api=True and world_size=2, "
+                "except canonical V7 LUT-only world_size=1"
+            )
         rank = config.get("rank")
-        if isinstance(rank, bool) or rank not in (0, 1):
-            raise ArtifactError("real two-Spark continuation rank must be 0 or 1")
+        valid_rank = rank == 0 if single_gpu_v7_lut_only else rank in (0, 1)
+        if isinstance(rank, bool) or not isinstance(rank, int) or not valid_rank:
+            raise ArtifactError("real resident continuation rank does not match world_size")
+        rank = int(rank)
         if config.get("local_only") is not True:
             raise ArtifactError("real two-Spark continuation requires local_only=True")
         forbidden = {
@@ -3370,19 +3388,23 @@ class ResidentRepairAPI:
             raise ArtifactError("real two-Spark continuation checkpoint SHA does not bind to U16")
         assignment = config.get("layer_split")
         if not isinstance(assignment, Mapping):
-            raise ArtifactError("real two-Spark continuation requires an explicit layer_split")
+            raise ArtifactError("real resident continuation requires an explicit layer_split")
         try:
             ranges = {int(key): tuple(int(item) for item in value) for key, value in assignment.items()}
         except (TypeError, ValueError) as exc:
-            raise ArtifactError("layer_split must explicitly assign both ranks") from exc
-        if set(ranges) != {0, 1} or any(len(value) != 2 for value in ranges.values()):
-            raise ArtifactError("layer_split must explicitly assign both ranks")
-        if any(lo < 0 or hi > 42 or lo > hi for lo, hi in ranges.values()):
-            raise ArtifactError("layer_split must contain valid inclusive layer ranges")
-        if set(range(ranges[0][0], ranges[0][1] + 1)) & set(range(ranges[1][0], ranges[1][1] + 1)):
-            raise ArtifactError("layer_split ranks must be non-empty and disjoint")
-        if set(range(ranges[0][0], ranges[0][1] + 1)) | set(range(ranges[1][0], ranges[1][1] + 1)) != set(range(43)):
-            raise ArtifactError("layer_split must cover all 43 grouped-K2 layers")
+            raise ArtifactError("layer_split must contain integer rank ranges") from exc
+        if single_gpu_v7_lut_only:
+            if ranges != {0: (0, 42)}:
+                raise ArtifactError("single-GPU V7 LUT-only layer_split must assign all 43 layers to rank 0")
+        else:
+            if set(ranges) != {0, 1} or any(len(value) != 2 for value in ranges.values()):
+                raise ArtifactError("layer_split must explicitly assign both ranks")
+            if any(lo < 0 or hi > 42 or lo > hi for lo, hi in ranges.values()):
+                raise ArtifactError("layer_split must contain valid inclusive layer ranges")
+            if set(range(ranges[0][0], ranges[0][1] + 1)) & set(range(ranges[1][0], ranges[1][1] + 1)):
+                raise ArtifactError("layer_split ranks must be non-empty and disjoint")
+            if set(range(ranges[0][0], ranges[0][1] + 1)) | set(range(ranges[1][0], ranges[1][1] + 1)) != set(range(43)):
+                raise ArtifactError("layer_split must cover all 43 grouped-K2 layers")
         try:
             payload = _load_torch(self.artifact.checkpoint_path(start))
         except Exception as exc:
@@ -3519,7 +3541,7 @@ class ResidentRepairAPI:
                 "checkpoint_loaded": True,
                 "immutable": not validation_proof,
                 "resident_state_persisted": not validation_proof,
-                "world_size": 2,
+                "world_size": 1 if single_gpu_v7_lut_only else 2,
                 "rank": rank,
                 "stage_boundary": target_update in requested,
             }
@@ -3570,7 +3592,7 @@ class ResidentRepairAPI:
             "start_checkpoint": start,
             "start_checkpoint_sha256": start_sha,
             "loaded_checkpoint_sha256": start_sha,
-            "world_size": 2,
+            "world_size": 1 if single_gpu_v7_lut_only else 2,
             "rank": rank,
             "selector": {"layer_split": {str(key): list(value) for key, value in ranges.items()}},
             "shared_optimizer_scheduler_lineage": lineage,

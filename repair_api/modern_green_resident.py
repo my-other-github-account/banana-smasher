@@ -1449,6 +1449,11 @@ class ModernGreenResidentEngine:
         self.checkpoint = checkpoint
         self.rank = rank
         self.config = config
+        self.single_gpu_v7_lut_only = (
+            config.get("v7_lut_only_update") is True
+            and config.get("world_size") == 1
+            and rank == 0
+        )
         self.activation_checkpointing = bool(config.get("activation_checkpointing", True))
         self.activation_checkpoint_interval = int(config.get("activation_checkpoint_interval", 1))
         self.checkpoint_use_reentrant = bool(config.get("checkpoint_use_reentrant", False))
@@ -1492,7 +1497,7 @@ class ModernGreenResidentEngine:
         self.expert_parallel_all_layers = bool(
             config.get("expert_parallel_all_layers", False)
         )
-        if self.expert_parallel_all_layers:
+        if self.expert_parallel_all_layers or self.single_gpu_v7_lut_only:
             self.first, self.last = (0, 42)
         else:
             self.first, self.last = layer_ranges[rank]
@@ -1956,6 +1961,8 @@ class ModernGreenResidentEngine:
             raise ArtifactError(f"controlled window schedule must cover U{origin + 1}..U{end}")
 
     def _init_distributed(self) -> None:
+        if self.single_gpu_v7_lut_only:
+            return
         socket_ifname = str(self.config.get("nccl_socket_ifname", ""))
         if not socket_ifname or not (Path("/sys/class/net") / socket_ifname).is_dir():
             raise ArtifactError("official resident continuation requires a live NCCL socket interface")
@@ -2773,6 +2780,29 @@ class ModernGreenResidentEngine:
         torch = self.torch
         ids = torch.cat([self.ids_cache[window] for window in group], dim=0)
         shape = (self.pipeline_microbatch, self.training_physical_rows, int(self.student.config.hc_mult), int(self.student.config.hidden_size))
+        if self.single_gpu_v7_lut_only:
+            started = time.perf_counter()
+            embeds = self.student.model.model.embed_tokens(ids)
+            hidden = embeds.unsqueeze(2).expand(
+                -1, -1, self.student.config.hc_mult, -1
+            ).contiguous()
+            hidden = self._run_layers(hidden, ids, True)
+            loss = self._loss_group(hidden, group)
+            _cuda_sync(torch)
+            forward_seconds = time.perf_counter() - started
+            if tuple(hidden.shape) != shape or hidden.dtype != torch.bfloat16:
+                raise ArtifactError(
+                    f"official single-GPU activation geometry drift: {tuple(hidden.shape)} {hidden.dtype}"
+                )
+            backward_started = time.perf_counter()
+            (loss / float(loss_divisor)).backward()
+            _cuda_sync(torch)
+            backward_seconds = time.perf_counter() - backward_started
+            self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
+            return float(loss.detach().cpu()), {
+                "forward_seconds": forward_seconds,
+                "backward_seconds": backward_seconds,
+            }
         if self.rank == 0:
             started = time.perf_counter()
             embeds = self.student.model.model.embed_tokens(ids)
@@ -2821,6 +2851,18 @@ class ModernGreenResidentEngine:
         ):
             raise ArtifactError("official 1F1B pipeline grouping drift")
         torch = self.torch
+        if self.single_gpu_v7_lut_only:
+            losses: list[float] = []
+            timing = {"forward_seconds": 0.0, "backward_seconds": 0.0}
+            for group in groups:
+                loss, group_timing = self._pipeline_pass(
+                    group, loss_divisor=loss_divisor
+                )
+                if loss is not None:
+                    losses.append(loss)
+                for key in timing:
+                    timing[key] += group_timing[key]
+            return (sum(losses) / len(losses) if losses else None, timing)
         shape = (
             self.pipeline_microbatch,
             self.training_physical_rows,
@@ -3153,8 +3195,10 @@ class ModernGreenResidentEngine:
                 "post_optimizer_step": post_optimizer_scan,
                 "adam_foreach_diagnostic": adam_report,
             }
-            transition_rows: list[Any] = [None, None]
-            self.dist.all_gather_object(transition_rows, local_transition)
+            transition_rows: list[Any] = [local_transition]
+            if not self.single_gpu_v7_lut_only:
+                transition_rows = [None, None]
+                self.dist.all_gather_object(transition_rows, local_transition)
             first_nonfinite = None
             boundary_order = (
                 "post_backward_pre_reduction",
@@ -3244,8 +3288,10 @@ class ModernGreenResidentEngine:
                 "cuda_reserved_bytes": int(torch.cuda.memory_reserved()),
             },
         }
-        rows: list[Any] = [None, None]
-        self.dist.all_gather_object(rows, local)
+        rows: list[Any] = [local]
+        if not self.single_gpu_v7_lut_only:
+            rows = [None, None]
+            self.dist.all_gather_object(rows, local)
         global_gradient = sum(float(row["gradient_norm"]) ** 2 for row in rows) ** 0.5
         global_delta = sum(float(row["parameter_delta_norm"]) ** 2 for row in rows) ** 0.5
         losses = [row["loss"] for row in rows if row["loss"] is not None]
@@ -3260,7 +3306,7 @@ class ModernGreenResidentEngine:
 
     def _gather_state(self) -> tuple[Mapping[str, Any] | None, Mapping[str, Any] | None, Mapping[str, Any]]:
         torch = self.torch
-        rows: list[Any] = [None, None]
+        rows: list[Any] = []
         local_params = {"luts": self.luts, "norms": self.norms, "outputs": self.outputs}
         local_state = {
             "rank": self.rank,
@@ -3271,7 +3317,11 @@ class ModernGreenResidentEngine:
             },
             "optimizer": _cpu_tree(torch, self.optimizer.state_dict()),
         }
-        self.dist.all_gather_object(rows, local_state)
+        if self.single_gpu_v7_lut_only:
+            rows = [local_state]
+        else:
+            rows = [None, None]
+            self.dist.all_gather_object(rows, local_state)
         if self.rank != 0:
             self.dist.barrier()
             return None, None, {"rank_rows": rows}
@@ -3290,7 +3340,8 @@ class ModernGreenResidentEngine:
             optimizer = self.trainer.merge_optimizer_state(rows, merged)
         scheduler = _cpu_tree(torch, self.scheduler.state_dict())
         report = {"rank_rows": rows, "optimizer": optimizer, "scheduler": scheduler}
-        self.dist.barrier()
+        if not self.single_gpu_v7_lut_only:
+            self.dist.barrier()
         return merged, optimizer, report
 
     def advance_to(
@@ -4086,10 +4137,16 @@ class ModernGreenResidentEngine:
         return dict(rows[0])
 
     def broadcast_persisted(self, value: Any) -> Any:
+        if self.single_gpu_v7_lut_only:
+            return value
         row = [value if self.rank == 0 else None]
         self.dist.broadcast_object_list(row, src=0)
         return row[0]
 
     def close(self) -> None:
-        if self.dist.is_initialized() and self.config.get("destroy_process_group", False):
+        if (
+            not self.single_gpu_v7_lut_only
+            and self.dist.is_initialized()
+            and self.config.get("destroy_process_group", False)
+        ):
             self.dist.destroy_process_group()
