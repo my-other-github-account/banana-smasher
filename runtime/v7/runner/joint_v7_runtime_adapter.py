@@ -80,6 +80,12 @@ def _exact_sources(plane_sources: Any, device: Any) -> dict[int, Any]:
             raise RuntimeError(
                 f"L{layer:03d} PlaneSource device drift: {master.device} != {device}"
             )
+    if os.environ.get("BANANA_V1_ALL43_MANIFEST"):
+        from banana_smasher.banana_v1_runtime_adapter import (
+            bind_banana_v1_all43_from_env,
+        )
+
+        bind_banana_v1_all43_from_env(sources)
     return sources
 
 

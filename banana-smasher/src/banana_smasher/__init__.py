@@ -18,6 +18,10 @@ from .resident_repair_api import (
     UniformBuild,
     V7_UNIFORM_TIERS,
 )
+from .banana_v1_runtime_adapter import (
+    BananaV1All43Adapter,
+    BananaV1MemberBinding,
+)
 from .hf_moe import (
     HF_SOURCE_ADMISSION_SCHEMA,
     HF_UNIFORM_ARTIFACT_SCHEMA,
@@ -238,6 +242,8 @@ def solve_qtip_profiles(
 
 __all__ = [
     "MANIFEST_NAME",
+    "BananaV1All43Adapter",
+    "BananaV1MemberBinding",
     "BQ23_PROVIDER_IDS",
     "BPW_ACCOUNTING_SCHEMA",
     "BpwAccountingError",

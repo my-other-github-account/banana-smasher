@@ -67,9 +67,24 @@ def packed_k2_from_member(path: Path, projection: str, device: torch.device) -> 
 class OfficialQtipK2PhysicalLayer(nn.Module):
     """Official packed4 qtip_k2.decode_k2_matrix + inverse_transform capsule."""
 
-    def __init__(self, *, parent_lut: torch.Tensor, packed: torch.Tensor, su: torch.Tensor, sv: torch.Tensor) -> None:
+    def __init__(
+        self,
+        *,
+        parent_lut: torch.Tensor,
+        packed: torch.Tensor,
+        su: torch.Tensor,
+        sv: torch.Tensor,
+        adapter: Any | None = None,
+        layer: int = -1,
+        expert: int = -1,
+        projection: str = "",
+    ) -> None:
         super().__init__()
         self.parent_lut = parent_lut
+        self.__dict__["adapter"] = adapter
+        self.layer = int(layer)
+        self.expert = int(expert)
+        self.projection = str(projection)
         self.register_buffer("packed", packed, persistent=False)
         self.register_buffer("su", su, persistent=False)
         self.register_buffer("sv", sv, persistent=False)
@@ -83,7 +98,11 @@ class OfficialQtipK2PhysicalLayer(nn.Module):
     def _weight(self) -> torch.Tensor:
         decoded = official_k2.decode_k2_matrix(self.packed, self.parent_lut)
         # official rail: inverse_transform(...).T.contiguous().to(bfloat16)
-        return official_k2.inverse_transform(decoded, self.su, self.sv).T.contiguous().to(torch.bfloat16)
+        weight = official_k2.inverse_transform(decoded, self.su, self.sv).T.contiguous().to(torch.bfloat16)
+        adapter = self.__dict__.get("adapter")
+        if adapter is not None:
+            weight = adapter.patch_weight(self.layer, self.expert, self.projection, weight)
+        return weight
 
     def _forward(self, hidden: torch.Tensor) -> torch.Tensor:
         if hidden.ndim != 3 or int(hidden.shape[0]) != 1:
@@ -126,6 +145,10 @@ class JointV7ExpertBase(nn.Module):
             packed=parsed["packed"],
             su=parsed["su"],
             sv=parsed["sv"],
+            adapter=source.__dict__.get("_banana_v1_all43_adapter"),
+            layer=self.L,
+            expert=expert,
+            projection=projection,
         )
 
     def forward(self, hidden_states, top_k_index, top_k_weights):
