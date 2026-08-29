@@ -1516,6 +1516,8 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             self.assertTrue(identity["checkpoint_loaded"])
             self.assertEqual(identity["parent_checkpoint_sha256"], "published-pre-fixture")
             self.assertEqual(identity["runtime_load_provenance"]["source_identity"], source_identity)
+            self.assertEqual(set(adapted["state"]), {"luts", "norms", "outputs"})
+            self.assertIn("expert_planes_l028_su_sv", raw["state"])
             self.assertEqual(checkpoint.read_bytes(), before)
 
     def test_resident_backend_rejects_streaming_fallback_configuration(self):

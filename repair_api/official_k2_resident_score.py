@@ -1014,6 +1014,13 @@ def adapt_canonical_raw_u1_payload(
         },
     }
     adapted = dict(payload)
+    if "expert_planes_l028_su_sv" in state:
+        # Scoring retains its established dense state contract. The immutable
+        # checkpoint keeps the persisted L028 plane surface; only the in-memory
+        # scoring view omits it after the identity adapter has authenticated it.
+        adapted["state"] = {
+            surface: state[surface] for surface in ("luts", "norms", "outputs")
+        }
     adapted["identity"] = envelope
     return adapted
 
