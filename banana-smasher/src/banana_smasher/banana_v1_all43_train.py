@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -17,7 +18,9 @@ from .banana_v1 import (
     banana_v1_state_levels,
     banana_v1_transform,
     build_banana_v1,
+    expand_banana_v1_codebook,
     fit_banana_v1_codebook_from_statistics,
+    solve_banana_v1,
     verify_banana_v1_candidate,
     write_banana_v1_candidate,
 )
@@ -111,6 +114,72 @@ def _statistics_for_source(
         minlength=1024,
     )
     return counts, sums, float(first.distortion)
+
+
+def _full_projection_statistics(
+    source: np.ndarray, *, seed: int, max_workers: int
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """Compute the same zero-feedback global-scale assignments in parallel."""
+    if max_workers < 1:
+        raise ValueError("max_workers must be positive")
+    original = banana_v1_gaussian_codebook()
+    state_levels = banana_v1_state_levels()
+    state_lut = expand_banana_v1_codebook(original)
+    transformed, _su, _sv = banana_v1_transform(source, seed=seed)
+    rows, columns = transformed.shape
+    row_blocks = rows // 16
+    column_blocks = columns // 16
+    tiles = (
+        transformed.reshape(row_blocks, 16, column_blocks, 16)
+        .transpose(0, 2, 1, 3)
+        .reshape(row_blocks, column_blocks, 256)
+    )
+    source_rms = float(np.sqrt(np.mean(transformed.astype(np.float64) ** 2)))
+    lut_rms = float(np.sqrt(np.mean(state_lut.astype(np.float64) ** 2)))
+    base_scale = 1.0 if source_rms == 0 else source_rms / lut_rms
+    factors = (0.80, 0.85, 0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20)
+
+    def one(item: tuple[int, int]) -> tuple[int, int, float, np.ndarray, np.ndarray]:
+        factor_index, column_block = item
+        scale = np.float32(base_scale * factors[factor_index])
+        target = np.ascontiguousarray(tiles[:, column_block, :])
+        encoded = solve_banana_v1(
+            target,
+            state_lut=state_lut,
+            scales=np.full(row_blocks, scale, dtype=np.float32),
+        )
+        levels = state_levels[encoded.states]
+        normalized = target / scale
+        counts = np.bincount(
+            levels.reshape(-1).astype(np.int64), minlength=1024
+        ).astype(np.int64)
+        sums = np.bincount(
+            levels.reshape(-1).astype(np.int64),
+            weights=normalized.reshape(-1),
+            minlength=1024,
+        )
+        return factor_index, column_block, float(encoded.distortion), counts, sums
+
+    work = [
+        (factor_index, column_block)
+        for factor_index in range(len(factors))
+        for column_block in range(column_blocks)
+    ]
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        rows_out = list(pool.map(one, work))
+    factor_counts = [np.zeros(1024, dtype=np.int64) for _ in factors]
+    factor_sums = [np.zeros(1024, dtype=np.float64) for _ in factors]
+    factor_distortions = [0.0 for _ in factors]
+    for factor_index, _column_block, distortion, counts, sums in rows_out:
+        factor_counts[factor_index] += counts
+        factor_sums[factor_index] += sums
+        factor_distortions[factor_index] += distortion
+    selected = min(range(len(factors)), key=factor_distortions.__getitem__)
+    return (
+        factor_counts[selected],
+        factor_sums[selected],
+        float(factor_distortions[selected]),
+    )
 
 
 def build_shared_results(
@@ -284,9 +353,14 @@ def run_all43(args: argparse.Namespace) -> dict[str, Any]:
         source, metadata = _load_source(
             model_index, index, layer, support=args.train_support
         )
-        source_counts, source_sums, distortion = _statistics_for_source(
-            source, seed=layer, original=original, state_levels=state_levels
-        )
+        if args.train_support == "full-projection":
+            source_counts, source_sums, distortion = _full_projection_statistics(
+                source, seed=layer, max_workers=args.statistics_workers
+            )
+        else:
+            source_counts, source_sums, distortion = _statistics_for_source(
+                source, seed=layer, original=original, state_levels=state_levels
+            )
         counts += source_counts
         sums += source_sums
         initial_distortions.append(distortion)
@@ -407,6 +481,7 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
         help="source/TRAIN support used for the one shared-codebook fit",
     )
+    parser.add_argument("--statistics-workers", type=int, default=16)
     args = parser.parse_args(argv)
     print(json.dumps(run_all43(args), sort_keys=True), flush=True)
     return 0

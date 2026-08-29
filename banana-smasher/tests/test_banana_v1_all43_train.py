@@ -3,6 +3,7 @@ import hashlib
 import numpy as np
 
 from banana_smasher.banana_v1_all43_train import (
+    _full_projection_statistics,
     _scale_expansion_factor,
     _statistics_for_source,
     build_shared_results,
@@ -49,3 +50,18 @@ def test_full_projection_statistics_cover_every_position_not_only_corner() -> No
 def test_full_projection_block_scales_expand_across_sixteen_columns() -> None:
     assert _scale_expansion_factor((2048, 2048), (2048, 128)) == 16
     assert _scale_expansion_factor((16, 16), (16, 1)) == 16
+
+
+def test_parallel_full_projection_statistics_match_canonical_zero_feedback() -> None:
+    source = np.arange(1024, dtype=np.float32).reshape(32, 32) / np.float32(128.0)
+    original = banana_v1_gaussian_codebook()
+    levels = banana_v1_state_levels()
+    serial_counts, serial_sums, serial_distortion = _statistics_for_source(
+        source, seed=5, original=original, state_levels=levels
+    )
+    parallel_counts, parallel_sums, parallel_distortion = _full_projection_statistics(
+        source, seed=5, max_workers=2
+    )
+    np.testing.assert_array_equal(parallel_counts, serial_counts)
+    np.testing.assert_allclose(parallel_sums, serial_sums, rtol=0.0, atol=1e-10)
+    assert abs(parallel_distortion - serial_distortion) < 1e-3
