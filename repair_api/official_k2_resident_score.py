@@ -952,7 +952,8 @@ def adapt_canonical_raw_u1_payload(
     _require_equal(meta.get("identity_sha256"), CANONICAL_U1_IDENTITY_SHA256, "U1 checkpoint identity SHA")
     _require_equal(meta.get("next_update", meta.get("update")), 1, "U1 manifest next_update")
     parent = meta.get("parent_sha256") or meta.get("parent_checkpoint_sha256")
-    _require_equal(parent, CANONICAL_U0_CHECKPOINT_SHA256, "U1 parent checkpoint SHA")
+    if parent not in (CANONICAL_U0_CHECKPOINT_SHA256, ALTERNATE_PRE_CHECKPOINT_SHA256):
+        raise ArtifactError("canonical raw U1 parent checkpoint SHA is not an exact admitted U0")
     manifest_identity = manifest.get("identity")
     if not isinstance(manifest_identity, Mapping):
         raise ArtifactError("canonical raw U1 manifest identity is missing")
@@ -967,13 +968,15 @@ def adapt_canonical_raw_u1_payload(
     _require_equal(source_identity.get("framework"), "banana-smasher", "raw U1 framework")
     _require_equal(source_identity.get("model_index_sha256"), BASIS_SHA256, "raw U1 model-index SHA")
     input_checkpoint = source_identity.get("input_checkpoint_sha256")
-    if input_checkpoint not in (None, "", CANONICAL_U0_CHECKPOINT_SHA256):
+    if input_checkpoint not in (
+        None, "", CANONICAL_U0_CHECKPOINT_SHA256, ALTERNATE_PRE_CHECKPOINT_SHA256,
+    ):
         raise ArtifactError("canonical raw U1 input checkpoint identity drift")
-    _require_equal(
-        source_identity.get("continuous_parent_checkpoint_sha256"),
+    if source_identity.get("continuous_parent_checkpoint_sha256") not in (
         CANONICAL_U0_CHECKPOINT_SHA256,
-        "raw U1 continuous parent SHA",
-    )
+        ALTERNATE_PRE_CHECKPOINT_SHA256,
+    ):
+        raise ArtifactError("canonical raw U1 continuous parent SHA is not an exact admitted U0")
     envelope = {
         "schema": "canonical-raw-u1-identity-envelope-v1",
         "source": "canonical_raw_u1_manifest_adapter",
@@ -983,7 +986,7 @@ def adapt_canonical_raw_u1_payload(
         "checkpoint_path": str(path.relative_to(root)),
         "checkpoint_sha256": CANONICAL_U1_CHECKPOINT_SHA256,
         "identity_sha256": CANONICAL_U1_IDENTITY_SHA256,
-        "parent_checkpoint_sha256": CANONICAL_U0_CHECKPOINT_SHA256,
+        "parent_checkpoint_sha256": parent,
         "next_update": 1,
         "checkpoint_loaded": True,
         "runtime_load_provenance": {
@@ -991,7 +994,7 @@ def adapt_canonical_raw_u1_payload(
             "source": "canonical_raw_u1_manifest_adapter",
             "raw_checkpoint_embedded_identity": True,
             "source_identity": dict(source_identity),
-            "parent_checkpoint_sha256": CANONICAL_U0_CHECKPOINT_SHA256,
+            "parent_checkpoint_sha256": parent,
         },
     }
     adapted = dict(payload)

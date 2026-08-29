@@ -1471,8 +1471,8 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             source_identity = {
                 "framework": "banana-smasher",
                 "model_index_sha256": "basis-fixture",
-                "input_checkpoint_sha256": "u0-fixture",
-                "continuous_parent_checkpoint_sha256": "u0-fixture",
+                "input_checkpoint_sha256": "published-pre-fixture",
+                "continuous_parent_checkpoint_sha256": "published-pre-fixture",
             }
             raw = {
                 "state": {"luts": {}, "norms": {}, "outputs": {}},
@@ -1490,7 +1490,7 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
                     "path": "checkpoints/UPDATE_001.pt",
                     "sha256": checkpoint_sha,
                     "identity_sha256": "u1-identity-fixture",
-                    "parent_sha256": "u0-fixture",
+                    "parent_sha256": "published-pre-fixture",
                     "next_update": 1,
                 }},
             }
@@ -1499,6 +1499,7 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             with patch("repair_api.official_k2_resident_score.CANONICAL_U1_CHECKPOINT_SHA256", checkpoint_sha), \
                  patch("repair_api.official_k2_resident_score.CANONICAL_U1_IDENTITY_SHA256", "u1-identity-fixture"), \
                  patch("repair_api.official_k2_resident_score.CANONICAL_U0_CHECKPOINT_SHA256", "u0-fixture"), \
+                 patch("repair_api.official_k2_resident_score.ALTERNATE_PRE_CHECKPOINT_SHA256", "published-pre-fixture"), \
                  patch("repair_api.official_k2_resident_score.BASIS_SHA256", "basis-fixture"):
                 adapted = adapt_canonical_raw_u1_payload(
                     raw, artifact_root=root, manifest=manifest, checkpoint_path=checkpoint
@@ -1509,7 +1510,7 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             self.assertEqual(identity["identity_sha256"], "u1-identity-fixture")
             self.assertEqual(identity["next_update"], 1)
             self.assertTrue(identity["checkpoint_loaded"])
-            self.assertEqual(identity["parent_checkpoint_sha256"], "u0-fixture")
+            self.assertEqual(identity["parent_checkpoint_sha256"], "published-pre-fixture")
             self.assertEqual(identity["runtime_load_provenance"]["source_identity"], source_identity)
             self.assertEqual(checkpoint.read_bytes(), before)
 
