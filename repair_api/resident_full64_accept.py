@@ -1512,46 +1512,28 @@ def _decode_r20_expert_w1(expert: Any) -> Any:
 def _run_one_layer_with_authentic_projection_control(
     engine: Any, layer: Any, hidden: Any, ids: Any,
 ) -> tuple[Any, dict[str, Any]]:
-    """Duplicate one authentic source down projection at its call site."""
+    """Invoke the exact bound source expert path twice on identical operands."""
     import types
-    import torch.nn.functional as F
 
     experts = layer.mlp.experts
     had_instance_forward = "forward" in experts.__dict__
     prior_instance_forward = experts.__dict__.get("forward")
     original_forward = experts.forward
     captured: dict[str, Any] = {}
-    projection_count = 0
-    all_exact = True
 
     def transparent_forward(
         module: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any,
     ) -> Any:
-        original_linear = F.linear
-        target_weight = module.down_proj[204]
-
-        def intercepted_linear(value: Any, weight: Any, bias: Any = None) -> Any:
-            nonlocal projection_count, all_exact
-            authentic = original_linear(value, weight, bias)
-            is_target = (
-                tuple(weight.shape) == tuple(target_weight.shape)
-                and tuple(weight.stride()) == tuple(target_weight.stride())
-            )
-            if is_target:
-                replay = original_linear(value, weight, bias)
-                projection_count += 1
-                all_exact = all_exact and torch.equal(authentic, replay)
-                # The source iterates sorted active experts. Overwrite aliases so
-                # the retained witness is the final authentic down projection,
-                # while every invocation is duplicated at its exact call site.
-                captured.update(
-                    input=value.detach(), weight=weight.detach(),
-                    authentic=authentic.detach(), replay=replay.detach(),
-                )
-            return authentic
-
-        with patch.object(F, "linear", intercepted_linear):
-            return original_forward(hidden_states, top_k_index, top_k_weights)
+        authentic = original_forward(hidden_states, top_k_index, top_k_weights)
+        immediate_duplicate = original_forward(hidden_states, top_k_index, top_k_weights)
+        captured.update(
+            hidden_states=hidden_states.detach(),
+            top_k_index=top_k_index.detach(),
+            top_k_weights=top_k_weights.detach(),
+            authentic=authentic.detach(),
+            replay=immediate_duplicate.detach(),
+        )
+        return authentic
 
     experts.forward = types.MethodType(transparent_forward, experts)
     try:
@@ -1561,23 +1543,25 @@ def _run_one_layer_with_authentic_projection_control(
             experts.forward = prior_instance_forward
         else:
             experts.__dict__.pop("forward", None)
-    if tuple(captured) != ("input", "weight", "authentic", "replay"):
+    required = ("hidden_states", "top_k_index", "top_k_weights", "authentic", "replay")
+    if tuple(captured) != required:
         raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_MISSING")
-    exact = all_exact and projection_count > 0
+    exact = torch.equal(captured["authentic"], captured["replay"])
     return output, {
         "status": (
             "AUTHENTIC_SOURCE_PROJECTION_CONTROL_EXACT"
             if exact else "AUTHENTIC_SOURCE_PROJECTION_CONTROL_RED"
         ),
         "instrument_control_self_compare_exact": exact,
-        "projection_invocation_count": projection_count,
-        "one_variable": "none: immediate duplicate of every identical authentic source down-projection F.linear invocation",
+        "source_expert_invocation_count": 2,
+        "one_variable": "none: immediate duplicate of the exact bound authentic source expert invocation",
         "accepted_source": "transformers modeling_deepseek_v4.py:1006-1022 DeepseekV4Experts.forward",
         "materialization_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473",
-        "input": _tensor_tap(captured["input"]),
-        "weight": _tensor_tap(captured["weight"]),
-        "authentic_projection": _tensor_tap(captured["authentic"]),
-        "immediate_duplicate_projection": _tensor_tap(captured["replay"]),
+        "hidden_states": _tensor_tap(captured["hidden_states"]),
+        "top_k_index": _tensor_tap(captured["top_k_index"]),
+        "top_k_weights": _tensor_tap(captured["top_k_weights"]),
+        "authentic_projection_path_return": _tensor_tap(captured["authentic"]),
+        "immediate_duplicate_projection_path_return": _tensor_tap(captured["replay"]),
     }
 
 

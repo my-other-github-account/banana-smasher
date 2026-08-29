@@ -798,8 +798,11 @@ def test_run6522_authentic_source_projection_control_duplicates_exact_call() -> 
     assert torch.equal(output, F.linear(hidden, experts.down_proj[204]))
     assert control["status"] == "AUTHENTIC_SOURCE_PROJECTION_CONTROL_EXACT"
     assert control["instrument_control_self_compare_exact"] is True
-    assert control["projection_invocation_count"] == 1
-    assert control["authentic_projection"] == control["immediate_duplicate_projection"]
+    assert control["source_expert_invocation_count"] == 2
+    assert (
+        control["authentic_projection_path_return"]
+        == control["immediate_duplicate_projection_path_return"]
+    )
 
 
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
