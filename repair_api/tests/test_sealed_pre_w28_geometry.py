@@ -64,6 +64,39 @@ def test_sealed_pre_w28_keeps_target_producer_mb2_geometry(monkeypatch) -> None:
     assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "687b08a6a5e30bd41c0eccd42b257d526579443322822ae26ee040b1619aaf50"
 
 
+def test_u20_continuation_resolves_commit_owned_serial_provider_descendant() -> None:
+    config = {
+        "recipe_id": modern_green_resident.PUBLISHED_PRE_RECIPE_ID,
+        "resident_validation_proof": True,
+        "fast_k2_wrapper_source_sha256": (
+            "fb8f66b20f3fa61b9304d5f874d90c7e6a5c55149bfaa44e7784d6683cbd67ef"
+        ),
+        "fast_v7_expert_source_sha256": (
+            "0b673aaa31dedaaf604488bb71543e92560167cdef7e6bade50b65b4568b9f81"
+        ),
+    }
+
+    resolved = modern_green_resident._resolve_runtime_provider_files(config)
+
+    assert resolved["wrapper_path"].parts[-2:] == (
+        "u20_resident_provider",
+        "fast_k2_grouped.py",
+    )
+    assert resolved["expert_path"].parts[-2:] == (
+        "u20_resident_provider",
+        "fast_v7_expert_base.py",
+    )
+    assert resolved["wrapper_sha256"] == hashlib.sha256(
+        resolved["wrapper_path"].read_bytes()
+    ).hexdigest()
+    assert resolved["expert_sha256"] == hashlib.sha256(
+        resolved["expert_path"].read_bytes()
+    ).hexdigest()
+    expert_source = resolved["expert_path"].read_text()
+    assert "one live expert workspace" in expert_source
+    assert "torch.cuda.Stream" not in expert_source
+
+
 def test_sealed_pre_binding_preserves_explicit_singleton_geometry(monkeypatch) -> None:
     monkeypatch.setattr(sealed_pre_forward, "source_binding", lambda: {"status": "PASS"})
     config = {
