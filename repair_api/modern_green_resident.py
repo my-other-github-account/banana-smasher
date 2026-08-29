@@ -45,7 +45,7 @@ ACCEPTED_W28_RECEIPT_SHA256_BY_RANK = {
     1: "7c3fbd8435cc2712933ce19b4cddd939d76f5ce36bab7d7b06fc00e52dbe95e7",
 }
 STATIC_W28_GROUPED_WRAPPER_SHA256 = "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
-STATIC_W28_GROUPED_EXPERT_SHA256 = "ce0e2ec576d09adca7ae4077128b32bdf2d3ff201281dacf413056df23adb638"
+STATIC_W28_GROUPED_EXPERT_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
 
 
 def _configure_v7_lut_only_optimizer(
@@ -632,7 +632,7 @@ def _configure_resident_tensor_parallel(
         bool(config.get("expert_parallel_all_layers", False))
         and _uses_static_w28_provider(config)
         and STATIC_W28_GROUPED_EXPERT_SHA256
-        == "ce0e2ec576d09adca7ae4077128b32bdf2d3ff201281dacf413056df23adb638"
+        == "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
     )
     if exact_duplicated_all43:
         return "exact-accepted-0eeb-duplicated-all43-no-tp"

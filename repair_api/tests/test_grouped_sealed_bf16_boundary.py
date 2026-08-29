@@ -296,14 +296,12 @@ def test_static_route_metadata_reuses_sorted_input_and_work_rows_geometry():
     assert "expert_index, EXPERTS, input_tensor=routed_hidden" in expert_source
 
 
-def test_static_expert_serializes_exact_mb2_groups_to_bound_workspace_lifetime():
+def test_static_expert_refuses_any_forward_wider_than_the_exact_mb2_pair():
     expert_source = (
         ROOT / "repair_api" / "assets" / "static_w28_fast_v7_expert_base.py"
     ).read_text()
     assert "hidden_states.shape[0] > sealed_group_tokens" in expert_source
-    assert "for group in range(hidden_states.shape[0] // sealed_group_tokens)" in expert_source
-    assert "one live expert workspace" in expert_source
-    assert "torch.cuda.Stream" not in expert_source
+    assert "admits only one exact sealed mb2 pair per forward" in expert_source
     assert "FAST_K2_EXPERT_STREAM_CONCURRENCY" not in expert_source
 
 

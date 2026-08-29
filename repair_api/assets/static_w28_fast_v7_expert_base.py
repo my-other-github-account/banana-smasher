@@ -213,25 +213,29 @@ class FullyResidentGroupedV7Experts(nn.Module):
         top_k_index: torch.Tensor,
         top_k_weights: torch.Tensor,
     ) -> torch.Tensor:
-        """Preserve sealed group2 arithmetic with one live expert workspace."""
+        """Preserve sealed group2 arithmetic while overlapping only expert work."""
         sealed_group_tokens = 2 * 2048
         if hidden_states.shape[0] > sealed_group_tokens:
             if hidden_states.shape[0] % sealed_group_tokens:
                 raise RuntimeError("packed V7 batch must divide sealed group2 geometry")
-            # The accepted static provider already defines the exact mb2
-            # forward geometry.  Execute those groups serially so a completed
-            # group's transient projection workspace dies before the next
-            # group allocates; the batch-4 objective and output order stay
-            # unchanged without two concurrent full expert workspaces.
+            launch_stream = torch.cuda.current_stream(device=hidden_states.device)
+            streams = [
+                torch.cuda.Stream(device=hidden_states.device)
+                for _ in range(hidden_states.shape[0] // sealed_group_tokens)
+            ]
             outputs = []
-            for group in range(hidden_states.shape[0] // sealed_group_tokens):
+            for group, stream in enumerate(streams):
                 start = group * sealed_group_tokens
                 stop = start + sealed_group_tokens
-                outputs.append(self.forward(
-                    hidden_states[start:stop],
-                    top_k_index[start:stop],
-                    top_k_weights[start:stop],
-                ))
+                stream.wait_stream(launch_stream)
+                with torch.cuda.stream(stream):
+                    outputs.append(self.forward(
+                        hidden_states[start:stop],
+                        top_k_index[start:stop],
+                        top_k_weights[start:stop],
+                    ))
+            for stream in streams:
+                launch_stream.wait_stream(stream)
             return torch.cat(outputs, dim=0)
         if hidden_states.ndim != 2 or top_k_index.shape != top_k_weights.shape:
             raise RuntimeError("grouped V7 routing geometry drift")
