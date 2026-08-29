@@ -54,7 +54,7 @@ class PublishFourRowResultsTest(unittest.TestCase):
         readme = (Path(__file__).resolve().parents[2] / "Evals/README.md").read_text()
         self.assertIn("MMLU-500 capability-density table", readme)
         self.assertIn("archive/notes/benchmarks/mmlu-density/mmlu500-v1/four-row-results.md", readme)
-        self.assertIn("scores fourteen accepted sealed rows", readme)
+        self.assertIn("scores fifteen accepted sealed rows", readme)
         self.assertIn("Official native MMLU/accounting reference", readme)
         self.assertIn("routed K2 and K3 rows", readme)
         self.assertIn("EXL3 K3 uniform exact", readme)

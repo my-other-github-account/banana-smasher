@@ -141,7 +141,8 @@
               "QTIP2P5-deterministic-mixed-ring",
               "EXL3-K2-uniform-exact",
               "Physical-alternating-K2K3-full",
-              "QTIP2-V7-U45-repaired"
+              "QTIP2-V7-U45-repaired",
+              "QTIP2-V7-PRE-f9bffe04"
             ]
           }
         },
@@ -158,12 +159,12 @@
         ],
         "type": "object"
       },
-      "maxItems": 14,
-      "minItems": 14,
+      "maxItems": 15,
+      "minItems": 15,
       "type": "array"
     },
     "schema": {
-      "const": "banana-smasher.mmlu500-fourteen-row-density-terminal.v6"
+      "const": "banana-smasher.mmlu500-fifteen-row-density-terminal.v7"
     },
     "status": {
       "const": "PASS"
@@ -178,6 +179,6 @@
     "dispositions",
     "rows"
   ],
-  "title": "Banana Smasher MMLU-500 fourteen-row intelligence-density results",
+  "title": "Banana Smasher MMLU-500 fifteen-row intelligence-density results",
   "type": "object"
 }
