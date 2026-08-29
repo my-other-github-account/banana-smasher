@@ -1458,7 +1458,46 @@ def _physical_training_row(
 
 
 class ModernGreenResidentEngine:
-    """One rank of the accepted two-Spark resident grouped-K2 trainer."""
+    """One rank of the accepted resident grouped-K2 trainer."""
+
+    @property
+    def single_gpu_resident(self) -> bool:
+        return bool(
+            getattr(self, "_single_gpu_resident", False)
+            or getattr(self, "single_gpu_v7_lut_only", False)
+        )
+
+    @single_gpu_resident.setter
+    def single_gpu_resident(self, value: bool) -> None:
+        self._single_gpu_resident = bool(value)
+
+    def _configure_execution_backend(
+        self, config: Mapping[str, Any], *, rank: int
+    ) -> None:
+        backend = config.get("execution_backend", "pipeline_eager_checkpointed")
+        if backend not in {
+            "pipeline_eager_checkpointed",
+            "single_gpu_resident_no_recompute",
+        }:
+            raise ArtifactError(f"unsupported resident execution backend: {backend!r}")
+        self.single_gpu_v7_lut_only = (
+            config.get("v7_lut_only_update") is True
+            and config.get("world_size") == 1
+            and rank == 0
+        )
+        self.single_gpu_resident = (
+            config.get("world_size") == 1
+            and rank == 0
+            and (
+                self.single_gpu_v7_lut_only
+                or backend == "single_gpu_resident_no_recompute"
+            )
+        )
+        self.activation_checkpointing = bool(config.get("activation_checkpointing", True))
+        if backend == "single_gpu_resident_no_recompute":
+            if not self.single_gpu_resident:
+                raise ArtifactError("single-GPU resident backend requires world_size=1 rank=0")
+            self.activation_checkpointing = False
 
     def __init__(
         self,
@@ -1479,7 +1518,7 @@ class ModernGreenResidentEngine:
         self.checkpoint = checkpoint
         self.rank = rank
         self.config = config
-        self.activation_checkpointing = bool(config.get("activation_checkpointing", True))
+        self._configure_execution_backend(config, rank=rank)
         self.activation_checkpoint_interval = int(config.get("activation_checkpoint_interval", 1))
         self.checkpoint_use_reentrant = bool(config.get("checkpoint_use_reentrant", False))
         if self.activation_checkpoint_interval < 1:
@@ -1522,7 +1561,7 @@ class ModernGreenResidentEngine:
         self.expert_parallel_all_layers = bool(
             config.get("expert_parallel_all_layers", False)
         )
-        if self.expert_parallel_all_layers:
+        if self.expert_parallel_all_layers or self.single_gpu_resident:
             self.first, self.last = (0, 42)
         else:
             self.first, self.last = layer_ranges[rank]
@@ -1597,6 +1636,7 @@ class ModernGreenResidentEngine:
             raise ArtifactError("official resident LUT roster drift")
         self._configure_base()
         self.status: dict[str, Any] = {}
+        student_rank = 1 if self.single_gpu_resident else rank
         self.student = self.trainer.ShardStudent(
             torch=torch,
             np=__import__("numpy"),
@@ -1607,7 +1647,7 @@ class ModernGreenResidentEngine:
             parent_root=self.parent_root,
             l034_roster=self.l034_roster,
             input_state=payload,
-            rank=rank,
+            rank=student_rank,
             first=self.first,
             last=self.last,
             status_cb=self._status,
@@ -1617,13 +1657,15 @@ class ModernGreenResidentEngine:
             self.expert_parallel_configuration = _configure_resident_tensor_parallel(
                 self.config, self.student.experts, rank=self.rank
             )
-            if self.rank == 1:
-                from torch import nn
-                self.student.model.model.embed_tokens.weight = nn.Parameter(
-                    self.student.get_tensor("embed.weight")
-                    .to(self.device).to(torch.bfloat16),
-                    requires_grad=False,
-                )
+        if self.single_gpu_resident or (
+            self.expert_parallel_all_layers and self.rank == 1
+        ):
+            from torch import nn
+            self.student.model.model.embed_tokens.weight = nn.Parameter(
+                self.student.get_tensor("embed.weight")
+                .to(self.device).to(torch.bfloat16),
+                requires_grad=False,
+            )
         self.luts, self.norms, self.outputs = self.trainer.expose_local_dense(torch, self.student, admission)
         self._load_local_trainable_state()
         self.optimizer_rows, self.optimizer_surface_manifest = _configure_v7_lut_only_optimizer(
@@ -1986,6 +2028,8 @@ class ModernGreenResidentEngine:
             raise ArtifactError(f"controlled window schedule must cover U{origin + 1}..U{end}")
 
     def _init_distributed(self) -> None:
+        if self.single_gpu_resident:
+            return
         socket_ifname = str(self.config.get("nccl_socket_ifname", ""))
         if not socket_ifname or not (Path("/sys/class/net") / socket_ifname).is_dir():
             raise ArtifactError("official resident continuation requires a live NCCL socket interface")
@@ -2803,6 +2847,29 @@ class ModernGreenResidentEngine:
         torch = self.torch
         ids = torch.cat([self.ids_cache[window] for window in group], dim=0)
         shape = (self.pipeline_microbatch, self.training_physical_rows, int(self.student.config.hc_mult), int(self.student.config.hidden_size))
+        if self.single_gpu_resident:
+            started = time.perf_counter()
+            embeds = self.student.model.model.embed_tokens(ids)
+            hidden = embeds.unsqueeze(2).expand(
+                -1, -1, self.student.config.hc_mult, -1
+            ).contiguous()
+            hidden = self._run_layers(hidden, ids, True)
+            loss = self._loss_group(hidden, group)
+            _cuda_sync(torch)
+            forward_seconds = time.perf_counter() - started
+            if tuple(hidden.shape) != shape or hidden.dtype != torch.bfloat16:
+                raise ArtifactError(
+                    f"official single-GPU activation geometry drift: {tuple(hidden.shape)} {hidden.dtype}"
+                )
+            backward_started = time.perf_counter()
+            (loss / float(loss_divisor)).backward()
+            _cuda_sync(torch)
+            backward_seconds = time.perf_counter() - backward_started
+            self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
+            return float(loss.detach().cpu()), {
+                "forward_seconds": forward_seconds,
+                "backward_seconds": backward_seconds,
+            }
         if self.rank == 0:
             started = time.perf_counter()
             embeds = self.student.model.model.embed_tokens(ids)
@@ -2851,6 +2918,18 @@ class ModernGreenResidentEngine:
         ):
             raise ArtifactError("official 1F1B pipeline grouping drift")
         torch = self.torch
+        if self.single_gpu_resident:
+            losses: list[float] = []
+            timing = {"forward_seconds": 0.0, "backward_seconds": 0.0}
+            for group in groups:
+                loss, group_timing = self._pipeline_pass(
+                    group, loss_divisor=loss_divisor
+                )
+                if loss is not None:
+                    losses.append(loss)
+                for key in timing:
+                    timing[key] += group_timing[key]
+            return (sum(losses) / len(losses) if losses else None, timing)
         shape = (
             self.pipeline_microbatch,
             self.training_physical_rows,
@@ -3127,6 +3206,11 @@ class ModernGreenResidentEngine:
                 raise ArtifactError("controlled arm window schedule changed after admission")
         else:
             base_lrs = BASE_LRS
+            if self.config.get("execution_backend") == "single_gpu_resident_no_recompute":
+                base_lrs = {
+                    name: value * float(self.config.get("lr_scale", 1.0))
+                    for name, value in BASE_LRS.items()
+                }
             multiplier = self.trainer.current_multiplier(global_step)
             group_windows = [20 + 4 * (global_step % 16) + offset for offset in range(4)]
         if self.config.get("v7_lut_only_update") is True:
@@ -3186,8 +3270,10 @@ class ModernGreenResidentEngine:
                 "post_optimizer_step": post_optimizer_scan,
                 "adam_foreach_diagnostic": adam_report,
             }
-            transition_rows: list[Any] = [None, None]
-            self.dist.all_gather_object(transition_rows, local_transition)
+            transition_rows: list[Any] = [local_transition]
+            if not self.single_gpu_resident:
+                transition_rows = [None, None]
+                self.dist.all_gather_object(transition_rows, local_transition)
             first_nonfinite = None
             boundary_order = (
                 "post_backward_pre_reduction",
@@ -3277,8 +3363,10 @@ class ModernGreenResidentEngine:
                 "cuda_reserved_bytes": int(torch.cuda.memory_reserved()),
             },
         }
-        rows: list[Any] = [None, None]
-        self.dist.all_gather_object(rows, local)
+        rows: list[Any] = [local]
+        if not self.single_gpu_resident:
+            rows = [None, None]
+            self.dist.all_gather_object(rows, local)
         global_gradient = sum(float(row["gradient_norm"]) ** 2 for row in rows) ** 0.5
         global_delta = sum(float(row["parameter_delta_norm"]) ** 2 for row in rows) ** 0.5
         losses = [row["loss"] for row in rows if row["loss"] is not None]
@@ -3293,7 +3381,7 @@ class ModernGreenResidentEngine:
 
     def _gather_state(self) -> tuple[Mapping[str, Any] | None, Mapping[str, Any] | None, Mapping[str, Any]]:
         torch = self.torch
-        rows: list[Any] = [None, None]
+        rows: list[Any] = []
         local_params = {"luts": self.luts, "norms": self.norms, "outputs": self.outputs}
         local_state = {
             "rank": self.rank,
@@ -3304,7 +3392,11 @@ class ModernGreenResidentEngine:
             },
             "optimizer": _cpu_tree(torch, self.optimizer.state_dict()),
         }
-        self.dist.all_gather_object(rows, local_state)
+        if self.single_gpu_resident:
+            rows = [local_state]
+        else:
+            rows = [None, None]
+            self.dist.all_gather_object(rows, local_state)
         if self.rank != 0:
             self.dist.barrier()
             return None, None, {"rank_rows": rows}
@@ -3323,7 +3415,8 @@ class ModernGreenResidentEngine:
             optimizer = self.trainer.merge_optimizer_state(rows, merged)
         scheduler = _cpu_tree(torch, self.scheduler.state_dict())
         report = {"rank_rows": rows, "optimizer": optimizer, "scheduler": scheduler}
-        self.dist.barrier()
+        if not self.single_gpu_resident:
+            self.dist.barrier()
         return merged, optimizer, report
 
     def advance_to(
@@ -4119,10 +4212,16 @@ class ModernGreenResidentEngine:
         return dict(rows[0])
 
     def broadcast_persisted(self, value: Any) -> Any:
+        if self.single_gpu_resident:
+            return value
         row = [value if self.rank == 0 else None]
         self.dist.broadcast_object_list(row, src=0)
         return row[0]
 
     def close(self) -> None:
-        if self.dist.is_initialized() and self.config.get("destroy_process_group", False):
+        if (
+            not self.single_gpu_resident
+            and self.dist.is_initialized()
+            and self.config.get("destroy_process_group", False)
+        ):
             self.dist.destroy_process_group()
