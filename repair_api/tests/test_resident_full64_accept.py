@@ -35,6 +35,24 @@ def test_resident_receipt_atomic_creates_missing_parent() -> None:
         assert len(digest) == 64
 
 
+def test_published_pre_selects_source_experts_dispatch() -> None:
+    from repair_api.modern_green_resident import _bind_published_pre_experts_dispatch
+
+    model_config = SimpleNamespace(_experts_implementation="grouped_mm")
+    student = SimpleNamespace(model=SimpleNamespace(config=model_config))
+
+    binding = _bind_published_pre_experts_dispatch(
+        student, published_pre_recipe=True
+    )
+
+    assert model_config._experts_implementation == "eager"
+    assert binding == {
+        "status": "BOUND_SOURCE_EXPERTS_DISPATCH",
+        "previous_implementation": "grouped_mm",
+        "selected_implementation": "eager",
+    }
+
+
 def test_w28_trace_wrapper_records_sealed_known_value_control(
     tmp_path: Path, monkeypatch: Any,
 ) -> None:

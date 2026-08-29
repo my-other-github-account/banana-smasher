@@ -445,6 +445,26 @@ def _load_source_module(name: str, path: Path) -> Any:
     return module
 
 
+def _bind_published_pre_experts_dispatch(
+    student: Any, *, published_pre_recipe: bool,
+) -> dict[str, str]:
+    """Select the accepted DeepseekV4 source reduction for published PRE."""
+    if not published_pre_recipe:
+        raise ArtifactError("source experts dispatch binding requires published PRE")
+    model_config = student.model.config
+    previous = getattr(model_config, "_experts_implementation", None)
+    if previous != "grouped_mm":
+        raise ArtifactError(
+            f"published PRE experts implementation drift: {previous!r}"
+        )
+    model_config._experts_implementation = "eager"
+    return {
+        "status": "BOUND_SOURCE_EXPERTS_DISPATCH",
+        "previous_implementation": previous,
+        "selected_implementation": "eager",
+    }
+
+
 def _require_file(path: Path, expected_sha: str | None, label: str) -> None:
     if not path.is_file():
         raise ArtifactError(f"official resident {label} is missing: {path}")
@@ -1691,6 +1711,13 @@ class ModernGreenResidentEngine:
             last=self.last,
             status_cb=self._status,
             defer_dense_l034=False,
+        )
+        self.experts_dispatch_binding = (
+            _bind_published_pre_experts_dispatch(
+                self.student, published_pre_recipe=self.published_pre_recipe
+            )
+            if self.published_pre_recipe
+            else None
         )
         if self.expert_parallel_all_layers:
             self.expert_parallel_configuration = _configure_resident_tensor_parallel(
