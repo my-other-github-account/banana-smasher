@@ -68,6 +68,10 @@ def _validate_sealed_parent_root(*, parent_root: Path, admission_path: Path) -> 
         manifest = Path(str(binding["path"])).resolve()
         if not manifest.is_file() or hashlib.sha256(manifest.read_bytes()).hexdigest() != binding["sha256"]:
             raise ArtifactError(f"official-K2 sealed parent manifest identity drift: L{layer:03d}")
+        # L034 is authenticated by its dedicated selected-wire roster below;
+        # it is intentionally absent from the ordinary full-parent tree.
+        if layer == 34:
+            continue
         members = json.loads(manifest.read_text()).get("members", [])
         if not members:
             raise ArtifactError(f"official-K2 sealed parent manifest is empty: L{layer:03d}")
