@@ -3816,6 +3816,31 @@ class OfficialK2ResidentScorer:
             return OfficialK2LocalDualShardEngine
         return OfficialK2ResidentRankEngine
 
+    def _align_checkpoint_load_lifecycle(self, checkpoint_sha256: str) -> None:
+        """Acquire the checkpoint through the lifecycle its release will use.
+
+        ``OfficialK2LocalDualShardEngine`` forces ``ordinary_load_fork_broker``
+        onto both rank configs, so the rank-0 post-bind parent release validates
+        its payload against the broker registry.  When the sealed manifest
+        config omits that flag the load instead takes the ordinary path and
+        materializes a second, never-leased payload; the parent release then
+        rejects the authentic checkpoint it is releasing.  Adopt exactly the
+        broker settings the engine already forces on its ranks, and only for a
+        checkpoint SHA the broker has actually materialized, so every other
+        configuration keeps its existing loader selection unchanged.
+        """
+        if self._engine_type() is not OfficialK2LocalDualShardEngine:
+            return
+        if bool(self.config.get("ordinary_load_fork_broker", False)):
+            return
+        if checkpoint_sha256 not in _ORDINARY_FORK_PAYLOADS:
+            return
+        self.config.update({
+            "ordinary_load_fork_broker": True,
+            "checkpoint_mmap": False,
+            "same_process_dual_shard": True,
+        })
+
     def bind_routed_k2(self, route: Mapping[str, Any]) -> None:
         """Bind exact routed admission without reconstructing the resident rail."""
         validate_routed_k2_closure(route)
@@ -3864,6 +3889,7 @@ class OfficialK2ResidentScorer:
                     self.config.get("parity_tap_mode") == "sealed_reference"
                 ),
             )
+        self._align_checkpoint_load_lifecycle(checkpoint_sha)
         payload = _load_score_checkpoint(checkpoint_path, checkpoint_sha, self.config)
         self._checkpoint_loads += 1
         payload_identity = payload.get("identity") if isinstance(payload, Mapping) else None
@@ -3983,6 +4009,7 @@ class OfficialK2ResidentScorer:
             # rank engine exists. Gate that allocation as well as the later
             # resident conversion so rank-local peaks cannot overlap.
             _wait_for_cold_load_gate(self.config, int(self.config["rank"]))
+        self._align_checkpoint_load_lifecycle(checkpoint_sha)
         payload = _load_score_checkpoint(checkpoint_path, checkpoint_sha, self.config)
         self._checkpoint_loads += 1
         payload_identity = payload.get("identity") if isinstance(payload, Mapping) else None

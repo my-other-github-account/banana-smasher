@@ -379,3 +379,88 @@ def test_rank_exception_is_reported_before_child_failure(capfd) -> None:
 
     assert result["exit_codes"][0] == 125
     assert "RuntimeError: ordinary fork rank boom" in captured.err
+
+
+def test_dual_shard_scorer_load_stays_broker_bound_through_parent_release(monkeypatch) -> None:
+    """Reproduce the ordinary-load fork lifecycle across scorer load + release.
+
+    The broker materializes one hash-bound payload before the fork, then the
+    scorer acquires the checkpoint and the rank-0 engine performs its post-bind
+    parent release.  ``OfficialK2LocalDualShardEngine`` forces
+    ``ordinary_load_fork_broker`` onto its rank configs, so the release
+    validates against the broker registry.  The sealed manifest config does not
+    carry that flag, so before the fix the load took the ordinary path and
+    produced an unleased second payload that the parent release rejected.
+    """
+    from repair_api import official_k2_resident_score as resident_score
+
+    monkeypatch.setenv("BANANA_SMASHER_SAME_PROCESS_DUAL_SHARD", "1")
+    with tempfile.TemporaryDirectory() as directory:
+        checkpoint = Path(directory) / "UPDATE_000.pt"
+        torch.save({
+            "identity": {"checkpoint_loaded": True},
+            "next_update": 0,
+            "state": {
+                "luts": {"L000": torch.arange(4)},
+                "norms": {"L000": torch.arange(3)},
+                "outputs": {"L000": torch.arange(2)},
+            },
+        }, checkpoint)
+        checkpoint_sha = _sha256(checkpoint)
+
+        # Broker pre-fork materialization, exactly as the CLI performs it.
+        prepare_ordinary_checkpoint_payload(checkpoint, checkpoint_sha)
+        scorer = resident_score.OfficialK2ResidentScorer.__new__(
+            resident_score.OfficialK2ResidentScorer
+        )
+        # Sealed manifest config: no broker flags, as delivered to score().
+        scorer.config = {"checkpoint_path": str(checkpoint)}
+        scorer._checkpoint_loads = 0
+        scorer._engine = None
+        assert scorer._engine_type() is resident_score.OfficialK2LocalDualShardEngine
+        try:
+            scorer._align_checkpoint_load_lifecycle(checkpoint_sha)
+            payload = _load_score_checkpoint(checkpoint, checkpoint_sha, scorer.config)
+            # The acquired payload is the exact registered broker object and is
+            # leased, so the ordinary-load fork pages stay shared.
+            assert payload is _ORDINARY_FORK_PAYLOADS[checkpoint_sha]["payload"]
+            assert any(
+                candidate is payload
+                for candidate in resident_score._ORDINARY_FORK_PAYLOAD_LEASES[checkpoint_sha]
+            )
+
+            # Rank-0 post-bind parent release, with the broker lifecycle the
+            # dual-shard engine forces onto its rank configs.
+            assert _release_or_retain_checkpoint_payload(
+                payload,
+                ordinary_load_fork_broker=True,
+                checkpoint_sha256=checkpoint_sha,
+            ) == "inherited_read_only"
+
+            # A genuinely foreign payload is still rejected.
+            with pytest.raises(ArtifactError, match="identity mismatch"):
+                _release_or_retain_checkpoint_payload(
+                    MappingProxyType({
+                        "identity": MappingProxyType({"checkpoint_loaded": True}),
+                        "next_update": 0,
+                        "state": MappingProxyType({
+                            "luts": MappingProxyType({"L000": torch.arange(4)}),
+                            "norms": MappingProxyType({"L000": torch.arange(3)}),
+                            "outputs": MappingProxyType({"L000": torch.arange(2)}),
+                        }),
+                    }),
+                    ordinary_load_fork_broker=True,
+                    checkpoint_sha256=checkpoint_sha,
+                )
+
+            # Without a brokered materialization the loader selection is
+            # untouched, so non-broker configurations keep their behavior.
+            other_scorer = resident_score.OfficialK2ResidentScorer.__new__(
+                resident_score.OfficialK2ResidentScorer
+            )
+            other_scorer.config = {"checkpoint_path": str(checkpoint)}
+            other_scorer._align_checkpoint_load_lifecycle("e" * 64)
+            assert other_scorer.config == {"checkpoint_path": str(checkpoint)}
+        finally:
+            _ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
+            resident_score._ORDINARY_FORK_PAYLOAD_LEASES.pop(checkpoint_sha, None)
