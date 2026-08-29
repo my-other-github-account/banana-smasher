@@ -26,6 +26,7 @@ MODEL_INDEX_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e
 ADMISSION_SHA256 = "76d0674eb0cd37fc9022bac5e048c2b77c721826182222ae0a0609e29607a2c5"
 CORPUS_SHA256 = "434a3f9eec14e54d348efde3265998c9521bb3579cba0d976b3e0a9b93d184c5"
 TRAINER_SHA256 = "126c11f306a12ed35c1234bd12952a32662c3bd81fc2e74361f0a55ebdc21fc0"
+U20_INHERITED_TRAINER_SHA256 = "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
 HISTORICAL_TRAINER_SHA256 = "c8df3ab6a815fd69e401db7047afee53e9b0ce5652bf7fbcb9116d308c1b8e24"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
@@ -544,6 +545,15 @@ def _resolve_trainer_source(config: Mapping[str, Any]) -> tuple[Path, str]:
     if _uses_static_w28_provider(config):
         configured = config.get("trainer_source")
         configured_sha = config.get("trainer_source_sha256")
+        if configured_sha == U20_INHERITED_TRAINER_SHA256:
+            # The legal warm U20 config predates the canonical layerwise loader.
+            # Rebind only that exact inherited source identity to the packaged
+            # loader, whose per-layer consumer synchronizes and releases CPU
+            # source pages before beginning the next layer.
+            return (
+                Path(__file__).resolve().parent / "assets" / "static_w28_modern_green_clean_u0.py",
+                TRAINER_SHA256,
+            )
         if configured is not None and configured_sha is not None:
             return (
                 Path(str(configured)).expanduser().resolve(),

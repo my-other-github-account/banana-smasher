@@ -12,6 +12,7 @@ from repair_api.modern_green_resident import (
     _admit_restored_optimizer_base_lrs,
     _configure_v7_lut_only_optimizer,
     _resident_optimizer_param_groups,
+    _resolve_trainer_source,
 )
 
 
@@ -242,6 +243,24 @@ def test_resident_loader_releases_cpu_source_duplicate_after_gpu_consumer() -> N
     assert "handles.clear()" in source
     assert "source.member_paths.values()" in source
     assert "POSIX_FADV_DONTNEED" in source
+
+
+def test_u20_static_provider_rebinds_inherited_trainer_to_canonical_layerwise_loader() -> None:
+    path, sha256 = _resolve_trainer_source({
+        "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+        "static_w28_gate": {"windows": [28]},
+        "trainer_source": "/sealed/warm/root/modern_green_clean_u0.py",
+        "trainer_source_sha256": (
+            "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
+        ),
+    })
+
+    assert path == (
+        Path(resident_module.__file__).resolve().parent
+        / "assets"
+        / "static_w28_modern_green_clean_u0.py"
+    )
+    assert sha256 == "126c11f306a12ed35c1234bd12952a32662c3bd81fc2e74361f0a55ebdc21fc0"
 
 
 def test_exact_u20_full_surface_backend_is_an_authenticated_resume():
