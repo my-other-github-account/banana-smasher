@@ -300,6 +300,11 @@ def test_single_gpu_checkpointed_backend_persists_its_direct_optimizer_state():
     assert 'optimizer = rows[0]["optimizer"]' in source
 
 
+def test_single_gpu_checkpointed_rank_reports_do_not_self_reference():
+    source = inspect.getsource(ModernGreenResidentEngine._step)
+    assert 'local["rank_reports"] = [dict(row) for row in rows]' in source
+
+
 def test_resident_loader_releases_cpu_source_duplicate_after_gpu_consumer() -> None:
     source = (
         Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"

@@ -3413,7 +3413,7 @@ class ModernGreenResidentEngine:
         local["parameter_delta_norm"] = global_delta
         local["loss"] = losses[0] if losses else None
         local["timings"] = {key: max(float(row["timings"][key]) for row in rows) for key in local["timings"]}
-        local["rank_reports"] = rows
+        local["rank_reports"] = [dict(row) for row in rows]
         if global_gradient <= 0.0 or global_delta <= 0.0 or not losses:
             raise ArtifactError(f"official resident U{global_step + 1} produced no real gradient/delta")
         return local
