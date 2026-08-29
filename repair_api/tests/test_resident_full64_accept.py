@@ -909,6 +909,8 @@ def test_run6873_compares_grouped_mm_operations_with_source_flinear() -> None:
     assert operations[0]["source"].endswith("grouped_mm_experts_forward")
     source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
     assert "expected_world_size = 1 if grouped_mm_operation_probe else 2" in source
+    provider_source = (Path(__file__).parents[1] / "modern_green_resident.py").read_text()
+    assert "if grouped_mm_singleton_probe:" in provider_source
 
 
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:

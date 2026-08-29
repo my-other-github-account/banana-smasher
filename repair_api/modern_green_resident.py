@@ -2069,13 +2069,20 @@ class ModernGreenResidentEngine:
     def _init_distributed(self) -> None:
         if self.single_gpu_resident:
             return
+        grouped_mm_singleton_probe = (
+            os.environ.get("RUN6873_GROUPED_MM_OPERATION_COMPARATOR_ONLY", "0") == "1"
+        )
         socket_ifname = str(self.config.get("nccl_socket_ifname", ""))
         if not socket_ifname or not (Path("/sys/class/net") / socket_ifname).is_dir():
             raise ArtifactError("official resident continuation requires a live NCCL socket interface")
         os.environ["NCCL_SOCKET_IFNAME"] = socket_ifname
         os.environ["GLOO_SOCKET_IFNAME"] = socket_ifname
         if self.dist.is_initialized():
-            if self.dist.get_world_size() != 2 or self.dist.get_rank() != self.rank:
+            expected_world_size = 1 if grouped_mm_singleton_probe else 2
+            if (
+                self.dist.get_world_size() != expected_world_size
+                or self.dist.get_rank() != self.rank
+            ):
                 raise ArtifactError("existing process group does not match the exact two-Spark rank")
         else:
             master_addr = str(self.config.get("master_addr", "127.0.0.1"))
@@ -2090,6 +2097,8 @@ class ModernGreenResidentEngine:
                 )
             except Exception as exc:
                 raise ArtifactError(f"official two-Spark process-group initialization failed: {exc}") from exc
+        if grouped_mm_singleton_probe:
+            return
         self._warm_p2p_communicator()
 
     def _warm_p2p_communicator(self) -> None:
