@@ -30,7 +30,7 @@
       "variant": "QTIP2-corrected-all43"
     }
   ],
-  "finished_evidence_manifest_sha256": "d9047d1eba1b209dcb7e722ac5d45dabf4e0ec609e71c1e6f1b5316a8d7a05cd",
+  "finished_evidence_manifest_sha256": "7ac3d4b402a8deb5749515eff1c07fc0b721cc6e70239e639b3e3f4c66dc47ea",
   "independent_recomputation": "PASS",
   "intelligence_density": {
     "formula": "(MMLU percentage - 25) / exact base-equivalent comparison BPW",
@@ -451,9 +451,45 @@
       "relative_intelligence_density": "1.22887191937197945593247531430347809250192987553486132513168918628163921897515554406864382991226965404517236716710346449",
       "tokenizer_receipt_sha256": "6567660333093914c48b1f0b793262d8b1898629d89d1d21098af3b18a4ddf66",
       "variant": "Physical-alternating-K2K3-full"
+    },
+    {
+      "base_equivalent_bpw": "2.831481578534603263235376275888125565194357238266015863087325200113206153869260839371695918636102327",
+      "choice_token_ids": [
+        35,
+        36,
+        37,
+        38
+      ],
+      "complete_artifact_bytes": 100636011256,
+      "complete_decimal_gb": 100.636011256,
+      "correct": 413,
+      "gold_cross_entropy_bits": 0.7417830997980062,
+      "label": "QTIP2 V7 U45 repaired",
+      "mmlu_capability_density": 20.342706954784477,
+      "mmlu_intelligence_density": "20.34270695478447590271810524071910062468503685107938714029192683407599224572351128955996785159388153",
+      "mmlu_per_gb": "0.5723597277069727029126282445194212775686046711692219615171270833818668215519998470794717722630642256",
+      "mmlu_percent": 82.6,
+      "n": 500,
+      "provenance": {
+        "checkpoint_identity_sha256": "9d5837324ab8c781c393c7c4c369ea90d5c85a5ddf6674bc00ae5bb0e9df4f46",
+        "checkpoint_sha256": "ffb796ce25b4a182bdebadd0a646a91a9c72c9f811520050b2e1dafbf33419a0",
+        "independent_reaggregation_sha256": "43e56db92ca5c5f1ced107b32f7beda278d5a228d78b42477488962aeb6d1479",
+        "independent_recomputation": "PASS",
+        "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+        "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d",
+        "model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+        "publication_receipt_sha256": "80eac07514a3695b760f1ff555f5836a175bc99baed878e5fe6a489c58df9c98",
+        "qrows_sha256": "7e684b223952a50005cb0ff6f2c842999a73dfba92533075f847432686d31f03",
+        "sanitization_receipt_sha256": "a5b52d6b9f93c35540f252de754c81f443ae434bf3ec8e9358176da80644d57e",
+        "terminal_sha256": "0246d2a6a1692ea34620c051cf8370da6b776a283ab532ff0b093595face9d6e"
+      },
+      "qrows_sha256": "7e684b223952a50005cb0ff6f2c842999a73dfba92533075f847432686d31f03",
+      "raw_mmlu_per_bpw": "29.17200684835412690216172730700343249303791742880481558659918674469925276904100750898703723162594817",
+      "relative_intelligence_density": "1.3393849444485760637231942493570975764364949350963",
+      "variant": "QTIP2-V7-U45-repaired"
     }
   ],
-  "schema": "banana-smasher.mmlu500-thirteen-row-density-terminal.v5",
+  "schema": "banana-smasher.mmlu500-fourteen-row-density-terminal.v6",
   "source_scoring_basis_sha256": "83ace3f25a4f77325479690a47e7b86f7dee5ef44513996b551f24145ff88f8e",
   "status": "PASS"
 }

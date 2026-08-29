@@ -1,0 +1,24 @@
+{
+  "bank": {
+    "items_sha256": "df6704c4d02550b9155e106bc9a9e1bfe1164a663d509e41a76736bb60d01ded",
+    "manifest_sha256": "2325d58687a0b5def7b48979a5886a9f7c5089c294445e885e0867101b07482d"
+  },
+  "measurement": {
+    "correct": 413,
+    "mmlu_percent_exact": "82.6",
+    "n": 500
+  },
+  "qrows": {
+    "bytes": 432269,
+    "rows": 500,
+    "sha256": "7e684b223952a50005cb0ff6f2c842999a73dfba92533075f847432686d31f03"
+  },
+  "receipts": {
+    "independent_reaggregation_sha256": "43e56db92ca5c5f1ced107b32f7beda278d5a228d78b42477488962aeb6d1479",
+    "sanitization_sha256": "a5b52d6b9f93c35540f252de754c81f443ae434bf3ec8e9358176da80644d57e",
+    "terminal_sha256": "0246d2a6a1692ea34620c051cf8370da6b776a283ab532ff0b093595face9d6e"
+  },
+  "schema": "banana-smasher.mmlu500-u45-publication-receipt.v1",
+  "status": "PASS",
+  "variant": "QTIP2-V7-U45-repaired"
+}

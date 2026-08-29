@@ -36,6 +36,12 @@
       "sha256": "0bcf78a03dd17701f43c68acb5eaeceea0661bd13fcb17a610e53070308e95e5",
       "status": "PASS",
       "variant": "EXL3-K2P5-greedy-routed-native-rest"
+    },
+    {
+      "path": "notes/benchmarks/mmlu-density/mmlu500-v1/evidence/U45-repaired-ffb796ce/publication-receipt.json",
+      "sha256": "80eac07514a3695b760f1ff555f5836a175bc99baed878e5fe6a489c58df9c98",
+      "status": "PASS",
+      "variant": "QTIP2-V7-U45-repaired"
     }
   ],
   "schema": "banana-smasher.mmlu500-finished-evidence-manifest.v1"
