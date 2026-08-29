@@ -187,6 +187,26 @@ def test_mixed_config_forces_q2_where_q3_inventory_is_missing(tmp_path: Path) ->
     ]
 
 
+def test_mixed_config_defaults_to_native_q3_q2_tiers(tmp_path: Path) -> None:
+    config = _config(tmp_path, target=13)
+    value = json.loads(config.read_text())
+    del value["allowed_tiers"]
+    _write_json(config, value)
+    schema = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "schema/banana-smasher-mixed-backpack-config-v1.schema.json"
+        ).read_text()
+    )
+    pytest.importorskip("jsonschema").validate(value, schema)
+
+    receipt = solve_mixed_backpack_config(config, output=tmp_path / "solve")
+
+    assert receipt["allowed_tiers"] == ["native_mxfp4", "qtip3", "qtip2"]
+    identity = json.loads((tmp_path / "solve/identity.json").read_text())
+    assert identity["allowed_tiers"] == ["native_mxfp4", "qtip3", "qtip2"]
+
+
 def test_mixed_config_selects_one_tier_per_expert_across_both_projections(
     tmp_path: Path,
 ) -> None:

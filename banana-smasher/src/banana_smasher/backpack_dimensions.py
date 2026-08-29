@@ -9,6 +9,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .knapsack import DEFAULT_BACKPACK_TIERS
+
 
 CLASSES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
 CANDIDATE_LEDGER_SCHEMAS = frozenset(
@@ -1002,7 +1004,7 @@ def preflight_mixed_backpack_config(config: str | Path) -> dict[str, Any]:
             "mixed Backpack config must use banana-smasher-mixed-backpack-config-v1"
         )
     basis = _sha_field(value.get("basis_sha256"), "basis_sha256")
-    tiers = value.get("allowed_tiers")
+    tiers = value.get("allowed_tiers", list(DEFAULT_BACKPACK_TIERS))
     if not isinstance(tiers, list) or not tiers or any(
         not isinstance(tier, str) or not tier for tier in tiers
     ):
@@ -1122,7 +1124,7 @@ def solve_mixed_backpack_config(
     if unknown:
         raise DynamicDimensionsError(f"mixed Backpack config has unknown fields: {unknown}")
     basis = _sha_field(value.get("basis_sha256"), "basis_sha256")
-    tiers = value.get("allowed_tiers")
+    tiers = value.get("allowed_tiers", list(DEFAULT_BACKPACK_TIERS))
     if (
         not isinstance(tiers, list)
         or not tiers
@@ -1431,6 +1433,7 @@ def solve_mixed_backpack_config(
         "schema": "banana-smasher-mixed-backpack-solve-receipt-v1",
         "status": "PASS_PRE_REPAIR_MIX_SOLVED",
         "basis_sha256": basis,
+        "allowed_tiers": list(tiers),
         "config": {
             "path": str(config_path),
             "sha256": _sha(config_raw),

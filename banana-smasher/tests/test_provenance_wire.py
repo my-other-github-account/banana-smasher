@@ -222,6 +222,72 @@ def test_configured_provenance_solve_filters_tiers_and_hits_exact_cap(tmp_path) 
     assert receipt["whole_model_accounting"]["whole_shipping_bytes"] == 11
 
 
+def test_configured_provenance_solve_defaults_to_native_q3_q2_tiers(tmp_path) -> None:
+    identity = {
+        "model_id": "test/model",
+        "model_revision": "r1",
+        "basis_sha256": "a" * 64,
+        "bank_sha256": "b" * 64,
+        "teacher_sha256": "c" * 64,
+        "scorer_sha256": "d" * 64,
+    }
+    rows = []
+    for cell in ("L000:E000:down", "L000:E001:down"):
+        for tier, physical_bytes, damage in (
+            ("qtip2", 2, 2.0),
+            ("qtip3", 3, 1.0),
+            ("native_mxfp4", 4, 0.0),
+        ):
+            rows.append(
+                {
+                    **identity,
+                    "cell_id": cell,
+                    "tier": tier,
+                    "physical_bytes": physical_bytes,
+                    "prediction_by_class": {"chat": damage},
+                    "activation_ids": [],
+                    "activation_artifacts": [],
+                }
+            )
+    ledger = tmp_path / "options.jsonl"
+    ledger.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    fixed = tmp_path / "fixed.json"
+    fixed.write_text(
+        json.dumps(
+            {
+                "components": {
+                    "dense_nonrouted_bytes": 3,
+                    "repair_bytes": 0,
+                    "metadata_bytes": 2,
+                }
+            }
+        )
+        + "\n"
+    )
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "schema": "banana-smasher-provenance-solve-config-v1",
+                "inputs": {
+                    "option_ledger": {"path": ledger.name, "sha256": _sha(ledger)},
+                    "fixed_accounting": {"path": fixed.name, "sha256": _sha(fixed)},
+                },
+                "target": {"whole_model_bytes": 13, "exact": True},
+                "class_weights": {"chat": 1.0},
+            }
+        )
+        + "\n"
+    )
+
+    receipt = run_configured_provenance_solve(config, output=tmp_path / "solve")
+    assignment = json.loads((tmp_path / "solve" / "ASSIGNMENT.json").read_text())
+
+    assert receipt["allowed_tiers"] == ["native_mxfp4", "qtip3", "qtip2"]
+    assert set(assignment["allowed_tiers"]) == {"native_mxfp4", "qtip3", "qtip2"}
+    assert {row["tier"] for row in assignment["assignments"]} == {"native_mxfp4"}
+
+
 def test_physical_preflight_durably_refuses_missing_cells(tmp_path) -> None:
     assignment = tmp_path / "ASSIGNMENT.json"
     assignment.write_text(json.dumps({

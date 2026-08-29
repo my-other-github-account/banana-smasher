@@ -91,7 +91,7 @@ QTIP2 fallback must exist for every cell. Decimal GB is explicit: 102 GB is
     "fixed_nonexpert_bytes": 9032112614,
     "exact": true
   },
-  "allowed_tiers": ["qtip2", "qtip3"],
+  "allowed_tiers": ["native_mxfp4", "qtip3", "qtip2"],
   "fallback_tier": "qtip2",
   "topology": {
     "layers": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42],
@@ -178,7 +178,9 @@ missing layers, per-layer tier counts, and a deterministic relative-path/hash
 descriptor for the selected physical roster. `ASSIGNMENT.json` expands each
 layer/expert choice into the projection-level materialization assignments used
 by the existing loader/contract assembly path. A 96/108/115 GB variant changes only
-`target.whole_model_bytes`; tier policy remains in `allowed_tiers`. The public
+`target.whole_model_bytes`; tier policy remains overridable in `allowed_tiers`.
+When omitted, both `solve-mixed` and `solve-provenance` default to native MXFP4
+passthrough followed by QTIP3 and QTIP2 (`native_mxfp4`, `qtip3`, `qtip2`). The public
 schema is `schema/banana-smasher-mixed-backpack-config-v1.schema.json`.
 
 

@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Any
 
 
+DEFAULT_BACKPACK_TIERS = ("native_mxfp4", "qtip3", "qtip2")
+
+
 class KnapsackValidationError(ValueError):
     """Raised when manifest-bound knapsack inputs are incomplete or inconsistent."""
 

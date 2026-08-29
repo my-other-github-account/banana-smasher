@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .knapsack import solve_class_balanced_options
+from .knapsack import DEFAULT_BACKPACK_TIERS, solve_class_balanced_options
 
 _D4_TIERS = {"d4_k2048", "d4_k4096"}
 
@@ -475,7 +475,7 @@ def run_configured_provenance_solve(
 
     ledger, ledger_sha = configured_path("option_ledger")
     fixed, fixed_sha = configured_path("fixed_accounting")
-    tiers = value.get("allowed_tiers")
+    tiers = value.get("allowed_tiers", list(DEFAULT_BACKPACK_TIERS))
     if (
         not isinstance(tiers, list)
         or not tiers
