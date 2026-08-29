@@ -309,7 +309,36 @@ def _release_or_retain_checkpoint_payload(
                     and state_bound
                 )
             if not broker_bound:
-                raise ArtifactError("ordinary-load fork broker payload identity mismatch")
+                registered_keys = sorted(registered) if isinstance(registered, Mapping) else []
+                payload_keys = sorted(payload) if isinstance(payload, Mapping) else []
+                registered_state = registered.get("state") if isinstance(registered, Mapping) else None
+                payload_state = payload.get("state") if isinstance(payload, Mapping) else None
+                diagnostic = {
+                    "registered": isinstance(registered, Mapping),
+                    "registered_is_payload": registered is payload,
+                    "registered_keys": registered_keys,
+                    "payload_keys": payload_keys,
+                    "top_level_identity": {
+                        key: payload.get(key) is registered.get(key)
+                        for key in set(registered_keys) & set(payload_keys)
+                    } if isinstance(registered, Mapping) and isinstance(payload, Mapping) else {},
+                    "identity_same": (
+                        payload.get("identity") is registered.get("identity")
+                        if isinstance(registered, Mapping) and isinstance(payload, Mapping)
+                        else False
+                    ),
+                    "state_same": payload_state is registered_state,
+                    "registered_state_keys": sorted(registered_state) if isinstance(registered_state, Mapping) else [],
+                    "payload_state_keys": sorted(payload_state) if isinstance(payload_state, Mapping) else [],
+                    "state_surface_identity": {
+                        surface: payload_state.get(surface) is registered_state.get(surface)
+                        for surface in {"luts", "norms", "outputs"}
+                    } if isinstance(registered_state, Mapping) and isinstance(payload_state, Mapping) else {},
+                }
+                raise ArtifactError(
+                    "ordinary-load fork broker payload identity mismatch: "
+                    + json.dumps(diagnostic, sort_keys=True)
+                )
         elif not isinstance(payload, MappingProxyType):
             raise ArtifactError("ordinary-load fork broker payload must be read-only")
         return "inherited_read_only"
