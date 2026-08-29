@@ -40,7 +40,7 @@ _STALE_SPARK5_MODEL_ROOT = Path(
 
 
 def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str, Any]:
-    """Localize only the sealed, basis-identical stale model locator."""
+    """Localize the sealed Spark-5 closure to identity-equal Spark-3 inputs."""
     resolved = dict(config)
     override = os.environ.get("BANANA_SMASHER_OFFICIAL_MODEL_ROOT")
     if not override:
@@ -58,6 +58,37 @@ def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str,
     if resolved.get("basis_sha256") != BASIS_SHA256 or observed != BASIS_SHA256:
         raise ArtifactError("official-K2 localized model root failed the immutable basis gate")
     resolved["model_root"] = str(candidate)
+    stage = Path("/home/dnola/missions/STAGE_U20_t_3a6f22a5_spark-3")
+    canonical = Path(__file__).resolve().parents[1]
+    replacements = {
+        "asset_root": stage / "inputs/attempt4b/asset_view",
+        "binrepair_delta_dir": stage / "inputs/attempt4b/delta",
+        "binrepair_manifest": stage / "inputs/attempt4b/asset_view/code/DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json",
+        "corpus": stage / "inputs/attempt4b/asset_view/code/BASIC_COMBINED_768.json",
+        "fast_k2_extension": stage / "inputs/banana_fast_k2_grouped_0c3cc723fe66.so",
+        "fast_k2_wrapper_source": canonical / "repair_api/assets/u20_resident_provider/fast_k2_grouped.py",
+        "l034_roster": stage / "inputs/attempt4b/roster/L034_SELECTED_WIRE_PROVIDER_ROSTER.json",
+        "lp4_pack_source": canonical / "runtime/v7/vendor/src_lp4/lp4_pack.py",
+        "lp4_train_source": canonical / "runtime/v7/vendor/src_lp4/lp4_train.py",
+        "official_expert_source": stage / "R26_joint_v7_expert_base.py",
+        "parent_root": candidate,
+        "resident_expert_source": stage / "repo-r30c8/repair-api/ds4-flash-kldmatrix/repair_api/assets/fast_v7_expert_base.py",
+        "trainer_source": stage / "repo-r30c8/repair-api/ds4-flash-kldmatrix/repair_api/assets/modern_green_clean_u0.py",
+    }
+    expected_shas = {
+        "fast_k2_extension": resolved.get("fast_k2_extension_sha256"),
+        "fast_k2_wrapper_source": resolved.get("fast_k2_wrapper_source_sha256"),
+        "official_expert_source": resolved.get("official_expert_source_sha256"),
+        "resident_expert_source": resolved.get("resident_expert_source_sha256"),
+        "trainer_source": resolved.get("trainer_source_sha256"),
+    }
+    for field, replacement in replacements.items():
+        if not replacement.exists():
+            raise ArtifactError(f"official-K2 localized immutable input is missing: {replacement}")
+        expected = expected_shas.get(field)
+        if expected and hashlib.sha256(replacement.read_bytes()).hexdigest() != expected:
+            raise ArtifactError(f"official-K2 localized immutable SHA mismatch: {replacement}")
+        resolved[field] = str(replacement.resolve())
     return resolved
 
 
