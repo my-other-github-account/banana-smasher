@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 import torch
 
+import banana_smasher.backpack_runtime_exact64 as backpack_runtime_exact64
 from banana_smasher import materialize_provenance_virtual_backpack
 from banana_smasher.backpack_runtime_exact64 import _validate_whole_model_accounting
 from banana_smasher.backpack_virtual import verify_virtual_backpack
@@ -20,6 +21,12 @@ from banana_smasher.hf_deepseek_v4_backpack_adapter import (
     _available_materialization_bytes,
     _fwht,
 )
+
+
+def test_exact64_accepts_one_window_sanity_bank() -> None:
+    backpack_runtime_exact64._validate_bank_window_count(
+        expected_windows=1, observed_windows=1
+    )
 
 
 def test_exact64_whole_model_accounting_includes_sealed_envelope_padding() -> None:

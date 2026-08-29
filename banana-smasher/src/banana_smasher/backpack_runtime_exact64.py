@@ -250,6 +250,14 @@ def _validate_virtual_product_identity(
     return manifest, terminal
 
 
+def _validate_bank_window_count(*, expected_windows: int, observed_windows: int) -> None:
+    if expected_windows not in {1, 8, 64} or observed_windows != expected_windows:
+        raise ValueError(
+            f"Backpack rail requires exactly {expected_windows} bank rows, "
+            f"got {observed_windows}"
+        )
+
+
 def _run_backpack_exact64(
     *,
     model_root: str | Path,
@@ -351,11 +359,9 @@ def _run_backpack_exact64(
         raise ValueError("exact64 model basis mismatch")
     bank_sha256 = _sha256_file(bank_path)
     bank_rows = _read_jsonl(bank_path)
-    if expected_windows not in {8, 64} or len(bank_rows) != expected_windows:
-        raise ValueError(
-            f"Backpack rail requires exactly {expected_windows} bank rows, "
-            f"got {len(bank_rows)}"
-        )
+    _validate_bank_window_count(
+        expected_windows=expected_windows, observed_windows=len(bank_rows)
+    )
     model_id = "deepseek-ai/DeepSeek-V4-Flash-0731"
     teacher_manifest_path, teacher = _revision_bind_teacher_manifest(
         teacher_manifest_path,
