@@ -743,6 +743,11 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
                 allow_alternate_pre_diagnostic=True,
             )
 
+    def test_score_phase_profile_uses_physical_canary_coverage(self):
+        source = inspect.getsource(OfficialK2ResidentRankEngine.score)
+        self.assertIn('"physical_canary_windows", self.windows[completed_before:]', source)
+        self.assertIn("ordered_windows=profile_windows", source)
+
     def test_score_routed_k2_accepts_exact_closure_and_emits_resident_receipt(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

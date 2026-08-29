@@ -3439,9 +3439,12 @@ class OfficialK2ResidentRankEngine:
             ):
                 raise ArtifactError("official-K2 score phase profile envelope drift")
             rank_phase_profiles = [row["profiles"] for row in rank_phase_envelopes]
+        profile_windows = tuple(int(window) for window in self.config.get(
+            "physical_canary_windows", self.windows[completed_before:]
+        ))
         phase_profile = _aggregate_score_phase_profiles(
             rank_phase_profiles,
-            ordered_windows=self.windows[completed_before:],
+            ordered_windows=profile_windows,
             post_load_wall_seconds=elapsed,
             configured_batch_size=batch_size,
         )
