@@ -1156,14 +1156,20 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
         self.assertEqual(row["checkpoint_sha256"], CANONICAL_U0_CHECKPOINT_SHA256)
         self.assertEqual(row["calibration"]["status"], "PASS")
 
-    def test_canonical_u1_requires_immediate_canonical_u0_parent(self):
+    def test_canonical_u1_requires_exact_admitted_immediate_u0_parent(self):
         row = authorize_production_score(
             1,
             checkpoint_sha256=CANONICAL_U1_CHECKPOINT_SHA256,
             checkpoint_parent_sha256=CANONICAL_U0_CHECKPOINT_SHA256,
         )
         self.assertEqual(row["scope"], "CANONICAL_U1_IMMEDIATE_PARENT")
-        with self.assertRaisesRegex(ArtifactError, "immediate canonical U0 parent"):
+        published_pre_row = authorize_production_score(
+            1,
+            checkpoint_sha256=CANONICAL_U1_CHECKPOINT_SHA256,
+            checkpoint_parent_sha256=ALTERNATE_PRE_CHECKPOINT_SHA256,
+        )
+        self.assertEqual(published_pre_row["scope"], "CANONICAL_U1_IMMEDIATE_PARENT")
+        with self.assertRaisesRegex(ArtifactError, "exact admitted immediate U0 parent"):
             authorize_production_score(
                 1,
                 checkpoint_sha256=CANONICAL_U1_CHECKPOINT_SHA256,

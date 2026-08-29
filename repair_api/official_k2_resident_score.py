@@ -1276,8 +1276,11 @@ def authorize_production_score(
     if checkpoint_sha256 == CANONICAL_U1_CHECKPOINT_SHA256:
         if update != 1:
             raise ArtifactError("canonical U1 checkpoint must declare update 1")
-        if checkpoint_parent_sha256 != CANONICAL_U0_CHECKPOINT_SHA256:
-            raise ArtifactError("canonical U1 requires the immediate canonical U0 parent")
+        if checkpoint_parent_sha256 not in (
+            CANONICAL_U0_CHECKPOINT_SHA256,
+            ALTERNATE_PRE_CHECKPOINT_SHA256,
+        ):
+            raise ArtifactError("canonical U1 requires an exact admitted immediate U0 parent")
         return {
             "scope": "CANONICAL_U1_IMMEDIATE_PARENT",
             "checkpoint_sha256": checkpoint_sha256,
