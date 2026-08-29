@@ -522,6 +522,22 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             raise ValueError(f"QTIP3 unit shape mismatch: {artifact_path}")
         return payload
 
+    def _is_native_qtip3_cell(
+        self, layer: int, expert: int, projection: str
+    ) -> bool:
+        root = Path(self.root_maps["qtip3"][str(layer)])
+        receipt_path = (
+            root
+            / f"L{layer:03d}"
+            / f"E{expert:03d}_{projection}"
+            / "QTIP_SOLVE_RECEIPT.json"
+        )
+        receipt = json.loads(receipt_path.read_text())
+        return (
+            receipt.get("schema")
+            == "banana-smasher-recovered-public-api-qtip-unit-v1"
+        )
+
     def _decode_qtip(
         self, source_key: str, layer: int, expert: int, projection: str
     ) -> Any:
@@ -1037,7 +1053,11 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             qtip3_rows = [
                 row
                 for row in rows
-                if row["source_key"] == "qtip3" and row["projection"] == projection
+                if row["source_key"] == "qtip3"
+                and row["projection"] == projection
+                and self._is_native_qtip3_cell(
+                    layer, int(row["expert"]), projection
+                )
             ]
             for start in range(0, len(qtip3_rows), 32):
                 batch_rows = qtip3_rows[start : start + 32]
@@ -1078,7 +1098,11 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 elif source_key == "qtip2":
                     value = self._decode_qtip(source_key, layer, expert, projection)
                 elif source_key == "qtip3":
-                    value = qtip3_values.pop(key)
+                    value = (
+                        qtip3_values.pop(key)
+                        if key in qtip3_values
+                        else self._decode_qtip(source_key, layer, expert, projection)
+                    )
                 elif source_key == "qtip2_v7":
                     value = (
                         self._decode_mixed_v7(source_key, layer, expert, projection)

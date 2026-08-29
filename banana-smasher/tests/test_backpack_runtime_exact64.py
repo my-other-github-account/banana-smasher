@@ -47,6 +47,24 @@ def test_runtime_accepts_full_closure_recovered_qtip3_receipt(tmp_path) -> None:
     )
 
 
+def test_runtime_batches_only_recovered_native_qtip3_receipts(tmp_path) -> None:
+    root = tmp_path / "qtip3"
+    for expert, schema in (
+        (0, "banana-smasher-recovered-public-api-qtip-unit-v1"),
+        (4, "banana-smasher-qtip-solve-v1"),
+    ):
+        unit = root / "L000" / f"E{expert:03d}_down"
+        unit.mkdir(parents=True)
+        (unit / "QTIP_SOLVE_RECEIPT.json").write_text(
+            json.dumps({"schema": schema}) + "\n"
+        )
+    runtime = DeepseekV4BackpackRuntime.__new__(DeepseekV4BackpackRuntime)
+    runtime.root_maps = {"qtip3": {"0": str(root)}}
+
+    assert runtime._is_native_qtip3_cell(0, 0, "down") is True
+    assert runtime._is_native_qtip3_cell(0, 4, "down") is False
+
+
 def test_bind_recovered_qtip3_split_payload_uses_public_api_source(tmp_path) -> None:
     materialized = tmp_path / "materialized" / "L000_E000_down"
     source = tmp_path / "incoming" / "L000_E000_down"
