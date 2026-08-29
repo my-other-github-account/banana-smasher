@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -151,6 +152,48 @@ def test_single_gpu_lut_only_pipeline_runs_real_autograd_without_collectives(mon
     assert torch.count_nonzero(embedding.weight.grad).item() > 0
     assert timings["forward_seconds"] >= 0.0
     assert timings["backward_seconds"] >= 0.0
+
+
+def test_single_gpu_lut_only_step_report_is_json_serializable(monkeypatch):
+    monkeypatch.setattr(resident_module, "_cuda_sync", lambda _torch: None)
+
+    class NoDistributedCalls:
+        def __getattr__(self, name):
+            raise AssertionError(f"single-GPU LUT-only path called torch.distributed.{name}")
+
+    parameter = torch.nn.Parameter(torch.tensor([2.0]))
+    optimizer = torch.optim.SGD(
+        [{"params": [parameter], "group_name": "luts", "lr": 0.1}]
+    )
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.single_gpu_v7_lut_only = True
+    engine.torch = torch
+    engine.dist = NoDistributedCalls()
+    engine.rank = 0
+    engine.optimizer = optimizer
+    engine.optimizer_luts = [("layers.0", parameter)]
+    engine.config = {"v7_lut_only_update": True, "lut_lr": 0.1}
+    engine.published_pre_recipe = False
+    engine.controlled_arm = False
+    engine.controlled_arm_id = None
+    engine.pipeline_microbatch = 4
+    engine.trainer = SimpleNamespace(current_multiplier=lambda _step: 1.0)
+    engine.student = SimpleNamespace(device=torch.device("cpu"))
+    engine._local_params = lambda: [("layers.0", parameter)]
+
+    def pipeline_pass(_group, **_kwargs):
+        loss = parameter.square().sum()
+        value = float(loss.detach())
+        loss.backward()
+        return value, {"forward_seconds": 0.0, "backward_seconds": 0.0}
+
+    engine._pipeline_pass = pipeline_pass
+    engine.scheduler = SimpleNamespace(step=lambda: None)
+
+    report = ModernGreenResidentEngine._step(engine, 0)
+
+    assert report["rank_reports"][0] is not report
+    assert json.loads(json.dumps(report))["rank_reports"][0]["rank"] == 0
 
 
 def test_single_gpu_lut_only_skips_process_group_initialization():

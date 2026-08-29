@@ -3291,7 +3291,7 @@ class ModernGreenResidentEngine:
                 "cuda_reserved_bytes": int(torch.cuda.memory_reserved()),
             },
         }
-        rows: list[Any] = [local]
+        rows: list[Any] = [dict(local)]
         if not self.single_gpu_v7_lut_only:
             rows = [None, None]
             self.dist.all_gather_object(rows, local)
