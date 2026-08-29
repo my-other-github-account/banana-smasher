@@ -1944,12 +1944,19 @@ class ResidentRepairAPI:
             "score", key, selected, preflight
         )
         checkpoint_meta = self.artifact.manifest["checkpoints"][key]
-        if checkpoint_meta.get("sha256") == ALTERNATE_PRE_CHECKPOINT_SHA256:
+        official_config = self.artifact.manifest.get("score", {}).get("official_k2_resident")
+        alternate_pre_diagnostic = (
+            isinstance(official_config, Mapping)
+            and official_config.get("parity_tap_mode") == "sealed_reference"
+        )
+        if (
+            checkpoint_meta.get("sha256") == ALTERNATE_PRE_CHECKPOINT_SHA256
+            and not alternate_pre_diagnostic
+        ):
             raise ArtifactError(
                 "alternate serialized PRE is quarantine-only and cannot enter the canonical resident lane"
             )
         self._validate_scientific_identity(key, selected)
-        official_config = self.artifact.manifest.get("score", {}).get("official_k2_resident")
         if isinstance(official_config, Mapping):
             # One official backend owns the resident rank closure for the full
             # ordered window set.  Checkpoint changes rebind only the small

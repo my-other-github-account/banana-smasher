@@ -717,6 +717,16 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             with self.assertRaisesRegex(ArtifactError, "quarantine-only"):
                 api.score("UPDATE_000", windows=WINDOWS)
 
+    def test_api_score_allows_exact_alternate_pre_sealed_reference_diagnostic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_artifact(root, checkpoint_sha=ALTERNATE_PRE_CHECKPOINT_SHA256)
+            api = ResidentRepairAPI.open(root, official_backend_factory=FakeOfficialBackend)
+            api.artifact.manifest["checkpoints"]["UPDATE_000"]["sha256"] = ALTERNATE_PRE_CHECKPOINT_SHA256
+            api.artifact.manifest["score"]["official_k2_resident"]["parity_tap_mode"] = "sealed_reference"
+            result = api.score("UPDATE_000", windows=WINDOWS)
+            self.assertEqual(result.checkpoint, "UPDATE_000")
+
     def test_score_routed_k2_accepts_exact_closure_and_emits_resident_receipt(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
