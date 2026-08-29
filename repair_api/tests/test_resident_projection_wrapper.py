@@ -306,12 +306,14 @@ def test_provider_global_projection_clamps_swiglu_operands_before_activation() -
 
 
 def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
-    """The repaired W2 path applies identically to every layer instance."""
+    """All 43 model layers dispatch W2 through the shared native-BF16 helper."""
     config = ResidentRepairAPI.bind_combined_gate_up_projection(
         {}, provider_expert_sha256=PROVIDER_SHA256
     )
+    native_inputs: list[torch.Tensor] = []
 
     def native_down_projection(x: torch.Tensor, *_args: torch.Tensor) -> torch.Tensor:
+        native_inputs.append(x)
         return x.clone()
 
     wrapped_type = _bind_sealed_gate_up_projection_for_test(
@@ -322,11 +324,11 @@ def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
     )
     assert wrapped_type._sealed_native_bf16_w2_scope == "provider_class_all_instances_v1"
 
-    for layer in (0, 1, 42):
+    for layer in range(43):
         provider = wrapped_type()
         provider.L = layer
         provider._sealed_aligned_positions = None
-        activated = torch.tensor([[0.006927490234375]], dtype=torch.bfloat16)
+        activated = torch.tensor([[float(layer + 1)]], dtype=torch.bfloat16)
         observed = provider._project(
             "w2",
             activated,
@@ -338,6 +340,9 @@ def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
         )
         assert observed.dtype == torch.bfloat16
         assert torch.equal(observed, activated)
+
+    assert len(native_inputs) == 43
+    assert [int(value.item()) for value in native_inputs] == list(range(1, 44))
 
 
 def _bind_sealed_gate_up_projection_for_test(
