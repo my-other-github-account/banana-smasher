@@ -97,6 +97,90 @@ def test_checkpoint_rebind_reuses_exposed_local_dense_surfaces() -> None:
     ]
 
 
+def test_bind_checkpoint_state_admits_expert_plane_surface() -> None:
+    events: list[object] = []
+
+    class Expert:
+        @staticmethod
+        def promote_l028_su_sv():
+            events.append("promote")
+            return [("plane", object())]
+
+        @staticmethod
+        def load_expert_plane_state(saved):
+            events.append(("load", saved))
+
+    class Trainer:
+        @staticmethod
+        def expose_local_dense(torch, student, admission):
+            return {}, {}, {}
+
+        @staticmethod
+        def load_local_state(rows, saved, device):
+            pass
+
+    engine = OfficialK2ResidentRankEngine.__new__(OfficialK2ResidentRankEngine)
+    engine.trainer = Trainer()
+    engine.__dict__["torch"] = torch
+    engine.student = SimpleNamespace(device="cuda", experts={28: Expert()})
+    saved_plane = {"plane": torch.tensor([1.25])}
+    payload = {
+        "state": {
+            "luts": {},
+            "norms": {},
+            "outputs": {},
+            "expert_planes_l028_su_sv": saved_plane,
+        }
+    }
+
+    engine._bind_checkpoint_state(payload, {})
+
+    assert events == ["promote", ("load", saved_plane)]
+
+
+def test_scored_u1_differs_from_u0_when_plane_delta_nonzero() -> None:
+    class Expert:
+        score_value = 0.0
+
+        def promote_l028_su_sv(self):
+            return [("plane", object())]
+
+        def load_expert_plane_state(self, saved):
+            self.score_value = float(saved["plane_delta"])
+
+        def score(self):
+            return self.score_value
+
+    class Trainer:
+        @staticmethod
+        def expose_local_dense(torch, student, admission):
+            return {}, {}, {}
+
+        @staticmethod
+        def load_local_state(rows, saved, device):
+            pass
+
+    expert = Expert()
+    engine = OfficialK2ResidentRankEngine.__new__(OfficialK2ResidentRankEngine)
+    engine.trainer = Trainer()
+    engine.__dict__["torch"] = torch
+    engine.student = SimpleNamespace(device="cuda", experts={28: expert})
+    u0_score = expert.score()
+    payload = {
+        "state": {
+            "luts": {},
+            "norms": {},
+            "outputs": {},
+            "expert_planes_l028_su_sv": {"plane_delta": 0.25},
+        }
+    }
+
+    engine._bind_checkpoint_state(payload, {})
+    u1_score = expert.score()
+
+    assert u1_score != u0_score
+
+
 def test_full_manifest_batching_is_admitted_without_changing_window_order() -> None:
     source = inspect.getsource(OfficialK2ResidentRankEngine.score)
     assert '_effective_score_window_batch_size' in source

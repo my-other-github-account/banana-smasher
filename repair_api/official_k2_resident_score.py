@@ -1105,13 +1105,6 @@ def adapt_canonical_raw_u1_payload(
         },
     }
     adapted = dict(payload)
-    if "expert_planes_l028_su_sv" in state:
-        # Scoring retains its established dense state contract. The immutable
-        # checkpoint keeps the persisted L028 plane surface; only the in-memory
-        # scoring view omits it after the identity adapter has authenticated it.
-        adapted["state"] = {
-            surface: state[surface] for surface in ("luts", "norms", "outputs")
-        }
     adapted["identity"] = envelope
     return adapted
 
@@ -2276,8 +2269,16 @@ class OfficialK2ResidentRankEngine:
 
     def _bind_checkpoint_state(self, payload: Mapping[str, Any], admission: Mapping[str, Any]) -> None:
         state = payload.get("state")
-        if not isinstance(state, Mapping) or set(state) != {"luts", "norms", "outputs"}:
-            raise ArtifactError("official-K2 checkpoint must contain exactly luts, norms, and outputs")
+        dense_surfaces = {"luts", "norms", "outputs"}
+        admitted_surfaces = (
+            dense_surfaces,
+            dense_surfaces | {"expert_planes_l028_su_sv"},
+        )
+        if not isinstance(state, Mapping) or set(state) not in admitted_surfaces:
+            raise ArtifactError(
+                "official-K2 checkpoint must contain luts, norms, outputs, "
+                "and optionally expert_planes_l028_su_sv"
+            )
         if not hasattr(self, "_local_dense"):
             self._local_dense = self.trainer.expose_local_dense(self.torch, self.student, admission)
         luts, norms, outputs = self._local_dense
@@ -2286,6 +2287,17 @@ class OfficialK2ResidentRankEngine:
             if not isinstance(saved, Mapping):
                 raise ArtifactError(f"official-K2 checkpoint is missing {surface}")
             self.trainer.load_local_state(rows, saved, self.student.device)
+        saved_planes = state.get("expert_planes_l028_su_sv")
+        if saved_planes is not None:
+            experts = getattr(self.student, "experts", None)
+            module = experts.get(28) if isinstance(experts, Mapping) else None
+            if module is None:
+                raise ArtifactError("official-K2 checkpoint has L028 SU/SV state but no L028 expert")
+            try:
+                list(module.promote_l028_su_sv())
+                module.load_expert_plane_state(saved_planes)
+            except Exception as exc:
+                raise ArtifactError(f"L028 SU/SV checkpoint state cannot load: {exc}") from exc
 
     def rebind_checkpoint(
         self,

@@ -1558,7 +1558,7 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
                 scorer.score("UPDATE_001", WINDOWS)
         self.assertEqual(events, ["adapt", "validate"])
 
-    def test_canonical_raw_u1_adapter_binds_manifest_parent_and_embedded_source_identity(self):
+    def test_u1_adapter_retains_expert_plane_surface(self):
         from repair_api.official_k2_resident_score import adapt_canonical_raw_u1_payload
         import torch
 
@@ -1614,7 +1614,14 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             self.assertTrue(identity["checkpoint_loaded"])
             self.assertEqual(identity["parent_checkpoint_sha256"], "published-pre-fixture")
             self.assertEqual(identity["runtime_load_provenance"]["source_identity"], source_identity)
-            self.assertEqual(set(adapted["state"]), {"luts", "norms", "outputs"})
+            self.assertEqual(
+                set(adapted["state"]),
+                {"luts", "norms", "outputs", "expert_planes_l028_su_sv"},
+            )
+            self.assertIs(
+                adapted["state"]["expert_planes_l028_su_sv"],
+                raw["state"]["expert_planes_l028_su_sv"],
+            )
             self.assertIn("expert_planes_l028_su_sv", raw["state"])
             self.assertEqual(checkpoint.read_bytes(), before)
 
