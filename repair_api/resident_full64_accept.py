@@ -890,6 +890,42 @@ def _adjudicate_temporal_interleaving(
     }
 
 
+def _adjudicate_source_workspace_lifetime(
+    authentic_control_return: Any,
+    retained_alias_return: Any,
+    fresh_workspace_return: Any,
+) -> dict[str, Any]:
+    """Compare source projection with retained aliases versus fresh workspaces."""
+    retained_exact = torch.equal(retained_alias_return, authentic_control_return)
+    fresh_exact = torch.equal(fresh_workspace_return, authentic_control_return)
+    return {
+        "status": (
+            "SOURCE_PROJECTION_WORKSPACE_LIFETIME_LOCALIZED"
+            if fresh_exact and not retained_exact
+            else "SOURCE_PROJECTION_WORKSPACE_LIFETIME_INCONCLUSIVE"
+        ),
+        "installed_provider_source": "repair_api/modern_green_resident.py:538-573",
+        "accepted_builder_source": (
+            "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473; "
+            "accepted DeepseekV4Experts source projection"
+        ),
+        "one_variable": (
+            "retained source projection operand aliases versus byte-identical "
+            "fresh contiguous operand workspaces immediately before F.linear"
+        ),
+        "instrument_control_self_compare_exact": fresh_exact,
+        "retained_alias_matches_authentic_control": retained_exact,
+        "fresh_workspace_matches_authentic_control": fresh_exact,
+        "authentic_control_return": _tensor_tap(authentic_control_return),
+        "retained_alias_return": _tensor_tap(retained_alias_return),
+        "fresh_workspace_return": _tensor_tap(fresh_workspace_return),
+        "first_workspace_operation_divergence": (
+            "source_projection_operand_workspace_before_F.linear"
+            if fresh_exact and not retained_exact else None
+        ),
+    }
+
+
 def _run_one_layer_with_attention(engine: Any, layer: Any, hidden: Any, ids: Any) -> tuple[Any, Any]:
     from transformers.cache_utils import DynamicCache
 
@@ -952,8 +988,15 @@ def _run_one_layer_with_expert_trace(
         captured[name].append(value.detach())
 
     def replay_control(
-        module: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any
+        module: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any,
+        *, fresh_workspace: bool = False, record_trace: bool = True,
     ) -> Any:
+        def source_linear(value: Any, weight: Any) -> Any:
+            if fresh_workspace:
+                value = value.clone(memory_format=torch.contiguous_format)
+                weight = weight.clone(memory_format=torch.contiguous_format)
+            return F.linear(value, weight)
+
         final = torch.zeros_like(hidden_states)
         full_weighted = torch.empty(
             (top_k_index.numel(), hidden_states.shape[-1]),
@@ -979,17 +1022,17 @@ def _run_one_layer_with_expert_trace(
                 # Byte-for-byte source shape of DeepseekV4Experts.forward: do
                 # not extend the lifetime of gate_up/down temporaries for any
                 # expert that precedes the single traced final expert.
-                current = module._apply_gate(
-                    F.linear(routed, module.gate_up_proj[expert_index])
-                )
-                current = F.linear(
+                current = module._apply_gate(source_linear(
+                    routed, module.gate_up_proj[expert_index]
+                ))
+                current = source_linear(
                     current, module.down_proj[expert_index]
                 ) * top_k_weights[token_index, top_k_pos, None]
                 flat_route = top_k_pos * hidden_states.shape[0] + token_index
                 full_weighted[flat_route] = current.to(full_weighted.dtype)
                 final.index_add_(0, token_index, current.to(final.dtype))
                 continue
-            gate_up = F.linear(routed, module.gate_up_proj[expert_index])
+            gate_up = source_linear(routed, module.gate_up_proj[expert_index])
             split = int(module.intermediate_dim)
             gate_weight = module.gate_up_proj[expert_index][:split]
             pre_gemm_capture["control"] = {
@@ -1015,7 +1058,7 @@ def _run_one_layer_with_expert_trace(
             }
             trace_tokens = token_index
             activated = module._apply_gate(gate_up)
-            down = F.linear(activated, module.down_proj[expert_index])
+            down = source_linear(activated, module.down_proj[expert_index])
             weighted = down * top_k_weights[token_index, top_k_pos, None]
             flat_route = top_k_pos * hidden_states.shape[0] + token_index
             full_weighted[flat_route] = weighted.to(full_weighted.dtype)
@@ -1023,17 +1066,20 @@ def _run_one_layer_with_expert_trace(
             # Retain only the first active expert. Its boundaries are produced
             # before any diagnostic alias can perturb a later BF16 GEMM.
             gate, up = gate_up.chunk(2, dim=-1)
-            keep("route_key", torch.stack((top_k_pos, token_index), dim=1))
-            keep("gate", gate)
-            keep("up", up)
-            keep("activated", activated)
-            keep("w2_down", down)
-            keep("weighted_routed_output", weighted)
-        keep("full_weighted_routed_output", full_weighted)
-        keep("full_route_expert", full_route_expert)
+            if record_trace:
+                keep("route_key", torch.stack((top_k_pos, token_index), dim=1))
+                keep("gate", gate)
+                keep("up", up)
+                keep("activated", activated)
+                keep("w2_down", down)
+                keep("weighted_routed_output", weighted)
+        if record_trace:
+            keep("full_weighted_routed_output", full_weighted)
+            keep("full_route_expert", full_route_expert)
         if trace_tokens is None:
             raise RuntimeError("EXPERT_TRACE_TARGET_204_INACTIVE")
-        keep("per_slot_accumulation", final[trace_tokens])
+        if record_trace:
+            keep("per_slot_accumulation", final[trace_tokens])
         return final
 
     def replay_resident(
@@ -1214,12 +1260,22 @@ def _run_one_layer_with_expert_trace(
     if tuple(replay_inputs) != ("hidden_states", "top_k_index", "top_k_weights"):
         raise RuntimeError("EXPERT_TRACE_TRANSPARENT_WRAPPER_NOT_CALLED")
     replay = replay_resident if resident else replay_control
+    fresh_workspace_result = None
     replay_result = replay(
         experts,
         replay_inputs["hidden_states"],
         replay_inputs["top_k_index"],
         replay_inputs["top_k_weights"],
     )
+    if not resident:
+        fresh_workspace_result = replay_control(
+            experts,
+            replay_inputs["hidden_states"],
+            replay_inputs["top_k_index"],
+            replay_inputs["top_k_weights"],
+            fresh_workspace=True,
+            record_trace=False,
+        )
     if any(not values for values in captured.values()):
         raise RuntimeError("EXPERT_TRACE_COVERAGE_RED")
     route_key = torch.cat(captured.pop("route_key"), dim=0)
@@ -1232,7 +1288,10 @@ def _run_one_layer_with_expert_trace(
     if not resident:
         # replay_control is the accepted source loop itself: each expert's
         # projections, weighting, and index_add are temporally interleaved.
+        if fresh_workspace_result is None:
+            raise RuntimeError("RUN6521_FRESH_WORKSPACE_REPLAY_MISSING")
         full_trace["temporal_interleaved_return"] = replay_result.cpu()
+        full_trace["fresh_workspace_return"] = fresh_workspace_result.cpu()
     if resident:
         schedules = _replay_a30_route_schedules(
             replay_inputs["hidden_states"], replay_inputs["top_k_index"],
@@ -1706,6 +1765,11 @@ def _sealed_runtime_expert_trace_ab(
                 control_trace["temporal_interleaved_return"],
                 variant_trace["a30_expert_major_return"],
             )
+            local["source_workspace_lifetime"] = _adjudicate_source_workspace_lifetime(
+                control_trace["authentic_routed_return"],
+                control_trace["temporal_interleaved_return"],
+                control_trace["fresh_workspace_return"],
+            )
             local["a30_authentic_route_capture"] = {
                 "w2_output": _tensor_tap(variant_trace["authentic_w2_output"]),
                 "route_weights": _tensor_tap(variant_trace["authentic_route_weights"]),
@@ -1772,6 +1836,9 @@ def _sealed_runtime_expert_trace_ab(
     temporal_interleaving = gathered[0].get("temporal_interleaving")
     if not isinstance(temporal_interleaving, dict):
         raise RuntimeError("RUN6520_TEMPORAL_INTERLEAVING_MISSING")
+    source_workspace_lifetime = gathered[0].get("source_workspace_lifetime")
+    if not isinstance(source_workspace_lifetime, dict):
+        raise RuntimeError("RUN6521_SOURCE_WORKSPACE_LIFETIME_MISSING")
     first_assembly_operation = source_return_assembly.get(
         "first_assembly_operation_divergence"
     ) or routed_return_assembly.get("first_unequal_assembly_operation")
@@ -1802,6 +1869,7 @@ def _sealed_runtime_expert_trace_ab(
         "routed_return_assembly": routed_return_assembly,
         "source_return_assembly": source_return_assembly,
         "temporal_interleaving": temporal_interleaving,
+        "source_workspace_lifetime": source_workspace_lifetime,
         "assembly_control_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473 + accepted DeepseekV4Experts torch.where/index_add forward",
         "assembly_variant_source": "repair_api/modern_green_resident.py:520-543 (_sealed_builder_accumulate_routes)",
         "source_backed_repair_candidate": candidate,

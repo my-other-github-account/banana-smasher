@@ -739,6 +739,27 @@ def test_run6520_temporal_interleaving_adjudication() -> None:
     )
 
 
+def test_run6521_source_workspace_lifetime_adjudication() -> None:
+    from repair_api.resident_full64_accept import _adjudicate_source_workspace_lifetime
+
+    authentic = torch.tensor([[1.0], [2.0]], dtype=torch.bfloat16)
+    retained = torch.tensor([[1.0], [3.0]], dtype=torch.bfloat16)
+    fresh = authentic.clone()
+
+    observed = _adjudicate_source_workspace_lifetime(authentic, retained, fresh)
+
+    assert observed["status"] == "SOURCE_PROJECTION_WORKSPACE_LIFETIME_LOCALIZED"
+    assert observed["instrument_control_self_compare_exact"] is True
+    assert observed["retained_alias_matches_authentic_control"] is False
+    assert observed["fresh_workspace_matches_authentic_control"] is True
+    assert observed["first_workspace_operation_divergence"] == (
+        "source_projection_operand_workspace_before_F.linear"
+    )
+    source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
+    assert "value.clone(memory_format=torch.contiguous_format)" in source
+    assert "weight.clone(memory_format=torch.contiguous_format)" in source
+
+
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
     from repair_api.resident_full64_accept import _routed_return_assembly_witness
 
