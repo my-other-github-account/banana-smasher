@@ -300,9 +300,82 @@ def test_single_gpu_checkpointed_backend_persists_its_direct_optimizer_state():
     assert 'optimizer = rows[0]["optimizer"]' in source
 
 
+def test_single_gpu_checkpointed_optimizer_accepts_exact_empty_missing_state():
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.torch = torch
+    engine.rank = 0
+    engine.single_gpu_resident = True
+    engine.config = {}
+    engine.luts = _rows("lut", 43)
+    engine.norms = _rows("norm", 235)
+    engine.outputs = _rows("output", 43)
+    engine.optimizer_rows = {
+        "luts": engine.luts,
+        "norms": engine.norms,
+        "outputs": engine.outputs,
+    }
+    direct_state = {
+        "state": {index: {"step": torch.tensor(1.0)} for index in range(321)},
+        "param_groups": [
+            {"params": list(range(43))},
+            {"params": list(range(43, 278))},
+            {"params": list(range(278, 321))},
+        ],
+    }
+    engine.optimizer = Mock()
+    engine.optimizer.state_dict.return_value = direct_state
+    engine.scheduler = Mock()
+    engine.scheduler.state_dict.return_value = {"last_epoch": 21}
+    engine.trainer = Mock()
+    engine.trainer.merge_optimizer_state.side_effect = AssertionError(
+        "singleton checkpointed state must not use the two-rank dormant-norm validator"
+    )
+
+    _merged, optimizer, _report = ModernGreenResidentEngine._gather_state(engine)
+
+    assert optimizer is not None
+    assert set(optimizer["state"]) == set(range(321))
+    engine.trainer.merge_optimizer_state.assert_not_called()
+
+
 def test_single_gpu_checkpointed_rank_reports_do_not_self_reference():
     source = inspect.getsource(ModernGreenResidentEngine._step)
     assert 'local["rank_reports"] = [dict(row) for row in rows]' in source
+
+
+def test_exact_u21_checkpointed_resume_is_authenticated():
+    sha = "11df795d56d7f9210f20bb99e91b6518dc17d0e24cbfff6b96e120168ab64830"
+    _validate_published_pre_resume_start(
+        21,
+        {"sha256": sha, "optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr"},
+        config={
+            "checkpoint_sha256": sha,
+            "execution_backend": "single_gpu_resident_checkpointed",
+            "activation_checkpointing": True,
+            "world_size": 1,
+            "rank": 0,
+            "lr_scale": 0.5,
+            "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+            "published_pre_checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+            "fresh_published_pre_lineage": True,
+            "shared_optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
+        },
+    )
+
+
+def test_public_checkpointed_boundary_wrapper_targets_u24():
+    api = Mock()
+    api.artifact = Mock()
+    api.artifact.checkpoint_key.return_value = "UPDATE_021"
+    api.continue_two_spark_real.return_value = {"status": "PASS"}
+    result = ResidentRepairAPI.continue_single_gpu_checkpointed_to_boundary(
+        api, "UPDATE_021", 24, config={"authorized_api": True}, receipt_path="r.json"
+    )
+    assert result == {"status": "PASS"}
+    called = api.continue_two_spark_real.call_args
+    assert called.args == ("UPDATE_021", (24,))
+    assert called.kwargs["config"]["activation_checkpointing"] is True
+    assert called.kwargs["config"]["world_size"] == 1
 
 
 def test_resident_loader_releases_cpu_source_duplicate_after_gpu_consumer() -> None:

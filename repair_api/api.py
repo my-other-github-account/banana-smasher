@@ -206,6 +206,25 @@ def _validate_published_pre_resume_start(
             == "fresh-published-pre-adam-lambdalr"
     ):
         return
+    exact_u21 = "11df795d56d7f9210f20bb99e91b6518dc17d0e24cbfff6b96e120168ab64830"
+    if (
+        start_update == 21
+        and start_meta.get("sha256") == exact_u21
+        and start_meta.get("optimizer_scheduler_lineage") == "fresh-published-pre-adam-lambdalr"
+        and config.get("checkpoint_sha256") == exact_u21
+        and config.get("execution_backend") == "single_gpu_resident_checkpointed"
+        and config.get("activation_checkpointing") is True
+        and config.get("world_size") == 1
+        and config.get("rank") == 0
+        and config.get("lr_scale") == 0.5
+        and config.get("recipe_id") == "published_pre_lower_lr_warmup16_cosine64_v1"
+        and config.get("published_pre_checkpoint_sha256")
+            == "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+        and config.get("fresh_published_pre_lineage") is True
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    ):
+        return
     sealed_u22_sha256 = "47ff9433ef40877035d4db2aab60e8ad3aac0c214f0cea32fa338f4eb8346f82"
     sealed_u31_sha256 = "1a0ed291da9e0edc5094de892ca9fb4ae3fdd20b2cc6bfbf59fe2871eb90fffe"
     sealed_u33_sha256 = "0abdab68a393163993749a95b8cc6809f43b26e73cdc118ada1e9e58e725eff9"
@@ -3068,6 +3087,37 @@ class ResidentRepairAPI:
         return self.continue_two_spark_real(
             start,
             (self._checkpoint_update(start) + 1,),
+            config=configured,
+            receipt_path=receipt_path,
+        )
+
+    def continue_single_gpu_checkpointed_to_boundary(
+        self,
+        start_checkpoint: int | str,
+        boundary_update: int,
+        *,
+        config: Mapping[str, Any],
+        receipt_path: str | Path,
+    ) -> dict[str, Any]:
+        """Advance a checkpointed single-GPU resident run to a four-update boundary."""
+        start = self.artifact.checkpoint_key(start_checkpoint)
+        target = int(boundary_update)
+        if target <= 0 or target >= 64 or target % 4:
+            raise ArtifactError("checkpointed single-GPU target must be a U4..U60 boundary")
+        configured = dict(config)
+        configured.update(
+            execution_backend="single_gpu_resident_checkpointed",
+            activation_checkpointing=True,
+            world_size=1,
+            rank=0,
+            local_rank=0,
+            layer_split={"0": [0, 42]},
+            resident_validation_proof=False,
+        )
+        configured.pop("v7_lut_only_update", None)
+        return self.continue_two_spark_real(
+            start,
+            (target,),
             config=configured,
             receipt_path=receipt_path,
         )
