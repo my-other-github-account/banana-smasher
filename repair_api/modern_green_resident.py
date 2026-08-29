@@ -718,6 +718,7 @@ SEALED_GATE_UP_RUNTIME_MARKER = "sealed_combined_gate_up_projection_v1"
 ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256 = (
     "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
 )
+ACCEPTED_GATE_UP_PROVIDER_SHA256 = STATIC_W28_GROUPED_EXPERT_SHA256
 
 
 def _sealed_builder_combined_gate_up_projection(
@@ -789,11 +790,11 @@ def _bind_sealed_gate_up_projection(
     combined_projection: Any,
     native_down_projection: Any = None,
 ) -> Any:
-    """Replace only 942c's separate gate/up GEMMs with the sealed combined GEMM."""
+    """Replace only the production provider's separate gate/up GEMMs."""
     explicitly_bound = (
         config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
         and config.get("resident_gate_up_provider_sha256")
-        == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+        == ACCEPTED_GATE_UP_PROVIDER_SHA256
     )
     if not explicitly_bound:
         return provider_class
@@ -965,7 +966,7 @@ def _bind_installed_projection_runtime(
     explicitly_bound = (
         config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
         and config.get("resident_gate_up_provider_sha256")
-        == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+        == ACCEPTED_GATE_UP_PROVIDER_SHA256
     )
     if not explicitly_bound:
         return {"status": "NOT_REQUESTED"}
@@ -980,7 +981,7 @@ def _bind_installed_projection_runtime(
     return {
         "status": "BOUND_TO_ORDINARY_TRAINER_GLOBAL",
         "implementation": SEALED_GATE_UP_PROJECTION,
-        "provider_expert_sha256": ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256,
+        "provider_expert_sha256": ACCEPTED_GATE_UP_PROVIDER_SHA256,
         "runtime_class_marker": SEALED_GATE_UP_RUNTIME_MARKER,
     }
 
@@ -1124,7 +1125,7 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
     if (
         config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
         and config.get("resident_gate_up_provider_sha256")
-        == ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+        == ACCEPTED_GATE_UP_PROVIDER_SHA256
     ):
         sealed_wrapper = Path(__file__).resolve().parent / "assets" / "fast_k2_grouped.py"
         _require_file(

@@ -28,7 +28,7 @@ ADOPTED_TASK_ID = W28_ADOPTION_TASK
 ADOPTED_PROVIDER_WRAPPER_SHA256 = "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
 ADOPTED_PROVIDER_EXPERT_SHA256 = "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
 CURRENT_PROVIDER_WRAPPER_SHA256 = ADOPTED_PROVIDER_WRAPPER_SHA256
-CURRENT_PROVIDER_EXPERT_SHA256 = ADOPTED_PROVIDER_EXPERT_SHA256
+CURRENT_PROVIDER_EXPERT_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
 CUDA_MEMORY_FRACTION = 0.45
 
 
@@ -2955,7 +2955,7 @@ def main() -> None:
     api = ResidentRepairAPI.open(Path(config["artifact_root"]))
     config = api.bind_routed_return_accumulation(
         config,
-        provider_expert_sha256=CURRENT_PROVIDER_EXPERT_SHA256,
+        provider_expert_sha256=ADOPTED_PROVIDER_EXPERT_SHA256,
     )
     config = api.bind_combined_gate_up_projection(
         config,

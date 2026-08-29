@@ -634,12 +634,12 @@ class ResidentRepairAPI:
         capture_witness: bool = False,
         active_row_expert: int | None = None,
     ) -> dict[str, Any]:
-        """Bind immutable 942c to the sealed combined gate/up GEMM geometry."""
+        """Bind the production static provider to sealed native-BF16 projections."""
         accepted_provider = (
-            "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
+            "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
         )
         if provider_expert_sha256 != accepted_provider:
-            raise ArtifactError("combined gate/up projection requires provider 942c3074")
+            raise ArtifactError("combined gate/up projection requires provider 64403d3e")
         bound = dict(config)
         bound["resident_gate_up_projection"] = "combined_4096_bf16_f_linear_v1"
         bound["resident_gate_up_provider_sha256"] = accepted_provider
