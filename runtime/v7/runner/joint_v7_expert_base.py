@@ -127,7 +127,7 @@ class OfficialQtipK2PhysicalLayer(nn.Module):
         weight = official_k2.inverse_transform(decoded, self.su, self.sv).T.contiguous().to(torch.bfloat16)
         adapter = self.__dict__.get("adapter")
         if adapter is not None:
-            weight = adapter.patch_weight(self.layer, self.expert, self.projection, weight)
+            weight = adapter.patch_fresh_weight(self.layer, self.expert, self.projection, weight)
         return weight
 
     def _forward(self, hidden: torch.Tensor) -> torch.Tensor:

@@ -247,6 +247,21 @@ class BananaV1All43Adapter:
         ] = tile
         return patched
 
+    def patch_fresh_weight(
+        self, layer: int, expert: int, projection: str, weight: Any
+    ) -> Any:
+        """Patch a newly decoded ephemeral weight without a full-matrix clone."""
+        selected = self._by_layer.get(int(layer))
+        if selected is None or int(expert) != selected.expert or projection != selected.projection:
+            return weight
+        if getattr(weight, "ndim", None) != 2 or min(map(int, weight.shape)) < 16:
+            raise ValueError("Banana V1 physical weight must be a matrix at least 16x16")
+        weight[
+            selected.row_start : selected.row_start + 16,
+            selected.column_start : selected.column_start + 16,
+        ] = weight.new_tensor(self.decode_member(selected.layer))
+        return weight
+
     def bind_plane_sources(self, sources: Mapping[int, Any]) -> None:
         if set(map(int, sources)) != set(range(_LAYER_COUNT)) or len(sources) != _LAYER_COUNT:
             raise ValueError("Banana V1 adapter requires exact PlaneSource layers 0..42")

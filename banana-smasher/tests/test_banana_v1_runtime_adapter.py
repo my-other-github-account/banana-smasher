@@ -214,6 +214,11 @@ def test_adapter_patches_only_the_declared_physical_tile(tmp_path: Path) -> None
     assert np.all(original.values == -7.0)
     assert adapter.patch_weight(0, 1, "w1", original) is original
 
+    fresh = Weight(np.full((32, 32), -7.0, dtype=np.float32))
+    observed = adapter.patch_fresh_weight(0, 0, "w1", fresh)
+    assert observed is fresh
+    assert np.array_equal(fresh.values[:16, :16], expected)
+
 
 def test_joint_expert_dispatches_decoded_weight_through_bound_adapter() -> None:
     source = (
@@ -221,5 +226,5 @@ def test_joint_expert_dispatches_decoded_weight_through_bound_adapter() -> None:
         / "runtime/v7/runner/joint_v7_expert_base.py"
     ).read_text()
 
-    assert "adapter.patch_weight(self.layer, self.expert, self.projection, weight)" in source
+    assert "adapter.patch_fresh_weight(self.layer, self.expert, self.projection, weight)" in source
     assert "_banana_v1_adapter_from_env()" in source
