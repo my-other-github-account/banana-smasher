@@ -410,7 +410,7 @@ def test_runtime_composes_native_v6_qtip3_split_with_bound_shared_tlut(
     root = tmp_path / "qtip3"
     cell_root = root / "outputs" / "full_api" / "L002_E000_down"
     cell_root.mkdir(parents=True)
-    inputs = root / "inputs"
+    inputs = tmp_path / "sealed-inputs"
     inputs.mkdir()
     control_path = tmp_path / "control.pt"
     torch.save(
@@ -468,6 +468,7 @@ def test_runtime_composes_native_v6_qtip3_split_with_bound_shared_tlut(
                 "artifacts": {"codes": {"sha256": codes_sha}},
                 "control": {"sha256": control_sha},
                 "tlut": {
+                    "path": str(tlut_path),
                     "sha256": tlut_sha,
                     "tensor_sha256": tlut_tensor_sha,
                 },

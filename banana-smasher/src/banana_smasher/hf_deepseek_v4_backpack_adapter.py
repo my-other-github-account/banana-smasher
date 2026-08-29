@@ -714,7 +714,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         expected_geometry = native_v4_geometry(3.0).as_mapping()
         if any(cell_geometry.get(key) != value for key, value in expected_geometry.items()):
             raise ValueError(f"QTIP3 split producer geometry mismatch: {cell_receipt_path}")
-        tlut_path = codes_path.parents[3] / "inputs" / "qtip_tlut.npy"
+        tlut_path = Path(str(tlut_binding.get("path", ""))).resolve()
         if (
             not tlut_path.is_file()
             or hashlib.sha256(tlut_path.read_bytes()).hexdigest()
