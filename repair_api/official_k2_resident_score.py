@@ -87,7 +87,7 @@ _ORDINARY_FORK_PAYLOADS: dict[str, dict[str, Any]] = globals().get(
 # acquired its exact hash-bound payload.  Keep that acquired object as the
 # release authority; otherwise the post-bind parent release compares against a
 # later materialization and rejects the authentic payload it is releasing.
-_ORDINARY_FORK_PAYLOAD_LEASES: dict[str, Mapping[str, Any]] = globals().get(
+_ORDINARY_FORK_PAYLOAD_LEASES: dict[str, list[Mapping[str, Any]]] = globals().get(
     "_ORDINARY_FORK_PAYLOAD_LEASES", {}
 )
 
@@ -257,7 +257,9 @@ def _load_score_checkpoint(
         ):
             raise ArtifactError("ordinary-load fork broker payload must be consumed by a fork child")
         payload = cast(Mapping[str, Any], inherited["payload"])
-        _ORDINARY_FORK_PAYLOAD_LEASES[expected_sha256] = payload
+        leases = _ORDINARY_FORK_PAYLOAD_LEASES.setdefault(expected_sha256, [])
+        if not any(existing is payload for existing in leases):
+            leases.append(payload)
         return payload
     if bool(config.get("checkpoint_mmap", True)):
         return _load_hash_bound_torch_mmap(path, expected_sha256)
@@ -280,9 +282,21 @@ def _release_or_retain_checkpoint_payload(
     if ordinary_load_fork_broker:
         if checkpoint_sha256:
             inherited = _ORDINARY_FORK_PAYLOADS.get(checkpoint_sha256)
-            registered = _ORDINARY_FORK_PAYLOAD_LEASES.get(checkpoint_sha256)
-            if registered is None:
-                registered = inherited.get("payload") if inherited is not None else None
+            registered_candidates = list(
+                _ORDINARY_FORK_PAYLOAD_LEASES.get(checkpoint_sha256, ())
+            )
+            current = inherited.get("payload") if inherited is not None else None
+            if current is not None and not any(
+                existing is current for existing in registered_candidates
+            ):
+                registered_candidates.append(current)
+            # Prefer the exact acquired object being released. A later provider
+            # acquisition may legitimately rebind the registry/most-recent lease
+            # before this rank reaches its post-bind release boundary.
+            registered = next(
+                (candidate for candidate in registered_candidates if candidate is payload),
+                registered_candidates[-1] if registered_candidates else None,
+            )
             # Canonical raw checkpoints receive an in-memory identity envelope
             # through a shallow outer mapping copy.  The copy is still bound to
             # the broker only when every non-envelope value is the exact frozen

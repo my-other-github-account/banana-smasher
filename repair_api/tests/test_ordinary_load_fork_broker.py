@@ -64,15 +64,25 @@ def test_loaded_broker_payload_remains_release_authority_after_registry_rebind()
             "state": MappingProxyType({"weight": torch.arange(8)}),
         })
         resident_score._ORDINARY_FORK_PAYLOADS[checkpoint_sha]["payload"] = rebound
+        rebound_loaded = _load_score_checkpoint(
+            checkpoint,
+            checkpoint_sha,
+            {"checkpoint_mmap": False, "ordinary_load_fork_broker": True,
+             "same_process_dual_shard": True},
+        )
+        assert rebound_loaded is rebound
         try:
             assert _release_or_retain_checkpoint_payload(
                 loaded,
                 ordinary_load_fork_broker=True,
                 checkpoint_sha256=checkpoint_sha,
             ) == "inherited_read_only"
+            copied = MappingProxyType({
+                "state": MappingProxyType({"weight": torch.arange(8)}),
+            })
             with pytest.raises(ArtifactError, match="identity mismatch"):
                 _release_or_retain_checkpoint_payload(
-                    rebound,
+                    copied,
                     ordinary_load_fork_broker=True,
                     checkpoint_sha256=checkpoint_sha,
                 )
