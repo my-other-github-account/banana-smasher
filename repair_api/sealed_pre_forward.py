@@ -87,11 +87,10 @@ def bind_sealed_pre_resident_config(config: dict[str, Any]) -> dict[str, Any]:
     # accepted provider, so never let the sealed binding silently select it.
     config["provider_resolution_mode"] = "STATIC_W28_GROUPED"
     config.setdefault("resident_validation_expert_implementation", "accepted_static_w28")
-    # The accepted producer kept an intact two-window physical batch while the
-    # public admission scored only W28.  This physical context is part of the
-    # tensor arithmetic even though the reported validation roster is singleton.
-    config["score_window_batch_size"] = 2
-    config["sealed_builder_window_microbatch"] = 2
+    # Default to the accepted two-window physical geometry, but preserve an
+    # explicit singleton request used by the public parity-tap comparator.
+    config.setdefault("score_window_batch_size", 2)
+    config.setdefault("sealed_builder_window_microbatch", 2)
     config["trainer_source"] = str(
         (Path(__file__).resolve().parent / "assets" / "static_w28_modern_green_clean_u0.py")
     )

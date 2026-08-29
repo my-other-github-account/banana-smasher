@@ -62,3 +62,16 @@ def test_sealed_pre_w28_keeps_target_producer_mb2_geometry(monkeypatch) -> None:
     assert resolved["expert_sha256"] == modern_green_resident.STATIC_W28_GROUPED_EXPERT_SHA256
     trainer = Path(modern_green_resident.__file__).parent / "assets" / "static_w28_modern_green_clean_u0.py"
     assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
+
+
+def test_sealed_pre_binding_preserves_explicit_singleton_geometry(monkeypatch) -> None:
+    monkeypatch.setattr(sealed_pre_forward, "source_binding", lambda: {"status": "PASS"})
+    config = {
+        "score_window_batch_size": 1,
+        "sealed_builder_window_microbatch": 1,
+    }
+
+    sealed_pre_forward.bind_sealed_pre_resident_config(config)
+
+    assert config["score_window_batch_size"] == 1
+    assert config["sealed_builder_window_microbatch"] == 1
