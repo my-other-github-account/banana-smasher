@@ -1538,6 +1538,9 @@ def _run_one_layer_with_authentic_projection_control(
     experts.forward = types.MethodType(transparent_forward, experts)
     try:
         output, _attention = _run_one_layer_with_attention(engine, layer, hidden, ids)
+        post_layer_return = original_forward(
+            captured["hidden_states"], captured["top_k_index"], captured["top_k_weights"]
+        )
     finally:
         if had_instance_forward:
             experts.forward = prior_instance_forward
@@ -1547,6 +1550,7 @@ def _run_one_layer_with_authentic_projection_control(
     if tuple(captured) != required:
         raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_MISSING")
     exact = torch.equal(captured["authentic"], captured["replay"])
+    context_exact = torch.equal(captured["authentic"], post_layer_return)
     return output, {
         "status": (
             "AUTHENTIC_SOURCE_PROJECTION_CONTROL_EXACT"
@@ -1562,6 +1566,19 @@ def _run_one_layer_with_authentic_projection_control(
         "top_k_weights": _tensor_tap(captured["top_k_weights"]),
         "authentic_projection_path_return": _tensor_tap(captured["authentic"]),
         "immediate_duplicate_projection_path_return": _tensor_tap(captured["replay"]),
+        "post_layer_source_projection_path_return": _tensor_tap(post_layer_return),
+        "source_caller_context": {
+            "status": (
+                "SOURCE_CALLER_CONTEXT_PARITY"
+                if context_exact else "SOURCE_CALLER_CONTEXT_LOCALIZED"
+            ),
+            "one_variable": (
+                "exact bound DeepseekV4Experts.forward inside authentic layer MLP caller "
+                "versus immediately after complete layer return"
+            ),
+            "inside_vs_post_layer_exact": context_exact,
+            "repair_authorized": False,
+        },
     }
 
 

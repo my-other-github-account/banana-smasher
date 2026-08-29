@@ -802,7 +802,9 @@ def test_run6522_authentic_source_projection_control_duplicates_exact_call() -> 
     assert (
         control["authentic_projection_path_return"]
         == control["immediate_duplicate_projection_path_return"]
+        == control["post_layer_source_projection_path_return"]
     )
+    assert control["source_caller_context"]["status"] == "SOURCE_CALLER_CONTEXT_PARITY"
 
 
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
