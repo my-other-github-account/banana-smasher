@@ -644,6 +644,7 @@ def test_pre_gemm_witness_binds_bytes_layout_and_invocation_geometry() -> None:
     assert '"weight_transpose_semantics": "input @ weight.T"' in source
     assert '"pre_gemm_comparison": pre_gemm' in source
     assert '"MULTIPLE_GEMM_EXECUTION_MECHANISMS_PLAUSIBLE_STOP"' in source
+    assert "route_observer=route_observer" in source
 
 
 def test_authentic_route_observer_preserves_all_five_producer_tensors() -> None:

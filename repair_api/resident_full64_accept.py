@@ -1120,10 +1120,13 @@ def _run_one_layer_with_expert_trace(
             routed_output: Any,
             assembly_top_k_index: Any,
             assembly_top_k_weights: Any,
+            *,
+            route_observer: Any = None,
         ) -> Any:
             result = original_accumulate(
                 assembly_hidden, routed_output,
                 assembly_top_k_index, assembly_top_k_weights,
+                route_observer=route_observer,
             )
             assembly_capture["variant"] = {
                 "hidden_states": assembly_hidden.detach(),
