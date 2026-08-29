@@ -20,6 +20,7 @@ from banana_smasher.hf_deepseek_v4_backpack_adapter import (
     DeepseekV4BackpackRuntime,
     _available_materialization_bytes,
     _fwht,
+    bind_recovered_qtip3_split_payload,
 )
 
 
@@ -44,6 +45,68 @@ def test_runtime_accepts_full_closure_recovered_qtip3_receipt(tmp_path) -> None:
         basis_sha256="a" * 64,
         artifact_path=artifact,
     )
+
+
+def test_bind_recovered_qtip3_split_payload_uses_public_api_source(tmp_path) -> None:
+    materialized = tmp_path / "materialized" / "L000_E000_down"
+    source = tmp_path / "incoming" / "L000_E000_down"
+    materialized.mkdir(parents=True)
+    source.mkdir(parents=True)
+    codes_path = source / "codes.npy"
+    np.save(codes_path, np.zeros((16,), dtype=np.uint8), allow_pickle=False)
+    control = source / "QTIP_CONTROL.pt"
+    torch.save({"shape": [8, 16], "geometry": {"B": 12}}, control)
+    codes_sha = hashlib.sha256(codes_path.read_bytes()).hexdigest()
+    control_sha = hashlib.sha256(control.read_bytes()).hexdigest()
+    cell = {
+        "schema": "banana-smasher-qtip-native-v4-cell-v1",
+        "status": "PASS",
+        "provider": "qtip-native-v6@3.00",
+        "basis_sha256": "a" * 64,
+        "artifacts": {"codes": {"sha256": codes_sha}},
+        "control": {"path": str(control), "sha256": control_sha},
+    }
+    cell_path = source / "CELL_RECEIPT.json"
+    cell_path.write_text(json.dumps(cell, sort_keys=True) + "\n")
+    cell_sha = hashlib.sha256(cell_path.read_bytes()).hexdigest()
+    public = {
+        "schema": "banana-smasher-qtip3-v7-public-api-producer-v1-cell",
+        "status": "PASS",
+        "basis_sha256": "a" * 64,
+        "cell": "L000/E000_down",
+        "api_receipt_sha256": cell_sha,
+    }
+    public_path = source / "PUBLIC_CELL_RECEIPT.json"
+    public_path.write_text(json.dumps(public, sort_keys=True) + "\n")
+    recovered = {
+        "schema": "banana-smasher-recovered-public-api-qtip-unit-v1",
+        "status": "PASS",
+        "basis_sha256": "a" * 64,
+        "cell_id": "L000:E000:down",
+        "tier": "qtip3",
+        "artifact_bytes": codes_path.stat().st_size,
+        "artifact_sha256": codes_sha,
+        "public_api_source": {
+            "cell_receipt_sha256": cell_sha,
+            "codes_sha256": codes_sha,
+            "public_receipt_sha256": hashlib.sha256(public_path.read_bytes()).hexdigest(),
+        },
+    }
+    receipt_path = materialized / "QTIP_SOLVE_RECEIPT.json"
+    receipt_path.write_text(json.dumps(recovered, sort_keys=True) + "\n")
+
+    updated = bind_recovered_qtip3_split_payload(
+        receipt_path=receipt_path, source_unit_root=source, source_host="spark-8"
+    )
+
+    assert updated["closure_split_payload"] == {
+        "closure_receipt_sha256": cell_sha,
+        "control_path": str(control.resolve()),
+        "control_sha256": control_sha,
+        "codes_path": str(codes_path.resolve()),
+        "codes_sha256": codes_sha,
+        "source_host": "spark-8",
+    }
 
 
 def test_exact64_accepts_one_window_sanity_bank() -> None:

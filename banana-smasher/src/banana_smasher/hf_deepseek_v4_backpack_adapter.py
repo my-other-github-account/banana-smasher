@@ -5,6 +5,7 @@ import hashlib
 import importlib
 import json
 import math
+import os
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import Any, Mapping
@@ -16,6 +17,79 @@ from .hf_deepseek_v4_d4_adapter import DeepseekV4D4Runtime
 from .loader import MixedV7MemberLoader, PackLoader
 from .qtip25_native_v4 import decode_native_v4_torch, native_v4_geometry
 from .qtip_v7_routes import _load_qtip2_v7_member_roster, load_qtip2_v7_wire
+
+
+def _sha256_path(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def bind_recovered_qtip3_split_payload(
+    *, receipt_path: str | Path, source_unit_root: str | Path, source_host: str
+) -> dict[str, Any]:
+    """Bind one recovered raw-code unit to its sealed public producer payload."""
+
+    receipt_path = Path(receipt_path).resolve()
+    source_unit_root = Path(source_unit_root).resolve()
+    receipt = json.loads(receipt_path.read_text())
+    cell_path = source_unit_root / "CELL_RECEIPT.json"
+    public_path = source_unit_root / "PUBLIC_CELL_RECEIPT.json"
+    codes_path = source_unit_root / "codes.npy"
+    cell = json.loads(cell_path.read_text())
+    public = json.loads(public_path.read_text())
+    source = receipt.get("public_api_source")
+    cell_sha = _sha256_path(cell_path)
+    public_sha = _sha256_path(public_path)
+    codes_sha = _sha256_path(codes_path)
+    basis = receipt.get("basis_sha256")
+    cell_id = str(receipt.get("cell_id", ""))
+    expected_public_cell = cell_id.replace(":", "/", 1).replace(":", "_")
+    artifacts = cell.get("artifacts")
+    control = cell.get("control")
+    if (
+        receipt.get("schema") != "banana-smasher-recovered-public-api-qtip-unit-v1"
+        or receipt.get("status") != "PASS"
+        or receipt.get("tier") != "qtip3"
+        or not isinstance(source, Mapping)
+        or source.get("cell_receipt_sha256") != cell_sha
+        or source.get("public_receipt_sha256") != public_sha
+        or source.get("codes_sha256") != codes_sha
+        or receipt.get("artifact_sha256") != codes_sha
+        or cell.get("schema") != "banana-smasher-qtip-native-v4-cell-v1"
+        or cell.get("status") != "PASS"
+        or cell.get("provider") != "qtip-native-v6@3.00"
+        or cell.get("basis_sha256") != basis
+        or not isinstance(artifacts, Mapping)
+        or artifacts.get("codes", {}).get("sha256") != codes_sha
+        or public.get("schema")
+        != "banana-smasher-qtip3-v7-public-api-producer-v1-cell"
+        or public.get("status") != "PASS"
+        or public.get("basis_sha256") != basis
+        or public.get("cell") != expected_public_cell
+        or public.get("api_receipt_sha256") != cell_sha
+        or not isinstance(control, Mapping)
+    ):
+        raise ValueError(f"recovered QTIP3 public producer identity mismatch: {receipt_path}")
+    control_path = Path(str(control.get("path", ""))).resolve()
+    control_sha = _sha256_path(control_path)
+    if control.get("sha256") != control_sha:
+        raise ValueError(f"recovered QTIP3 control identity mismatch: {control_path}")
+    updated = dict(receipt)
+    updated["closure_split_payload"] = {
+        "closure_receipt_sha256": cell_sha,
+        "control_path": str(control_path),
+        "control_sha256": control_sha,
+        "codes_path": str(codes_path),
+        "codes_sha256": codes_sha,
+        "source_host": source_host,
+    }
+    temporary = receipt_path.with_name(f".{receipt_path.name}.tmp.{os.getpid()}")
+    raw = (json.dumps(updated, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    with temporary.open("wb") as handle:
+        handle.write(raw)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, receipt_path)
+    return updated
 
 
 def _available_materialization_bytes(
