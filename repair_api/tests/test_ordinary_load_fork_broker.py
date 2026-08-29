@@ -46,6 +46,43 @@ def test_broker_registry_survives_canonical_module_reload() -> None:
         resident_score._ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
 
 
+def test_loaded_broker_payload_remains_release_authority_after_registry_rebind() -> None:
+    from repair_api import official_k2_resident_score as resident_score
+
+    with tempfile.TemporaryDirectory() as directory:
+        checkpoint = Path(directory) / "checkpoint.pt"
+        torch.save({"state": {"weight": torch.arange(8)}}, checkpoint)
+        checkpoint_sha = _sha256(checkpoint)
+        prepare_ordinary_checkpoint_payload(checkpoint, checkpoint_sha)
+        loaded = _load_score_checkpoint(
+            checkpoint,
+            checkpoint_sha,
+            {"checkpoint_mmap": False, "ordinary_load_fork_broker": True,
+             "same_process_dual_shard": True},
+        )
+        rebound = MappingProxyType({
+            "state": MappingProxyType({"weight": torch.arange(8)}),
+        })
+        resident_score._ORDINARY_FORK_PAYLOADS[checkpoint_sha]["payload"] = rebound
+        try:
+            assert _release_or_retain_checkpoint_payload(
+                loaded,
+                ordinary_load_fork_broker=True,
+                checkpoint_sha256=checkpoint_sha,
+            ) == "inherited_read_only"
+            with pytest.raises(ArtifactError, match="identity mismatch"):
+                _release_or_retain_checkpoint_payload(
+                    rebound,
+                    ordinary_load_fork_broker=True,
+                    checkpoint_sha256=checkpoint_sha,
+                )
+        finally:
+            resident_score._ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
+            getattr(resident_score, "_ORDINARY_FORK_PAYLOAD_LEASES", {}).pop(
+                checkpoint_sha, None
+            )
+
+
 def test_one_ordinary_materialization_is_inherited_read_only_by_both_ranks(monkeypatch) -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
