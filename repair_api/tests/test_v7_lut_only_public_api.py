@@ -228,6 +228,66 @@ def test_public_full_surface_wrapper_pins_one_successor_and_backend():
     assert "v7_lut_only_update" not in configured
 
 
+def test_single_gpu_checkpointed_backend_keeps_recompute_enabled():
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    config = {
+        "execution_backend": "single_gpu_resident_checkpointed",
+        "activation_checkpointing": True,
+        "world_size": 1,
+    }
+
+    ModernGreenResidentEngine._configure_execution_backend(engine, config, rank=0)
+
+    assert engine.single_gpu_resident is True
+    assert engine.single_gpu_v7_lut_only is False
+    assert engine.activation_checkpointing is True
+
+
+def test_public_checkpointed_wrapper_pins_one_successor_and_backend():
+    api = Mock()
+    api.artifact = Mock()
+    api.artifact.checkpoint_key.return_value = "UPDATE_020"
+    api._checkpoint_update.return_value = 20
+    api.continue_two_spark_real.return_value = {"status": "PASS"}
+
+    result = ResidentRepairAPI.continue_single_gpu_checkpointed_update(
+        api,
+        "UPDATE_020",
+        config={"authorized_api": True, "activation_checkpointing": False},
+        receipt_path="receipt.json",
+    )
+
+    assert result == {"status": "PASS"}
+    called = api.continue_two_spark_real.call_args
+    assert called.args == ("UPDATE_020", (21,))
+    configured = called.kwargs["config"]
+    assert configured["execution_backend"] == "single_gpu_resident_checkpointed"
+    assert configured["activation_checkpointing"] is True
+    assert configured["world_size"] == 1
+    assert configured["layer_split"] == {"0": [0, 42]}
+    assert "v7_lut_only_update" not in configured
+
+
+def test_exact_u20_checkpointed_full_surface_backend_is_authenticated():
+    sha = "2502bd03cc2c9deac966a24f8e8712633b1b0e0cb192d5eee71d10e91e77cccd"
+    _validate_published_pre_resume_start(
+        20,
+        {"sha256": sha, "optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr"},
+        config={
+            "checkpoint_sha256": sha,
+            "execution_backend": "single_gpu_resident_checkpointed",
+            "activation_checkpointing": True,
+            "world_size": 1,
+            "rank": 0,
+            "lr_scale": 0.5,
+            "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+            "published_pre_checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+            "fresh_published_pre_lineage": True,
+            "shared_optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
+        },
+    )
+
+
 def test_resident_loader_releases_cpu_source_duplicate_after_gpu_consumer() -> None:
     source = (
         Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"

@@ -185,8 +185,16 @@ def _validate_published_pre_resume_start(
         and start_meta.get("sha256") == exact_u20
         and start_meta.get("optimizer_scheduler_lineage") == "fresh-published-pre-adam-lambdalr"
         and config.get("checkpoint_sha256") == exact_u20
-        and config.get("execution_backend") == "single_gpu_resident_no_recompute"
-        and config.get("activation_checkpointing") is False
+        and (
+            (
+                config.get("execution_backend") == "single_gpu_resident_no_recompute"
+                and config.get("activation_checkpointing") is False
+            )
+            or (
+                config.get("execution_backend") == "single_gpu_resident_checkpointed"
+                and config.get("activation_checkpointing") is True
+            )
+        )
         and config.get("world_size") == 1
         and config.get("rank") == 0
         and config.get("lr_scale") == 0.5
@@ -3037,6 +3045,33 @@ class ResidentRepairAPI:
             receipt_path=receipt_path,
         )
 
+    def continue_single_gpu_checkpointed_update(
+        self,
+        start_checkpoint: int | str,
+        *,
+        config: Mapping[str, Any],
+        receipt_path: str | Path,
+    ) -> dict[str, Any]:
+        """Advance one full-surface update with activation recomputation."""
+        start = self.artifact.checkpoint_key(start_checkpoint)
+        configured = dict(config)
+        configured.update(
+            execution_backend="single_gpu_resident_checkpointed",
+            activation_checkpointing=True,
+            world_size=1,
+            rank=0,
+            local_rank=0,
+            layer_split={"0": [0, 42]},
+            resident_validation_proof=False,
+        )
+        configured.pop("v7_lut_only_update", None)
+        return self.continue_two_spark_real(
+            start,
+            (self._checkpoint_update(start) + 1,),
+            config=configured,
+            receipt_path=receipt_path,
+        )
+
     def continue_two_spark_real(
         self,
         start_checkpoint: int | str,
@@ -3059,9 +3094,14 @@ class ResidentRepairAPI:
             and config.get("world_size") == 1
         )
         single_gpu_full_surface = (
-            config.get("execution_backend") == "single_gpu_resident_no_recompute"
+            config.get("execution_backend") in {
+                "single_gpu_resident_checkpointed",
+                "single_gpu_resident_no_recompute",
+            }
             and config.get("world_size") == 1
-            and config.get("activation_checkpointing") is False
+            and config.get("activation_checkpointing") is (
+                config.get("execution_backend") == "single_gpu_resident_checkpointed"
+            )
             and not single_gpu_v7_lut_only
         )
         single_gpu_resident = single_gpu_v7_lut_only or single_gpu_full_surface

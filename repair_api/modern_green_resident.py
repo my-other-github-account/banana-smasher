@@ -1508,6 +1508,7 @@ class ModernGreenResidentEngine:
         backend = config.get("execution_backend", "pipeline_eager_checkpointed")
         if backend not in {
             "pipeline_eager_checkpointed",
+            "single_gpu_resident_checkpointed",
             "single_gpu_resident_no_recompute",
         }:
             raise ArtifactError(f"unsupported resident execution backend: {backend!r}")
@@ -1521,6 +1522,7 @@ class ModernGreenResidentEngine:
             and rank == 0
             and (
                 self.single_gpu_v7_lut_only
+                or backend == "single_gpu_resident_checkpointed"
                 or backend == "single_gpu_resident_no_recompute"
             )
         )
