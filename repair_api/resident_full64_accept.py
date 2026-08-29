@@ -326,7 +326,12 @@ def _law4_public_product_taps(api: Any, engine: Any, *, window: int,
         if overlap:
             raise RuntimeError(f"LAW4_PRODUCT_TAP_OVERLAP:{sorted(overlap)}")
         merged.update(row)
-    required = ("ids", "embeddings", *(f"L{x:03d}" for x in range(43)),
+    layer_taps: list[str] = []
+    for index in range(43):
+        if index == 1 and os.environ.get("LAW4_L001_ATTENTION_PAYLOAD_ONLY", "0") == "1":
+            layer_taps.append("L001_attention_return")
+        layer_taps.append(f"L{index:03d}")
+    required = ("ids", "embeddings", *layer_taps,
                 "hc_head", "norm", "logits", "q_lp_at_ref", "q_argmax")
     if tuple(merged) != required:
         raise RuntimeError("LAW4_PRODUCT_TAP_ORDER_RED")
