@@ -41,6 +41,10 @@ _STALE_SPARK5_MODEL_ROOT = Path(
 _SPARK3_SEALED_PARENT_ROOT = Path(
     "/home/dnola/missions/V7_CODEBOOK_FULLPARENT_t_569e9977_s3"
 )
+_SPARK3_SEALED_L034_ROSTER = Path(
+    "/home/dnola/missions/QTIP2_V7_JOINT_t_6aceaf1f_s3/l034/"
+    "L034_SELECTED_WIRE_PROVIDER_ROSTER.json"
+)
 
 
 def _select_exact_manifest_member(
@@ -114,7 +118,7 @@ def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str,
         "corpus": stage / "inputs/attempt4b/asset_view/code/BASIC_COMBINED_768.json",
         "fast_k2_extension": stage / "inputs/banana_fast_k2_grouped_0c3cc723fe66.so",
         "fast_k2_wrapper_source": canonical / "repair_api/assets/u20_resident_provider/fast_k2_grouped.py",
-        "l034_roster": stage / "inputs/attempt4b/roster/L034_SELECTED_WIRE_PROVIDER_ROSTER.json",
+        "l034_roster": _SPARK3_SEALED_L034_ROSTER,
         "lp4_pack_source": canonical / "runtime/v7/vendor/src_lp4/lp4_pack.py",
         "lp4_train_source": canonical / "runtime/v7/vendor/src_lp4/lp4_train.py",
         "official_expert_source": stage / "R26_joint_v7_expert_base.py",
