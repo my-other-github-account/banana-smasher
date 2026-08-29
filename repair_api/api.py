@@ -40,15 +40,24 @@ def _validate_published_pre_resume_start(
 ) -> None:
     """Admit only an identity-exact scored resume of the published-PRE recipe."""
     exact_u20 = "2502bd03cc2c9deac966a24f8e8712633b1b0e0cb192d5eee71d10e91e77cccd"
+    exact_u20_single_gpu = (
+        config.get("execution_backend") == "single_gpu_resident_no_recompute"
+        and config.get("activation_checkpointing") is False
+        and config.get("world_size") == 1
+        and config.get("rank") == 0
+    )
+    exact_u20_two_rank = (
+        config.get("activation_checkpointing") is True
+        and config.get("world_size") == 2
+        and config.get("rank") in (0, 1)
+        and config.get("layer_split") == {"0": [0, 20], "1": [21, 42]}
+    )
     if (
         start_update == 20
         and start_meta.get("sha256") == exact_u20
         and start_meta.get("optimizer_scheduler_lineage") == "fresh-published-pre-adam-lambdalr"
         and config.get("checkpoint_sha256") == exact_u20
-        and config.get("execution_backend") == "single_gpu_resident_no_recompute"
-        and config.get("activation_checkpointing") is False
-        and config.get("world_size") == 1
-        and config.get("rank") == 0
+        and (exact_u20_single_gpu or exact_u20_two_rank)
         and config.get("lr_scale") == 0.5
         and config.get("recipe_id") == "published_pre_lower_lr_warmup16_cosine64_v1"
         and config.get("published_pre_checkpoint_sha256")

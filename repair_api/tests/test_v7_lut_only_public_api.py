@@ -262,3 +262,28 @@ def test_exact_u20_full_surface_backend_is_an_authenticated_resume():
             "shared_optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
         },
     )
+
+
+def test_exact_u20_two_rank_split_loader_is_an_authenticated_resume():
+    sha = "2502bd03cc2c9deac966a24f8e8712633b1b0e0cb192d5eee71d10e91e77cccd"
+    start = {
+        "sha256": sha,
+        "optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
+    }
+    for rank in (0, 1):
+        _validate_published_pre_resume_start(
+            20,
+            start,
+            config={
+                "checkpoint_sha256": sha,
+                "activation_checkpointing": True,
+                "world_size": 2,
+                "rank": rank,
+                "layer_split": {"0": [0, 20], "1": [21, 42]},
+                "lr_scale": 0.5,
+                "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+                "published_pre_checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+                "fresh_published_pre_lineage": True,
+                "shared_optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
+            },
+        )
