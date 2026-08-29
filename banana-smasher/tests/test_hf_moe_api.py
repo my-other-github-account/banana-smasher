@@ -59,6 +59,29 @@ def test_public_hf_source_admission_pins_revision_and_index(tmp_path: Path) -> N
     assert json.loads(receipt_path.read_text()) == receipt
 
 
+def test_source_admission_reclaims_hashed_pages_when_supported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import banana_smasher.hf_moe as hf_moe
+
+    calls: list[tuple[int, int, int, int]] = []
+    monkeypatch.setattr(hf_moe.os, "POSIX_FADV_DONTNEED", 4, raising=False)
+    monkeypatch.setattr(
+        hf_moe.os,
+        "posix_fadvise",
+        lambda fd, offset, length, advice: calls.append((fd, offset, length, advice)),
+        raising=False,
+    )
+    source = tmp_path / "member.bin"
+    source.write_bytes(b"x" * ((8 << 20) + 3))
+
+    assert hf_moe._sha256(source) == hashlib.sha256(source.read_bytes()).hexdigest()
+    assert [(offset, length, advice) for _, offset, length, advice in calls] == [
+        (0, 8 << 20, 4),
+        (8 << 20, 3, 4),
+    ]
+
+
 def test_generic_hf_moe_plan_serializes_routed_and_native_inventories(
     tmp_path: Path,
 ) -> None:

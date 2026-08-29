@@ -44,9 +44,18 @@ HF_SOLVE_EXTRA_REQUIREMENT = (
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
+    offset = 0
     with path.open("rb") as stream:
         for block in iter(lambda: stream.read(8 << 20), b""):
             digest.update(block)
+            posix_fadvise = getattr(os, "posix_fadvise", None)
+            dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
+            if posix_fadvise is not None and dontneed is not None:
+                try:
+                    posix_fadvise(stream.fileno(), offset, len(block), dontneed)
+                except OSError:
+                    pass
+            offset += len(block)
     return digest.hexdigest()
 
 
