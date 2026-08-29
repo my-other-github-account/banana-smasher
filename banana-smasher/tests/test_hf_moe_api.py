@@ -128,13 +128,14 @@ def test_generic_hf_moe_plan_serializes_routed_and_native_inventories(
     assert plan["accounting"]["routed_tensor_count"] == 1
     assert plan["accounting"]["native_tensor_count"] == 4
     assert plan["accounting"]["source_tensor_count"] == 5
-    assert plan["geometry"] == {
-        "auxiliary_layer_ids": [1],
-        "expected_model_layers": 1,
-        "model_layer_gaps": [],
-        "model_layer_ids": [0],
-        "routed_layer_ids": [0],
-    }
+    assert plan["geometry"]["auxiliary_layer_ids"] == [1]
+    assert plan["geometry"]["expected_model_layers"] == 1
+    assert plan["geometry"]["model_layer_gaps"] == []
+    assert plan["geometry"]["model_layer_ids"] == [0]
+    assert plan["geometry"]["routed_layer_ids"] == [0]
+    # G15: the auxiliary-layer semantics are stated inline in the receipt, not implied.
+    assert "num_hidden_layers" in plan["geometry"]["auxiliary_layer_rule"]
+    assert "num_hidden_layers" in plan["geometry"]["auxiliary_layer_deciding_config_keys"]
     assert plan["coverage"] == {"duplicates": [], "gaps": []}
     assert plan["mechanisms"] == {"fallback": 0}
     assert json.loads(receipt_path.read_text()) == plan

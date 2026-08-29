@@ -1,5 +1,90 @@
 # Worked example: routed-only Q2 repair
 
+## Dependency tiers
+
+Two declared, testable tiers. The **base install**
+(`python -m pip install ./banana-smasher`) covers every metadata-only call below:
+`admit_hf_source`, `discover_hf_moe_routed_scope`, `plan_hf_moe_uniform`,
+`preflight_hf_moe_output_fit`, `open_hf_moe_uniform*`, and
+`balanced64_hardware_contract`. The **`[solve]` extra**
+(`python -m pip install './banana-smasher[solve]'`) is required by every call that
+encodes or executes: `estimate_hf_moe_uniform`, the builders on production-sized
+tensors, and the teacher-capture / PRE path. Calls needing the extra fail closed naming
+it (`HF_SOLVE_EXTRA_REQUIREMENT`) instead of raising a bare `ModuleNotFoundError`.
+
+## Step 0: is this host capable, and what would be quantized?
+
+Both calls below are metadata-only and cheap. Run them **before** staging a
+multi-hundred-gigabyte source.
+
+```python
+from banana_smasher import (
+    admit_hf_source,
+    balanced64_hardware_contract,
+    discover_hf_moe_routed_scope,
+)
+
+# Published hardware/capability contract of the teacher-capture and PRE path. Each
+# registered banana_smasher.balanced64_runtimes capability declares its own requirement;
+# the shipped 'hf-sharded' runtime requires CUDA with at least one rank. This probe
+# never raises — it reports what this host actually satisfies.
+capability = balanced64_hardware_contract()
+for row in capability["runtimes"]:
+    print(row["runtime_id"], row["contract"]["required_accelerator"], row["contract"]["satisfied"])
+# capability["host"]["detected"] -> {"torch": ..., "cuda": ..., "cuda_device_count": ..., "mps": ...}
+
+# Source admission accepts the canonical HF cache/snapshot layout. Symlinked members
+# (the standard `hf download` / snapshot_download tree links into blobs/) are resolved
+# and bound by content SHA-256, realpath, and inode — never rejected for being links.
+source = admit_hf_source(
+    "/local/hf-model",
+    revision="<immutable-hf-revision>",
+    receipt_path="./uniform-plan/SOURCE_ADMISSION.json",
+)
+assert source["binding"]["identity"] == "content-sha256"
+# The receipt publishes the authoritative repository roster and, separately, the
+# client-side bookkeeping subtree the downloader wrote, so file/byte identity is
+# reproducible without inferring which paths are the repository:
+boundary = source["roster_boundary"]
+assert boundary["excluded_prefixes"] == [".cache/huggingface/"]
+print(boundary["repository_file_count"], boundary["repository_bytes"])
+print(boundary["excluded_file_count"], boundary["excluded_bytes"])
+
+# Standalone, read-only routed-scope discovery: answers "which tensors would
+# routed_only select" from config + index headers alone. No build plan, no output-fit
+# projection, no tensor bytes read.
+scope = discover_hf_moe_routed_scope(
+    "/local/hf-model",
+    revision="<immutable-hf-revision>",
+    receipt_path="./uniform-plan/ROUTED_SCOPE.json",
+)
+assert scope["reads_tensor_bytes"] is False
+print(scope["adapter"]["id"], scope["accounting"])
+print(scope["routed_tensor_names"][:3], scope["native_tensor_names"][:3])
+```
+
+`scope["geometry"]` states the routed-scope bound inline and data-driven — never by
+model name and never from a hardcoded roster:
+
+```python
+geometry = scope["geometry"]
+geometry["expected_model_layers"]      # config num_hidden_layers
+geometry["dense_prefix_layers"]        # config first_k_dense_replace
+geometry["routed_experts"]             # config n_routed_experts
+geometry["routed_layer_ids"]           # [first_k_dense_replace, num_hidden_layers)
+geometry["auxiliary_layer_ids"]        # ids >= num_hidden_layers
+geometry["auxiliary_layer_rule"]       # the rule, stated in the receipt itself
+geometry["auxiliary_layer_deciding_config_keys"]
+```
+
+Checkpoints frequently carry a trailing layer id **above** `num_hidden_layers` holding a
+complete expert roster — a multi-token-prediction / "nextn" head declared by
+`num_nextn_predict_layers`. Those experts are auxiliary and remain **native rest**;
+bounding experts by tensor-name grammar alone over-selects them. `routed_layer_ids`,
+`auxiliary_layer_ids`, and `auxiliary_layer_rule` make the boundary explicit in every
+plan and discovery receipt, and a routed selection that reached an auxiliary layer fails
+the receipt closed.
+
 ## General Hugging Face MoE source plan
 
 Before any large build, use the public metadata-only planner. It pins the local
@@ -16,6 +101,7 @@ from banana_smasher import (
     capture_balanced64_teacher,
     estimate_hf_moe_uniform,
     open_hf_moe_uniform,
+    open_hf_moe_uniform_shard,
     plan_hf_moe_uniform,
     preflight_hf_moe_output_fit,
     recover_balanced64_source_text,
@@ -145,7 +231,23 @@ pre = score_balanced64_pre(
 )
 ```
 
-The caller never injects a runtime object or model-family script. A historical
+The caller never injects a runtime object or model-family script. Teacher capture and
+PRE execute a real forward pass, so before either call the package enforces the
+hardware/capability contract **declared by the runtime it selected** — see
+`balanced64_hardware_contract()` in Step 0. An inadmissible host (CPU-only, or Apple
+MPS with no CUDA device) raises `Balanced64CapabilityError` with the required
+accelerator, the minimum rank count, and what was actually detected, instead of failing
+deep inside the runtime. The enforced contract is echoed into both receipts as
+`hardware_contract`.
+
+`recover_balanced64_source_text` requires a historical token ledger whose SHA-256 equals
+the suite lock's `source_windows_sha256`. That artifact is a historical input to the
+frozen suite, not a product of this repository — see the protocol document for the
+model-specific suite (for example
+`Evals/protocols/glm-5.3-flash-balanced64-v1.md`), which states the acquisition contract
+and the exact digest to verify.
+
+A historical
 model's integer token IDs are not portable to a different tokenizer. When the
 authenticated historical corpus has no raw-text fields,
 `recover_balanced64_source_text` first requires its exact file SHA to match the

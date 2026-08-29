@@ -35,6 +35,39 @@ class ShardedHFBalanced64Runtime:
 
     runtime_id = "hf-sharded-balanced64-v1"
 
+    #: Hardware/capability contract of the package-owned layer-streamed executor.  It
+    #: materializes each admitted layer into CUDA device memory and runs a real forward
+    #: pass, so it is not executable on a CPU-only or Apple-MPS host.
+    PACKAGE_EXECUTOR_HARDWARE_CONTRACT = {
+        "schema": "banana-smasher.balanced64-hardware-contract.v1",
+        "required_accelerator": "cuda",
+        "minimum_ranks": 1,
+        "reason": (
+            "the package-owned layer-streamed executor materializes each admitted layer "
+            "into CUDA device memory and runs a real forward pass over the BALANCED64 "
+            "windows"
+        ),
+        "not_admissible": [
+            "cpu-only hosts",
+            "Apple MPS hosts — torch.backends.mps is not a CUDA device",
+        ],
+        "check": "torch.cuda.is_available() and torch.cuda.device_count() >= 1",
+    }
+
+    @property
+    def hardware_contract(self) -> dict[str, Any] | None:
+        """Contract of the executor this instance will actually use.
+
+        The requirement is a property of the executor, not of the orchestration seam:
+        an instance constructed with a caller-supplied ``executor_factory`` runs that
+        caller's executor and is therefore not gated by the package executor's CUDA
+        contract.  The public API enforces whatever this returns.
+        """
+
+        if self._executor_factory is not None:
+            return None
+        return dict(self.PACKAGE_EXECUTOR_HARDWARE_CONTRACT)
+
     def __init__(self, executor_factory: Callable[..., Any] | None = None) -> None:
         self._executor_factory = executor_factory
 

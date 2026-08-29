@@ -15,7 +15,31 @@ HF_SOURCE_ADMISSION_SCHEMA = "banana-smasher-hf-source-admission-v1"
 HF_UNIFORM_PLAN_SCHEMA = "banana-smasher-hf-moe-uniform-plan-v1"
 HF_UNIFORM_ARTIFACT_SCHEMA = "banana-smasher-hf-moe-uniform-artifact-v1"
 HF_UNIFORM_SHARD_SCHEMA = "banana-smasher-hf-moe-uniform-shard-v1"
+HF_ROUTED_SCOPE_SCHEMA = "banana-smasher-hf-moe-routed-scope-v1"
 _REVISION_RE = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
+
+#: Client-side bookkeeping subtrees a standard ``hf_hub`` download writes beside the
+#: repository content.  They are excluded from the authoritative repository roster and
+#: the exclusion is always published in the admission receipt so a caller can reproduce
+#: the documented file/byte identity without inferring the rule.
+HF_CLIENT_BOOKKEEPING_PREFIXES: tuple[str, ...] = (".cache/huggingface/",)
+
+#: Data-driven, architecture-neutral statement of how routed scope is bounded.  Layer
+#: ids at or above ``num_hidden_layers`` belong to auxiliary heads (multi-token
+#: prediction / "nextn") whose experts are never routed and always stay native rest.
+HF_AUXILIARY_LAYER_RULE = (
+    "routed layer ids are [first_k_dense_replace, num_hidden_layers); layer ids >= "
+    "num_hidden_layers are auxiliary prediction heads (e.g. num_nextn_predict_layers) "
+    "whose expert tensors remain native rest and are never routed"
+)
+
+#: Public calls that need the heavyweight ``[solve]`` extra rather than the base install.
+HF_SOLVE_EXTRA_REQUIREMENT = (
+    "install './banana-smasher[solve]' — this call encodes tensors and requires the "
+    "solve extra (torch); the base install only supports the metadata-only calls "
+    "admit_hf_source, discover_hf_moe_routed_scope, plan_hf_moe_uniform and "
+    "preflight_hf_moe_output_fit"
+)
 
 
 def _sha256(path: Path) -> str:
@@ -24,12 +48,6 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(8 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
-
-
-def _regular_file(path: Path, label: str) -> Path:
-    if path.is_symlink() or not path.is_file():
-        raise ValueError(f"HF source {label} is missing or non-regular: {path}")
-    return path
 
 
 def _atomic_json(path: Path, value: dict[str, Any]) -> None:
@@ -54,21 +72,95 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
             pass
 
 
+def _bound_file(root: Path, relative: str, label: str) -> dict[str, Any]:
+    """Bind one repository member by CONTENT identity, resolving HF cache symlinks.
+
+    The canonical ``hf download`` / ``snapshot_download`` layout materializes every
+    repository file as a symlink into a sibling ``blobs/`` store.  Identity is therefore
+    proven by the resolved target's content hash, inode and size — never by the
+    filesystem link type.  Only unresolvable, non-regular, or escaping targets are
+    rejected.
+    """
+
+    path = root / relative
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ValueError(f"HF source {label} is missing or unresolvable: {path}") from exc
+    if not resolved.is_file():
+        raise ValueError(f"HF source {label} is not a regular file: {path} -> {resolved}")
+    status = resolved.stat()
+    return {
+        "path": relative,
+        "realpath": str(resolved),
+        "symlink": path.is_symlink(),
+        "inode": status.st_ino,
+        "bytes": status.st_size,
+        "sha256": _sha256(resolved),
+    }
+
+
+def _repository_roster(root: Path) -> dict[str, Any]:
+    """Partition the staged tree into authoritative repository content vs bookkeeping.
+
+    A tree fetched with the standard ``hf_hub`` client carries the repository files plus
+    a client-side ``.cache/huggingface/`` subtree of per-file download stamps.  Both
+    partitions are reported so a caller can reproduce the documented file/byte identity
+    without having to infer which paths are bookkeeping.
+    """
+
+    repository: list[str] = []
+    excluded: list[str] = []
+    repository_bytes = 0
+    excluded_bytes = 0
+    for path in sorted(root.rglob("*")):
+        if path.is_dir() and not path.is_symlink():
+            continue
+        relative = path.relative_to(root).as_posix()
+        try:
+            size = path.resolve(strict=True).stat().st_size
+        except (OSError, RuntimeError):
+            size = 0
+        if relative.startswith(HF_CLIENT_BOOKKEEPING_PREFIXES):
+            excluded.append(relative)
+            excluded_bytes += size
+        else:
+            repository.append(relative)
+            repository_bytes += size
+    return {
+        "excluded_prefixes": list(HF_CLIENT_BOOKKEEPING_PREFIXES),
+        "repository_files": repository,
+        "repository_file_count": len(repository),
+        "repository_bytes": repository_bytes,
+        "excluded_files": excluded,
+        "excluded_file_count": len(excluded),
+        "excluded_bytes": excluded_bytes,
+    }
+
+
 def admit_hf_source(
     model: str | Path,
     *,
     revision: str,
     receipt_path: str | Path,
 ) -> dict[str, Any]:
-    """Admit one immutable, revision-pinned sharded Hugging Face source tree."""
+    """Admit one immutable, revision-pinned sharded Hugging Face source tree.
+
+    Accepts the canonical HF cache/snapshot layout: each declared member is resolved
+    through any symlink and bound by realpath, inode and content SHA-256.  The receipt
+    publishes the authoritative repository roster and the excluded client-side
+    bookkeeping subtree so file/byte identity is reproducible by the caller.
+    """
 
     if not _REVISION_RE.fullmatch(str(revision)):
         raise ValueError("HF source revision must be a lowercase 40- or 64-digit hex identity")
     root = Path(model).expanduser().resolve()
-    config_path = _regular_file(root / "config.json", "config.json")
-    index_path = _regular_file(
-        root / "model.safetensors.index.json", "model.safetensors.index.json"
+    config_member = _bound_file(root, "config.json", "config.json")
+    index_member = _bound_file(
+        root, "model.safetensors.index.json", "model.safetensors.index.json"
     )
+    config_path = Path(config_member["realpath"])
+    index_path = Path(index_member["realpath"])
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
         index = json.loads(index_path.read_text(encoding="utf-8"))
@@ -82,22 +174,35 @@ def admit_hf_source(
     if any(not isinstance(name, str) or not name for name in weight_map):
         raise ValueError("HF source index contains an invalid tensor name")
     shards: set[str] = set()
+    shard_members: list[dict[str, Any]] = []
     for shard in weight_map.values():
         if not isinstance(shard, str) or Path(shard).name != shard:
             raise ValueError(f"HF source index contains an unsafe shard binding: {shard!r}")
-        _regular_file(root / shard, f"shard {shard}")
+        if shard not in shards:
+            shard_members.append(_bound_file(root, shard, f"shard {shard}"))
         shards.add(shard)
     receipt = {
         "schema": HF_SOURCE_ADMISSION_SCHEMA,
         "status": "PASS",
         "model_root": str(root),
         "revision": str(revision),
-        "config_sha256": _sha256(config_path),
-        "model_index_sha256": _sha256(index_path),
+        "config_sha256": config_member["sha256"],
+        "model_index_sha256": index_member["sha256"],
         "tensor_count": len(weight_map),
         "shards": sorted(shards),
         "shard_count": len(shards),
         "source_mutated": False,
+        "binding": {
+            "identity": "content-sha256",
+            "symlinks_resolved": any(
+                member["symlink"]
+                for member in (config_member, index_member, *shard_members)
+            ),
+            "members": sorted(
+                (config_member, index_member, *shard_members), key=lambda row: row["path"]
+            ),
+        },
+        "roster_boundary": _repository_roster(root),
     }
     destination = Path(receipt_path).expanduser().resolve()
     _atomic_json(destination, receipt)
@@ -192,6 +297,121 @@ def _safetensors_header(path: Path) -> dict[str, Any]:
     return header
 
 
+def _derive_routed_scope(
+    config: Mapping[str, Any], tensor_names: Sequence[str]
+) -> tuple[Any, set[str], dict[str, Any]]:
+    """Select exactly one adapter and derive routed/native scope plus its geometry.
+
+    The layer bound is data-driven and architecture-neutral: routed layer ids are
+    ``[first_k_dense_replace, num_hidden_layers)`` and any observed layer id at or above
+    ``num_hidden_layers`` is an auxiliary prediction head whose experts stay native.
+    """
+
+    matches = [adapter for adapter in HF_MOE_ADAPTERS if adapter.matches(config, tensor_names)]
+    if len(matches) != 1:
+        raise ValueError(
+            "HF MoE adapter selection must resolve exactly once: "
+            f"matched={[adapter.adapter_id for adapter in matches]}"
+        )
+    adapter = matches[0]
+    routed_names = adapter.routed_weight_names(config, tensor_names)
+    if not routed_names:
+        raise ValueError("HF MoE adapter selected zero routed expert weights")
+    layer_pattern = re.compile(r"(?:^|\.)layers\.(\d+)\.")
+    observed_layer_ids = sorted(
+        {
+            int(match.group(1))
+            for name in tensor_names
+            if (match := layer_pattern.search(name)) is not None
+        }
+    )
+    routed_layer_ids = sorted(
+        {
+            int(match.group(1))
+            for name in routed_names
+            if (match := layer_pattern.search(name)) is not None
+        }
+    )
+    expected_model_layers = _nested_positive_int(config, "num_hidden_layers")
+    if expected_model_layers is None:
+        raise ValueError("HF MoE config does not declare num_hidden_layers")
+    model_layer_ids = [
+        layer for layer in observed_layer_ids if layer < expected_model_layers
+    ]
+    auxiliary_layer_ids = [
+        layer for layer in observed_layer_ids if layer >= expected_model_layers
+    ]
+    geometry = {
+        "expected_model_layers": expected_model_layers,
+        "dense_prefix_layers": _nested_positive_int(config, "first_k_dense_replace") or 0,
+        "routed_experts": _nested_positive_int(config, "n_routed_experts"),
+        "model_layer_ids": model_layer_ids,
+        "auxiliary_layer_ids": auxiliary_layer_ids,
+        "auxiliary_layer_rule": HF_AUXILIARY_LAYER_RULE,
+        "auxiliary_layer_deciding_config_keys": [
+            "num_hidden_layers",
+            "first_k_dense_replace",
+            "n_routed_experts",
+            "num_nextn_predict_layers",
+        ],
+        "routed_layer_ids": routed_layer_ids,
+        "model_layer_gaps": sorted(set(range(expected_model_layers)) - set(model_layer_ids)),
+        "routed_auxiliary_layers": sorted(set(routed_layer_ids) & set(auxiliary_layer_ids)),
+    }
+    return adapter, routed_names, geometry
+
+
+def discover_hf_moe_routed_scope(
+    model: str | Path,
+    *,
+    revision: str,
+    receipt_path: str | Path,
+) -> dict[str, Any]:
+    """Answer 'which tensors would routed_only select' from config + index alone.
+
+    Read-only routed-scope discovery.  This is a metadata-only call available under the
+    base install: it admits the pinned source, selects exactly one registered MoE
+    adapter, and returns the adapter id plus sorted routed/native tensor name
+    inventories.  It reads no tensor bytes, plans no build, and performs no output-fit
+    projection, so a caller can inspect routed scope before staging a large source.
+    """
+
+    destination = Path(receipt_path).expanduser().resolve()
+    source = admit_hf_source(
+        model,
+        revision=revision,
+        receipt_path=destination.with_name("ROUTED_SCOPE_SOURCE_ADMISSION.json"),
+    )
+    root = Path(source["model_root"])
+    config = json.loads((root / "config.json").read_text(encoding="utf-8"))
+    index = json.loads((root / "model.safetensors.index.json").read_text(encoding="utf-8"))
+    tensor_names = sorted(index["weight_map"])
+    adapter, routed_names, geometry = _derive_routed_scope(config, tensor_names)
+    native_names = [name for name in tensor_names if name not in routed_names]
+    receipt = {
+        "schema": HF_ROUTED_SCOPE_SCHEMA,
+        "status": "PASS" if not geometry["model_layer_gaps"] and not geometry["routed_auxiliary_layers"] else "FAILED",
+        "api": {"method": "discover_hf_moe_routed_scope", "version": 1},
+        "reads_tensor_bytes": False,
+        "source": source,
+        "scope": "routed_only",
+        "adapter": {"id": adapter.adapter_id},
+        "geometry": geometry,
+        "routed_tensor_names": sorted(routed_names),
+        "native_tensor_names": native_names,
+        "accounting": {
+            "source_tensor_count": len(tensor_names),
+            "routed_tensor_count": len(routed_names),
+            "native_tensor_count": len(native_names),
+        },
+        "mechanisms": {"fallback": 0},
+    }
+    _atomic_json(destination, receipt)
+    if receipt["status"] != "PASS":
+        raise ValueError("HF MoE routed-scope discovery found layer coverage defects")
+    return receipt
+
+
 def plan_hf_moe_uniform(
     model: str | Path,
     *,
@@ -220,13 +440,7 @@ def plan_hf_moe_uniform(
     )
     weight_map = index["weight_map"]
     tensor_names = sorted(weight_map)
-    matches = [adapter for adapter in HF_MOE_ADAPTERS if adapter.matches(config, tensor_names)]
-    if len(matches) != 1:
-        raise ValueError(
-            "HF MoE adapter selection must resolve exactly once: "
-            f"matched={[adapter.adapter_id for adapter in matches]}"
-        )
-    adapter = matches[0]
+    adapter, routed_names, geometry = _derive_routed_scope(config, tensor_names)
     headers = {
         shard: _safetensors_header(root / shard) for shard in source["shards"]
     }
@@ -272,37 +486,12 @@ def plan_hf_moe_uniform(
         name for header in headers.values() for name in header if name not in indexed
     )
     duplicate.extend(unindexed)
-    routed_names = adapter.routed_weight_names(config, tensor_names)
     routed = [row for row in rows if row["name"] in routed_names]
     native = [row for row in rows if row["name"] not in routed_names]
     if not routed:
         raise ValueError("HF MoE adapter selected zero routed expert weights")
-    layer_pattern = re.compile(r"(?:^|\.)layers\.(\d+)\.")
-    observed_layer_ids = sorted(
-        {
-            int(match.group(1))
-            for name in tensor_names
-            if (match := layer_pattern.search(name)) is not None
-        }
-    )
-    routed_layer_ids = sorted(
-        {
-            int(match.group(1))
-            for name in routed_names
-            if (match := layer_pattern.search(name)) is not None
-        }
-    )
-    expected_model_layers = _nested_positive_int(config, "num_hidden_layers")
-    if expected_model_layers is None:
-        raise ValueError("HF MoE config does not declare num_hidden_layers")
-    model_layer_ids = [
-        layer for layer in observed_layer_ids if layer < expected_model_layers
-    ]
-    auxiliary_layer_ids = [
-        layer for layer in observed_layer_ids if layer >= expected_model_layers
-    ]
-    model_layer_gaps = sorted(set(range(expected_model_layers)) - set(model_layer_ids))
-    routed_auxiliary_layers = sorted(set(routed_layer_ids) & set(auxiliary_layer_ids))
+    model_layer_gaps = geometry["model_layer_gaps"]
+    routed_auxiliary_layers = geometry["routed_auxiliary_layers"]
     plan = {
         "schema": HF_UNIFORM_PLAN_SCHEMA,
         "status": (
@@ -317,13 +506,7 @@ def plan_hf_moe_uniform(
         "source": source,
         "intent": {"tier": "q2", "scope": scope, "native_rest": True},
         "adapter": {"id": adapter.adapter_id},
-        "geometry": {
-            "expected_model_layers": expected_model_layers,
-            "model_layer_ids": model_layer_ids,
-            "auxiliary_layer_ids": auxiliary_layer_ids,
-            "routed_layer_ids": routed_layer_ids,
-            "model_layer_gaps": model_layer_gaps,
-        },
+        "geometry": geometry,
         "routed_tensors": routed,
         "native_tensors": native,
         "accounting": {
@@ -464,6 +647,22 @@ def preflight_hf_moe_output_fit(
     return receipt
 
 
+def _require_solve_extra(method: str) -> None:
+    """Fail closed with the declared dependency boundary before any expensive work.
+
+    The base install supports the metadata-only planning tier; calls that encode
+    production-sized tensors need the ``[solve]`` extra and say so explicitly instead of
+    raising a bare ``ModuleNotFoundError`` from deep inside the encoder stack.
+    """
+
+    import importlib.util
+
+    if importlib.util.find_spec("torch") is None:
+        raise RuntimeError(
+            f"{method} requires the banana-smasher [solve] extra: {HF_SOLVE_EXTRA_REQUIREMENT}"
+        )
+
+
 def estimate_hf_moe_uniform(
     model: str | Path,
     *,
@@ -473,13 +672,18 @@ def estimate_hf_moe_uniform(
     native_rest: bool,
     receipt_path: str | Path,
 ) -> dict[str, Any]:
-    """Encode one representative routed tensor and project a complete build."""
+    """Encode one representative routed tensor and project a complete build.
+
+    Dependency boundary: the metadata-only portion runs under the base install.  Any
+    routed tensor large enough to need the CUDA encoder fails closed naming the
+    ``[solve]`` extra (``HF_SOLVE_EXTRA_REQUIREMENT``) rather than raising a bare
+    ``ModuleNotFoundError`` from inside the encoder stack.
+    """
 
     import time
     import tracemalloc
 
     from .qtip1 import QTIP2_GEOMETRY, gaussian_tlut
-    from .trellis_v2.exact import prepare_exact_cuda
 
     destination = Path(receipt_path).expanduser().resolve()
     plan = plan_hf_moe_uniform(
@@ -499,6 +703,8 @@ def estimate_hf_moe_uniform(
     except ModuleNotFoundError:
         torch = None
     if torch is not None and torch.cuda.is_available():
+        from .trellis_v2.exact import prepare_exact_cuda
+
         prepare_exact_cuda()
     tracemalloc.start()
     started = time.perf_counter()
@@ -617,7 +823,12 @@ def _load_safetensors_matrix(source: Path, row: Mapping[str, Any]):
 
 
 def _encode_hf_q2(matrix: Any, *, geometry: Any, tlut: Any):
-    """Use bounded CUDA for production tensors and keep tiny fixture coverage."""
+    """Use bounded CUDA for production tensors and keep tiny fixture coverage.
+
+    Declared dependency boundary: the numpy reference path covers only bounded fixtures
+    (<= 1 MiB).  Anything larger requires the ``[solve]`` extra's CUDA encoder and fails
+    closed naming it, rather than silently taking a slower fallback.
+    """
     from .qtip1 import encode_qtip, encode_qtip2_bounded_cuda
 
     try:
@@ -627,7 +838,10 @@ def _encode_hf_q2(matrix: Any, *, geometry: Any, tlut: Any):
     if torch is not None and torch.cuda.is_available():
         return encode_qtip2_bounded_cuda(matrix, geometry=geometry, tlut=tlut)
     if int(matrix.nbytes) > 1 << 20:
-        raise RuntimeError("QTIP2 CUDA fast path is unavailable; refusing slower fallback")
+        raise RuntimeError(
+            "QTIP2 CUDA fast path is unavailable; refusing slower fallback. "
+            f"{HF_SOLVE_EXTRA_REQUIREMENT}"
+        )
     encoded = encode_qtip(matrix, geometry=geometry, tlut=tlut)
     return encoded, {
         "backend": "numpy-reference-small-fixture",
@@ -647,7 +861,11 @@ def build_hf_moe_uniform(
     native_spill_root: str | Path | None = None,
     _routed_ordinal_range: tuple[int, int] | None = None,
 ) -> dict[str, Any]:
-    """Materialize a routed-Q2/native-rest HF MoE artifact and seal its receipt."""
+    """Materialize a routed-Q2/native-rest HF MoE artifact and seal its receipt.
+
+    Production-sized routed tensors require the ``[solve]`` extra's CUDA encoder; the
+    encoder refuses any slower fallback and keeps only a bounded small-fixture path.
+    """
 
     from .qtip1 import EncodedQtip, QTIP2_GEOMETRY, gaussian_tlut
 

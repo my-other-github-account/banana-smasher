@@ -23,12 +23,17 @@ from .banana_v1_runtime_adapter import (
     BananaV1MemberBinding,
 )
 from .hf_moe import (
+    HF_AUXILIARY_LAYER_RULE,
+    HF_CLIENT_BOOKKEEPING_PREFIXES,
+    HF_ROUTED_SCOPE_SCHEMA,
+    HF_SOLVE_EXTRA_REQUIREMENT,
     HF_SOURCE_ADMISSION_SCHEMA,
     HF_UNIFORM_ARTIFACT_SCHEMA,
     HF_UNIFORM_PLAN_SCHEMA,
     admit_hf_source,
     build_hf_moe_uniform,
     build_hf_moe_uniform_shard,
+    discover_hf_moe_routed_scope,
     estimate_hf_moe_uniform,
     open_hf_moe_uniform,
     open_hf_moe_uniform_shard,
@@ -37,8 +42,11 @@ from .hf_moe import (
     union_hf_moe_uniform_shards,
 )
 from .hf_balanced64 import (
+    BALANCED64_HARDWARE_CONTRACT_SCHEMA,
+    Balanced64CapabilityError,
     Balanced64Runtime,
     Balanced64Tokenizer,
+    balanced64_hardware_contract,
     build_balanced64_token_ledger,
     capture_balanced64_teacher,
     recover_balanced64_source_text,

@@ -17,6 +17,141 @@ POSITIONS_PER_WINDOW = 1024
 POSITION_COUNT = 64 * POSITIONS_PER_WINDOW
 SUPPORT = 8192
 
+#: Capability contract published by a BALANCED64 runtime that executes a real forward
+#: pass.  Runtimes declare their own requirement via a ``hardware_contract`` attribute;
+#: the public orchestration API enforces whatever the selected runtime declares, so the
+#: contract stays a property of the capability rather than campaign or host lore.
+BALANCED64_HARDWARE_CONTRACT_SCHEMA = "banana-smasher.balanced64-hardware-contract.v1"
+
+
+class Balanced64CapabilityError(RuntimeError):
+    """Raised when the host does not satisfy the selected runtime's declared contract."""
+
+
+def _detect_accelerators() -> dict[str, Any]:
+    detected: dict[str, Any] = {
+        "torch": False,
+        "cuda": False,
+        "cuda_device_count": 0,
+        "mps": False,
+    }
+    try:
+        import torch
+    except ModuleNotFoundError:
+        return detected
+    detected["torch"] = True
+    try:
+        detected["cuda"] = bool(torch.cuda.is_available())
+        if detected["cuda"]:
+            detected["cuda_device_count"] = int(torch.cuda.device_count())
+    except Exception:  # pragma: no cover - defensive probe only
+        detected["cuda"] = False
+    try:
+        detected["mps"] = bool(torch.backends.mps.is_available())
+    except Exception:  # pragma: no cover - defensive probe only
+        detected["mps"] = False
+    return detected
+
+
+def _evaluate_contract(declared: Mapping[str, Any], detected: Mapping[str, Any]) -> dict[str, Any]:
+    accelerator = declared.get("required_accelerator")
+    minimum_ranks = declared.get("minimum_ranks", 1)
+    if not isinstance(minimum_ranks, int) or isinstance(minimum_ranks, bool) or minimum_ranks < 1:
+        raise ValueError("BALANCED64 hardware contract minimum_ranks must be a positive integer")
+    if accelerator in (None, "none", "cpu"):
+        satisfied = True
+    elif accelerator == "cuda":
+        satisfied = bool(detected["cuda"]) and int(detected["cuda_device_count"]) >= minimum_ranks
+    else:
+        raise ValueError(
+            f"BALANCED64 hardware contract declares an unknown accelerator: {accelerator!r}"
+        )
+    return {
+        **dict(declared),
+        "schema": declared.get("schema", BALANCED64_HARDWARE_CONTRACT_SCHEMA),
+        "minimum_ranks": minimum_ranks,
+        "detected": dict(detected),
+        "satisfied": satisfied,
+    }
+
+
+def balanced64_hardware_contract(
+    runtime: Balanced64Runtime | None = None,
+) -> dict[str, Any]:
+    """Publish the hardware/capability contract of the BALANCED64 teacher/PRE path.
+
+    Call this BEFORE staging a multi-hundred-gigabyte source to determine whether the
+    documented journey is executable on the current host.  With no argument it reports
+    every registered ``banana_smasher.balanced64_runtimes`` capability and whether this
+    host satisfies each declared contract; with a runtime it reports just that one.
+    Runtimes that declare no contract are reported as unconstrained.  This call never
+    raises on an inadmissible host — it is a read-only capability probe.
+    """
+
+    detected = _detect_accelerators()
+
+    def describe(candidate: Any, entry_point_name: str | None = None) -> dict[str, Any]:
+        declared = getattr(candidate, "hardware_contract", None)
+        row: dict[str, Any] = {
+            "runtime_id": getattr(candidate, "runtime_id", None),
+            "entry_point": entry_point_name,
+        }
+        if isinstance(declared, Mapping):
+            row["contract"] = _evaluate_contract(declared, detected)
+        else:
+            row["contract"] = {
+                "schema": BALANCED64_HARDWARE_CONTRACT_SCHEMA,
+                "required_accelerator": None,
+                "minimum_ranks": 1,
+                "declared": False,
+                "reason": "runtime declares no hardware contract; it is not gated",
+                "detected": dict(detected),
+                "satisfied": True,
+            }
+        return row
+
+    if runtime is not None:
+        return {
+            "schema": BALANCED64_HARDWARE_CONTRACT_SCHEMA,
+            "host": {"detected": detected},
+            "runtimes": [describe(runtime)],
+        }
+    rows: list[dict[str, Any]] = []
+    for entry_point in importlib_metadata.entry_points().select(
+        group="banana_smasher.balanced64_runtimes"
+    ):
+        try:
+            rows.append(describe(entry_point.load()(), entry_point.name))
+        except Exception as exc:  # pragma: no cover - a broken plugin must not hide the rest
+            rows.append({"entry_point": entry_point.name, "error": f"{type(exc).__name__}: {exc}"})
+    return {
+        "schema": BALANCED64_HARDWARE_CONTRACT_SCHEMA,
+        "host": {"detected": detected},
+        "runtimes": rows,
+    }
+
+
+def _require_balanced64_capability(runtime: Balanced64Runtime, method: str) -> dict[str, Any]:
+    """Enforce the SELECTED runtime's own declared contract, fail closed with it stated."""
+
+    declared = getattr(runtime, "hardware_contract", None)
+    if not isinstance(declared, Mapping):
+        return {
+            "declared": False,
+            "reason": "selected runtime declares no hardware contract",
+            "satisfied": True,
+        }
+    contract = _evaluate_contract(declared, _detect_accelerators())
+    if not contract["satisfied"]:
+        raise Balanced64CapabilityError(
+            f"{method} is not executable on this host under the contract declared by "
+            f"runtime {getattr(runtime, 'runtime_id', None)!r}: "
+            f"required_accelerator={contract.get('required_accelerator')} "
+            f"minimum_ranks={contract['minimum_ranks']} detected={contract['detected']}; "
+            f"{contract.get('reason', '')}"
+        )
+    return contract
+
 
 class Balanced64Runtime(Protocol):
     """Architecture/runtime plugin selected behind the public orchestration API."""
@@ -518,7 +653,13 @@ def capture_balanced64_teacher(
     windows: list[int] | tuple[int, ...] | None = None,
     runtime: Balanced64Runtime | None = None,
 ) -> dict[str, Any]:
-    """Capture a model's own teacher rows under one immutable BALANCED64 lock."""
+    """Capture a model's own teacher rows under one immutable BALANCED64 lock.
+
+    When no explicit ``runtime`` is supplied the package auto-discovers a registered
+    capability.  Whatever contract that capability declares (see
+    ``balanced64_hardware_contract()``) is enforced before execution, so an inadmissible
+    host fails closed with the contract stated instead of failing deep inside a runtime.
+    """
 
     lock = _suite_lock(suite_lock)
     selected_ids = (
@@ -550,6 +691,7 @@ def capture_balanced64_teacher(
     if source["model_index_sha256"] != lock.get("teacher_source_model_index_sha256"):
         raise ValueError("teacher model index does not match the model-specific suite lock")
     runtime = _resolve_runtime(runtime, subject=source, role="teacher")
+    capability = _require_balanced64_capability(runtime, "capture_balanced64_teacher")
     runtime_result = runtime.capture_teacher(
         source=source,
         suite_lock=lock,
@@ -591,6 +733,7 @@ def capture_balanced64_teacher(
         "artifact_admissible": complete,
         "api": {"method": "capture_balanced64_teacher", "version": 1},
         "runtime": {"id": _runtime_id(runtime)},
+        "hardware_contract": capability,
         "source": source,
         "suite_lock_sha256": lock["suite_lock_sha256"],
         "window_population_sha256": lock["window_population_sha256"],
@@ -615,7 +758,11 @@ def score_balanced64_pre(
     receipt_path: str | Path,
     runtime: Balanced64Runtime | None = None,
 ) -> dict[str, Any]:
-    """Produce the canonical resident BALANCED64 PRE terminal for one artifact."""
+    """Produce the canonical resident BALANCED64 PRE terminal for one artifact.
+
+    Enforces the contract declared by the selected runtime before execution; see
+    ``balanced64_hardware_contract()``.
+    """
 
     lock = _suite_lock(suite_lock)
     corpus_path = Path(corpus).expanduser().resolve()
@@ -647,6 +794,7 @@ def score_balanced64_pre(
     ):
         raise ValueError("score_pre teacher capture is not complete for this suite/corpus")
     runtime = _resolve_runtime(runtime, subject=admitted, role="candidate_pre")
+    capability = _require_balanced64_capability(runtime, "score_balanced64_pre")
     runtime_result = runtime.score_pre(
         artifact=admitted,
         teacher_capture=teacher,
@@ -696,6 +844,7 @@ def score_balanced64_pre(
         "status": "PASS",
         "api": {"method": "score_balanced64_pre", "version": 1},
         "runtime": {"id": _runtime_id(runtime)},
+        "hardware_contract": capability,
         "suite_lock_sha256": lock["suite_lock_sha256"],
         "window_population_sha256": lock["window_population_sha256"],
         "corpus_sha256": _sha256(corpus_path),
