@@ -276,9 +276,27 @@ def _release_or_retain_checkpoint_payload(
             if isinstance(registered, Mapping) and isinstance(payload, Mapping):
                 registered_keys = set(registered) - {"identity"}
                 payload_keys = set(payload) - {"identity"}
+                values_bound = registered_keys == payload_keys and all(
+                    payload[key] is registered[key]
+                    for key in registered_keys - {"state"}
+                )
+                registered_state = registered.get("state")
+                payload_state = payload.get("state")
+                state_bound = payload_state is registered_state
+                canonical_surfaces = {"luts", "norms", "outputs"}
+                if isinstance(registered_state, Mapping) and isinstance(payload_state, Mapping):
+                    state_bound = state_bound or (
+                        set(registered_state) == canonical_surfaces | {"expert_planes_l028_su_sv"}
+                        and set(payload_state) == canonical_surfaces
+                        and all(
+                            payload_state[surface] is registered_state[surface]
+                            for surface in canonical_surfaces
+                        )
+                    )
                 broker_bound = broker_bound or (
                     registered_keys == payload_keys
-                    and all(payload[key] is registered[key] for key in registered_keys)
+                    and values_bound
+                    and state_bound
                 )
             if not broker_bound:
                 raise ArtifactError("ordinary-load fork broker payload identity mismatch")

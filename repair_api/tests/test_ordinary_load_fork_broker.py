@@ -147,6 +147,48 @@ def test_registered_broker_identity_is_the_read_only_authority() -> None:
         _ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
 
 
+def test_registered_broker_accepts_authenticated_state_surface_projection() -> None:
+    checkpoint_sha = "b" * 64
+    luts = MappingProxyType({"L000": torch.arange(4)})
+    norms = MappingProxyType({"L000": torch.arange(3)})
+    outputs = MappingProxyType({"L000": torch.arange(2)})
+    planes = MappingProxyType({"L028": torch.arange(5)})
+    registered_state = MappingProxyType({
+        "luts": luts,
+        "norms": norms,
+        "outputs": outputs,
+        "expert_planes_l028_su_sv": planes,
+    })
+    registered = MappingProxyType({
+        "state": registered_state,
+        "identity": MappingProxyType({"checkpoint_loaded": True}),
+        "next_update": 1,
+    })
+    _ORDINARY_FORK_PAYLOADS[checkpoint_sha] = {"payload": registered}
+    try:
+        projected = {
+            "state": {surface: registered_state[surface] for surface in ("luts", "norms", "outputs")},
+            "identity": MappingProxyType({"checkpoint_loaded": True}),
+            "next_update": registered["next_update"],
+        }
+
+        assert _release_or_retain_checkpoint_payload(
+            projected,
+            ordinary_load_fork_broker=True,
+            checkpoint_sha256=checkpoint_sha,
+        ) == "inherited_read_only"
+
+        projected["state"]["luts"] = MappingProxyType(dict(luts))
+        with pytest.raises(ArtifactError, match="identity mismatch"):
+            _release_or_retain_checkpoint_payload(
+                projected,
+                ordinary_load_fork_broker=True,
+                checkpoint_sha256=checkpoint_sha,
+            )
+    finally:
+        _ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
+
+
 def test_same_process_rank_boundary_releases_allocator_before_rank1() -> None:
     source = inspect.getsource(OfficialK2LocalDualShardEngine.__init__)
     rank0 = source.index("self.rank0 = OfficialK2ResidentRankEngine(")
