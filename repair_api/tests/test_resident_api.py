@@ -8,12 +8,27 @@ import unittest
 
 import numpy as np
 
-from repair_api import ArtifactError, ResidentRepairAPI
+from repair_api import ArtifactError, ResidentRepairAPI, adapt_checkpointed_envelope
 
 WINDOWS = [28, 56, 68, 71, 76, 99, 107, 122, 124, 130, 141, 156, 160, 171, 180, 183, 185, 186, 196, 210, 212, 213, 218, 228, 232, 235, 249, 270, 272, 273, 283, 288, 290, 295, 297, 306, 307, 309, 311, 328, 331, 357, 362, 365, 368, 374, 376, 380, 384, 385, 391, 396, 413, 429, 430, 437, 442, 447, 454, 462, 464, 475, 489, 499]
 
 
 class ResidentApiTests(unittest.TestCase):
+    def test_checkpointed_envelope_admits_canonical_persisted_state_without_mutation(self) -> None:
+        state = {"luts": object(), "norms": object(), "outputs": object()}
+        payload = {
+            "schema": "resident-continuation-checkpoint-v1",
+            "next_update": 24,
+            "state": state,
+            "identity": {"checkpoint_loaded": True, "next_update": 24},
+        }
+
+        admitted = adapt_checkpointed_envelope(payload)
+
+        self.assertEqual(admitted["format"], "banana-smasher-qtip2-v7-joint-checkpoint-v1")
+        self.assertIs(admitted["state"], state)
+        self.assertNotIn("format", payload)
+
     def make_artifact(self, root: Path, *, partial: bool = False, mismatch: bool = False, teacher_rows: int = 1024) -> None:
         (root / "checkpoints").mkdir()
         (root / "score" / "teacher").mkdir(parents=True)

@@ -35,6 +35,40 @@ from .official_k2_resident_score import (
 from .sealed_pre_forward import bind_sealed_pre_resident_config
 
 
+SCORER_CHECKPOINT_FORMAT = "banana-smasher-qtip2-v7-joint-checkpoint-v1"
+
+
+def adapt_checkpointed_envelope(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Admit a persisted public-API checkpoint to the sealed scorer envelope.
+
+    Continuation checkpoints predate the scorer's ``format`` discriminator,
+    but already carry the same three trainable surfaces and authenticated
+    loaded-checkpoint identity.  Add only that discriminator after validating
+    the canonical public-API envelope; tensor values and state objects remain
+    untouched.
+    """
+    if not isinstance(payload, Mapping):
+        raise ArtifactError("checkpointed scorer envelope must be a mapping")
+    if payload.get("format") == SCORER_CHECKPOINT_FORMAT:
+        return dict(payload)
+    if payload.get("schema") != "resident-continuation-checkpoint-v1":
+        raise ArtifactError("checkpointed scorer envelope schema refused")
+    state = payload.get("state")
+    if not isinstance(state, Mapping) or set(state) != {"luts", "norms", "outputs"}:
+        raise ArtifactError("checkpointed scorer envelope state surfaces refused")
+    next_update = payload.get("next_update")
+    if isinstance(next_update, bool) or not isinstance(next_update, int) or next_update < 0:
+        raise ArtifactError("checkpointed scorer envelope update cursor refused")
+    identity = payload.get("identity")
+    if not isinstance(identity, Mapping) or identity.get("checkpoint_loaded") is not True:
+        raise ArtifactError("checkpointed scorer envelope requires loaded checkpoint identity")
+    if identity.get("next_update") != next_update:
+        raise ArtifactError("checkpointed scorer envelope identity cursor drift")
+    admitted = dict(payload)
+    admitted["format"] = SCORER_CHECKPOINT_FORMAT
+    return admitted
+
+
 _STALE_SPARK5_MODEL_ROOT = Path(
     "/home/dnola/missions/STAGE_U20_t_3a6f22a5_spark-5-work/sparse-model-rank0-v1"
 )
