@@ -3113,6 +3113,11 @@ class ResidentRepairAPI:
             local_rank=0,
             layer_split={"0": [0, 42]},
             resident_validation_proof=False,
+            recipe_id="published_pre_lower_lr_warmup16_cosine64_v1",
+            published_pre_checkpoint_sha256=(
+                "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+            ),
+            fresh_published_pre_lineage=True,
         )
         configured.pop("v7_lut_only_update", None)
         return self.continue_two_spark_real(

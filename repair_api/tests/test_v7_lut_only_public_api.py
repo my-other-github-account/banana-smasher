@@ -376,6 +376,11 @@ def test_public_checkpointed_boundary_wrapper_targets_u24():
     assert called.args == ("UPDATE_021", (24,))
     assert called.kwargs["config"]["activation_checkpointing"] is True
     assert called.kwargs["config"]["world_size"] == 1
+    assert called.kwargs["config"]["recipe_id"] == "published_pre_lower_lr_warmup16_cosine64_v1"
+    assert called.kwargs["config"]["published_pre_checkpoint_sha256"] == (
+        "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+    )
+    assert called.kwargs["config"]["fresh_published_pre_lineage"] is True
 
 
 def test_resident_loader_releases_cpu_source_duplicate_after_gpu_consumer() -> None:
