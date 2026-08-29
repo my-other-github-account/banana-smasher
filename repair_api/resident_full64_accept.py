@@ -1509,6 +1509,172 @@ def _decode_r20_expert_w1(expert: Any) -> Any:
     ).transpose(0, 1).contiguous()
 
 
+def _run_one_layer_with_authentic_projection_control(
+    engine: Any, layer: Any, hidden: Any, ids: Any,
+) -> tuple[Any, dict[str, Any]]:
+    """Duplicate one authentic source down projection at its call site."""
+    import types
+    import torch.nn.functional as F
+
+    experts = layer.mlp.experts
+    had_instance_forward = "forward" in experts.__dict__
+    prior_instance_forward = experts.__dict__.get("forward")
+    original_forward = experts.forward
+    captured: dict[str, Any] = {}
+
+    def transparent_forward(
+        module: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any,
+    ) -> Any:
+        original_linear = F.linear
+        target_weight = module.down_proj[204]
+
+        def intercepted_linear(value: Any, weight: Any, bias: Any = None) -> Any:
+            authentic = original_linear(value, weight, bias)
+            is_target = (
+                tuple(weight.shape) == tuple(target_weight.shape)
+                and tuple(weight.stride()) == tuple(target_weight.stride())
+                and int(weight.storage_offset()) == int(target_weight.storage_offset())
+                and int(weight.data_ptr()) == int(target_weight.data_ptr())
+            )
+            if is_target:
+                if captured:
+                    raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_DUPLICATE")
+                replay = original_linear(value, weight, bias)
+                captured.update(
+                    input=value.detach(), weight=weight.detach(),
+                    authentic=authentic.detach(), replay=replay.detach(),
+                )
+            return authentic
+
+        with patch.object(F, "linear", intercepted_linear):
+            return original_forward(hidden_states, top_k_index, top_k_weights)
+
+    experts.forward = types.MethodType(transparent_forward, experts)
+    try:
+        output, _attention = _run_one_layer_with_attention(engine, layer, hidden, ids)
+    finally:
+        if had_instance_forward:
+            experts.forward = prior_instance_forward
+        else:
+            experts.__dict__.pop("forward", None)
+    if tuple(captured) != ("input", "weight", "authentic", "replay"):
+        raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_MISSING")
+    exact = torch.equal(captured["authentic"], captured["replay"])
+    return output, {
+        "status": (
+            "AUTHENTIC_SOURCE_PROJECTION_CONTROL_EXACT"
+            if exact else "AUTHENTIC_SOURCE_PROJECTION_CONTROL_RED"
+        ),
+        "instrument_control_self_compare_exact": exact,
+        "one_variable": "none: immediate duplicate of the identical authentic source F.linear invocation",
+        "accepted_source": "transformers DeepseekV4Experts.forward down_projection F.linear",
+        "materialization_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473",
+        "input": _tensor_tap(captured["input"]),
+        "weight": _tensor_tap(captured["weight"]),
+        "authentic_projection": _tensor_tap(captured["authentic"]),
+        "immediate_duplicate_projection": _tensor_tap(captured["replay"]),
+    }
+
+
+def _sealed_authentic_source_projection_control(
+    engine: Any, *, window: int, root: Path, rank: int, pin: str,
+    checkpoint_path: Path,
+) -> dict[str, Any]:
+    """Run only the repaired known-equal source-projection instrument."""
+    from repair_api.sealed_pre_forward import _prepare_exact_modules
+
+    prepared = engine.preload_validation((window,), engine.config["validation_teacher_root"])
+    ids = prepared["ids"][window]
+    local: dict[str, Any] = {"rank": rank}
+    control_binding = None
+    known_control_hash = "11cc07869ffcf71c39699e5631fa352cdb3aba52a003b04b659ceb5cfa4c0662"
+    with torch.no_grad():
+        if rank == 0:
+            embeddings = engine.student.model.model.embed_tokens(ids)
+            hidden = embeddings.unsqueeze(2).expand(
+                -1, -1, engine.student.config.hc_mult, -1
+            ).contiguous()
+            import gc
+            for layer_index in range(1, 21):
+                engine.student.model.model.layers[layer_index] = torch.nn.Identity()
+                engine.student.experts.pop(layer_index, None)
+                engine.student.sources.pop(layer_index, None)
+            gc.collect()
+            torch.cuda.empty_cache()
+            free_bytes, _total_bytes = torch.cuda.mem_get_info()
+            if int(free_bytes) < (18 << 30):
+                raise RuntimeError(f"EXPERT_TRACE_GPU_HEADROOM_RED:{free_bytes}:{18 << 30}")
+            torch.cuda.set_per_process_memory_fraction(0.75)
+            builder, planesource_module, control_binding = _prepare_exact_modules(
+                task=TASK, rank=rank, root=root, config=engine.config,
+                checkpoint=checkpoint_path,
+            )
+            planes = planesource_module.PlaneSource(str(root / "SEALED_PRE_CONTRACT.json"))
+            control_sd = builder.build_layer_sd(
+                0, engine.student.wm, engine.student.get_tensor, "planes", planes
+            )
+            from transformers import AutoModelForCausalLM
+            with torch.device("meta"):
+                control_model = AutoModelForCausalLM.from_config(
+                    engine.student.config, attn_implementation="eager"
+                )
+            control_model.eval()
+            control_layer = builder.materialize_layer(
+                control_model, 0, control_sd, engine.student.config
+            )
+            unmodified, _attention = _run_one_layer_with_attention(
+                engine, control_layer, hidden.clone(), ids
+            )
+            unmodified_tap = _tensor_tap(unmodified)
+            if unmodified_tap["sha256"] != known_control_hash:
+                raise RuntimeError(
+                    "EXPERT_TRACE_UNMODIFIED_CONTROL_RED:" + unmodified_tap["sha256"]
+                )
+            instrumented, projection_control = _run_one_layer_with_authentic_projection_control(
+                engine, control_layer, hidden.clone(), ids
+            )
+            transparent = torch.equal(unmodified, instrumented)
+            if not transparent:
+                raise RuntimeError(
+                    "AUTHENTIC_SOURCE_PROJECTION_INSTRUMENT_TRANSPARENCY_RED:"
+                    f"{unmodified_tap['sha256']}:{_tensor_tap(instrumented)['sha256']}"
+                )
+            if not projection_control["instrument_control_self_compare_exact"]:
+                raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_RED")
+            local.update(
+                unmodified_control=unmodified_tap,
+                instrumented_control=_tensor_tap(instrumented),
+                instrument_transparent=True,
+                source_projection_control=projection_control,
+            )
+            del control_model, control_layer, control_sd
+            torch.cuda.empty_cache()
+    gathered: list[Any] = [None, None]
+    engine.dist.all_gather_object(gathered, local)
+    control = gathered[0].get("source_projection_control")
+    if not isinstance(control, dict):
+        raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_RECEIPT_MISSING")
+    receipt = {
+        "schema": "banana-smasher-authentic-source-projection-control-v1",
+        "status": control["status"],
+        "task_id": TASK, "canonical_code_commit": pin,
+        "basis_sha256": BASIS, "checkpoint_sha256": CHECKPOINT,
+        "window": window, "layer": 0,
+        "control_source_binding": control_binding if rank == 0 else None,
+        "unmodified_control": gathered[0]["unmodified_control"],
+        "instrumented_control": gathered[0]["instrumented_control"],
+        "instrument_transparent": gathered[0]["instrument_transparent"],
+        "source_projection_control": control,
+        "repair_authorized": False,
+        "successor_step": "read authentic source and launch one new source-backed comparator",
+        "created_unix": time.time(),
+    }
+    path = root / "receipts" / f"AUTHENTIC_SOURCE_PROJECTION_CONTROL.rank{rank}.json"
+    receipt["receipt_sha256"] = atomic(path, receipt)
+    print(json.dumps({"receipt_path": str(path), **receipt}, sort_keys=True), flush=True)
+    return receipt
+
+
 def _sealed_runtime_expert_trace_ab(
     engine: Any, *, window: int, root: Path, rank: int, pin: str,
     checkpoint_path: Path,
@@ -2758,6 +2924,16 @@ def main() -> None:
     torch.cuda.synchronize()
     resident_load_seconds = time.perf_counter() - load_started
     extension_prewarm = _prewarm_candidate_extension()
+
+    if os.environ.get("RUN6522_AUTHENTIC_SOURCE_PROJECTION_CONTROL_ONLY", "0") == "1":
+        _sealed_authentic_source_projection_control(
+            engine, window=28, root=root, rank=rank, pin=pin,
+            checkpoint_path=checkpoint_path,
+        )
+        engine.close()
+        if torch.distributed.is_initialized():
+            torch.distributed.destroy_process_group()
+        return
 
     if sealed_runtime_expert_trace_ab_only:
         _sealed_runtime_expert_trace_ab(

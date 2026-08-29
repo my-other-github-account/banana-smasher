@@ -3,6 +3,7 @@ import sys
 import tempfile
 from types import ModuleType, SimpleNamespace
 from typing import Any, cast
+from unittest.mock import patch
 
 import torch
 
@@ -758,6 +759,46 @@ def test_run6521_source_workspace_lifetime_adjudication() -> None:
     source = (Path(__file__).parents[1] / "resident_full64_accept.py").read_text()
     assert "value.clone(memory_format=torch.contiguous_format)" in source
     assert "weight.clone(memory_format=torch.contiguous_format)" in source
+
+
+def test_run6522_authentic_source_projection_control_duplicates_exact_call() -> None:
+    import types
+    import torch.nn.functional as F
+    from repair_api.resident_full64_accept import (
+        _run_one_layer_with_authentic_projection_control,
+    )
+
+    class Experts(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.down_proj = torch.nn.Parameter(torch.randn(256, 2, 2))
+
+        def forward(self, hidden, top_k_index, top_k_weights):
+            return F.linear(hidden, self.down_proj[204])
+
+    experts = Experts()
+    layer = types.SimpleNamespace(mlp=types.SimpleNamespace(experts=experts))
+    engine = object()
+    hidden = torch.randn(3, 2)
+    ids = torch.zeros((1, 3), dtype=torch.int64)
+
+    def fake_layer_run(_engine, _layer, value, _ids):
+        index = torch.full((value.shape[0], 1), 204, dtype=torch.int64)
+        weights = torch.ones((value.shape[0], 1))
+        return _layer.mlp.experts(value, index, weights), None
+
+    with patch(
+        "repair_api.resident_full64_accept._run_one_layer_with_attention",
+        fake_layer_run,
+    ):
+        output, control = _run_one_layer_with_authentic_projection_control(
+            engine, layer, hidden, ids,
+        )
+
+    assert torch.equal(output, F.linear(hidden, experts.down_proj[204]))
+    assert control["status"] == "AUTHENTIC_SOURCE_PROJECTION_CONTROL_EXACT"
+    assert control["instrument_control_self_compare_exact"] is True
+    assert control["authentic_projection"] == control["immediate_duplicate_projection"]
 
 
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
