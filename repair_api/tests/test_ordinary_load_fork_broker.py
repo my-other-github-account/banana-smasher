@@ -1,4 +1,5 @@
 import hashlib
+import importlib
 import inspect
 import json
 import os
@@ -29,6 +30,20 @@ from repair_api.official_k2_resident_score import (
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_broker_registry_survives_canonical_module_reload() -> None:
+    from repair_api import official_k2_resident_score as resident_score
+
+    checkpoint_sha = "d" * 64
+    resident_score._ORDINARY_FORK_PAYLOADS[checkpoint_sha] = {"payload": object()}
+    original_registry = resident_score._ORDINARY_FORK_PAYLOADS
+    try:
+        importlib.reload(resident_score)
+        assert resident_score._ORDINARY_FORK_PAYLOADS is original_registry
+        assert checkpoint_sha in resident_score._ORDINARY_FORK_PAYLOADS
+    finally:
+        resident_score._ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
 
 
 def test_one_ordinary_materialization_is_inherited_read_only_by_both_ranks(monkeypatch) -> None:

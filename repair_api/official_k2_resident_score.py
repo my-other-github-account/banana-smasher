@@ -77,7 +77,12 @@ ROUTED_K2_API_METHOD = "ResidentRepairAPI.score_routed_k2"
 ROUTED_K2_API_VERSION = "official-k2-routed-resident-v1"
 
 
-_ORDINARY_FORK_PAYLOADS: dict[str, dict[str, Any]] = {}
+# Provider/source resolution may reload this canonical module after the broker
+# materializes sealed checkpoints. Preserve the process-local registry across
+# that reload so release checks compare against the exact inherited objects.
+_ORDINARY_FORK_PAYLOADS: dict[str, dict[str, Any]] = globals().get(
+    "_ORDINARY_FORK_PAYLOADS", {}
+)
 
 
 def _published_pre_production_admitted(manifest: Mapping[str, Any]) -> bool:
