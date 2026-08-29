@@ -24,7 +24,9 @@ def test_localizes_only_missing_sealed_locator_with_exact_basis(monkeypatch, tmp
     monkeypatch.setattr("repair_api.api.BASIS_SHA256", basis)
     monkeypatch.setattr("repair_api.api.bind_sealed_pre_resident_config", lambda config: {})
     parent = tmp_path / "full-parent"
+    lut_parent = tmp_path / "lut-parent"
     monkeypatch.setattr("repair_api.api._SPARK3_SEALED_PARENT_ROOT", parent)
+    monkeypatch.setattr("repair_api.api._SPARK3_SEALED_PARENT_MANIFEST_ROOT", lut_parent)
     monkeypatch.setattr("repair_api.api._validate_sealed_parent_root", lambda **kwargs: None)
     monkeypatch.setattr("pathlib.Path.exists", lambda self: self != Path(STALE))
     monkeypatch.setattr("pathlib.Path.is_file", lambda self: True)
@@ -49,6 +51,7 @@ def test_localizes_only_missing_sealed_locator_with_exact_basis(monkeypatch, tmp
 
     assert resolved["model_root"] == str(candidate.resolve())
     assert resolved["parent_root"] == str(parent.resolve())
+    assert resolved["lut_parent_root"] == str(lut_parent.resolve())
 
     with pytest.raises(ArtifactError, match="sealed stale Spark-5 locator"):
         _resolve_official_k2_config_locators(
