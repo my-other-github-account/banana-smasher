@@ -168,6 +168,14 @@ def build_parser() -> argparse.ArgumentParser:
     continuation.add_argument("--receipt", type=Path, required=True)
     _add_preflight_arguments(continuation)
 
+    lut_only = verbs.add_parser("v7-lut-only-update")
+    lut_only.add_argument("--artifact-root", type=Path, required=True)
+    lut_only.add_argument("--start-checkpoint", default="PRE")
+    lut_only.add_argument("--config", type=Path, required=True)
+    lut_only.add_argument("--trainable-luts", required=True)
+    lut_only.add_argument("--lut-lr", type=float, required=True)
+    lut_only.add_argument("--receipt", type=Path, required=True)
+
     diagnostic = verbs.add_parser("diagnostic-perturb-validate")
     diagnostic.add_argument("--artifact-root", type=Path, required=True)
     diagnostic.add_argument("--start-checkpoint", required=True)
@@ -341,6 +349,17 @@ def main(argv: list[str] | None = None) -> int:
             config=config,
             ready_path=args.ready,
             control_path=args.control,
+        )
+    elif args.verb == "v7-lut-only-update":
+        identity = distributed_identity()
+        config = json.loads(args.config.read_text())
+        config.update(identity)
+        result = ResidentRepairAPI.open(args.artifact_root).continue_v7_lut_only_update(
+            args.start_checkpoint,
+            trainable_luts=[name for name in args.trainable_luts.split(",") if name],
+            lut_lr=args.lut_lr,
+            config=config,
+            receipt_path=args.receipt,
         )
     elif args.verb == "continue-training":
         from banana_smasher import ResidentRepairAPI as PublicResidentRepairAPI

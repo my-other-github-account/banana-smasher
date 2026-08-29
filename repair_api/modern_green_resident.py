@@ -48,6 +48,82 @@ STATIC_W28_GROUPED_WRAPPER_SHA256 = "ec681dd1ac35d5c4368071db12c8bb0801cbf78c367
 STATIC_W28_GROUPED_EXPERT_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
 
 
+def _configure_v7_lut_only_optimizer(
+    config: Mapping[str, Any],
+    luts: list[tuple[str, Any]],
+    norms: list[tuple[str, Any]],
+    outputs: list[tuple[str, Any]],
+) -> tuple[dict[str, list[tuple[str, Any]]], dict[str, Any]]:
+    """Select optimizer members without changing the admitted PlaneSources.
+
+    The official student still constructs and loads every local PlaneSource and
+    every dense repair parameter.  This function only controls requires-grad and
+    optimizer membership; frozen surfaces remain explicit in the receipt.
+    """
+    if config.get("v7_lut_only_update") is not True:
+        return (
+            {"luts": list(luts), "norms": list(norms), "outputs": list(outputs)},
+            {
+                "mode": "joint_all43",
+                "trainable": {"luts": len(luts), "norms": len(norms), "outputs": len(outputs)},
+                "frozen": {},
+            },
+        )
+    requested = config.get("trainable_luts")
+    if (
+        not isinstance(requested, list)
+        or not requested
+        or any(not isinstance(name, str) or not name for name in requested)
+        or len(requested) != len(set(requested))
+    ):
+        raise ArtifactError("V7 LUT-only update requires unique non-empty trainable_luts")
+    lut_lr = config.get("lut_lr")
+    if isinstance(lut_lr, bool):
+        raise ArtifactError("V7 LUT-only lut_lr must be finite and positive")
+    try:
+        lut_lr = float(cast(Any, lut_lr))
+    except (TypeError, ValueError) as exc:
+        raise ArtifactError("V7 LUT-only lut_lr must be finite and positive") from exc
+    if not math.isfinite(lut_lr) or lut_lr <= 0.0:
+        raise ArtifactError("V7 LUT-only lut_lr must be finite and positive")
+    requested_set = set(requested)
+    selected = [(name, parameter) for name, parameter in luts if name in requested_set]
+    lut_names = {name for name, _ in luts}
+    for name, parameter in [*luts, *norms, *outputs]:
+        parameter.requires_grad_(name in requested_set and name in lut_names)
+    return (
+        {"luts": selected, "norms": [], "outputs": []},
+        {
+            "mode": "v7_lut_only_update",
+            "admitted_plane_sources": 43,
+            "requested_trainable_luts": list(requested),
+            "local_optimizer_luts": [name for name, _ in selected],
+            "lut_lr": lut_lr,
+            "trainable": {"luts": len(selected), "norms": 0, "outputs": 0},
+            "frozen": {"norms": len(norms), "outputs": len(outputs)},
+        },
+    )
+
+
+def _resident_optimizer_param_groups(
+    config: Mapping[str, Any],
+    rows: Mapping[str, list[tuple[str, Any]]],
+    base_lrs: Mapping[str, float],
+) -> list[dict[str, Any]]:
+    """Build three groups, with explicit frozen groups in LUT-only mode."""
+    if config.get("v7_lut_only_update") is not True:
+        return [
+            {"params": [p for _name, p in rows["luts"]], "lr": base_lrs["luts"], "group_name": "luts"},
+            {"params": [p for _name, p in rows["norms"]], "lr": base_lrs["norms"], "group_name": "norms"},
+            {"params": [p for _name, p in rows["outputs"]], "lr": base_lrs["outputs"], "group_name": "outputs"},
+        ]
+    return [
+        {"params": [p for _name, p in rows["luts"]], "lr": float(config["lut_lr"]), "group_name": "luts", "frozen": False},
+        {"params": [], "lr": 0.0, "group_name": "norms", "frozen": True},
+        {"params": [], "lr": 0.0, "group_name": "outputs", "frozen": True},
+    ]
+
+
 def _validation_attention_query_chunk_size(config: Mapping[str, Any]) -> int:
     """Fail closed when the bounded official decoder rail loses its chunk."""
     chunk_size = int(config.get("attention_query_chunk_size", 0))
@@ -1520,6 +1596,10 @@ class ModernGreenResidentEngine:
                 )
         self.luts, self.norms, self.outputs = self.trainer.expose_local_dense(torch, self.student, admission)
         self._load_local_trainable_state()
+        self.optimizer_rows, self.optimizer_surface_manifest = _configure_v7_lut_only_optimizer(
+            self.config, self.luts, self.norms, self.outputs
+        )
+        self.optimizer_luts = self.optimizer_rows["luts"]
         self._install_lut_accumulation_diagnostic()
         self.equivalent_gradient_scale = 1.0
         if self.tailfix_wholesale:
@@ -1539,11 +1619,7 @@ class ModernGreenResidentEngine:
             )
             self.optimizer = _fp64_state_adam(
                 torch,
-                [
-                    {"params": [p for _name, p in self.luts], "lr": optimizer_lrs["luts"], "group_name": "luts"},
-                    {"params": [p for _name, p in self.norms], "lr": optimizer_lrs["norms"], "group_name": "norms"},
-                    {"params": [p for _name, p in self.outputs], "lr": optimizer_lrs["outputs"], "group_name": "outputs"},
-                ],
+                _resident_optimizer_param_groups(config, self.optimizer_rows, optimizer_lrs),
                 gradient_scale=self.equivalent_gradient_scale,
             )
             if self.published_pre_recipe:
@@ -2646,7 +2722,7 @@ class ModernGreenResidentEngine:
         self._lut_accumulation_diagnostic_path = path
         self._lut_accumulation_diagnostic_handles = []
 
-        for tensor_name, parameter in self.luts:
+        for tensor_name, parameter in self.optimizer_luts:
             def pre_accumulate(gradient: Any, name: str = tensor_name) -> Any:
                 self._append_lut_accumulation_diagnostic(
                     "leaf_pre_accumulate", name, gradient
@@ -2710,7 +2786,8 @@ class ModernGreenResidentEngine:
             grad = torch.empty_like(hidden)
             self._batch_p2p_recv(grad, src=1)
             backward_started = time.perf_counter()
-            hidden.backward(grad)
+            if self._local_params():
+                hidden.backward(grad)
             _cuda_sync(torch)
             backward_seconds = time.perf_counter() - backward_started
             self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
@@ -2780,14 +2857,16 @@ class ModernGreenResidentEngine:
                     current.detach().contiguous(), dst=1, incoming=gradient, src=1
                 )
                 started = time.perf_counter()
-                pending.backward(gradient)
+                if self._local_params():
+                    pending.backward(gradient)
                 _cuda_sync(torch)
                 backward_seconds += time.perf_counter() - started
                 pending = current
             gradient = torch.empty_like(pending)
             self._batch_p2p_recv(gradient, src=1)
             started = time.perf_counter()
-            pending.backward(gradient)
+            if self._local_params():
+                pending.backward(gradient)
             _cuda_sync(torch)
             backward_seconds += time.perf_counter() - started
             self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
@@ -2832,10 +2911,57 @@ class ModernGreenResidentEngine:
         )
 
     def _local_params(self) -> list[tuple[str, Any]]:
-        return [*self.luts, *self.norms, *self.outputs]
+        return [
+            *self.optimizer_rows["luts"],
+            *self.optimizer_rows["norms"],
+            *self.optimizer_rows["outputs"],
+        ]
 
     def _local_norm(self, values: list[Any]) -> float:
         return sum(float(value.detach().float().pow(2).sum().cpu()) for value in values) ** 0.5
+
+    def _merge_v7_lut_only_optimizer_state(
+        self, state_rows: list[Mapping[str, Any]]
+    ) -> dict[str, Any]:
+        """Merge sparse LUT Adam state while retaining explicit frozen groups."""
+        ordered_names = list(self.config["trainable_luts"])
+        global_ids = {name: index for index, name in enumerate(ordered_names)}
+        merged_state: dict[int, Any] = {}
+        seen: set[str] = set()
+        templates: list[dict[str, Any]] | None = None
+        for row in state_rows:
+            optimizer = row["optimizer"]
+            groups = optimizer["param_groups"]
+            if len(groups) != 3:
+                raise ArtifactError("V7 LUT-only optimizer must retain three explicit surface groups")
+            current_templates = [
+                {key: value for key, value in group.items() if key != "params"}
+                for group in groups
+            ]
+            if templates is None:
+                templates = current_templates
+            elif current_templates != templates:
+                raise ArtifactError("V7 LUT-only optimizer group settings drift across ranks")
+            for surface, group in zip(("luts", "norms", "outputs"), groups):
+                names = list(row["param_names"][surface])
+                ids = list(group["params"])
+                if len(names) != len(ids):
+                    raise ArtifactError(f"V7 LUT-only optimizer name/id drift: {surface}")
+                if surface != "luts" and (names or ids):
+                    raise ArtifactError(f"V7 LUT-only frozen {surface} group contains parameters")
+                for name, local_id in zip(names, ids):
+                    if name not in global_ids or name in seen:
+                        raise ArtifactError(f"V7 LUT-only optimizer LUT membership drift: {name}")
+                    seen.add(name)
+                    if local_id in optimizer["state"]:
+                        merged_state[global_ids[name]] = optimizer["state"][local_id]
+        if seen != set(ordered_names) or templates is None:
+            raise ArtifactError("V7 LUT-only optimizer does not cover the named LUT set")
+        param_groups = [dict(template) for template in templates]
+        param_groups[0]["params"] = list(range(len(ordered_names)))
+        param_groups[1]["params"] = []
+        param_groups[2]["params"] = []
+        return {"state": merged_state, "param_groups": param_groups}
 
     def _transition_tensor_scan(self, values: list[tuple[str, Any]]) -> dict[str, Any]:
         """Summarize finite state at an existing optimizer mutation boundary."""
@@ -2973,6 +3099,8 @@ class ModernGreenResidentEngine:
             base_lrs = BASE_LRS
             multiplier = self.trainer.current_multiplier(global_step)
             group_windows = [20 + 4 * (global_step % 16) + offset for offset in range(4)]
+        if self.config.get("v7_lut_only_update") is True:
+            base_lrs = {"luts": float(self.config["lut_lr"]), "norms": 0.0, "outputs": 0.0}
         for group in self.optimizer.param_groups:
             group["lr"] = base_lrs[group["group_name"]] * multiplier
         groups = [group_windows[index:index + self.pipeline_microbatch] for index in range(0, len(group_windows), self.pipeline_microbatch)]
@@ -2980,7 +3108,7 @@ class ModernGreenResidentEngine:
             raise ArtifactError("controlled arm pipeline grouping drift")
         transition_diagnostic = bool(self.config.get("transition_diagnostic_receipt"))
         adam_diagnostic = (
-            _AdamForeachDiagnosticTap(torch, self.optimizer, self.luts)
+            _AdamForeachDiagnosticTap(torch, self.optimizer, self.optimizer_luts)
             if transition_diagnostic
             else None
         )
@@ -3137,7 +3265,10 @@ class ModernGreenResidentEngine:
         local_state = {
             "rank": self.rank,
             **{surface: {name: parameter.detach().cpu().clone() for name, parameter in values} for surface, values in local_params.items()},
-            "param_names": {surface: [name for name, _parameter in values] for surface, values in local_params.items()},
+            "param_names": {
+                surface: [name for name, _parameter in self.optimizer_rows[surface]]
+                for surface in local_params
+            },
             "optimizer": _cpu_tree(torch, self.optimizer.state_dict()),
         }
         self.dist.all_gather_object(rows, local_state)
@@ -3153,7 +3284,10 @@ class ModernGreenResidentEngine:
                 merged[surface].update(row[surface])
         if {surface: len(values) for surface, values in merged.items()} != {"luts": 43, "norms": 235, "outputs": 43}:
             raise ArtifactError("official resident merged trainable surface coverage drift")
-        optimizer = self.trainer.merge_optimizer_state(rows, merged)
+        if self.config.get("v7_lut_only_update") is True:
+            optimizer = self._merge_v7_lut_only_optimizer_state(rows)
+        else:
+            optimizer = self.trainer.merge_optimizer_state(rows, merged)
         scheduler = _cpu_tree(torch, self.scheduler.state_dict())
         report = {"rank_rows": rows, "optimizer": optimizer, "scheduler": scheduler}
         self.dist.barrier()
@@ -3194,8 +3328,17 @@ class ModernGreenResidentEngine:
             "scheduler_state": (report_state or {}).get("scheduler") if isinstance(report_state, Mapping) else None,
             "state_gathered": gather_state,
             "model_engine": "official-ShardStudent-grouped-K2-FWHT-resident",
-            "frozen_surfaces": ["packed_codes", "assignments", "scales"],
-            "trainable_surfaces": ["luts", "rmsnorms", "output_gains"],
+            "frozen_surfaces": (
+                ["packed_codes", "assignments", "scales", "rmsnorms", "output_gains", "unselected_luts"]
+                if self.config.get("v7_lut_only_update") is True
+                else ["packed_codes", "assignments", "scales"]
+            ),
+            "trainable_surfaces": (
+                ["selected_luts"]
+                if self.config.get("v7_lut_only_update") is True
+                else ["luts", "rmsnorms", "output_gains"]
+            ),
+            "optimizer_surface_manifest": self.optimizer_surface_manifest,
         }
         return merged_state, step_report, report_state
 

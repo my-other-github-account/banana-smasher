@@ -2815,6 +2815,30 @@ class ResidentRepairAPI:
         engine.close()
         return result
 
+    def continue_v7_lut_only_update(
+        self,
+        start_checkpoint: int | str,
+        *,
+        trainable_luts: Iterable[str],
+        lut_lr: float,
+        config: Mapping[str, Any],
+        receipt_path: str | Path,
+    ) -> dict[str, Any]:
+        """Run one PRE/U0 update with only explicitly named V7 LUTs mutable."""
+        start = self.artifact.checkpoint_key(start_checkpoint)
+        configured = dict(config)
+        configured.update(
+            v7_lut_only_update=True,
+            trainable_luts=list(trainable_luts),
+            lut_lr=lut_lr,
+        )
+        return self.continue_two_spark_real(
+            start,
+            (self._checkpoint_update(start) + 1,),
+            config=configured,
+            receipt_path=receipt_path,
+        )
+
     def continue_two_spark_real(
         self,
         start_checkpoint: int | str,
@@ -2974,6 +2998,13 @@ class ResidentRepairAPI:
                 controlled_config_sha256=controlled_config_sha256,
             )
         valid_one_update_proof = validation_proof and requested == (start_update + 1,)
+        valid_v7_lut_only_update = (
+            config.get("v7_lut_only_update") is True
+            and fresh_published_pre_start
+            and requested == (1,)
+            and not validation_proof
+            and config.get("tailfix_wholesale") is not True
+        )
         valid_fresh_pre_u1_u4 = fresh_published_pre_start and requested == (1, 2, 3, 4)
         valid_authenticated_u22_u26 = (
             published_pre_resume and start_update == 22 and requested == (26,)
@@ -3297,6 +3328,7 @@ class ResidentRepairAPI:
         )
         if not (
             valid_one_update_proof
+            or valid_v7_lut_only_update
             or valid_fresh_pre_u1_u4
             or valid_authenticated_u22_u26
             or valid_authenticated_u32_u35
@@ -3357,6 +3389,29 @@ class ResidentRepairAPI:
             raise ArtifactError(f"cannot load U16 checkpoint for official resident continuation: {exc}") from exc
         if not isinstance(payload, Mapping) or not isinstance(payload.get("state"), Mapping):
             raise ArtifactError("U16 checkpoint must contain official resident trainable state")
+        if valid_v7_lut_only_update:
+            state = payload["state"]
+            luts = state.get("luts") if isinstance(state, Mapping) else None
+            requested_luts = config.get("trainable_luts")
+            if not isinstance(luts, Mapping) or len(luts) != 43:
+                raise ArtifactError("V7 LUT-only update requires all 43 admitted PlaneSources")
+            if (
+                not isinstance(requested_luts, list)
+                or not requested_luts
+                or any(not isinstance(name, str) or not name for name in requested_luts)
+                or len(requested_luts) != len(set(requested_luts))
+                or not set(requested_luts).issubset(luts)
+            ):
+                raise ArtifactError("V7 LUT-only trainable_luts must name admitted LUTs exactly")
+            lut_lr = config.get("lut_lr")
+            if isinstance(lut_lr, bool):
+                raise ArtifactError("V7 LUT-only lut_lr must be finite and positive")
+            try:
+                lut_lr_value = float(str(lut_lr))
+            except (TypeError, ValueError) as exc:
+                raise ArtifactError("V7 LUT-only lut_lr must be finite and positive") from exc
+            if not math.isfinite(lut_lr_value) or lut_lr_value <= 0.0:
+                raise ArtifactError("V7 LUT-only lut_lr must be finite and positive")
         from .modern_green_resident import ModernGreenResidentEngine
         engine = ModernGreenResidentEngine(
             payload=payload, config=config, rank=rank, layer_ranges=ranges
