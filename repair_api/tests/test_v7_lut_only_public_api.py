@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import torch
 
 from repair_api import modern_green_resident as resident_module
-from repair_api.api import ResidentRepairAPI
+from repair_api.api import ResidentRepairAPI, _validate_published_pre_resume_start
 from repair_api.modern_green_resident import (
     BASE_LRS,
     ModernGreenResidentEngine,
@@ -163,3 +163,69 @@ def test_single_gpu_lut_only_skips_process_group_initialization():
     engine.dist = NoDistributedCalls()
 
     ModernGreenResidentEngine._init_distributed(engine)
+
+
+def test_single_gpu_full_surface_backend_disables_recompute_only():
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    config = {
+        "execution_backend": "single_gpu_resident_no_recompute",
+        "world_size": 1,
+    }
+
+    ModernGreenResidentEngine._configure_execution_backend(engine, config, rank=0)
+
+    assert engine.single_gpu_resident is True
+    assert engine.single_gpu_v7_lut_only is False
+    assert engine.activation_checkpointing is False
+
+    luts = _rows("layers", 43)
+    norms = _rows("norm", 235)
+    outputs = _rows("output", 43)
+    rows, manifest = _configure_v7_lut_only_optimizer(config, luts, norms, outputs)
+    assert [len(rows[name]) for name in ("luts", "norms", "outputs")] == [43, 235, 43]
+    assert manifest["mode"] == "joint_all43"
+
+
+def test_public_full_surface_wrapper_pins_one_successor_and_backend():
+    api = Mock()
+    api.artifact = Mock()
+    api.artifact.checkpoint_key.return_value = "UPDATE_020"
+    api._checkpoint_update.return_value = 20
+    api.continue_two_spark_real.return_value = {"status": "PASS"}
+
+    result = ResidentRepairAPI.continue_single_gpu_resident_update(
+        api,
+        "UPDATE_020",
+        config={"authorized_api": True, "activation_checkpointing": True},
+        receipt_path="receipt.json",
+    )
+
+    assert result == {"status": "PASS"}
+    called = api.continue_two_spark_real.call_args
+    assert called.args == ("UPDATE_020", (21,))
+    configured = called.kwargs["config"]
+    assert configured["execution_backend"] == "single_gpu_resident_no_recompute"
+    assert configured["activation_checkpointing"] is False
+    assert configured["world_size"] == 1
+    assert configured["layer_split"] == {"0": [0, 42]}
+    assert "v7_lut_only_update" not in configured
+
+
+def test_exact_u20_full_surface_backend_is_an_authenticated_resume():
+    sha = "2502bd03cc2c9deac966a24f8e8712633b1b0e0cb192d5eee71d10e91e77cccd"
+    _validate_published_pre_resume_start(
+        20,
+        {"sha256": sha, "optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr"},
+        config={
+            "checkpoint_sha256": sha,
+            "execution_backend": "single_gpu_resident_no_recompute",
+            "activation_checkpointing": False,
+            "world_size": 1,
+            "rank": 0,
+            "lr_scale": 0.5,
+            "recipe_id": "published_pre_lower_lr_warmup16_cosine64_v1",
+            "published_pre_checkpoint_sha256": "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70",
+            "fresh_published_pre_lineage": True,
+            "shared_optimizer_scheduler_lineage": "fresh-published-pre-adam-lambdalr",
+        },
+    )

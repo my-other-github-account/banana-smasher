@@ -39,6 +39,25 @@ def _validate_published_pre_resume_start(
     config: Mapping[str, Any],
 ) -> None:
     """Admit only an identity-exact scored resume of the published-PRE recipe."""
+    exact_u20 = "2502bd03cc2c9deac966a24f8e8712633b1b0e0cb192d5eee71d10e91e77cccd"
+    if (
+        start_update == 20
+        and start_meta.get("sha256") == exact_u20
+        and start_meta.get("optimizer_scheduler_lineage") == "fresh-published-pre-adam-lambdalr"
+        and config.get("checkpoint_sha256") == exact_u20
+        and config.get("execution_backend") == "single_gpu_resident_no_recompute"
+        and config.get("activation_checkpointing") is False
+        and config.get("world_size") == 1
+        and config.get("rank") == 0
+        and config.get("lr_scale") == 0.5
+        and config.get("recipe_id") == "published_pre_lower_lr_warmup16_cosine64_v1"
+        and config.get("published_pre_checkpoint_sha256")
+            == "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
+        and config.get("fresh_published_pre_lineage") is True
+        and config.get("shared_optimizer_scheduler_lineage")
+            == "fresh-published-pre-adam-lambdalr"
+    ):
+        return
     sealed_u22_sha256 = "47ff9433ef40877035d4db2aab60e8ad3aac0c214f0cea32fa338f4eb8346f82"
     sealed_u31_sha256 = "1a0ed291da9e0edc5094de892ca9fb4ae3fdd20b2cc6bfbf59fe2871eb90fffe"
     sealed_u33_sha256 = "0abdab68a393163993749a95b8cc6809f43b26e73cdc118ada1e9e58e725eff9"
@@ -2846,6 +2865,33 @@ class ResidentRepairAPI:
             receipt_path=receipt_path,
         )
 
+    def continue_single_gpu_resident_update(
+        self,
+        start_checkpoint: int | str,
+        *,
+        config: Mapping[str, Any],
+        receipt_path: str | Path,
+    ) -> dict[str, Any]:
+        """Advance one full-surface update with the resident no-recompute backend."""
+        start = self.artifact.checkpoint_key(start_checkpoint)
+        configured = dict(config)
+        configured.update(
+            execution_backend="single_gpu_resident_no_recompute",
+            activation_checkpointing=False,
+            world_size=1,
+            rank=0,
+            local_rank=0,
+            layer_split={"0": [0, 42]},
+            resident_validation_proof=False,
+        )
+        configured.pop("v7_lut_only_update", None)
+        return self.continue_two_spark_real(
+            start,
+            (self._checkpoint_update(start) + 1,),
+            config=configured,
+            receipt_path=receipt_path,
+        )
+
     def continue_two_spark_real(
         self,
         start_checkpoint: int | str,
@@ -2867,15 +2913,22 @@ class ResidentRepairAPI:
             config.get("v7_lut_only_update") is True
             and config.get("world_size") == 1
         )
+        single_gpu_full_surface = (
+            config.get("execution_backend") == "single_gpu_resident_no_recompute"
+            and config.get("world_size") == 1
+            and config.get("activation_checkpointing") is False
+            and not single_gpu_v7_lut_only
+        )
+        single_gpu_resident = single_gpu_v7_lut_only or single_gpu_full_surface
         if config.get("authorized_api") is not True or (
-            config.get("world_size") != 2 and not single_gpu_v7_lut_only
+            config.get("world_size") != 2 and not single_gpu_resident
         ):
             raise ArtifactError(
                 "real resident continuation requires authorized_api=True and world_size=2, "
-                "except canonical V7 LUT-only world_size=1"
+                "except canonical single-GPU resident world_size=1"
             )
         rank = config.get("rank")
-        valid_rank = rank == 0 if single_gpu_v7_lut_only else rank in (0, 1)
+        valid_rank = rank == 0 if single_gpu_resident else rank in (0, 1)
         if isinstance(rank, bool) or not isinstance(rank, int) or not valid_rank:
             raise ArtifactError("real resident continuation rank does not match world_size")
         rank = int(rank)
@@ -3022,6 +3075,21 @@ class ResidentRepairAPI:
             and requested == (1,)
             and not validation_proof
             and config.get("tailfix_wholesale") is not True
+        )
+        valid_single_gpu_full_surface_update = (
+            single_gpu_full_surface
+            and start_update == 20
+            and start_meta.get("sha256")
+                == "2502bd03cc2c9deac966a24f8e8712633b1b0e0cb192d5eee71d10e91e77cccd"
+            and config.get("checkpoint_sha256")
+                == "2502bd03cc2c9deac966a24f8e8712633b1b0e0cb192d5eee71d10e91e77cccd"
+            and requested == (21,)
+            and config.get("lr_scale") == 0.5
+            and config.get("shared_optimizer_scheduler_lineage")
+                == "fresh-published-pre-adam-lambdalr"
+            and config.get("scientific_identity")
+                == "exact U20 to U21; sole variable is single-GPU resident no-recompute execution backend"
+            and not validation_proof
         )
         valid_fresh_pre_u1_u4 = fresh_published_pre_start and requested == (1, 2, 3, 4)
         valid_authenticated_u22_u26 = (
@@ -3347,6 +3415,7 @@ class ResidentRepairAPI:
         if not (
             valid_one_update_proof
             or valid_v7_lut_only_update
+            or valid_single_gpu_full_surface_update
             or valid_fresh_pre_u1_u4
             or valid_authenticated_u22_u26
             or valid_authenticated_u32_u35
@@ -3393,9 +3462,9 @@ class ResidentRepairAPI:
             ranges = {int(key): tuple(int(item) for item in value) for key, value in assignment.items()}
         except (TypeError, ValueError) as exc:
             raise ArtifactError("layer_split must contain integer rank ranges") from exc
-        if single_gpu_v7_lut_only:
+        if single_gpu_resident:
             if ranges != {0: (0, 42)}:
-                raise ArtifactError("single-GPU V7 LUT-only layer_split must assign all 43 layers to rank 0")
+                raise ArtifactError("single-GPU resident layer_split must assign all 43 layers to rank 0")
         else:
             if set(ranges) != {0, 1} or any(len(value) != 2 for value in ranges.values()):
                 raise ArtifactError("layer_split must explicitly assign both ranks")
