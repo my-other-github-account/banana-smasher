@@ -138,6 +138,36 @@ def test_bind_checkpoint_state_admits_expert_plane_surface() -> None:
     assert events == ["promote", ("load", saved_plane)]
 
 
+def test_bind_checkpoint_state_skips_expert_surface_on_nonowning_rank() -> None:
+    loaded: list[tuple[object, object]] = []
+
+    class Trainer:
+        @staticmethod
+        def expose_local_dense(torch, student, admission):
+            return {}, {}, {}
+
+        @staticmethod
+        def load_local_state(rows, saved, device):
+            loaded.append((rows, saved))
+
+    engine = OfficialK2ResidentRankEngine.__new__(OfficialK2ResidentRankEngine)
+    engine.trainer = Trainer()
+    engine.__dict__["torch"] = torch
+    engine.student = SimpleNamespace(device="cuda", experts={})
+    payload = {
+        "state": {
+            "luts": {},
+            "norms": {},
+            "outputs": {},
+            "expert_planes_l028_su_sv": {"rank1-only": torch.tensor([1.0])},
+        }
+    }
+
+    engine._bind_checkpoint_state(payload, {})
+
+    assert len(loaded) == 3
+
+
 def test_scored_u1_differs_from_u0_when_plane_delta_nonzero() -> None:
     class Expert:
         score_value = 0.0

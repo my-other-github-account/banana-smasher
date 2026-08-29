@@ -2303,7 +2303,7 @@ class OfficialK2ResidentRankEngine:
             experts = getattr(self.student, "experts", None)
             module = experts.get(28) if isinstance(experts, Mapping) else None
             if module is None:
-                raise ArtifactError("official-K2 checkpoint has L028 SU/SV state but no L028 expert")
+                return
             try:
                 list(module.promote_l028_su_sv())
                 module.load_expert_plane_state(saved_planes)
