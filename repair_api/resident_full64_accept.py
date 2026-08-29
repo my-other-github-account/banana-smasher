@@ -792,6 +792,71 @@ def _replay_a30_route_schedules(
     }
 
 
+def _replay_source_return_assemblies(
+    hidden_states: Any,
+    top_k_index: Any,
+    weighted_slot_major_flat: Any,
+    control_return: Any,
+    provider_return: Any,
+) -> dict[str, Any]:
+    """Compare accepted torch.where assembly with provider flat-mask assembly."""
+    import torch.nn.functional as F
+
+    tokens, slots = (int(top_k_index.shape[0]), int(top_k_index.shape[1]))
+    slot_major = weighted_slot_major_flat.reshape(slots, tokens, -1)
+    num_experts = max(256, int(top_k_index.max().item()) + 1)
+
+    def accepted_where_index_add() -> Any:
+        final = torch.zeros_like(hidden_states)
+        mask = F.one_hot(top_k_index, num_classes=num_experts).permute(2, 1, 0)
+        hit = torch.greater(mask.sum(dim=(-1, -2)), 0).nonzero()
+        for expert_row in hit:
+            expert = expert_row[0]
+            top_k_pos, token_index = torch.where(mask[expert])
+            final.index_add_(
+                0, token_index, slot_major[top_k_pos, token_index].to(final.dtype)
+            )
+        return final
+
+    accepted_a = accepted_where_index_add()
+    accepted_b = accepted_where_index_add()
+    if not torch.equal(accepted_a, accepted_b):
+        raise RuntimeError("RUN6519_ACCEPTED_ASSEMBLY_SELF_COMPARE_RED")
+
+    token_index = (
+        torch.arange(tokens, device=top_k_index.device)
+        .unsqueeze(1).expand_as(top_k_index).reshape(-1)
+    )
+    expert_index = top_k_index.reshape(-1).to(torch.int64)
+    token_major_weighted = slot_major.transpose(0, 1).reshape(-1, slot_major.shape[-1])
+    provider_flat = torch.zeros_like(hidden_states)
+    for expert in torch.unique(expert_index, sorted=True):
+        selected = expert_index == expert
+        provider_flat.index_add_(
+            0, token_index[selected], token_major_weighted[selected].to(provider_flat.dtype)
+        )
+
+    accepted_exact = torch.equal(accepted_a, control_return)
+    provider_exact = torch.equal(provider_flat, provider_return)
+    return {
+        "status": "RETURN_ASSEMBLY_PRIMITIVE_LOCALIZED" if accepted_exact and provider_exact else "RETURN_ASSEMBLY_PRIMITIVE_INCONCLUSIVE",
+        "installed_provider_source": "repair_api/modern_green_resident.py:538-573",
+        "accepted_builder_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473; accepted DeepseekV4Experts forward torch.where/index_add primitive",
+        "instrument_control_self_compare_exact": True,
+        "accepted_where_index_add": _tensor_tap(accepted_a),
+        "provider_flat_mask_index_add": _tensor_tap(provider_flat),
+        "authentic_control_return": _tensor_tap(control_return),
+        "authentic_provider_return": _tensor_tap(provider_return),
+        "accepted_matches_authentic_control": accepted_exact,
+        "provider_flat_matches_authentic_provider": provider_exact,
+        "first_assembly_operation_divergence": (
+            "provider_flattened_token_major_boolean_mask_index_add_invocation"
+            if accepted_exact and provider_exact and not torch.equal(accepted_a, provider_flat)
+            else None
+        ),
+    }
+
+
 def _run_one_layer_with_attention(engine: Any, layer: Any, hidden: Any, ids: Any) -> tuple[Any, Any]:
     from transformers.cache_utils import DynamicCache
 
@@ -1582,6 +1647,20 @@ def _sealed_runtime_expert_trace_ab(
                     variant_trace["a30_expert_major_return"],
                 ),
             }
+            route_tokens = int(variant_trace["authentic_routed_return"].shape[0])
+            source_top_k_index = variant_trace["authentic_expert_indices"].reshape(
+                route_tokens, -1
+            )
+            source_return_assembly = _replay_source_return_assemblies(
+                control_trace["authentic_routed_return"].new_zeros(
+                    control_trace["authentic_routed_return"].shape
+                ),
+                source_top_k_index,
+                variant_trace["full_weighted_routed_output"],
+                control_trace["authentic_routed_return"],
+                variant_trace["authentic_routed_return"],
+            )
+            local["source_return_assembly"] = source_return_assembly
             local["a30_authentic_route_capture"] = {
                 "w2_output": _tensor_tap(variant_trace["authentic_w2_output"]),
                 "route_weights": _tensor_tap(variant_trace["authentic_route_weights"]),
@@ -1642,9 +1721,12 @@ def _sealed_runtime_expert_trace_ab(
     routed_return_assembly = gathered[0].get("routed_return_assembly")
     if not isinstance(routed_return_assembly, dict):
         raise RuntimeError("A30O_ROUTED_RETURN_ASSEMBLY_WITNESS_MISSING")
-    first_assembly_operation = routed_return_assembly.get(
-        "first_unequal_assembly_operation"
-    )
+    source_return_assembly = gathered[0].get("source_return_assembly")
+    if not isinstance(source_return_assembly, dict):
+        raise RuntimeError("RUN6519_SOURCE_RETURN_ASSEMBLY_MISSING")
+    first_assembly_operation = source_return_assembly.get(
+        "first_assembly_operation_divergence"
+    ) or routed_return_assembly.get("first_unequal_assembly_operation")
     candidate = {
         "status": (
             "A30O_AUTHENTIC_RETURN_ASSEMBLY_PARITY"
@@ -1670,7 +1752,8 @@ def _sealed_runtime_expert_trace_ab(
         "a30_authentic_route_capture": gathered[0].get("a30_authentic_route_capture"),
         "pre_gemm_comparison": pre_gemm,
         "routed_return_assembly": routed_return_assembly,
-        "assembly_control_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:593-643 (A27 sealed authentic routed return)",
+        "source_return_assembly": source_return_assembly,
+        "assembly_control_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473 + accepted DeepseekV4Experts torch.where/index_add forward",
         "assembly_variant_source": "repair_api/modern_green_resident.py:520-543 (_sealed_builder_accumulate_routes)",
         "source_backed_repair_candidate": candidate,
         "mechanism": gathered[0].get("mechanism"),

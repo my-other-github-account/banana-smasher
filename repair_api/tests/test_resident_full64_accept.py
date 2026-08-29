@@ -698,6 +698,27 @@ def test_authentic_route_observer_preserves_all_five_producer_tensors() -> None:
         )
 
 
+def test_run6519_source_return_assembly_smoke() -> None:
+    from repair_api.resident_full64_accept import _replay_source_return_assemblies
+
+    hidden = torch.zeros((2, 1), dtype=torch.bfloat16)
+    top_k_index = torch.tensor([[9, 3], [3, 9]], dtype=torch.int64)
+    weighted_slot_major = torch.tensor(
+        [[1.0], [100.0], [10.0], [1000.0]], dtype=torch.bfloat16
+    )
+    expected = torch.tensor([[11.0], [1100.0]], dtype=torch.bfloat16)
+
+    observed = _replay_source_return_assemblies(
+        hidden, top_k_index, weighted_slot_major, expected, expected,
+    )
+
+    assert observed["status"] == "RETURN_ASSEMBLY_PRIMITIVE_LOCALIZED"
+    assert observed["instrument_control_self_compare_exact"] is True
+    assert observed["accepted_matches_authentic_control"] is True
+    assert observed["provider_flat_matches_authentic_provider"] is True
+    assert observed["first_assembly_operation_divergence"] is None
+
+
 def test_a30o_authentic_return_witness_localizes_route_order() -> None:
     from repair_api.resident_full64_accept import _routed_return_assembly_witness
 
