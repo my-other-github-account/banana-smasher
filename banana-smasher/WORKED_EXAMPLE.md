@@ -79,13 +79,13 @@ if __name__ == "__main__":
 
 ## 3. Expected output shape
 
-A sealed acceptance-lineage example is:
+A sealed API-only acceptance run is:
 
 ```json
 {
   "improved": true,
-  "post_kld": 0.211277616743619,
-  "pre_kld": 0.2292069946743951,
+  "post_kld": 0.19679708649601896,
+  "pre_kld": 0.2293426224965154,
   "updates": 45
 }
 ```
