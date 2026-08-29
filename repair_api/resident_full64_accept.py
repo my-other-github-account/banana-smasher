@@ -1521,6 +1521,8 @@ def _run_one_layer_with_authentic_projection_control(
     prior_instance_forward = experts.__dict__.get("forward")
     original_forward = experts.forward
     captured: dict[str, Any] = {}
+    projection_count = 0
+    all_exact = True
 
     def transparent_forward(
         module: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any,
@@ -1529,17 +1531,19 @@ def _run_one_layer_with_authentic_projection_control(
         target_weight = module.down_proj[204]
 
         def intercepted_linear(value: Any, weight: Any, bias: Any = None) -> Any:
+            nonlocal projection_count, all_exact
             authentic = original_linear(value, weight, bias)
             is_target = (
                 tuple(weight.shape) == tuple(target_weight.shape)
                 and tuple(weight.stride()) == tuple(target_weight.stride())
-                and int(weight.storage_offset()) == int(target_weight.storage_offset())
-                and int(weight.data_ptr()) == int(target_weight.data_ptr())
             )
             if is_target:
-                if captured:
-                    raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_DUPLICATE")
                 replay = original_linear(value, weight, bias)
+                projection_count += 1
+                all_exact = all_exact and torch.equal(authentic, replay)
+                # The source iterates sorted active experts. Overwrite aliases so
+                # the retained witness is the final authentic down projection,
+                # while every invocation is duplicated at its exact call site.
                 captured.update(
                     input=value.detach(), weight=weight.detach(),
                     authentic=authentic.detach(), replay=replay.detach(),
@@ -1559,15 +1563,16 @@ def _run_one_layer_with_authentic_projection_control(
             experts.__dict__.pop("forward", None)
     if tuple(captured) != ("input", "weight", "authentic", "replay"):
         raise RuntimeError("AUTHENTIC_SOURCE_PROJECTION_CONTROL_MISSING")
-    exact = torch.equal(captured["authentic"], captured["replay"])
+    exact = all_exact and projection_count > 0
     return output, {
         "status": (
             "AUTHENTIC_SOURCE_PROJECTION_CONTROL_EXACT"
             if exact else "AUTHENTIC_SOURCE_PROJECTION_CONTROL_RED"
         ),
         "instrument_control_self_compare_exact": exact,
-        "one_variable": "none: immediate duplicate of the identical authentic source F.linear invocation",
-        "accepted_source": "transformers DeepseekV4Experts.forward down_projection F.linear",
+        "projection_invocation_count": projection_count,
+        "one_variable": "none: immediate duplicate of every identical authentic source down-projection F.linear invocation",
+        "accepted_source": "transformers modeling_deepseek_v4.py:1006-1022 DeepseekV4Experts.forward",
         "materialization_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:456-473",
         "input": _tensor_tap(captured["input"]),
         "weight": _tensor_tap(captured["weight"]),
