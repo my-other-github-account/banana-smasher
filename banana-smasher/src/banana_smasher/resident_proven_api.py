@@ -166,6 +166,77 @@ class ResidentRepairAPI:
             return int(match.group(1))
         raise ArtifactError(f"checkpoint {key} does not declare a milestone update")
 
+    def _expert_plane_continuation_start(
+        self, start: str, start_update: int, *, lineage: str
+    ) -> dict[str, Any]:
+        """Authenticate an expert-plane continuation resuming its own sealed state.
+
+        The first L028 SU/SV canary must root at the published PRE (U0).  A later
+        update is admissible only when it is a sealed checkpoint this API itself
+        persisted and its parent chain walks contiguously back to U0 under one
+        unchanged optimizer/scheduler lineage.  This preserves the authenticated
+        expansion identity while allowing ordered continuation past the canary;
+        it never admits a foreign root or a lineage swap.
+        """
+        checkpoints = self.artifact.manifest.get("checkpoints", {})
+        if not isinstance(checkpoints, Mapping):
+            raise ArtifactError("artifact manifest is missing a checkpoint table")
+        chain: list[str] = []
+        cursor = start
+        cursor_update = start_update
+        while cursor_update > 0:
+            meta = checkpoints.get(cursor)
+            if not isinstance(meta, Mapping):
+                raise ArtifactError(
+                    f"L028 SU/SV continuation start {cursor} is not a sealed manifest checkpoint"
+                )
+            if meta.get("checkpoint_loaded") is not True or meta.get("fixture") is not False:
+                raise ArtifactError(
+                    f"L028 SU/SV continuation ancestor {cursor} is not a real loaded continuation checkpoint"
+                )
+            if meta.get("world_size") != 2:
+                raise ArtifactError(
+                    f"L028 SU/SV continuation ancestor {cursor} was not produced by the two-rank pipeline"
+                )
+            if meta.get("optimizer_scheduler_lineage") != lineage:
+                raise ArtifactError(
+                    "L028 SU/SV continuation must keep one unchanged optimizer/scheduler lineage"
+                )
+            if self._checkpoint_update(cursor) != cursor_update:
+                raise ArtifactError(
+                    f"L028 SU/SV continuation ancestor {cursor} declares a drifted milestone update"
+                )
+            parent_sha = meta.get("parent_sha256")
+            parent_update = cursor_update - 1
+            parent_key = f"UPDATE_{parent_update:03d}"
+            parent_meta = checkpoints.get(parent_key)
+            if not isinstance(parent_meta, Mapping):
+                raise ArtifactError(
+                    f"L028 SU/SV continuation parent {parent_key} is absent from the manifest"
+                )
+            if parent_meta.get("sha256") != parent_sha:
+                raise ArtifactError(
+                    f"L028 SU/SV continuation parent SHA does not bind {cursor} to {parent_key}"
+                )
+            chain.append(cursor)
+            cursor = parent_key
+            cursor_update = parent_update
+        if cursor_update != 0:
+            raise ArtifactError("L028 SU/SV continuation chain does not root at the published PRE U0")
+        root_meta = checkpoints.get(cursor)
+        if not isinstance(root_meta, Mapping):
+            raise ArtifactError("published PRE U0 is absent from the manifest")
+        chain.append(cursor)
+        return {
+            "schema": "resident-expert-plane-continuation-admission-v1",
+            "start_checkpoint": start,
+            "start_update": start_update,
+            "pre_root_checkpoint": cursor,
+            "pre_root_sha256": root_meta.get("sha256"),
+            "optimizer_scheduler_lineage": lineage,
+            "ancestry": list(reversed(chain)),
+        }
+
     def _teacher_inventory(self, windows: tuple[int, ...], value: Any) -> Any:
         if value is not None:
             return value
@@ -1815,14 +1886,22 @@ class ResidentRepairAPI:
         expert_plane_expansion = _validated_expert_plane_expansion(config)
         if expert_plane_expansion is None and not 16 <= start_update < 64:
             raise ArtifactError("real two-Spark continuation must start within U16..U63")
+        expert_plane_continuation: dict[str, Any] | None = None
         if expert_plane_expansion is not None and start_update != 0:
-            raise ArtifactError("L028 SU/SV expansion must start from published PRE U0")
+            # The authenticated L028 SU/SV expansion is rooted at the published
+            # PRE U0.  Resuming from a checkpoint this same expansion sealed is
+            # the same experiment continued, not a new root: admit it only when
+            # the parent chain walks contiguously back to U0 under one unchanged
+            # optimizer/scheduler lineage.
+            expert_plane_continuation = self._expert_plane_continuation_start(
+                start, start_update, lineage=lineage
+            )
         requested = tuple(int(value) for value in milestones)
         diagnostic_zero_update = config.get("diagnostic_zero_update_roundtrip") is True
         if diagnostic_zero_update:
             if requested:
                 raise ArtifactError("zero-update load diagnosis forbids training milestones")
-        elif expert_plane_expansion is not None and requested != (1,):
+        elif expert_plane_expansion is not None and start_update == 0 and requested != (1,):
             raise ArtifactError("first L028 SU/SV canary must run exactly one U0->U1 update")
         elif (
             requested != tuple(sorted(set(requested)))
@@ -1919,7 +1998,7 @@ class ResidentRepairAPI:
                 raise ArtifactError("zero-update load diagnosis broadcast is missing")
             result = {**dict(diagnostic), "rank": rank}
             self._write_immutable_receipt(receipt_path, result)
-            engine.close()
+            engine.close(phase="diagnostic_zero_update")
             return result
         rows: list[dict[str, Any]] = []
         previous_sha = start_sha
@@ -2021,8 +2100,10 @@ class ResidentRepairAPI:
             if public_entrypoint != "banana_smasher.ResidentRepairAPI.continue_training":
                 raise ArtifactError("public resident continuation entrypoint drift")
             result["public_api"] = public_entrypoint
+        if expert_plane_continuation is not None:
+            result["expert_plane_continuation"] = expert_plane_continuation
         self._write_immutable_receipt(receipt_path, result)
-        engine.close()
+        engine.close(phase="repair_train")
         return result
 
     def continue_two_spark(
