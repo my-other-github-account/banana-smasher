@@ -1238,7 +1238,7 @@ def _load_r20_grouped_decoder() -> Any:
 
     assets = Path(__file__).resolve().parent / "assets"
     path = assets / "fast_k2_grouped.py"
-    expected = "86d560f494646fd9bcdc0a2297e8fdea1afaf3362c24c33aad9111f19b512005"
+    expected = "5ff7e60b1b7d21abee2dbdc3202a1cf2c3787c3bd4744af34f1a9b6ace5ff361"
     if sha(path) != expected:
         raise RuntimeError("R20_DIAGNOSTIC_DECODER_HASH_MISMATCH")
     spec = importlib.util.spec_from_file_location("r20_tensor_ab_diagnostic_decoder", path)
