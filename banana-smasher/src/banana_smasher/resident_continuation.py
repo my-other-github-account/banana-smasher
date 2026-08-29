@@ -197,7 +197,7 @@ def _merge_expanded_optimizer_state(
     if seen != set(range(len(global_ids))):
         raise ArtifactError("expanded optimizer global parameter coverage drift")
     missing = {name for name, global_id in global_ids.items() if global_id not in merged_state}
-    if missing != (set(global_ids) & dormant_names):
+    if not missing.issubset(set(global_ids) & dormant_names):
         raise ArtifactError("expanded optimizer sparse-state coverage drift")
     return {
         "state": merged_state,

@@ -797,7 +797,10 @@ def merge_optimizer_state(
         name for name, global_id in global_ids.items() if global_id not in merged_state
     }
     expected_missing_state_names = set(global_ids) & DORMANT_NORMS
-    if missing_state_names != expected_missing_state_names:
+    # A resumed Adam checkpoint may already contain state for parameters that
+    # are dormant in the current step.  Only unexpected missing state is a
+    # coverage error; pre-existing dormant state is valid and must persist.
+    if not missing_state_names.issubset(expected_missing_state_names):
         raise RuntimeError(
             "global optimizer sparse-state coverage drift: "
             f"missing={sorted(missing_state_names)[:3]} "
