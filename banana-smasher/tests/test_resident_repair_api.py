@@ -590,7 +590,7 @@ def test_arm_requires_measured_kld_improvement_and_seals_both_numbers(
 
     monkeypatch.setattr(
         "banana_smasher.artifact_identity.ArtifactIdentity.require_canary",
-        lambda self, *, kld, top1: None,
+        lambda self, *, kld, top1, allow_kld_improvement=False: None,
     )
     rails = ScoredRails(tmp_path)
     api = ResidentRepairAPI(rails=rails, run_root=tmp_path / "pass")

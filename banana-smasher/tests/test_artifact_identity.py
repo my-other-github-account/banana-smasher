@@ -89,3 +89,18 @@ def test_canary_kld_failure_reports_actual_reference_delta_and_tolerance(tmp_pat
     assert "reference=0.22939197531977115" in message
     assert "abs_delta=0.27060802468022882" in message
     assert "abs_tolerance=0.0045878395063954228" in message
+
+
+def test_post_canary_accepts_kld_better_than_lower_tolerance_bound(tmp_path: Path) -> None:
+    (tmp_path / "identity.json").write_text(json.dumps(document()))
+    value = ArtifactIdentity.load(tmp_path)
+
+    value.require_canary(kld=0.1971105878793163, top1=56533, allow_kld_improvement=True)
+
+
+def test_post_canary_still_rejects_kld_worse_than_upper_tolerance_bound(tmp_path: Path) -> None:
+    (tmp_path / "identity.json").write_text(json.dumps(document()))
+    value = ArtifactIdentity.load(tmp_path)
+
+    with pytest.raises(PackValidationError, match="outside declared tolerance"):
+        value.require_canary(kld=0.5, top1=56533, allow_kld_improvement=True)

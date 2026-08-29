@@ -600,7 +600,11 @@ class ResidentRepairAPI:
                 raise ValueError(
                     "canonical scorer result lacks mean_kld/top1_matches"
                 ) from exc
-            artifact.identity.require_canary(kld=kld, top1=top1)
+            artifact.identity.require_canary(
+                kld=kld,
+                top1=top1,
+                allow_kld_improvement=phase == "post",
+            )
             return _checkpoint_receipt(
                 result, checkpoint_sha, operation=f"score_{phase}"
             )

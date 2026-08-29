@@ -1024,7 +1024,11 @@ class ProductionRails:
         )
         # The canary is selected by the exact identity admitted above.  Publish
         # no score event until the artifact-declared values pass.
-        ArtifactIdentity.load(artifact.root).require_canary(kld=kld, top1=top1)
+        ArtifactIdentity.load(artifact.root).require_canary(
+            kld=kld,
+            top1=top1,
+            allow_kld_improvement=phase == "post",
+        )
         if phase == "pre":
             self._pre_checkpoint = binding.checkpoint
             self._phase_state = "pre_scored"

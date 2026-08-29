@@ -166,10 +166,19 @@ class ArtifactIdentity:
             document=dict(document),
         )
 
-    def require_canary(self, *, kld: float, top1: int) -> None:
+    def require_canary(
+        self, *, kld: float, top1: int, allow_kld_improvement: bool = False
+    ) -> None:
         actual_kld = float(kld)
         kld_delta = abs(actual_kld - self.canary.reference_kld)
-        if kld_delta > self.canary.kld_abs_tolerance:
+        kld_too_high = (
+            actual_kld - self.canary.reference_kld
+            > self.canary.kld_abs_tolerance
+        )
+        if kld_too_high or (
+            not allow_kld_improvement
+            and kld_delta > self.canary.kld_abs_tolerance
+        ):
             raise PackValidationError(
                 "artifact canary KLD is outside declared tolerance: "
                 f"actual={actual_kld:.17g} "

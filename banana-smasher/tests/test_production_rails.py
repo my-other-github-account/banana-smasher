@@ -651,7 +651,12 @@ def test_default_provider_releases_each_phase_engine_and_scores_trained_state(
     monkeypatch.setattr(
         ProductionRails, "_require_live_checkpoint_bytes", staticmethod(lambda *args: None)
     )
-    monkeypatch.setattr(ArtifactIdentity, "require_canary", lambda self, **kwargs: None)
+    canary_calls = []
+
+    def record_canary(self, **kwargs):
+        canary_calls.append(kwargs)
+
+    monkeypatch.setattr(ArtifactIdentity, "require_canary", record_canary)
     monkeypatch.setattr(
         production_rails,
         "_require_distributed_pair_binding",
@@ -670,6 +675,8 @@ def test_default_provider_releases_each_phase_engine_and_scores_trained_state(
     )
     post = facade.score_post(artifact, checkpoint_sha=artifact.checkpoint_sha256)
 
+    assert canary_calls[0]["allow_kld_improvement"] is False
+    assert canary_calls[-1]["allow_kld_improvement"] is True
     assert FakeEngine.constructions == 3
     assert FakeEngine.closures == 3
     assert pre["checkpoint"] == "UPDATE_000"

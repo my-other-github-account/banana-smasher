@@ -90,7 +90,7 @@ A sealed acceptance-lineage example is:
 }
 ```
 
-The current run's exact values may differ. Acceptance is mechanical: the real current POST must be lower than the real current PRE. `score_post()` also publishes `facade/rankN/RESIDENT_ARM_RESULT.json` and raises when the inequality fails.
+The current run's exact values may differ. Acceptance is mechanical: the real current POST must be lower than the real current PRE. The POST canary treats a KLD below the artifact reference as an improvement, not an identity mismatch; it still rejects KLD above the declared upper tolerance and still enforces the declared Top-1 tolerance. `score_post()` also publishes `facade/rankN/RESIDENT_ARM_RESULT.json` and raises when the inequality fails.
 
 ## 4. Equivalent public command
 
