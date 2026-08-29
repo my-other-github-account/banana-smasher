@@ -1661,6 +1661,12 @@ class ModernGreenResidentEngine:
         if not self.teacher_root.is_dir():
             raise ArtifactError(f"official resident teacher root is missing: {self.teacher_root}")
         admission = json.loads(admission_path.read_text())
+        if config.get("lut_parent_root"):
+            from .official_k2_resident_score import _rebase_admission_lut_sources
+
+            admission = _rebase_admission_lut_sources(
+                admission, config["lut_parent_root"]
+            )
         if admission.get("framework") != "banana-smasher":
             raise ArtifactError("official resident admission framework drift")
         if len(admission.get("trainable_roster", {}).get("luts", [])) != 43:
