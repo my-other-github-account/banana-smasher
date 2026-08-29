@@ -23,6 +23,7 @@ PUBLIC_SRC = Path(os.environ["BANANA_SMASHER_PUBLIC_SRC"]).resolve()
 if str(PUBLIC_SRC) not in os.sys.path:
     os.sys.path.insert(0, str(PUBLIC_SRC))
 from banana_smasher import qtip_k2 as official_k2  # noqa: E402
+from banana_smasher.banana_v1_runtime_adapter import BananaV1All43Adapter  # noqa: E402
 
 EXPERTS = 256
 PROJECTIONS = ("w1", "w2", "w3")
@@ -32,6 +33,31 @@ _V7_PROJECTION_SHAPES = {
     "w2": (4096, 2048),
     "w3": (2048, 4096),
 }
+_BANANA_V1_CACHE: tuple[tuple[str, str, str, str], BananaV1All43Adapter] | None = None
+
+
+def _banana_v1_adapter_from_env() -> BananaV1All43Adapter | None:
+    global _BANANA_V1_CACHE
+    manifest = os.environ.get("BANANA_V1_ALL43_MANIFEST")
+    if manifest is None:
+        return None
+    key = (
+        manifest,
+        os.environ["BANANA_V1_ALL43_MANIFEST_SHA256"],
+        os.environ["BANANA_V1_ALL43_BASIS_SHA256"],
+        os.environ["BANANA_V1_ALL43_TERMINAL_SHA256"],
+    )
+    if _BANANA_V1_CACHE is None or _BANANA_V1_CACHE[0] != key:
+        _BANANA_V1_CACHE = (
+            key,
+            BananaV1All43Adapter.open(
+                key[0],
+                expected_manifest_sha256=key[1],
+                expected_basis_sha256=key[2],
+                expected_terminal_sha256=key[3],
+            ),
+        )
+    return _BANANA_V1_CACHE[1]
 
 
 def official_parent_lut(source: Any) -> torch.Tensor:
@@ -127,6 +153,10 @@ class JointV7ExpertBase(nn.Module):
         self.pilot = bool(pilot)
         if not self.pilot or int(plane_source.layer) != self.L:
             raise RuntimeError(f"invalid admitted PlaneSource for L{self.L:03d}")
+        if plane_source.__dict__.get("_banana_v1_all43_adapter") is None:
+            adapter = _banana_v1_adapter_from_env()
+            if adapter is not None:
+                plane_source.__dict__["_banana_v1_all43_adapter"] = adapter
         self.__dict__["plane_source"] = plane_source
         self.act = F.silu
 

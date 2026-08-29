@@ -222,3 +222,4 @@ def test_joint_expert_dispatches_decoded_weight_through_bound_adapter() -> None:
     ).read_text()
 
     assert "adapter.patch_weight(self.layer, self.expert, self.projection, weight)" in source
+    assert "_banana_v1_adapter_from_env()" in source
