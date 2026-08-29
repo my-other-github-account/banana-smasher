@@ -18,6 +18,7 @@ def test_localizes_only_missing_sealed_locator_with_exact_basis(monkeypatch, tmp
     basis = hashlib.sha256(index.read_bytes()).hexdigest()
     monkeypatch.setenv("BANANA_SMASHER_OFFICIAL_MODEL_ROOT", str(candidate))
     monkeypatch.setattr("repair_api.api.BASIS_SHA256", basis)
+    monkeypatch.setattr("repair_api.api.bind_sealed_pre_resident_config", lambda config: {})
     monkeypatch.setattr("pathlib.Path.exists", lambda self: self != Path(STALE))
     monkeypatch.setattr("pathlib.Path.is_file", lambda self: True)
     original_read_bytes = Path.read_bytes

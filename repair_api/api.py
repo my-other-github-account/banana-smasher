@@ -32,6 +32,7 @@ from .official_k2_resident_score import (
     _published_pre_production_admitted,
     validate_routed_k2_closure,
 )
+from .sealed_pre_forward import bind_sealed_pre_resident_config
 
 
 _STALE_SPARK5_MODEL_ROOT = Path(
@@ -89,6 +90,7 @@ def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str,
         if expected and hashlib.sha256(replacement.read_bytes()).hexdigest() != expected:
             raise ArtifactError(f"official-K2 localized immutable SHA mismatch: {replacement}")
         resolved[field] = str(replacement.resolve())
+    bind_sealed_pre_resident_config(resolved)
     return resolved
 
 
