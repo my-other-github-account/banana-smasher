@@ -337,6 +337,15 @@ def test_local_dual_shard_rebases_read_counters_after_both_ranks_load() -> None:
     assert rank1 < rank1_loaded <= rank0_rebased < rank1_rebased < scoring_ready
 
 
+def test_local_dual_shard_rebinds_both_ranks_before_timed_read_boundary() -> None:
+    source = inspect.getsource(OfficialK2LocalDualShardEngine.rebind_checkpoint)
+    rank0 = source.index("self.rank0.rebind_checkpoint(**kwargs)")
+    rank1 = source.index("self.rank1.rebind_checkpoint(**kwargs)")
+    rank0_ready = source.index("self.rank0.read_counter.mark_resident_ready()")
+    rank1_ready = source.index("self.rank1.read_counter.mark_resident_ready()")
+    assert rank0 < rank1 < rank0_ready < rank1_ready
+
+
 def test_rank1_preflight_deducts_exact_brokered_storage_from_incremental_peak() -> None:
     owner = torch.arange(16)
     alias = owner.view(4, 4)

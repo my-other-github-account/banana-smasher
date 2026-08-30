@@ -64,10 +64,7 @@ CANONICAL_U1_IDENTITY_SHA256 = "53cb15a23aa2c695b2ff1ca5d0bcb6dabc7848d154785c2f
 # This exact predecessor differs only by the U1 raw-identity adapter.  Its U0
 # binary64 resume rows therefore remain byte-for-byte valid after that repair.
 U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256 = "ba94e819badadeace56ff0c48b780a1f4129f0d58daffdd2759de1d25bd98236"
-# This predecessor completed canonical U0 before terminal closure rejected
-# rank-1 cold-load reads observed by rank 0's process-global audit hook.  The
-# score terms are unchanged; only the post-score read-counter boundary moved.
-U0_CLOSURE_COMPATIBLE_IMPLEMENTATION_SHA256 = "781e37ea09f5bbac6659f0a5da331c1d56cebd1c63eb2a892e04dc9f4f7f00f6"
+
 # This serialized PRE is production-admitted only through the exact published
 # identity plus fresh one-update lineage; every other use remains quarantined.
 ALTERNATE_PRE_CHECKPOINT_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
@@ -2406,9 +2403,13 @@ class OfficialK2ResidentRankEngine:
             "memory_preflight": dict(self.memory_preflight),
             "layer_range": [self.first, self.last],
         }
-        rows: list[Any] = [None, None]
-        self.dist.all_gather_object(rows, local_ready)
-        self.resident_ready = rows
+        if self.local_dual_shard:
+            self.local_ready = local_ready
+            self.resident_ready = [local_ready]
+        else:
+            rows: list[Any] = [None, None]
+            self.dist.all_gather_object(rows, local_ready)
+            self.resident_ready = rows
 
     def _assert_fully_resident_grouped_experts(self) -> None:
         local_layers = self.student.model.model.layers[self.first : self.last + 1]
@@ -2603,7 +2604,14 @@ class OfficialK2ResidentRankEngine:
 
     @staticmethod
     def _score_implementation_sha256() -> str:
-        return _sha256_file(Path(__file__).resolve())
+        dependency = Path(__file__).resolve().with_name("modern_green_resident.py")
+        closure = {
+            "official_k2_resident_score.py": _sha256_file(Path(__file__).resolve()),
+            "modern_green_resident.py": _sha256_file(dependency),
+        }
+        return hashlib.sha256(
+            json.dumps(closure, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
 
     def _persist_score_resume(
         self,
@@ -2673,10 +2681,7 @@ class OfficialK2ResidentRankEngine:
         if source_implementation != current_implementation:
             compatible_u0_adapter_only_change = (
                 self.checkpoint_sha256 == CANONICAL_U0_CHECKPOINT_SHA256
-                and source_implementation in {
-                    U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256,
-                    U0_CLOSURE_COMPATIBLE_IMPLEMENTATION_SHA256,
-                }
+                and source_implementation == U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256
             )
             if not compatible_u0_adapter_only_change:
                 raise ArtifactError(f"official-K2 score resume identity drift: {path}")
@@ -3840,7 +3845,16 @@ class OfficialK2LocalDualShardEngine:
         return self.rank1._score_implementation_sha256()
 
     def rebind_checkpoint(self, **kwargs: Any) -> None:
-        raise ArtifactError("same-process dual shard rebind requires a fresh score process")
+        self.rank0.rebind_checkpoint(**kwargs)
+        self.rank1.rebind_checkpoint(**kwargs)
+        # Rank 0's process-global read audit observes rank 1's intentional
+        # checkpoint rebind.  The timed-score boundary begins only after both
+        # resident shards have adopted the new state.
+        self.rank0.ready_counter = self.rank0.read_counter.mark_resident_ready()
+        self.rank1.ready_counter = self.rank1.read_counter.mark_resident_ready()
+        ready = [self.rank0.local_ready, self.rank1.local_ready]
+        self.rank0.resident_ready = ready
+        self.rank1.resident_ready = ready
 
     def close(self) -> None:
         self.rank1.close()
@@ -3887,8 +3901,6 @@ class OfficialK2ResidentScorer:
         configuration keeps its existing loader selection unchanged.
         """
         if self._engine_type() is not OfficialK2LocalDualShardEngine:
-            return
-        if bool(self.config.get("ordinary_load_fork_broker", False)):
             return
         if checkpoint_sha256 not in _ORDINARY_FORK_PAYLOADS:
             checkpoint_path = self.config.get("checkpoint_path")
