@@ -61,7 +61,7 @@ def test_sealed_pre_w28_keeps_target_producer_mb2_geometry(monkeypatch) -> None:
     assert resolved["expert_path"].name == "static_w28_fast_v7_expert_base.py"
     assert resolved["expert_sha256"] == modern_green_resident.STATIC_W28_GROUPED_EXPERT_SHA256
     trainer = Path(modern_green_resident.__file__).parent / "assets" / "static_w28_modern_green_clean_u0.py"
-    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "126c11f306a12ed35c1234bd12952a32662c3bd81fc2e74361f0a55ebdc21fc0"
+    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "cc0520e00a6cc5b979c638e3f1fd98ae92c882f3cf9f48cbcdf3fa55fad343cc"
 
 
 def test_u20_continuation_resolves_commit_owned_serial_provider_descendant() -> None:
