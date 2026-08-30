@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
+
 import pytest
 import torch
 
@@ -25,6 +28,16 @@ ATTEMPT106BQ_TERMINAL_SHA256 = (
 ATTEMPT106BQ_PUBLIC_CAST_W2_SHA256 = (
     "e5e853db9d49d2ded1f640cc1ea3a63e15748f353924b08ed5f8d99e563788dc"
 )
+
+
+def test_sealed_pre_binding_authenticates_the_deployed_trainer_asset() -> None:
+    from repair_api.sealed_pre_forward import bind_sealed_pre_resident_config
+
+    config: dict[str, object] = {}
+    bind_sealed_pre_resident_config(config)
+    trainer = Path(str(config["trainer_source"]))
+
+    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == config["trainer_source_sha256"]
 
 
 class Immutable942cProjectionProvider:
