@@ -1791,6 +1791,34 @@ def _builder_frame_readout_logits(
     return logits[:score_positions]
 
 
+def _score_validation_kld_rows(
+    np: Any, ref_lp: Any, q_lp: Any, *, preserve_full_softmax: bool
+) -> Any:
+    """Score gathered full-softmax rows without changing their measure."""
+    if preserve_full_softmax:
+        return np.sum(
+            np.exp(ref_lp) * (ref_lp - q_lp), axis=1, dtype=np.float64
+        )
+    ref_max = np.max(ref_lp, axis=1, keepdims=True)
+    cand_max = np.max(q_lp, axis=1, keepdims=True)
+    ref_norm = ref_lp - (
+        ref_max + np.log(np.sum(
+            np.exp(ref_lp - ref_max), axis=1,
+            dtype=np.float64, keepdims=True,
+        ))
+    )
+    cand_norm = q_lp - (
+        cand_max + np.log(np.sum(
+            np.exp(q_lp - cand_max), axis=1,
+            dtype=np.float64, keepdims=True,
+        ))
+    )
+    return np.sum(
+        np.exp(ref_norm) * (ref_norm - cand_norm),
+        axis=1, dtype=np.float64,
+    )
+
+
 def _physical_training_row(
     ids: Any,
     *,
@@ -4538,23 +4566,11 @@ class ModernGreenResidentEngine:
                         q_argmax = q_argmax_tensor.cpu().numpy()
                         ref_lp = teacher_logprob.numpy().astype(np.float64, copy=False)
                         idx0 = teacher_idx[:, 0].numpy()
-                        ref_max = np.max(ref_lp, axis=1, keepdims=True)
-                        cand_max = np.max(q_lp, axis=1, keepdims=True)
-                        ref_norm = ref_lp - (
-                            ref_max + np.log(np.sum(
-                                np.exp(ref_lp - ref_max), axis=1,
-                                dtype=np.float64, keepdims=True,
-                            ))
-                        )
-                        cand_norm = q_lp - (
-                            cand_max + np.log(np.sum(
-                                np.exp(q_lp - cand_max), axis=1,
-                                dtype=np.float64, keepdims=True,
-                            ))
-                        )
-                        values = np.sum(
-                            np.exp(ref_norm) * (ref_norm - cand_norm),
-                            axis=1, dtype=np.float64,
+                        values = _score_validation_kld_rows(
+                            np, ref_lp, q_lp,
+                            preserve_full_softmax=(
+                                self.config.get("resident_score_preserve_full_softmax") is True
+                            ),
                         )
                         if values.size != POSITIONS_PER_WINDOW or not np.isfinite(values).all():
                             raise ArtifactError(f"resident validation invalid KLD at window {window}")
@@ -4753,16 +4769,11 @@ class ModernGreenResidentEngine:
                                     np.float64, copy=False
                                 )
                                 idx0 = teacher_idx[:, 0].detach().cpu().numpy()
-                                ref_max = np.max(ref_lp, axis=1, keepdims=True)
-                                cand_max = np.max(q_lp, axis=1, keepdims=True)
-                                ref_norm = ref_lp - (
-                                    ref_max + np.log(np.sum(np.exp(ref_lp - ref_max), axis=1, dtype=np.float64, keepdims=True))
-                                )
-                                cand_norm = q_lp - (
-                                    cand_max + np.log(np.sum(np.exp(q_lp - cand_max), axis=1, dtype=np.float64, keepdims=True))
-                                )
-                                values = np.sum(
-                                    np.exp(ref_norm) * (ref_norm - cand_norm), axis=1, dtype=np.float64
+                                values = _score_validation_kld_rows(
+                                    np, ref_lp, q_lp,
+                                    preserve_full_softmax=(
+                                        self.config.get("resident_score_preserve_full_softmax") is True
+                                    ),
                                 )
                                 if values.size != count or not np.isfinite(values).all():
                                     raise ArtifactError(f"continuous resident score invalid KLD at window {window}")

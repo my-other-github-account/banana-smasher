@@ -5,6 +5,7 @@ from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 import torch
 
@@ -26,6 +27,7 @@ from repair_api.resident_full64_accept import (
 from repair_api.modern_green_resident import (
     ModernGreenResidentEngine,
     _builder_frame_readout_logits,
+    _score_validation_kld_rows,
 )
 
 
@@ -148,6 +150,22 @@ def test_builder_frame_readout_projects_full_real_length_before_score_slice() ->
     assert calls == [(1537, 4)]
     assert tuple(logits.shape) == (1024, 7)
     assert logits.dtype == torch.float32
+
+
+def test_validation_score_can_preserve_gathered_full_softmax_measure() -> None:
+    ref_lp = np.log(np.array([[0.6, 0.2]], dtype=np.float64))
+    q_lp = np.log(np.array([[0.5, 0.25]], dtype=np.float64))
+
+    direct = _score_validation_kld_rows(
+        np, ref_lp, q_lp, preserve_full_softmax=True
+    )
+    renormalized = _score_validation_kld_rows(
+        np, ref_lp, q_lp, preserve_full_softmax=False
+    )
+
+    expected = np.sum(np.exp(ref_lp) * (ref_lp - q_lp), axis=1)
+    assert np.array_equal(direct, expected)
+    assert not np.array_equal(direct, renormalized)
 
 
 def test_cuda_memory_fraction_is_applied_and_read_back_before_nccl() -> None:
