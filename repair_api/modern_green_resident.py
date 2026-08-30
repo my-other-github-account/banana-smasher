@@ -1013,6 +1013,7 @@ def _sealed_source_grouped_forward(
     packed_w1: Any, packed_w3: Any, packed_w2: Any, lut_master: Any,
     su_w1: Any, sv_w1: Any, su_w3: Any, sv_w3: Any, su_w2: Any, sv_w2: Any,
     *, limit: float, act_fn: Any, full_weight_builder: Any,
+    route_capture_owner: Any = None,
 ) -> Any:
     """Execute the decorated transformers grouped_mm forward as one operator."""
     import torch
@@ -1066,9 +1067,13 @@ def _sealed_source_grouped_forward(
     down_weights = materialize_all("down")
     proj_out = _grouped_linear(proj_out, down_weights, offsets, bias=None, is_transposed=False)
     del down_weights
-    weighted_out = proj_out * sample_weights_g.unsqueeze(-1)
     inv_perm = torch.empty_like(perm)
     inv_perm[perm] = torch.arange(perm.numel(), device=perm.device)
+    if route_capture_owner is not None and getattr(
+        route_capture_owner, "_sealed_capture_w2", False
+    ):
+        route_capture_owner._sealed_routed_output = proj_out[inv_perm]
+    weighted_out = proj_out * sample_weights_g.unsqueeze(-1)
     weighted_out = weighted_out[inv_perm]
     return weighted_out.view(num_tokens, num_top_k, hidden_dim).sum(dim=1).to(hidden_states.dtype)
 
@@ -1470,6 +1475,7 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
                     expert.su_w2, expert.sv_w2,
                     limit=float(expert.limit), act_fn=expert.act,
                     full_weight_builder=full_weight_builder,
+                    route_capture_owner=expert,
                 )
 
             grouped_forward = bound_grouped_forward
