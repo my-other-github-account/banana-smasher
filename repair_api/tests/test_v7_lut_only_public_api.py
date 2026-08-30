@@ -12,9 +12,41 @@ from repair_api.modern_green_resident import (
     ModernGreenResidentEngine,
     _admit_restored_optimizer_base_lrs,
     _configure_v7_lut_only_optimizer,
+    _reduce_training_token_kld,
     _resident_optimizer_param_groups,
     _resolve_trainer_source,
 )
+
+
+def test_worst_quartile_cvar_reduces_across_all_microbatch_tokens():
+    first = torch.tensor([1.0, 8.0, 2.0, 7.0], requires_grad=True)
+    second = torch.tensor([3.0, 6.0, 4.0, 5.0], requires_grad=True)
+
+    loss = _reduce_training_token_kld(
+        torch,
+        [first, second],
+        reduction="cvar_tail",
+        cvar_fraction=0.25,
+    )
+    loss.backward()
+
+    assert loss.item() == 7.5
+    assert first.grad is not None and first.grad.tolist() == [0.0, 0.5, 0.0, 0.5]
+    assert second.grad is not None and second.grad.tolist() == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_historical_mean_token_reduction_is_unchanged():
+    first = torch.tensor([1.0, 3.0])
+    second = torch.tensor([2.0, 4.0, 6.0, 8.0])
+
+    loss = _reduce_training_token_kld(
+        torch,
+        [first, second],
+        reduction="mean",
+        cvar_fraction=0.25,
+    )
+
+    assert loss.item() == 3.5
 
 
 def _rows(prefix: str, count: int):

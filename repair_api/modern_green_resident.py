@@ -1488,6 +1488,31 @@ def _physical_training_row(
     return padded, objective_span
 
 
+def _reduce_training_token_kld(
+    torch: Any,
+    token_values: list[Any],
+    *,
+    reduction: str,
+    cvar_fraction: float,
+) -> Any:
+    """Reduce token KLD without allowing evaluation-window weighting.
+
+    ``mean`` preserves the historical equal-window mean. ``cvar_tail`` takes
+    the mean of the largest token losses across the complete legal training
+    microbatch. The detached top-k indices select the tail while gradients flow
+    through the selected token losses.
+    """
+    if not token_values or any(values.ndim != 1 or values.numel() < 1 for values in token_values):
+        raise ArtifactError("training token KLD geometry is empty or non-vector")
+    if reduction == "mean":
+        return torch.stack([values.mean() for values in token_values]).mean()
+    if reduction != "cvar_tail" or cvar_fraction != 0.25:
+        raise ArtifactError("token KLD reduction must be mean or exact worst-quartile CVaR")
+    flat = torch.cat(token_values)
+    tail_count = (int(flat.numel()) + 3) // 4
+    return torch.topk(flat, tail_count, largest=True, sorted=False).values.mean()
+
+
 class ModernGreenResidentEngine:
     """One rank of the accepted resident grouped-K2 trainer."""
 
@@ -1559,7 +1584,15 @@ class ModernGreenResidentEngine:
         self.controlled_arm_id = config.get("controlled_arm_id")
         self.controlled_arm = self.controlled_arm_id is not None
         self.published_pre_recipe = config.get("recipe_id") == PUBLISHED_PRE_RECIPE_ID
+        self.token_kld_reduction = str(config.get("token_kld_reduction", "mean"))
+        self.cvar_tail_fraction = float(config.get("cvar_tail_fraction", 0.25))
+        if self.token_kld_reduction not in {"mean", "cvar_tail"}:
+            raise ArtifactError("unsupported token KLD reduction")
+        if self.token_kld_reduction == "cvar_tail" and self.cvar_tail_fraction != 0.25:
+            raise ArtifactError("CVaR training requires the exact worst-loss quartile")
         self.tailfix_wholesale = config.get("tailfix_wholesale") is True
+        if self.tailfix_wholesale and self.token_kld_reduction != "mean":
+            raise ArtifactError("tailfix wholesale and token CVaR objectives are mutually exclusive")
         if self.tailfix_wholesale:
             from .tailfix_wholesale import validate_wholesale_config
 
@@ -2814,7 +2847,12 @@ class ModernGreenResidentEngine:
             loss, evidence = detached_tail_weighted_loss(self.torch, token_values)
             self.tailfix_loss_evidence = evidence
             return loss
-        return self.torch.stack([values.mean() for values in token_values]).mean()
+        return _reduce_training_token_kld(
+            self.torch,
+            token_values,
+            reduction=self.token_kld_reduction,
+            cvar_fraction=self.cvar_tail_fraction,
+        )
 
     def _record_optimizer_diagnostic_boundary(self, name: str) -> None:
         tap = getattr(self, "_active_adam_diagnostic", None)
