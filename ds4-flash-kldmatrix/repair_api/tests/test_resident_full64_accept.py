@@ -5,6 +5,7 @@ from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
 import torch
+import repair_api.resident_full64_accept as resident_full64_accept
 
 from repair_api.resident_full64_accept import (
     ADOPTED_PROVIDER_EXPERT_SHA256,
@@ -367,6 +368,78 @@ def test_whole_chain_bisect_compares_product_and_reference_cache_handoffs():
     assert 'entry.values = entry.values.new_empty((0,))' in source
     assert '"first_divergent_layer": first_divergent' in source
     assert "with torch.no_grad():" in source
+
+
+def test_whole_chain_bisect_rank1_receives_activation_without_calling_meta_embedding(
+    monkeypatch,
+) -> None:
+    local_indices = range(22, 43)
+    taps = {
+        f"L{index:03d}": {"sha256": f"tap-{index}"}
+        for index in local_indices
+    }
+    transport: list[tuple[str, int]] = []
+
+    class MetaOwnedEmbedding:
+        def __call__(self, ids: torch.Tensor) -> torch.Tensor:
+            raise RuntimeError("Tensor on device meta is not on the expected device cuda:0!")
+
+    class Engine:
+        first = 22
+        last = 42
+        config = {"validation_teacher_root": "/sealed/teacher"}
+        student = SimpleNamespace(
+            device="cpu",
+            config=SimpleNamespace(hc_mult=2, hidden_size=4),
+            model=SimpleNamespace(
+                model=SimpleNamespace(embed_tokens=MetaOwnedEmbedding()),
+                eval=lambda: None,
+            ),
+        )
+
+        @staticmethod
+        def preload_validation(windows, teacher_root):
+            assert windows == (28,)
+            assert teacher_root == "/sealed/teacher"
+            return {"ids": {28: torch.zeros((1, 3), dtype=torch.int64)}}
+
+        @staticmethod
+        def _batch_p2p_recv(hidden: torch.Tensor, *, src: int) -> None:
+            transport.append(("recv", src))
+            hidden.zero_()
+
+    def capture_product(engine, hidden, ids):
+        assert tuple(hidden.shape) == (1, 3, 2, 4)
+        return taps, hidden
+
+    monkeypatch.setattr(
+        resident_full64_accept, "_capture_product_layer_taps", capture_product
+    )
+    monkeypatch.setattr(
+        resident_full64_accept,
+        "_capture_reference_layer_taps",
+        lambda engine, ids: taps,
+    )
+
+    def gather(rows, local):
+        rows[:] = [
+            {
+                "rank": 0,
+                "product": {},
+                "diagnostic": {},
+                "first_divergent_layer": None,
+            },
+            local,
+        ]
+
+    monkeypatch.setattr(torch.distributed, "all_gather_object", gather)
+    with tempfile.TemporaryDirectory() as directory:
+        receipt = resident_full64_accept._whole_chain_bisect(
+            Engine(), window=28, root=Path(directory), rank=1, pin="f" * 40
+        )
+
+    assert transport == [("recv", 0)]
+    assert receipt["ranks"][1]["product"] == taps
 
 
 def test_readout_binding_ab_localizes_post_l042_rank_handoff():

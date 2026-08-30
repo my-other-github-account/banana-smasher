@@ -154,7 +154,8 @@ def _capture_product_layer_taps(engine: Any, hidden: Any, ids: Any) -> tuple[dic
     taps: dict[str, Any] = {}
     layers = engine.student.model.model.layers
     originals: dict[int, Any] = {}
-    for index in range(43):
+    local_indices = range(engine.first, engine.last + 1)
+    for index in local_indices:
         layer = layers[index]
         originals[index] = layer.forward
 
@@ -173,15 +174,30 @@ def _capture_product_layer_taps(engine: Any, hidden: Any, ids: Any) -> tuple[dic
     return taps, hidden
 
 
-def _capture_reference_layer_taps(engine: Any, hidden: Any, ids: Any) -> dict[str, Any]:
+def _capture_reference_layer_taps(engine: Any, ids: Any) -> dict[str, Any]:
     """Use the sealed shared-cache handoff from official_k2_resident_score.py:2729-2748."""
     from transformers.cache_utils import DynamicCache
 
     taps: dict[str, Any] = {}
+    shape = (
+        ids.shape[0], ids.shape[1], engine.student.config.hc_mult,
+        engine.student.config.hidden_size,
+    )
+    if engine.rank == 0:
+        embeddings = engine.student.model.model.embed_tokens(ids)
+        hidden = embeddings.unsqueeze(2).expand(
+            -1, -1, engine.student.config.hc_mult, -1
+        ).contiguous()
+    else:
+        hidden = torch.empty(
+            shape, dtype=torch.bfloat16, device=engine.student.device
+        )
+        engine._batch_p2p_recv(hidden, src=0)
     template = hidden[:, :, 0, :] if hidden.ndim == 4 else hidden
     active_cache = DynamicCache(config=engine.student.config)
     pos, pe, mask = engine._positional(ids, template, active_cache)
-    for index in range(43):
+    local_indices = range(engine.first, engine.last + 1)
+    for index in local_indices:
         layer = engine.student.model.model.layers[index]
         hidden = layer(
             hidden,
@@ -197,6 +213,8 @@ def _capture_reference_layer_taps(engine: Any, hidden: Any, ids: Any) -> dict[st
             entry.keys = entry.keys.new_empty((0,))
             entry.values = entry.values.new_empty((0,))
             entry.is_initialized = False
+    if engine.rank == 0:
+        engine._batch_p2p_send(hidden.detach().contiguous(), dst=1)
     torch.cuda.synchronize()
     return taps
 
@@ -204,17 +222,30 @@ def _capture_reference_layer_taps(engine: Any, hidden: Any, ids: Any) -> dict[st
 def _whole_chain_bisect(engine: Any, *, window: int, root: Path, rank: int, pin: str) -> dict[str, Any]:
     prepared = engine.preload_validation((window,), engine.config["validation_teacher_root"])
     ids = prepared["ids"][window]
-    embeddings = engine.student.model.model.embed_tokens(ids)
-    hidden = embeddings.unsqueeze(2).expand(
-        -1, -1, engine.student.config.hc_mult, -1
-    ).contiguous()
+    shape = (
+        ids.shape[0], ids.shape[1], engine.student.config.hc_mult,
+        engine.student.config.hidden_size,
+    )
+    if rank == 0:
+        embeddings = engine.student.model.model.embed_tokens(ids)
+        hidden = embeddings.unsqueeze(2).expand(
+            -1, -1, engine.student.config.hc_mult, -1
+        ).contiguous()
+    else:
+        hidden = torch.empty(
+            shape, dtype=torch.bfloat16, device=engine.student.device
+        )
+        engine._batch_p2p_recv(hidden, src=0)
     engine.student.model.eval()
     with torch.no_grad():
         product_taps, _product_hidden = _capture_product_layer_taps(
-            engine, hidden.clone(), ids
+            engine, hidden, ids
         )
-        reference_taps = _capture_reference_layer_taps(engine, hidden.clone(), ids)
-    if tuple(product_taps) != tuple(f"L{index:03d}" for index in range(43)):
+        if rank == 0:
+            engine._batch_p2p_send(_product_hidden.detach().contiguous(), dst=1)
+        reference_taps = _capture_reference_layer_taps(engine, ids)
+    local_indices = range(engine.first, engine.last + 1)
+    if tuple(product_taps) != tuple(f"L{index:03d}" for index in local_indices):
         raise RuntimeError("PRODUCT_TAP_COVERAGE_RED")
     if tuple(reference_taps) != tuple(product_taps):
         raise RuntimeError("REFERENCE_TAP_COVERAGE_RED")
