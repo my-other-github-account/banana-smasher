@@ -451,17 +451,20 @@ def fast_forward(student, hidden, ids, requires_grad):
                                      layer_type="main"),
           "compress": m.model.rotary_emb(embeds[:1], position_ids=pos,
                                          layer_type="compress")}
+    active_cache = DynamicCache(config=config)
     mask = create_sliding_window_causal_mask(
         config=config, inputs_embeds=embeds,
         attention_mask=None,
-        past_key_values=DynamicCache(config=config), position_ids=pos)
+        past_key_values=active_cache, position_ids=pos)
     del embeds
 
     def run_layer(Li, h):
         return m.model.layers[Li](
             h, position_embeddings=pe, position_ids=pos,
             attention_mask=mask, input_ids=ids,
-            past_key_values=DynamicCache(config=config))
+            past_key_values=(
+                active_cache if not requires_grad else DynamicCache(config=config)
+            ))
 
     use_activation_checkpoint = (
         requires_grad and os.environ.get("GENESIS_REPAIR_CHECKPOINT", "1") == "1"
