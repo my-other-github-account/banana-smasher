@@ -167,7 +167,10 @@ def _prepare_exact_modules(*, task: str, rank: int, root: Path, config: dict[str
     planesource.MISSION = root
     planesource.PROGRESS = root / "receipts" / f"SEALED_PRE_FORWARD_PROGRESS.rank{rank}.json"
     planesource.STAGE_ROOT = Path(f"/dev/shm/FULL64_SEALED_PRE_{task}_rank{rank}/runtime_layer")
-    planesource.CACHE_ROOT = Path(f"/dev/shm/FULL64_SEALED_PRE_{task}_rank{rank}/cache")
+    planesource.CACHE_ROOT = Path(config.get(
+        "sealed_pre_cache_root",
+        f"/dev/shm/FULL64_SEALED_PRE_{task}_rank{rank}/cache",
+    ))
     planesource.CLAIM = Path("/home/dnola/HOST_CLAIM.json")
     planesource.MODEL = SEALED_MODEL_ROOT
     planesource.CHECKPOINT = hardcoded_checkpoint
@@ -214,7 +217,7 @@ def _run_builder(builder: Any, *, root: Path, config: dict[str, Any], windows: t
     original_argv = sys.argv
     started = time.perf_counter()
     source_args = ["--local-dir", str(SEALED_MODEL_ROOT)]
-    if int(config["rank"]) == 0:
+    if int(config["rank"]) == 0 and not config.get("sealed_pre_use_local_model", False):
         source_args = [
             "--remote", "dnola@192.168.200.4:/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
             "--shard-buf", str(root / "shard_buf"), "--keep-shards", "3",
@@ -225,7 +228,9 @@ def _run_builder(builder: Any, *, root: Path, config: dict[str, Any], windows: t
             "--ref-dir", str(config["validation_teacher_root"]), "--corpus", str(config["validation_corpus"]),
             "--meta-dir", str(SEALED_MODEL_ROOT), *source_args,
             "--out", str(out), "--cand-pos-limit", str(POSITIONS), "--count", str(len(windows)),
-            "--chunk", str(len(windows)), "--mb", "1", "--windows", ",".join(map(str, windows)),
+            "--chunk", str(config.get("sealed_builder_chunk", len(windows))),
+            "--mb", str(config.get("sealed_builder_window_microbatch", 1)),
+            "--windows", ",".join(map(str, windows)),
             "--tag", f"PUBLIC_API_SEALED_PRE_{label}",
         ]
         result = int(builder.main() or 0)
@@ -235,6 +240,48 @@ def _run_builder(builder: Any, *, root: Path, config: dict[str, Any], windows: t
         raise RuntimeError(f"SEALED_PRE_BUILDER_RC:{result}")
     wall = time.perf_counter() - started
     return _score_outputs(out, Path(config["validation_teacher_root"]), windows), wall
+
+
+def run_static_w28_acceptance(*, task: str, rank: int, root: Path,
+                              config: dict[str, Any], checkpoint: Path,
+                              canonical_pin: str) -> dict[str, Any]:
+    """Run only the accepted paired W28/W56 planes producer and static scorer."""
+    if rank != 0:
+        raise ValueError("STATIC_W28_ACCEPTANCE_REQUIRES_RANK0")
+    binding = bind_sealed_pre_resident_config(config)
+    config["rank"] = rank
+    config.setdefault("sealed_builder_window_microbatch", 2)
+    config.setdefault("sealed_builder_chunk", 64)
+    config.setdefault("sealed_pre_use_local_model", True)
+    builder, _, _ = _prepare_exact_modules(
+        task=task, rank=rank, root=root, config=config, checkpoint=checkpoint
+    )
+    rows, wall = _run_builder(
+        builder, root=root, config=config, windows=(28, 56), label="PLANES_MB2_PAIRED"
+    )
+    row = next(item for item in rows if item["window"] == 28)
+    passed = row["kld_mean"] == W28_KLD and row["top1"] == W28_TOP1
+    receipt = {
+        "schema": "banana-smasher-static-w28-acceptance-v1",
+        "status": "PASS" if passed else "RED",
+        "task_id": task,
+        "rank": rank,
+        "canonical_code_commit": canonical_pin,
+        "basis_sha256": BASIS_SHA256,
+        "checkpoint_sha256": CHECKPOINT_SHA256,
+        "source_binding": binding,
+        "producer": {"mode": "planes", "mb": 2, "chunk": 64, "windows": [28, 56]},
+        "scorer": "repair_api.sealed_pre_forward._score_outputs",
+        "measurement": row,
+        "all_measurements": rows,
+        "wall_seconds": wall,
+        "full64_launched": False,
+    }
+    path = root / "receipts" / f"STATIC_W28_ACCEPTANCE.{task}.rank0.json"
+    receipt["receipt_sha256"] = atomic_json(path, receipt)
+    if not passed:
+        raise RuntimeError(f"STATIC_W28_ACCEPTANCE_RED:{row}")
+    return receipt
 
 
 def run_sealed_pre_forward(*, task: str, rank: int, root: Path, config: dict[str, Any], checkpoint: Path,

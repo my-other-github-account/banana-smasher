@@ -1,5 +1,6 @@
 import hashlib
 from pathlib import Path
+import sys
 
 from repair_api import modern_green_resident, sealed_pre_forward
 
@@ -108,3 +109,54 @@ def test_sealed_pre_binding_preserves_explicit_singleton_geometry(monkeypatch) -
 
     assert config["score_window_batch_size"] == 1
     assert config["sealed_builder_window_microbatch"] == 1
+
+
+def test_builder_uses_configured_paired_geometry(monkeypatch, tmp_path) -> None:
+    observed = {}
+
+    class Builder:
+        __file__ = __file__
+
+        @staticmethod
+        def main():
+            observed["argv"] = list(sys.argv)
+            return 0
+
+    monkeypatch.setattr(sealed_pre_forward, "_score_outputs", lambda *args: [])
+    config = {
+        "rank": 1,
+        "validation_teacher_root": str(tmp_path / "teacher"),
+        "validation_corpus": str(tmp_path / "corpus.json"),
+        "sealed_builder_window_microbatch": 2,
+        "sealed_builder_chunk": 64,
+    }
+    sealed_pre_forward._run_builder(
+        Builder, root=tmp_path, config=config, windows=(28, 56), label="PAIR"
+    )
+    argv = observed["argv"]
+    assert argv[argv.index("--mb") + 1] == "2"
+    assert argv[argv.index("--chunk") + 1] == "64"
+    assert argv[argv.index("--windows") + 1] == "28,56"
+
+
+def test_static_w28_acceptance_is_paired_and_never_full64(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(sealed_pre_forward, "bind_sealed_pre_resident_config", lambda config: {"status": "PASS"})
+    monkeypatch.setattr(sealed_pre_forward, "_prepare_exact_modules", lambda **kwargs: (object(), object(), {}))
+    seen = {}
+
+    def run_builder(*args, **kwargs):
+        seen.update(kwargs)
+        return ([
+            {"window": 28, "kld_mean": sealed_pre_forward.W28_KLD, "top1": sealed_pre_forward.W28_TOP1},
+            {"window": 56, "kld_mean": 0.0, "top1": 0},
+        ], 1.0)
+
+    monkeypatch.setattr(sealed_pre_forward, "_run_builder", run_builder)
+    receipt = sealed_pre_forward.run_static_w28_acceptance(
+        task="t_test", rank=0, root=tmp_path, config={}, checkpoint=tmp_path / "pre.pt",
+        canonical_pin="deadbeef",
+    )
+    assert seen["windows"] == (28, 56)
+    assert receipt["producer"] == {"mode": "planes", "mb": 2, "chunk": 64, "windows": [28, 56]}
+    assert receipt["full64_launched"] is False
+    assert receipt["status"] == "PASS"
