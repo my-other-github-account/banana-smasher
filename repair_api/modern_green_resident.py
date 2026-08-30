@@ -52,6 +52,58 @@ U20_INHERITED_GROUPED_EXPERT_SHA256 = "0b673aaa31dedaaf604488bb71543e92560167cde
 U20_SERIAL_GROUPED_EXPERT_SHA256 = "90be541e1d137c525b4da76512050bb00979c3096526a1f032c5a4ef36d394cd"
 
 
+def _configure_trainable_quantization_scales(
+    config: Mapping[str, Any], student: Any, *, saved: Mapping[str, Any] | None
+) -> tuple[list[tuple[str, Any]], dict[str, Any]]:
+    """Promote the grouped-K2 SU/SV wire scales into FP32 Adam leaves.
+
+    Promotion is opt-in and value preserving: immutable FP16 wire values are
+    widened exactly, while packed codes and routing assignments stay untouched.
+    A checkpointed scale surface is all-or-nothing so scoring cannot silently
+    fall back to the parent wire values.
+    """
+    if config.get("trainable_quantization_scales") is not True and saved is None:
+        return [], {"mode": "frozen", "trainable": 0}
+    experts = getattr(student, "experts", None)
+    if not isinstance(experts, Mapping) or not experts:
+        raise ArtifactError("trainable quantization scales require resident grouped experts")
+    rows: list[tuple[str, Any]] = []
+    for layer, module in sorted(experts.items(), key=lambda item: int(item[0])):
+        for projection in ("w1", "w2", "w3"):
+            for axis in ("su", "sv"):
+                attribute = f"{axis}_{projection}"
+                value = getattr(module, attribute, None)
+                if value is None or not hasattr(value, "shape") or not value.is_floating_point():
+                    raise ArtifactError(
+                        f"resident grouped scale seam missing: L{int(layer):03d}/{attribute}"
+                    )
+                name = f"layers.{int(layer)}.scales.{attribute}"
+                initial = value.detach().float().clone()
+                if saved is not None:
+                    checkpoint_value = saved.get(name)
+                    if checkpoint_value is None:
+                        raise ArtifactError(
+                            f"checkpoint missing trainable quantization scale: {name}"
+                        )
+                    if tuple(checkpoint_value.shape) != tuple(initial.shape):
+                        raise ArtifactError(
+                            f"checkpoint trainable quantization scale shape drift: {name}"
+                        )
+                    initial.copy_(checkpoint_value.to(device=initial.device, dtype=initial.dtype))
+                if attribute in getattr(module, "_buffers", {}):
+                    del module._buffers[attribute]
+                if attribute in getattr(module, "_parameters", {}):
+                    del module._parameters[attribute]
+                parameter = __import__("torch").nn.Parameter(initial, requires_grad=True)
+                module.register_parameter(attribute, parameter)
+                rows.append((name, parameter))
+    return rows, {
+        "mode": "trainable",
+        "trainable": len(rows),
+        "layers": sorted(int(layer) for layer in experts),
+    }
+
+
 def _configure_v7_lut_only_optimizer(
     config: Mapping[str, Any],
     luts: list[tuple[str, Any]],
@@ -116,11 +168,18 @@ def _resident_optimizer_param_groups(
 ) -> list[dict[str, Any]]:
     """Build three groups, with explicit frozen groups in LUT-only mode."""
     if config.get("v7_lut_only_update") is not True:
-        return [
+        groups = [
             {"params": [p for _name, p in rows["luts"]], "lr": base_lrs["luts"], "group_name": "luts"},
             {"params": [p for _name, p in rows["norms"]], "lr": base_lrs["norms"], "group_name": "norms"},
             {"params": [p for _name, p in rows["outputs"]], "lr": base_lrs["outputs"], "group_name": "outputs"},
         ]
+        if config.get("trainable_quantization_scales") is True:
+            groups.append({
+                "params": [p for _name, p in rows["scales"]],
+                "lr": base_lrs["luts"],
+                "group_name": "scales",
+            })
+        return groups
     return [
         {"params": [p for _name, p in rows["luts"]], "lr": float(config["lut_lr"]), "group_name": "luts", "frozen": False},
         {"params": [], "lr": 0.0, "group_name": "norms", "frozen": True},
@@ -1650,8 +1709,15 @@ class ModernGreenResidentEngine:
         self.state = payload.get("state")
         if not isinstance(self.state, Mapping):
             raise ArtifactError("U16 checkpoint state must contain official trainable surfaces")
-        if set(self.state) != {"luts", "norms", "outputs"}:
-            raise ArtifactError("U16 state must contain exactly luts, norms, and outputs")
+        dense_surfaces = {"luts", "norms", "outputs"}
+        scale_surface_requested = config.get("trainable_quantization_scales") is True
+        if set(self.state) not in (
+            dense_surfaces,
+            dense_surfaces | {"scales"},
+        ) or ("scales" in self.state and not scale_surface_requested):
+            raise ArtifactError(
+                "resident state must contain dense surfaces and scales only for the admitted scale candidate"
+            )
         identity_value = payload.get("identity")
         identity = identity_value if isinstance(identity_value, Mapping) else {}
         self.global_step = int(payload.get("next_update", identity.get("next_update", 16)))
@@ -1765,6 +1831,13 @@ class ModernGreenResidentEngine:
         self.optimizer_rows, self.optimizer_surface_manifest = _configure_v7_lut_only_optimizer(
             self.config, self.luts, self.norms, self.outputs
         )
+        self.scales, scale_manifest = _configure_trainable_quantization_scales(
+            self.config,
+            self.student,
+            saved=self.state.get("scales") if "scales" in self.state else None,
+        )
+        self.optimizer_rows["scales"] = self.scales
+        self.optimizer_surface_manifest["quantization_scales"] = scale_manifest
         self.optimizer_luts = self.optimizer_rows["luts"]
         self._install_lut_accumulation_diagnostic()
         self.equivalent_gradient_scale = 1.0
@@ -1799,7 +1872,7 @@ class ModernGreenResidentEngine:
             else:
                 lr_lambda = self.trainer.current_multiplier
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer, lr_lambda=[lr_lambda] * 3
+                self.optimizer, lr_lambda=[lr_lambda] * len(self.optimizer.param_groups)
             )
         self._load_optimizer_scheduler_state()
         self._load_training_data()
@@ -1974,12 +2047,25 @@ class ModernGreenResidentEngine:
             raise ArtifactError("U16 checkpoint is missing the shared Adam optimizer state")
         groups = optimizer_payload.get("param_groups")
         global_state = optimizer_payload.get("state")
-        if not isinstance(groups, list) or len(groups) != 3 or not isinstance(global_state, Mapping):
-            raise ArtifactError("U16 Adam state has no canonical three-surface lineage")
+        expected_source_groups = 4 if "scales" in self.state else 3
+        if (
+            not isinstance(groups, list)
+            or len(groups) != expected_source_groups
+            or not isinstance(global_state, Mapping)
+        ):
+            raise ArtifactError("resident Adam state does not match admitted surface lineage")
         local_state = self.optimizer.state_dict()
         local_groups = local_state["param_groups"]
-        local_rows = {"luts": self.luts, "norms": self.norms, "outputs": self.outputs}
-        for index, surface in enumerate(("luts", "norms", "outputs")):
+        local_rows = {
+            "luts": self.luts,
+            "norms": self.norms,
+            "outputs": self.outputs,
+            "scales": self.scales,
+        }
+        source_surfaces = ("luts", "norms", "outputs") + (
+            ("scales",) if "scales" in self.state else ()
+        )
+        for index, surface in enumerate(source_surfaces):
             names = [name for name, _param in local_rows[surface]]
             global_names = list(self.state[surface])
             source_group = groups[index]
@@ -1997,6 +2083,12 @@ class ModernGreenResidentEngine:
                     local_state["state"][local_id] = _cpu_tree(self.torch, value)
             local_groups[index].update({key: value for key, value in source_group.items() if key != "params"})
             local_groups[index]["params"] = local_ids
+        if self.config.get("trainable_quantization_scales") is True and len(local_groups) == 4:
+            # Candidate C changes only membership: scales inherit the exact LUT
+            # group's authenticated Adam/LambdaLR schedule from U020.
+            for key in ("lr", "initial_lr", "betas", "eps", "weight_decay", "amsgrad"):
+                if key in local_groups[0]:
+                    local_groups[3][key] = local_groups[0][key]
         self.optimizer.load_state_dict(local_state)
         if self.controlled_arm:
             controlled_base_lrs, multiplier, _windows = _controlled_arm_policy(
@@ -2013,7 +2105,16 @@ class ModernGreenResidentEngine:
             # starts its declared schedule at its own U0 or U16 origin.
             return
         try:
-            self.scheduler.load_state_dict(dict(scheduler_payload))
+            scheduler_state = dict(scheduler_payload)
+            for key in ("base_lrs", "_last_lr"):
+                values = scheduler_state.get(key)
+                if (
+                    self.config.get("trainable_quantization_scales") is True
+                    and isinstance(values, list)
+                    and len(values) + 1 == len(self.optimizer.param_groups)
+                ):
+                    scheduler_state[key] = [*values, values[0]]
+            self.scheduler.load_state_dict(scheduler_state)
         except Exception as exc:
             raise ArtifactError(f"U16 LambdaLR state cannot load: {exc}") from exc
 
@@ -3127,6 +3228,7 @@ class ModernGreenResidentEngine:
             *self.optimizer_rows["luts"],
             *self.optimizer_rows["norms"],
             *self.optimizer_rows["outputs"],
+            *self.optimizer_rows.get("scales", []),
         ]
 
     def _local_norm(self, values: list[Any]) -> float:
@@ -3321,6 +3423,8 @@ class ModernGreenResidentEngine:
         base_lrs = _admit_restored_optimizer_base_lrs(
             base_lrs, self.optimizer.param_groups
         )
+        if self.config.get("trainable_quantization_scales") is True:
+            base_lrs["scales"] = base_lrs.get("scales", base_lrs["luts"])
         for group in self.optimizer.param_groups:
             group["lr"] = base_lrs[group["group_name"]] * multiplier
         groups = [group_windows[index:index + self.pipeline_microbatch] for index in range(0, len(group_windows), self.pipeline_microbatch)]
@@ -3482,10 +3586,66 @@ class ModernGreenResidentEngine:
             raise ArtifactError(f"official resident U{global_step + 1} produced no real gradient/delta")
         return local
 
+    def _merge_named_optimizer_state(
+        self,
+        state_rows: list[Mapping[str, Any]],
+        ordered_state: Mapping[str, Mapping[str, Any]],
+        surfaces: tuple[str, ...],
+    ) -> dict[str, Any]:
+        """Merge rank-partitioned Adam state by stable surface/name identity."""
+        ordered_names = {surface: list(ordered_state[surface]) for surface in surfaces}
+        global_ids: dict[str, int] = {}
+        for surface in surfaces:
+            for name in ordered_names[surface]:
+                if name in global_ids:
+                    raise ArtifactError(f"optimizer parameter name overlap: {name}")
+                global_ids[name] = len(global_ids)
+        merged_state: dict[int, Any] = {}
+        seen: set[int] = set()
+        templates: dict[str, dict[str, Any]] = {}
+        for row in state_rows:
+            local = row["optimizer"]
+            groups = local["param_groups"]
+            local_names = row["param_names"]
+            if len(groups) != len(surfaces):
+                raise ArtifactError("local optimizer surface count drift")
+            bound_local_ids: set[int] = set()
+            for surface, group in zip(surfaces, groups):
+                names = list(local_names[surface])
+                ids = list(group["params"])
+                if len(names) != len(ids):
+                    raise ArtifactError(f"local optimizer name/id drift: {surface}")
+                template = {key: value for key, value in group.items() if key != "params"}
+                previous = templates.setdefault(surface, template)
+                if previous != template:
+                    raise ArtifactError(f"optimizer group setting drift across ranks: {surface}")
+                for name, local_id in zip(names, ids):
+                    if name not in global_ids or local_id in bound_local_ids:
+                        raise ArtifactError(f"optimizer parameter identity drift: {name}")
+                    bound_local_ids.add(local_id)
+                    global_id = global_ids[name]
+                    if global_id in seen:
+                        raise ArtifactError(f"optimizer parameter overlap: {name}")
+                    seen.add(global_id)
+                    if local_id in local["state"]:
+                        merged_state[global_id] = local["state"][local_id]
+            if set(local["state"]) - bound_local_ids:
+                raise ArtifactError("optimizer state has unbound local ids")
+        if seen != set(global_ids.values()):
+            raise ArtifactError("global optimizer parameter coverage drift")
+        groups = []
+        for surface in surfaces:
+            group = dict(templates[surface])
+            group["params"] = [global_ids[name] for name in ordered_names[surface]]
+            groups.append(group)
+        return {"state": merged_state, "param_groups": groups}
+
     def _gather_state(self) -> tuple[Mapping[str, Any] | None, Mapping[str, Any] | None, Mapping[str, Any]]:
         torch = self.torch
         rows: list[Any] = []
         local_params = {"luts": self.luts, "norms": self.norms, "outputs": self.outputs}
+        if self.config.get("trainable_quantization_scales") is True:
+            local_params["scales"] = self.scales
         local_state = {
             "rank": self.rank,
             **{surface: {name: parameter.detach().cpu().clone() for name, parameter in values} for surface, values in local_params.items()},
@@ -3503,19 +3663,26 @@ class ModernGreenResidentEngine:
         if self.rank != 0:
             self.dist.barrier()
             return None, None, {"rank_rows": rows}
-        merged = {"luts": {}, "norms": {}, "outputs": {}}
+        merged = {surface: {} for surface in local_params}
         for row in rows:
             for surface in merged:
                 overlap = set(merged[surface]) & set(row[surface])
                 if overlap:
                     raise ArtifactError(f"official resident state overlap: {surface} {sorted(overlap)[:3]}")
                 merged[surface].update(row[surface])
-        if {surface: len(values) for surface, values in merged.items()} != {"luts": 43, "norms": 235, "outputs": 43}:
+        expected_coverage = {"luts": 43, "norms": 235, "outputs": 43}
+        if self.config.get("trainable_quantization_scales") is True:
+            expected_coverage["scales"] = 43 * 6
+        if {surface: len(values) for surface, values in merged.items()} != expected_coverage:
             raise ArtifactError("official resident merged trainable surface coverage drift")
         if self.config.get("v7_lut_only_update") is True:
             optimizer = self._merge_v7_lut_only_optimizer_state(rows)
         elif self.single_gpu_resident:
             optimizer = rows[0]["optimizer"]
+        elif self.config.get("trainable_quantization_scales") is True:
+            optimizer = self._merge_named_optimizer_state(
+                rows, merged, ("luts", "norms", "outputs", "scales")
+            )
         else:
             optimizer = self.trainer.merge_optimizer_state(rows, merged)
         scheduler = _cpu_tree(torch, self.scheduler.state_dict())
@@ -3562,11 +3729,15 @@ class ModernGreenResidentEngine:
             "frozen_surfaces": (
                 ["packed_codes", "assignments", "scales", "rmsnorms", "output_gains", "unselected_luts"]
                 if self.config.get("v7_lut_only_update") is True
+                else ["packed_codes", "assignments"]
+                if self.config.get("trainable_quantization_scales") is True
                 else ["packed_codes", "assignments", "scales"]
             ),
             "trainable_surfaces": (
                 ["selected_luts"]
                 if self.config.get("v7_lut_only_update") is True
+                else ["luts", "rmsnorms", "output_gains", "scales"]
+                if self.config.get("trainable_quantization_scales") is True
                 else ["luts", "rmsnorms", "output_gains"]
             ),
             "optimizer_surface_manifest": self.optimizer_surface_manifest,

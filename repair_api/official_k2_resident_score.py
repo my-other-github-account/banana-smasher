@@ -2352,6 +2352,7 @@ class OfficialK2ResidentRankEngine:
         admitted_surfaces = (
             dense_surfaces,
             dense_surfaces | {"expert_planes_l028_su_sv"},
+            dense_surfaces | {"scales"},
         )
         if not isinstance(state, Mapping) or set(state) not in admitted_surfaces:
             raise ArtifactError(
@@ -2366,6 +2367,17 @@ class OfficialK2ResidentRankEngine:
             if not isinstance(saved, Mapping):
                 raise ArtifactError(f"official-K2 checkpoint is missing {surface}")
             self.trainer.load_local_state(rows, saved, self.student.device)
+        saved_scales = state.get("scales")
+        if saved_scales is not None:
+            from .modern_green_resident import _configure_trainable_quantization_scales
+
+            if not isinstance(saved_scales, Mapping):
+                raise ArtifactError("official-K2 checkpoint scale state is malformed")
+            scale_rows, _manifest = _configure_trainable_quantization_scales(
+                {}, self.student, saved=saved_scales
+            )
+            for _name, parameter in scale_rows:
+                parameter.requires_grad_(False)
         saved_planes = state.get("expert_planes_l028_su_sv")
         if saved_planes is not None:
             experts = getattr(self.student, "experts", None)

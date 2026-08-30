@@ -38,6 +38,34 @@ from .sealed_pre_forward import bind_sealed_pre_resident_config
 SCORER_CHECKPOINT_FORMAT = "banana-smasher-qtip2-v7-joint-checkpoint-v1"
 
 
+def _validate_trainable_scale_candidate_contract(
+    *,
+    start_update: int,
+    start_sha: Any,
+    requested: tuple[int, ...],
+    config: Mapping[str, Any],
+) -> None:
+    """Admit Candidate C without widening any other scientific axis."""
+    if config.get("trainable_quantization_scales") is not True:
+        return
+    expected_identity = (
+        "Candidate C: U20-to-U24; sole variable is grouped-K2 quantization scales frozen-to-trainable"
+    )
+    if (
+        start_update != 20
+        or start_sha
+        != "2502bd03cc2c9deac966a24f8e8712633b1b0e0cb192d5eee71d10e91e77cccd"
+        or requested != (21, 22, 23, 24)
+        or config.get("token_kld_reduction") != "mean"
+        or config.get("scientific_identity") != expected_identity
+        or config.get("tailfix_wholesale") is True
+        or "cvar_tail_fraction" in config
+    ):
+        raise ArtifactError(
+            "trainable scale candidate requires exact authenticated U20-to-U24 uniform-mean contract"
+        )
+
+
 #: Dense trainable surfaces whose insertion order is load-bearing downstream.
 #: The sealed scorer's live roster is canonical name order, while two-rank
 #: checkpoints are persisted in rank-partition order.
@@ -62,7 +90,11 @@ def adapt_checkpointed_envelope(payload: Mapping[str, Any]) -> dict[str, Any]:
     if payload.get("schema") != "resident-continuation-checkpoint-v1":
         raise ArtifactError("checkpointed scorer envelope schema refused")
     state = payload.get("state")
-    if not isinstance(state, Mapping) or set(state) != {"luts", "norms", "outputs"}:
+    admitted_surfaces = (
+        {"luts", "norms", "outputs"},
+        {"luts", "norms", "outputs", "scales"},
+    )
+    if not isinstance(state, Mapping) or set(state) not in admitted_surfaces:
         raise ArtifactError("checkpointed scorer envelope state surfaces refused")
     next_update = payload.get("next_update")
     if isinstance(next_update, bool) or not isinstance(next_update, int) or next_update < 0:
@@ -3254,6 +3286,12 @@ class ResidentRepairAPI:
         start_update = self._checkpoint_update(start)
         start_meta = self.artifact.manifest["checkpoints"][start]
         requested = tuple(int(value) for value in milestones)
+        _validate_trainable_scale_candidate_contract(
+            start_update=start_update,
+            start_sha=start_meta.get("sha256"),
+            requested=requested,
+            config=config,
+        )
         validation_proof = config.get("resident_validation_proof") is True
         published_pre_sha = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
         published_pre_recipe = "published_pre_lower_lr_warmup16_cosine64_v1"
