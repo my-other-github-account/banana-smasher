@@ -589,6 +589,32 @@ class PlaneSource:
             return self._decode(path, projection)
         return read
 
+    def _predecode_layer(self, read):
+        """Materialize one admitted layer with four independent CUDA streams."""
+        import torch
+        from concurrent.futures import ThreadPoolExecutor
+
+        workers = 4
+        streams = [torch.cuda.Stream(device=BUILDER.DEV) for _ in range(workers)]
+
+        def decode(item):
+            ordinal, expert, projection = item
+            with torch.cuda.stream(streams[ordinal % workers]):
+                return (expert, projection), read(expert, projection)
+
+        items = [
+            (ordinal, expert, projection)
+            for ordinal, (expert, projection) in enumerate(
+                (e, p) for e in range(256) for p in ("w1", "w2", "w3")
+            )
+        ]
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            decoded = dict(pool.map(decode, items))
+        torch.cuda.synchronize(BUILDER.DEV)
+        return lambda expert, which: torch.cat(
+            [decoded[(expert, "w1")], decoded[(expert, "w3")]], dim=0
+        ) if which == "13" else decoded[(expert, "w2")]
+
     def layer(self, layer: int):
         import torch
         require_authority()
@@ -600,9 +626,7 @@ class PlaneSource:
             return (lambda expert, which: self._source_expert(layer, expert, which)), (256, 4096, 4096, 4096, 2048)
         if layer == 34:
             read = self._load_complete34()
-            return (lambda expert, which: torch.cat([
-                        read(expert, "w1"), read(expert, "w3"),
-                    ], dim=0) if which == "13" else read(expert, "w2")), (256, 4096, 4096, 4096, 2048)
+            return self._predecode_layer(read), (256, 4096, 4096, 4096, 2048)
         stage, route = self._stage_compact(layer)
         if layer not in self.counters["local_staged_layers"]:
             self.counters["local_staged_layers"].append(layer)
@@ -618,7 +642,6 @@ class PlaneSource:
         if layer not in self.counters["compact_layers_touched"]:
             self.counters["compact_layers_touched"].append(layer)
         self._write_progress(status="RUNNING_COMPACT", active_layer=layer)
-        return (lambda expert, which: torch.cat([
-                    self._decode(self._wire_path(stage, route, expert, "w1"), "w1"),
-                    self._decode(self._wire_path(stage, route, expert, "w3"), "w3"),
-                ], dim=0) if which == "13" else self._decode(self._wire_path(stage, route, expert, "w2"), "w2")), (256, 4096, 4096, 4096, 2048)
+        def read(expert: int, projection: str):
+            return self._decode(self._wire_path(stage, route, expert, projection), projection)
+        return self._predecode_layer(read), (256, 4096, 4096, 4096, 2048)

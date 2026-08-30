@@ -171,3 +171,14 @@ def test_static_w28_acceptance_is_a_public_api_path() -> None:
 
     assert repair_api.run_static_w28_acceptance is sealed_pre_forward.run_static_w28_acceptance
     assert "run_static_w28_acceptance" in repair_api.__all__
+
+
+def test_public_planes_predecode_uses_four_streams_and_is_hash_bound() -> None:
+    binding = sealed_pre_forward.source_binding()
+    source = Path(binding["planesource_path"]).read_text()
+
+    assert binding["status"] == "PASS"
+    assert "def _predecode_layer(self, read):" in source
+    assert "workers = 4" in source
+    assert "ThreadPoolExecutor(max_workers=workers)" in source
+    assert "torch.cuda.synchronize(BUILDER.DEV)" in source
