@@ -543,8 +543,9 @@ def _sealed_builder_accumulate_routes(
 ) -> Any:
     """Match grouped_mm's weighted-row reshape-sum return operator."""
     weighted = (
-        routed_output * top_k_weights.reshape(-1, 1).float()
-    ).to(hidden_states.dtype)
+        routed_output.to(hidden_states.dtype)
+        * top_k_weights.reshape(-1, 1).to(hidden_states.dtype)
+    )
     return weighted.view(
         hidden_states.shape[0], top_k_index.shape[1], hidden_states.shape[-1]
     ).sum(dim=1).to(hidden_states.dtype)
@@ -619,7 +620,9 @@ def _sealed_builder_native_down_projection(
             packed_w2[expert_index], lut_master, su_w2[expert_index], sv_w2[expert_index]
         ).transpose(0, 1).contiguous()
         down[mask] = torch.nn.functional.linear(expert_x, down_weight)
-    return down
+    # grouped_mm exposes the BF16-rounded projection through an FP32 provider
+    # buffer; its return operator rounds it back before route weighting.
+    return down.float()
 
 
 def _pack_sealed_w2_source_codes(packed_nibbles: Any) -> Any:
@@ -796,10 +799,10 @@ def _bind_sealed_gate_up_projection(
             import torch
 
             value_dtype = getattr(value, "dtype", None)
-            if value_dtype != torch.bfloat16:
+            if value_dtype != torch.float32:
                 raise RuntimeError(
                     "SEALED_NATIVE_W2_OUTPUT_DTYPE_DRIFT:"
-                    f"{value_dtype}!=torch.bfloat16"
+                    f"{value_dtype}!=torch.float32"
                 )
             return value
 
