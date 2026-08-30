@@ -233,6 +233,40 @@ def test_sealed_w2_source_codes_reproduce_builder_mode_w2_bytes_and_linear() -> 
     assert torch.equal(observed, torch.nn.functional.linear(hidden, expected_weight))
 
 
+def test_native_down_projection_uses_expert_local_bf16_f_linear(monkeypatch) -> None:
+    from repair_api.modern_green_resident import _sealed_builder_native_down_projection
+
+    torch.manual_seed(106)
+    hidden = torch.randn(4, 3, dtype=torch.bfloat16)
+    assignments = torch.tensor([1, 0, 1, 0], dtype=torch.int64)
+    packed_w2 = torch.tensor([0, 1])
+    weights = [torch.randn(3, 2, dtype=torch.bfloat16) for _ in range(2)]
+    su_w2 = torch.zeros((2, 3))
+    sv_w2 = torch.zeros((2, 2))
+    original_linear = torch.nn.functional.linear
+    linear_calls: list[tuple[torch.Tensor, torch.Tensor]] = []
+
+    def recording_linear(x: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+        linear_calls.append((x, weight))
+        return original_linear(x, weight)
+
+    monkeypatch.setattr(torch.nn.functional, "linear", recording_linear)
+    observed = _sealed_builder_native_down_projection(
+        hidden, assignments, packed_w2, torch.zeros(1), su_w2, sv_w2,
+        full_weight_builder=lambda packed, *_args: weights[int(packed.item())],
+    )
+
+    expected = torch.empty((4, 2), dtype=torch.bfloat16)
+    for expert in (0, 1):
+        mask = assignments == expert
+        expected[mask] = original_linear(hidden[mask].contiguous(), weights[expert].T.contiguous())
+    assert torch.equal(observed, expected)
+    assert observed.dtype == torch.bfloat16
+    assert len(linear_calls) == 2
+    assert all(x.dtype == torch.bfloat16 and weight.dtype == torch.bfloat16 for x, weight in linear_calls)
+    assert all(x.is_contiguous() and weight.is_contiguous() for x, weight in linear_calls)
+
+
 def test_public_projection_wrapper_calls_native_bf16_w2_for_every_provider_instance() -> None:
     native_calls: list[tuple[torch.Tensor, ...]] = []
 

@@ -998,14 +998,17 @@ def _sealed_builder_native_down_projection(
     """Execute the builder's expert-local native-BF16 W2 F.linear."""
     import torch
 
-    def build_weight(expert_index: int) -> Any:
-        return full_weight_builder(
+    down = torch.empty(
+        (x.shape[0], int(sv_w2.shape[1])), device=x.device, dtype=torch.bfloat16
+    )
+    for expert_index in torch.unique(assignments, sorted=True).tolist():
+        mask = assignments == expert_index
+        expert_x = x[mask].to(torch.bfloat16).contiguous()
+        down_weight = full_weight_builder(
             packed_w2[expert_index], lut_master, su_w2[expert_index], sv_w2[expert_index]
         ).transpose(0, 1).contiguous()
-    down = _sealed_source_grouped_projection(x, assignments, build_weight)
-    # grouped_mm exposes the BF16-rounded projection through an FP32 provider
-    # buffer; its return operator rounds it back before route weighting.
-    return down.float()
+        down[mask] = torch.nn.functional.linear(expert_x, down_weight)
+    return down
 
 
 def _sealed_source_grouped_forward(
