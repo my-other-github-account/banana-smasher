@@ -255,6 +255,13 @@ def build_parser() -> argparse.ArgumentParser:
     continuous.add_argument("--config", type=Path, required=True)
     continuous.add_argument("--receipt", type=Path, required=True)
 
+    calibration = verbs.add_parser("sensitivity-calibrate")
+    calibration.add_argument("--probe-manifest", type=Path, required=True)
+    calibration.add_argument("--measurements", type=Path, required=True)
+    calibration.add_argument("--option-ledger", type=Path, required=True)
+    calibration.add_argument("--output-table", type=Path, required=True)
+    calibration.add_argument("--output-ledger", type=Path, required=True)
+
     smoke = verbs.add_parser("smoke")
     smoke.add_argument("--windows", type=int, default=1)
     return parser
@@ -373,6 +380,16 @@ def main(argv: list[str] | None = None) -> int:
             [int(value) for value in args.milestones.split(",")],
             config=config,
             receipt_path=args.receipt,
+        )
+    elif args.verb == "sensitivity-calibrate":
+        from banana_smasher.sensitivity_calibration import run_sensitivity_calibration
+
+        result = run_sensitivity_calibration(
+            args.probe_manifest,
+            args.measurements,
+            args.option_ledger,
+            output_table=args.output_table,
+            output_ledger=args.output_ledger,
         )
     elif args.verb == "diagnostic-perturb-validate":
         identity = distributed_identity()

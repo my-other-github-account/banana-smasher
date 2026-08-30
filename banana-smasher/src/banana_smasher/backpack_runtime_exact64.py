@@ -106,7 +106,9 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _validate_whole_model_accounting(document: Mapping[str, Any]) -> Mapping[str, Any]:
+def _validate_whole_model_accounting(
+    document: Mapping[str, Any], *, allow_over_cap: bool = False
+) -> Mapping[str, Any]:
     accounting = document.get("whole_model_accounting")
     if not isinstance(accounting, Mapping):
         raise ValueError("exact64 requires standardized whole-model accounting")
@@ -126,7 +128,11 @@ def _validate_whole_model_accounting(document: Mapping[str, Any]) -> Mapping[str
     values: dict[str, int] = {}
     for field in integer_fields:
         value = accounting.get(field)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or (value < 0 and not (allow_over_cap and field == "shipping_slack_bytes"))
+        ):
             raise ValueError(
                 f"exact64 whole-model accounting field is invalid: {field}"
             )
@@ -156,9 +162,13 @@ def _validate_whole_model_accounting(document: Mapping[str, Any]) -> Mapping[str
     )
     if values["whole_shipping_bytes"] != whole:
         raise ValueError("exact64 whole_shipping_bytes equation mismatch")
-    if whole > values["shipping_bytes_cap"]:
+    if whole > values["shipping_bytes_cap"] and not allow_over_cap:
         raise ValueError("exact64 whole-model shipping target exceeded")
-    if values["shipping_slack_bytes"] != values["shipping_bytes_cap"] - whole:
+    expected_slack = values["shipping_bytes_cap"] - whole
+    if allow_over_cap:
+        if accounting.get("shipping_slack_bytes") != expected_slack:
+            raise ValueError("exact64 diagnostic shipping_slack_bytes equation mismatch")
+    elif values["shipping_slack_bytes"] != expected_slack:
         raise ValueError("exact64 shipping_slack_bytes equation mismatch")
     numerator = whole * 8
     if values["whole_model_bpw_numerator_bits"] != numerator:
@@ -207,6 +217,7 @@ def _validate_virtual_product_identity(
     virtual_terminal_path: Path,
     virtual_terminal_sha256: str,
     basis_sha256: str,
+    diagnostic_nonshipping: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Fail closed unless exact64 is bound to one sealed virtual product."""
 
@@ -233,20 +244,31 @@ def _validate_virtual_product_identity(
         or manifest.get("status") != "PASS_LOGICAL_FULL_WIRE"
         or manifest.get("basis_sha256") != basis_sha256
         or not isinstance(accounting, Mapping)
-        or accounting.get("whole_shipping_bytes") != 102_000_000_000
+        or (
+            not diagnostic_nonshipping
+            and accounting.get("whole_shipping_bytes") != 102_000_000_000
+        )
     ):
-        raise ValueError("exact64 virtual manifest is not the sealed exact102 product")
+        raise ValueError("exact64 virtual manifest is not the sealed product")
+    expected_terminal_schema = (
+        "banana-smasher-sensitivity-virtual-terminal-v1"
+        if diagnostic_nonshipping
+        else "banana-smasher-mixed-exact102-virtual-terminal-v1"
+    )
     if (
-        terminal.get("schema") != "banana-smasher-mixed-exact102-virtual-terminal-v1"
+        terminal.get("schema") != expected_terminal_schema
         or terminal.get("status") != "PASS"
         or terminal.get("basis_sha256") != basis_sha256
         or Path(str(terminal.get("virtual_manifest_path", ""))).resolve()
         != virtual_manifest_path
         or terminal.get("virtual_manifest_sha256") != virtual_manifest_sha256
         or not isinstance(terminal_accounting, Mapping)
-        or terminal_accounting.get("whole_shipping_bytes") != 102_000_000_000
+        or (
+            not diagnostic_nonshipping
+            and terminal_accounting.get("whole_shipping_bytes") != 102_000_000_000
+        )
     ):
-        raise ValueError("exact64 virtual terminal does not bind the sealed exact102 product")
+        raise ValueError("exact64 virtual terminal does not bind the sealed product")
     return manifest, terminal
 
 
@@ -281,6 +303,7 @@ def _run_backpack_exact64(
     expected_windows: int = 64,
     slice_id: str | None = None,
     class_by_window: Mapping[str, str] | None = None,
+    diagnostic_nonshipping: bool = False,
 ) -> dict[str, Any]:
     """Run a virtual mixed Backpack assignment on one exact bound window rail.
 
@@ -348,6 +371,7 @@ def _run_backpack_exact64(
         virtual_terminal_path=virtual_terminal_path,
         virtual_terminal_sha256=virtual_terminal_sha256,
         basis_sha256=basis_sha256,
+        diagnostic_nonshipping=diagnostic_nonshipping,
     )
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -412,7 +436,9 @@ def _run_backpack_exact64(
         or virtual_manifest.get("storage", {}).get("tensor_payload_copy_bytes") != 0
     ):
         raise ValueError("exact64 virtual manifest identity mismatch")
-    _validate_whole_model_accounting(virtual_manifest)
+    _validate_whole_model_accounting(
+        virtual_manifest, allow_over_cap=diagnostic_nonshipping
+    )
     if mixed_v7_member_contract_path is not None:
         runtime_binding = virtual_manifest.get("runtime_binding")
         bind_receipt = virtual_manifest.get("mixed_v7_bind_receipt")
@@ -717,11 +743,16 @@ def _run_backpack_exact64(
     _atomic_json(receipts / "SCORE.json", score_result)
     result = {
         "schema": (
-            "banana-smasher-backpack-exact64-terminal-v1"
-            if expected_windows == 64
-            else "banana-smasher-backpack-train8-terminal-v1"
+            "banana-smasher-sensitivity-probe-runtime-terminal-v1"
+            if diagnostic_nonshipping
+            else (
+                "banana-smasher-backpack-exact64-terminal-v1"
+                if expected_windows == 64
+                else "banana-smasher-backpack-train8-terminal-v1"
+            )
         ),
         "status": "PASS",
+        "diagnostic_nonshipping": diagnostic_nonshipping,
         "binding_sha256": binding,
         "basis_sha256": basis_sha256,
         "checkpoint_path": str(checkpoint_path),
