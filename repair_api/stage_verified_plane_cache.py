@@ -66,8 +66,15 @@ def stage_verified_cache(*, source_root: Path, cache_root: Path, freeze_path: Pa
         destination = cache_root / f"L{layer:03d}"
         wire = destination / "wire"
         wire.mkdir(parents=True)
+        layout = source_row.get("route", {}).get("layout", "flat")
         for path in files:
-            os.link(path, wire / path.name)
+            if layout == "nested":
+                expert, projection = path.stem.split("_", 1)
+                target = wire / expert / f"{projection}{path.suffix}"
+                target.parent.mkdir(parents=True, exist_ok=True)
+            else:
+                target = wire / path.name
+            os.link(path, target)
         marker = {
             "schema": "banana-smasher-verified-plane-cache-v1",
             "status": "PASS", "layer": layer, "basis_sha256": BASIS_SHA256,
