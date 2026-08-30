@@ -992,10 +992,10 @@ def build_qtip_native_cells(
     cyclic_fixed_point_fast_path: bool = True,
     reserve_bytes: int = 4 << 30,
 ) -> list[dict[str, Any]]:
-    """Build independent QTIP3 cells in one GPU-resident recurrence call.
+    """Build independent QTIP V7 ladder cells in one GPU-resident recurrence call.
 
     Each mapping contains ``source``, ``control``, and ``output``.  This seam is
-    intentionally fail-closed to the immutable QTIP3 B12/L16/V4 contract;
+    intentionally fail-closed to the immutable Q1/Q3/Q4 V7 geometries;
     :func:`build_qtip_native_cell` remains the scalar compatibility wrapper.
     """
 
@@ -1008,13 +1008,13 @@ def build_qtip_native_cells(
         not cells
         or codec_version != "v6"
         or backend != "cuda"
-        or (geometry.B, geometry.L, geometry.V) != (12, 16, 4)
+        or (geometry.B, geometry.L, geometry.V) not in {(4, 16, 4), (12, 16, 4), (16, 16, 4)}
         or tuple(float(value) for value in scale_factors) != (1.0,)
         or ldlq_scale_semantics != "rms_ratio"
         or feedback_mode != "off"
         or trellis_objective != "sse"
     ):
-        raise ValueError("QTIP3 batch API is fixed to CUDA v6 B12/L16/V4 rms_ratio")
+        raise ValueError("QTIP V7 batch API is fixed to CUDA v6 Q1/Q3/Q4 rms_ratio")
 
     tlut_path = Path(tlut).expanduser().resolve()
     table = np.load(tlut_path, allow_pickle=False)
@@ -1097,6 +1097,8 @@ def build_qtip_native_cells(
         results: list[dict[str, Any]] = []
         cursor = 0
         total_blocks = len(combined_packed)
+        rate = geometry.B / geometry.V
+        provider = f"qtip-native-v6@{rate:.2f}"
         for row_index, row in enumerate(prepared):
             count = len(row["blocks"])
             cell_start = cursor
@@ -1131,14 +1133,14 @@ def build_qtip_native_cells(
             full_wire_bytes = int(packed.nbytes + transform_bytes + wscale_bytes + table.nbytes)
             receipt: dict[str, Any] = {
                 "schema": GENERIC_CELL_SCHEMA, "status": "PASS", "backend": "cuda",
-                "codec_version": "v6", "provider": "qtip-native-v6@3.00",
+                "codec_version": "v6", "provider": provider,
                 "basis_sha256": intended, "geometry": geometry.as_mapping(),
                 "source": {**_artifact(row["source_path"], data_bytes=int(source_weights.nbytes)), "shape": list(source_weights.shape), "dtype": str(source_weights.dtype)},
                 "control": {**_artifact(row["control_path"]), "shape": list(compact["shape"])},
                 "tlut": {**_artifact(tlut_path, data_bytes=int(table.nbytes)), "tensor_sha256": _sha_array(table), "shape": list(table.shape), "identity": "q9-v2-v4"},
                 "normalized_tensor_sha256": _sha_array(row["blocks"]),
                 "optimization": optimization,
-                "accounting": {"weights": weights, "exact_code_bits": weights * geometry.B // geometry.V, "exact_code_bpw": 3.0, "code_data_bytes": int(packed.nbytes), "transform_bytes": transform_bytes, "Wscale_bytes": wscale_bytes, "shared_tlut_bytes": int(table.nbytes), "assignment_map_bytes": 0, "routing_bytes": 0, "full_cell_wire_bytes_including_shared_tlut": full_wire_bytes, "full_cell_wire_bpw_including_shared_tlut": full_wire_bytes * 8 / weights},
+                "accounting": {"weights": weights, "exact_code_bits": weights * geometry.B // geometry.V, "exact_code_bpw": rate, "code_data_bytes": int(packed.nbytes), "transform_bytes": transform_bytes, "Wscale_bytes": wscale_bytes, "shared_tlut_bytes": int(table.nbytes), "assignment_map_bytes": 0, "routing_bytes": 0, "full_cell_wire_bytes_including_shared_tlut": full_wire_bytes, "full_cell_wire_bpw_including_shared_tlut": full_wire_bytes * 8 / weights},
                 "direct_error": {"sse": sse, "mse": sse / weights},
                 "encode": {"wall_seconds": encode_seconds, "weights_per_second": weights / encode_seconds},
                 "artifacts": {"codes": _artifact(codes_path, data_bytes=int(packed.nbytes)), "decoded": _artifact(decoded_path, data_bytes=int(decoded.nbytes)), "SU": _artifact(su_path, data_bytes=int(compact["SU_storage"].nbytes)), "SV": _artifact(sv_path, data_bytes=int(compact["SV_storage"].nbytes)), "Wscale": _artifact(wscale_path, data_bytes=wscale_bytes)},
