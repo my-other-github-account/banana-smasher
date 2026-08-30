@@ -22,6 +22,7 @@ from repair_api.official_k2_resident_score import (
     OfficialK2LocalDualShardEngine,
     OfficialK2ResidentRankEngine,
     _ORDINARY_FORK_PAYLOADS,
+    _attach_checkpoint_identity_envelope,
     _load_score_checkpoint,
     _release_or_retain_checkpoint_payload,
     _unique_tensor_storage_bytes,
@@ -207,6 +208,36 @@ def test_registered_broker_identity_is_the_read_only_authority() -> None:
             )
     finally:
         _ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
+
+
+def test_identity_envelope_promotion_preserves_exact_broker_release_authority() -> None:
+    from repair_api import official_k2_resident_score as resident_score
+
+    checkpoint_sha = "f" * 64
+    state = MappingProxyType({"weight": torch.arange(4)})
+    payload = MappingProxyType({"state": state})
+    resident_score._ORDINARY_FORK_PAYLOADS[checkpoint_sha] = {"payload": payload}
+    resident_score._ORDINARY_FORK_PAYLOAD_LEASES[checkpoint_sha] = [payload]
+    envelope = {"checkpoint_loaded": True, "checkpoint_sha256": checkpoint_sha}
+    try:
+        adapted = _attach_checkpoint_identity_envelope(
+            payload,
+            envelope=envelope,
+            checkpoint_sha256=checkpoint_sha,
+        )
+
+        assert adapted is resident_score._ORDINARY_FORK_PAYLOADS[checkpoint_sha]["payload"]
+        assert resident_score._ORDINARY_FORK_PAYLOAD_LEASES[checkpoint_sha] == [adapted]
+        assert adapted["state"] is state
+        assert adapted["identity"]["checkpoint_sha256"] == checkpoint_sha
+        assert _release_or_retain_checkpoint_payload(
+            adapted,
+            ordinary_load_fork_broker=True,
+            checkpoint_sha256=checkpoint_sha,
+        ) == "inherited_read_only"
+    finally:
+        resident_score._ORDINARY_FORK_PAYLOADS.pop(checkpoint_sha, None)
+        resident_score._ORDINARY_FORK_PAYLOAD_LEASES.pop(checkpoint_sha, None)
 
 
 def test_registered_broker_accepts_authenticated_state_mapping_view() -> None:
