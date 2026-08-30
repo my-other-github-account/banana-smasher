@@ -19,3 +19,4 @@ def test_sensitivity_probe_worker_cli_imports_from_pinned_checkout() -> None:
     assert result.returncode == 0, result.stderr
     assert "--probe-manifest" in result.stdout
     assert "--start" in result.stdout and "--end" in result.stdout
+    assert "--reproduce-baseline" in result.stdout

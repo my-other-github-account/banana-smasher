@@ -53,6 +53,7 @@ def main() -> int:
     parser.add_argument("--baseline-root", type=Path, required=True)
     parser.add_argument("--start", type=int, required=True)
     parser.add_argument("--end", type=int, required=True)
+    parser.add_argument("--reproduce-baseline", action="store_true")
     args = parser.parse_args()
     root = args.root.resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -91,6 +92,52 @@ def main() -> int:
     available = int(Path("/proc/meminfo").read_text().split("MemAvailable:", 1)[1].split()[0]) * 1024
     if available < 24_000_000_000:
         raise RuntimeError(f"MEMORY_PREFLIGHT_RED:{available}")
+
+    instrument_path = root / "INSTRUMENT.json"
+    if args.reproduce_baseline and not instrument_path.exists():
+        instrument_root = root / "instrument"
+        instrument_started = time.time()
+        instrument = _run_backpack_exact64(
+            model_root=model_root,
+            bank_path=bank,
+            teacher_manifest_path=teacher,
+            virtual_manifest_path=baseline_manifest,
+            virtual_manifest_sha256=BASELINE_MANIFEST_SHA,
+            virtual_terminal_path=baseline_terminal,
+            virtual_terminal_sha256=sha(baseline_terminal),
+            materialization_index_path=baseline_index,
+            qtip2_root_map_path=q2_map,
+            qtip3_root_map_path=q3_map,
+            checkpoint_path=checkpoint,
+            checkpoint_sha256=CHECKPOINT_SHA,
+            output_root=instrument_root,
+            basis_sha256=BASIS,
+            expected_windows=1,
+            slice_id="sensitivity-instrument-baseline",
+        )
+        observed = float(instrument["mean_kld"])
+        if not math.isclose(observed, BASELINE_W28_KLD, rel_tol=0.0, abs_tol=1e-12):
+            raise RuntimeError(f"INSTRUMENT_BASELINE_RED:{observed}:{BASELINE_W28_KLD}")
+        atomic(instrument_path, {
+            "schema": "banana-smasher-sensitivity-instrument-gate-v1",
+            "status": "PASS",
+            "task_id": "t_4d50f501",
+            "board_run_id": int(os.environ.get("BANANA_SMASHER_RUN_ID", "0")),
+            "canonical_git_pin": os.environ.get("BANANA_SMASHER_PIN"),
+            "basis_sha256": BASIS,
+            "known_mean_kld": BASELINE_W28_KLD,
+            "observed_mean_kld": observed,
+            "absolute_delta": abs(observed - BASELINE_W28_KLD),
+            "runtime_terminal_path": str(instrument_root / "receipts/TERMINAL.json"),
+            "runtime_terminal_sha256": sha(instrument_root / "receipts/TERMINAL.json"),
+            "elapsed_seconds": time.time() - instrument_started,
+            "created_unix": time.time(),
+        })
+        shutil.rmtree(instrument_root / "layerwise", ignore_errors=True)
+    elif args.reproduce_baseline:
+        instrument = json.loads(instrument_path.read_text())
+        if instrument.get("status") != "PASS" or instrument.get("observed_mean_kld") != BASELINE_W28_KLD:
+            raise RuntimeError("INSTRUMENT_RECEIPT_DRIFT")
 
     measurements = root / "MEASUREMENTS.jsonl"
     completed = {}
