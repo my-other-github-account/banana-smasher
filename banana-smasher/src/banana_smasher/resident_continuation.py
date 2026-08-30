@@ -1361,6 +1361,10 @@ class ModernGreenResidentEngine:
                     local_state["state"][local_id] = _cpu_tree(self.torch, value)
             local_groups[index].update({key: value for key, value in source_group.items() if key != "params"})
             local_groups[index]["params"] = local_ids
+            # Checkpoint optimizer metadata may carry legacy roster labels such
+            # as ``all43_luts``.  Preserve numeric Adam state, but keep the
+            # canonical live surface identity used by the per-step LR gate.
+            local_groups[index]["group_name"] = surface
         if self.scales and "scales" not in self.state:
             for key in ("lr", "initial_lr", "betas", "eps", "weight_decay", "amsgrad"):
                 if key in local_groups[0]:

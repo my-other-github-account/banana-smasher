@@ -1055,6 +1055,64 @@ def test_published_pre_starts_with_fresh_optimizer_and_scheduler_state():
     assert engine.scheduler_state_action == "FRESH_PRE_OPTIMIZER_AND_SCHEDULE"
 
 
+def test_optimizer_restore_normalizes_legacy_group_names_for_live_lr_gate():
+    class FakeOptimizer:
+        def __init__(self):
+            self.loaded = None
+            self.param_groups = []
+
+        def state_dict(self):
+            return {
+                "state": {},
+                "param_groups": [
+                    {"params": [index], "group_name": surface}
+                    for index, surface in enumerate(("luts", "norms", "outputs"))
+                ],
+            }
+
+        def load_state_dict(self, value):
+            self.loaded = value
+            self.param_groups = value["param_groups"]
+
+    class FakeScheduler:
+        def load_state_dict(self, value):
+            self.loaded = value
+
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.score_only = False
+    engine.config = {}
+    engine.torch = SimpleNamespace()
+    engine.state = {
+        "luts": {"lut": object()},
+        "norms": {"norm": object()},
+        "outputs": {"output": object()},
+    }
+    engine.luts = [("lut", object())]
+    engine.norms = [("norm", object())]
+    engine.outputs = [("output", object())]
+    engine.scales = []
+    engine.expert_plane_contract = None
+    engine.optimizer = FakeOptimizer()
+    engine.scheduler = FakeScheduler()
+    engine.payload = {
+        "next_update": 20,
+        "optimizer": {
+            "state": {},
+            "param_groups": [
+                {"params": [index], "group_name": f"all43_{surface}"}
+                for index, surface in enumerate(("luts", "norms", "outputs"))
+            ],
+        },
+        "scheduler": {},
+    }
+
+    engine._load_optimizer_scheduler_state()
+
+    assert [group["group_name"] for group in engine.optimizer.param_groups] == [
+        "luts", "norms", "outputs"
+    ]
+
+
 def test_public_resident_score_engine_loads_exact_state_without_training_lineage(tmp_path, monkeypatch):
     checkpoint = tmp_path / "SERIALIZED_PRE.pt"
     checkpoint.write_bytes(b"exact-pre")
