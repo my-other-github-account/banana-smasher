@@ -874,6 +874,21 @@ def _bind_sealed_gate_up_projection(
                 **(dict(witness) if isinstance(witness, Mapping) else {}),
             }
 
+        def _sealed_native_bf16_down_projection(self, *args: Any) -> Any:
+            """Dispatch every provider instance through the repaired W2 boundary."""
+            if not callable(native_down_projection):
+                raise RuntimeError("SEALED_NATIVE_BF16_W2_HELPER_MISSING")
+            value = native_down_projection(*args)
+            import torch
+
+            value_dtype = getattr(value, "dtype", None)
+            if value_dtype != torch.bfloat16:
+                raise RuntimeError(
+                    "SEALED_NATIVE_W2_OUTPUT_DTYPE_DRIFT:"
+                    f"{value_dtype}!=torch.bfloat16"
+                )
+            return value
+
         def forward(
             self, hidden_states: Any, top_k_index: Any, top_k_weights: Any
         ) -> Any:
@@ -958,21 +973,11 @@ def _bind_sealed_gate_up_projection(
             if projection == "w2":
                 if len(args) < 7:
                     raise RuntimeError("SEALED_W2_HANDOFF_CALL_GEOMETRY_DRIFT")
-                if not callable(native_down_projection):
-                    raise RuntimeError("SEALED_NATIVE_BF16_W2_HELPER_MISSING")
                 # Attempt106bq: import/call the accepted builder's native BF16
                 # expert-local F.linear instead of grouped FP32 projection + cast.
-                value = native_down_projection(
+                value = self._sealed_native_bf16_down_projection(
                     args[1], args[2], self.packed_w2, args[4], self.su_w2, self.sv_w2
                 )
-                import torch
-
-                value_dtype = getattr(value, "dtype", None)
-                if value_dtype != torch.bfloat16:
-                    raise RuntimeError(
-                        "SEALED_NATIVE_W2_OUTPUT_DTYPE_DRIFT:"
-                        f"{value_dtype}!=torch.bfloat16"
-                    )
             else:
                 value = super()._project(*args, **kwargs)
             if projection == "w2" and self._sealed_aligned_positions is not None:

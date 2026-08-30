@@ -255,10 +255,14 @@ def test_public_projection_wrapper_calls_native_bf16_w2_for_every_provider_insta
     )
     assert wrapped_type._sealed_native_bf16_w2_scope == "provider_class_all_instances_v1"
 
-    for layer in (0, 1, 42):
+    dispatch_implementations = set()
+    for layer in (0, 21, 42):
         provider = wrapped_type()
         provider.L = layer
         provider._sealed_aligned_positions = None
+        dispatch_implementations.add(
+            provider._sealed_native_bf16_down_projection.__func__
+        )
         activated = torch.tensor([[0.006927490234375]], dtype=torch.bfloat16)
         observed = provider._project(
             "w2", activated, torch.tensor([0]), provider.packed_w2,
@@ -268,3 +272,6 @@ def test_public_projection_wrapper_calls_native_bf16_w2_for_every_provider_insta
         assert torch.equal(observed, torch.full_like(activated, 7.0))
 
     assert len(native_calls) == 3
+    assert dispatch_implementations == {
+        wrapped_type._sealed_native_bf16_down_projection
+    }
