@@ -208,6 +208,31 @@ def test_combined_projection_uses_one_expert_local_bf16_linear() -> None:
     assert torch.equal(up, expected_up)
 
 
+def test_sealed_w2_source_codes_reproduce_builder_mode_w2_bytes_and_linear() -> None:
+    from repair_api.modern_green_resident import (
+        _decode_sealed_w2_source_weight,
+        _pack_sealed_w2_source_codes,
+        _sealed_w2_source_projection,
+    )
+
+    # Two original FP4 bytes contain nibbles 0,5,8,13.  Builder mode=w2 maps
+    # them to +1,+4,-1,-4 before applying the e8m0 block scale.
+    packed = torch.tensor([[0x50, 0xD8] * 8], dtype=torch.uint8)
+    codes = _pack_sealed_w2_source_codes(packed)
+    scales = torch.full((1, 1), 127, dtype=torch.uint8)
+    weight = _decode_sealed_w2_source_weight(codes, scales)
+    expected_weight = torch.tensor(
+        [[1.0, 4.0, -1.0, -4.0] * 8], dtype=torch.bfloat16
+    )
+
+    assert torch.equal(weight, expected_weight)
+    hidden = torch.arange(32, dtype=torch.bfloat16).reshape(1, 32)
+    observed = _sealed_w2_source_projection(
+        hidden, torch.tensor([0]), codes.unsqueeze(0), scales.unsqueeze(0)
+    )
+    assert torch.equal(observed, torch.nn.functional.linear(hidden, expected_weight))
+
+
 def test_public_projection_wrapper_calls_native_bf16_w2_for_every_provider_instance() -> None:
     native_calls: list[tuple[torch.Tensor, ...]] = []
 

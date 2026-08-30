@@ -633,6 +633,95 @@ def _sealed_builder_native_down_projection(
     return down
 
 
+def _pack_sealed_w2_source_codes(packed_nibbles: Any) -> Any:
+    """Pack the sealed builder's W2 nibble classes into four 2-bit codes/byte."""
+    import torch
+
+    raw = packed_nibbles.view(torch.uint8).contiguous()
+    low = raw & 0x0F
+    high = raw >> 4
+
+    def classify(value: Any) -> Any:
+        return torch.where(
+            value < 5,
+            torch.zeros_like(value),
+            torch.where(
+                value < 8,
+                torch.ones_like(value),
+                torch.where(value < 13, torch.full_like(value, 2), torch.full_like(value, 3)),
+            ),
+        )
+
+    codes = torch.stack((classify(low), classify(high)), dim=-1).flatten(-2)
+    if codes.shape[-1] % 4:
+        raise RuntimeError("SEALED_W2_SOURCE_CODE_GEOMETRY_DRIFT")
+    codes = codes.reshape(*codes.shape[:-1], codes.shape[-1] // 4, 4)
+    return (
+        codes[..., 0]
+        | (codes[..., 1] << 2)
+        | (codes[..., 2] << 4)
+        | (codes[..., 3] << 6)
+    ).to(torch.uint8)
+
+
+def _decode_sealed_w2_source_weight(codes: Any, scales: Any) -> Any:
+    """Reproduce builder_B2_PUBLISHED_PRE.py mode=w2 BF16 weight bytes."""
+    import torch
+
+    shifts = torch.tensor((0, 2, 4, 6), device=codes.device, dtype=torch.uint8)
+    unpacked = ((codes.unsqueeze(-1) >> shifts) & 0x03).flatten(-2).to(torch.int64)
+    levels = torch.tensor((1.0, 4.0, -1.0, -4.0), device=codes.device)
+    values = levels[unpacked]
+    scale = torch.exp2(scales.to(torch.float32) - 127.0).repeat_interleave(32, dim=-1)
+    if values.shape != scale.shape:
+        raise RuntimeError("SEALED_W2_SOURCE_SCALE_GEOMETRY_DRIFT")
+    return (values * scale).to(torch.bfloat16)
+
+
+def _load_sealed_w2_source_layer(model_root: Any, layer: int, device: Any) -> dict[str, Any]:
+    """Load one layer's immutable source FP4 bytes into compact resident W2 codes."""
+    import torch
+    from safetensors import safe_open
+
+    root = Path(str(model_root)).expanduser().resolve()
+    index = json.loads((root / "model.safetensors.index.json").read_text())["weight_map"]
+    result: dict[str, Any] = {}
+    for projection in ("w1", "w2", "w3"):
+        packed_rows = []
+        scale_rows = []
+        handles: dict[str, Any] = {}
+        for expert in range(256):
+            prefix = f"layers.{int(layer)}.ffn.experts.{expert}.{projection}"
+            weight_key, scale_key = prefix + ".weight", prefix + ".scale"
+            shard = str(index[weight_key])
+            handle = handles.get(shard)
+            if handle is None:
+                handle = safe_open(root / shard, framework="pt")
+                handles[shard] = handle
+            packed_rows.append(_pack_sealed_w2_source_codes(handle.get_tensor(weight_key)))
+            scale_rows.append(handle.get_tensor(scale_key).view(torch.uint8).contiguous())
+        result[f"codes_{projection}"] = torch.stack(packed_rows).to(device=device)
+        result[f"scales_{projection}"] = torch.stack(scale_rows).to(device=device)
+    return result
+
+
+def _sealed_w2_source_projection(
+    x: Any, assignments: Any, codes: Any, scales: Any
+) -> Any:
+    """Run the authentic expert-local BF16 F.linear over source-bound W2 bytes."""
+    import torch
+
+    width = int(codes.shape[1])
+    out = torch.empty((x.shape[0], width), device=x.device, dtype=torch.bfloat16)
+    for expert in torch.unique(assignments, sorted=True).tolist():
+        mask = assignments == expert
+        weight = _decode_sealed_w2_source_weight(codes[expert], scales[expert])
+        out[mask] = torch.nn.functional.linear(
+            x[mask].to(torch.bfloat16).contiguous(), weight
+        )
+    return out
+
+
 def _bind_sealed_gate_up_projection(
     provider_class: Any,
     config: Mapping[str, Any],
@@ -661,6 +750,28 @@ def _bind_sealed_gate_up_projection(
     class SealedCombinedGateUpProjectionExpert(provider_class):
         _sealed_gate_up_runtime_marker = SEALED_GATE_UP_RUNTIME_MARKER
         _sealed_native_bf16_w2_scope = "provider_class_all_instances_v1"
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self._sealed_source_w2_enabled = _uses_exact_sealed_reconstruction(config)
+            if self._sealed_source_w2_enabled:
+                import torch
+
+                source = _load_sealed_w2_source_layer(
+                    config["model_root"], int(self.L), self.packed_w1.device
+                )
+                for name, value in source.items():
+                    self.register_buffer(f"_sealed_w2_{name}", value, persistent=False)
+                # The source-bound two-bit codes replace, rather than duplicate,
+                # the inert QTIP-K2 wire selected by RUN7006c.
+                for projection in ("w1", "w2", "w3"):
+                    for prefix in ("packed", "su", "sv"):
+                        current = getattr(self, f"{prefix}_{projection}")
+                        setattr(
+                            self,
+                            f"{prefix}_{projection}",
+                            torch.empty(0, device=current.device, dtype=current.dtype),
+                        )
 
         @staticmethod
         def _sealed_tensor_witness(value: Any) -> dict[str, Any]:
@@ -693,6 +804,44 @@ def _bind_sealed_gate_up_projection(
         ) -> Any:
             self._sealed_combined_up = None
             self._sealed_aligned_positions = None
+            if self._sealed_source_w2_enabled:
+                import torch
+
+                token_index = (
+                    torch.arange(hidden_states.shape[0], device=hidden_states.device)
+                    .unsqueeze(1).expand_as(top_k_index).reshape(-1)
+                )
+                expert_index = top_k_index.reshape(-1).to(torch.int64)
+                routed_hidden = hidden_states[token_index].contiguous()
+                gate = _sealed_w2_source_projection(
+                    routed_hidden, expert_index,
+                    self._sealed_w2_codes_w1, self._sealed_w2_scales_w1,
+                )
+                up = _sealed_w2_source_projection(
+                    routed_hidden, expert_index,
+                    self._sealed_w2_codes_w3, self._sealed_w2_scales_w3,
+                )
+                self._sealed_gate_up_activation_count = int(
+                    getattr(self, "_sealed_gate_up_activation_count", 0)
+                ) + 1
+                if capture_witness:
+                    self._sealed_gate_up_last_witness = {
+                        "gate": self._sealed_tensor_witness(gate),
+                        "up": self._sealed_tensor_witness(up),
+                    }
+                activated = self.act(gate) * up
+                routed_output = _sealed_w2_source_projection(
+                    activated, expert_index,
+                    self._sealed_w2_codes_w2, self._sealed_w2_scales_w2,
+                )
+                if getattr(self, "_sealed_capture_w2", False):
+                    self._sealed_routed_output = routed_output
+                weighted = routed_output * top_k_weights.reshape(-1, 1).to(
+                    dtype=routed_output.dtype
+                )
+                return weighted.view(
+                    hidden_states.shape[0], top_k_index.shape[1], hidden_states.shape[-1]
+                ).sum(dim=1).to(hidden_states.dtype)
             if active_row_expert is not None:
                 import torch
 
