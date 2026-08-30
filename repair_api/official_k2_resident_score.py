@@ -3802,6 +3802,14 @@ class OfficialK2LocalDualShardEngine:
             windows=windows,
             config=dict(common, rank=1),
         )
+        # Both rank read counters are process-global audit hooks.  Rank 0 is
+        # resident before rank 1 starts loading, so its first ready boundary
+        # necessarily observes rank 1's intentional one-time source reads.
+        # Rebase both counters only after the complete local engine is resident;
+        # from this boundary onward every tracked read is a forbidden timed-score
+        # reopen rather than cold materialization.
+        self.rank0.ready_counter = self.rank0.read_counter.mark_resident_ready()
+        self.rank1.ready_counter = self.rank1.read_counter.mark_resident_ready()
         ready = [self.rank0.local_ready, self.rank1.local_ready]
         self.rank0.resident_ready = ready
         self.rank1.resident_ready = ready

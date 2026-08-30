@@ -323,6 +323,20 @@ def test_same_process_rank_boundary_releases_allocator_before_rank1() -> None:
     assert '"margin_bytes"' in source
 
 
+def test_local_dual_shard_rebases_read_counters_after_both_ranks_load() -> None:
+    source = inspect.getsource(OfficialK2LocalDualShardEngine.__init__)
+    rank1 = source.index("self.rank1 = OfficialK2ResidentRankEngine(")
+    rank1_loaded = source.index("self.rank0.ready_counter =", rank1)
+    rank0_rebased = source.index(
+        "self.rank0.read_counter.mark_resident_ready()", rank1_loaded
+    )
+    rank1_rebased = source.index(
+        "self.rank1.read_counter.mark_resident_ready()", rank0_rebased
+    )
+    scoring_ready = source.index("ready = [self.rank0.local_ready", rank1_rebased)
+    assert rank1 < rank1_loaded <= rank0_rebased < rank1_rebased < scoring_ready
+
+
 def test_rank1_preflight_deducts_exact_brokered_storage_from_incremental_peak() -> None:
     owner = torch.arange(16)
     alias = owner.view(4, 4)
