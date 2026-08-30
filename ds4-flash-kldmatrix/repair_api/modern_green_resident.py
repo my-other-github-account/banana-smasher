@@ -662,6 +662,71 @@ def _sealed_builder_native_down_projection(
     return down.float()
 
 
+def _sealed_source_grouped_forward(
+    hidden_states: Any, top_k_index: Any, top_k_weights: Any,
+    packed_w1: Any, packed_w3: Any, packed_w2: Any, lut_master: Any,
+    su_w1: Any, sv_w1: Any, su_w3: Any, sv_w3: Any, su_w2: Any, sv_w2: Any,
+    *, limit: float, act_fn: Any, full_weight_builder: Any,
+) -> Any:
+    """Execute the decorated transformers grouped_mm forward as one operator."""
+    import torch
+    from transformers.integrations.moe import _grouped_linear
+
+    num_top_k = int(top_k_index.shape[1])
+    num_tokens = int(hidden_states.shape[0])
+    hidden_dim = int(hidden_states.shape[-1])
+    num_experts = int(packed_w1.shape[0])
+    sample_weights = top_k_weights.reshape(-1)
+    expert_ids_g, perm = torch.sort(top_k_index.reshape(-1))
+    selected_hidden_states_g = hidden_states[perm // num_top_k]
+    sample_weights_g = sample_weights[perm]
+    tokens_per_expert = torch.histc(
+        expert_ids_g.int(), bins=num_experts, min=0, max=num_experts - 1
+    )
+    offsets = torch.cumsum(tokens_per_expert, dim=0, dtype=torch.int32)
+
+    def materialize_all(projection: str) -> Any:
+        if projection == "gate_up":
+            def build(expert_index: int) -> Any:
+                gate = full_weight_builder(
+                    packed_w1[expert_index], lut_master, su_w1[expert_index], sv_w1[expert_index]
+                ).transpose(0, 1).contiguous()
+                up = full_weight_builder(
+                    packed_w3[expert_index], lut_master, su_w3[expert_index], sv_w3[expert_index]
+                ).transpose(0, 1).contiguous()
+                return torch.cat((gate, up), dim=0)
+        else:
+            def build(expert_index: int) -> Any:
+                return full_weight_builder(
+                    packed_w2[expert_index], lut_master, su_w2[expert_index], sv_w2[expert_index]
+                ).transpose(0, 1).contiguous()
+        first = build(0)
+        weights = torch.empty((num_experts, *first.shape), device=first.device, dtype=first.dtype)
+        weights[0].copy_(first)
+        del first
+        for expert_index in range(1, num_experts):
+            current = build(expert_index)
+            weights[expert_index].copy_(current)
+            del current
+        return weights
+
+    gate_up_weights = materialize_all("gate_up")
+    proj_out = _grouped_linear(
+        selected_hidden_states_g, gate_up_weights, offsets, bias=None, is_transposed=False
+    )
+    del gate_up_weights
+    gate, up = proj_out.chunk(2, dim=-1)
+    proj_out = act_fn(gate.clamp(max=limit)) * up.clamp(min=-limit, max=limit)
+    down_weights = materialize_all("down")
+    proj_out = _grouped_linear(proj_out, down_weights, offsets, bias=None, is_transposed=False)
+    del down_weights
+    weighted_out = proj_out * sample_weights_g.unsqueeze(-1)
+    inv_perm = torch.empty_like(perm)
+    inv_perm[perm] = torch.arange(perm.numel(), device=perm.device)
+    weighted_out = weighted_out[inv_perm]
+    return weighted_out.view(num_tokens, num_top_k, hidden_dim).sum(dim=1).to(hidden_states.dtype)
+
+
 def _pack_sealed_w2_source_codes(packed_nibbles: Any) -> Any:
     """Pack the sealed builder's W2 nibble classes into four 2-bit codes/byte."""
     import torch
@@ -757,6 +822,7 @@ def _bind_sealed_gate_up_projection(
     *,
     combined_projection: Any,
     native_down_projection: Any = None,
+    grouped_forward: Any = None,
 ) -> Any:
     """Replace only 942c's separate gate/up GEMMs with the sealed combined GEMM."""
     explicitly_bound = (
@@ -846,6 +912,8 @@ def _bind_sealed_gate_up_projection(
         def forward(
             self, hidden_states: Any, top_k_index: Any, top_k_weights: Any
         ) -> Any:
+            if callable(grouped_forward):
+                return grouped_forward(self, hidden_states, top_k_index, top_k_weights)
             self._sealed_combined_up = None
             self._sealed_aligned_positions = None
             if self._sealed_source_w2_enabled:
@@ -1097,6 +1165,7 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
 
     combined_projection = None
     native_down_projection = None
+    grouped_forward = None
     if (
         config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
         and config.get("resident_gate_up_provider_sha256")
@@ -1127,6 +1196,21 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
 
             native_down_projection = bound_native_down_projection
 
+            def bound_grouped_forward(
+                expert: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any
+            ) -> Any:
+                return _sealed_source_grouped_forward(
+                    hidden_states, top_k_index, top_k_weights,
+                    expert.packed_w1, expert.packed_w3, expert.packed_w2,
+                    expert.plane_source.wire_lut().reshape(-1).contiguous(),
+                    expert.su_w1, expert.sv_w1, expert.su_w3, expert.sv_w3,
+                    expert.su_w2, expert.sv_w2,
+                    limit=float(expert.limit), act_fn=expert.act,
+                    full_weight_builder=full_weight_builder,
+                )
+
+            grouped_forward = bound_grouped_forward
+
     def bind_projection_boundary(current_class: Any) -> Any:
         projection_class = current_class
         if _uses_exact_sealed_reconstruction(config):
@@ -1149,6 +1233,7 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
             config,
             combined_projection=combined_projection,
             native_down_projection=native_down_projection,
+            grouped_forward=grouped_forward,
         )
         return _bind_sealed_routed_return_accumulation(projection_class, config)
 
