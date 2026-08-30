@@ -136,7 +136,7 @@ def test_public_projection_wrapper_binds_combined_gate_up_and_product_exactly() 
         Immutable942cProjectionProvider,
         bound,
         combined_projection=combined_projection,
-        native_down_projection=lambda x, *_args: x,
+        native_down_projection=lambda x, *_args: x.float(),
     )
     observed = wrapped_type().forward(hidden, indices, weights)
     expected = (torch.nn.functional.silu(torch.ones_like(hidden)) * 2).to(torch.bfloat16)
@@ -238,7 +238,7 @@ def test_public_projection_wrapper_calls_native_bf16_w2_for_every_provider_insta
 
     def native_down_projection(*args: torch.Tensor) -> torch.Tensor:
         native_calls.append(args)
-        return torch.full_like(args[0], 7.0)
+        return torch.full_like(args[0], 7.0).float()
 
     config = ResidentRepairAPI.bind_combined_gate_up_projection(
         {}, provider_expert_sha256=PROVIDER_SHA256
@@ -268,8 +268,8 @@ def test_public_projection_wrapper_calls_native_bf16_w2_for_every_provider_insta
             "w2", activated, torch.tensor([0]), provider.packed_w2,
             provider.plane_source.wire_lut(), provider.su_w2, provider.sv_w2,
         )
-        assert observed.dtype == torch.bfloat16
-        assert torch.equal(observed, torch.full_like(activated, 7.0))
+        assert observed.dtype == torch.float32
+        assert torch.equal(observed, torch.full_like(activated, 7.0).float())
 
     assert len(native_calls) == 3
     assert dispatch_implementations == {

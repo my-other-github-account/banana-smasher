@@ -719,7 +719,10 @@ def _sealed_builder_accumulate_routes(
 
     expert_index = top_k_index.reshape(-1).to(torch.int64)
     route_weights = top_k_weights.reshape(-1, 1).float()
-    weighted = (routed_output * route_weights).to(hidden_states.dtype)
+    weighted = (
+        routed_output.to(hidden_states.dtype)
+        * route_weights.to(hidden_states.dtype)
+    )
     routed = weighted.reshape(
         top_k_index.shape[0], top_k_index.shape[1], weighted.shape[-1]
     )
@@ -805,7 +808,9 @@ def _sealed_builder_native_down_projection(
             packed_w2[expert_index], lut_master, su_w2[expert_index], sv_w2[expert_index]
         ).transpose(0, 1).contiguous()
         down[mask] = torch.nn.functional.linear(expert_x, down_weight)
-    return down
+    # grouped_mm exposes the BF16-rounded projection through an FP32 provider
+    # buffer; its return operator rounds it back before route weighting.
+    return down.float()
 
 
 def _bind_sealed_gate_up_projection(
@@ -873,10 +878,10 @@ def _bind_sealed_gate_up_projection(
             import torch
 
             value_dtype = getattr(value, "dtype", None)
-            if value_dtype != torch.bfloat16:
+            if value_dtype != torch.float32:
                 raise RuntimeError(
                     "SEALED_NATIVE_W2_OUTPUT_DTYPE_DRIFT:"
-                    f"{value_dtype}!=torch.bfloat16"
+                    f"{value_dtype}!=torch.float32"
                 )
             return value
 

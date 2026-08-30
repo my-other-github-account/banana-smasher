@@ -114,7 +114,7 @@ def test_public_projection_wrapper_binds_combined_gate_up_and_product_exactly() 
         Immutable942cProjectionProvider,
         bound,
         combined_projection=combined_projection,
-        native_down_projection=lambda x, *_args: x,
+        native_down_projection=lambda x, *_args: x.float(),
     )
     observed = wrapped_type().forward(hidden, indices, weights)
     expected = (torch.nn.functional.silu(torch.ones_like(hidden)) * 2).to(torch.bfloat16)
@@ -128,8 +128,8 @@ def test_public_projection_wrapper_binds_combined_gate_up_and_product_exactly() 
     assert wrapped_type.__name__ == Immutable942cProjectionProvider.__name__
 
 
-def test_public_projection_wrapper_casts_grouped_w2_to_hidden_dtype_before_weighting() -> None:
-    """Attempt106bp: preserve the builder's BF16 W2 handoff, not FP32 weighting."""
+def test_public_projection_wrapper_exposes_native_bf16_w2_as_fp32_before_weighting() -> None:
+    """Expose BF16-rounded W2 through grouped_mm's FP32 provider buffer."""
     assert ATTEMPT106BP_TERMINAL_SHA256 == (
         "a5964b1276475629e0e2ab1a22ec0fe82fd81ef0302f31b06873c31c2b358faa"
     )
@@ -167,7 +167,7 @@ def test_public_projection_wrapper_casts_grouped_w2_to_hidden_dtype_before_weigh
         Float32W2Provider,
         config,
         combined_projection,
-        native_down_projection=lambda x, *_args: x,
+        native_down_projection=lambda x, *_args: x.float(),
     )
     provider = wrapped_type()
     provider._sealed_aligned_positions = None
@@ -183,8 +183,8 @@ def test_public_projection_wrapper_casts_grouped_w2_to_hidden_dtype_before_weigh
         provider.sv_w2,
     )
 
-    assert observed.dtype == activated.dtype
-    assert torch.equal(observed, activated)
+    assert observed.dtype == torch.float32
+    assert torch.equal(observed, activated.float())
 
 
 def test_public_projection_wrapper_calls_native_bf16_w2_before_weighting() -> None:
@@ -199,7 +199,7 @@ def test_public_projection_wrapper_calls_native_bf16_w2_before_weighting() -> No
     def native_down_projection(*args: torch.Tensor) -> torch.Tensor:
         native_calls.append(args)
         activated = args[0]
-        return torch.full_like(activated, 7.0)
+        return torch.full_like(activated, 7.0).float()
 
     config = ResidentRepairAPI.bind_combined_gate_up_projection(
         {}, provider_expert_sha256=PROVIDER_SHA256
@@ -302,7 +302,7 @@ def test_provider_global_projection_clamps_swiglu_operands_before_activation() -
         Immutable942cProjectionProvider,
         config,
         combined_projection,
-        native_down_projection=lambda x, *_args: x,
+        native_down_projection=lambda x, *_args: x.float(),
     )
     for layer in (0, 1, 42):
         provider = wrapped_type()
@@ -331,7 +331,7 @@ def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
     )
 
     def native_down_projection(x: torch.Tensor, *_args: torch.Tensor) -> torch.Tensor:
-        return x.clone()
+        return x.float()
 
     wrapped_type = _bind_sealed_gate_up_projection_for_test(
         Immutable942cProjectionProvider,
@@ -359,8 +359,8 @@ def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
             provider.su_w2,
             provider.sv_w2,
         )
-        assert observed.dtype == torch.bfloat16
-        assert torch.equal(observed, activated)
+        assert observed.dtype == torch.float32
+        assert torch.equal(observed, activated.float())
     assert dispatch_implementations == {
         wrapped_type._sealed_native_bf16_down_projection
     }
