@@ -1020,49 +1020,85 @@ __global__ void qtip3_viterbi_kernel(
     const float value1 = x[(step * LANES + 1) * batch + sequence];
     const float value2 = x[(step * LANES + 2) * batch + sequence];
     const float value3 = x[(step * LANES + 3) * batch + sequence];
-    float local_cost = __int_as_float(0x7f800000);
-    int local_state = 0;
-    for (int state = tid; state < STATES; state += THREADS) {
-      const int predecessor = state >> BRANCH_BITS;
-      if (has_overlap && step == 0 && predecessor != overlap[sequence]) {
-        continue;
-      }
-      float candidate = step == 0 ? 0.0f : costs[(step - 1) & 1][predecessor];
-      const float4 code = reinterpret_cast<const float4*>(lut)[state];
-      const float delta0 = code.x - value0;
-      const float delta1 = code.y - value1;
-      const float delta2 = code.z - value2;
-      const float delta3 = code.w - value3;
-      candidate += delta0 * delta0;
-      candidate += delta1 * delta1;
-      candidate += delta2 * delta2;
-      candidate += delta3 * delta3;
-      if (candidate < local_cost ||
-          (candidate == local_cost && state < local_state)) {
-        local_cost = candidate;
-        local_state = state;
-      }
-    }
-    thread_cost[tid] = local_cost;
-    thread_state[tid] = local_state;
-    __syncthreads();
-    if (tid < PREFIXES) {
-      float best = __int_as_float(0x7f800000);
-      int best_state = 0;
-#pragma unroll
-      for (int group = 0; group < THREADS / PREFIXES; ++group) {
-        const int index = tid + group * PREFIXES;
-        const float candidate = thread_cost[index];
-        const int state = thread_state[index];
-        if (candidate < best || (candidate == best && state < best_state)) {
-          best = candidate;
-          best_state = state;
+    if constexpr (PREFIXES > THREADS) {
+      // Low-rate tiers have more predecessor prefixes than one CUDA block has
+      // threads.  Assign every prefix to a strided thread and reduce its small
+      // branch family locally; leaving prefixes unwritten corrupts traceback.
+      for (int prefix = tid; prefix < PREFIXES; prefix += THREADS) {
+        float best = __int_as_float(0x7f800000);
+        int best_state = 0;
+        for (int branch = 0; branch < (1 << BRANCH_BITS); ++branch) {
+          const int state = branch * PREFIXES + prefix;
+          const int predecessor = state >> BRANCH_BITS;
+          if (has_overlap && step == 0 && predecessor != overlap[sequence]) {
+            continue;
+          }
+          float candidate = step == 0 ? 0.0f : costs[(step - 1) & 1][predecessor];
+          const float4 code = reinterpret_cast<const float4*>(lut)[state];
+          const float delta0 = code.x - value0;
+          const float delta1 = code.y - value1;
+          const float delta2 = code.z - value2;
+          const float delta3 = code.w - value3;
+          candidate += delta0 * delta0;
+          candidate += delta1 * delta1;
+          candidate += delta2 * delta2;
+          candidate += delta3 * delta3;
+          if (candidate < best || (candidate == best && state < best_state)) {
+            best = candidate;
+            best_state = state;
+          }
+        }
+        costs[step & 1][prefix] = best;
+        if (step >= capture_step) {
+          choices[((step - capture_step) * batch + sequence) * PREFIXES + prefix] =
+              best_state;
         }
       }
-      costs[step & 1][tid] = best;
-      if (step >= capture_step) {
-        choices[((step - capture_step) * batch + sequence) * PREFIXES + tid] =
-            best_state;
+    } else {
+      float local_cost = __int_as_float(0x7f800000);
+      int local_state = 0;
+      for (int state = tid; state < STATES; state += THREADS) {
+        const int predecessor = state >> BRANCH_BITS;
+        if (has_overlap && step == 0 && predecessor != overlap[sequence]) {
+          continue;
+        }
+        float candidate = step == 0 ? 0.0f : costs[(step - 1) & 1][predecessor];
+        const float4 code = reinterpret_cast<const float4*>(lut)[state];
+        const float delta0 = code.x - value0;
+        const float delta1 = code.y - value1;
+        const float delta2 = code.z - value2;
+        const float delta3 = code.w - value3;
+        candidate += delta0 * delta0;
+        candidate += delta1 * delta1;
+        candidate += delta2 * delta2;
+        candidate += delta3 * delta3;
+        if (candidate < local_cost ||
+            (candidate == local_cost && state < local_state)) {
+          local_cost = candidate;
+          local_state = state;
+        }
+      }
+      thread_cost[tid] = local_cost;
+      thread_state[tid] = local_state;
+      __syncthreads();
+      if (tid < PREFIXES) {
+        float best = __int_as_float(0x7f800000);
+        int best_state = 0;
+#pragma unroll
+        for (int group = 0; group < THREADS / PREFIXES; ++group) {
+          const int index = tid + group * PREFIXES;
+          const float candidate = thread_cost[index];
+          const int state = thread_state[index];
+          if (candidate < best || (candidate == best && state < best_state)) {
+            best = candidate;
+            best_state = state;
+          }
+        }
+        costs[step & 1][tid] = best;
+        if (step >= capture_step) {
+          choices[((step - capture_step) * batch + sequence) * PREFIXES + tid] =
+              best_state;
+        }
       }
     }
     __syncthreads();
