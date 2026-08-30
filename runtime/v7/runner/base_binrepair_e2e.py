@@ -440,13 +440,19 @@ def fast_forward(student, hidden, ids, requires_grad):
     from transformers.masking_utils import create_sliding_window_causal_mask
     from transformers.cache_utils import DynamicCache
     pos = torch.arange(ids.shape[1], device=DEV).unsqueeze(0)
-    embeds = m.model.embed_tokens(ids[:1])
+    embeds = m.model.embed_tokens(ids)
+    if not requires_grad:
+        # The official rail seeds inference from this live model identity rather
+        # than from an activation cache whose key omits the model-index basis.
+        hidden = embeds.unsqueeze(2).expand(
+            -1, -1, config.hc_mult, -1
+        ).contiguous()
     pe = {"main": m.model.rotary_emb(embeds[:1], position_ids=pos,
                                      layer_type="main"),
           "compress": m.model.rotary_emb(embeds[:1], position_ids=pos,
                                          layer_type="compress")}
     mask = create_sliding_window_causal_mask(
-        config=config, inputs_embeds=m.model.embed_tokens(ids),
+        config=config, inputs_embeds=embeds,
         attention_mask=None,
         past_key_values=DynamicCache(config=config), position_ids=pos)
     del embeds
