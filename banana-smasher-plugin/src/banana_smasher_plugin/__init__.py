@@ -71,7 +71,9 @@ def configure_flashinfer_cuda_runtime(*, required: bool = True) -> bool:
 
 
 if os.environ.get("BANANA_SMASHER_STANDALONE_QTIP") == "1":
-    configure_flashinfer_cuda_runtime(required=False)
+    _LOG.warning(
+        "BANANA_SMASHER_STANDALONE_QTIP_FLASHINFER_SKIPPED reason=standalone"
+    )
 else:
     configure_flashinfer_cuda_runtime()
 
