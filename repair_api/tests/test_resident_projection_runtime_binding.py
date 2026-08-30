@@ -34,7 +34,7 @@ def _wrapped_type(config: dict[str, object]):
         Immutable942cProjectionProvider,
         config,
         combined_projection=combined_projection,
-        native_down_projection=lambda x, *_args: x,
+        native_down_projection=lambda x, *_args: x.float(),
     )
 
 
@@ -129,7 +129,9 @@ def test_bound_runtime_emits_aligned_active_route_gate_up_activated_and_w2_hashe
     assert aligned["up"] == tensor_witness(torch.full((2, 1), 2.0, dtype=torch.bfloat16))
     activated = torch.nn.functional.silu(torch.ones((2, 1), dtype=torch.bfloat16)) * 2
     assert aligned["activated"] == tensor_witness(activated)
-    assert aligned["w2_down"] == tensor_witness(activated)
+    # The native GEMM is BF16; the accepted provider boundary exposes its
+    # rounded result in FP32 before route weighting.
+    assert aligned["w2_down"] == tensor_witness(activated.float())
 
 
 def test_a27_aligned_active_row_adjudication_names_first_unequal_boundary() -> None:

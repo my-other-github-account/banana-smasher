@@ -332,13 +332,20 @@ def test_provider_global_projection_clamps_swiglu_operands_before_activation() -
         x = args[0]
         return torch.full_like(x, 2.0), torch.full_like(x, -3.0)
 
+    native_w2_calls = 0
+
+    def native_down_projection(x: torch.Tensor, *_args: torch.Tensor) -> torch.Tensor:
+        nonlocal native_w2_calls
+        native_w2_calls += 1
+        return x.float()
+
     wrapped_type = _bind_sealed_gate_up_projection_for_test(
         Immutable942cProjectionProvider,
         config,
         combined_projection,
-        native_down_projection=lambda x, *_args: x.float(),
+        native_down_projection=native_down_projection,
     )
-    for layer in (0, 1, 42):
+    for layer in range(43):
         provider = wrapped_type()
         provider.L = layer
         provider.limit = 0.5
@@ -356,16 +363,33 @@ def test_provider_global_projection_clamps_swiglu_operands_before_activation() -
         )
         assert torch.equal(gate, torch.full_like(gate, 0.5))
         assert torch.equal(up, torch.full_like(up, -0.5))
+    assert native_w2_calls == 0
 
 
 def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
-    """The repaired W2 path applies identically to every layer instance."""
+    """All 43 layers reach the shared expert-local native-BF16 F.linear path."""
+    from repair_api.modern_green_resident import _sealed_builder_native_down_projection
+
     config = ResidentRepairAPI.bind_combined_gate_up_projection(
         {}, provider_expert_sha256=PROVIDER_SHA256
     )
+    weight = torch.tensor([[1.0]], dtype=torch.bfloat16)
+    packed_w2 = torch.tensor([0])
+    su_w2 = torch.zeros((1, 1))
+    sv_w2 = torch.zeros((1, 1))
+    native_inputs: list[torch.Tensor] = []
 
     def native_down_projection(x: torch.Tensor, *_args: torch.Tensor) -> torch.Tensor:
-        return x.float()
+        native_inputs.append(x)
+        return _sealed_builder_native_down_projection(
+            x,
+            torch.zeros(x.shape[0], dtype=torch.int64),
+            packed_w2,
+            torch.zeros(1),
+            su_w2,
+            sv_w2,
+            full_weight_builder=lambda *_builder_args: weight,
+        ).float()
 
     wrapped_type = _bind_sealed_gate_up_projection_for_test(
         Immutable942cProjectionProvider,
@@ -376,14 +400,14 @@ def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
     assert wrapped_type._sealed_native_bf16_w2_scope == "provider_class_all_instances_v1"
 
     dispatch_implementations = set()
-    for layer in (0, 21, 42):
+    for layer in range(43):
         provider = wrapped_type()
         provider.L = layer
         provider._sealed_aligned_positions = None
         dispatch_implementations.add(
             provider._sealed_native_bf16_down_projection.__func__
         )
-        activated = torch.tensor([[0.006927490234375]], dtype=torch.bfloat16)
+        activated = torch.tensor([[float(layer + 1)]], dtype=torch.bfloat16)
         observed = provider._project(
             "w2",
             activated,
@@ -398,6 +422,8 @@ def test_native_bf16_w2_scope_is_provider_global_and_dtype_guarded() -> None:
     assert dispatch_implementations == {
         wrapped_type._sealed_native_bf16_down_projection
     }
+    assert len(native_inputs) == 43
+    assert [int(value.item()) for value in native_inputs] == list(range(1, 44))
 
 
 def _bind_sealed_gate_up_projection_for_test(
