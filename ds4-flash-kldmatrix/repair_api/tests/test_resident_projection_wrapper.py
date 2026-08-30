@@ -80,7 +80,13 @@ def test_production_config_builder_activates_existing_projection_binder() -> Non
     }
     bind_sealed_pre_resident_config(config)
 
-    assert config["resident_validation_expert_implementation"] == "accepted_static_w28"
+    # RUN7003 proved that retaining accepted_static_w28 leaves the production
+    # product at the composed-provider hashes with projection_calls=0.  The
+    # canonical sealed-PRE builder must select the exact full-weight resident
+    # boundary before installing the already-implemented projection wrapper.
+    assert config["resident_validation_expert_implementation"] == (
+        "sealed_bf16_full_weight"
+    )
     assert config["resident_gate_up_projection"] == "combined_4096_bf16_f_linear_v1"
     assert config["resident_gate_up_provider_sha256"] == PROVIDER_SHA256
 

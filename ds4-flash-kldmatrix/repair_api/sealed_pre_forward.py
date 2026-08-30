@@ -86,12 +86,13 @@ def bind_sealed_pre_resident_config(config: dict[str, Any]) -> dict[str, Any]:
     )
 
     config["sealed_pre_source_binding"] = source_binding()
-    # Preserve the accepted 942c provider selected by the production config.
-    # The full-weight reconstruction is a comparator, not the W28 producer.
-    config["provider_resolution_mode"] = "STATIC_W28_GROUPED"
-    config.setdefault(
-        "resident_validation_expert_implementation", "accepted_static_w28"
-    )
+    # RUN7003 proved that retaining the imported static W28 provider at engine
+    # construction bypasses the production projection binder (projection_calls=0).
+    # Select the exact sealed full-weight resident boundary for the 43-layer
+    # production comparator; the imported static W28 gate remains a later,
+    # receipt-only admission after parity is sealed.
+    config.pop("provider_resolution_mode", None)
+    config["resident_validation_expert_implementation"] = "sealed_bf16_full_weight"
     config["resident_gate_up_projection"] = SEALED_GATE_UP_PROJECTION
     config["resident_gate_up_provider_sha256"] = (
         ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
