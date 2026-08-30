@@ -166,6 +166,18 @@ def main() -> int:
             if sha(Path(candidate["manifest_path"])) != candidate["manifest_sha256"]:
                 raise RuntimeError(f"CANDIDATE_DRIFT:{probe_id}")
         score_root = probe_root / "score"
+        target_q2_map = q2_map
+        target_q3_map = q3_map
+        if target_tier := candidate.get("target_tier"):
+            if target_tier in {"qtip2", "qtip3"}:
+                target_map = Path(str(candidate.get("target_root_map_path", "")))
+                target_map_sha = candidate.get("target_root_map_sha256")
+                if not target_map.is_file() or sha(target_map) != target_map_sha:
+                    raise RuntimeError(f"TARGET_ROOT_MAP_IDENTITY_RED:{probe_id}")
+                if target_tier == "qtip2":
+                    target_q2_map = target_map
+                else:
+                    target_q3_map = target_map
         started = time.time()
         result = _run_backpack_exact64(
             model_root=model_root,
@@ -176,8 +188,8 @@ def main() -> int:
             virtual_terminal_path=Path(candidate["terminal_path"]),
             virtual_terminal_sha256=candidate["terminal_sha256"],
             materialization_index_path=Path(candidate["index_path"]),
-            qtip2_root_map_path=q2_map,
-            qtip3_root_map_path=q3_map,
+            qtip2_root_map_path=target_q2_map,
+            qtip3_root_map_path=target_q3_map,
             checkpoint_path=checkpoint,
             checkpoint_sha256=CHECKPOINT_SHA,
             output_root=score_root,

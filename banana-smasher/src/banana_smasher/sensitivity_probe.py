@@ -222,6 +222,8 @@ def materialize_sensitivity_candidate(
         "cell_id": cell_id,
         "source_tier": source_tier,
         "target_tier": target_tier,
+        "target_root_map_path": producer.get("root_map_path"),
+        "target_root_map_sha256": producer.get("root_map_sha256"),
         "shipping_delta_bytes": delta_bytes,
         "manifest_path": str(manifest_output),
         "manifest_sha256": hashlib.sha256(manifest_raw).hexdigest(),

@@ -69,7 +69,13 @@ def test_materialize_sensitivity_candidate_changes_one_cell_and_preserves_equati
         "cell_id": "L000:E000:down",
         "tier": "native_mxfp4",
         "physical_bytes": 40,
-        "physical_producer": {"artifact_sha256": basis, "path": "/native.csv", "sha256": "d" * 64},
+        "physical_producer": {
+            "artifact_sha256": basis,
+            "path": "/native.csv",
+            "sha256": "d" * 64,
+            "root_map_path": "/target/root-map.json",
+            "root_map_sha256": "e" * 64,
+        },
     }
     ledger_path = tmp_path / "ledger.jsonl"
     ledger_path.write_bytes(_raw(ledger))
@@ -86,3 +92,5 @@ def test_materialize_sensitivity_candidate_changes_one_cell_and_preserves_equati
     changed = json.loads((tmp_path / "candidate/MATERIALIZATION_INDEX.jsonl").read_text())
     assert changed["tier"] == "native_mxfp4"
     assert changed["physical_bytes"] == 40
+    assert receipt["target_root_map_path"] == "/target/root-map.json"
+    assert receipt["target_root_map_sha256"] == "e" * 64
