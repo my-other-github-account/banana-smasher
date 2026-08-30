@@ -458,13 +458,6 @@ def fast_forward(student, hidden, ids, requires_grad):
             attention_mask=mask, input_ids=ids,
             past_key_values=(active_cache if not requires_grad else DynamicCache(config=config)))
 
-    def clear_inference_cache(Li):
-        entry = active_cache.layers[Li]
-        if bool(getattr(entry, "is_initialized", False)):
-            entry.keys = entry.keys.new_empty((0,))
-            entry.values = entry.values.new_empty((0,))
-            entry.is_initialized = False
-
     use_activation_checkpoint = (
         requires_grad and os.environ.get("GENESIS_REPAIR_CHECKPOINT", "1") == "1"
     )
@@ -476,7 +469,6 @@ def fast_forward(student, hidden, ids, requires_grad):
         else:
             with torch.no_grad():
                 hidden = run_layer(Li, hidden)
-            clear_inference_cache(Li)
     return m.model.norm(m.model.hc_head(hidden))
 
 
