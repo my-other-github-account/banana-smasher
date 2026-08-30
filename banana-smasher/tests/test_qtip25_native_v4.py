@@ -92,6 +92,7 @@ def test_qtip1_cuda_source_strides_all_prefixes_beyond_one_block() -> None:
 
     assert "for (int prefix = tid; prefix < PREFIXES; prefix += THREADS)" in source
     assert "for (int branch = 0; branch < (1 << BRANCH_BITS); ++branch)" in source
+    assert source.count("static_cast<int64_t>(step - capture_step)") == 3
 
 
 def test_native_v4_torch_extracts_state_windows_without_reductions(monkeypatch) -> None:
