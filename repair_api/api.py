@@ -35,6 +35,69 @@ from .official_k2_resident_score import (
 from .sealed_pre_forward import bind_sealed_pre_resident_config
 
 
+SCORER_CHECKPOINT_FORMAT = "banana-smasher-qtip2-v7-joint-checkpoint-v1"
+
+
+#: Dense trainable surfaces whose insertion order is load-bearing downstream.
+#: The sealed scorer's live roster is canonical name order, while two-rank
+#: checkpoints are persisted in rank-partition order.
+_ORDERED_DENSE_SURFACES = ("norms", "outputs")
+
+
+def adapt_checkpointed_envelope(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Admit a persisted public-API checkpoint to the sealed scorer envelope.
+
+    Continuation checkpoints predate the scorer's ``format`` discriminator,
+    but already carry the same three trainable surfaces and authenticated
+    loaded-checkpoint identity.  Add that discriminator after validating the
+    canonical public-API envelope, and normalise the dense surfaces to
+    canonical order so world_size=2 continuations are admitted on exactly the
+    same terms as world_size=1 ones.  Tensor values and state objects remain
+    untouched — the dense surfaces are re-keyed, never rewritten.
+    """
+    if not isinstance(payload, Mapping):
+        raise ArtifactError("checkpointed scorer envelope must be a mapping")
+    if payload.get("format") == SCORER_CHECKPOINT_FORMAT:
+        return dict(payload)
+    if payload.get("schema") != "resident-continuation-checkpoint-v1":
+        raise ArtifactError("checkpointed scorer envelope schema refused")
+    state = payload.get("state")
+    if not isinstance(state, Mapping) or set(state) != {"luts", "norms", "outputs"}:
+        raise ArtifactError("checkpointed scorer envelope state surfaces refused")
+    next_update = payload.get("next_update")
+    if isinstance(next_update, bool) or not isinstance(next_update, int) or next_update < 0:
+        raise ArtifactError("checkpointed scorer envelope update cursor refused")
+    identity = payload.get("identity")
+    if not isinstance(identity, Mapping) or identity.get("checkpoint_loaded") is not True:
+        raise ArtifactError("checkpointed scorer envelope requires loaded checkpoint identity")
+    if identity.get("next_update") != next_update:
+        raise ArtifactError("checkpointed scorer envelope identity cursor drift")
+    admitted = dict(payload)
+    admitted["format"] = SCORER_CHECKPOINT_FORMAT
+    reordered: dict[str, Any] = {}
+    for surface_name in _ORDERED_DENSE_SURFACES:
+        surface = state[surface_name]
+        if not isinstance(surface, Mapping):
+            # Opaque/non-mapping surfaces are carried through untouched; only a
+            # real name->tensor mapping has an order to normalise.
+            continue
+        if any(not isinstance(name, str) for name in surface):
+            raise ArtifactError(
+                f"checkpointed scorer envelope {surface_name} surface has non-string keys"
+            )
+        canonical = sorted(surface)
+        if list(surface) != canonical:
+            reordered[surface_name] = {name: surface[name] for name in canonical}
+    if reordered:
+        # Only rebuild the state mapping when a surface actually needed
+        # normalising, so the already-canonical path keeps passing the exact
+        # same state object through by identity.
+        normalised = dict(state)
+        normalised.update(reordered)
+        admitted["state"] = normalised
+    return admitted
+
+
 _STALE_SPARK5_MODEL_ROOT = Path(
     "/home/dnola/missions/STAGE_U20_t_3a6f22a5_spark-5-work/sparse-model-rank0-v1"
 )
