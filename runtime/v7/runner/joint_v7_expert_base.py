@@ -134,7 +134,7 @@ class OfficialQtipK2PhysicalLayer(nn.Module):
         if hidden.ndim != 3 or int(hidden.shape[0]) != 1:
             raise ValueError("official QTIP2 layer expects [1, tokens, K]")
         weight = self._weight()
-        return torch.matmul(hidden.to(torch.bfloat16), weight.transpose(0, 1)).float()
+        return F.linear(hidden.to(torch.bfloat16), weight).float()
 
     def forward(self, hidden: torch.Tensor) -> torch.Tensor:
         if not self.checkpoint_depth:
