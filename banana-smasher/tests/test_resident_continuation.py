@@ -1113,6 +1113,68 @@ def test_optimizer_restore_normalizes_legacy_group_names_for_live_lr_gate():
     ]
 
 
+def test_gather_state_uses_expanded_merge_for_trainable_scale_group() -> None:
+    surfaces = {"luts": 43, "norms": 235, "outputs": 43, "scales": 258}
+
+    def rank_row(rank: int) -> dict:
+        names = {
+            surface: [f"{surface}.{index}" for index in range(total) if index % 2 == rank]
+            for surface, total in surfaces.items()
+        }
+        next_id = 0
+        groups = []
+        state = {}
+        for surface in surfaces:
+            ids = list(range(next_id, next_id + len(names[surface])))
+            next_id += len(ids)
+            groups.append({"params": ids, "lr": 0.5, "group_name": surface})
+            state.update({local_id: {"step": 20} for local_id in ids})
+        return {
+            "rank": rank,
+            **{
+                surface: {name: torch.tensor([rank]) for name in surface_names}
+                for surface, surface_names in names.items()
+            },
+            "param_names": names,
+            "optimizer": {"state": state, "param_groups": groups},
+        }
+
+    rows = [rank_row(0), rank_row(1)]
+
+    class FakeDist:
+        @staticmethod
+        def all_gather_object(output, _local):
+            output[:] = rows
+
+        @staticmethod
+        def barrier():
+            return None
+
+    engine = object.__new__(ModernGreenResidentEngine)
+    engine.torch = torch
+    engine.dist = FakeDist()
+    engine.rank = 0
+    engine.luts = [(name, value) for name, value in rows[0]["luts"].items()]
+    engine.norms = [(name, value) for name, value in rows[0]["norms"].items()]
+    engine.outputs = [(name, value) for name, value in rows[0]["outputs"].items()]
+    engine.scales = [(name, value) for name, value in rows[0]["scales"].items()]
+    engine.expert_plane_contract = None
+    engine.optimizer = SimpleNamespace(state_dict=lambda: rows[0]["optimizer"])
+    engine.scheduler = SimpleNamespace(state_dict=lambda: {"last_epoch": 20})
+    engine.trainer = SimpleNamespace(
+        DORMANT_NORMS=set(),
+        merge_optimizer_state=lambda *_args: pytest.fail(
+            "four-group scale state must use the expanded compatibility merge"
+        ),
+    )
+
+    _merged, optimizer, _report = engine._gather_state()
+
+    assert optimizer is not None
+    assert [group["group_name"] for group in optimizer["param_groups"]] == list(surfaces)
+    assert len(optimizer["state"]) == sum(surfaces.values())
+
+
 def test_public_resident_score_engine_loads_exact_state_without_training_lineage(tmp_path, monkeypatch):
     checkpoint = tmp_path / "SERIALIZED_PRE.pt"
     checkpoint.write_bytes(b"exact-pre")

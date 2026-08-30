@@ -1899,7 +1899,7 @@ class ModernGreenResidentEngine:
                 tuple(merged),
                 set(getattr(self.trainer, "DORMANT_NORMS", set())),
             )
-            if self.expert_plane_contract is not None
+            if self.expert_plane_contract is not None or self.scales
             else self.trainer.merge_optimizer_state(rows, merged)
         )
         scheduler = _cpu_tree(torch, self.scheduler.state_dict())
