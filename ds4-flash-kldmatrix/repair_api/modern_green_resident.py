@@ -541,28 +541,17 @@ def _sealed_builder_accumulate_routes(
     top_k_index: Any,
     top_k_weights: Any,
 ) -> Any:
-    """Match the sealed builder's ascending-expert BF16 index-add boundary."""
-    import torch
-
-    token_index = (
-        torch.arange(hidden_states.shape[0], device=hidden_states.device)
-        .unsqueeze(1)
-        .expand_as(top_k_index)
-        .reshape(-1)
-    )
-    expert_index = top_k_index.reshape(-1).to(torch.int64)
+    """Match grouped_mm's weighted-row reshape-sum return operator."""
     weighted = (
         routed_output * top_k_weights.reshape(-1, 1).float()
     ).to(hidden_states.dtype)
-    final = torch.zeros_like(hidden_states)
-    for expert in torch.unique(expert_index, sorted=True):
-        mask = expert_index == expert
-        final.index_add_(0, token_index[mask], weighted[mask])
-    return final
+    return weighted.view(
+        hidden_states.shape[0], top_k_index.shape[1], hidden_states.shape[-1]
+    ).sum(dim=1).to(hidden_states.dtype)
 
 
 SEALED_ROUTED_RETURN_ACCUMULATION = (
-    "active_row_ascending_expert_cuda_bf16_index_add_v1"
+    "source_grouped_mm_weighted_row_reshape_sum_v1"
 )
 SEALED_GATE_UP_PROJECTION = "combined_4096_bf16_f_linear_v1"
 SEALED_GATE_UP_RUNTIME_MARKER = "sealed_combined_gate_up_projection_v1"
