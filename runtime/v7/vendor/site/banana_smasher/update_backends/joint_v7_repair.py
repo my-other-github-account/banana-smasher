@@ -639,6 +639,34 @@ def load_tensor_state(rows: Iterable[tuple[str, Any, Any]], saved: Mapping[str, 
         parameter.data.copy_(saved[name].to(device))
 
 
+def materialize_official_builder_output_gains(
+    torch: Any,
+    rows: Iterable[tuple[str, Any, Any]],
+) -> list[dict[str, Any]]:
+    """Match the official rail builder's BF16 gain-fold operation exactly."""
+
+    materialized = []
+    with torch.no_grad():
+        for name, module, parameter in rows:
+            wire = module._parameters.get("weight")
+            if wire is None or wire.ndim < 2 or wire.dtype != torch.bfloat16:
+                raise RuntimeError(f"official output-gain fold requires a BF16 weight matrix: {name}")
+            log_gain = parameter.detach().clamp(-GAIN_CLAMP, GAIN_CLAMP)
+            multiplier = torch.exp(log_gain).to(device=wire.device, dtype=torch.bfloat16)
+            wire.copy_(wire * multiplier)
+            parameter.zero_()
+            materialized.append(
+                {
+                    "name": name,
+                    "log_gain": float(log_gain.cpu()),
+                    "multiplier_bf16": float(multiplier.cpu()),
+                    "wire_dtype": str(wire.dtype),
+                    "wire_shape": list(wire.shape),
+                }
+            )
+    return materialized
+
+
 def coverage(torch: Any, named: list[tuple[str, Any]], *, gradient: bool) -> dict[str, Any]:
     nonzero = []
     missing = []
