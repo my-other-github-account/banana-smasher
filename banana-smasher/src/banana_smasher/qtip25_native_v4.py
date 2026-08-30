@@ -1050,7 +1050,8 @@ __global__ void qtip3_viterbi_kernel(
         }
         costs[step & 1][prefix] = best;
         if (step >= capture_step) {
-          choices[((step - capture_step) * batch + sequence) * PREFIXES +
+          choices[(static_cast<int64_t>(step - capture_step) * batch + sequence) *
+                      PREFIXES +
                   prefix] = best_state;
         }
       }
@@ -1070,9 +1071,10 @@ __global__ void qtip3_viterbi_kernel(
         }
       }
       for (int step = steps - 1; step >= capture_step; --step) {
-        const int state =
-            choices[((step - capture_step) * batch + sequence) * PREFIXES +
-                    prefix];
+        const int state = choices[
+            (static_cast<int64_t>(step - capture_step) * batch + sequence) *
+                PREFIXES +
+            prefix];
         if (!overlap_only) {
           output[step * batch + sequence] = state;
         }

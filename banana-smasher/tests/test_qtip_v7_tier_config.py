@@ -74,6 +74,7 @@ def test_q1_cuda_kernel_strides_prefixes_beyond_one_block() -> None:
     assert "if (PREFIXES > THREADS)" in source
     assert "for (int prefix = tid; prefix < PREFIXES; prefix += THREADS)" in source
     assert "for (int branch = 0; branch < (1 << BRANCH_BITS); ++branch)" in source
+    assert source.count("static_cast<int64_t>(step - capture_step)") >= 2
 
 
 def test_regeneration_entrypoint_uses_one_tier_config_for_admission_smoke_and_run() -> None:
