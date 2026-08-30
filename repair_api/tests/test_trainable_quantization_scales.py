@@ -151,12 +151,12 @@ def test_public_scale_candidate_contract_pins_u20_to_u24_and_uniform_mean():
             "Candidate C: U20-to-U24; sole variable is grouped-K2 quantization scales frozen-to-trainable"
         ),
     }
-    _validate_trainable_scale_candidate_contract(
+    assert _validate_trainable_scale_candidate_contract(
         start_update=20,
         start_sha="2502bd03cc2c9deac966a24f8e8712633b1b0e0cb192d5eee71d10e91e77cccd",
         requested=(21, 22, 23, 24),
         config=config,
-    )
+    ) is True
 
     for changed in (
         {"token_kld_reduction": "cvar_tail"},
