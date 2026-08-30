@@ -164,3 +164,10 @@ def test_static_w28_acceptance_is_paired_and_never_full64(monkeypatch, tmp_path)
     assert receipt["producer"] == {"mode": "planes", "mb": 2, "chunk": 64, "windows": [28, 56]}
     assert receipt["full64_launched"] is False
     assert receipt["status"] == "PASS"
+
+
+def test_static_w28_acceptance_is_a_public_api_path() -> None:
+    import repair_api
+
+    assert repair_api.run_static_w28_acceptance is sealed_pre_forward.run_static_w28_acceptance
+    assert "run_static_w28_acceptance" in repair_api.__all__

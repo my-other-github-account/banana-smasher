@@ -28,6 +28,7 @@ from .official_k2_resident_score import (
     adapt_canonical_raw_u0_payload,
     load_canonical_raw_u0,
 )
+from .sealed_pre_forward import run_static_w28_acceptance
 
 __all__ = [
     "ARTIFACT_SCHEMA",
@@ -60,4 +61,5 @@ __all__ = [
     "continue_two_spark_real",
     "continue_two_spark",
     "resume_compare",
+    "run_static_w28_acceptance",
 ]
