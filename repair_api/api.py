@@ -44,10 +44,10 @@ def _validate_trainable_scale_candidate_contract(
     start_sha: Any,
     requested: tuple[int, ...],
     config: Mapping[str, Any],
-) -> None:
+) -> bool:
     """Admit Candidate C without widening any other scientific axis."""
     if config.get("trainable_quantization_scales") is not True:
-        return
+        return False
     expected_identity = (
         "Candidate C: U20-to-U24; sole variable is grouped-K2 quantization scales frozen-to-trainable"
     )
@@ -64,6 +64,7 @@ def _validate_trainable_scale_candidate_contract(
         raise ArtifactError(
             "trainable scale candidate requires exact authenticated U20-to-U24 uniform-mean contract"
         )
+    return True
 
 
 #: Dense trainable surfaces whose insertion order is load-bearing downstream.
@@ -3286,7 +3287,7 @@ class ResidentRepairAPI:
         start_update = self._checkpoint_update(start)
         start_meta = self.artifact.manifest["checkpoints"][start]
         requested = tuple(int(value) for value in milestones)
-        _validate_trainable_scale_candidate_contract(
+        valid_trainable_scale_candidate = _validate_trainable_scale_candidate_contract(
             start_update=start_update,
             start_sha=start_meta.get("sha256"),
             requested=requested,
@@ -3776,6 +3777,7 @@ class ResidentRepairAPI:
             or valid_authenticated_u38_u39_bounded_partial
             or valid_authenticated_u40_u41_w56_repair
             or valid_authenticated_u41_u45_continuation
+            or valid_trainable_scale_candidate
             or published_pre_crash_resume
             or valid_milestones
         ):
