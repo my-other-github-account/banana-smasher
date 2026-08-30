@@ -152,9 +152,11 @@ def test_exact64_whole_model_accounting_includes_sealed_envelope_padding() -> No
         ),
     }
 
-    assert _validate_whole_model_accounting(
-        {"whole_model_accounting": accounting}
-    ) == accounting
+    document = {"whole_model_accounting": accounting}
+    default_result = _validate_whole_model_accounting(document)
+
+    assert default_result == accounting
+    assert _validate_whole_model_accounting(document, allow_over_cap=False) == default_result
 
 
 def test_gb10_materialization_admission_uses_reclaimable_host_memory(tmp_path) -> None:

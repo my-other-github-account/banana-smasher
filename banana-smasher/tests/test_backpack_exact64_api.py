@@ -28,13 +28,17 @@ def test_exact64_oracle_is_private_and_has_no_cli_route() -> None:
     assert "with runtime.layer_stage(layer) as forward:" in source
     assert "mlp_chunk_stage" not in source
     assert "teacher_manifest_path, teacher = _revision_bind_teacher_manifest(" in source
-    assert "_validate_whole_model_accounting(virtual_manifest)" in source
+    assert "allow_over_cap=diagnostic_nonshipping" in source
     signature = inspect.signature(exact64._run_backpack_exact64)
     assert "qtip2_v7_root_map_path" in signature.parameters
     assert "qtip2_v7_member_roster_path" in signature.parameters
     assert "mixed_v7_member_contract_path" in signature.parameters
     assert "checkpoint_path" in signature.parameters
     assert "checkpoint_sha256" in signature.parameters
+    assert signature.parameters["diagnostic_nonshipping"].default is False
+    assert signature.bind_partial(diagnostic_nonshipping=True).arguments == {
+        "diagnostic_nonshipping": True
+    }
     assert 'binding_inputs["mixed_v7_member_contract"]' in source
     assert "exact64 mixed V7 member contract identity mismatch" in source
     assert "exact64 checkpoint bytes do not match explicit checkpoint SHA" in source
