@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 import torch
 
 from repair_api import ArtifactError, ResidentRepairAPI
+from repair_api.sealed_pre_forward import bind_sealed_pre_resident_config
 
 
 PROVIDER_SHA256 = "942c3074d89f8872f8c52df78941c908d9fce87edae7c21671d339f3e891d3cb"
@@ -63,6 +66,32 @@ class Immutable942cProjectionProvider:
             "w2", product, assignments, self.packed_w2, lut, self.su_w2, self.sv_w2
         )
         return (down * top_k_weights.reshape(-1, 1)).to(hidden_states.dtype)
+
+
+def test_production_config_builder_activates_existing_projection_binder() -> None:
+    """Production config must carry the exact gate that RUN7002 proved effective."""
+    from repair_api.modern_green_resident import (
+        SEALED_GATE_UP_RUNTIME_MARKER,
+        _bind_installed_projection_runtime,
+    )
+
+    config: dict[str, object] = {}
+    bind_sealed_pre_resident_config(config)
+
+    assert config["resident_gate_up_projection"] == "combined_4096_bf16_f_linear_v1"
+    assert config["resident_gate_up_provider_sha256"] == PROVIDER_SHA256
+
+    installed = type(
+        "InstalledProvider",
+        (),
+        {"_sealed_gate_up_runtime_marker": SEALED_GATE_UP_RUNTIME_MARKER},
+    )
+    trainer = SimpleNamespace(FullyResidentGroupedV7Experts=object)
+    receipt = _bind_installed_projection_runtime(trainer, installed, config)
+
+    assert receipt["status"] == "BOUND_TO_ORDINARY_TRAINER_GLOBAL"
+    assert receipt["provider_expert_sha256"] == PROVIDER_SHA256
+    assert trainer.FullyResidentGroupedV7Experts is installed
 
 
 def test_public_projection_wrapper_binds_combined_gate_up_and_product_exactly() -> None:

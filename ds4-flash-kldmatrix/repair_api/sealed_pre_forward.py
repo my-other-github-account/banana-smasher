@@ -79,9 +79,18 @@ def source_binding(root: Path | None = None) -> dict[str, Any]:
 
 
 def bind_sealed_pre_resident_config(config: dict[str, Any]) -> dict[str, Any]:
-    """Bind the exact sealed source identity to the existing resident provider."""
+    """Bind the exact sealed source and projection identities for production."""
+    from .modern_green_resident import (
+        ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256,
+        SEALED_GATE_UP_PROJECTION,
+    )
+
     config["sealed_pre_source_binding"] = source_binding()
     config["resident_validation_expert_implementation"] = "sealed_bf16_full_weight"
+    config["resident_gate_up_projection"] = SEALED_GATE_UP_PROJECTION
+    config["resident_gate_up_provider_sha256"] = (
+        ACCEPTED_ROUTED_RETURN_PROVIDER_SHA256
+    )
     config["score_window_batch_size"] = 1
     config["sealed_builder_window_microbatch"] = 1
     return config["sealed_pre_source_binding"]
