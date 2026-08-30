@@ -231,6 +231,33 @@ def test_public_projection_wrapper_calls_native_bf16_w2_before_weighting() -> No
     assert native_calls[0][2] is provider.packed_w2
 
 
+def test_routed_return_matches_grouped_mm_reshape_sum_not_expert_index_add() -> None:
+    from repair_api.modern_green_resident import _sealed_builder_accumulate_routes
+
+    hidden = torch.zeros((1, 1), dtype=torch.bfloat16)
+    routed_output = torch.tensor(
+        [[0.302734375], [0.578125], [-0.8125], [-0.94140625],
+         [0.671875], [-0.134765625]],
+        dtype=torch.bfloat16,
+    )
+    top_k_index = torch.tensor([[5, 4, 3, 2, 1, 0]], dtype=torch.int64)
+    top_k_weights = torch.ones((1, 6), dtype=torch.float32)
+
+    observed = _sealed_builder_accumulate_routes(
+        hidden, routed_output, top_k_index, top_k_weights
+    )
+    weighted = (routed_output * top_k_weights.reshape(-1, 1)).to(torch.bfloat16)
+    grouped_mm = weighted.view(1, 6, 1).sum(dim=1).to(torch.bfloat16)
+    expert_ordered = torch.zeros_like(hidden)
+    for expert in torch.unique(top_k_index, sorted=True):
+        expert_ordered.index_add_(
+            0, torch.tensor([0]), weighted[top_k_index.reshape(-1) == expert]
+        )
+
+    assert not torch.equal(grouped_mm, expert_ordered)
+    assert torch.equal(observed, grouped_mm)
+
+
 def test_historical_provider_adapter_preserves_swiglu_limit() -> None:
     """The constructor handoff must retain the accepted model clamp operand."""
     from repair_api.modern_green_resident import _bind_historical_swiglu_limit
