@@ -1369,7 +1369,7 @@ def _l000_moe_subtap(
             raw_same_forward = _persist_l000_raw_tensors(
                 root,
                 rank,
-                mlp_input=control_mlp_input,
+                mlp_input=hidden,
                 control_mlp_output=control_mlp_output,
                 product_mlp_output=variant_mlp_output,
             )
