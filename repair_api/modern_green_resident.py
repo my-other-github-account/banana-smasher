@@ -52,6 +52,46 @@ U20_INHERITED_GROUPED_EXPERT_SHA256 = "0b673aaa31dedaaf604488bb71543e92560167cde
 U20_SERIAL_GROUPED_EXPERT_SHA256 = "90be541e1d137c525b4da76512050bb00979c3096526a1f032c5a4ef36d394cd"
 
 
+def _record_step_phase(
+    config: Mapping[str, Any],
+    *,
+    rank: int,
+    update: int,
+    phase: str,
+    boundary: str,
+    elapsed_seconds: float | None = None,
+) -> None:
+    """Append one fsynced warm-step boundary for kill-safe diagnosis."""
+    configured = config.get("step_phase_receipt")
+    if not configured:
+        return
+    if boundary not in {"start", "complete"}:
+        raise ArtifactError("step phase boundary must be start or complete")
+    path = Path(str(configured).format(rank=rank)).expanduser().resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row: dict[str, Any] = {
+        "schema": "banana-smasher-step-phase-v1",
+        "task_id": config.get("task_id"),
+        "basis_sha256": config.get("basis_sha256"),
+        "canonical_git_pin": config.get("canonical_git_pin"),
+        "rank": int(rank),
+        "pid": os.getpid(),
+        "update": int(update),
+        "phase": str(phase),
+        "boundary": boundary,
+        "unix_time": time.time(),
+    }
+    if elapsed_seconds is not None:
+        row["elapsed_seconds"] = float(elapsed_seconds)
+    payload = (json.dumps(row, sort_keys=True) + "\n").encode()
+    descriptor = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o644)
+    try:
+        os.write(descriptor, payload)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def _configure_trainable_quantization_scales(
     config: Mapping[str, Any], student: Any, *, saved: Mapping[str, Any] | None
 ) -> tuple[list[tuple[str, Any]], dict[str, Any]]:
@@ -1717,6 +1757,7 @@ class ModernGreenResidentEngine:
         self.checkpoint = checkpoint
         self.rank = rank
         self.config = config
+        self._active_step_update = int(payload.get("cursor", payload.get("global_step", 0)))
         self._configure_execution_backend(config, rank=rank)
         self.activation_checkpoint_interval = int(config.get("activation_checkpoint_interval", 1))
         self.checkpoint_use_reentrant = bool(config.get("checkpoint_use_reentrant", False))
@@ -3104,13 +3145,32 @@ class ModernGreenResidentEngine:
             stream.flush()
             os.fsync(stream.fileno())
 
+    def record_step_phase(
+        self,
+        *,
+        update: int,
+        phase: str,
+        boundary: str,
+        elapsed_seconds: float | None = None,
+    ) -> None:
+        _record_step_phase(
+            self.config,
+            rank=self.rank,
+            update=update,
+            phase=phase,
+            boundary=boundary,
+            elapsed_seconds=elapsed_seconds,
+        )
+
     def _pipeline_pass(self, group: list[int], *, loss_divisor: int = 1) -> tuple[float | None, dict[str, float]]:
         if len(group) != self.pipeline_microbatch:
             raise ArtifactError(f"official pipeline group must contain {self.pipeline_microbatch} windows")
         torch = self.torch
+        update = int(self._active_step_update)
         ids = torch.cat([self.ids_cache[window] for window in group], dim=0)
         shape = (self.pipeline_microbatch, self.training_physical_rows, int(self.student.config.hc_mult), int(self.student.config.hidden_size))
         if self.single_gpu_resident:
+            self.record_step_phase(update=update, phase="forward", boundary="start")
             started = time.perf_counter()
             embeds = self.student.model.model.embed_tokens(ids)
             hidden = embeds.unsqueeze(2).expand(
@@ -3120,54 +3180,101 @@ class ModernGreenResidentEngine:
             loss = self._loss_group(hidden, group)
             _cuda_sync(torch)
             forward_seconds = time.perf_counter() - started
+            self.record_step_phase(
+                update=update, phase="forward", boundary="complete",
+                elapsed_seconds=forward_seconds,
+            )
             if tuple(hidden.shape) != shape or hidden.dtype != torch.bfloat16:
                 raise ArtifactError(
                     f"official single-GPU activation geometry drift: {tuple(hidden.shape)} {hidden.dtype}"
                 )
+            self.record_step_phase(update=update, phase="backward", boundary="start")
             backward_started = time.perf_counter()
             (loss / float(loss_divisor)).backward()
             _cuda_sync(torch)
             backward_seconds = time.perf_counter() - backward_started
+            self.record_step_phase(
+                update=update, phase="backward", boundary="complete",
+                elapsed_seconds=backward_seconds,
+            )
             self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
             return float(loss.detach().cpu()), {
                 "forward_seconds": forward_seconds,
                 "backward_seconds": backward_seconds,
             }
         if self.rank == 0:
+            self.record_step_phase(update=update, phase="forward", boundary="start")
             started = time.perf_counter()
             embeds = self.student.model.model.embed_tokens(ids)
             hidden = embeds.unsqueeze(2).expand(-1, -1, self.student.config.hc_mult, -1).contiguous()
             hidden = self._run_layers(hidden, ids, True)
             _cuda_sync(torch)
             forward_seconds = time.perf_counter() - started
+            self.record_step_phase(
+                update=update, phase="forward", boundary="complete",
+                elapsed_seconds=forward_seconds,
+            )
             if tuple(hidden.shape) != shape or hidden.dtype != torch.bfloat16:
                 raise ArtifactError(f"official pipeline activation geometry drift: {tuple(hidden.shape)} {hidden.dtype}")
+            exchange_started = time.perf_counter()
+            self.record_step_phase(update=update, phase="gradient_exchange", boundary="start")
             self._batch_p2p_send(hidden.detach().contiguous(), dst=1)
             grad = torch.empty_like(hidden)
             self._batch_p2p_recv(grad, src=1)
+            self.record_step_phase(
+                update=update, phase="gradient_exchange", boundary="complete",
+                elapsed_seconds=time.perf_counter() - exchange_started,
+            )
+            self.record_step_phase(update=update, phase="backward", boundary="start")
             backward_started = time.perf_counter()
             if self._local_params():
                 hidden.backward(grad)
             _cuda_sync(torch)
             backward_seconds = time.perf_counter() - backward_started
+            self.record_step_phase(
+                update=update, phase="backward", boundary="complete",
+                elapsed_seconds=backward_seconds,
+            )
             self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
             return None, {"forward_seconds": forward_seconds, "backward_seconds": backward_seconds}
         activation = torch.empty(shape, dtype=torch.bfloat16, device=self.student.device)
         receive_started = time.perf_counter()
+        self.record_step_phase(update=update, phase="activation_exchange", boundary="start")
         self._batch_p2p_recv(activation, src=0)
+        self.record_step_phase(
+            update=update, phase="activation_exchange", boundary="complete",
+            elapsed_seconds=time.perf_counter() - receive_started,
+        )
         activation.requires_grad_(True)
+        forward_phase_started = time.perf_counter()
+        self.record_step_phase(update=update, phase="forward", boundary="start")
         hidden = self._run_layers(activation, ids, True)
         loss = self._loss_group(hidden, group)
         _cuda_sync(torch)
         forward_seconds = time.perf_counter() - receive_started
+        self.record_step_phase(
+            update=update, phase="forward", boundary="complete",
+            elapsed_seconds=time.perf_counter() - forward_phase_started,
+        )
+        self.record_step_phase(update=update, phase="backward", boundary="start")
         backward_started = time.perf_counter()
         (loss / float(loss_divisor)).backward()
         _cuda_sync(torch)
         backward_seconds = time.perf_counter() - backward_started
+        self.record_step_phase(
+            update=update, phase="backward", boundary="complete",
+            elapsed_seconds=backward_seconds,
+        )
         if activation.grad is None:
             raise ArtifactError("official pipeline boundary gradient is missing")
         self._record_optimizer_diagnostic_boundary("post_backward_pre_reduction")
+        exchange_started = time.perf_counter()
+        self.record_step_phase(update=update, phase="gradient_exchange", boundary="start")
         self._batch_p2p_send(activation.grad.contiguous(), dst=0)
+        self.record_step_phase(
+            update=update, phase="gradient_exchange", boundary="complete",
+            elapsed_seconds=time.perf_counter() - exchange_started,
+        )
         return float(loss.detach().cpu()), {"forward_seconds": forward_seconds, "backward_seconds": backward_seconds}
 
     def _pipeline_update_1f1b(
@@ -3431,6 +3538,11 @@ class ModernGreenResidentEngine:
 
     def _step(self, global_step: int) -> dict[str, Any]:
         torch = self.torch
+        self._active_step_update = global_step + 1
+        setup_started = time.perf_counter()
+        self.record_step_phase(
+            update=self._active_step_update, phase="step_setup", boundary="start"
+        )
         params = self._local_params()
         before = [parameter.detach().clone() for _name, parameter in params]
         self.optimizer.zero_grad(set_to_none=True)
@@ -3496,7 +3608,16 @@ class ModernGreenResidentEngine:
             else None
         )
         self._active_adam_diagnostic = adam_diagnostic
+        self.record_step_phase(
+            update=self._active_step_update, phase="step_setup", boundary="complete",
+            elapsed_seconds=time.perf_counter() - setup_started,
+        )
         dist_started = time.perf_counter()
+        self.record_step_phase(
+            update=self._active_step_update,
+            phase="forward_backward_gradient_exchange",
+            boundary="start",
+        )
         if len(groups) > 1:
             loss, timing = self._pipeline_update_1f1b(
                 groups, loss_divisor=len(groups)
@@ -3504,6 +3625,12 @@ class ModernGreenResidentEngine:
         else:
             loss, timing = self._pipeline_pass(groups[0], loss_divisor=len(groups))
         forward_backward_seconds = time.perf_counter() - dist_started
+        self.record_step_phase(
+            update=self._active_step_update,
+            phase="forward_backward_gradient_exchange",
+            boundary="complete",
+            elapsed_seconds=forward_backward_seconds,
+        )
         if adam_diagnostic is not None:
             adam_diagnostic.record_boundary("post_reduction_p2p_complete")
         pre_optimizer_scan = (
@@ -3513,6 +3640,9 @@ class ModernGreenResidentEngine:
         )
         _cuda_sync(torch)
         optimizer_started = time.perf_counter()
+        self.record_step_phase(
+            update=self._active_step_update, phase="optimizer", boundary="start"
+        )
         if adam_diagnostic is not None:
             adam_diagnostic.record_boundary("immediately_pre_adam")
         if adam_diagnostic is not None:
@@ -3523,8 +3653,20 @@ class ModernGreenResidentEngine:
         else:
             self.optimizer.step()
             adam_report = None
+        self.record_step_phase(
+            update=self._active_step_update, phase="optimizer", boundary="complete",
+            elapsed_seconds=time.perf_counter() - optimizer_started,
+        )
+        projection_started = time.perf_counter()
+        self.record_step_phase(
+            update=self._active_step_update, phase="project", boundary="start"
+        )
         scale_trust_region = _project_quantization_scale_trust_region(
             self.config, self.scales
+        )
+        self.record_step_phase(
+            update=self._active_step_update, phase="project", boundary="complete",
+            elapsed_seconds=time.perf_counter() - projection_started,
         )
         post_optimizer_scan = (
             self._optimizer_transition_scan(params, before, "post_optimizer_step")
@@ -3636,7 +3778,15 @@ class ModernGreenResidentEngine:
         rows: list[Any] = [local]
         if not self.single_gpu_resident:
             rows = [None, None]
+            report_exchange_started = time.perf_counter()
+            self.record_step_phase(
+                update=self._active_step_update, phase="rank_report_exchange", boundary="start"
+            )
             self.dist.all_gather_object(rows, local)
+            self.record_step_phase(
+                update=self._active_step_update, phase="rank_report_exchange", boundary="complete",
+                elapsed_seconds=time.perf_counter() - report_exchange_started,
+            )
         global_gradient = sum(float(row["gradient_norm"]) ** 2 for row in rows) ** 0.5
         global_delta = sum(float(row["parameter_delta_norm"]) ** 2 for row in rows) ** 0.5
         losses = [row["loss"] for row in rows if row["loss"] is not None]
@@ -3769,7 +3919,15 @@ class ModernGreenResidentEngine:
             self.global_step = update + 1
         merged_state = optimizer_state = report_state = None
         if gather_state:
+            gather_started = time.perf_counter()
+            self.record_step_phase(
+                update=target_update, phase="state_gather", boundary="start"
+            )
             merged_state, optimizer_state, report_state = self._gather_state()
+            self.record_step_phase(
+                update=target_update, phase="state_gather", boundary="complete",
+                elapsed_seconds=time.perf_counter() - gather_started,
+            )
         if last is None:
             raise ArtifactError("official resident continuation performed no steps")
         step_report = {

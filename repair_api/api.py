@@ -18,6 +18,7 @@ import re
 import random
 import sys
 import tempfile
+import time
 from typing import Any, Iterable, Mapping
 
 from .balanced64 import ArtifactError, RepairArtifact, ScoreResult, _load_torch
@@ -36,6 +37,24 @@ from .sealed_pre_forward import bind_sealed_pre_resident_config
 
 
 SCORER_CHECKPOINT_FORMAT = "banana-smasher-qtip2-v7-joint-checkpoint-v1"
+
+
+def _record_engine_step_phase(
+    engine: Any,
+    *,
+    update: int,
+    phase: str,
+    boundary: str,
+    elapsed_seconds: float | None = None,
+) -> None:
+    recorder = getattr(engine, "record_step_phase", None)
+    if callable(recorder):
+        recorder(
+            update=update,
+            phase=phase,
+            boundary=boundary,
+            elapsed_seconds=elapsed_seconds,
+        )
 
 
 def _validate_trainable_scale_candidate_contract(
@@ -3922,6 +3941,10 @@ class ResidentRepairAPI:
                 target_update, gather_state=not validation_proof
             )
             persisted: Mapping[str, Any] | None = None
+            persist_started = time.perf_counter()
+            _record_engine_step_phase(
+                engine, update=target_update, phase="persist", boundary="start"
+            )
             if validation_proof:
                 # Score the just-updated resident model before any all-gather,
                 # CPU serialization, or checkpoint I/O. Durable persistence is
@@ -3942,6 +3965,13 @@ class ResidentRepairAPI:
                 )
             if not validation_proof:
                 persisted = engine.broadcast_persisted(persisted)
+            _record_engine_step_phase(
+                engine,
+                update=target_update,
+                phase="persist",
+                boundary="complete",
+                elapsed_seconds=time.perf_counter() - persist_started,
+            )
             if not isinstance(persisted, Mapping):
                 raise ArtifactError(f"official resident U{target_update} persistence broadcast missing")
             row = {
