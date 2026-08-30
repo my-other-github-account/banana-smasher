@@ -1866,12 +1866,11 @@ class OfficialK2ResidentRankEngine:
             status_cb=self._status,
             defer_dense_l034=False,
         )
-        # ShardStudent constructs the published PRE model with Transformers'
-        # grouped-mm MoE reduction selected.  The sealed reference instrument
-        # uses the source/eager DeepseekV4 reduction; leaving grouped-mm active
-        # changes U0 from the admitted ~0.229 class to ~2.16.  Bind the same
-        # source dispatch used by the canonical resident training engine before
-        # any checkpoint state or score inputs are evaluated.
+        # ShardStudent replaces Transformers' decorated DeepseekV4Experts with
+        # the resident provider, so mutating model.config alone cannot select
+        # source/eager reduction.  Verify the installed provider itself owns the
+        # expert-major BF16 index_add_ return used by the sealed instrument;
+        # token-local grouped reduction changes U0 from ~0.229 to ~2.16.
         from .modern_green_resident import _bind_published_pre_experts_dispatch
         self.experts_dispatch_binding = _bind_published_pre_experts_dispatch(
             self.student, published_pre_recipe=True

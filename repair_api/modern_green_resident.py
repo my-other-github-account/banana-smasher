@@ -46,7 +46,7 @@ ACCEPTED_W28_RECEIPT_SHA256_BY_RANK = {
     1: "7c3fbd8435cc2712933ce19b4cddd939d76f5ce36bab7d7b06fc00e52dbe95e7",
 }
 STATIC_W28_GROUPED_WRAPPER_SHA256 = "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
-STATIC_W28_GROUPED_EXPERT_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
+STATIC_W28_GROUPED_EXPERT_SHA256 = "4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
 U20_INHERITED_GROUPED_WRAPPER_SHA256 = "fb8f66b20f3fa61b9304d5f874d90c7e6a5c55149bfaa44e7784d6683cbd67ef"
 U20_INHERITED_GROUPED_EXPERT_SHA256 = "0b673aaa31dedaaf604488bb71543e92560167cdef7e6bade50b65b4568b9f81"
 U20_SERIAL_GROUPED_EXPERT_SHA256 = "90be541e1d137c525b4da76512050bb00979c3096526a1f032c5a4ef36d394cd"
@@ -448,7 +448,7 @@ def _load_source_module(name: str, path: Path) -> Any:
 def _bind_published_pre_experts_dispatch(
     student: Any, *, published_pre_recipe: bool,
 ) -> dict[str, str]:
-    """Select the accepted DeepseekV4 source reduction for published PRE."""
+    """Verify and select the accepted source reduction for published PRE."""
     if not published_pre_recipe:
         raise ArtifactError("source experts dispatch binding requires published PRE")
     model_config = student.model.config
@@ -458,10 +458,24 @@ def _bind_published_pre_experts_dispatch(
             f"published PRE experts implementation drift: {previous!r}"
         )
     model_config._experts_implementation = "eager"
+    resident_experts = getattr(student, "experts", None)
+    if not isinstance(resident_experts, Mapping) or not resident_experts:
+        raise ArtifactError("published PRE resident experts are missing")
+    reduction = "source_eager_expert_major_index_add"
+    drift = {
+        int(layer): getattr(expert, "routed_return_reduction", None)
+        for layer, expert in resident_experts.items()
+        if getattr(expert, "routed_return_reduction", None) != reduction
+    }
+    if drift:
+        raise ArtifactError(
+            f"published PRE resident experts bypass source dispatch: {drift}"
+        )
     return {
         "status": "BOUND_SOURCE_EXPERTS_DISPATCH",
         "previous_implementation": previous,
         "selected_implementation": "eager",
+        "resident_return_reduction": reduction,
     }
 
 
@@ -683,7 +697,7 @@ def _configure_resident_tensor_parallel(
         bool(config.get("expert_parallel_all_layers", False))
         and _uses_static_w28_provider(config)
         and STATIC_W28_GROUPED_EXPERT_SHA256
-        == "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
+        == "4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
     )
     if exact_duplicated_all43:
         return "exact-accepted-0eeb-duplicated-all43-no-tp"

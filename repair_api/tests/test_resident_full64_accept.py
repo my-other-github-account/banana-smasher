@@ -5,9 +5,10 @@ from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 from unittest.mock import patch
 
+import pytest
 import torch
 
-from repair_api import ResidentRepairAPI
+from repair_api import ArtifactError, ResidentRepairAPI
 from repair_api.resident_full64_accept import (
     ADOPTED_PROVIDER_EXPERT_SHA256,
     ADOPTED_PROVIDER_WRAPPER_SHA256,
@@ -40,7 +41,12 @@ def test_published_pre_selects_source_experts_dispatch() -> None:
     from repair_api.modern_green_resident import _bind_published_pre_experts_dispatch
 
     model_config = SimpleNamespace(_experts_implementation="grouped_mm")
-    student = SimpleNamespace(model=SimpleNamespace(config=model_config))
+    expert = SimpleNamespace(
+        routed_return_reduction="source_eager_expert_major_index_add"
+    )
+    student = SimpleNamespace(
+        model=SimpleNamespace(config=model_config), experts={0: expert, 42: expert}
+    )
 
     binding = _bind_published_pre_experts_dispatch(
         student, published_pre_recipe=True
@@ -51,7 +57,25 @@ def test_published_pre_selects_source_experts_dispatch() -> None:
         "status": "BOUND_SOURCE_EXPERTS_DISPATCH",
         "previous_implementation": "grouped_mm",
         "selected_implementation": "eager",
+        "resident_return_reduction": "source_eager_expert_major_index_add",
     }
+
+
+def test_published_pre_rejects_resident_provider_bypassing_source_dispatch() -> None:
+    from repair_api.modern_green_resident import _bind_published_pre_experts_dispatch
+
+    student = SimpleNamespace(
+        model=SimpleNamespace(
+            config=SimpleNamespace(_experts_implementation="grouped_mm")
+        ),
+        experts={0: SimpleNamespace()},
+    )
+    with pytest.raises(
+        ArtifactError, match="resident experts bypass source dispatch"
+    ):
+        _bind_published_pre_experts_dispatch(
+            student, published_pre_recipe=True
+        )
 
 
 def test_w28_trace_wrapper_records_sealed_known_value_control(
@@ -249,7 +273,7 @@ def test_production_installs_provider_global_native_bf16_w2_before_engine() -> N
 
     assert api_open < binder < engine
     assert CURRENT_PROVIDER_EXPERT_SHA256 == (
-        "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
+        "4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
     )
     bound = ResidentRepairAPI.bind_combined_gate_up_projection(
         {}, provider_expert_sha256=CURRENT_PROVIDER_EXPERT_SHA256

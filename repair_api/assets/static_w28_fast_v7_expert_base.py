@@ -79,6 +79,7 @@ class FullyResidentGroupedV7Experts(nn.Module):
         self.cpu_relay_bytes = 0
         self.reconstruction_calls = 0
         self.fallback_calls = 0
+        self.routed_return_reduction = "source_eager_expert_major_index_add"
         self.trace_enabled = os.environ.get("BR_TRACE_TIMING", "0") == "1"
         self._trace_events: list[tuple[str, Any, Any]] = []
         self._trace_forward_calls = 0
@@ -301,19 +302,20 @@ class FullyResidentGroupedV7Experts(nn.Module):
         routed_output = (
             routed_output * route_weight
         ).to(hidden_states.dtype)
-        route_shape = tuple(int(value) for value in top_k_index.shape)
-        routed_output = routed_output.reshape(
-            route_shape[0], route_shape[1], hidden_states.shape[1]
-        )
-        expert_order = torch.argsort(top_k_index, dim=1, stable=True)
-        ordered_output = torch.gather(
-            routed_output,
-            1,
-            expert_order.unsqueeze(-1).expand_as(routed_output),
-        )
+        # DeepseekV4Experts' source/eager forward iterates experts in ascending
+        # order and performs one BF16 index_add_ per expert.  The resident
+        # provider is installed in place of that decorated module, so changing
+        # model.config._experts_implementation cannot select this reduction for
+        # it.  Preserve the source dispatch here at the provider's real return
+        # boundary instead of silently using the grouped token-local sum.
         final = torch.zeros_like(hidden_states)
-        for route_slot in range(route_shape[1]):
-            final = (final + ordered_output[:, route_slot]).to(hidden_states.dtype)
+        for expert_idx in torch.unique(expert_index, sorted=True):
+            selected = expert_index == expert_idx
+            final.index_add_(
+                0,
+                token_index[selected],
+                routed_output[selected].to(final.dtype),
+            )
         self.cpu_relay_bytes += 0
         self.reconstruction_calls += 0
         return final

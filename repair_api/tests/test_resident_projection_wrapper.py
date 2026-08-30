@@ -6,7 +6,7 @@ import torch
 from repair_api import ArtifactError, ResidentRepairAPI
 
 
-PROVIDER_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
+PROVIDER_SHA256 = "4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
 ATTEMPT106BP_TERMINAL_SHA256 = (
     "a5964b1276475629e0e2ab1a22ec0fe82fd81ef0302f31b06873c31c2b358faa"
 )
@@ -92,7 +92,7 @@ def test_public_projection_wrapper_binds_combined_gate_up_and_product_exactly() 
     assert config == {"basis_sha256": bound["basis_sha256"]}
     assert bound["resident_gate_up_projection"] == "combined_4096_bf16_f_linear_v1"
     assert bound["resident_gate_up_provider_sha256"] == PROVIDER_SHA256
-    with pytest.raises(ArtifactError, match="requires provider 64403d3e"):
+    with pytest.raises(ArtifactError, match="requires provider 4ba14116"):
         ResidentRepairAPI.bind_combined_gate_up_projection(
             config, provider_expert_sha256="0" * 64
         )

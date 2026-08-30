@@ -365,6 +365,7 @@ def test_static_tp_preserves_sealed_expert_ordered_bf16_accumulation():
     assert "final.index_add_(" in expert_source
     assert "expert_order = torch.argsort(top_k_index" not in expert_source
     assert "final = (final + ordered_output[:, route_slot]).to(hidden_states.dtype)" not in expert_source
+    assert 'self.routed_return_reduction = "source_eager_expert_major_index_add"' in expert_source
 
 
 def test_static_complete_expert_boundary_preserves_full_width_bf16_semantics():
