@@ -1015,6 +1015,76 @@ __global__ void qtip3_viterbi_kernel(
   __shared__ int thread_state[THREADS];
   __shared__ float costs[2][PREFIXES];
 
+  // Q1 retains 4,096 prefixes, so one block cannot assign one thread per
+  // prefix.  Preserve the same state order and strict-< tie rule while each
+  // thread owns a strided prefix subset; Q3/Q4 keep the proven reduction below.
+  if (PREFIXES > THREADS) {
+    for (int step = 0; step < steps; ++step) {
+      const float value0 = x[(step * LANES + 0) * batch + sequence];
+      const float value1 = x[(step * LANES + 1) * batch + sequence];
+      const float value2 = x[(step * LANES + 2) * batch + sequence];
+      const float value3 = x[(step * LANES + 3) * batch + sequence];
+      for (int prefix = tid; prefix < PREFIXES; prefix += THREADS) {
+        float best = __int_as_float(0x7f800000);
+        int best_state = 0;
+        for (int branch = 0; branch < (1 << BRANCH_BITS); ++branch) {
+          const int state = branch * PREFIXES + prefix;
+          const int predecessor = state >> BRANCH_BITS;
+          if (has_overlap && step == 0 && predecessor != overlap[sequence]) {
+            continue;
+          }
+          float candidate =
+              step == 0 ? 0.0f : costs[(step - 1) & 1][predecessor];
+          const float4 code = reinterpret_cast<const float4*>(lut)[state];
+          const float delta0 = code.x - value0;
+          const float delta1 = code.y - value1;
+          const float delta2 = code.z - value2;
+          const float delta3 = code.w - value3;
+          candidate += delta0 * delta0 + delta1 * delta1 +
+                       delta2 * delta2 + delta3 * delta3;
+          if (candidate < best ||
+              (candidate == best && state < best_state)) {
+            best = candidate;
+            best_state = state;
+          }
+        }
+        costs[step & 1][prefix] = best;
+        if (step >= capture_step) {
+          choices[((step - capture_step) * batch + sequence) * PREFIXES +
+                  prefix] = best_state;
+        }
+      }
+      __syncthreads();
+    }
+    if (tid == 0) {
+      int prefix = has_overlap ? overlap[sequence] : 0;
+      if (!has_overlap) {
+        float best = costs[(steps - 1) & 1][0];
+        for (int candidate_prefix = 1; candidate_prefix < PREFIXES;
+             ++candidate_prefix) {
+          const float candidate = costs[(steps - 1) & 1][candidate_prefix];
+          if (candidate < best) {
+            best = candidate;
+            prefix = candidate_prefix;
+          }
+        }
+      }
+      for (int step = steps - 1; step >= capture_step; --step) {
+        const int state =
+            choices[((step - capture_step) * batch + sequence) * PREFIXES +
+                    prefix];
+        if (!overlap_only) {
+          output[step * batch + sequence] = state;
+        }
+        prefix = state >> BRANCH_BITS;
+      }
+      if (overlap_only) {
+        output[sequence] = prefix;
+      }
+    }
+    return;
+  }
+
   for (int step = 0; step < steps; ++step) {
     const float value0 = x[(step * LANES + 0) * batch + sequence];
     const float value1 = x[(step * LANES + 1) * batch + sequence];

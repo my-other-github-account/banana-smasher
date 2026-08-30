@@ -67,6 +67,15 @@ def test_cuda_kernel_source_is_specialized_for_q1_q3_q4_geometry() -> None:
         assert "_load_native_v4_cuda_extension(geometry)" in source
 
 
+def test_q1_cuda_kernel_strides_prefixes_beyond_one_block() -> None:
+    source = qtip25_native_v4._native_v4_cuda_source(
+        qtip25_native_v4.native_v4_geometry(1.0)
+    )
+    assert "if (PREFIXES > THREADS)" in source
+    assert "for (int prefix = tid; prefix < PREFIXES; prefix += THREADS)" in source
+    assert "for (int branch = 0; branch < (1 << BRANCH_BITS); ++branch)" in source
+
+
 def test_regeneration_entrypoint_uses_one_tier_config_for_admission_smoke_and_run() -> None:
     source = (
         __import__("pathlib").Path(__file__).parents[1]
