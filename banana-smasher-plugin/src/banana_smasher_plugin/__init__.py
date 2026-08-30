@@ -17,7 +17,7 @@ _REAL_CUDA_RUNTIME = None
 _FLASHINFER_CUBIN_DIR_OVERRIDE: Path | None = None
 
 
-def configure_flashinfer_cuda_runtime() -> bool:
+def configure_flashinfer_cuda_runtime(*, required: bool = True) -> bool:
     """Bind FlashInfer IPC to the real CUDA runtime before stubs can load."""
     global _FLASHINFER_CUBIN_DIR_OVERRIDE, _REAL_CUDA_RUNTIME
     if _REAL_CUDA_RUNTIME is not None:
@@ -43,7 +43,15 @@ def configure_flashinfer_cuda_runtime() -> bool:
                     os.environ[cubin_dir_variable] = str(
                         _FLASHINFER_CUBIN_DIR_OVERRIDE
                     )
-        importlib.import_module("flashinfer.comm.cuda_ipc")
+        try:
+            importlib.import_module("flashinfer.comm.cuda_ipc")
+        except ModuleNotFoundError as exc:
+            if required or not (exc.name or "").startswith("flashinfer"):
+                raise
+            _LOG.warning(
+                "BANANA_SMASHER_STANDALONE_QTIP_FLASHINFER_SKIPPED reason=package_absent"
+            )
+            return False
     finally:
         if previous_cubin_dir is None:
             os.environ.pop(cubin_dir_variable, None)
@@ -62,7 +70,10 @@ def configure_flashinfer_cuda_runtime() -> bool:
     return True
 
 
-configure_flashinfer_cuda_runtime()
+if os.environ.get("BANANA_SMASHER_STANDALONE_QTIP") == "1":
+    configure_flashinfer_cuda_runtime(required=False)
+else:
+    configure_flashinfer_cuda_runtime()
 
 import torch  # noqa: E402
 
