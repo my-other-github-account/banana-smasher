@@ -513,6 +513,16 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             )
             self.assertEqual(migrated["implementation_sha256"], loaded["implementation_sha256"])
 
+            legacy = json.loads(resume_path.read_text())
+            legacy["implementation_sha256"] = "781e37ea09f5bbac6659f0a5da331c1d56cebd1c63eb2a892e04dc9f4f7f00f6"
+            resume_path.write_text(json.dumps(legacy, sort_keys=True) + "\n")
+            migrated = OfficialK2ResidentRankEngine._load_score_resume(engine)
+            self.assertEqual(
+                migrated["source_implementation_sha256"],
+                "781e37ea09f5bbac6659f0a5da331c1d56cebd1c63eb2a892e04dc9f4f7f00f6",
+            )
+            self.assertEqual(migrated["implementation_sha256"], loaded["implementation_sha256"])
+
     def test_score_resumes_at_next_window_and_reduces_saved_terms_in_order(self):
         class FakeDist:
             @staticmethod

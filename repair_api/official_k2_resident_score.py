@@ -64,6 +64,10 @@ CANONICAL_U1_IDENTITY_SHA256 = "53cb15a23aa2c695b2ff1ca5d0bcb6dabc7848d154785c2f
 # This exact predecessor differs only by the U1 raw-identity adapter.  Its U0
 # binary64 resume rows therefore remain byte-for-byte valid after that repair.
 U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256 = "ba94e819badadeace56ff0c48b780a1f4129f0d58daffdd2759de1d25bd98236"
+# This predecessor completed canonical U0 before terminal closure rejected
+# rank-1 cold-load reads observed by rank 0's process-global audit hook.  The
+# score terms are unchanged; only the post-score read-counter boundary moved.
+U0_CLOSURE_COMPATIBLE_IMPLEMENTATION_SHA256 = "781e37ea09f5bbac6659f0a5da331c1d56cebd1c63eb2a892e04dc9f4f7f00f6"
 # This serialized PRE is production-admitted only through the exact published
 # identity plus fresh one-update lineage; every other use remains quarantined.
 ALTERNATE_PRE_CHECKPOINT_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
@@ -2669,7 +2673,10 @@ class OfficialK2ResidentRankEngine:
         if source_implementation != current_implementation:
             compatible_u0_adapter_only_change = (
                 self.checkpoint_sha256 == CANONICAL_U0_CHECKPOINT_SHA256
-                and source_implementation == U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256
+                and source_implementation in {
+                    U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256,
+                    U0_CLOSURE_COMPATIBLE_IMPLEMENTATION_SHA256,
+                }
             )
             if not compatible_u0_adapter_only_change:
                 raise ArtifactError(f"official-K2 score resume identity drift: {path}")
