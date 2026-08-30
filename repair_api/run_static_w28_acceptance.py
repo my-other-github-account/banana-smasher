@@ -32,6 +32,7 @@ def main() -> None:
     parser.add_argument("--run-id", type=int, required=True)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--cache-root", type=Path, required=True)
+    parser.add_argument("--model-root", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--teacher", type=Path, required=True)
     parser.add_argument("--corpus", type=Path, required=True)
@@ -80,7 +81,7 @@ def main() -> None:
             "validation_teacher_root": str(args.teacher), "validation_corpus": str(args.corpus),
             "basis_sha256": sealed_pre_forward.BASIS_SHA256,
             "checkpoint_sha256": sealed_pre_forward.CHECKPOINT_SHA256,
-            "model_root": str(sealed_pre_forward.SEALED_MODEL_ROOT),
+            "model_root": str(args.model_root),
             "canonical_git_pin": head, "board_run_id": args.run_id,
             "sealed_pre_cache_root": str(args.cache_root),
             "sealed_pre_use_local_model": True,

@@ -129,6 +129,8 @@ def test_builder_uses_configured_paired_geometry(monkeypatch, tmp_path) -> None:
         "validation_corpus": str(tmp_path / "corpus.json"),
         "sealed_builder_window_microbatch": 2,
         "sealed_builder_chunk": 64,
+        "sealed_pre_use_local_model": True,
+        "model_root": str(tmp_path / "warm-model"),
     }
     sealed_pre_forward._run_builder(
         Builder, root=tmp_path, config=config, windows=(28, 56), label="PAIR"
@@ -137,6 +139,8 @@ def test_builder_uses_configured_paired_geometry(monkeypatch, tmp_path) -> None:
     assert argv[argv.index("--mb") + 1] == "2"
     assert argv[argv.index("--chunk") + 1] == "64"
     assert argv[argv.index("--windows") + 1] == "28,56"
+    assert argv[argv.index("--local-dir") + 1] == str(tmp_path / "warm-model")
+    assert argv[argv.index("--meta-dir") + 1] == str(tmp_path / "warm-model")
 
 
 def test_static_w28_acceptance_is_paired_and_never_full64(monkeypatch, tmp_path) -> None:

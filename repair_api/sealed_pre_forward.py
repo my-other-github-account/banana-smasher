@@ -168,7 +168,7 @@ def _prepare_exact_modules(*, task: str, rank: int, root: Path, config: dict[str
         f"/dev/shm/FULL64_SEALED_PRE_{task}_rank{rank}/cache",
     ))
     planesource.CLAIM = Path("/home/dnola/HOST_CLAIM.json")
-    planesource.MODEL = SEALED_MODEL_ROOT
+    planesource.MODEL = Path(config.get("model_root", SEALED_MODEL_ROOT))
     planesource.CHECKPOINT = hardcoded_checkpoint
     planesource.CHECKPOINT_SHA = CHECKPOINT_SHA256
     planesource.CANDIDATE_IDENTITY = CANDIDATE_IDENTITY
@@ -212,7 +212,8 @@ def _run_builder(builder: Any, *, root: Path, config: dict[str, Any], windows: t
     out.mkdir(parents=True)
     original_argv = sys.argv
     started = time.perf_counter()
-    source_args = ["--local-dir", str(SEALED_MODEL_ROOT)]
+    model_root = Path(config.get("model_root", SEALED_MODEL_ROOT))
+    source_args = ["--local-dir", str(model_root)]
     if int(config["rank"]) == 0 and not config.get("sealed_pre_use_local_model", False):
         source_args = [
             "--remote", "dnola@192.168.200.4:/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
@@ -222,7 +223,7 @@ def _run_builder(builder: Any, *, root: Path, config: dict[str, Any], windows: t
         sys.argv = [
             str(Path(builder.__file__)), "--mode", "planes", "--planes-dir", str(root / "SEALED_PRE_CONTRACT.json"),
             "--ref-dir", str(config["validation_teacher_root"]), "--corpus", str(config["validation_corpus"]),
-            "--meta-dir", str(SEALED_MODEL_ROOT), *source_args,
+            "--meta-dir", str(model_root), *source_args,
             "--out", str(out), "--cand-pos-limit", str(POSITIONS), "--count", str(len(windows)),
             "--chunk", str(config.get("sealed_builder_chunk", len(windows))),
             "--mb", str(config.get("sealed_builder_window_microbatch", 1)),
