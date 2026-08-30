@@ -246,6 +246,21 @@ def test_historical_provider_adapter_preserves_swiglu_limit() -> None:
     assert provider.limit == 0.75
 
 
+def test_historical_provider_adapter_forwards_required_swiglu_limit() -> None:
+    """The compatibility wrapper must not strip a provider's required operand."""
+    from repair_api.modern_green_resident import _bind_historical_swiglu_limit
+
+    class CurrentProvider:
+        def __init__(self, *, swiglu_limit):
+            self.received_limit = swiglu_limit
+
+    adapted = _bind_historical_swiglu_limit(CurrentProvider, sealed_limit=10.0)
+    provider = adapted()
+
+    assert provider.received_limit == 10.0
+    assert provider.limit == 10.0
+
+
 def test_provider_global_projection_clamps_swiglu_operands_before_activation() -> None:
     """Ordinary provider instances must consume the accepted clamped operands."""
     config = ResidentRepairAPI.bind_combined_gate_up_projection(

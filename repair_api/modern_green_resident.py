@@ -1054,6 +1054,12 @@ def _bind_historical_swiglu_limit(
     provider_class: Any, *, sealed_limit: float | None = None
 ) -> Any:
     """Preserve the model clamp operand for providers with the historical ABI."""
+    provider_parameters = inspect.signature(provider_class.__init__).parameters
+    provider_accepts_limit = "swiglu_limit" in provider_parameters or any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in provider_parameters.values()
+    )
+
     class HistoricalNoLimitCompatibleExpert(provider_class):
         def __init__(
             self, *args: Any, swiglu_limit: float | None = None, **kwargs: Any
@@ -1064,6 +1070,8 @@ def _bind_historical_swiglu_limit(
             limit = float(effective_limit)
             if not math.isfinite(limit) or limit <= 0:
                 raise ArtifactError("historical provider model SwiGLU limit is invalid")
+            if provider_accepts_limit:
+                kwargs["swiglu_limit"] = limit
             super().__init__(*args, **kwargs)
             self.limit = limit
 
