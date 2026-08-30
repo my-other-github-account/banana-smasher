@@ -168,12 +168,55 @@ def test_combined_projection_uses_one_expert_local_bf16_linear() -> None:
     assert torch.equal(up, expected_up)
 
 
-def test_public_projection_wrapper_calls_native_bf16_w2_for_every_provider_instance() -> None:
+def test_native_down_projection_uses_expert_local_bf16_f_linear(monkeypatch) -> None:
+    from repair_api.modern_green_resident import _sealed_builder_native_down_projection
+
+    torch.manual_seed(106)
+    hidden = torch.randn(4, 3, dtype=torch.bfloat16)
+    assignments = torch.tensor([1, 0, 1, 0], dtype=torch.int64)
+    packed_w2 = torch.tensor([0, 1])
+    weights = [torch.randn(3, 2, dtype=torch.bfloat16) for _ in range(2)]
+    su_w2 = torch.zeros((2, 3))
+    sv_w2 = torch.zeros((2, 2))
+    original_linear = torch.nn.functional.linear
+    linear_calls: list[tuple[torch.Tensor, torch.Tensor]] = []
+
+    def recording_linear(x: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+        linear_calls.append((x, weight))
+        return original_linear(x, weight)
+
+    monkeypatch.setattr(torch.nn.functional, "linear", recording_linear)
+    observed = _sealed_builder_native_down_projection(
+        hidden,
+        assignments,
+        packed_w2,
+        torch.zeros(1),
+        su_w2,
+        sv_w2,
+        full_weight_builder=lambda packed, *_args: weights[int(packed.item())],
+    )
+
+    expected = torch.empty((4, 2), dtype=torch.bfloat16)
+    for expert in (0, 1):
+        mask = assignments == expert
+        expected[mask] = original_linear(
+            hidden[mask].contiguous(), weights[expert].T.contiguous()
+        )
+
+    assert observed.dtype == torch.bfloat16
+    assert torch.equal(observed, expected)
+    assert len(linear_calls) == 2
+    assert all(x.dtype == torch.bfloat16 for x, _weight in linear_calls)
+    assert all(weight.dtype == torch.bfloat16 for _x, weight in linear_calls)
+    assert all(x.is_contiguous() and weight.is_contiguous() for x, weight in linear_calls)
+
+
+def test_public_projection_wrapper_calls_native_bf16_w2_for_all_43_layers() -> None:
     native_calls: list[tuple[torch.Tensor, ...]] = []
 
     def native_down_projection(*args: torch.Tensor) -> torch.Tensor:
         native_calls.append(args)
-        return torch.full_like(args[0], 7.0)
+        return args[0].clone()
 
     config = ResidentRepairAPI.bind_combined_gate_up_projection(
         {}, provider_expert_sha256=PROVIDER_SHA256
@@ -190,16 +233,17 @@ def test_public_projection_wrapper_calls_native_bf16_w2_for_every_provider_insta
     )
     assert wrapped_type._sealed_native_bf16_w2_scope == "provider_class_all_instances_v1"
 
-    for layer in (0, 1, 42):
+    for layer in range(43):
         provider = wrapped_type()
         provider.L = layer
         provider._sealed_aligned_positions = None
-        activated = torch.tensor([[0.006927490234375]], dtype=torch.bfloat16)
+        activated = torch.tensor([[float(layer + 1)]], dtype=torch.bfloat16)
         observed = provider._project(
             "w2", activated, torch.tensor([0]), provider.packed_w2,
             provider.plane_source.wire_lut(), provider.su_w2, provider.sv_w2,
         )
         assert observed.dtype == torch.bfloat16
-        assert torch.equal(observed, torch.full_like(activated, 7.0))
+        assert torch.equal(observed, activated)
 
-    assert len(native_calls) == 3
+    assert len(native_calls) == 43
+    assert [int(args[0].item()) for args in native_calls] == list(range(1, 44))
