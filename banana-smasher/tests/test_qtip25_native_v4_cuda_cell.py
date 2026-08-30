@@ -49,3 +49,9 @@ def test_native_v4_cuda_cell_passes_geometry_to_public_decoder() -> None:
         and [keyword.arg for keyword in call.keywords] == ["bpw"]
         for call in calls
     )
+
+def test_native_v4_cuda_cell_releases_allocator_cache_before_free_memory_gate() -> None:
+    source = inspect.getsource(run_cuda_cell)
+
+    assert "torch.cuda.empty_cache()" in source
+    assert source.index("torch.cuda.empty_cache()") < source.index("torch.cuda.mem_get_info()")
