@@ -715,6 +715,24 @@ class ResidentRepairAPI:
             official_backend_factory=official_backend_factory,
         )
 
+    @classmethod
+    def continue_training(
+        cls,
+        artifact_root: str | Path,
+        start_checkpoint: int | str,
+        milestones: Iterable[int],
+        *,
+        config: Mapping[str, Any],
+        receipt_path: str | Path,
+    ) -> dict[str, Any]:
+        """Public one-path continuation used by ``python -m repair_api``."""
+        return cls.open(artifact_root).continue_two_spark_real(
+            start_checkpoint,
+            milestones,
+            config=config,
+            receipt_path=receipt_path,
+        )
+
     @property
     def windows(self) -> tuple[int, ...]:
         return self.artifact.windows

@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import json
 
-import banana_smasher
-
 from repair_api import cli
 
 
-def test_continue_training_command_uses_banana_smasher_public_facade(
+def test_continue_training_command_uses_repair_api_public_facade(
     monkeypatch, tmp_path, capsys
 ) -> None:
     calls = []
@@ -20,12 +18,12 @@ def test_continue_training_command_uses_banana_smasher_public_facade(
         )
         return {
             "status": "PASS",
-            "public_api": "banana_smasher.ResidentRepairAPI.continue_training",
+            "public_api": "repair_api.ResidentRepairAPI.continue_training",
             "resident_state_persisted": True,
         }
 
     monkeypatch.setattr(
-        banana_smasher.ResidentRepairAPI,
+        cli.ResidentRepairAPI,
         "continue_training",
         classmethod(continue_training),
         raising=False,
@@ -55,7 +53,7 @@ def test_continue_training_command_uses_banana_smasher_public_facade(
     )
 
     result = json.loads(capsys.readouterr().out)
-    assert result["public_api"] == "banana_smasher.ResidentRepairAPI.continue_training"
+    assert result["public_api"] == "repair_api.ResidentRepairAPI.continue_training"
     assert calls[0][0] == artifact_root.resolve()
     assert calls[0][1:3] == ("UPDATE_000", (1,))
     assert calls[0][3]["expert_plane_expansion"]["surface"] == "expert_planes_l028_su_sv"
