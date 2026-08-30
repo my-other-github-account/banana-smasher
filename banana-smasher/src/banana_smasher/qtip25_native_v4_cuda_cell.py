@@ -341,6 +341,9 @@ def run_cuda_cell(
         for index, value in enumerate(boundaries)
     ):
         raise ValueError("native V4 CUDA sequence_boundaries must be increasing and exhaustive")
+    # Prior production cells may leave large freed blocks in the caching allocator.
+    # Return those blocks before enforcing the native free-memory admission gate.
+    torch.cuda.empty_cache()
     free, total = torch.cuda.mem_get_info()
     peak_estimate = (256 << 20) + solve_batch * (
         64 * geometry.prefixes * 4 + 64 * geometry.V * 4 + geometry.prefixes * 8
