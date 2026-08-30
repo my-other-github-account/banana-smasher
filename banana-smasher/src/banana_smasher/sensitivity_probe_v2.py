@@ -232,7 +232,9 @@ def materialize_sensitivity_candidate_v2(
     manifest_output = output / "BACKPACK_VIRTUAL_MANIFEST.json"
     _atomic(manifest_output, manifest_raw)
     terminal = {
-        "schema": "banana-smasher-sensitivity-virtual-terminal-v2",
+        # The exact64 runtime pins this schema string for diagnostic_nonshipping
+        # scoring; the contract is unchanged from v1, so the identifier must not move.
+        "schema": "banana-smasher-sensitivity-virtual-terminal-v1",
         "status": "PASS",
         "basis_sha256": basis,
         "virtual_manifest_path": str(manifest_output),

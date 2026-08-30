@@ -162,6 +162,19 @@ def test_null_control_is_accepted_and_byte_neutral(world):
     assert manifest["tier_counts"] == {"qtip2": 1, "qtip3": 1, "native_mxfp4": 0}
 
 
+def test_terminal_schema_is_pinned_for_the_exact64_runtime(world):
+    """backpack_runtime_exact64 compares this schema string literally under
+    diagnostic_nonshipping; moving it to -v2 breaks every probe at bind time."""
+    p = world["probe"]("s0", "treatment", ["L000:E000:down"], "qtip2", "qtip3")
+    c = materialize_sensitivity_candidate_v2(
+        world["baseline"], world["ledger"], p, output_root=world["dir"] / "s0")
+    terminal = json.loads(Path(c["terminal_path"]).read_text())
+    assert terminal["schema"] == "banana-smasher-sensitivity-virtual-terminal-v1"
+    assert terminal["status"] == "PASS"
+    assert terminal["virtual_manifest_sha256"] == c["manifest_sha256"]
+    assert Path(terminal["virtual_manifest_path"]).resolve() == Path(c["manifest_path"]).resolve()
+
+
 def test_treatment_swap_rebinds_target_producer(world):
     p = world["probe"]("t0", "treatment", ["L000:E000:down"], "qtip2", "qtip3")
     c = materialize_sensitivity_candidate_v2(
