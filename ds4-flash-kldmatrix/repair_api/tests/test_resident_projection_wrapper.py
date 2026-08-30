@@ -73,6 +73,7 @@ def test_production_config_builder_activates_existing_projection_binder() -> Non
     from repair_api.modern_green_resident import (
         SEALED_GATE_UP_RUNTIME_MARKER,
         _bind_installed_projection_runtime,
+        _uses_exact_sealed_reconstruction,
     )
 
     config: dict[str, object] = {
@@ -89,6 +90,7 @@ def test_production_config_builder_activates_existing_projection_binder() -> Non
     )
     assert config["resident_gate_up_projection"] == "combined_4096_bf16_f_linear_v1"
     assert config["resident_gate_up_provider_sha256"] == PROVIDER_SHA256
+    assert _uses_exact_sealed_reconstruction(config) is True
 
     installed = type(
         "InstalledProvider",

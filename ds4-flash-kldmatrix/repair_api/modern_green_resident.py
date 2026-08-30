@@ -455,7 +455,7 @@ def _uses_exact_sealed_reconstruction(config: Mapping[str, Any]) -> bool:
     return bool(
         isinstance(sealed_pre_binding, Mapping)
         and sealed_pre_binding.get("builder_sha256")
-        == "d66890669faa578339a8f3fa6a4c23617fbe925c0d0ac6e38fd9481ad0cd7026"
+        == "11ead706db562197e76cdc320d5d13044bb254a411b6412326667f524ddf29ed"
         and sealed_pre_binding.get("planesource_sha256")
         == "167603b5662437a2f9fc4b3ead1561d777a7a831a898133993b9e1c0c26c9f87"
         and config.get("resident_validation_expert_implementation")

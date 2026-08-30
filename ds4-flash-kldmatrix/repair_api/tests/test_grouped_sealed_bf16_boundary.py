@@ -427,7 +427,7 @@ def test_exact_942c_provider_is_kept_duplicated_without_tp_configuration() -> No
         "recipe_id": modern_green_resident.PUBLISHED_PRE_RECIPE_ID,
         "static_w28_gate": {},
         "sealed_pre_source_binding": {
-            "builder_sha256": "d66890669faa578339a8f3fa6a4c23617fbe925c0d0ac6e38fd9481ad0cd7026",
+            "builder_sha256": "11ead706db562197e76cdc320d5d13044bb254a411b6412326667f524ddf29ed",
             "planesource_sha256": "167603b5662437a2f9fc4b3ead1561d777a7a831a898133993b9e1c0c26c9f87",
         },
         "resident_validation_expert_implementation": "sealed_bf16_full_weight",
