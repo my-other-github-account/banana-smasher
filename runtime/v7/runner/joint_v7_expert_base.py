@@ -134,7 +134,7 @@ class OfficialQtipK2PhysicalLayer(nn.Module):
         if hidden.ndim != 3 or int(hidden.shape[0]) != 1:
             raise ValueError("official QTIP2 layer expects [1, tokens, K]")
         weight = self._weight()
-        return F.linear(hidden.to(torch.bfloat16), weight).float()
+        return torch.matmul(hidden.to(torch.bfloat16), weight.transpose(0, 1)).float()
 
     def forward(self, hidden: torch.Tensor) -> torch.Tensor:
         if not self.checkpoint_depth:
@@ -159,7 +159,6 @@ class JointV7ExpertBase(nn.Module):
                 plane_source.__dict__["_banana_v1_all43_adapter"] = adapter
         self.__dict__["plane_source"] = plane_source
         self.act = F.silu
-        self.swiglu_limit = 10.0
 
     def _projection(self, expert: int, projection: str) -> OfficialQtipK2PhysicalLayer:
         source = self.plane_source
@@ -182,14 +181,6 @@ class JointV7ExpertBase(nn.Module):
             projection=projection,
         )
 
-    def _gate_up(self, hidden: torch.Tensor, w1: OfficialQtipK2PhysicalLayer, w3: OfficialQtipK2PhysicalLayer) -> torch.Tensor:
-        gate_up_weight = torch.cat((w1._weight(), w3._weight()), dim=0)
-        gate_up = F.linear(hidden.to(torch.bfloat16), gate_up_weight)
-        gate, up = gate_up.chunk(2, dim=-1)
-        gate = gate.clamp(max=self.swiglu_limit)
-        up = up.clamp(min=-self.swiglu_limit, max=self.swiglu_limit)
-        return self.act(gate) * up
-
     def forward(self, hidden_states, top_k_index, top_k_weights):
         final = torch.zeros_like(hidden_states)
         with torch.no_grad():
@@ -200,8 +191,10 @@ class JointV7ExpertBase(nn.Module):
             hidden = hidden_states[token_idx]
             w1 = self._projection(expert, "w1")
             w3 = self._projection(expert, "w3")
-            activated = self._gate_up(hidden, w1, w3)
-            del w1, w3
+            gate = w1(hidden.unsqueeze(0)).squeeze(0)
+            up = w3(hidden.unsqueeze(0)).squeeze(0)
+            activated = self.act(gate) * up
+            del gate, up, w1, w3
             w2 = self._projection(expert, "w2")
             current = w2(activated.unsqueeze(0)).squeeze(0)
             current = current * top_k_weights[token_idx, top_k_pos, None]
