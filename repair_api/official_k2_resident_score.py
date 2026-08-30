@@ -274,6 +274,44 @@ def _load_score_checkpoint(
     return value
 
 
+def _attach_checkpoint_identity_envelope(
+    payload: Mapping[str, Any],
+    *,
+    envelope: Mapping[str, Any],
+    checkpoint_sha256: str,
+) -> Mapping[str, Any]:
+    """Attach identity without losing an ordinary-load broker's exact authority."""
+    inherited = _ORDINARY_FORK_PAYLOADS.get(checkpoint_sha256)
+    leases = _ORDINARY_FORK_PAYLOAD_LEASES.get(checkpoint_sha256, [])
+    current = inherited.get("payload") if inherited is not None else None
+    broker_bound = current is payload or any(candidate is payload for candidate in leases)
+    if not broker_bound:
+        adapted = dict(payload)
+        adapted["identity"] = dict(envelope)
+        return adapted
+
+    # The raw canonical checkpoint is frozen before rank fork. Promote a new
+    # read-only outer view into the broker registry/lease rather than returning
+    # an unregistered shallow copy. All checkpoint surfaces retain exact object
+    # identity, while the object passed to the engine remains the broker's exact
+    # release authority.
+    adapted = MappingProxyType({
+        **payload,
+        "identity": _freeze_checkpoint_mappings(dict(envelope)),
+    })
+    if current is payload and inherited is not None:
+        inherited["payload"] = adapted
+    replaced = False
+    for index, candidate in enumerate(leases):
+        if candidate is payload:
+            leases[index] = adapted
+            replaced = True
+    if not replaced:
+        leases.append(adapted)
+        _ORDINARY_FORK_PAYLOAD_LEASES[checkpoint_sha256] = leases
+    return adapted
+
+
 def _release_or_retain_checkpoint_payload(
     payload: Mapping[str, Any], *, ordinary_load_fork_broker: bool,
     checkpoint_sha256: str | None = None,
@@ -1033,9 +1071,11 @@ def adapt_canonical_raw_u0_payload(
             "trajectory_sha256": CANONICAL_U0_TRAJECTORY_SHA256,
         },
     }
-    adapted = dict(payload)
-    adapted["identity"] = envelope
-    return adapted
+    return _attach_checkpoint_identity_envelope(
+        payload,
+        envelope=envelope,
+        checkpoint_sha256=CANONICAL_U0_CHECKPOINT_SHA256,
+    )
 
 
 def adapt_canonical_raw_u1_payload(
@@ -1129,9 +1169,11 @@ def adapt_canonical_raw_u1_payload(
             "parent_checkpoint_sha256": parent,
         },
     }
-    adapted = dict(payload)
-    adapted["identity"] = envelope
-    return adapted
+    return _attach_checkpoint_identity_envelope(
+        payload,
+        envelope=envelope,
+        checkpoint_sha256=CANONICAL_U1_CHECKPOINT_SHA256,
+    )
 
 
 def load_canonical_raw_u0(
