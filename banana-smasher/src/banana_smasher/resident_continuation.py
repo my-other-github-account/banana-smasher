@@ -738,7 +738,23 @@ def _bind_official_expert_source(config: Mapping[str, Any] | None = None) -> Any
         bind_stream_sync = getattr(grouped, "bind_backward_stream_sync", None)
         if callable(bind_stream_sync):
             bind_stream_sync(_cuda_default_stream_wait_for_current)
-        return _load_source_module("fast_v7_expert_base", source)
+        module = _load_source_module("fast_v7_expert_base", source)
+        provider = getattr(module, "FullyResidentGroupedV7Experts", None)
+        if (
+            config is not None
+            and config.get("fast_v7_expert_source_sha256")
+            == "0b673aaa31dedaaf604488bb71543e92560167cdef7e6bade50b65b4568b9f81"
+            and provider is not None
+            and "swiglu_limit" not in inspect.signature(provider).parameters
+        ):
+            class LegacySwiGLUProvider(provider):
+                def __init__(self, *args: Any, swiglu_limit: float = 10.0, **kwargs: Any) -> None:
+                    if float(swiglu_limit) != 10.0:
+                        raise ArtifactError("legacy grouped provider requires swiglu_limit=10")
+                    super().__init__(*args, **kwargs)
+
+            module.FullyResidentGroupedV7Experts = LegacySwiGLUProvider
+        return module
     finally:
         if previous is None:
             sys.modules.pop("fast_k2_grouped", None)
@@ -862,13 +878,16 @@ class ModernGreenResidentEngine:
         if not isinstance(self.state, Mapping):
             raise ArtifactError("U16 checkpoint state must contain official trainable surfaces")
         base_surfaces = {"luts", "norms", "outputs"}
-        allowed_surfaces = base_surfaces | (
+        scale_surface = (
+            {"scales"} if config.get("trainable_quantization_scales") is True else set()
+        )
+        allowed_surfaces = base_surfaces | scale_surface | (
             {EXPERT_PLANE_SURFACE} if self.expert_plane_contract is not None else set()
         )
         admissible_state_keys = (
             (base_surfaces, allowed_surfaces)
             if self.expert_plane_contract is not None
-            else (base_surfaces,)
+            else (base_surfaces, allowed_surfaces)
         )
         if set(self.state) not in admissible_state_keys:
             raise ArtifactError("resident state trainable-surface schema drift")
@@ -972,6 +991,9 @@ class ModernGreenResidentEngine:
             for surface in ("luts", "norms", "outputs"):
                 self.base_lrs[surface] = 0.0
         self._load_local_trainable_state()
+        self.scales = self._configure_trainable_quantization_scales()
+        if self.scales:
+            self.base_lrs["scales"] = self.base_lrs["luts"]
         # Construction has its own immutable admission path and can transiently
         # exceed the 112 GiB rail if the score backend is activated early. Select
         # Quack only after the resident payload is complete, before any forward.
@@ -986,6 +1008,10 @@ class ModernGreenResidentEngine:
                     {"params": [p for _name, p in self.norms], "lr": self.base_lrs["norms"], "group_name": "norms"},
                     {"params": [p for _name, p in self.outputs], "lr": self.base_lrs["outputs"], "group_name": "outputs"},
                     *(
+                        [{"params": [p for _name, p in self.scales], "lr": self.base_lrs["scales"], "group_name": "scales"}]
+                        if self.scales else []
+                    ),
+                    *(
                         [{"params": [p for _name, p in self.expert_planes], "lr": self.base_lrs[EXPERT_PLANE_SURFACE], "group_name": EXPERT_PLANE_SURFACE}]
                         if self.expert_plane_contract is not None
                         else []
@@ -995,7 +1021,7 @@ class ModernGreenResidentEngine:
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer,
                 lr_lambda=[lambda step: _schedule_multiplier(self.config, step, self.trainer.current_multiplier)]
-                * (4 if self.expert_plane_contract is not None else 3),
+                * (3 + int(bool(self.scales)) + int(self.expert_plane_contract is not None)),
             )
             self._load_optimizer_scheduler_state()
         self._load_training_data()
@@ -1042,7 +1068,7 @@ class ModernGreenResidentEngine:
             self.dist.barrier()
             self.dist.destroy_process_group()
         for name in (
-            "optimizer", "scheduler", "student", "luts", "norms", "outputs", "expert_planes",
+            "optimizer", "scheduler", "student", "luts", "norms", "outputs", "scales", "expert_planes",
             "ids_cache", "real_lengths", "teacher_cache", "score_ids_cache",
             "score_real_lengths", "score_teacher_cache",
         ):
@@ -1167,6 +1193,68 @@ class ModernGreenResidentEngine:
             except Exception as exc:
                 raise ArtifactError(f"U16 official {surface} state cannot load: {exc}") from exc
 
+    def _configure_trainable_quantization_scales(self) -> list[tuple[str, Any]]:
+        if self.config.get("trainable_quantization_scales") is not True:
+            return []
+        experts = getattr(self.student, "experts", None)
+        if not isinstance(experts, Mapping) or not experts:
+            raise ArtifactError("trainable quantization scales require resident grouped experts")
+        saved = self.state.get("scales")
+        rows: list[tuple[str, Any]] = []
+        for layer, module in sorted(experts.items(), key=lambda item: int(item[0])):
+            for projection in ("w1", "w2", "w3"):
+                for axis in ("su", "sv"):
+                    attribute = f"{axis}_{projection}"
+                    value = getattr(module, attribute, None)
+                    if value is None or not hasattr(value, "shape") or not value.is_floating_point():
+                        raise ArtifactError(f"resident grouped scale seam missing: L{int(layer):03d}/{attribute}")
+                    name = f"layers.{int(layer)}.scales.{attribute}"
+                    control = value.detach().float().clone()
+                    initial = control.clone()
+                    if saved is not None:
+                        if not isinstance(saved, Mapping) or name not in saved:
+                            raise ArtifactError(f"checkpoint missing trainable quantization scale: {name}")
+                        checkpoint_value = saved[name]
+                        if tuple(checkpoint_value.shape) != tuple(initial.shape):
+                            raise ArtifactError(f"checkpoint trainable quantization scale shape drift: {name}")
+                        initial.copy_(checkpoint_value.to(device=initial.device, dtype=initial.dtype))
+                    if attribute in getattr(module, "_buffers", {}):
+                        del module._buffers[attribute]
+                    if attribute in getattr(module, "_parameters", {}):
+                        del module._parameters[attribute]
+                    parameter = self.torch.nn.Parameter(initial, requires_grad=True)
+                    parameter._banana_scale_control = control
+                    module.register_parameter(attribute, parameter)
+                    rows.append((name, parameter))
+        return rows
+
+    def _project_scale_trust_region(self) -> dict[str, Any]:
+        requested = self.config.get("quantization_scale_relative_trust_region")
+        if requested is None:
+            return {"enabled": False, "clipped_elements": 0}
+        bound = float(requested)
+        if not math.isfinite(bound) or not 0.0 < bound < 1.0:
+            raise ArtifactError("quantization scale relative trust region must be finite in (0, 1)")
+        clipped = 0
+        maximum = 0.0
+        with self.torch.no_grad():
+            for name, parameter in self.scales:
+                control = getattr(parameter, "_banana_scale_control", None)
+                if control is None:
+                    raise ArtifactError(f"scale trust-region control missing: {name}")
+                low = self.torch.minimum(control * (1.0 - bound), control * (1.0 + bound))
+                high = self.torch.maximum(control * (1.0 - bound), control * (1.0 + bound))
+                before = parameter.detach().clone()
+                parameter.copy_(self.torch.maximum(low, self.torch.minimum(high, parameter)))
+                clipped += int(self.torch.count_nonzero(parameter != before).item())
+                nonzero = control != 0
+                if self.torch.any(nonzero):
+                    relative = ((parameter[nonzero] - control[nonzero]) / control[nonzero]).abs()
+                    maximum = max(maximum, float(relative.max().detach().cpu()))
+        if maximum > bound + 1.0e-6:
+            raise ArtifactError("quantization scale relative trust region projection failed")
+        return {"enabled": True, "bound": bound, "clipped_elements": clipped, "maximum_relative_delta": maximum}
+
     def _load_optimizer_scheduler_state(self) -> None:
         if self.score_only:
             self.scheduler_state_action = "SCORE_ONLY_NO_TRAINING_LINEAGE"
@@ -1182,10 +1270,12 @@ class ModernGreenResidentEngine:
             raise ArtifactError("continuation checkpoint is missing the shared Adam optimizer state")
         groups = optimizer_payload.get("param_groups")
         global_state = optimizer_payload.get("state")
-        surfaces = ("luts", "norms", "outputs") + (
-            (EXPERT_PLANE_SURFACE,) if self.expert_plane_contract is not None else ()
+        source_surfaces = (
+            ("luts", "norms", "outputs")
+            + (("scales",) if "scales" in self.state else ())
+            + ((EXPERT_PLANE_SURFACE,) if self.expert_plane_contract is not None else ())
         )
-        if not isinstance(groups, list) or len(groups) != len(surfaces) or not isinstance(global_state, Mapping):
+        if not isinstance(groups, list) or len(groups) != len(source_surfaces) or not isinstance(global_state, Mapping):
             raise ArtifactError("resident Adam state has no canonical trainable-surface lineage")
         local_state = self.optimizer.state_dict()
         local_groups = local_state["param_groups"]
@@ -1193,9 +1283,10 @@ class ModernGreenResidentEngine:
             "luts": self.luts,
             "norms": self.norms,
             "outputs": self.outputs,
+            "scales": self.scales,
             **({EXPERT_PLANE_SURFACE: self.expert_planes} if self.expert_plane_contract is not None else {}),
         }
-        for index, surface in enumerate(surfaces):
+        for index, surface in enumerate(source_surfaces):
             names = [name for name, _param in local_rows[surface]]
             global_names = list(self.state[surface])
             source_group = groups[index]
@@ -1213,6 +1304,10 @@ class ModernGreenResidentEngine:
                     local_state["state"][local_id] = _cpu_tree(self.torch, value)
             local_groups[index].update({key: value for key, value in source_group.items() if key != "params"})
             local_groups[index]["params"] = local_ids
+        if self.scales and "scales" not in self.state:
+            for key in ("lr", "initial_lr", "betas", "eps", "weight_decay", "amsgrad"):
+                if key in local_groups[0]:
+                    local_groups[3][key] = local_groups[0][key]
         self.optimizer.load_state_dict(local_state)
         scheduler_payload = self.payload.get("scheduler", self.payload.get("scheduler_state"))
         if not isinstance(scheduler_payload, Mapping):
@@ -1223,7 +1318,13 @@ class ModernGreenResidentEngine:
         if self.scheduler_state_action == "RESET_INHERITED_U16_SCHEDULE_ONLY":
             return
         try:
-            self.scheduler.load_state_dict(dict(scheduler_payload))
+            scheduler_state = dict(scheduler_payload)
+            if self.scales and "scales" not in self.state:
+                for key in ("base_lrs", "_last_lr"):
+                    values = scheduler_state.get(key)
+                    if isinstance(values, list) and len(values) + 1 == len(self.optimizer.param_groups):
+                        scheduler_state[key] = [*values, values[0]]
+            self.scheduler.load_state_dict(scheduler_state)
         except Exception as exc:
             raise ArtifactError(f"U16 LambdaLR state cannot load: {exc}") from exc
 
@@ -1571,7 +1672,7 @@ class ModernGreenResidentEngine:
         return float(loss.detach().cpu()), {"forward_seconds": forward_seconds, "backward_seconds": backward_seconds}
 
     def _local_params(self) -> list[tuple[str, Any]]:
-        return [*self.luts, *self.norms, *self.outputs, *self.expert_planes]
+        return [*self.luts, *self.norms, *self.outputs, *self.scales, *self.expert_planes]
 
     def _local_norm(self, values: list[Any]) -> float:
         return sum(float(value.detach().float().pow(2).sum().cpu()) for value in values) ** 0.5
@@ -1607,6 +1708,7 @@ class ModernGreenResidentEngine:
         forward_backward_seconds = time.perf_counter() - dist_started
         optimizer_started = time.perf_counter()
         self.optimizer.step()
+        scale_trust_region = self._project_scale_trust_region()
         self.scheduler.step()
         _cuda_sync(torch)
         optimizer_seconds = time.perf_counter() - optimizer_started
@@ -1644,6 +1746,7 @@ class ModernGreenResidentEngine:
         local = {
             "rank": self.rank,
             "loss": loss,
+            "scale_trust_region": scale_trust_region,
             "gradient_norm": gradient_norm,
             "parameter_delta_norm": delta_norm,
             "timings": {
@@ -1701,6 +1804,7 @@ class ModernGreenResidentEngine:
             "luts": self.luts,
             "norms": self.norms,
             "outputs": self.outputs,
+            **({"scales": self.scales} if self.scales else {}),
             **({EXPERT_PLANE_SURFACE: self.expert_planes} if self.expert_plane_contract is not None else {}),
         }
         local_state = {
@@ -1723,6 +1827,8 @@ class ModernGreenResidentEngine:
         expected_coverage = {"luts": 43, "norms": 235, "outputs": 43}
         if self.expert_plane_contract is not None:
             expected_coverage[EXPERT_PLANE_SURFACE] = 1536
+        if self.scales:
+            expected_coverage["scales"] = 258
         if {surface: len(values) for surface, values in merged.items()} != expected_coverage:
             raise ArtifactError("official resident merged trainable surface coverage drift")
         optimizer = (
@@ -1830,9 +1936,10 @@ class ModernGreenResidentEngine:
             "optimizer_state": optimizer_state,
             "scheduler_state": (report_state or {}).get("scheduler") if isinstance(report_state, Mapping) else None,
             "model_engine": "official-ShardStudent-grouped-K2-FWHT-resident",
-            "frozen_surfaces": ["packed_codes", "assignments", "wscale"],
+            "frozen_surfaces": ["packed_codes", "assignments"],
             "trainable_surfaces": [
                 "luts", "rmsnorms", "output_gains",
+                *(["scales"] if self.scales else []),
                 *([EXPERT_PLANE_SURFACE] if self.expert_plane_contract is not None else []),
             ],
         }
