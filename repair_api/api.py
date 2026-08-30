@@ -45,11 +45,15 @@ def _validate_trainable_scale_candidate_contract(
     requested: tuple[int, ...],
     config: Mapping[str, Any],
 ) -> bool:
-    """Admit Candidate C without widening any other scientific axis."""
+    """Admit Candidate C/D without widening any other scientific axis."""
     if config.get("trainable_quantization_scales") is not True:
         return False
+    relative_bound = config.get("quantization_scale_relative_trust_region")
+    candidate_d = relative_bound is not None
     expected_identity = (
-        "Candidate C: U20-to-U24; sole variable is grouped-K2 quantization scales frozen-to-trainable"
+        "Candidate D: U20-to-U24; sole variable versus Candidate C is a 5% U20-relative scale trust region"
+        if candidate_d
+        else "Candidate C: U20-to-U24; sole variable is grouped-K2 quantization scales frozen-to-trainable"
     )
     if (
         start_update != 20
@@ -58,6 +62,12 @@ def _validate_trainable_scale_candidate_contract(
         or requested != (21, 22, 23, 24)
         or config.get("token_kld_reduction") != "mean"
         or config.get("scientific_identity") != expected_identity
+        or (candidate_d and relative_bound != 0.05)
+        or (
+            candidate_d
+            and config.get("mechanism_receipt_sha256")
+            != "2a706eece007225b1a37d9977102659e5bdedd736d04585b577128e0c5918d36"
+        )
         or config.get("tailfix_wholesale") is True
         or "cvar_tail_fraction" in config
     ):

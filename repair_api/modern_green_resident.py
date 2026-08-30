@@ -78,7 +78,8 @@ def _configure_trainable_quantization_scales(
                         f"resident grouped scale seam missing: L{int(layer):03d}/{attribute}"
                     )
                 name = f"layers.{int(layer)}.scales.{attribute}"
-                initial = value.detach().float().clone()
+                control = value.detach().float().clone()
+                initial = control.clone()
                 if saved is not None:
                     checkpoint_value = saved.get(name)
                     if checkpoint_value is None:
@@ -95,12 +96,70 @@ def _configure_trainable_quantization_scales(
                 if attribute in getattr(module, "_parameters", {}):
                     del module._parameters[attribute]
                 parameter = __import__("torch").nn.Parameter(initial, requires_grad=True)
+                if "quantization_scale_relative_trust_region" in config:
+                    bound = config["quantization_scale_relative_trust_region"]
+                    if isinstance(bound, bool):
+                        raise ArtifactError(
+                            "quantization scale relative trust region must be finite in (0, 1)"
+                        )
+                    try:
+                        bound = float(cast(Any, bound))
+                    except (TypeError, ValueError) as exc:
+                        raise ArtifactError(
+                            "quantization scale relative trust region must be finite in (0, 1)"
+                        ) from exc
+                    if not math.isfinite(bound) or not 0.0 < bound < 1.0:
+                        raise ArtifactError(
+                            "quantization scale relative trust region must be finite in (0, 1)"
+                        )
+                    parameter._banana_scale_control = control
                 module.register_parameter(attribute, parameter)
                 rows.append((name, parameter))
     return rows, {
         "mode": "trainable",
         "trainable": len(rows),
         "layers": sorted(int(layer) for layer in experts),
+        "relative_trust_region": config.get("quantization_scale_relative_trust_region"),
+    }
+
+
+def _project_quantization_scale_trust_region(
+    config: Mapping[str, Any], rows: list[tuple[str, Any]]
+) -> dict[str, Any]:
+    """Project raw SU/SV leaves into an elementwise U20-relative trust region."""
+    requested = config.get("quantization_scale_relative_trust_region")
+    if requested is None:
+        return {"enabled": False, "clipped_elements": 0}
+    bound = float(requested)
+    clipped = 0
+    elements = 0
+    maximum_relative_delta = 0.0
+    torch = __import__("torch")
+    with torch.no_grad():
+        for name, parameter in rows:
+            control = getattr(parameter, "_banana_scale_control", None)
+            if control is None or tuple(control.shape) != tuple(parameter.shape):
+                raise ArtifactError(f"scale trust-region control missing: {name}")
+            low = torch.minimum(control * (1.0 - bound), control * (1.0 + bound))
+            high = torch.maximum(control * (1.0 - bound), control * (1.0 + bound))
+            before = parameter.detach().clone()
+            parameter.copy_(torch.maximum(low, torch.minimum(high, parameter)))
+            clipped += int(torch.count_nonzero(parameter != before).item())
+            elements += int(parameter.numel())
+            nonzero = control != 0
+            if torch.any(nonzero):
+                relative = ((parameter[nonzero] - control[nonzero]) / control[nonzero]).abs()
+                maximum_relative_delta = max(
+                    maximum_relative_delta, float(relative.max().detach().cpu())
+                )
+    if maximum_relative_delta > bound + 1.0e-6:
+        raise ArtifactError("quantization scale relative trust region projection failed")
+    return {
+        "enabled": True,
+        "bound": bound,
+        "elements": elements,
+        "clipped_elements": clipped,
+        "maximum_relative_delta": maximum_relative_delta,
     }
 
 
@@ -3464,6 +3523,9 @@ class ModernGreenResidentEngine:
         else:
             self.optimizer.step()
             adam_report = None
+        scale_trust_region = _project_quantization_scale_trust_region(
+            self.config, self.scales
+        )
         post_optimizer_scan = (
             self._optimizer_transition_scan(params, before, "post_optimizer_step")
             if transition_diagnostic
@@ -3543,6 +3605,7 @@ class ModernGreenResidentEngine:
         local = {
             "rank": self.rank,
             "loss": loss,
+            "scale_trust_region": scale_trust_region,
             "gradient_norm": gradient_norm,
             "parameter_delta_norm": delta_norm,
             "timings": {

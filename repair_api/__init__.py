@@ -8,7 +8,7 @@ from .balanced64 import (
     ResidentBalanced64,
     ScoreResult,
 )
-from .api import ResidentRepairAPI, construct_clean_u0, continue_resident_two_spark, continue_to, continue_two_spark, continue_two_spark_real, resume_compare
+from .api import ResidentRepairAPI, adapt_checkpointed_envelope, construct_clean_u0, continue_resident_two_spark, continue_to, continue_two_spark, continue_two_spark_real, resume_compare
 from .official_k2_resident_score import (
     ALTERNATE_PRE_CHECKPOINT_SHA256,
     CANONICAL_U0_CHECKPOINT_SHA256,
@@ -37,6 +37,7 @@ __all__ = [
     "ResidentBalanced64",
     "ResidentRepairAPI",
     "OfficialK2ResidentScorer",
+    "adapt_checkpointed_envelope",
     "adapt_canonical_raw_u0_payload",
     "load_canonical_raw_u0",
     "ALTERNATE_PRE_CHECKPOINT_SHA256",
