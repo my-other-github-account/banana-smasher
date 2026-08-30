@@ -248,3 +248,37 @@ def test_non_empty_candidate_dir_is_refused(world):
     with pytest.raises(FileExistsError):
         materialize_sensitivity_candidate_v2(
             world["baseline"], world["ledger"], p, output_root=out)
+
+
+def test_pool_binding_precedence(world, tmp_path, monkeypatch):
+    """Pool binds for real swaps; the sealed baseline still binds for nulls.
+
+    A null control must reproduce the baseline exactly, so it must never be
+    pointed at the recovered-unit pool even when one is supplied.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "spw2",
+        Path(__file__).resolve().parents[1] / "tools" / "sensitivity_probe_worker_v2.py",
+    )
+    spw2 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(spw2)
+
+    pool_q3 = tmp_path / "POOL_Q3.json"
+    pool_q3.write_bytes(_canon({"layer_roots": {"0": "/pool"}}))
+    baseline_q2 = world["baseline_map"]
+    baseline_q3 = world["target_map"]
+
+    treat = world["probe"]("pb0", "treatment", ["L000:E000:down"], "qtip2", "qtip3")
+    c = materialize_sensitivity_candidate_v2(
+        world["baseline"], world["ledger"], treat, output_root=world["dir"] / "pb0")
+    bound, _sha_, q2, q3 = spw2.resolve_target_root_map(
+        c, baseline_q2, baseline_q3, pool_q2=None, pool_q3=pool_q3)
+    assert bound == pool_q3 and q3 == pool_q3, "real swap must bind the pool"
+
+    null = world["probe"]("pb1", "null_control", ["L000:E000:down"], "qtip2", "qtip2", predicted=0.0)
+    cn = materialize_sensitivity_candidate_v2(
+        world["baseline"], world["ledger"], null, output_root=world["dir"] / "pb1")
+    bound_n, _s, q2n, _q3n = spw2.resolve_target_root_map(
+        cn, baseline_q2, baseline_q3, pool_q2=pool_q3, pool_q3=pool_q3)
+    assert bound_n == baseline_q2 and q2n == baseline_q2, "null must bind the sealed baseline"

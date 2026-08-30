@@ -68,8 +68,26 @@ def atomic(path: Path, value: object) -> None:
     os.replace(name, path)
 
 
-def resolve_target_root_map(candidate: dict, q2_map: Path, q3_map: Path) -> tuple[Path, str, Path, Path]:
-    """Pick the root map the decoder must bind for this candidate's target tier."""
+def resolve_target_root_map(
+    candidate: dict,
+    q2_map: Path,
+    q3_map: Path,
+    pool_q2: Path | None = None,
+    pool_q3: Path | None = None,
+) -> tuple[Path, str, Path, Path]:
+    """Pick the root map the decoder must bind for this candidate's target tier.
+
+    Three cases, in priority order:
+
+    * null control -> the sealed BASELINE map is the authority, because a null
+      re-materializes the incumbent tier and must reproduce the baseline exactly;
+    * a pool map was supplied -> bind the pool. Every declared producer path in
+      PROBE_MANIFEST_V2 has been deleted fleet-wide, so the pool is where the
+      byte-identical units actually live. Identity is still enforced against the
+      manifest's ``artifact_sha256`` by ``authenticate_target_units``, so binding
+      the pool cannot silently substitute a different unit;
+    * otherwise -> the ledger's declared map.
+    """
 
     target_tier = candidate.get("target_tier")
     target_q2, target_q3 = q2_map, q3_map
@@ -80,12 +98,12 @@ def resolve_target_root_map(candidate: dict, q2_map: Path, q3_map: Path) -> tupl
         raise RuntimeError(f"TARGET_ROOT_MAP_AMBIGUOUS:{candidate.get('probe_id')}:{len(maps)}")
     declared = Path(maps[0]["path"])
     declared_sha = str(maps[0]["sha256"])
-    # A null control re-materializes the incumbent tier, so the sealed baseline
-    # root map IS the authority and the ledger's producer path is only the
-    # provenance record. For any real swap the ledger's map is the authority.
+    pool = pool_q2 if target_tier == "qtip2" else pool_q3
     if candidate.get("is_null_control"):
         bound = q2_map if target_tier == "qtip2" else q3_map
         bound_sha = sha(bound)
+    elif pool is not None:
+        bound, bound_sha = pool, sha(pool)
     else:
         bound, bound_sha = declared, declared_sha
     if target_tier == "qtip2":
@@ -107,6 +125,10 @@ def main() -> int:
     parser.add_argument("--reproduce-baseline", action="store_true")
     parser.add_argument("--skip-instrument-if-proven", type=Path,
                         help="path to a PASS INSTRUMENT.json from this same host/pin")
+    parser.add_argument("--pool-qtip2-root-map", type=Path,
+                        help="root map for a task-owned pool of byte-verified qtip2 target units")
+    parser.add_argument("--pool-qtip3-root-map", type=Path,
+                        help="root map for a task-owned pool of byte-verified qtip3 target units")
     args = parser.parse_args()
     root = args.root.resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -254,7 +276,10 @@ def main() -> int:
             if sha(Path(candidate["manifest_path"])) != candidate["manifest_sha256"]:
                 raise RuntimeError(f"CANDIDATE_DRIFT:{probe_id}")
 
-        bound_map, bound_map_sha, target_q2, target_q3 = resolve_target_root_map(candidate, q2_map, q3_map)
+        bound_map, bound_map_sha, target_q2, target_q3 = resolve_target_root_map(
+            candidate, q2_map, q3_map,
+            pool_q2=args.pool_qtip2_root_map, pool_q3=args.pool_qtip3_root_map,
+        )
         unit_proofs = []
         if candidate.get("target_tier") in {"qtip2", "qtip3"}:
             unit_proofs = authenticate_target_units(
@@ -315,6 +340,12 @@ def main() -> int:
             "shipping_delta_bytes": candidate["shipping_delta_bytes"],
             "is_null_control": bool(candidate.get("is_null_control")),
             "bound_target_root_map": str(bound_map),
+            "bound_from_pool": bool(
+                not candidate.get("is_null_control")
+                and candidate.get("target_tier") in {"qtip2", "qtip3"}
+                and (args.pool_qtip2_root_map or args.pool_qtip3_root_map)
+            ),
+            "declared_target_root_map": (candidate.get("target_root_maps") or [{}])[0].get("path"),
             "bound_target_root_map_sha256": bound_map_sha,
             "target_unit_proofs": unit_proofs,
             "instrument_absolute_delta": instrument_receipt.get("absolute_delta"),
