@@ -415,9 +415,9 @@ def test_rank_exception_is_reported_before_child_failure(capfd) -> None:
 def test_dual_shard_scorer_load_stays_broker_bound_through_parent_release(monkeypatch) -> None:
     """Reproduce the ordinary-load fork lifecycle across scorer load + release.
 
-    The broker materializes one hash-bound payload before the fork, then the
-    scorer acquires the checkpoint and the rank-0 engine performs its post-bind
-    parent release.  ``OfficialK2LocalDualShardEngine`` forces
+    The direct public scorer materializes one hash-bound payload before its
+    local dual-shard engine acquires the checkpoint and rank 0 performs its
+    post-bind parent release.  ``OfficialK2LocalDualShardEngine`` forces
     ``ordinary_load_fork_broker`` onto its rank configs, so the release
     validates against the broker registry.  The sealed manifest config does not
     carry that flag, so before the fix the load took the ordinary path and
@@ -439,8 +439,6 @@ def test_dual_shard_scorer_load_stays_broker_bound_through_parent_release(monkey
         }, checkpoint)
         checkpoint_sha = _sha256(checkpoint)
 
-        # Broker pre-fork materialization, exactly as the CLI performs it.
-        prepare_ordinary_checkpoint_payload(checkpoint, checkpoint_sha)
         scorer = resident_score.OfficialK2ResidentScorer.__new__(
             resident_score.OfficialK2ResidentScorer
         )
@@ -450,6 +448,7 @@ def test_dual_shard_scorer_load_stays_broker_bound_through_parent_release(monkey
         scorer._engine = None
         assert scorer._engine_type() is resident_score.OfficialK2LocalDualShardEngine
         try:
+            assert checkpoint_sha not in _ORDINARY_FORK_PAYLOADS
             scorer._align_checkpoint_load_lifecycle(checkpoint_sha)
             payload = _load_score_checkpoint(checkpoint, checkpoint_sha, scorer.config)
             # The acquired payload is the exact registered broker object and is
@@ -486,6 +485,7 @@ def test_dual_shard_scorer_load_stays_broker_bound_through_parent_release(monkey
 
             # Without a brokered materialization the loader selection is
             # untouched, so non-broker configurations keep their behavior.
+            monkeypatch.delenv("BANANA_SMASHER_SAME_PROCESS_DUAL_SHARD")
             other_scorer = resident_score.OfficialK2ResidentScorer.__new__(
                 resident_score.OfficialK2ResidentScorer
             )

@@ -3876,7 +3876,12 @@ class OfficialK2ResidentScorer:
         if bool(self.config.get("ordinary_load_fork_broker", False)):
             return
         if checkpoint_sha256 not in _ORDINARY_FORK_PAYLOADS:
-            return
+            checkpoint_path = self.config.get("checkpoint_path")
+            if not checkpoint_path:
+                raise ArtifactError(
+                    "same-process dual-shard score requires an explicit checkpoint path"
+                )
+            _install_ordinary_fork_payload(Path(str(checkpoint_path)), checkpoint_sha256)
         self.config.update({
             "ordinary_load_fork_broker": True,
             "checkpoint_mmap": False,
