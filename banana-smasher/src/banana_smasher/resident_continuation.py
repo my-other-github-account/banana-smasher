@@ -42,6 +42,53 @@ HISTORICAL_TRAIN_BANK_SHA256 = "3553fce00efdb6d452171e6d5c429adc31580dedbf63eb82
 HISTORICAL_CATEGORIES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
 
 
+def _record_cold_start_phase(
+    config: Mapping[str, Any],
+    *,
+    rank: int,
+    phase: str,
+    boundary: str,
+    elapsed_seconds: float | None = None,
+) -> None:
+    """Append one durable boundary without changing construction behavior."""
+    configured = config.get("cold_start_phase_receipt")
+    if not configured:
+        return
+    path = Path(str(configured).format(rank=rank)).expanduser().resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row: dict[str, Any] = {
+        "schema": "banana-smasher-cold-start-phase-v1",
+        "rank": int(rank),
+        "pid": os.getpid(),
+        "phase": phase,
+        "boundary": boundary,
+        "unix_time": time.time(),
+    }
+    if elapsed_seconds is not None:
+        row["elapsed_seconds"] = float(elapsed_seconds)
+    payload = (json.dumps(row, sort_keys=True) + "\n").encode()
+    descriptor = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o644)
+    try:
+        os.write(descriptor, payload)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _cold_start_phase(config: Mapping[str, Any], rank: int, phase: str, action: Any) -> Any:
+    _record_cold_start_phase(config, rank=rank, phase=phase, boundary="start")
+    started = time.perf_counter()
+    result = action()
+    _record_cold_start_phase(
+        config,
+        rank=rank,
+        phase=phase,
+        boundary="complete",
+        elapsed_seconds=time.perf_counter() - started,
+    )
+    return result
+
+
 def _validated_expert_plane_expansion(config: Mapping[str, Any]) -> Mapping[str, Any] | None:
     value = config.get("expert_plane_expansion")
     if value is None:
@@ -870,7 +917,7 @@ class ModernGreenResidentEngine:
         # Establish the NCCL communicator before rank-specific shard construction.
         # Rank0's parent materialization is much slower than rank1's and must not
         # leave rank1 lazily opening a peer connection that expires first.
-        self._init_distributed()
+        _cold_start_phase(config, rank, "init_distributed", self._init_distributed)
         self.layer_ranges = layer_ranges
         self.first, self.last = layer_ranges[rank]
         self.payload = payload
@@ -902,16 +949,21 @@ class ModernGreenResidentEngine:
         self.manifest_path = Path(str(config["manifest"])).expanduser().resolve()
         self.delta_dir = Path(str(config["delta_dir"])).expanduser().resolve()
         self.vq3b_dir = Path(str(config["vq3b_dir"])).expanduser().resolve()
-        self._configure_import_environment()
-        self._prepare_import_paths()
-        _bind_official_expert_source(config)
-        self.trainer = _load_source_module(
-            f"banana_smasher_modern_green_api_{os.getpid()}_{rank}", self.trainer_path
+        _cold_start_phase(config, rank, "configure_import_environment", self._configure_import_environment)
+        _cold_start_phase(config, rank, "prepare_import_paths", self._prepare_import_paths)
+        _cold_start_phase(config, rank, "bind_official_expert_source", lambda: _bind_official_expert_source(config))
+        self.trainer = _cold_start_phase(
+            config,
+            rank,
+            "load_trainer_source",
+            lambda: _load_source_module(
+                f"banana_smasher_modern_green_api_{os.getpid()}_{rank}", self.trainer_path
+            ),
         )
         if getattr(self.trainer, "MODEL_INDEX_SHA256", None) != MODEL_INDEX_SHA256:
             raise ArtifactError("official trainer model-index identity drift")
-        self._prepare_import_paths()
-        self.base = self._load_base()
+        _cold_start_phase(config, rank, "prepare_import_paths_after_trainer", self._prepare_import_paths)
+        self.base = _cold_start_phase(config, rank, "load_base", self._load_base)
         try:
             from banana_smasher import qtip_k2 as official_k2
         except Exception as exc:
@@ -934,18 +986,23 @@ class ModernGreenResidentEngine:
             raise ArtifactError("official resident admission framework drift")
         if len(admission.get("trainable_roster", {}).get("luts", [])) != 43:
             raise ArtifactError("official resident LUT roster drift")
-        admission, self.checkpoint_lut_provider_bindings = _checkpoint_lut_admission(
-            admission,
-            self.state,
-            materialization_root=(
-                Path(str(config["checkpoint_lut_root"])).expanduser().resolve()
-                if config.get("checkpoint_lut_root")
-                else None
-            ),
-            manifest_root=(
-                Path(str(config["provider_manifest_root"])).expanduser().resolve()
-                if config.get("provider_manifest_root")
-                else None
+        admission, self.checkpoint_lut_provider_bindings = _cold_start_phase(
+            config,
+            rank,
+            "checkpoint_lut_admission",
+            lambda: _checkpoint_lut_admission(
+                admission,
+                self.state,
+                materialization_root=(
+                    Path(str(config["checkpoint_lut_root"])).expanduser().resolve()
+                    if config.get("checkpoint_lut_root")
+                    else None
+                ),
+                manifest_root=(
+                    Path(str(config["provider_manifest_root"])).expanduser().resolve()
+                    if config.get("provider_manifest_root")
+                    else None
+                ),
             ),
         )
         self._configure_base()

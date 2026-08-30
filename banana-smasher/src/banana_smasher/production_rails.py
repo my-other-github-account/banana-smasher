@@ -255,6 +255,10 @@ class _ProvenSession:
             "checkpoint_lut_root",
             str((receipt_root / "checkpoint-luts").resolve()),
         )
+        self.continuation_config.setdefault(
+            "cold_start_phase_receipt",
+            str((receipt_root / "cold-start-phase.rank{rank}.jsonl").resolve()),
+        )
         self.receipt_root = receipt_root
         # Physical residency is phase-lazy: a sealed PRE may proceed directly to
         # training without constructing an unused scorer, while score_pre()

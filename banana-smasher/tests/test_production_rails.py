@@ -507,6 +507,9 @@ def test_public_session_defaults_checkpoint_lut_materialization_inside_run_root(
     assert session.continuation_config["checkpoint_lut_root"] == str(
         (receipt_root / "checkpoint-luts").resolve()
     )
+    assert session.continuation_config["cold_start_phase_receipt"] == str(
+        (receipt_root / "cold-start-phase.rank{rank}.jsonl").resolve()
+    )
 
 
 def test_resident_score_normalizes_authenticated_checkpoint_alias(

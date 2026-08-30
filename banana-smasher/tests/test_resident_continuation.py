@@ -21,6 +21,7 @@ from banana_smasher.resident_continuation import (
     _build_fp64_adam,
     _checkpoint_cursor,
     _checkpoint_lut_admission,
+    _record_cold_start_phase,
     _bind_official_expert_source,
     _construct_shard_student,
     _enqueue_rank_send,
@@ -1168,3 +1169,27 @@ def test_distributed_rendezvous_honors_standard_environment_override(monkeypatch
         ),
         ("barrier",),
     ]
+
+
+def test_cold_start_phase_receipt_is_fsynced_jsonl(tmp_path):
+    receipt = tmp_path / "receipts" / "cold-start.rank0.jsonl"
+
+    _record_cold_start_phase(
+        {"cold_start_phase_receipt": str(receipt)},
+        rank=0,
+        phase="load_base",
+        boundary="start",
+    )
+    _record_cold_start_phase(
+        {"cold_start_phase_receipt": str(receipt)},
+        rank=0,
+        phase="load_base",
+        boundary="complete",
+        elapsed_seconds=1.25,
+    )
+
+    rows = [json.loads(line) for line in receipt.read_text().splitlines()]
+    assert [row["boundary"] for row in rows] == ["start", "complete"]
+    assert all(row["schema"] == "banana-smasher-cold-start-phase-v1" for row in rows)
+    assert rows[1]["elapsed_seconds"] == 1.25
+    assert rows[1]["pid"] == os.getpid()
