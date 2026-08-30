@@ -46,7 +46,7 @@ ACCEPTED_W28_RECEIPT_SHA256_BY_RANK = {
     1: "7c3fbd8435cc2712933ce19b4cddd939d76f5ce36bab7d7b06fc00e52dbe95e7",
 }
 STATIC_W28_GROUPED_WRAPPER_SHA256 = "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
-STATIC_W28_GROUPED_EXPERT_SHA256 = "91411cd638da0daa881f04f46df7f92a7cac1d53fe043655c47bf6b73f7fa687"
+STATIC_W28_GROUPED_EXPERT_SHA256 = "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
 U20_INHERITED_GROUPED_WRAPPER_SHA256 = "fb8f66b20f3fa61b9304d5f874d90c7e6a5c55149bfaa44e7784d6683cbd67ef"
 U20_INHERITED_GROUPED_EXPERT_SHA256 = "0b673aaa31dedaaf604488bb71543e92560167cdef7e6bade50b65b4568b9f81"
 U20_SERIAL_GROUPED_EXPERT_SHA256 = "90be541e1d137c525b4da76512050bb00979c3096526a1f032c5a4ef36d394cd"
@@ -663,7 +663,7 @@ def _configure_resident_tensor_parallel(
         bool(config.get("expert_parallel_all_layers", False))
         and _uses_static_w28_provider(config)
         and STATIC_W28_GROUPED_EXPERT_SHA256
-        == "91411cd638da0daa881f04f46df7f92a7cac1d53fe043655c47bf6b73f7fa687"
+        == "64403d3e9b9761c3fcc636ba24d4d65c635f57675c1f749af312d441d55407c4"
     )
     if exact_duplicated_all43:
         return "exact-accepted-0eeb-duplicated-all43-no-tp"

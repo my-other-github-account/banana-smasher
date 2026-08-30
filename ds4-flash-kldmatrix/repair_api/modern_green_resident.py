@@ -607,11 +607,38 @@ def _sealed_builder_combined_gate_up_projection(
     return gate, up
 
 
+def _sealed_builder_native_down_projection(
+    x: Any,
+    assignments: Any,
+    packed_w2: Any,
+    lut_master: Any,
+    su_w2: Any,
+    sv_w2: Any,
+    *,
+    full_weight_builder: Any,
+) -> Any:
+    """Execute the builder's expert-local native-BF16 W2 F.linear."""
+    import torch
+
+    down = torch.empty(
+        (x.shape[0], int(sv_w2.shape[1])), device=x.device, dtype=torch.bfloat16
+    )
+    for expert_index in torch.unique(assignments, sorted=True).tolist():
+        mask = assignments == expert_index
+        expert_x = x[mask].to(torch.bfloat16).contiguous()
+        down_weight = full_weight_builder(
+            packed_w2[expert_index], lut_master, su_w2[expert_index], sv_w2[expert_index]
+        ).transpose(0, 1).contiguous()
+        down[mask] = torch.nn.functional.linear(expert_x, down_weight)
+    return down
+
+
 def _bind_sealed_gate_up_projection(
     provider_class: Any,
     config: Mapping[str, Any],
     *,
     combined_projection: Any,
+    native_down_projection: Any = None,
 ) -> Any:
     """Replace only 942c's separate gate/up GEMMs with the sealed combined GEMM."""
     explicitly_bound = (
@@ -633,6 +660,7 @@ def _bind_sealed_gate_up_projection(
 
     class SealedCombinedGateUpProjectionExpert(provider_class):
         _sealed_gate_up_runtime_marker = SEALED_GATE_UP_RUNTIME_MARKER
+        _sealed_native_bf16_w2_scope = "provider_class_all_instances_v1"
 
         @staticmethod
         def _sealed_tensor_witness(value: Any) -> dict[str, Any]:
@@ -734,7 +762,19 @@ def _bind_sealed_gate_up_projection(
                     raise RuntimeError("SEALED_COMBINED_GATE_UP_CACHE_MISSING")
                 self._sealed_combined_up = None
                 return up
-            value = super()._project(*args, **kwargs)
+            if projection == "w2":
+                if len(args) < 7:
+                    raise RuntimeError("SEALED_W2_HANDOFF_CALL_GEOMETRY_DRIFT")
+                if not callable(native_down_projection):
+                    raise RuntimeError("SEALED_NATIVE_BF16_W2_HELPER_MISSING")
+                value = native_down_projection(
+                    args[1], args[2], self.packed_w2, args[4], self.su_w2, self.sv_w2
+                )
+                import torch
+                if getattr(value, "dtype", None) != torch.bfloat16:
+                    raise RuntimeError("SEALED_NATIVE_W2_OUTPUT_DTYPE_DRIFT")
+            else:
+                value = super()._project(*args, **kwargs)
             if projection == "w2" and self._sealed_aligned_positions is not None:
                 witness = getattr(self, "_sealed_gate_up_last_witness", None)
                 aligned = witness.get("aligned_active_rows") if isinstance(witness, dict) else None
@@ -868,6 +908,7 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
         return None
 
     combined_projection = None
+    native_down_projection = None
     if (
         config.get("resident_gate_up_projection") == SEALED_GATE_UP_PROJECTION
         and config.get("resident_gate_up_provider_sha256")
@@ -891,6 +932,13 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
 
             combined_projection = bound_combined_projection
 
+            def bound_native_down_projection(*args: Any) -> Any:
+                return _sealed_builder_native_down_projection(
+                    *args, full_weight_builder=full_weight_builder
+                )
+
+            native_down_projection = bound_native_down_projection
+
     def bind_projection_boundary(current_class: Any) -> Any:
         projection_class = current_class
         if _uses_exact_sealed_reconstruction(config):
@@ -912,6 +960,7 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
             projection_class,
             config,
             combined_projection=combined_projection,
+            native_down_projection=native_down_projection,
         )
         return _bind_sealed_routed_return_accumulation(projection_class, config)
 

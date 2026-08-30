@@ -96,6 +96,7 @@ def test_public_projection_wrapper_binds_combined_gate_up_and_product_exactly() 
         Immutable942cProjectionProvider,
         bound,
         combined_projection=combined_projection,
+        native_down_projection=lambda x, *_args: x,
     )
     observed = wrapped_type().forward(hidden, indices, weights)
     expected = (torch.nn.functional.silu(torch.ones_like(hidden)) * 2).to(torch.bfloat16)
@@ -165,3 +166,40 @@ def test_combined_projection_uses_one_expert_local_bf16_linear() -> None:
 
     assert torch.equal(gate, expected_gate)
     assert torch.equal(up, expected_up)
+
+
+def test_public_projection_wrapper_calls_native_bf16_w2_for_every_provider_instance() -> None:
+    native_calls: list[tuple[torch.Tensor, ...]] = []
+
+    def native_down_projection(*args: torch.Tensor) -> torch.Tensor:
+        native_calls.append(args)
+        return torch.full_like(args[0], 7.0)
+
+    config = ResidentRepairAPI.bind_combined_gate_up_projection(
+        {}, provider_expert_sha256=PROVIDER_SHA256
+    )
+    from repair_api.modern_green_resident import _bind_sealed_gate_up_projection
+
+    wrapped_type = _bind_sealed_gate_up_projection(
+        Immutable942cProjectionProvider,
+        config,
+        combined_projection=lambda *args: (
+            torch.ones_like(args[0]), torch.ones_like(args[0])
+        ),
+        native_down_projection=native_down_projection,
+    )
+    assert wrapped_type._sealed_native_bf16_w2_scope == "provider_class_all_instances_v1"
+
+    for layer in (0, 1, 42):
+        provider = wrapped_type()
+        provider.L = layer
+        provider._sealed_aligned_positions = None
+        activated = torch.tensor([[0.006927490234375]], dtype=torch.bfloat16)
+        observed = provider._project(
+            "w2", activated, torch.tensor([0]), provider.packed_w2,
+            provider.plane_source.wire_lut(), provider.su_w2, provider.sv_w2,
+        )
+        assert observed.dtype == torch.bfloat16
+        assert torch.equal(observed, torch.full_like(activated, 7.0))
+
+    assert len(native_calls) == 3
