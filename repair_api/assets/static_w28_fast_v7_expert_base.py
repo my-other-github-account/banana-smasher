@@ -301,19 +301,14 @@ class FullyResidentGroupedV7Experts(nn.Module):
         routed_output = (
             routed_output * route_weight
         ).to(hidden_states.dtype)
-        route_shape = tuple(int(value) for value in top_k_index.shape)
-        routed_output = routed_output.reshape(
-            route_shape[0], route_shape[1], hidden_states.shape[1]
-        )
-        expert_order = torch.argsort(top_k_index, dim=1, stable=True)
-        ordered_output = torch.gather(
-            routed_output,
-            1,
-            expert_order.unsqueeze(-1).expand_as(routed_output),
-        )
         final = torch.zeros_like(hidden_states)
-        for route_slot in range(route_shape[1]):
-            final = (final + ordered_output[:, route_slot]).to(hidden_states.dtype)
+        for expert_idx in torch.unique(expert_index, sorted=True):
+            selected = expert_index == expert_idx
+            final.index_add_(
+                0,
+                token_index[selected],
+                routed_output[selected].to(final.dtype),
+            )
         self.cpu_relay_bytes += 0
         self.reconstruction_calls += 0
         return final
