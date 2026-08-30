@@ -639,42 +639,6 @@ def load_tensor_state(rows: Iterable[tuple[str, Any, Any]], saved: Mapping[str, 
         parameter.data.copy_(saved[name].to(device))
 
 
-def materialize_output_log_gains(
-    torch: Any,
-    rows: Iterable[tuple[str, Any, Any]],
-) -> list[dict[str, Any]]:
-    """Fold inference output gains into weights like the serving export.
-
-    Training keeps gains as post-linear hooks so they remain cheap trainable
-    scalars.  A sealed inference checkpoint must instead reproduce
-    ``repair.materialize_dense_repair_shards``: multiply the projection weight
-    in high precision, cast once to its wire dtype, then run the projection.
-    Multiplying the already-rounded projection output is not bit-equivalent.
-    """
-
-    materialized = []
-    with torch.no_grad():
-        for name, module, parameter in rows:
-            wire = module._parameters.get("weight")
-            if wire is None or wire.ndim < 2:
-                raise RuntimeError(f"output-gain materialization requires a weight matrix: {name}")
-            log_gain = parameter.detach().clamp(-GAIN_CLAMP, GAIN_CLAMP)
-            multiplier = torch.exp(log_gain.to(torch.float64))
-            folded = (wire.detach().to(torch.float64) * multiplier).to(wire.dtype)
-            wire.copy_(folded)
-            parameter.zero_()
-            materialized.append(
-                {
-                    "name": name,
-                    "log_gain": float(log_gain.cpu()),
-                    "multiplier": float(multiplier.cpu()),
-                    "wire_dtype": str(wire.dtype),
-                    "wire_shape": list(wire.shape),
-                }
-            )
-    return materialized
-
-
 def coverage(torch: Any, named: list[tuple[str, Any]], *, gradient: bool) -> dict[str, Any]:
     nonzero = []
     missing = []
