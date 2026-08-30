@@ -821,12 +821,20 @@ def _authenticated_l000_internal_bisect(
             "router_input", "router_output", "moe_return", "final_residual",
         )
         expected = control["boundaries"]
+        def tensor_identity(value: Any) -> Any:
+            if isinstance(value, dict) and {"sha256", "dtype", "shape"} <= set(value):
+                return (value["sha256"], value["dtype"], tuple(value["shape"]))
+            if isinstance(value, dict):
+                return {key: tensor_identity(item) for key, item in value.items()}
+            return value
+
         comparisons: dict[str, Any] = {}
         for name in order:
             product = records[name]
             accepted = expected[name]
             comparisons[name] = {
-                "exact": product == accepted, "product": product, "accepted": accepted,
+                "exact": tensor_identity(product) == tensor_identity(accepted),
+                "product": product, "accepted": accepted,
             }
         first = next((name for name in order if not comparisons[name]["exact"]), None)
         local.update(boundaries=records, comparisons=comparisons,

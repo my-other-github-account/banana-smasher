@@ -13,6 +13,8 @@ def test_authenticated_l000_internal_instrument_is_basis_and_control_bound():
         '"router_input"', '"router_output"', '"moe_return"', '"final_residual"',
     ):
         assert boundary in source
+    assert 'tensor_identity(product) == tensor_identity(accepted)' in source
+    assert 'value["sha256"], value["dtype"], tuple(value["shape"])' in source
 
 
 def test_accepted_builder_instrument_authenticates_final_l000():
