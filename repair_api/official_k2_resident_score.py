@@ -61,6 +61,8 @@ CANONICAL_U0_LOCK_CORPUS_SHA256 = "434a3f9eec14e54d348efde3265998c9521bb3579cba0
 CANONICAL_CORPUS_SHA256 = SCORE_TRAIN_CORPUS_SHA256
 CANONICAL_U1_CHECKPOINT_SHA256 = "1fb277193daac5f3eb81ca73acd1d1df29bd4f3537637b914e023f7deed0e546"
 CANONICAL_U1_IDENTITY_SHA256 = "53cb15a23aa2c695b2ff1ca5d0bcb6dabc7848d154785c2ffd32faec18ba3faf"
+CANONICAL_U0_KLD_MEAN = 0.229392
+CANONICAL_U0_KLD_RELATIVE_TOLERANCE = 0.02
 # This exact predecessor differs only by the U1 raw-identity adapter.  Its U0
 # binary64 resume rows therefore remain byte-for-byte valid after that repair.
 U0_RESUME_COMPATIBLE_IMPLEMENTATION_SHA256 = "ba94e819badadeace56ff0c48b780a1f4129f0d58daffdd2759de1d25bd98236"
@@ -1863,6 +1865,16 @@ class OfficialK2ResidentRankEngine:
             last=self.last,
             status_cb=self._status,
             defer_dense_l034=False,
+        )
+        # ShardStudent constructs the published PRE model with Transformers'
+        # grouped-mm MoE reduction selected.  The sealed reference instrument
+        # uses the source/eager DeepseekV4 reduction; leaving grouped-mm active
+        # changes U0 from the admitted ~0.229 class to ~2.16.  Bind the same
+        # source dispatch used by the canonical resident training engine before
+        # any checkpoint state or score inputs are evaluated.
+        from .modern_green_resident import _bind_published_pre_experts_dispatch
+        self.experts_dispatch_binding = _bind_published_pre_experts_dispatch(
+            self.student, published_pre_recipe=True
         )
         if self.expert_parallel_all_layers:
             for expert in self.student.experts.values():
@@ -4144,6 +4156,14 @@ class OfficialK2ResidentScorer:
         measured = engine.score()
         if measured.get("execution_mode") != "resident_in_memory" or measured.get("timed_score_file_reads") != 0:
             raise ArtifactError("official-K2 resident backend did not close execution mode/file-read gates")
+        if checkpoint_sha == CANONICAL_U0_CHECKPOINT_SHA256:
+            observed_u0 = float(measured.get("kld_mean", float("nan")))
+            tolerance = CANONICAL_U0_KLD_MEAN * CANONICAL_U0_KLD_RELATIVE_TOLERANCE
+            if not math.isfinite(observed_u0) or abs(observed_u0 - CANONICAL_U0_KLD_MEAN) > tolerance:
+                raise ArtifactError(
+                    "canonical U0 calibration failed: "
+                    f"{observed_u0} not within {CANONICAL_U0_KLD_MEAN} ±2%"
+                )
         quality_status = {
             "CANONICAL_U0": "CANONICAL_U0_ADMITTED",
             "CANONICAL_U1_IMMEDIATE_PARENT": "CANONICAL_U1_ADMITTED",

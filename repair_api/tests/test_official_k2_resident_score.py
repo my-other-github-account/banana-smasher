@@ -32,6 +32,7 @@ from repair_api.official_k2_resident_score import (
     PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256,
     PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
     OfficialK2ResidentRankEngine,
+    OfficialK2ResidentScorer,
     _write_q_lp_capture,
     _canonical_causal_score_tokens,
     _prune_loaded_parent_members,
@@ -468,6 +469,23 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
         self.assertIn("SCORE_PROGRESS_RANK", source)
         self.assertIn('"completed_windows"', source)
         self.assertIn('"last_window_profile"', source)
+
+    def test_official_scorer_binds_source_moe_and_enforces_u0_calibration(self):
+        constructor = inspect.getsource(OfficialK2ResidentRankEngine.__init__)
+        student = constructor.index("self.student = self.trainer.ShardStudent(")
+        source_dispatch = constructor.index(
+            "_bind_published_pre_experts_dispatch(", student
+        )
+        inputs = constructor.index("self._load_inputs()", source_dispatch)
+        assert student < source_dispatch < inputs
+
+        backend_score = inspect.getsource(OfficialK2ResidentScorer.score)
+        measured = backend_score.index("measured = engine.score()")
+        calibration = backend_score.index(
+            "checkpoint_sha == CANONICAL_U0_CHECKPOINT_SHA256", measured
+        )
+        receipt = backend_score.index("quality_status =", calibration)
+        assert measured < calibration < receipt
 
     def test_score_resume_round_trips_exact_binary64_terms_before_next_attempt(self):
         with tempfile.TemporaryDirectory() as directory:
