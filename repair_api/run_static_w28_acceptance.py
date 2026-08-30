@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import time
 
-from repair_api import sealed_pre_forward
+from repair_api import run_static_w28_acceptance, sealed_pre_forward
 
 
 def startticks(pid: int) -> int:
@@ -87,7 +87,7 @@ def main() -> None:
             "sealed_pre_use_local_model": True,
             "sealed_builder_window_microbatch": 2, "sealed_builder_chunk": 64,
         }
-        receipt = sealed_pre_forward.run_static_w28_acceptance(
+        receipt = run_static_w28_acceptance(
             task=args.task, rank=0, root=args.root, config=config,
             checkpoint=args.checkpoint, canonical_pin=head,
         )
