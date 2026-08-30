@@ -254,11 +254,22 @@ def test_accepted_separate_projection_decoder_receives_fp16_parent_lut() -> None
     assert "plane_source.wire_lut = decoder_wire_lut" in adapter
 
 
+def test_static_w28_trainer_identity_matches_canonical_asset() -> None:
+    import hashlib
+
+    root = Path(__file__).parents[1]
+    trainer = root / "assets" / "static_w28_modern_green_clean_u0.py"
+    engine = (root / "modern_green_resident.py").read_text()
+    expected = "321aa817d469ea9eb7d6ad4886a255546b520388b2e6a6146261a5f1c0b0e06b"
+
+    assert f'TRAINER_SHA256 = "{expected}"' in engine
+    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == expected
+
+
 def test_sealed_planesource_restores_combined_native_swiglu_constructor() -> None:
     root = Path(__file__).parents[1]
     provider = (root / "assets" / "static_w28_modern_green_clean_u0.py").read_text()
     engine = (root / "modern_green_resident.py").read_text()
-    assert 'TRAINER_SHA256 = "a662482336a61cd258861a1ce6f13007dcf82497104499c97f3839f443583687"' in engine
     resident = provider[provider.index("class ResidentOfficialExperts") :]
     resident = resident[: resident.index("class ResidentDenseL034")]
     # The sealed producer performs one fused gate/up GEMM and then applies the
