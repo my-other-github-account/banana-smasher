@@ -1199,6 +1199,32 @@ def _install_runtime_modules(config: Mapping[str, Any]) -> Any:
             def bound_grouped_forward(
                 expert: Any, hidden_states: Any, top_k_index: Any, top_k_weights: Any
             ) -> Any:
+                if getattr(expert, "_sealed_source_w2_enabled", False):
+                    def source_full_weight_builder(
+                        codes: Any, _lut: Any, scales: Any, _unused: Any
+                    ) -> Any:
+                        # The generic helper transposes reconstructed builder
+                        # weights into F.linear layout. Source-code decode is
+                        # already in that layout, so expose its transpose here.
+                        return _decode_sealed_w2_source_weight(
+                            codes, scales
+                        ).transpose(0, 1).contiguous()
+
+                    return _sealed_source_grouped_forward(
+                        hidden_states, top_k_index, top_k_weights,
+                        expert._sealed_w2_codes_w1,
+                        expert._sealed_w2_codes_w3,
+                        expert._sealed_w2_codes_w2,
+                        expert.plane_source.wire_lut().reshape(-1).contiguous(),
+                        expert._sealed_w2_scales_w1,
+                        expert._sealed_w2_scales_w1,
+                        expert._sealed_w2_scales_w3,
+                        expert._sealed_w2_scales_w3,
+                        expert._sealed_w2_scales_w2,
+                        expert._sealed_w2_scales_w2,
+                        limit=float(expert.limit), act_fn=expert.act,
+                        full_weight_builder=source_full_weight_builder,
+                    )
                 return _sealed_source_grouped_forward(
                     hidden_states, top_k_index, top_k_weights,
                     expert.packed_w1, expert.packed_w3, expert.packed_w2,
