@@ -1126,15 +1126,29 @@ torch::Tensor qtip3_viterbi_cuda(
 """
 
 
-@lru_cache(maxsize=1)
-def _load_native_v4_cuda_extension() -> Any:
-    """Build the exact register-bounded CUDA recurrence once per host cache."""
+def _native_v4_cuda_source(geometry: NativeQtip25Geometry) -> str:
+    """Specialize the proven V7 recurrence for one exact ladder geometry."""
+
+    return _NATIVE_V4_CUDA_SOURCE.replace(
+        "constexpr int PREFIXES = 16;",
+        f"constexpr int PREFIXES = {geometry.prefixes};",
+    ).replace(
+        "constexpr int BRANCH_BITS = 12;",
+        f"constexpr int BRANCH_BITS = {geometry.B};",
+    )
+
+
+@lru_cache(maxsize=None)
+def _load_native_v4_cuda_extension(
+    geometry: NativeQtip25Geometry = NATIVE_QTIP25_GEOMETRY,
+) -> Any:
+    """Build the exact register-bounded CUDA recurrence once per tier geometry."""
     from torch.utils.cpp_extension import load_inline
 
     return load_inline(
-        name="banana_smasher_qtip3_viterbi_a25",
+        name=f"banana_smasher_qtip_v7_viterbi_b{geometry.B}_a26",
         cpp_sources=_NATIVE_V4_CUDA_CPP,
-        cuda_sources=_NATIVE_V4_CUDA_SOURCE,
+        cuda_sources=_native_v4_cuda_source(geometry),
         functions=["qtip3_viterbi_cuda"],
         extra_cflags=["-O3"],
         extra_cuda_cflags=["-O3", "-lineinfo"],
@@ -1187,7 +1201,7 @@ def _native_v4_cuda_pass(
         if overlap is not None
         else torch.zeros(batch, device=x.device, dtype=torch.int32)
     )
-    extension = _load_native_v4_cuda_extension()
+    extension = _load_native_v4_cuda_extension(geometry)
     return extension.qtip3_viterbi_cuda(
         source,
         lut,
@@ -1226,7 +1240,7 @@ def _native_v4_cuda_warmup_overlap(
     source = x.contiguous()
     lut = state_lut.contiguous()
     overlap_arg = torch.zeros(batch, device=x.device, dtype=torch.int32)
-    extension = _load_native_v4_cuda_extension()
+    extension = _load_native_v4_cuda_extension(geometry)
     return extension.qtip3_viterbi_cuda(
         source,
         lut,

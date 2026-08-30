@@ -4,6 +4,7 @@ import inspect
 
 import pytest
 
+from banana_smasher import qtip25_native_v4
 from banana_smasher import qtip25_native_v4_api
 from banana_smasher.qtip3_api_producer import Qtip3ApiConfig, _valid_cuda_receipt
 
@@ -49,6 +50,21 @@ def test_cross_cell_api_emits_rate_derived_provider_and_accounting() -> None:
     assert 'f"qtip-native-v6@{rate:.2f}"' in source
     assert '"exact_code_bpw": rate' in source
     assert "(geometry.B, geometry.L, geometry.V) not in {(4, 16, 4), (12, 16, 4), (16, 16, 4)}" in source
+
+
+def test_cuda_kernel_source_is_specialized_for_q1_q3_q4_geometry() -> None:
+    for bpw, branch_bits, prefixes in ((1.0, 4, 4096), (3.0, 12, 16), (4.0, 16, 1)):
+        geometry = qtip25_native_v4.native_v4_geometry(bpw)
+        source = qtip25_native_v4._native_v4_cuda_source(geometry)
+        assert f"constexpr int PREFIXES = {prefixes};" in source
+        assert f"constexpr int BRANCH_BITS = {branch_bits};" in source
+
+    for function in (
+        qtip25_native_v4._native_v4_cuda_pass,
+        qtip25_native_v4._native_v4_cuda_warmup_overlap,
+    ):
+        source = inspect.getsource(function)
+        assert "_load_native_v4_cuda_extension(geometry)" in source
 
 
 def test_regeneration_entrypoint_uses_one_tier_config_for_admission_smoke_and_run() -> None:
