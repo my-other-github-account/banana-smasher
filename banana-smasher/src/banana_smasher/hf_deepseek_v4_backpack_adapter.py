@@ -343,6 +343,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             self.d4_loaders[source_key] = loader
             self._record_path(identity)
         self.root_maps: dict[str, dict[str, str]] = {}
+        self.cell_roots: dict[str, dict[str, str]] = {}
         for source_key in ("qtip2", "qtip3"):
             if source_key not in selected_source_keys:
                 continue
@@ -362,6 +363,33 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             self.root_maps[source_key] = {
                 str(layer): str(root) for layer, root in layer_roots.items()
             }
+            cell_roots = root_map.get("cell_roots", {})
+            if not isinstance(cell_roots, Mapping):
+                raise ValueError(f"{source_key} root-map cell overrides mismatch")
+            normalized_cell_roots: dict[str, str] = {}
+            for cell_id, root in cell_roots.items():
+                parts = str(cell_id).split(":")
+                if (
+                    len(parts) != 3
+                    or not parts[0].startswith("L")
+                    or not parts[1].startswith("E")
+                    or parts[2] not in {"down", "fused13"}
+                ):
+                    raise ValueError(f"{source_key} root-map cell override mismatch")
+                try:
+                    layer = int(parts[0][1:])
+                    expert = int(parts[1][1:])
+                except ValueError as exc:
+                    raise ValueError(
+                        f"{source_key} root-map cell override mismatch"
+                    ) from exc
+                if not (0 <= layer < 43 and 0 <= expert < 256):
+                    raise ValueError(f"{source_key} root-map cell override mismatch")
+                normalized = f"L{layer:03d}:E{expert:03d}:{parts[2]}"
+                if normalized != str(cell_id):
+                    raise ValueError(f"{source_key} root-map cell override mismatch")
+                normalized_cell_roots[normalized] = str(root)
+            self.cell_roots[source_key] = normalized_cell_roots
             self._record_path(path)
         self.qtip2_v7_shared_lut_path: Path | None = None
         self.qtip2_v7_roster_members: dict[tuple[int, int, str], tuple[Path, str]] = {}
@@ -486,11 +514,21 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
                 f"QTIP unit receipt identity mismatch: {artifact_path.parent}"
             )
 
+    def _qtip_unit_root(
+        self, source_key: str, layer: int, expert: int, projection: str
+    ) -> Path:
+        cell_id = f"L{layer:03d}:E{expert:03d}:{projection}"
+        root = Path(
+            self.cell_roots.get(source_key, {}).get(
+                cell_id, self.root_maps[source_key][str(layer)]
+            )
+        )
+        return root / f"L{layer:03d}" / f"E{expert:03d}_{projection}"
+
     def _load_verified_native_qtip3_payload(
         self, layer: int, expert: int, projection: str
     ) -> Mapping[str, Any]:
-        root = Path(self.root_maps["qtip3"][str(layer)])
-        unit_root = root / f"L{layer:03d}" / f"E{expert:03d}_{projection}"
+        unit_root = self._qtip_unit_root("qtip3", layer, expert, projection)
         receipt_path = unit_root / "QTIP_SOLVE_RECEIPT.json"
         artifact_path = unit_root / "QTIP_UNIT.pt"
         receipt = json.loads(receipt_path.read_text())
@@ -525,11 +563,8 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
     def _is_native_qtip3_cell(
         self, layer: int, expert: int, projection: str
     ) -> bool:
-        root = Path(self.root_maps["qtip3"][str(layer)])
         receipt_path = (
-            root
-            / f"L{layer:03d}"
-            / f"E{expert:03d}_{projection}"
+            self._qtip_unit_root("qtip3", layer, expert, projection)
             / "QTIP_SOLVE_RECEIPT.json"
         )
         receipt = json.loads(receipt_path.read_text())
@@ -542,8 +577,7 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
         self, source_key: str, layer: int, expert: int, projection: str
     ) -> Any:
         torch = self.torch
-        root = Path(self.root_maps[source_key][str(layer)])
-        unit_root = root / f"L{layer:03d}" / f"E{expert:03d}_{projection}"
+        unit_root = self._qtip_unit_root(source_key, layer, expert, projection)
         receipt_path = unit_root / "QTIP_SOLVE_RECEIPT.json"
         artifact_path = unit_root / "QTIP_UNIT.pt"
         receipt = json.loads(receipt_path.read_text())

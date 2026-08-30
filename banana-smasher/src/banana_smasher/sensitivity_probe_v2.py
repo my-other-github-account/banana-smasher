@@ -303,13 +303,16 @@ def authenticate_target_units(
         raise RuntimeError(f"TARGET_ROOT_MAP_IDENTITY_RED:{root_map_path}")
     root_map = json.loads(root_map_path.read_text())
     layer_roots = root_map.get("layer_roots") or {}
+    cell_roots = root_map.get("cell_roots") or {}
+    if not isinstance(cell_roots, Mapping):
+        raise RuntimeError("TARGET_ROOT_MAP_CELL_OVERRIDES_RED")
     proofs = []
     for unit in candidate.get("target_units", []):
         if unit["tier"] not in {"qtip2", "qtip3"}:
             continue
         layer_s, expert_s, projection = unit["cell_id"].split(":")
         layer = int(layer_s[1:])
-        root = layer_roots.get(str(layer))
+        root = cell_roots.get(unit["cell_id"], layer_roots.get(str(layer)))
         if not root:
             raise RuntimeError(f"TARGET_ROOT_MAP_LAYER_MISSING:{unit['cell_id']}")
         unit_path = Path(root) / layer_s / f"{expert_s}_{projection}" / "QTIP_UNIT.pt"

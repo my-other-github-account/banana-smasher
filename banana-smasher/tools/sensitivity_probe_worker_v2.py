@@ -81,11 +81,11 @@ def resolve_target_root_map(
 
     * null control -> the sealed BASELINE map is the authority, because a null
       re-materializes the incumbent tier and must reproduce the baseline exactly;
-    * a pool map was supplied -> bind the pool. Every declared producer path in
-      PROBE_MANIFEST_V2 has been deleted fleet-wide, so the pool is where the
-      byte-identical units actually live. Identity is still enforced against the
-      manifest's ``artifact_sha256`` by ``authenticate_target_units``, so binding
-      the pool cannot silently substitute a different unit;
+    * a pool map was supplied -> build a cell-scoped overlay map. Its sealed
+      baseline ``layer_roots`` stay authoritative for every incumbent cell;
+      only the treatment cells receive roots from the recovered-unit pool.
+      Identity is still enforced against the manifest's ``artifact_sha256`` by
+      ``authenticate_target_units``;
     * otherwise -> the ledger's declared map.
     """
 
@@ -98,12 +98,35 @@ def resolve_target_root_map(
         raise RuntimeError(f"TARGET_ROOT_MAP_AMBIGUOUS:{candidate.get('probe_id')}:{len(maps)}")
     declared = Path(maps[0]["path"])
     declared_sha = str(maps[0]["sha256"])
+    baseline = q2_map if target_tier == "qtip2" else q3_map
     pool = pool_q2 if target_tier == "qtip2" else pool_q3
     if candidate.get("is_null_control"):
-        bound = q2_map if target_tier == "qtip2" else q3_map
+        bound = baseline
         bound_sha = sha(bound)
     elif pool is not None:
-        bound, bound_sha = pool, sha(pool)
+        baseline_map = json.loads(baseline.read_text())
+        pool_map = json.loads(pool.read_text())
+        pool_layers = pool_map.get("layer_roots")
+        if not isinstance(pool_layers, dict):
+            raise RuntimeError("TARGET_POOL_ROOT_MAP_RED")
+        cell_roots = {}
+        for cell_id in candidate.get("cell_ids") or []:
+            layer_text = str(cell_id).split(":", 1)[0]
+            if not layer_text.startswith("L"):
+                raise RuntimeError(f"TARGET_CELL_ID_RED:{cell_id}")
+            layer = str(int(layer_text[1:]))
+            if layer not in pool_layers:
+                raise RuntimeError(f"TARGET_POOL_LAYER_MISSING:{cell_id}")
+            cell_roots[str(cell_id)] = str(pool_layers[layer])
+        if not cell_roots:
+            raise RuntimeError("TARGET_POOL_CELLS_EMPTY")
+        merged = dict(baseline_map)
+        merged["cell_roots"] = cell_roots
+        merged["overlay_kind"] = "sealed-baseline-with-cell-scoped-treatment-pool"
+        merged["treatment_probe_id"] = candidate.get("probe_id")
+        bound = Path(candidate["manifest_path"]).parent / f"BOUND_{target_tier.upper()}_ROOT_MAP.json"
+        atomic(bound, merged)
+        bound_sha = sha(bound)
     else:
         bound, bound_sha = declared, declared_sha
     if target_tier == "qtip2":

@@ -48,10 +48,11 @@ def test_runtime_accepts_full_closure_recovered_qtip3_receipt(tmp_path) -> None:
 
 
 def test_runtime_batches_only_recovered_native_qtip3_receipts(tmp_path) -> None:
-    root = tmp_path / "qtip3"
-    for expert, schema in (
-        (0, "banana-smasher-recovered-public-api-qtip-unit-v1"),
-        (4, "banana-smasher-qtip-solve-v1"),
+    baseline_root = tmp_path / "sealed-qtip3"
+    pool_root = tmp_path / "target-pool-qtip3"
+    for root, expert, schema in (
+        (baseline_root, 0, "banana-smasher-qtip-solve-v1"),
+        (pool_root, 4, "banana-smasher-recovered-public-api-qtip-unit-v1"),
     ):
         unit = root / "L000" / f"E{expert:03d}_down"
         unit.mkdir(parents=True)
@@ -59,10 +60,11 @@ def test_runtime_batches_only_recovered_native_qtip3_receipts(tmp_path) -> None:
             json.dumps({"schema": schema}) + "\n"
         )
     runtime = DeepseekV4BackpackRuntime.__new__(DeepseekV4BackpackRuntime)
-    runtime.root_maps = {"qtip3": {"0": str(root)}}
+    runtime.root_maps = {"qtip3": {"0": str(baseline_root)}}
+    runtime.cell_roots = {"qtip3": {"L000:E004:down": str(pool_root)}}
 
-    assert runtime._is_native_qtip3_cell(0, 0, "down") is True
-    assert runtime._is_native_qtip3_cell(0, 4, "down") is False
+    assert runtime._is_native_qtip3_cell(0, 0, "down") is False
+    assert runtime._is_native_qtip3_cell(0, 4, "down") is True
 
 
 def test_bind_recovered_qtip3_split_payload_uses_public_api_source(tmp_path) -> None:

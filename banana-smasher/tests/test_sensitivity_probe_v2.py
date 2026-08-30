@@ -265,16 +265,22 @@ def test_pool_binding_precedence(world, tmp_path, monkeypatch):
     spec.loader.exec_module(spw2)
 
     pool_q3 = tmp_path / "POOL_Q3.json"
-    pool_q3.write_bytes(_canon({"layer_roots": {"0": "/pool"}}))
+    target_root = json.loads(world["target_map"].read_text())["layer_roots"]["0"]
+    pool_q3.write_bytes(_canon({"layer_roots": {"0": target_root}}))
     baseline_q2 = world["baseline_map"]
-    baseline_q3 = world["target_map"]
+    baseline_q3 = world["baseline_map"]
 
     treat = world["probe"]("pb0", "treatment", ["L000:E000:down"], "qtip2", "qtip3")
     c = materialize_sensitivity_candidate_v2(
         world["baseline"], world["ledger"], treat, output_root=world["dir"] / "pb0")
-    bound, _sha_, q2, q3 = spw2.resolve_target_root_map(
+    bound, bound_sha, q2, q3 = spw2.resolve_target_root_map(
         c, baseline_q2, baseline_q3, pool_q2=None, pool_q3=pool_q3)
-    assert bound == pool_q3 and q3 == pool_q3, "real swap must bind the pool"
+    merged = json.loads(bound.read_text())
+    assert bound == q3
+    assert bound != pool_q3
+    assert merged["layer_roots"] == json.loads(baseline_q3.read_text())["layer_roots"]
+    assert merged["cell_roots"] == {"L000:E000:down": target_root}
+    assert authenticate_target_units(c, root_map_path=bound, root_map_sha256=bound_sha)
 
     null = world["probe"]("pb1", "null_control", ["L000:E000:down"], "qtip2", "qtip2", predicted=0.0)
     cn = materialize_sensitivity_candidate_v2(
