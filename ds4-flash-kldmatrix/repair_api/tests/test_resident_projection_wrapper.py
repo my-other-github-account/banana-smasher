@@ -75,9 +75,12 @@ def test_production_config_builder_activates_existing_projection_binder() -> Non
         _bind_installed_projection_runtime,
     )
 
-    config: dict[str, object] = {}
+    config: dict[str, object] = {
+        "resident_validation_expert_implementation": "accepted_static_w28"
+    }
     bind_sealed_pre_resident_config(config)
 
+    assert config["resident_validation_expert_implementation"] == "accepted_static_w28"
     assert config["resident_gate_up_projection"] == "combined_4096_bf16_f_linear_v1"
     assert config["resident_gate_up_provider_sha256"] == PROVIDER_SHA256
 
