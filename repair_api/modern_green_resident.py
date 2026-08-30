@@ -762,27 +762,69 @@ def _sealed_builder_combined_gate_up_projection(
     *,
     full_weight_builder: Any,
 ) -> tuple[Any, Any]:
-    """Execute the builder's expert-local contiguous 4096-wide BF16 F.linear."""
+    """Execute the source grouped_mm gate/up operator on reconstructed weights."""
     import torch
 
-    gate_up_width = int(sv_w1.shape[1]) * 2
-    gate_up = torch.empty(
-        (x.shape[0], gate_up_width), device=x.device, dtype=torch.bfloat16
-    )
-    for expert_index in torch.unique(assignments, sorted=True).tolist():
-        mask = assignments == expert_index
-        expert_x = x[mask].to(torch.bfloat16).contiguous()
+    def build_weight(expert_index: int) -> Any:
         gate_weight = full_weight_builder(
             packed_w1[expert_index], lut_master, su_w1[expert_index], sv_w1[expert_index]
         ).transpose(0, 1).contiguous()
         up_weight = full_weight_builder(
             packed_w3[expert_index], lut_master, su_w3[expert_index], sv_w3[expert_index]
         ).transpose(0, 1).contiguous()
-        gate_up[mask] = torch.nn.functional.linear(
-            expert_x, torch.cat((gate_weight, up_weight), dim=0)
-        )
+        return torch.cat((gate_weight, up_weight), dim=0)
+
+    gate_up = _sealed_source_grouped_projection(x, assignments, build_weight)
     gate, up = gate_up.chunk(2, dim=-1)
     return gate, up
+
+
+def _sealed_source_grouped_projection(
+    x: Any, assignments: Any, build_weight: Any
+) -> Any:
+    """Run transformers' grouped_mm dispatch with compact active expert weights."""
+    import torch
+
+    sorted_assignments, perm = torch.sort(assignments.to(torch.int64))
+    active, counts = torch.unique_consecutive(sorted_assignments, return_counts=True)
+    active_ids = [int(value) for value in active.tolist()]
+    if not active_ids:
+        return torch.empty((0, 0), device=x.device, dtype=x.dtype)
+    first = build_weight(active_ids[0])
+    weights = torch.empty(
+        (len(active_ids), *first.shape), device=first.device, dtype=first.dtype
+    )
+    weights[0].copy_(first)
+    del first
+    for compact_index, expert_index in enumerate(active_ids[1:], start=1):
+        current = build_weight(expert_index)
+        weights[compact_index].copy_(current)
+        del current
+    sorted_x = x[perm].to(torch.bfloat16).contiguous()
+    offsets = torch.cumsum(counts, dim=0, dtype=torch.int32)
+    if x.device.type == "cuda":
+        from transformers.integrations.moe import _grouped_linear
+
+        sorted_output = _grouped_linear(
+            sorted_x, weights, offsets, bias=None, is_transposed=False
+        )
+    else:
+        # Focused CPU fixture for the exact CUDA-only production operator.
+        chunks = []
+        start = 0
+        for compact_index, stop in enumerate(offsets.tolist()):
+            chunks.append(torch.nn.functional.linear(
+                sorted_x[start:stop], weights[compact_index]
+            ))
+            start = stop
+        sorted_output = torch.cat(chunks, dim=0)
+    inverse = torch.empty_like(perm)
+    inverse[perm] = torch.arange(perm.numel(), device=perm.device)
+    output = sorted_output[inverse]
+    del sorted_output, sorted_x, weights
+    if x.device.type == "cuda":
+        torch.cuda.empty_cache()
+    return output
 
 
 def _sealed_builder_native_down_projection(
@@ -798,16 +840,11 @@ def _sealed_builder_native_down_projection(
     """Execute the builder's expert-local native-BF16 W2 F.linear."""
     import torch
 
-    down = torch.empty(
-        (x.shape[0], int(sv_w2.shape[1])), device=x.device, dtype=torch.bfloat16
-    )
-    for expert_index in torch.unique(assignments, sorted=True).tolist():
-        mask = assignments == expert_index
-        expert_x = x[mask].to(torch.bfloat16).contiguous()
-        down_weight = full_weight_builder(
+    def build_weight(expert_index: int) -> Any:
+        return full_weight_builder(
             packed_w2[expert_index], lut_master, su_w2[expert_index], sv_w2[expert_index]
         ).transpose(0, 1).contiguous()
-        down[mask] = torch.nn.functional.linear(expert_x, down_weight)
+    down = _sealed_source_grouped_projection(x, assignments, build_weight)
     # grouped_mm exposes the BF16-rounded projection through an FP32 provider
     # buffer; its return operator rounds it back before route weighting.
     return down.float()
