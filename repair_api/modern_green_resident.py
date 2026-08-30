@@ -1496,6 +1496,40 @@ def _physical_training_row(
     return padded, objective_span
 
 
+TOKEN_KLD_REDUCTIONS = ("mean", "cvar_tail")
+CVAR_TAIL_FRACTION = 0.25
+
+
+def _resolve_token_kld_objective(config: Mapping[str, Any]) -> tuple[str, float]:
+    """Resolve the public-API token-KLD objective from a launch config.
+
+    Public surface (``ResidentRepairAPI`` launch config, forwarded verbatim to
+    :class:`ModernGreenResidentEngine`):
+
+    * ``token_kld_reduction``: ``"mean"`` (default, historical Candidate A
+      behaviour) or ``"cvar_tail"`` (worst-quartile token CVaR).
+    * ``cvar_tail_fraction``: optional, must be exactly ``0.25`` when present.
+      Only the canonical worst quartile is admitted; any other tail fraction is
+      a different objective and is refused rather than silently accepted.
+
+    Absent keys reproduce the uniform-mean objective bit-for-bit, so every
+    existing Candidate A config keeps its current behaviour.
+    """
+    reduction = config.get("token_kld_reduction", "mean")
+    if not isinstance(reduction, str) or reduction not in TOKEN_KLD_REDUCTIONS:
+        raise ArtifactError("unsupported token KLD reduction")
+    raw_fraction = config.get("cvar_tail_fraction", CVAR_TAIL_FRACTION)
+    if isinstance(raw_fraction, bool):
+        raise ArtifactError("CVaR training requires the exact worst-loss quartile")
+    try:
+        fraction = float(raw_fraction)
+    except (TypeError, ValueError) as exc:
+        raise ArtifactError("CVaR training requires the exact worst-loss quartile") from exc
+    if fraction != CVAR_TAIL_FRACTION:
+        raise ArtifactError("CVaR training requires the exact worst-loss quartile")
+    return reduction, fraction
+
+
 def _reduce_training_token_kld(
     torch: Any,
     token_values: list[Any],
@@ -1505,20 +1539,43 @@ def _reduce_training_token_kld(
 ) -> Any:
     """Reduce token KLD without allowing evaluation-window weighting.
 
-    ``mean`` preserves the historical equal-window mean. ``cvar_tail`` takes
-    the mean of the largest token losses across the complete legal training
-    microbatch. The detached top-k indices select the tail while gradients flow
-    through the selected token losses.
+    ``mean`` preserves the historical equal-window mean: each window's valid
+    tokens are averaged, then the per-window means are averaged.
+
+    ``cvar_tail`` is the worst-quartile token CVaR. Deterministic semantics:
+
+    * **Scope.** Selection happens over the tokens of exactly one legal
+      microbatch — the windows handed to a single ``_loss_group`` call — and is
+      therefore independent per microbatch. Windows are pooled *within* the
+      microbatch so the tail is a property of the microbatch, not of any single
+      window, and no cross-microbatch state is carried.
+    * **Masking.** ``token_values`` entries already contain only valid
+      (unpadded, in-objective-span) tokens: the caller slices each window with
+      ``[:length]`` where ``length = min(real_length, training_objective_span)``.
+      Padding therefore can never enter the tail, and per-window token counts
+      may legitimately differ.
+    * **Non-multiples of four.** ``tail_count = ceil(N / 4)`` where ``N`` is the
+      total valid-token count of the microbatch. Ceiling (not floor) keeps the
+      tail non-empty for every ``N >= 1``: ``N=1..4 -> 1``, ``N=5..8 -> 2``,
+      ``N=9 -> 3``. A floor rule would silently produce a zero-token tail on
+      short microbatches.
+    * **Ties.** Selection uses a stable descending sort, so exactly-equal token
+      losses are broken by ascending flattened index (window order, then
+      position order). The tail value is deterministic and so is the gradient
+      attribution among tied tokens.
+    * **Gradients.** Only the selected tail tokens receive gradient; each gets
+      ``1 / tail_count``. Non-selected tokens receive exactly zero.
     """
     if not token_values or any(values.ndim != 1 or values.numel() < 1 for values in token_values):
         raise ArtifactError("training token KLD geometry is empty or non-vector")
     if reduction == "mean":
         return torch.stack([values.mean() for values in token_values]).mean()
-    if reduction != "cvar_tail" or cvar_fraction != 0.25:
+    if reduction != "cvar_tail" or cvar_fraction != CVAR_TAIL_FRACTION:
         raise ArtifactError("token KLD reduction must be mean or exact worst-quartile CVaR")
     flat = torch.cat(token_values)
-    tail_count = (int(flat.numel()) + 3) // 4
-    return torch.topk(flat, tail_count, largest=True, sorted=False).values.mean()
+    tail_count = -(-int(flat.numel()) // 4)
+    ordered = torch.sort(flat, descending=True, stable=True).values
+    return ordered[:tail_count].mean()
 
 
 class ModernGreenResidentEngine:
@@ -1592,12 +1649,7 @@ class ModernGreenResidentEngine:
         self.controlled_arm_id = config.get("controlled_arm_id")
         self.controlled_arm = self.controlled_arm_id is not None
         self.published_pre_recipe = config.get("recipe_id") == PUBLISHED_PRE_RECIPE_ID
-        self.token_kld_reduction = str(config.get("token_kld_reduction", "mean"))
-        self.cvar_tail_fraction = float(config.get("cvar_tail_fraction", 0.25))
-        if self.token_kld_reduction not in {"mean", "cvar_tail"}:
-            raise ArtifactError("unsupported token KLD reduction")
-        if self.token_kld_reduction == "cvar_tail" and self.cvar_tail_fraction != 0.25:
-            raise ArtifactError("CVaR training requires the exact worst-loss quartile")
+        self.token_kld_reduction, self.cvar_tail_fraction = _resolve_token_kld_objective(config)
         self.tailfix_wholesale = config.get("tailfix_wholesale") is True
         if self.tailfix_wholesale and self.token_kld_reduction != "mean":
             raise ArtifactError("tailfix wholesale and token CVaR objectives are mutually exclusive")

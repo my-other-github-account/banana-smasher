@@ -3,16 +3,19 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import pytest
 import torch
 
 from repair_api import modern_green_resident as resident_module
 from repair_api.api import ResidentRepairAPI, _validate_published_pre_resume_start
+from repair_api.balanced64 import ArtifactError
 from repair_api.modern_green_resident import (
     BASE_LRS,
     ModernGreenResidentEngine,
     _admit_restored_optimizer_base_lrs,
     _configure_v7_lut_only_optimizer,
     _reduce_training_token_kld,
+    _resolve_token_kld_objective,
     _resident_optimizer_param_groups,
     _resolve_trainer_source,
 )
@@ -35,6 +38,98 @@ def test_worst_quartile_cvar_reduces_across_all_microbatch_tokens():
     assert second.grad is not None and second.grad.tolist() == [0.0, 0.0, 0.0, 0.0]
 
 
+def test_worst_quartile_tail_is_selected_independently_per_microbatch():
+    """The tail of a microbatch never depends on any other microbatch."""
+    hot = [torch.tensor([90.0, 91.0, 92.0, 93.0])]
+    cold = [torch.tensor([0.1, 0.2, 0.3, 0.4])]
+
+    cold_alone = _reduce_training_token_kld(
+        torch, cold, reduction="cvar_tail", cvar_fraction=0.25
+    )
+    hot_alone = _reduce_training_token_kld(
+        torch, hot, reduction="cvar_tail", cvar_fraction=0.25
+    )
+
+    # Worst quartile of 4 tokens is exactly the single largest token.
+    assert cold_alone.item() == pytest.approx(0.4)
+    assert hot_alone.item() == pytest.approx(93.0)
+
+    # Pooling the same tokens into ONE microbatch is a different, larger tail —
+    # proving the per-microbatch call is genuinely independent, not global.
+    pooled = _reduce_training_token_kld(
+        torch, hot + cold, reduction="cvar_tail", cvar_fraction=0.25
+    )
+    assert pooled.item() == pytest.approx((93.0 + 92.0) / 2)
+
+
+def test_worst_quartile_pools_windows_within_one_microbatch():
+    """Selection is over the whole microbatch, not per-window quartiles."""
+    quiet = torch.tensor([0.0, 0.0, 0.0, 0.0])
+    loud = torch.tensor([10.0, 20.0, 30.0, 40.0])
+
+    loss = _reduce_training_token_kld(
+        torch, [quiet, loud], reduction="cvar_tail", cvar_fraction=0.25
+    )
+
+    # 8 tokens -> tail of 2, both drawn from the loud window.
+    assert loss.item() == pytest.approx(35.0)
+
+
+def test_worst_quartile_masking_excludes_padding_via_valid_token_slices():
+    """Only valid (unpadded) tokens reach the reduction, and ragged lengths are legal."""
+    padded_window = torch.tensor([1.0, 5.0, 999.0, 999.0])
+    real_length = 2  # caller slices [:length]; 999.0 entries are padding
+    other = torch.tensor([2.0, 3.0, 4.0])
+
+    loss = _reduce_training_token_kld(
+        torch,
+        [padded_window[:real_length], other],
+        reduction="cvar_tail",
+        cvar_fraction=0.25,
+    )
+
+    # 5 valid tokens -> ceil(5/4) = 2 -> mean(5.0, 4.0); padding never selected.
+    assert loss.item() == pytest.approx(4.5)
+
+
+def test_worst_quartile_handles_non_multiples_of_four_by_ceiling():
+    for count, expected_tail in ((1, 1), (2, 1), (3, 1), (4, 1), (5, 2), (8, 2), (9, 3)):
+        values = torch.arange(1.0, count + 1.0)
+        loss = _reduce_training_token_kld(
+            torch, [values], reduction="cvar_tail", cvar_fraction=0.25
+        )
+        top = torch.sort(values, descending=True).values[:expected_tail]
+        assert loss.item() == pytest.approx(top.mean().item()), count
+
+
+def test_worst_quartile_tie_breaking_is_deterministic_by_flat_index():
+    """Equal losses break by ascending flattened index — stable across runs."""
+    first = torch.tensor([5.0, 5.0], requires_grad=True)
+    second = torch.tensor([5.0, 5.0], requires_grad=True)
+
+    loss = _reduce_training_token_kld(
+        torch, [first, second], reduction="cvar_tail", cvar_fraction=0.25
+    )
+    loss.backward()
+
+    assert loss.item() == pytest.approx(5.0)
+    # 4 tied tokens -> tail of 1 -> the earliest flat index wins, every time.
+    assert first.grad.tolist() == [1.0, 0.0]
+    assert second.grad.tolist() == [0.0, 0.0]
+
+
+def test_worst_quartile_gradient_flows_only_through_tail_tokens():
+    values = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], requires_grad=True)
+
+    loss = _reduce_training_token_kld(
+        torch, [values], reduction="cvar_tail", cvar_fraction=0.25
+    )
+    loss.backward()
+
+    assert loss.item() == pytest.approx(7.5)
+    assert values.grad.tolist() == [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.5]
+
+
 def test_historical_mean_token_reduction_is_unchanged():
     first = torch.tensor([1.0, 3.0])
     second = torch.tensor([2.0, 4.0, 6.0, 8.0])
@@ -47,6 +142,122 @@ def test_historical_mean_token_reduction_is_unchanged():
     )
 
     assert loss.item() == 3.5
+
+
+def test_uniform_mean_reduction_is_backward_compatible_with_prior_expression():
+    """Default path must equal the exact pre-CVaR expression, value and gradient."""
+    torch.manual_seed(0)
+    windows = [torch.rand(7), torch.rand(3), torch.rand(11)]
+
+    legacy_inputs = [w.clone().requires_grad_(True) for w in windows]
+    new_inputs = [w.clone().requires_grad_(True) for w in windows]
+
+    legacy = torch.stack([values.mean() for values in legacy_inputs]).mean()
+    legacy.backward()
+
+    current = _reduce_training_token_kld(
+        torch, new_inputs, reduction="mean", cvar_fraction=0.25
+    )
+    current.backward()
+
+    assert current.item() == pytest.approx(legacy.item(), abs=0.0)
+    for legacy_input, new_input in zip(legacy_inputs, new_inputs):
+        assert torch.equal(new_input.grad, legacy_input.grad)
+
+
+def test_empty_or_non_vector_token_geometry_is_refused():
+    with pytest.raises(ArtifactError):
+        _reduce_training_token_kld(torch, [], reduction="cvar_tail", cvar_fraction=0.25)
+    with pytest.raises(ArtifactError):
+        _reduce_training_token_kld(
+            torch, [torch.zeros(2, 2)], reduction="cvar_tail", cvar_fraction=0.25
+        )
+
+
+def test_public_api_objective_configuration_selects_cvar_tail():
+    """The objective is reachable from a ResidentRepairAPI launch config."""
+    assert _resolve_token_kld_objective({}) == ("mean", 0.25)
+    assert _resolve_token_kld_objective(
+        {"token_kld_reduction": "mean"}
+    ) == ("mean", 0.25)
+    assert _resolve_token_kld_objective(
+        {"token_kld_reduction": "cvar_tail"}
+    ) == ("cvar_tail", 0.25)
+    assert _resolve_token_kld_objective(
+        {"token_kld_reduction": "cvar_tail", "cvar_tail_fraction": 0.25}
+    ) == ("cvar_tail", 0.25)
+
+
+def test_public_api_refuses_non_quartile_or_unknown_objectives():
+    for config in (
+        {"token_kld_reduction": "cvar"},
+        {"token_kld_reduction": "topk"},
+        {"token_kld_reduction": 0.25},
+        {"token_kld_reduction": "cvar_tail", "cvar_tail_fraction": 0.1},
+        {"token_kld_reduction": "cvar_tail", "cvar_tail_fraction": 0.5},
+        {"token_kld_reduction": "cvar_tail", "cvar_tail_fraction": True},
+        {"token_kld_reduction": "cvar_tail", "cvar_tail_fraction": "quartile"},
+    ):
+        with pytest.raises(ArtifactError):
+            _resolve_token_kld_objective(config)
+
+
+def test_engine_binds_public_objective_and_routes_loss_group_through_it():
+    """Config key -> engine attribute -> _loss_group reduction, end to end."""
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    engine.torch = torch
+    engine.tailfix_wholesale = False
+    (
+        engine.token_kld_reduction,
+        engine.cvar_tail_fraction,
+    ) = _resolve_token_kld_objective({"token_kld_reduction": "cvar_tail"})
+    assert engine.token_kld_reduction == "cvar_tail"
+
+    captured = {}
+    original = resident_module._reduce_training_token_kld
+
+    def spy(torch_module, token_values, *, reduction, cvar_fraction):
+        captured["reduction"] = reduction
+        captured["cvar_fraction"] = cvar_fraction
+        return original(
+            torch_module, token_values, reduction=reduction, cvar_fraction=cvar_fraction
+        )
+
+    hidden = torch.zeros(1, 1, 1)
+    engine.student = SimpleNamespace(
+        model=SimpleNamespace(
+            model=SimpleNamespace(
+                norm=lambda value: value,
+                hc_head=lambda value: value,
+            ),
+            lm_head=lambda value: torch.tensor([[0.0, 1.0], [2.0, 3.0]]),
+        )
+    )
+    engine.teacher_cache = {
+        7: (
+            torch.tensor([[0, 1], [0, 1]]),
+            torch.tensor([[-0.5, -1.0], [-0.5, -1.0]]),
+            torch.tensor([[0.6, 0.4], [0.6, 0.4]]),
+        )
+    }
+    engine.real_lengths = {7: 2}
+    engine.training_objective_span = 2
+
+    resident_module._reduce_training_token_kld = spy
+    try:
+        loss = ModernGreenResidentEngine._loss_group(engine, hidden, [7])
+    finally:
+        resident_module._reduce_training_token_kld = original
+
+    assert captured == {"reduction": "cvar_tail", "cvar_fraction": 0.25}
+    assert loss.ndim == 0
+
+
+def test_engine_rejects_cvar_combined_with_tailfix_wholesale():
+    assert (
+        "mutually exclusive"
+        in inspect.getsource(ModernGreenResidentEngine.__init__)
+    )
 
 
 def _rows(prefix: str, count: int):

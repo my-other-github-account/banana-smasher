@@ -61,6 +61,49 @@ this is what keeps the result apples-to-apples with the Evals table rows at matc
 9. **Final verdict**: full-64 Balanced64 on the **sealed layerwise rail** (4-shard fan-out,
    `Evals/protocols/BALANCED64_PRE_REPRO.md`), ~1h wall. W28 alone is NEVER the verdict (Gotcha #2).
 
+## 3b. Token-KLD reduction (uniform mean vs worst-quartile CVaR)
+
+The token-KLD **reduction** is a public-API launch-config knob on
+`ResidentRepairAPI.continue_two_spark_real` (and every verb that forwards the same config,
+e.g. `python -m repair_api continue-training --config <json>`). It is forwarded verbatim to
+`ModernGreenResidentEngine` and resolved by `_resolve_token_kld_objective`.
+
+| config key | values | default |
+|---|---|---|
+| `token_kld_reduction` | `"mean"` \| `"cvar_tail"` | `"mean"` |
+| `cvar_tail_fraction` | `0.25` only (any other value is refused) | `0.25` |
+
+**Candidate A (unchanged, historical):** omit both keys, or set
+`"token_kld_reduction": "mean"`. Bit-for-bit identical to the pre-CVaR expression
+(per-window mean, then mean over windows) in both value and gradient.
+
+**Worst-quartile CVaR:** `"token_kld_reduction": "cvar_tail"`.
+Everything else — corpus, batching, window schedule, LR schedule, optimizer — is untouched.
+
+Semantics (all deterministic, all covered by tests in
+`repair_api/tests/test_v7_lut_only_public_api.py`):
+
+- **Per-microbatch independence.** The tail is selected within exactly one legal microbatch
+  (the windows of a single `_loss_group` call). No cross-microbatch state, no global quantile.
+- **Windows pooled within the microbatch.** The quartile is a property of the microbatch, not
+  of each window, so a single hot window may contribute the entire tail.
+- **Masking.** Only valid tokens participate: the caller slices `[:length]` with
+  `length = min(real_length, training_objective_span)`, so padding can never enter the tail.
+  Ragged per-window token counts are legal.
+- **Non-multiples of four.** `tail_count = ceil(N/4)` over the microbatch's total valid-token
+  count `N` (`N=1..4 → 1`, `N=5..8 → 2`, `N=9 → 3`). Ceiling keeps the tail non-empty for any
+  `N >= 1`; a floor rule would silently yield a zero-token tail on short microbatches.
+- **Ties.** Stable descending sort — exactly-equal losses break by ascending flattened index
+  (window order, then position order). Value and gradient attribution are reproducible.
+- **Gradients.** Only tail tokens receive gradient (`1/tail_count` each); all others get exactly
+  zero.
+
+`cvar_tail` is mutually exclusive with `tailfix_wholesale` (which owns its own tail-weighted
+loss); combining them is refused at engine construction.
+
+**No held-out data.** The reduction consumes only the training token losses already in the
+microbatch; no Balanced64 held-out window is embedded, referenced, or consumed.
+
 ## 4. Gotchas (each cost us days — in order of blood spilled)
 
 1. **Fixed-window diets memorize, not repair.** The early campaign trained on the SAME two
