@@ -17,6 +17,8 @@ BASIS_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b
 CHECKPOINT_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
 CANDIDATE_IDENTITY = "51074d5fedfc922b8442cb6cf988773f32991c16e6cf34ca21131c4f7b1726f8"
 TRAINER_SHA256 = "126c11f306a12ed35c1234bd12952a32662c3bd81fc2e74361f0a55ebdc21fc0"
+STATIC_W28_WRAPPER_SHA256 = "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
+STATIC_W28_EXPERT_SHA256 = "4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
 SEALED_MODEL_ROOT = Path("/home/dnola/models/hf/DeepSeek-V4-Flash-0731")
 W28_KLD = 0.1364830042977786
 W28_TOP1 = 880
@@ -91,10 +93,17 @@ def bind_sealed_pre_resident_config(config: dict[str, Any]) -> dict[str, Any]:
     # explicit singleton request used by the public parity-tap comparator.
     config.setdefault("score_window_batch_size", 2)
     config.setdefault("sealed_builder_window_microbatch", 2)
-    config["trainer_source"] = str(
-        (Path(__file__).resolve().parent / "assets" / "static_w28_modern_green_clean_u0.py")
-    )
+    assets = Path(__file__).resolve().parent / "assets"
+    config["trainer_source"] = str(assets / "static_w28_modern_green_clean_u0.py")
     config["trainer_source_sha256"] = TRAINER_SHA256
+    # OfficialK2ResidentRankEngine imports these historical top-level modules
+    # before the trainer. Bind the same commit-owned provider bytes here so the
+    # accepted trainer cannot inherit the mutable full64 provider from the
+    # artifact manifest.
+    config["fast_k2_wrapper_source"] = str(assets / "static_w28_fast_k2_grouped.py")
+    config["fast_k2_wrapper_source_sha256"] = STATIC_W28_WRAPPER_SHA256
+    config["resident_expert_source"] = str(assets / "static_w28_fast_v7_expert_base.py")
+    config["resident_expert_source_sha256"] = STATIC_W28_EXPERT_SHA256
     return config["sealed_pre_source_binding"]
 
 

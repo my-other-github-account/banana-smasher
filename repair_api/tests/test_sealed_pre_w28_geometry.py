@@ -54,6 +54,14 @@ def test_sealed_pre_w28_keeps_target_producer_mb2_geometry(monkeypatch) -> None:
     assert config["resident_validation_expert_implementation"] == "accepted_static_w28"
     assert config["score_window_batch_size"] == 2
     assert config["sealed_builder_window_microbatch"] == 2
+    assert Path(config["fast_k2_wrapper_source"]).name == "static_w28_fast_k2_grouped.py"
+    assert config["fast_k2_wrapper_source_sha256"] == (
+        modern_green_resident.STATIC_W28_GROUPED_WRAPPER_SHA256
+    )
+    assert Path(config["resident_expert_source"]).name == "static_w28_fast_v7_expert_base.py"
+    assert config["resident_expert_source_sha256"] == (
+        modern_green_resident.STATIC_W28_GROUPED_EXPERT_SHA256
+    )
 
     resolved = modern_green_resident._resolve_runtime_provider_files(config)
     assert resolved["wrapper_path"].name == "static_w28_fast_k2_grouped.py"
