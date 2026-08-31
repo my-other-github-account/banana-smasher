@@ -67,13 +67,13 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     assert source.count("non_blocking=True") == 3
     first_copy = source.index("packed_cpu.to(device=device, non_blocking=True)")
     last_copy = source.index("sv_cpu.to(device=device, non_blocking=True)", first_copy)
-    pending = source.index(
-        "pending_transfers.append((stream, packed_cpu, su_cpu, sv_cpu))", last_copy
-    )
-    sync = source.index("stream.synchronize()", pending)
+    sync = source.index("stream.synchronize()", last_copy)
     assert "stream = torch.cuda.Stream(device=device)" in source
     assert "with torch.cuda.stream(stream):" in source
-    assert first_copy < last_copy < pending < sync
+    assert 'thread_name_prefix="w28-h2d"' in source
+    assert "transfer_pool.submit(" in source
+    assert "for projection in PROJECTIONS:" in source[source.index("with ThreadPoolExecutor(") :]
+    assert first_copy < last_copy < sync
 
 
 def test_static_wire_cache_remains_kernel_reclaimable_without_startup_fadvise() -> None:

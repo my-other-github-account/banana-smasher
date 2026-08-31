@@ -74,6 +74,23 @@ def _load_projection_payloads(
     )
 
 
+def _transfer_projection_payloads(
+    packed_cpu: torch.Tensor,
+    su_cpu: torch.Tensor,
+    sv_cpu: torch.Tensor,
+    *,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Migrate one exact projection on its own host thread and CUDA stream."""
+    stream = torch.cuda.Stream(device=device)
+    with torch.cuda.stream(stream):
+        packed = packed_cpu.to(device=device, non_blocking=True)
+        su = su_cpu.to(device=device, non_blocking=True)
+        sv = sv_cpu.to(device=device, non_blocking=True)
+    stream.synchronize()
+    return packed, su, sv
+
+
 class FullyResidentGroupedV7Experts(nn.Module):
     """One routed layer whose complete immutable K2 wire stays on CUDA."""
 
@@ -101,32 +118,40 @@ class FullyResidentGroupedV7Experts(nn.Module):
         self._trace_unique_experts = 0
         self.act = F.silu
 
-        pending_transfers = []
-        for projection in PROJECTIONS:
-            m, k = PROJECTION_SHAPES[projection]
-            paths = [plane_source.member_path(expert, projection) for expert in range(EXPERTS)]
-            packed_cpu, su_cpu, sv_cpu, read_calls, read_bytes = _load_projection_payloads(
-                paths, m=m, k=k
-            )
-            # Preserve every wire value exactly while overlapping the three
-            # projection migrations.  Keeping the pinned sources alive until
-            # every stream completes avoids the serial UMA page-migration path.
-            stream = torch.cuda.Stream(device=device)
-            with torch.cuda.stream(stream):
-                packed = packed_cpu.to(device=device, non_blocking=True)
-                su = su_cpu.to(device=device, non_blocking=True)
-                sv = sv_cpu.to(device=device, non_blocking=True)
-            pending_transfers.append((stream, packed_cpu, su_cpu, sv_cpu))
-            self.disk_read_calls += read_calls
-            self.disk_read_bytes += read_bytes
-            self.register_buffer(f"packed_{projection}", packed, persistent=False)
-            self.register_buffer(f"su_{projection}", su, persistent=False)
-            self.register_buffer(f"sv_{projection}", sv, persistent=False)
-            self.resident_bytes += sum(
-                value.numel() * value.element_size() for value in (packed, su, sv)
-            )
-        for stream, *_sources in pending_transfers:
-            stream.synchronize()
+        pending_transfers = {}
+        with ThreadPoolExecutor(
+            max_workers=len(PROJECTIONS), thread_name_prefix="w28-h2d"
+        ) as transfer_pool:
+            for projection in PROJECTIONS:
+                m, k = PROJECTION_SHAPES[projection]
+                paths = [
+                    plane_source.member_path(expert, projection)
+                    for expert in range(EXPERTS)
+                ]
+                payload = _load_projection_payloads(paths, m=m, k=k)
+                packed_cpu, su_cpu, sv_cpu, read_calls, read_bytes = payload
+                pending_transfers[projection] = (
+                    transfer_pool.submit(
+                        _transfer_projection_payloads,
+                        packed_cpu,
+                        su_cpu,
+                        sv_cpu,
+                        device=device,
+                    ),
+                    read_calls,
+                    read_bytes,
+                )
+            for projection in PROJECTIONS:
+                future, read_calls, read_bytes = pending_transfers[projection]
+                packed, su, sv = future.result()
+                self.disk_read_calls += read_calls
+                self.disk_read_bytes += read_bytes
+                self.register_buffer(f"packed_{projection}", packed, persistent=False)
+                self.register_buffer(f"su_{projection}", su, persistent=False)
+                self.register_buffer(f"sv_{projection}", sv, persistent=False)
+                self.resident_bytes += sum(
+                    value.numel() * value.element_size() for value in (packed, su, sv)
+                )
 
     def reset_trace(self) -> None:
         self._trace_events.clear()
