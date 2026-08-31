@@ -75,56 +75,27 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
 
     source = source_path.read_text()
     assert "pin_memory: bool = True" in source
-    assert source.count("non_blocking=True") == 2
-    first_copy = source.index("su_cpu.to(device=device, non_blocking=True)")
-    last_copy = source.index("sv_cpu.to(device=device, non_blocking=True)", first_copy)
-    sync = source.index("stream.synchronize()", last_copy)
-    managed_allocate = source.index("cudaMallocManaged")
-    managed_prefetch = source.index("cudaMemPrefetchAsync", managed_allocate)
-    managed_cpu_view = source.index("np.ctypeslib.as_array(owner)", managed_prefetch)
-    managed_fill = source.index('memoryview(packed[expert]).cast("B")', managed_cpu_view)
-    managed_cuda_alias = source.index(
-        "packed_tensor = _managed_packed_tensor", managed_fill
-    )
-    assert "CudaMemLocation(2, 0)" in source
-    assert (
-        managed_allocate
-        < managed_prefetch
-        < managed_cpu_view
-        < managed_fill
-        < managed_cuda_alias
-    )
-    assert "_construct_storage_from_data_pointer" in source
-    assert "_construct_CUDA_Tensor_From_Storage_And_Metadata" in source
-    assert 'setattr(tensor, "_managed_cpu_owner", owner)' in source
     assert "os.preadv(" in source
     assert "Path.read_bytes" not in source
-    assert "packed_cpu.to(device=device" not in source
-    assert "stream = torch.cuda.Stream(device=device)" in source
-    assert "with torch.cuda.stream(stream):" in source
-    assert 'thread_name_prefix="w28-h2d"' in source
-    assert "transfer_pool.submit(" in source
-    assert "for projection in PROJECTIONS:" in source[source.index("with ThreadPoolExecutor(") :]
-    assert first_copy < last_copy < sync
+    stream = source[source.index("def _stream_projection_payloads(") :]
+    assert "pin_memory=False" in stream
+    assert "torch.cuda.synchronize(device=device)" in stream
+    assert "non_blocking=True" not in stream
 
 
-def test_static_provider_constructs_one_managed_alias_per_layer() -> None:
+def test_static_provider_constructs_resident_buffers_from_streamed_chunks() -> None:
     source = (
         Path(__file__).parents[1]
         / "assets"
         / "static_w28_fast_v7_expert_base.py"
     ).read_text()
     constructor = source[source.index("class FullyResidentGroupedV7Experts") :]
-    allocation = constructor.index("arena_pointer, arena_owner, arena_cpu")
-    projection_loop = constructor.index(
-        "for projection_index, projection in enumerate(PROJECTIONS)", allocation
-    )
-    fill = constructor.index("_load_projection_payloads_into(", projection_loop)
-    alias = constructor.index("arena = _managed_packed_tensor(", fill)
-    transfer = constructor.index("with ThreadPoolExecutor(", alias)
-    assert allocation < projection_loop < fill < alias < transfer
-    assert "arena_cpu[projection_index].reshape(packed_shape)" in constructor
-    assert "arena[projection_index].reshape(packed_shape)" in constructor
+    projection_loop = constructor.index("for projection in PROJECTIONS:")
+    stream = constructor.index("_stream_projection_payloads(", projection_loop)
+    register = constructor.index('self.register_buffer(f"packed_{projection}"', stream)
+    assert projection_loop < stream < register
+    assert "loaded = {}" not in constructor
+    assert "self._packed_host_arena_owner" not in constructor
 
 
 def test_static_wire_cache_remains_kernel_reclaimable_without_startup_fadvise() -> None:

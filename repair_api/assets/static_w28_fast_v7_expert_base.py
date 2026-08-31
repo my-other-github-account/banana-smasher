@@ -29,14 +29,16 @@ PROJECTION_SHAPES = {
     "w3": (2048, 4096),
 }
 
-# The resident builder installs layers serially and each blocking H2D migration
-# completes before the next layer starts. Reuse one pageable packed-wire arena
-# across those layers; explicit multi-GiB host registration stalls the bounded
-# cold load, while blocking H2D already provides the required staging boundary.
+# The resident builder installs layers serially.  Keep only sixteen experts of
+# one projection in pageable host memory at once; each chunk is synchronously
+# copied into its final resident CUDA tensor before the relay is reused.  A
+# whole-layer three-projection arena stayed alive while both local shards were
+# materialized and pushed coherent-memory cold start over the Spark limit.
+HOST_STREAM_EXPERTS = 16
 _PACKED_HOST_ARENA: torch.Tensor | None = None
 
 
-def _shared_packed_host_arena(shape: tuple[int, int]) -> torch.Tensor:
+def _shared_packed_host_arena(shape: tuple[int, ...]) -> torch.Tensor:
     global _PACKED_HOST_ARENA
     if _PACKED_HOST_ARENA is None:
         _PACKED_HOST_ARENA = torch.empty(shape, dtype=torch.int16, pin_memory=False)
@@ -190,6 +192,43 @@ def _transfer_projection_payloads(
     return packed_cuda, su, sv
 
 
+def _stream_projection_payloads(
+    paths: list[Path], *, m: int, k: int,
+    packed_bytes: int = PACKED_BYTES, device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
+    """Stream bounded pageable chunks into their final resident CUDA tensors."""
+    packed_shape = (len(paths), k // 16, m // 16, 32)
+    packed_cuda = torch.empty(packed_shape, dtype=torch.int16, device=device)
+    su_cuda = torch.empty((len(paths), k), dtype=torch.float16, device=device)
+    sv_cuda = torch.empty((len(paths), m), dtype=torch.float16, device=device)
+    arena_shape = (HOST_STREAM_EXPERTS, *packed_shape[1:])
+    arena_cpu = _shared_packed_host_arena(arena_shape).numpy()
+    read_calls = 0
+    read_bytes = 0
+    for start in range(0, len(paths), HOST_STREAM_EXPERTS):
+        end = min(start + HOST_STREAM_EXPERTS, len(paths))
+        count = end - start
+        su_cpu, sv_cpu, calls, nbytes = _load_projection_payloads_into(
+            paths[start:end],
+            arena_cpu[:count],
+            m=m,
+            k=k,
+            packed_bytes=packed_bytes,
+            pin_memory=False,
+        )
+        packed_cuda[start:end].copy_(
+            torch.from_numpy(arena_cpu[:count]), non_blocking=False
+        )
+        su_cuda[start:end].copy_(su_cpu, non_blocking=False)
+        sv_cuda[start:end].copy_(sv_cpu, non_blocking=False)
+        # The next read mutates the same bounded relay.  Make its prior CUDA
+        # consumer complete before reusing those host bytes.
+        torch.cuda.synchronize(device=device)
+        read_calls += calls
+        read_bytes += nbytes
+    return packed_cuda, su_cuda, sv_cuda, read_calls, read_bytes
+
+
 class FullyResidentGroupedV7Experts(nn.Module):
     """One routed layer whose complete immutable K2 wire stays on CUDA."""
 
@@ -217,47 +256,16 @@ class FullyResidentGroupedV7Experts(nn.Module):
         self._trace_unique_experts = 0
         self.act = F.silu
 
-        # Fill one bounded pinned host arena directly from the local verified
-        # wires, then migrate each projection into ordinary CUDA storage.  This
-        # avoids the pathological per-page managed-memory write fault observed
-        # when preadv targeted a 1.5-GiB cudaMallocManaged arena.
-        projection_elements = (
-            EXPERTS * PROJECTION_SHAPES["w1"][0]
-            * PROJECTION_SHAPES["w1"][1] * 32 // 256
-        )
-        arena_shape = (len(PROJECTIONS), projection_elements)
-        arena_cpu_tensor = _shared_packed_host_arena(arena_shape)
-        # Keep one pageable relay alive while each blocking H2D copy leaves
-        # independent ordinary CUDA storage behind.
-        self._packed_host_arena_owner = arena_cpu_tensor
-        arena_cpu = arena_cpu_tensor.numpy()
-        loaded = {}
-        for projection_index, projection in enumerate(PROJECTIONS):
+        # Stream one small pageable relay through each projection instead of
+        # retaining a multi-GiB whole-layer arena during dual-shard cold load.
+        for projection in PROJECTIONS:
             m, k = PROJECTION_SHAPES[projection]
-            packed_shape = (EXPERTS, k // 16, m // 16, 32)
             paths = [
                 plane_source.member_path(expert, projection)
                 for expert in range(EXPERTS)
             ]
-            su_cpu, sv_cpu, read_calls, read_bytes = _load_projection_payloads_into(
-                paths,
-                arena_cpu[projection_index].reshape(packed_shape),
-                m=m,
-                k=k,
-            )
-            loaded[projection] = (
-                projection_index, packed_shape, su_cpu, sv_cpu,
-                read_calls, read_bytes,
-            )
-        arena = arena_cpu_tensor
-        for projection in PROJECTIONS:
-            (
-                projection_index, packed_shape, su_cpu, sv_cpu,
-                read_calls, read_bytes,
-            ) = loaded[projection]
-            packed_tensor = arena[projection_index].reshape(packed_shape)
-            packed, su, sv = _transfer_projection_payloads(
-                packed_tensor, su_cpu, sv_cpu, device=device,
+            packed, su, sv, read_calls, read_bytes = _stream_projection_payloads(
+                paths, m=m, k=k, device=device,
             )
             self.disk_read_calls += read_calls
             self.disk_read_bytes += read_bytes
