@@ -52,7 +52,7 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
         expected_packed.append(torch.from_numpy(packed.copy()))
 
     packed, su, sv, read_calls, read_bytes = namespace["_load_projection_payloads"](
-        paths, m=16, k=16, packed_bytes=64
+        paths, m=16, k=16, packed_bytes=64, pin_memory=False
     )
 
     assert seen == {"max_workers": 3, "thread_name_prefix": "w28-wire-read"}
@@ -61,6 +61,14 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     assert tuple(sv.shape) == (3, 16)
     assert read_calls == 3
     assert read_bytes == 3 * 132
+
+    source = source_path.read_text()
+    assert "pin_memory: bool = True" in source
+    assert source.count("non_blocking=True") == 3
+    first_copy = source.index("packed_cpu.to(device=device, non_blocking=True)")
+    last_copy = source.index("sv_cpu.to(device=device, non_blocking=True)", first_copy)
+    sync = source.index("torch.cuda.synchronize(device)", last_copy)
+    assert first_copy < last_copy < sync
 
 
 def test_static_wire_cache_remains_kernel_reclaimable_without_startup_fadvise() -> None:

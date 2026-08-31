@@ -30,12 +30,19 @@ PROJECTION_SHAPES = {
 
 
 def _load_projection_payloads(
-    paths: list[Path], *, m: int, k: int, packed_bytes: int = PACKED_BYTES
+    paths: list[Path], *, m: int, k: int, packed_bytes: int = PACKED_BYTES,
+    pin_memory: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
-    """Read wires concurrently, then assemble exact bytes for three H2D copies."""
-    packed = np.empty((len(paths), k // 16, m // 16, 32), dtype="<i2")
-    su = np.empty((len(paths), k), dtype="<f2")
-    sv = np.empty((len(paths), m), dtype="<f2")
+    """Read wires concurrently into pinned tensors for three async H2D copies."""
+    packed_tensor = torch.empty(
+        (len(paths), k // 16, m // 16, 32), dtype=torch.int16,
+        pin_memory=pin_memory,
+    )
+    su_tensor = torch.empty((len(paths), k), dtype=torch.float16, pin_memory=pin_memory)
+    sv_tensor = torch.empty((len(paths), m), dtype=torch.float16, pin_memory=pin_memory)
+    packed = packed_tensor.numpy()
+    su = su_tensor.numpy()
+    sv = sv_tensor.numpy()
     expected = packed_bytes + (k + m) * 2 + 4
     read_bytes = 0
     # The verified cache is one local file per expert/projection. Serial 2-MiB
@@ -59,9 +66,9 @@ def _load_projection_payloads(
             )
             read_bytes += len(payload)
     return (
-        torch.from_numpy(packed),
-        torch.from_numpy(su),
-        torch.from_numpy(sv),
+        packed_tensor,
+        su_tensor,
+        sv_tensor,
         len(paths),
         read_bytes,
     )
@@ -102,9 +109,10 @@ class FullyResidentGroupedV7Experts(nn.Module):
             )
             # Preserve every wire value exactly while amortizing thousands of
             # pageable CPU→CUDA slice synchronizations into three transfers.
-            packed = packed_cpu.to(device=device)
-            su = su_cpu.to(device=device)
-            sv = sv_cpu.to(device=device)
+            packed = packed_cpu.to(device=device, non_blocking=True)
+            su = su_cpu.to(device=device, non_blocking=True)
+            sv = sv_cpu.to(device=device, non_blocking=True)
+            torch.cuda.synchronize(device)
             self.disk_read_calls += read_calls
             self.disk_read_bytes += read_bytes
             self.register_buffer(f"packed_{projection}", packed, persistent=False)
