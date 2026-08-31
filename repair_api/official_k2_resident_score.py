@@ -103,7 +103,7 @@ def _published_pre_production_admitted(manifest: Mapping[str, Any]) -> bool:
     published_pre = any(
         isinstance(meta, Mapping)
         and meta.get("sha256") == ALTERNATE_PRE_CHECKPOINT_SHA256
-        and meta.get("identity_sha256") == PUBLISHED_PRE_IDENTITY_SHA256
+        and meta.get("identity_sha256") == PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256
         and int(meta.get("next_update", meta.get("update", -1))) == 0
         and not (meta.get("parent_sha256") or meta.get("parent_checkpoint_sha256"))
         for meta in checkpoints.values()
@@ -113,7 +113,7 @@ def _published_pre_production_admitted(manifest: Mapping[str, Any]) -> bool:
         and int(meta.get("next_update", meta.get("update", -1))) == 1
         and (meta.get("parent_sha256") or meta.get("parent_checkpoint_sha256"))
             == ALTERNATE_PRE_CHECKPOINT_SHA256
-        and meta.get("parent_identity_sha256") == PUBLISHED_PRE_IDENTITY_SHA256
+        and meta.get("parent_identity_sha256") == PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256
         and meta.get("optimizer_scheduler_lineage")
             == PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE
         for meta in checkpoints.values()

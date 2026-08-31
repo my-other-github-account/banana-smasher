@@ -33,6 +33,7 @@ from repair_api.official_k2_resident_score import (
     PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
     OfficialK2ResidentRankEngine,
     OfficialK2ResidentScorer,
+    _published_pre_production_admitted,
     _write_q_lp_capture,
     _canonical_causal_score_tokens,
     _prune_loaded_parent_members,
@@ -740,19 +741,39 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             with self.assertRaisesRegex(ArtifactError, "quarantine-only"):
                 api.score("UPDATE_000", windows=WINDOWS)
 
+    def test_published_pre_admits_authentic_payload_identity_lineage(self):
+        manifest = {
+            "checkpoints": {
+                "UPDATE_000": {
+                    "sha256": ALTERNATE_PRE_CHECKPOINT_SHA256,
+                    "identity_sha256": PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256,
+                    "parent_sha256": None,
+                    "next_update": 0,
+                },
+                "UPDATE_001": {
+                    "parent_sha256": ALTERNATE_PRE_CHECKPOINT_SHA256,
+                    "parent_identity_sha256": PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256,
+                    "optimizer_scheduler_lineage": PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
+                    "next_update": 1,
+                },
+            }
+        }
+
+        self.assertTrue(_published_pre_production_admitted(manifest))
+
     def test_api_score_admits_only_identity_exact_fresh_published_pre_lineage(self):
         def manifest_for(root: Path) -> dict[str, Any]:
             self.make_artifact(root, checkpoint_sha=ALTERNATE_PRE_CHECKPOINT_SHA256)
             manifest = json.loads((root / "ARTIFACT.json").read_text())
             pre = manifest["checkpoints"]["UPDATE_000"]
-            pre["identity_sha256"] = PUBLISHED_PRE_IDENTITY_SHA256
+            pre["identity_sha256"] = PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256
             pre["parent_sha256"] = None
             manifest["checkpoints"]["UPDATE_001"] = {
                 "path": "checkpoints/UPDATE_001.pt",
                 "sha256": "candidate-sha",
                 "identity_sha256": "candidate-identity",
                 "parent_sha256": ALTERNATE_PRE_CHECKPOINT_SHA256,
-                "parent_identity_sha256": PUBLISHED_PRE_IDENTITY_SHA256,
+                "parent_identity_sha256": PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256,
                 "optimizer_scheduler_lineage": PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
                 "next_update": 1,
             }
