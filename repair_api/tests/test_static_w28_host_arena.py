@@ -11,5 +11,6 @@ def test_static_w28_fills_bounded_host_arena_before_cuda_migration() -> None:
     constructor = source[source.index("class FullyResidentGroupedV7Experts"):]
     assert "arena_cpu_tensor = torch.empty(" in constructor
     assert "dtype=torch.int16, pin_memory=True" in constructor
+    assert "self._packed_host_arena_owner = arena_cpu_tensor" in constructor
     assert "arena_pointer, arena_owner" not in constructor
     assert "packed_cuda = packed.to(device=device, non_blocking=True)" in source

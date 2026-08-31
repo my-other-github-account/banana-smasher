@@ -217,6 +217,10 @@ class FullyResidentGroupedV7Experts(nn.Module):
         arena_cpu_tensor = torch.empty(
             arena_shape, dtype=torch.int16, pin_memory=True
         )
+        # Keep the large registration alive for the resident layer.  Releasing
+        # each 1.5-GiB pinned arena immediately after H2D made cudaFreeHost page
+        # unregistration consume the remainder of the bounded cold start.
+        self._packed_host_arena_owner = arena_cpu_tensor
         arena_cpu = arena_cpu_tensor.numpy()
         loaded = {}
         for projection_index, projection in enumerate(PROJECTIONS):
