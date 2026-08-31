@@ -505,8 +505,11 @@ def test_static_w28_provider_honors_explicit_immutable_trainer_binding():
 
 
 def test_sealed_pre_binding_owns_accepted_trainer_identity() -> None:
+    from repair_api.modern_green_resident import _require_file
     from repair_api.sealed_pre_forward import bind_sealed_pre_resident_config
 
+    authoritative_sha = "126c11f306a12ed35c1234bd12952a32662c3bd81fc2e74361f0a55ebdc21fc0"
+    stale_sha = "cc0520e00a6cc5b979c638e3f1fd98ae92c882f3cf9f48cbcdf3fa55fad343cc"
     config = {
         "trainer_source": "/stale/inherited/trainer.py",
         "trainer_source_sha256": "0" * 64,
@@ -517,9 +520,10 @@ def test_sealed_pre_binding_owns_accepted_trainer_identity() -> None:
         Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
     ).resolve()
     assert Path(config["trainer_source"]) == expected
-    assert config["trainer_source_sha256"] == (
-        "cc0520e00a6cc5b979c638e3f1fd98ae92c882f3cf9f48cbcdf3fa55fad343cc"
-    )
+    assert config["trainer_source_sha256"] == authoritative_sha
+    _require_file(expected, authoritative_sha, "trainer source")
+    with pytest.raises(ArtifactError, match="trainer source SHA mismatch"):
+        _require_file(expected, stale_sha, "trainer source")
 
 
 def test_public_full64_binds_exact_sealed_pre_sources_to_resident_zero_reload_api() -> None:
