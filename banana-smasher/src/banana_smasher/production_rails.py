@@ -265,6 +265,13 @@ class _MixedProviderSession:
                 raise ProductionRailsError(
                     f"mixed resident physical provider lacks required {method}()"
                 )
+        if (
+            getattr(self.provider, "physical_mixed_provider", None) is not True
+            and continuation_config.get("test_fixture_provider") is not True
+        ):
+            raise ProductionRailsError(
+                "mixed resident continuation rejected a fixture-only provider"
+            )
 
     def hot_swap(self, artifact: BackpackArtifact, binding: _ArtifactBinding) -> None:
         if (

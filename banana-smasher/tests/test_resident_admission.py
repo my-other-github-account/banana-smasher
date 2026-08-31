@@ -345,6 +345,7 @@ def open_provider(**kwargs):
     identity_path.write_text(json.dumps(identity, sort_keys=True))
     spec = {
         "schema": MIXED_ADMISSION_SPEC_SCHEMA,
+        "allow_test_mixed_provider": True,
         "identity_sha256": _sha(identity_path.read_bytes()),
         "virtual_manifest_sha256": _sha(virtual_path.read_bytes()),
         "materialization_index_sha256": _sha(index.read_bytes()),
@@ -370,6 +371,117 @@ def open_provider(**kwargs):
     spec_path = tmp_path / "mixed-admission.json"
     spec_path.write_text(json.dumps(spec, sort_keys=True))
     return root, spec_path
+
+
+def test_canonical_mixed_provider_drives_public_api_and_preserves_rank_geometry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from banana_smasher.mixed_physical_provider import MixedPhysicalProvider
+    from banana_smasher.resident_repair_api import ResidentRepairAPI
+
+    root, spec_path = _mixed_chain(tmp_path)
+    identity = json.loads((root / "identity.json").read_text())
+    identity["basis"]["model_index_sha256"] = (
+        "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+    )
+    (root / "identity.json").write_text(json.dumps(identity, sort_keys=True))
+    virtual = json.loads((root / "BACKPACK_VIRTUAL_MANIFEST.json").read_text())
+    virtual["basis_sha256"] = identity["basis"]["model_index_sha256"]
+    (root / "BACKPACK_VIRTUAL_MANIFEST.json").write_text(
+        json.dumps(virtual, sort_keys=True)
+    )
+    spec = json.loads(spec_path.read_text())
+    spec["identity_sha256"] = _sha((root / "identity.json").read_bytes())
+    spec["virtual_manifest_sha256"] = _sha(
+        (root / "BACKPACK_VIRTUAL_MANIFEST.json").read_bytes()
+    )
+    spec.pop("allow_test_mixed_provider")
+    for rank, continuation in spec["continuations"].items():
+        continuation.pop("mixed_provider_factory")
+        continuation.pop("mixed_provider_source")
+        continuation.pop("mixed_provider_source_sha256")
+        continuation.update(
+            {
+                "layer_split": {"0": [0, 20], "1": [21, 42]},
+                "resident_artifact_root": str(tmp_path / "resident-state"),
+                "model_root": str(tmp_path / "model"),
+                "backpack_runtime": {},
+            }
+        )
+    spec_path.write_text(json.dumps(spec, sort_keys=True))
+
+    events: list[tuple[object, ...]] = []
+
+    class PhysicalSession:
+        def score(self, phase):
+            events.append(("score", phase))
+            return {
+                "mean_kld": 0.25 if phase == "pre" else 0.24,
+                "top1_matches": 7,
+                "positions": 65536,
+                "support": 8192,
+                "execution_mode": "resident_model_in_memory",
+                "runtime_counters": {
+                    "windows": 64,
+                    "checkpoint_loads_during_score": 0,
+                    "candidate_file_reads_during_score": 0,
+                },
+                "checkpoint": "UPDATE_000" if phase == "pre" else "UPDATE_045",
+            }
+
+        def train(self, updates):
+            events.append(("train", updates))
+            return {
+                "updates": updates,
+                "checkpoint": "UPDATE_045",
+                "checkpoint_sha256": "a" * 64,
+            }
+
+        def restore_pre_score(self, pre):
+            events.append(("restore_pre_score", pre["mean_kld"]))
+
+        def restore_training(self, pre, training):
+            events.append(("restore_training", training["checkpoint"]))
+
+    monkeypatch.setattr(
+        MixedPhysicalProvider,
+        "_open_session",
+        lambda self: PhysicalSession(),
+    )
+    monkeypatch.setattr(
+        "banana_smasher.mixed_physical_provider.RepairArtifact.open",
+        lambda _root: object(),
+    )
+    receipt = admit_mixed_resident_artifact(spec_path, root)
+    for rank in (0, 1):
+        config = json.loads((root / f"production-rails.rank{rank}.json").read_text())
+        continuation = config["continuation"]
+        assert continuation["mixed_provider_factory"] == (
+            "banana_smasher.mixed_physical_provider:open_provider"
+        )
+        assert continuation["layer_split"] == {"0": [0, 20], "1": [21, 42]}
+
+    monkeypatch.setenv("RANK", "0")
+    api = ResidentRepairAPI.build_uniform(
+        root,
+        tier="q2",
+        checkpoint_sha=receipt["checkpoint_sha256"],
+        run_root=tmp_path / "run",
+    )
+    assert api.score_pre()["mean_kld"] == 0.25
+    assert api.repair_train(updates=45)["checkpoint"] == "UPDATE_045"
+    assert api.score_post()["mean_kld"] == 0.24
+    assert events == [("score", "pre"), ("train", 45), ("score", "post")]
+
+
+def test_production_mixed_admission_rejects_fixture_only_provider(tmp_path: Path) -> None:
+    root, spec_path = _mixed_chain(tmp_path)
+    spec = json.loads(spec_path.read_text())
+    spec.pop("allow_test_mixed_provider")
+    spec_path.write_text(json.dumps(spec, sort_keys=True))
+
+    with pytest.raises(ValueError, match="canonical physical mixed provider"):
+        admit_mixed_resident_artifact(spec_path, root)
 
 
 def test_mixed_admission_consumes_sealed_chain_and_generates_exact_rank_configs(

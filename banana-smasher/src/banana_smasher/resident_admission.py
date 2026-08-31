@@ -381,7 +381,6 @@ def admit_mixed_resident_artifact(
     if not isinstance(checkpoint_row, Mapping):
         raise ValueError("mixed admission checkpoint is absent from sealed identity")
 
-    identity_fields, binding_sha = provider_binding(spec)
     configs: dict[str, str] = {}
     identity_sha = identity.sha256
     binding = {
@@ -396,9 +395,72 @@ def admit_mixed_resident_artifact(
     }
     continuations = spec.get("continuations")
     assert isinstance(continuations, Mapping)
+    allow_test_provider = spec.get("allow_test_mixed_provider") is True
+    bound_continuations: dict[str, dict[str, Any]] = {}
+    if allow_test_provider:
+        bound_continuations = {
+            str(rank): {
+                **dict(continuations[str(rank)]),
+                "test_fixture_provider": True,
+            }
+            for rank in (0, 1)
+        }
+    else:
+        from . import mixed_physical_provider
+        from .mixed_physical_provider import (
+            CANONICAL_BASIS_SHA256,
+            CANONICAL_FACTORY,
+            CANONICAL_LAYER_SPLIT,
+        )
+
+        canonical_source = Path(str(mixed_physical_provider.__file__)).resolve()
+        canonical_sha = _sha256(canonical_source)
+        supplied_factories = {
+            continuations.get(str(rank), {}).get("mixed_provider_factory")
+            for rank in (0, 1)
+            if isinstance(continuations.get(str(rank)), Mapping)
+        }
+        if any(
+            factory not in (None, CANONICAL_FACTORY)
+            for factory in supplied_factories
+        ):
+            raise ValueError(
+                "production admission requires the canonical physical mixed provider"
+            )
+        if identity.basis_sha256 != CANONICAL_BASIS_SHA256:
+            raise ValueError("canonical physical mixed provider basis identity mismatch")
+        for rank in (0, 1):
+            continuation = continuations.get(str(rank))
+            if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
+                raise ValueError(f"mixed continuations.{rank} must bind rank {rank}")
+            supplied = continuation.get("mixed_provider_factory")
+            if supplied not in (None, CANONICAL_FACTORY):
+                raise ValueError("production admission requires the canonical physical mixed provider")
+            try:
+                split = {
+                    int(key): tuple(int(item) for item in value)
+                    for key, value in continuation.get("layer_split", {}).items()
+                }
+            except (AttributeError, TypeError, ValueError) as exc:
+                raise ValueError("canonical physical mixed provider requires exact rank geometry") from exc
+            if split != CANONICAL_LAYER_SPLIT:
+                raise ValueError(
+                    "canonical physical mixed provider requires rank0 [0,20] and rank1 [21,42]"
+                )
+            bound_continuations[str(rank)] = {
+                **dict(continuation),
+                "mixed_provider_factory": CANONICAL_FACTORY,
+                "mixed_provider_source": str(canonical_source),
+                "mixed_provider_source_sha256": canonical_sha,
+                "layer_split": {
+                    str(key): list(value) for key, value in CANONICAL_LAYER_SPLIT.items()
+                },
+            }
+    bound_spec = {**dict(spec), "continuations": bound_continuations}
+    identity_fields, binding_sha = provider_binding(bound_spec)
     provider_sources = []
     for rank in (0, 1):
-        continuation = continuations.get(str(rank))
+        continuation = bound_continuations.get(str(rank))
         if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
             raise ValueError(f"mixed continuations.{rank} must bind rank {rank}")
         source = Path(
@@ -418,7 +480,7 @@ def admit_mixed_resident_artifact(
     if provider_sources[0] != provider_sources[1]:
         raise ValueError("mixed continuations provider source mismatch")
     for rank in (0, 1):
-        continuation = continuations.get(str(rank))
+        continuation = bound_continuations.get(str(rank))
         if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
             raise ValueError(f"mixed continuations.{rank} must bind rank {rank}")
         config = {

@@ -759,6 +759,15 @@ def _bind_official_expert_source(config: Mapping[str, Any] | None = None) -> Any
         if config is None
         else _official_expert_source_path(config)
     )
+    if config is not None and isinstance(config.get("mixed_backpack_runtime"), Mapping):
+        module = _load_source_module("fast_v7_expert_base", source)
+        configure = getattr(module, "configure_mixed_backpack", None)
+        if not callable(configure):
+            raise ArtifactError(
+                "mixed resident expert source lacks configure_mixed_backpack()"
+            )
+        configure(config)
+        return module
     runner = source.parent
     grouped_source = runner / "fast_k2_grouped.py"
     if config is not None and config.get("fast_k2_wrapper_source"):
