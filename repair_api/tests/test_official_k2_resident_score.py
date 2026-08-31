@@ -37,6 +37,7 @@ from repair_api.official_k2_resident_score import (
     _write_q_lp_capture,
     _canonical_causal_score_tokens,
     _prune_loaded_parent_members,
+    _resident_runtime_path,
     _validate_raw_u0_gates,
     _validate_qsfp_pin,
     authorize_production_score,
@@ -101,6 +102,19 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             }
 
             engine._configure_base_environment()
+
+            override = root / "verified-cache"
+            override.mkdir()
+            with patch.dict(
+                os.environ,
+                {"BANANA_SMASHER_RESIDENT_PARENT_ROOT": str(override)},
+            ):
+                self.assertEqual(
+                    _resident_runtime_path(
+                        root / "missing-parent", "BANANA_SMASHER_RESIDENT_PARENT_ROOT"
+                    ),
+                    override.resolve(),
+                )
 
             resolved = Path(os.environ["BR_DELTA_DIR"])
             self.assertFalse(missing_delta.exists())

@@ -675,6 +675,17 @@ def _load_json(path: Path) -> Any:
         raise ArtifactError(f"cannot read resident JSON input {path}: {exc}") from exc
 
 
+def _resident_runtime_path(value: Any, environment: str) -> Path:
+    """Localize a missing, identity-checked resident input without restaging."""
+    configured = Path(str(value)).expanduser().resolve()
+    if configured.exists():
+        return configured
+    override = os.environ.get(environment)
+    if override:
+        return Path(override).expanduser().resolve(strict=True)
+    return configured
+
+
 def _rebase_admission_lut_sources(admission: Mapping[str, Any], root: str | Path) -> dict[str, Any]:
     """Rebind reboot-volatile LUT provenance paths to an exact durable mirror.
 
@@ -1676,7 +1687,8 @@ class OfficialK2ResidentRankEngine:
         self.np = np
         self.torch = torch
         self.dist = dist
-        self.config = dict(config)
+        config = dict(config)
+        self.config = config
         self.local_dual_shard = bool(config.get("same_process_dual_shard", False))
         self.local_coordinator = config.get("local_dual_shard_coordinator")
         self.rank = int(config.get("rank", 0)) if self.local_dual_shard else int(
@@ -1694,8 +1706,22 @@ class OfficialK2ResidentRankEngine:
         self.checkpoint_identity_sha256 = checkpoint_identity_sha256
         self.model_root = Path(str(config["model_root"])).expanduser().resolve()
         self.asset_root = Path(str(config["asset_root"])).expanduser().resolve()
-        self.parent_root = Path(str(config["parent_root"])).expanduser().resolve()
-        self.teacher_root = Path(str(config["teacher_root"])).expanduser().resolve()
+        if not (self.asset_root / "code" / "JOINT_REPAIR_ADMISSION.json").is_file():
+            canonical_asset_root = Path(__file__).resolve().parents[1] / "runtime" / "v7"
+            if (canonical_asset_root / "code" / "JOINT_REPAIR_ADMISSION.json").is_file():
+                self.asset_root = canonical_asset_root
+        self.parent_root = _resident_runtime_path(
+            config["parent_root"], "BANANA_SMASHER_RESIDENT_PARENT_ROOT"
+        )
+        self.teacher_root = _resident_runtime_path(
+            config["teacher_root"], "BANANA_SMASHER_RESIDENT_TEACHER_ROOT"
+        )
+        lut_parent = config.get("lut_parent_root")
+        if lut_parent is not None:
+            localized_lut_parent = _resident_runtime_path(
+                lut_parent, "BANANA_SMASHER_RESIDENT_LUT_PARENT_ROOT"
+            )
+            config["lut_parent_root"] = str(localized_lut_parent)
         self.corpus_path = Path(str(config["corpus"])).expanduser().resolve()
         self.trainer_path = Path(str(config["trainer_source"])).expanduser().resolve()
         self.lp4_pack_path = Path(str(config.get(
