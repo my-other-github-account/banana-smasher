@@ -169,12 +169,9 @@ def _transfer_projection_payloads(
     """Migrate one exact host-filled projection into ordinary CUDA storage."""
     if packed.device.type != "cpu" or not packed.is_contiguous():
         raise RuntimeError("host-filled packed wire device/geometry drift")
-    stream = torch.cuda.Stream(device=device)
-    with torch.cuda.stream(stream):
-        packed_cuda = packed.to(device=device, non_blocking=True)
-        su = su_cpu.to(device=device, non_blocking=True)
-        sv = sv_cpu.to(device=device, non_blocking=True)
-    stream.synchronize()
+    packed_cuda = packed.to(device=device)
+    su = su_cpu.to(device=device)
+    sv = sv_cpu.to(device=device)
     return packed_cuda, su, sv
 
 
@@ -241,39 +238,23 @@ class FullyResidentGroupedV7Experts(nn.Module):
                 read_calls, read_bytes,
             )
         arena = arena_cpu_tensor
-        pending_transfers = {}
-        with ThreadPoolExecutor(
-            max_workers=len(PROJECTIONS), thread_name_prefix="w28-h2d"
-        ) as transfer_pool:
-            for projection in PROJECTIONS:
-                m, k = PROJECTION_SHAPES[projection]
-                (
-                    projection_index, packed_shape, su_cpu, sv_cpu,
-                    read_calls, read_bytes,
-                ) = loaded[projection]
-                packed_tensor = arena[projection_index].reshape(packed_shape)
-                pending_transfers[projection] = (
-                    transfer_pool.submit(
-                        _transfer_projection_payloads,
-                        packed_tensor,
-                        su_cpu,
-                        sv_cpu,
-                        device=device,
-                    ),
-                    read_calls,
-                    read_bytes,
-                )
-            for projection in PROJECTIONS:
-                future, read_calls, read_bytes = pending_transfers[projection]
-                packed, su, sv = future.result()
-                self.disk_read_calls += read_calls
-                self.disk_read_bytes += read_bytes
-                self.register_buffer(f"packed_{projection}", packed, persistent=False)
-                self.register_buffer(f"su_{projection}", su, persistent=False)
-                self.register_buffer(f"sv_{projection}", sv, persistent=False)
-                self.resident_bytes += sum(
-                    value.numel() * value.element_size() for value in (packed, su, sv)
-                )
+        for projection in PROJECTIONS:
+            (
+                projection_index, packed_shape, su_cpu, sv_cpu,
+                read_calls, read_bytes,
+            ) = loaded[projection]
+            packed_tensor = arena[projection_index].reshape(packed_shape)
+            packed, su, sv = _transfer_projection_payloads(
+                packed_tensor, su_cpu, sv_cpu, device=device,
+            )
+            self.disk_read_calls += read_calls
+            self.disk_read_bytes += read_bytes
+            self.register_buffer(f"packed_{projection}", packed, persistent=False)
+            self.register_buffer(f"su_{projection}", su, persistent=False)
+            self.register_buffer(f"sv_{projection}", sv, persistent=False)
+            self.resident_bytes += sum(
+                value.numel() * value.element_size() for value in (packed, su, sv)
+            )
 
     def reset_trace(self) -> None:
         self._trace_events.clear()

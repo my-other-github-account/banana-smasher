@@ -840,7 +840,7 @@ class ResidentRepairAPI:
     ) -> dict[str, Any]:
         """Bind the production static provider to sealed native-BF16 projections."""
         accepted_provider = (
-            "eb14775031b802e3cc609610e1e8e51a58309b3161e6115a7aaee096ab9115b5"
+            "84fac53feded823cc3fd423ab3393b6771a9944801b281f7310f1e0e5af40141"
         )
         if provider_expert_sha256 != accepted_provider:
             raise ArtifactError("combined gate/up projection requires provider ca554e44")
