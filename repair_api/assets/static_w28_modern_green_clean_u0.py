@@ -86,6 +86,8 @@ def resolve_wire_candidate(candidates: Iterable[Path], *, member: str) -> Path:
     if not present:
         raise RuntimeError(f"{member} member missing")
     selected = present[0]
+    if len(present) == 1:
+        return selected
     selected_sha = sha256_file(selected)
     for duplicate in present[1:]:
         if sha256_file(duplicate) != selected_sha:

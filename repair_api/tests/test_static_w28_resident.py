@@ -33,6 +33,12 @@ def test_l006_identical_duplicate_wire_candidates_are_unambiguous(tmp_path) -> N
     nested.write_bytes(flat.read_bytes())
 
     resolve = namespace["resolve_wire_candidate"]
+    original_sha256_file = namespace["sha256_file"]
+    namespace["sha256_file"] = lambda path: (_ for _ in ()).throw(
+        AssertionError("unique candidate must not be rehashed")
+    )
+    assert resolve([flat], member="L006 E000/w1") == flat.resolve()
+    namespace["sha256_file"] = original_sha256_file
     assert resolve([flat, nested], member="L006 E000/w1") == flat.resolve()
     nested.write_bytes(b"conflicting-wire")
     try:
