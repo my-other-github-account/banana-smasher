@@ -91,9 +91,34 @@ class MixedPhysicalProvider:
             if line.strip()
         ]
         tiers = {str(row.get("source_key")) for row in rows}
-        layers = {int(row["layer"]) for row in rows}
-        if tiers != CANONICAL_TIERS or layers != set(range(43)):
-            raise ValueError("physical mixed provider requires all 43 native_mxfp4+qtip2+qtip3 layers")
+        cells: set[tuple[int, int, str]] = set()
+        for row in rows:
+            try:
+                cell = (
+                    int(row["layer"]),
+                    int(row["expert"]),
+                    str(row["projection"]),
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(
+                    "physical mixed provider requires an exact 43x256x2 cell roster"
+                ) from exc
+            if cell in cells:
+                raise ValueError(
+                    "physical mixed provider requires an exact 43x256x2 cell roster"
+                )
+            cells.add(cell)
+        expected_cells = {
+            (layer, expert, projection)
+            for layer in range(43)
+            for expert in range(256)
+            for projection in ("down", "fused13")
+        }
+        if tiers != CANONICAL_TIERS or cells != expected_cells:
+            raise ValueError(
+                "physical mixed provider requires an exact 43x256x2 "
+                "native_mxfp4+qtip2+qtip3 cell roster"
+            )
 
         resident_root = self.config.get("resident_artifact_root")
         model_root = self.config.get("model_root")

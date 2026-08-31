@@ -387,6 +387,31 @@ def test_canonical_mixed_provider_drives_public_api_and_preserves_rank_geometry(
     (root / "identity.json").write_text(json.dumps(identity, sort_keys=True))
     virtual = json.loads((root / "BACKPACK_VIRTUAL_MANIFEST.json").read_text())
     virtual["basis_sha256"] = identity["basis"]["model_index_sha256"]
+    index_path = root / "MATERIALIZATION_INDEX.jsonl"
+    index_path.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "layer": layer,
+                    "expert": expert,
+                    "projection": projection,
+                    "source_key": ("native_mxfp4", "qtip2", "qtip3")[
+                        (layer + expert) % 3
+                    ],
+                },
+                sort_keys=True,
+            )
+            + "\n"
+            for layer in range(43)
+            for expert in range(256)
+            for projection in ("down", "fused13")
+        )
+    )
+    virtual["materialization_index"] = {
+        "file": index_path.name,
+        "bytes": index_path.stat().st_size,
+        "sha256": _sha(index_path.read_bytes()),
+    }
     (root / "BACKPACK_VIRTUAL_MANIFEST.json").write_text(
         json.dumps(virtual, sort_keys=True)
     )
@@ -395,6 +420,7 @@ def test_canonical_mixed_provider_drives_public_api_and_preserves_rank_geometry(
     spec["virtual_manifest_sha256"] = _sha(
         (root / "BACKPACK_VIRTUAL_MANIFEST.json").read_bytes()
     )
+    spec["materialization_index_sha256"] = _sha(index_path.read_bytes())
     spec.pop("allow_test_mixed_provider")
     for rank, continuation in spec["continuations"].items():
         continuation.pop("mixed_provider_factory")
