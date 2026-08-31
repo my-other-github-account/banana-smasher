@@ -140,7 +140,7 @@ def _torch_control(path: Path) -> dict[str, Any]:
     except RuntimeError as exc:
         if str(exc) != mmap_legacy_error:
             raise
-        raw = torch.load(path, map_location="cpu", mmap=False, weights_only=True)
+        raw = torch.load(path, map_location="cpu", mmap=False, weights_only=False)
     if not isinstance(raw, Mapping):
         raise ValueError("native V4 PT control must contain a mapping")
     result: dict[str, Any] = {}

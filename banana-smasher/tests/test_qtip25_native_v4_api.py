@@ -26,7 +26,12 @@ def test_torch_control_loads_legacy_serialization(tmp_path: Path) -> None:
         "Wscale": torch.asarray(1.0, dtype=torch.float32),
         "shape": torch.asarray([16, 16], dtype=torch.int64),
     }
-    torch.save(expected, control, _use_new_zipfile_serialization=False)
+    torch.save(
+        expected,
+        control,
+        _use_new_zipfile_serialization=False,
+        pickle_protocol=4,
+    )
 
     observed = _torch_control(control)
 
