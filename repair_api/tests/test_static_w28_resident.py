@@ -295,6 +295,64 @@ def test_static_w28_calls_existing_resident_scorer_once_and_seals_truth(monkeypa
     assert receipt["source_binding"]["builder_sha256"] == "builder"
 
 
+def test_static_w28_forces_same_process_dual_shard_only_during_score(
+    monkeypatch, tmp_path
+) -> None:
+    reference = tmp_path / "B2_PUBLISHED_PRE.json"
+    reference_sha = _write_reference(reference)
+    monkeypatch.delenv("BANANA_SMASHER_SAME_PROCESS_DUAL_SHARD", raising=False)
+    seen = {}
+
+    class API:
+        artifact = SimpleNamespace(
+            manifest={"score": {"official_k2_resident": {"provider_resolution_mode": "STATIC_W28_GROUPED"}}}
+        )
+
+        def score(self, checkpoint, windows):
+            import os
+
+            seen["same_process_dual_shard"] = os.environ.get(
+                "BANANA_SMASHER_SAME_PROCESS_DUAL_SHARD"
+            )
+            return ScoreResult(
+                checkpoint=checkpoint, windows=(28,), positions=1024, support=8192,
+                kld=0.1364830042977786, top1=880, top1_rate=880 / 1024,
+                artifact_root=str(tmp_path), spec="balanced64-v1", candidate_dir="candidate",
+                execution_mode="resident_in_memory", resident_load_seconds=179.0,
+                timed_wall_seconds=23.0,
+                identity={"checkpoint_sha256": static_w28_resident.CHECKPOINT_SHA256,
+                          "model_index_sha256": static_w28_resident.BASIS_SHA256},
+                runtime_counters={"resident_engine_loads": 1,
+                                  "resident_checkpoint_rebinds": 0,
+                                  "timed_score_file_reads": 0,
+                                  "resident_ready": [{}, {}]},
+            )
+
+    monkeypatch.setattr(
+        static_w28_resident.ResidentRepairAPI,
+        "open",
+        lambda root, official_rank_seat=None: API(),
+    )
+    monkeypatch.setattr(
+        static_w28_resident.sealed_pre_forward,
+        "bind_sealed_pre_resident_config",
+        lambda config: {"status": "PASS"},
+    )
+
+    receipt = static_w28_resident.run_static_w28_resident_acceptance(
+        task="t_test", root=tmp_path / "run", artifact_root=tmp_path,
+        checkpoint="PRE", canonical_pin="deadbeef",
+        reference_receipt=reference, reference_sha256=reference_sha,
+        rank_seat={"rank": 0},
+    )
+
+    import os
+
+    assert seen["same_process_dual_shard"] == "1"
+    assert "BANANA_SMASHER_SAME_PROCESS_DUAL_SHARD" not in os.environ
+    assert receipt["runtime_topology"] == "same_process_dual_shard"
+
+
 def test_rank_seat_localization_changes_only_runtime_rendezvous() -> None:
     original = {
         "rank": 0,

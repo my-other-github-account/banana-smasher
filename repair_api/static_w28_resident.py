@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 from typing import Any, Mapping
@@ -81,7 +82,22 @@ def run_static_w28_resident_acceptance(
     if not isinstance(score_config, dict):
         raise RuntimeError("STATIC_W28_OFFICIAL_CONFIG_MISSING")
     source_binding = sealed_pre_forward.bind_sealed_pre_resident_config(score_config)
-    result = api.score(checkpoint, windows=(W28_WINDOW,))
+    # Static W28 owns one Spark seat.  The sealed resident backend is two-shard,
+    # so running its rank-0 engine alone reaches NCCL P2P warmup after the full
+    # cold load and waits for a rank-1 process that this entry point never
+    # launches.  Reuse the backend's existing same-process dual-shard engine:
+    # it preserves both layer shards and the public scorer while replacing only
+    # the runtime transport with local CUDA references.
+    topology_variable = "BANANA_SMASHER_SAME_PROCESS_DUAL_SHARD"
+    previous_topology = os.environ.get(topology_variable)
+    os.environ[topology_variable] = "1"
+    try:
+        result = api.score(checkpoint, windows=(W28_WINDOW,))
+    finally:
+        if previous_topology is None:
+            os.environ.pop(topology_variable, None)
+        else:
+            os.environ[topology_variable] = previous_topology
     measurement = result.as_dict()
     counters = dict(result.runtime_counters)
     identity = dict(result.identity)
@@ -131,7 +147,8 @@ def run_static_w28_resident_acceptance(
         "resident_budget_seconds": RESIDENT_BUDGET_SECONDS,
         "full64_launched": False,
         "public_api": "ResidentRepairAPI.score",
-        "one_variable": "resident packed-state scorer replaces per-layer full-BF16 static builder expansion",
+        "runtime_topology": "same_process_dual_shard",
+        "one_variable": "same-process dual-shard runtime replaces orphaned rank-0 NCCL rendezvous",
         "runtime_rank_seat": dict(rank_seat) if rank_seat is not None else None,
     }
     path = root / "receipts" / f"STATIC_W28_RESIDENT_ACCEPTANCE.{task}.json"
