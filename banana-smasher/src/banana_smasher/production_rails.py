@@ -145,6 +145,9 @@ class _ArtifactBinding:
     score_checkpoints: Mapping[str, str]
     artifact_manifest_sha256: str
     checkpoint_sha256: str
+    artifact_mode: str = "repair-artifact-v1"
+    virtual_manifest_sha256: str | None = None
+    materialization_index_sha256: str | None = None
 
 
 def _require_distributed_pair_binding(
@@ -219,6 +222,103 @@ def _construct_resident_score_engine(
         binding.checkpoint_sha256,
         config=options,
     )
+
+
+class _MixedProviderSession:
+    """Adapter for one authenticated provider over immutable mixed physical bytes."""
+
+    def __init__(
+        self,
+        artifact: BackpackArtifact,
+        binding: _ArtifactBinding,
+        *,
+        continuation_config: Mapping[str, Any],
+        receipt_root: Path,
+    ) -> None:
+        reference = continuation_config.get("mixed_provider_factory")
+        expected_source_sha = continuation_config.get("mixed_provider_source_sha256")
+        if not isinstance(reference, str) or not isinstance(expected_source_sha, str):
+            raise ProductionRailsError(
+                "mixed resident continuation requires an authenticated mixed_provider_factory"
+            )
+        factory = _callable(reference, "mixed_provider_factory")
+        module = importlib.import_module(factory.__module__)
+        source = Path(str(getattr(module, "__file__", ""))).resolve()
+        if not source.is_file() or _sha256(source) != expected_source_sha:
+            raise ProductionRailsError("mixed resident provider source identity mismatch")
+        self.root = artifact.root.resolve()
+        self.binding = binding
+        self.provider = factory(
+            artifact_root=self.root,
+            identity_sha256=artifact.identity.sha256,
+            basis_sha256=artifact.identity.basis_sha256,
+            checkpoint=binding.checkpoint,
+            checkpoint_sha256=binding.checkpoint_sha256,
+            virtual_manifest=self.root / "BACKPACK_VIRTUAL_MANIFEST.json",
+            materialization_index=self.root / "MATERIALIZATION_INDEX.jsonl",
+            rank=continuation_config.get("rank"),
+            run_root=receipt_root,
+            config=dict(continuation_config),
+        )
+        for method in ("score", "train", "restore_pre_score", "restore_training"):
+            if not callable(getattr(self.provider, method, None)):
+                raise ProductionRailsError(
+                    f"mixed resident physical provider lacks required {method}()"
+                )
+
+    def hot_swap(self, artifact: BackpackArtifact, binding: _ArtifactBinding) -> None:
+        if (
+            artifact.root.resolve() != self.root
+            or binding.identity_sha256 != self.binding.identity_sha256
+        ):
+            raise ProductionRailsError("mixed resident hot swap changed physical provider identity")
+        self.binding = binding
+
+    def score(self, phase: str) -> Mapping[str, Any]:
+        result = dict(self.provider.score(phase))
+        result.setdefault("checkpoint", self.binding.checkpoint)
+        result.setdefault("physical_checkpoint", result["checkpoint"])
+        return result
+
+    def train(self, updates: int) -> Mapping[str, Any]:
+        result = dict(self.provider.train(updates))
+        if result.get("updates") != updates:
+            raise ProductionRailsError("mixed resident provider update count mismatch")
+        checkpoint = result.get("checkpoint")
+        checkpoint_sha = result.get("checkpoint_sha256")
+        if not isinstance(checkpoint, str) or not isinstance(checkpoint_sha, str):
+            raise ProductionRailsError("mixed resident training did not return a bound checkpoint")
+        self.binding = _ArtifactBinding(
+            identity_sha256=self.binding.identity_sha256,
+            basis_sha256=self.binding.basis_sha256,
+            checkpoint=checkpoint,
+            score_checkpoints={"post": checkpoint},
+            artifact_manifest_sha256="",
+            checkpoint_sha256=checkpoint_sha,
+            artifact_mode=self.binding.artifact_mode,
+            virtual_manifest_sha256=self.binding.virtual_manifest_sha256,
+            materialization_index_sha256=self.binding.materialization_index_sha256,
+        )
+        return result
+
+    def restore_pre_score(self, pre: Mapping[str, Any]) -> None:
+        self.provider.restore_pre_score(dict(pre))
+
+    def restore_training(
+        self, pre: Mapping[str, Any], training: Mapping[str, Any]
+    ) -> None:
+        self.provider.restore_training(dict(pre), dict(training))
+        self.binding = _ArtifactBinding(
+            identity_sha256=self.binding.identity_sha256,
+            basis_sha256=self.binding.basis_sha256,
+            checkpoint=str(training["checkpoint"]),
+            score_checkpoints={"post": str(training["checkpoint"])},
+            artifact_manifest_sha256="",
+            checkpoint_sha256=str(training["checkpoint_sha256"]),
+            artifact_mode=self.binding.artifact_mode,
+            virtual_manifest_sha256=self.binding.virtual_manifest_sha256,
+            materialization_index_sha256=self.binding.materialization_index_sha256,
+        )
 
 
 class _ProvenSession:
@@ -573,15 +673,32 @@ class ProductionRails:
         if not isinstance(allowed, Mapping) or not allowed:
             raise ProductionRailsError("production rails require a non-empty allowed_artifacts map")
         for identity_sha, row in allowed.items():
-            if (
+            common_invalid = (
                 not isinstance(identity_sha, str)
                 or len(identity_sha) != 64
                 or not isinstance(row, Mapping)
                 or not isinstance(row.get("basis_sha256"), str)
                 or not isinstance(row.get("checkpoint"), str)
-                or not isinstance(row.get("artifact_manifest_sha256"), str)
                 or not isinstance(row.get("checkpoint_sha256"), str)
-            ):
+            )
+            mixed = (
+                isinstance(row, Mapping)
+                and row.get("artifact_mode") == "mixed-backpack-virtual-v1"
+            )
+            if mixed:
+                mode_invalid = (
+                    not isinstance(row.get("identity_sha256"), str)
+                    or row.get("identity_sha256") != identity_sha
+                    or not isinstance(row.get("virtual_manifest_sha256"), str)
+                    or not isinstance(row.get("materialization_index_sha256"), str)
+                    or row.get("physical_tiers")
+                    != ["native_mxfp4", "qtip2", "qtip3"]
+                )
+            else:
+                mode_invalid = not isinstance(
+                    row.get("artifact_manifest_sha256"), str
+                )
+            if common_invalid or mode_invalid:
                 raise ProductionRailsError("allowed_artifacts contains an invalid identity binding")
 
     def _publish(self, event: str, **fields: Any) -> None:
@@ -657,16 +774,76 @@ class ProductionRails:
             ) from exc
         if current_identity.sha256 != artifact.identity.sha256:
             raise ProductionRailsError("artifact identity.json bytes changed after selection")
-        runtime = artifact.identity.runtime.get("production_rails")
-        if not isinstance(runtime, Mapping):
-            raise ProductionRailsError("artifact identity has no production_rails binding")
-        if runtime.get("provider_binding_sha256") != self.provider_binding_sha256:
-            raise ProductionRailsError("artifact production_rails provider identity mismatch")
         raw = self.config["allowed_artifacts"].get(artifact.identity.sha256)
         if not isinstance(raw, Mapping):
             raise ProductionRailsError("unknown artifact identity; refusing resident operation")
         if raw.get("basis_sha256") != artifact.identity.basis_sha256:
             raise ProductionRailsError("artifact basis does not match pinned provider binding")
+        if raw.get("checkpoint_sha256") != artifact.checkpoint_sha256:
+            raise ProductionRailsError("artifact checkpoint does not match pinned provider binding")
+        mixed = raw.get("artifact_mode") == "mixed-backpack-virtual-v1"
+        if mixed:
+            virtual_path = artifact.root.resolve() / "BACKPACK_VIRTUAL_MANIFEST.json"
+            index_path = artifact.root.resolve() / "MATERIALIZATION_INDEX.jsonl"
+            try:
+                virtual_raw = virtual_path.read_bytes()
+                index_raw = index_path.read_bytes()
+                virtual = json.loads(virtual_raw)
+                index_binding = virtual["materialization_index"]
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                raise ProductionRailsError("mixed artifact virtual chain is unreadable") from exc
+            tiers = {
+                str(tier)
+                for layer in artifact.identity.composition
+                for tier, count in layer["tiers"].items()
+                if int(count) > 0
+            }
+            checkpoint = str(raw["checkpoint"])
+            checkpoint_row = artifact.identity.checkpoints.get(checkpoint)
+            if (
+                artifact.identity.composition_kind != "mixed-per-layer-per-expert"
+                or tiers != {"native_mxfp4", "qtip2", "qtip3"}
+                or [row.get("layer") for row in artifact.identity.composition]
+                != list(ALL_LAYERS)
+                or raw.get("identity_sha256") != artifact.identity.sha256
+                or hashlib.sha256(virtual_raw).hexdigest()
+                != raw.get("virtual_manifest_sha256")
+                or hashlib.sha256(index_raw).hexdigest()
+                != raw.get("materialization_index_sha256")
+                or virtual.get("basis_sha256") != artifact.identity.basis_sha256
+                or index_binding.get("file") != index_path.name
+                or index_binding.get("bytes") != len(index_raw)
+                or index_binding.get("sha256") != hashlib.sha256(index_raw).hexdigest()
+                or not isinstance(checkpoint_row, Mapping)
+                or checkpoint_row.get("sha256") != raw.get("checkpoint_sha256")
+            ):
+                raise ProductionRailsError("mixed artifact sealed-chain identity mismatch")
+            if (
+                self._active is not None
+                and self._active_binding is not None
+                and self._active_binding.artifact_mode == "mixed-backpack-virtual-v1"
+                and artifact.root.resolve() == self._active.root.resolve()
+                and artifact.identity.sha256 == self._active.identity.sha256
+            ):
+                return self._active_binding
+            return _ArtifactBinding(
+                identity_sha256=artifact.identity.sha256,
+                basis_sha256=artifact.identity.basis_sha256,
+                checkpoint=checkpoint,
+                score_checkpoints={},
+                artifact_manifest_sha256="",
+                checkpoint_sha256=str(raw["checkpoint_sha256"]),
+                artifact_mode="mixed-backpack-virtual-v1",
+                virtual_manifest_sha256=str(raw["virtual_manifest_sha256"]),
+                materialization_index_sha256=str(
+                    raw["materialization_index_sha256"]
+                ),
+            )
+        runtime = artifact.identity.runtime.get("production_rails")
+        if not isinstance(runtime, Mapping):
+            raise ProductionRailsError("artifact identity has no production_rails binding")
+        if runtime.get("provider_binding_sha256") != self.provider_binding_sha256:
+            raise ProductionRailsError("artifact production_rails provider identity mismatch")
         if (
             self._active is not None
             and self._active_binding is not None
@@ -764,6 +941,8 @@ class ProductionRails:
     def _require_live_checkpoint_bytes(
         artifact: BackpackArtifact, binding: _ArtifactBinding
     ) -> None:
+        if binding.artifact_mode == "mixed-backpack-virtual-v1":
+            return
         try:
             manifest = json.loads((artifact.root.resolve() / "ARTIFACT.json").read_text())
             row = manifest["checkpoints"][binding.checkpoint]
@@ -794,13 +973,22 @@ class ProductionRails:
         if self._session is not None:
             raise ProductionRailsError("resident model/session is already constructed")
         binding = self._binding(artifact)
-        self._session = _ProvenSession(
-            artifact,
-            binding,
-            continuation_config=dict(self.config.get("continuation", {})),
-            receipt_root=self.run_root / "receipts",
-            provider_binding_sha256=self.provider_binding_sha256,
-        )
+        continuation = dict(self.config.get("continuation", {}))
+        if binding.artifact_mode == "mixed-backpack-virtual-v1":
+            self._session = _MixedProviderSession(
+                artifact,
+                binding,
+                continuation_config=continuation,
+                receipt_root=self.run_root / "receipts",
+            )
+        else:
+            self._session = _ProvenSession(
+                artifact,
+                binding,
+                continuation_config=continuation,
+                receipt_root=self.run_root / "receipts",
+                provider_binding_sha256=self.provider_binding_sha256,
+            )
         self._active = artifact
         self._active_binding = binding
         self._counts["model_constructions"] += 1
@@ -833,6 +1021,40 @@ class ProductionRails:
             raise ProductionRailsError("unknown artifact identity; refusing PRE restore")
         if raw.get("basis_sha256") != artifact.identity.basis_sha256:
             raise ProductionRailsError("restored PRE basis does not match admission")
+        if raw.get("artifact_mode") == "mixed-backpack-virtual-v1":
+            try:
+                pre_kld = float(pre["mean_kld"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ProductionRailsError("restored mixed PRE receipt is invalid") from exc
+            if not math.isfinite(pre_kld):
+                raise ProductionRailsError("restored mixed PRE KLD is non-finite")
+            binding = self._binding(artifact)
+            self._session = _MixedProviderSession(
+                artifact,
+                binding,
+                continuation_config=dict(self.config.get("continuation", {})),
+                receipt_root=self.run_root / "receipts",
+            )
+            self._session.restore_pre_score(pre)
+            self._active = artifact
+            self._active_binding = binding
+            self._pre_checkpoint = binding.checkpoint
+            self._phase_state = "pre_scored"
+            self._counts.update(
+                {
+                    "model_constructions": 1,
+                    "resident_loads": 1,
+                    "scores": 1,
+                    "canary_passes": 1,
+                }
+            )
+            self._publish(
+                "pre_score_restored",
+                mean_kld=pre_kld,
+                checkpoint=binding.checkpoint,
+                checkpoint_sha256=binding.checkpoint_sha256,
+            )
+            return
         try:
             pre_kld = float(pre["mean_kld"])
             manifest = json.loads((artifact.root / "ARTIFACT.json").read_text())
@@ -905,6 +1127,49 @@ class ProductionRails:
             raise ProductionRailsError("unknown artifact identity; refusing training restore")
         if raw.get("basis_sha256") != artifact.identity.basis_sha256:
             raise ProductionRailsError("restored training basis does not match admission")
+        if raw.get("artifact_mode") == "mixed-backpack-virtual-v1":
+            try:
+                pre_kld = float(pre["mean_kld"])
+                updates = int(training["updates"])
+                checkpoint = str(training["checkpoint"])
+                checkpoint_sha = str(training["checkpoint_sha256"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ProductionRailsError(
+                    "restored mixed training receipt is invalid"
+                ) from exc
+            if not math.isfinite(pre_kld) or updates <= 0 or len(checkpoint_sha) != 64:
+                raise ProductionRailsError("restored mixed training identity mismatch")
+            binding = self._binding(artifact)
+            self._session = _MixedProviderSession(
+                artifact,
+                binding,
+                continuation_config=dict(self.config.get("continuation", {})),
+                receipt_root=self.run_root / "receipts",
+            )
+            self._session.restore_training(pre, training)
+            live_binding = self._session.binding
+            self._active = artifact
+            self._active_binding = live_binding
+            self._pre_checkpoint = binding.checkpoint
+            self._requested_updates = updates
+            self._phase_state = "trained"
+            self._counts.update(
+                {
+                    "model_constructions": 1,
+                    "resident_loads": 1,
+                    "scores": 1,
+                    "canary_passes": 1,
+                    "training_calls": 1,
+                    "updates": updates,
+                }
+            )
+            self._publish(
+                "training_restored",
+                updates=updates,
+                checkpoint=checkpoint,
+                checkpoint_sha256=checkpoint_sha,
+            )
+            return
         try:
             pre_kld = float(pre["mean_kld"])
             updates = int(training["updates"])
@@ -995,6 +1260,10 @@ class ProductionRails:
             raise ProductionRailsError("resident scorer returned an incomplete full64 receipt") from exc
         if not math.isfinite(kld):
             raise ProductionRailsError("resident scorer returned non-finite KLD")
+        if binding.artifact_mode == "mixed-backpack-virtual-v1" and result.get(
+            "support"
+        ) != 8192:
+            raise ProductionRailsError("mixed resident scorer did not prove t8192 support")
         if (
             positions != 64 * 1024
             or result.get("execution_mode") != "resident_model_in_memory"

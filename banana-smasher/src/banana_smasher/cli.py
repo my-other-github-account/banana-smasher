@@ -615,6 +615,12 @@ def _parser() -> argparse.ArgumentParser:
     resident_admit.add_argument("--output", type=Path, required=True)
     resident_admit.add_argument("--checkpoint", type=Path, required=True)
     resident_admit.add_argument("--checkpoint-sha", required=True)
+    resident_admit_mixed = resident_commands.add_parser(
+        "admit-mixed",
+        help="admit a sealed mixed virtual chain and generate exact rank configs",
+    )
+    resident_admit_mixed.add_argument("--spec", type=Path, required=True)
+    resident_admit_mixed.add_argument("--artifact-root", type=Path, required=True)
 
     anchor = subparsers.add_parser(
         "anchor", help="reproducible four-bank anchor evaluation workflow"
@@ -1885,6 +1891,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                         checkpoint_sha256=args.checkpoint_sha,
                     ),
                     "command": "resident admit",
+                }
+            elif args.resident_command == "admit-mixed":
+                from .resident_admission import admit_mixed_resident_artifact
+
+                result = {
+                    **admit_mixed_resident_artifact(args.spec, args.artifact_root),
+                    "command": "resident admit-mixed",
                 }
             else:
                 from .artifact_identity import ArtifactIdentity

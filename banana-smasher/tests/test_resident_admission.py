@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
+import os
 from pathlib import Path
+import sys
 
 import pytest
 
 from banana_smasher.artifact_identity import ArtifactIdentity
 from banana_smasher.resident_admission import (
     ADMISSION_SPEC_SCHEMA,
+    MIXED_ADMISSION_SPEC_SCHEMA,
+    admit_mixed_resident_artifact,
     admit_resident_artifact,
     provider_binding,
 )
@@ -221,3 +226,276 @@ def test_admission_refuses_unstaged_grouped_wrapper_next_to_expert(tmp_path: Pat
             checkpoint=checkpoint,
             checkpoint_sha256=_sha(checkpoint.read_bytes()),
         )
+
+
+def _mixed_chain(tmp_path: Path) -> tuple[Path, Path]:
+    root = tmp_path / "mixed-chain"
+    root.mkdir()
+    provider = tmp_path / "mixed_fixture_provider.py"
+    provider.write_text(
+        """events = []
+class Provider:
+    def __init__(self, checkpoint, checkpoint_sha256, config):
+        self.checkpoint = checkpoint
+        self.checkpoint_sha256 = checkpoint_sha256
+        self.event_path = config.get("fixture_event_path")
+        events.append(("open", checkpoint))
+        self.record("open", checkpoint)
+    def record(self, *row):
+        if self.event_path:
+            with open(self.event_path, "a") as stream:
+                stream.write("|".join(str(value) for value in row) + "\\n")
+    def score(self, phase):
+        events.append(("score", phase, self.checkpoint))
+        self.record("score", phase, self.checkpoint)
+        return {
+            "mean_kld": 0.25 if phase == "pre" else 0.24,
+            "top1_matches": 7,
+            "positions": 65536,
+            "support": 8192,
+            "execution_mode": "resident_model_in_memory",
+            "runtime_counters": {
+                "windows": 64,
+                "checkpoint_loads_during_score": 0,
+                "candidate_file_reads_during_score": 0,
+            },
+            "checkpoint": self.checkpoint,
+        }
+    def train(self, updates):
+        events.append(("train", updates, self.checkpoint))
+        self.record("train", updates, self.checkpoint)
+        self.checkpoint = f"UPDATE_{updates:03d}"
+        self.checkpoint_sha256 = "a" * 64
+        return {"updates": updates, "checkpoint": self.checkpoint,
+                "checkpoint_sha256": self.checkpoint_sha256}
+    def restore_pre_score(self, pre):
+        events.append(("restore_pre_score", pre["mean_kld"]))
+        self.record("restore_pre_score", pre["mean_kld"])
+    def restore_training(self, pre, training):
+        self.checkpoint = training["checkpoint"]
+        self.checkpoint_sha256 = training["checkpoint_sha256"]
+        events.append(("restore_training", self.checkpoint))
+        self.record("restore_training", self.checkpoint)
+def open_provider(**kwargs):
+    return Provider(kwargs["checkpoint"], kwargs["checkpoint_sha256"], kwargs["config"])
+"""
+    )
+    index = root / "MATERIALIZATION_INDEX.jsonl"
+    index.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "layer": layer,
+                    "expert": 0,
+                    "projection": "down",
+                    "source_key": ("native_mxfp4", "qtip2", "qtip3")[layer % 3],
+                },
+                sort_keys=True,
+            )
+            + "\n"
+            for layer in range(43)
+        )
+    )
+    virtual = {
+        "schema": "banana-smasher-backpack-virtual-assignment-v1",
+        "status": "PASS_LOGICAL_FULL_WIRE",
+        "basis_sha256": _sha(b"basis"),
+        "materialization_index": {
+            "file": index.name,
+            "bytes": index.stat().st_size,
+            "sha256": _sha(index.read_bytes()),
+        },
+    }
+    virtual_path = root / "BACKPACK_VIRTUAL_MANIFEST.json"
+    virtual_path.write_text(json.dumps(virtual, sort_keys=True))
+    identity = {
+        "schema": "banana-smasher-artifact-identity-v1",
+        "basis": {"model_index_sha256": _sha(b"basis")},
+        "corpora": {
+            "builder_eval_sha256": _sha(b"builder"),
+            "train_score_sha256": _sha(b"score"),
+            "u0_lock_sha256": _sha(b"lock"),
+            "teacher_inventory_sha256": _sha(b"teacher"),
+        },
+        "checkpoints": {
+            "UPDATE_000": {
+                "sha256": _sha(b"checkpoint"),
+                "identity_sha256": _sha(b"checkpoint-identity"),
+            }
+        },
+        "composition": {
+            "kind": "mixed-per-layer-per-expert",
+            "layers": [
+                {
+                    "layer": layer,
+                    "tiers": {
+                        ("native_mxfp4", "qtip2", "qtip3")[layer % 3]: 1
+                    },
+                }
+                for layer in range(43)
+            ],
+        },
+        "canary": {
+            "reference": {"kld": 0.25, "top1": 7},
+            "tolerance": {"kld_abs": 0.02, "top1_abs": 0},
+        },
+        "runtime": {},
+    }
+    identity_path = root / "identity.json"
+    identity_path.write_text(json.dumps(identity, sort_keys=True))
+    spec = {
+        "schema": MIXED_ADMISSION_SPEC_SCHEMA,
+        "identity_sha256": _sha(identity_path.read_bytes()),
+        "virtual_manifest_sha256": _sha(virtual_path.read_bytes()),
+        "materialization_index_sha256": _sha(index.read_bytes()),
+        "checkpoint": "UPDATE_000",
+        "score": {
+            "window_ids": list(range(64)),
+            "positions": 64 * 1024,
+            "support": 8192,
+        },
+        "continuations": {
+            str(rank): {
+                "rank": rank,
+                "authorized_api": True,
+                "world_size": 2,
+                "local_only": True,
+                "mixed_provider_factory": "mixed_fixture_provider:open_provider",
+                "mixed_provider_source": str(provider),
+                "mixed_provider_source_sha256": _sha(provider.read_bytes()),
+            }
+            for rank in (0, 1)
+        },
+    }
+    spec_path = tmp_path / "mixed-admission.json"
+    spec_path.write_text(json.dumps(spec, sort_keys=True))
+    return root, spec_path
+
+
+def test_mixed_admission_consumes_sealed_chain_and_generates_exact_rank_configs(
+    tmp_path: Path,
+) -> None:
+    root, spec = _mixed_chain(tmp_path)
+    identity_before = (root / "identity.json").read_bytes()
+    virtual_before = (root / "BACKPACK_VIRTUAL_MANIFEST.json").read_bytes()
+    index_before = (root / "MATERIALIZATION_INDEX.jsonl").read_bytes()
+
+    receipt = admit_mixed_resident_artifact(spec, root)
+
+    assert receipt["status"] == "PASS"
+    assert receipt["artifact_mode"] == "mixed-backpack-virtual-v1"
+    assert set(receipt["rank_configs"]) == {"0", "1"}
+    for rank in (0, 1):
+        config = json.loads((root / f"production-rails.rank{rank}.json").read_text())
+        binding = next(iter(config["allowed_artifacts"].values()))
+        assert config["continuation"]["rank"] == rank
+        assert binding["artifact_mode"] == "mixed-backpack-virtual-v1"
+        assert binding["physical_tiers"] == ["native_mxfp4", "qtip2", "qtip3"]
+        assert binding["materialization_index_sha256"] == _sha(index_before)
+    assert (root / "identity.json").read_bytes() == identity_before
+    assert (root / "BACKPACK_VIRTUAL_MANIFEST.json").read_bytes() == virtual_before
+    assert (root / "MATERIALIZATION_INDEX.jsonl").read_bytes() == index_before
+
+
+def test_mixed_admission_rejects_mismatched_chain_identity(tmp_path: Path) -> None:
+    root, spec = _mixed_chain(tmp_path)
+    value = json.loads(spec.read_text())
+    value["materialization_index_sha256"] = _sha(b"wrong")
+    spec.write_text(json.dumps(value, sort_keys=True))
+
+    with pytest.raises(ValueError, match="materialization index identity mismatch"):
+        admit_mixed_resident_artifact(spec, root)
+    assert not (root / "production-rails.rank0.json").exists()
+
+
+def test_mixed_admission_runtime_uses_one_physical_provider_for_all_phases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from banana_smasher.resident_repair_api import ResidentRepairAPI
+
+    root, spec = _mixed_chain(tmp_path)
+    receipt = admit_mixed_resident_artifact(spec, root)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setenv("RANK", "0")
+    sys.modules.pop("mixed_fixture_provider", None)
+
+    api = ResidentRepairAPI.build_uniform(
+        root,
+        tier="q2",
+        checkpoint_sha=receipt["checkpoint_sha256"],
+        run_root=tmp_path / "run",
+    )
+    assert isinstance(api, ResidentRepairAPI)
+    assert api.score_pre()["mean_kld"] == 0.25
+    assert api.repair_train(updates=45)["checkpoint"] == "UPDATE_045"
+    assert api.score_post()["mean_kld"] == 0.24
+
+    provider = importlib.import_module("mixed_fixture_provider")
+    assert provider.events == [
+        ("open", "UPDATE_000"),
+        ("score", "pre", "UPDATE_000"),
+        ("train", 45, "UPDATE_000"),
+        ("score", "post", "UPDATE_045"),
+    ]
+    sys.modules.pop("mixed_fixture_provider", None)
+
+
+def test_canonical_improve_cli_reaches_mixed_provider_in_each_fresh_phase(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from banana_smasher.improve import run_improve
+
+    root, spec_path = _mixed_chain(tmp_path)
+    event_path = tmp_path / "provider-events.log"
+    spec = json.loads(spec_path.read_text())
+    for continuation in spec["continuations"].values():
+        continuation["fixture_event_path"] = str(event_path)
+    spec_path.write_text(json.dumps(spec, sort_keys=True))
+    receipt = admit_mixed_resident_artifact(spec_path, root)
+    monkeypatch.setenv("RANK", "0")
+    source_root = str(Path(__file__).resolve().parents[1] / "src")
+    monkeypatch.setenv(
+        "PYTHONPATH",
+        os.pathsep.join((str(tmp_path), source_root, os.environ.get("PYTHONPATH", ""))),
+    )
+
+    result = run_improve(
+        root,
+        receipt["checkpoint_sha256"],
+        tmp_path / "cli-run",
+        updates=45,
+    )
+
+    assert result["status"] == "PASS"
+    assert event_path.read_text().splitlines() == [
+        "open|UPDATE_000",
+        "score|pre|UPDATE_000",
+        "open|UPDATE_000",
+        "restore_pre_score|0.25",
+        "train|45|UPDATE_000",
+        "open|UPDATE_000",
+        "restore_training|UPDATE_045",
+        "score|post|UPDATE_045",
+    ]
+
+
+def test_public_resident_admit_mixed_cli_generates_rank_configs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from banana_smasher.cli import main
+
+    root, spec = _mixed_chain(tmp_path)
+
+    assert main(
+        [
+            "resident",
+            "admit-mixed",
+            "--spec",
+            str(spec),
+            "--artifact-root",
+            str(root),
+        ]
+    ) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["command"] == "resident admit-mixed"
+    assert set(result["rank_configs"]) == {"0", "1"}

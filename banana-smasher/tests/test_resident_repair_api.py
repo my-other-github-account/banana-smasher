@@ -185,6 +185,61 @@ def test_documented_class_call_opens_admitted_q2_with_internal_defaults(
     assert api.result_path.parent.name == "rank0"
 
 
+def test_documented_class_call_opens_admitted_mixed_three_tier_provider(
+    tmp_path: Path, monkeypatch
+) -> None:
+    checkpoint_sha = sha("u0")
+    artifact_root = tmp_path / "admitted-mixed"
+    identity(
+        artifact_root,
+        kind="mixed-per-layer-per-expert",
+        tiers=[
+            {
+                "layer": 0,
+                "tiers": {"native_mxfp4": 1, "qtip2": 1, "qtip3": 1},
+            }
+        ],
+    )
+    (artifact_root / "production-rails.rank0.json").write_text("{}")
+    rails = Rails(tmp_path)
+    monkeypatch.setenv("RANK", "0")
+    monkeypatch.setattr(
+        "banana_smasher.production_rails.ProductionRails.from_file",
+        lambda config, *, run_root: rails,
+    )
+
+    api = ResidentRepairAPI.build_uniform(
+        artifact_root,
+        tier="q2",
+        checkpoint_sha=checkpoint_sha,
+        run_root=tmp_path / "mixed-run",
+    )
+
+    assert api.score_pre()["input_checkpoint_sha256"] == checkpoint_sha
+    assert api.repair_train(updates=45)["input_checkpoint_sha256"] == checkpoint_sha
+    assert api.score_post()["input_checkpoint_sha256"] == checkpoint_sha
+
+
+def test_documented_class_call_rejects_unsupported_mixed_composition(
+    tmp_path: Path, monkeypatch
+) -> None:
+    artifact_root = tmp_path / "unsupported-mixed"
+    identity(
+        artifact_root,
+        kind="mixed-per-layer-per-expert",
+        tiers=[{"layer": 0, "tiers": {"native_mxfp4": 1, "qtip2": 1, "d4": 1}}],
+    )
+    (artifact_root / "production-rails.rank0.json").write_text("{}")
+    monkeypatch.setenv("RANK", "0")
+
+    with pytest.raises(ValueError, match="unsupported mixed production tiers"):
+        ResidentRepairAPI.build_uniform(
+            artifact_root,
+            tier="q2",
+            checkpoint_sha=sha("u0"),
+        )
+
+
 def test_documented_separate_calls_fail_and_seal_when_post_is_not_better(
     tmp_path: Path,
 ) -> None:

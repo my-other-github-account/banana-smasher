@@ -15,6 +15,10 @@ from .resident_balanced64 import RepairArtifact
 
 ADMISSION_SPEC_SCHEMA = "banana-smasher-resident-admission-spec-v1"
 ADMISSION_RECEIPT_SCHEMA = "banana-smasher-resident-admission-v1"
+MIXED_ADMISSION_SPEC_SCHEMA = "banana-smasher-mixed-resident-admission-spec-v1"
+MIXED_ADMISSION_RECEIPT_SCHEMA = "banana-smasher-mixed-resident-admission-v1"
+MIXED_ARTIFACT_MODE = "mixed-backpack-virtual-v1"
+MIXED_PHYSICAL_TIERS = frozenset({"native_mxfp4", "qtip2", "qtip3"})
 SHARED_CONTINUATION_BINDING_FIELDS = (
     "basis_sha256",
     "base_source_sha256",
@@ -30,6 +34,8 @@ SHARED_CONTINUATION_BINDING_FIELDS = (
     "shared_optimizer_scheduler_lineage",
     "world_size",
     "layer_split",
+    "mixed_provider_factory",
+    "mixed_provider_source_sha256",
 )
 
 
@@ -296,4 +302,162 @@ def admit_resident_artifact(
     return receipt
 
 
-__all__ = ["ADMISSION_RECEIPT_SCHEMA", "ADMISSION_SPEC_SCHEMA", "admit_resident_artifact", "provider_binding"]
+def admit_mixed_resident_artifact(
+    spec_path: str | Path,
+    artifact_root: str | Path,
+) -> dict[str, Any]:
+    """Admit a sealed mixed virtual chain without rewriting its identity or wire."""
+
+    spec_file = Path(spec_path).expanduser().resolve()
+    spec_raw = spec_file.read_bytes()
+    spec = json.loads(spec_raw)
+    if not isinstance(spec, Mapping) or spec.get("schema") != MIXED_ADMISSION_SPEC_SCHEMA:
+        raise ValueError(f"mixed admission spec must use {MIXED_ADMISSION_SPEC_SCHEMA}")
+
+    root = Path(artifact_root).expanduser().resolve()
+    identity_path = root / "identity.json"
+    virtual_path = root / "BACKPACK_VIRTUAL_MANIFEST.json"
+    index_path = root / "MATERIALIZATION_INDEX.jsonl"
+    identity_raw = identity_path.read_bytes()
+    virtual_raw = virtual_path.read_bytes()
+    index_raw = index_path.read_bytes()
+    if hashlib.sha256(identity_raw).hexdigest() != _sha(
+        spec.get("identity_sha256"), "identity_sha256"
+    ):
+        raise ValueError("mixed chain identity.json identity mismatch")
+    if hashlib.sha256(virtual_raw).hexdigest() != _sha(
+        spec.get("virtual_manifest_sha256"), "virtual_manifest_sha256"
+    ):
+        raise ValueError("mixed chain virtual manifest identity mismatch")
+    if hashlib.sha256(index_raw).hexdigest() != _sha(
+        spec.get("materialization_index_sha256"), "materialization_index_sha256"
+    ):
+        raise ValueError("mixed chain materialization index identity mismatch")
+
+    identity = ArtifactIdentity.load(root)
+    tiers = {
+        str(tier)
+        for layer in identity.composition
+        for tier, count in layer["tiers"].items()
+        if int(count) > 0
+    }
+    if (
+        identity.composition_kind != "mixed-per-layer-per-expert"
+        or tiers != MIXED_PHYSICAL_TIERS
+        or [row.get("layer") for row in identity.composition] != list(ALL_LAYERS)
+    ):
+        raise ValueError(
+            "mixed chain composition must cover ordered layers 0..42 with exactly "
+            "native_mxfp4+qtip2+qtip3"
+        )
+    virtual = json.loads(virtual_raw)
+    index_binding = virtual.get("materialization_index", {})
+    if (
+        virtual.get("schema") != "banana-smasher-backpack-virtual-assignment-v1"
+        or virtual.get("status") != "PASS_LOGICAL_FULL_WIRE"
+        or virtual.get("basis_sha256") != identity.basis_sha256
+        or not isinstance(index_binding, Mapping)
+        or index_binding.get("file") != index_path.name
+        or index_binding.get("bytes") != len(index_raw)
+        or index_binding.get("sha256") != hashlib.sha256(index_raw).hexdigest()
+    ):
+        raise ValueError("mixed chain virtual/index binding mismatch")
+    score = spec.get("score")
+    if (
+        not isinstance(score, Mapping)
+        or score.get("positions") != 64 * 1024
+        or score.get("support") != 8192
+        or not isinstance(score.get("window_ids"), list)
+        or len(score["window_ids"]) != 64
+        or len(set(score["window_ids"])) != 64
+        or any(
+            isinstance(window, bool) or not isinstance(window, int)
+            for window in score["window_ids"]
+        )
+    ):
+        raise ValueError("mixed admission requires scorer-aligned 64x1024/t8192 fixture")
+    checkpoint = str(spec.get("checkpoint", ""))
+    checkpoint_row = identity.checkpoints.get(checkpoint)
+    if not isinstance(checkpoint_row, Mapping):
+        raise ValueError("mixed admission checkpoint is absent from sealed identity")
+
+    identity_fields, binding_sha = provider_binding(spec)
+    configs: dict[str, str] = {}
+    identity_sha = identity.sha256
+    binding = {
+        "artifact_mode": MIXED_ARTIFACT_MODE,
+        "basis_sha256": identity.basis_sha256,
+        "checkpoint": checkpoint,
+        "checkpoint_sha256": str(checkpoint_row["sha256"]),
+        "identity_sha256": identity_sha,
+        "virtual_manifest_sha256": hashlib.sha256(virtual_raw).hexdigest(),
+        "materialization_index_sha256": hashlib.sha256(index_raw).hexdigest(),
+        "physical_tiers": sorted(MIXED_PHYSICAL_TIERS),
+    }
+    continuations = spec.get("continuations")
+    assert isinstance(continuations, Mapping)
+    provider_sources = []
+    for rank in (0, 1):
+        continuation = continuations.get(str(rank))
+        if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
+            raise ValueError(f"mixed continuations.{rank} must bind rank {rank}")
+        source = Path(
+            str(continuation.get("mixed_provider_source", ""))
+        ).expanduser().resolve()
+        expected = _sha(
+            continuation.get("mixed_provider_source_sha256"),
+            f"continuations.{rank}.mixed_provider_source_sha256",
+        )
+        if (
+            not isinstance(continuation.get("mixed_provider_factory"), str)
+            or not source.is_file()
+            or _sha256(source) != expected
+        ):
+            raise ValueError(f"mixed continuations.{rank} provider identity mismatch")
+        provider_sources.append((source, expected))
+    if provider_sources[0] != provider_sources[1]:
+        raise ValueError("mixed continuations provider source mismatch")
+    for rank in (0, 1):
+        continuation = continuations.get(str(rank))
+        if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
+            raise ValueError(f"mixed continuations.{rank} must bind rank {rank}")
+        config = {
+            **identity_fields,
+            "allowed_artifacts": {identity_sha: binding},
+            "continuation": dict(continuation),
+        }
+        path = root / f"production-rails.rank{rank}.json"
+        _atomic_json(path, config)
+        rails = ProductionRails.from_file(path, run_root=root / f".verify-rank{rank}")
+        if rails.provider_binding_sha256 != binding_sha:
+            raise RuntimeError("generated mixed provider binding failed verification")
+        shutil.rmtree(root / f".verify-rank{rank}")
+        configs[str(rank)] = str(path)
+    receipt = {
+        "schema": MIXED_ADMISSION_RECEIPT_SCHEMA,
+        "status": "PASS",
+        "artifact_mode": MIXED_ARTIFACT_MODE,
+        "artifact_root": str(root),
+        "artifact_identity_sha256": identity_sha,
+        "virtual_manifest_sha256": hashlib.sha256(virtual_raw).hexdigest(),
+        "materialization_index_sha256": hashlib.sha256(index_raw).hexdigest(),
+        "checkpoint": checkpoint,
+        "checkpoint_sha256": str(checkpoint_row["sha256"]),
+        "provider_binding_sha256": binding_sha,
+        "rank_configs": configs,
+        "spec_path": str(spec_file),
+        "spec_sha256": hashlib.sha256(spec_raw).hexdigest(),
+    }
+    _atomic_json(root / "MIXED_ADMISSION.json", receipt)
+    return receipt
+
+
+__all__ = [
+    "ADMISSION_RECEIPT_SCHEMA",
+    "ADMISSION_SPEC_SCHEMA",
+    "MIXED_ADMISSION_RECEIPT_SCHEMA",
+    "MIXED_ADMISSION_SPEC_SCHEMA",
+    "admit_mixed_resident_artifact",
+    "admit_resident_artifact",
+    "provider_binding",
+]

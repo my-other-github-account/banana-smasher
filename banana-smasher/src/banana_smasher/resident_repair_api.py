@@ -25,6 +25,7 @@ from .artifact_identity import ArtifactIdentity
 
 V7_UNIFORM_TIERS = frozenset({"qtip1_v7", "qtip2_v7", "qtip3_v7", "qtip4_v7"})
 _NATIVE_TIERS = frozenset({"native", "native_mxfp4"})
+_MIXED_PHYSICAL_TIERS = frozenset({"native_mxfp4", "qtip2", "qtip3"})
 SCORE_BUDGET_SECONDS = 1_200.0
 TRAIN_BUDGET_SECONDS = 18_000.0
 ARM_BUDGET_SECONDS = 21_600.0
@@ -442,12 +443,22 @@ class ResidentRepairAPI:
             raise TypeError("admitted artifact build_uniform requires checkpoint_sha")
         identity = ArtifactIdentity.load(artifact_root)
         _checkpoint_sha(identity, checkpoint_sha, operation="build")
-        declared = _composition_tiers(identity) - _NATIVE_TIERS
-        if declared != {"qtip2_v7"}:
-            raise ValueError(
-                "admitted production artifact is not routed-only uniform Q2: "
-                f"declared={sorted(declared)}"
-            )
+        all_declared = _composition_tiers(identity)
+        mixed_physical = identity.composition_kind == "mixed-per-layer-per-expert"
+        if mixed_physical:
+            if all_declared != _MIXED_PHYSICAL_TIERS:
+                raise ValueError(
+                    "unsupported mixed production tiers: "
+                    f"declared={sorted(all_declared)} "
+                    f"required={sorted(_MIXED_PHYSICAL_TIERS)}"
+                )
+        else:
+            declared = all_declared - _NATIVE_TIERS
+            if declared != {"qtip2_v7"}:
+                raise ValueError(
+                    "admitted production artifact is not routed-only uniform Q2: "
+                    f"declared={sorted(declared)}"
+                )
         try:
             rank = int(os.environ["RANK"])
         except (KeyError, ValueError) as exc:
@@ -464,7 +475,7 @@ class ResidentRepairAPI:
         from .production_rails import ProductionRails
 
         rails = ProductionRails.from_file(config, run_root=selected_run_root)
-        if isinstance(rails, ProductionRails):
+        if isinstance(rails, ProductionRails) and not mixed_physical:
             _ensure_ninja_available()
         api = ResidentRepairAPI(
             rails=rails,
