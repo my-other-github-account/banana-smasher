@@ -88,3 +88,60 @@ def test_streamed_projection_preserves_bytes_across_chunk_boundary(
     assert calls == 17
     assert read_bytes == 17 * 132
     assert namespace["_PACKED_HOST_ARENA"].shape == (16, 32)
+
+
+def test_projection_reads_drop_each_authenticated_member_from_page_cache(
+    monkeypatch, tmp_path
+) -> None:
+    import ast
+    from concurrent.futures import ThreadPoolExecutor
+    import os
+
+    import numpy as np
+    import torch
+
+    source_path = (
+        Path(__file__).parents[1]
+        / "assets"
+        / "static_w28_fast_v7_expert_base.py"
+    )
+    tree = ast.parse(source_path.read_text())
+    selected = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_load_projection_payloads_into"
+    )
+    namespace = {
+        "Path": Path,
+        "ThreadPoolExecutor": ThreadPoolExecutor,
+        "np": np,
+        "os": os,
+        "torch": torch,
+        "PACKED_BYTES": 64,
+    }
+    exec(
+        compile(ast.Module(body=[selected], type_ignores=[]), str(source_path), "exec"),
+        namespace,
+    )
+    paths = []
+    for expert in range(3):
+        path = tmp_path / f"E{expert:03d}_w1.q2v7wire"
+        path.write_bytes(bytes([expert]) * 64 + bytes(68))
+        paths.append(path)
+    advice_calls = []
+    real_close = os.close
+
+    def record_advice(fd, offset, length, advice):
+        os.fstat(fd)
+        advice_calls.append((offset, length, advice))
+
+    monkeypatch.setattr(os, "POSIX_FADV_DONTNEED", 4, raising=False)
+    monkeypatch.setattr(os, "posix_fadvise", record_advice, raising=False)
+    packed = np.empty((3, 1, 1, 32), dtype="<i2")
+    namespace["_load_projection_payloads_into"](
+        paths, packed, m=16, k=16, packed_bytes=64, pin_memory=False
+    )
+
+    assert advice_calls == [(0, 0, 4)] * 3
+    assert os.close is real_close

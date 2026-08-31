@@ -137,6 +137,12 @@ def _load_projection_payloads_into(
                 ],
                 0,
             )
+            # The immutable member has completed its only cold-load use.  End
+            # its buffered-I/O cache lifetime before later CUDA-resident
+            # allocations compete with stale source pages for coherent memory.
+            fadvise = getattr(os, "posix_fadvise", None)
+            if count == expected and fadvise is not None:
+                fadvise(fd, 0, 0, getattr(os, "POSIX_FADV_DONTNEED", 4))
         finally:
             os.close(fd)
         # The final four bytes are authenticated opaque wire payload, not a
