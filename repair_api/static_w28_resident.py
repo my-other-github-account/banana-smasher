@@ -88,6 +88,12 @@ def run_static_w28_resident_acceptance(
     # the first attention normalization request another 1 GiB and OOM.  The
     # resident provider already defines configured=1 as the singleton W28 path.
     score_config["score_window_batch_size"] = 1
+    # Attempt64 proved cold materialization now completes, then the inherited
+    # 512-query eager workspace requests a 512-MiB dtype-conversion bank at the
+    # final resident footprint.  Query rows are mathematically independent in
+    # this exact eager implementation; bind its existing tested 64-row workspace
+    # without changing attention, scorer, source, checkpoint, or W28 geometry.
+    score_config["attention_query_chunk_size"] = 64
     # Static W28 owns one Spark seat.  The sealed resident backend is two-shard,
     # so running its rank-0 engine alone reaches NCCL P2P warmup after the full
     # cold load and waits for a rank-1 process that this entry point never
@@ -155,7 +161,8 @@ def run_static_w28_resident_acceptance(
         "public_api": "ResidentRepairAPI.score",
         "runtime_topology": "same_process_dual_shard",
         "runtime_score_window_batch_size": 1,
-        "one_variable": "singleton physical W28 batch replaces aligned four-window expansion",
+        "runtime_attention_query_chunk_size": 64,
+        "one_variable": "bounded 64-query eager workspace replaces inherited 512-query score workspace",
         "runtime_rank_seat": dict(rank_seat) if rank_seat is not None else None,
     }
     path = root / "receipts" / f"STATIC_W28_RESIDENT_ACCEPTANCE.{task}.json"
