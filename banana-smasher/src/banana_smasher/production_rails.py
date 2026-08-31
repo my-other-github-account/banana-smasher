@@ -422,6 +422,11 @@ class _ProvenSession:
             raise ProductionRailsError("physical resident engine cannot score in memory")
         raw_result: Any = method(self.api.artifact.windows)
         result: dict[str, Any] = dict(raw_result)
+        # The sealed Balanced64 scorer names this field ``support_width``.
+        # Normalize that receipt-backed value at the production-rail seam;
+        # never synthesize it from the artifact declaration.
+        if "support" not in result and "support_width" in result:
+            result["support"] = result["support_width"]
         scored_checkpoint = result.get("checkpoint")
         if scored_checkpoint != self.binding.checkpoint:
             try:
