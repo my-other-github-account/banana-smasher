@@ -129,12 +129,12 @@ def main()->int:
  cfg["resident_validation_expert_implementation"]="accepted_static_w28"
  cfg["score_window_batch_size"]=2
  cfg["sealed_builder_window_microbatch"]=2
- cfg["trainer_source"]=str(ROOT/"code/repair_api/assets/static_w28_modern_green_clean_u0.py")
+ cfg["trainer_source"]=str(ROOT/"code/repair_api/assets/static_w28_pinned_3079/static_w28_modern_green_clean_u0.py")
  cfg["trainer_source_sha256"]="cc0520e00a6cc5b979c638e3f1fd98ae92c882f3cf9f48cbcdf3fa55fad343cc"
  cfg["qsfp_host_ip_by_rank"]={"0":"192.168.200.7","1":"192.168.200.8"}
- cfg["fast_k2_wrapper_source"]=str(ROOT/"code/repair_api/assets/static_w28_fast_k2_grouped.py")
+ cfg["fast_k2_wrapper_source"]=str(ROOT/"code/repair_api/assets/static_w28_pinned_3079/static_w28_fast_k2_grouped.py")
  cfg["fast_k2_wrapper_source_sha256"]="ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
- cfg["resident_expert_source"]=str(ROOT/"code/repair_api/assets/static_w28_fast_v7_expert_base.py")
+ cfg["resident_expert_source"]=str(ROOT/"code/repair_api/assets/static_w28_pinned_3079/static_w28_fast_v7_expert_base.py")
  cfg["resident_expert_source_sha256"]="4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
  if rank==0: cfg["model_root"]="/home/dnola/missions/RANK0_WHOLE_t_b26eb32b_swork"
  if rank==0: cfg["parent_root"]="/home/dnola/missions/V7_CODEBOOK_FULLPARENT_t_0c44dcc6_s5w"
