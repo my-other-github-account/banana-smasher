@@ -46,6 +46,21 @@ def _managed_packed_tensor(
     result = malloc_managed(ctypes.byref(pointer), nbytes, 1)
     if result != 0 or not pointer.value:
         raise RuntimeError(f"cudaMallocManaged refused packed wire: {result}")
+    class CudaMemLocation(ctypes.Structure):
+        _fields_ = [("type", ctypes.c_int), ("id", ctypes.c_int)]
+    prefetch = cudart.cudaMemPrefetchAsync
+    prefetch.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+        CudaMemLocation,
+        ctypes.c_uint,
+        ctypes.c_void_p,
+    ]
+    prefetch.restype = ctypes.c_int
+    result = prefetch(pointer.value, nbytes, CudaMemLocation(2, 0), 0, None)
+    if result != 0:
+        raise RuntimeError(f"cudaMemPrefetchAsync refused CPU fill: {result}")
+    torch.cuda.synchronize(device=device)
     storage = torch._C._construct_storage_from_data_pointer(
         pointer.value, device, nbytes
     )

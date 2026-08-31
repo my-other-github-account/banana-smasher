@@ -72,8 +72,11 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     first_copy = source.index("su_cpu.to(device=device, non_blocking=True)")
     last_copy = source.index("sv_cpu.to(device=device, non_blocking=True)", first_copy)
     sync = source.index("stream.synchronize()", last_copy)
-    assert "cudaMallocManaged" in source
-    assert "np.ctypeslib.as_array(owner)" in source
+    managed_allocate = source.index("cudaMallocManaged")
+    managed_prefetch = source.index("cudaMemPrefetchAsync", managed_allocate)
+    managed_cpu_view = source.index("np.ctypeslib.as_array(owner)", managed_prefetch)
+    assert "CudaMemLocation(2, 0)" in source
+    assert managed_allocate < managed_prefetch < managed_cpu_view
     assert "_construct_storage_from_data_pointer" in source
     assert "_construct_CUDA_Tensor_From_Storage_And_Metadata" in source
     assert 'setattr(tensor, "_managed_cpu_owner", owner)' in source
