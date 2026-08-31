@@ -91,3 +91,53 @@ def test_fit_refuses_incomplete_measurements() -> None:
     manifest = _manifest()
     with pytest.raises(ValueError, match="missing 1 probe measurements"):
         fit_multiplicative_calibration(manifest, _measurements(manifest)[:-1])
+
+
+def test_fit_allows_partial_v2_treatments_and_reports_gaps() -> None:
+    manifest = _manifest()
+    manifest["schema"] = "banana-smasher-sensitivity-probe-manifest-v2"
+    manifest["probes"].extend(
+        [
+            {
+                "probe_id": "early-q2-extra",
+                "cell_id": "L000:E001:down",
+                "layer_band": "early",
+                "tier_pair": "qtip2->qtip3",
+                "role": "treatment",
+                "predicted_delta_mean_kld": -0.01,
+            },
+            {
+                "probe_id": "null-control",
+                "cell_id": "L000:E000:down",
+                "layer_band": "early",
+                "tier_pair": "qtip2->qtip2",
+                "role": "null_control",
+                "predicted_delta_mean_kld": 0.0,
+            },
+        ]
+    )
+    manifest["probe_count"] += 2
+    measurements = _measurements(_manifest())
+    measurements.pop(0)
+    measurements.append(
+        {
+            "schema": "banana-smasher-sensitivity-w28-probe-v1",
+            "status": "PASS",
+            "probe_id": "early-q2-extra",
+            "cell_id": "L000:E001:down",
+            "basis_sha256": BASIS,
+            "measured_delta_mean_kld": -0.03,
+        }
+    )
+    table = fit_multiplicative_calibration(manifest, measurements, allow_partial=True)
+    assert table["partial_coverage"] is True
+    assert table["probe_count"] == 6
+    gap = next(row for row in table["coverage"] if row["layer_band"] == "early" and row["tier_pair"] == "qtip2->qtip3")
+    assert gap == {
+        "layer_band": "early",
+        "tier_pair": "qtip2->qtip3",
+        "accepted": 1,
+        "required": 2,
+        "missing": 1,
+        "complete": False,
+    }

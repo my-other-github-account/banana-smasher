@@ -48,7 +48,10 @@ def _finite(value: object, label: str) -> float:
 
 
 def fit_multiplicative_calibration(
-    probe_manifest: Mapping[str, Any], measurements: Sequence[Mapping[str, Any]]
+    probe_manifest: Mapping[str, Any],
+    measurements: Sequence[Mapping[str, Any]],
+    *,
+    allow_partial: bool = False,
 ) -> dict[str, Any]:
     """Fit one through-origin multiplier per ``(layer_band, tier_pair)``.
 
@@ -57,7 +60,10 @@ def fit_multiplicative_calibration(
     a positive multiplier even though both sums are negative.
     """
 
-    if probe_manifest.get("schema") != "banana-smasher-sensitivity-probe-manifest-v1":
+    if probe_manifest.get("schema") not in {
+        "banana-smasher-sensitivity-probe-manifest-v1",
+        "banana-smasher-sensitivity-probe-manifest-v2",
+    }:
         raise ValueError("unsupported sensitivity probe manifest")
     probes = probe_manifest.get("probes")
     expected_count = probe_manifest.get("probe_count")
@@ -71,18 +77,22 @@ def fit_multiplicative_calibration(
         if not isinstance(probe_id, str) or not probe_id or probe_id in by_id:
             raise ValueError("probe ids must be unique non-empty strings")
         predicted = _finite(probe.get("predicted_delta_mean_kld"), f"{probe_id} predicted delta")
-        if predicted == 0:
+        is_fit_probe = probe.get("role", "treatment") == "treatment"
+        if is_fit_probe and predicted == 0:
             raise ValueError(f"{probe_id} predicted delta must be nonzero")
         band = probe.get("layer_band")
         pair = probe.get("tier_pair")
-        if not isinstance(band, str) or pair not in {PAIR_Q2_Q3, PAIR_Q3_NATIVE}:
+        if not isinstance(band, str) or (is_fit_probe and pair not in {PAIR_Q2_Q3, PAIR_Q3_NATIVE}):
             raise ValueError(f"{probe_id} calibration stratum is invalid")
         by_id[probe_id] = probe
     measured_by_id = {}
     for measurement in measurements:
         if not isinstance(measurement, Mapping):
             raise ValueError("measurement row must be an object")
-        if measurement.get("schema") != "banana-smasher-sensitivity-w28-probe-v1" or measurement.get("status") != "PASS":
+        if measurement.get("schema") not in {
+            "banana-smasher-sensitivity-w28-probe-v1",
+            "banana-smasher-sensitivity-w28-probe-v2",
+        } or measurement.get("status") != "PASS":
             raise ValueError("measurements must be sensitivity W28 probe PASS rows")
         probe_id = measurement.get("probe_id")
         if probe_id not in by_id or probe_id in measured_by_id:
@@ -92,12 +102,15 @@ def fit_multiplicative_calibration(
         if measurement.get("cell_id") != by_id[probe_id].get("cell_id"):
             raise ValueError(f"{probe_id} cell mismatch")
         measured_by_id[probe_id] = measurement
-    if set(measured_by_id) != set(by_id):
-        missing = sorted(set(by_id) - set(measured_by_id))
+    fit_ids = {probe_id for probe_id, probe in by_id.items() if probe.get("role", "treatment") == "treatment"}
+    measured_fit_ids = set(measured_by_id) & fit_ids
+    if not allow_partial and measured_fit_ids != fit_ids:
+        missing = sorted(fit_ids - measured_fit_ids)
         raise ValueError(f"missing {len(missing)} probe measurements; first={missing[:1]}")
 
     grouped = defaultdict(list)
-    for probe_id, probe in by_id.items():
+    for probe_id in sorted(measured_fit_ids):
+        probe = by_id[probe_id]
         measurement = measured_by_id[probe_id]
         measured = _finite(measurement.get("measured_delta_mean_kld"), f"{probe_id} measured delta")
         predicted = float(probe["predicted_delta_mean_kld"])
@@ -131,8 +144,31 @@ def fit_multiplicative_calibration(
         for band in probe_manifest.get("stratification", {}).get("layers_by_band", {})
         for pair in (PAIR_Q2_Q3, PAIR_Q3_NATIVE)
     }
-    if {(row["layer_band"], row["tier_pair"]) for row in rows} != expected_groups:
+    fitted_groups = {(row["layer_band"], row["tier_pair"]) for row in rows}
+    if fitted_groups != expected_groups:
         raise ValueError("calibration table does not cover every declared band/tier pair")
+    coverage_rows = []
+    for band, pair in sorted(expected_groups):
+        required = sum(
+            probe.get("role", "treatment") == "treatment"
+            and probe.get("layer_band") == band
+            and probe.get("tier_pair") == pair
+            for probe in by_id.values()
+        )
+        accepted = sum(
+            by_id[probe_id].get("layer_band") == band and by_id[probe_id].get("tier_pair") == pair
+            for probe_id in measured_fit_ids
+        )
+        coverage_rows.append(
+            {
+                "layer_band": band,
+                "tier_pair": pair,
+                "accepted": accepted,
+                "required": required,
+                "missing": required - accepted,
+                "complete": accepted == required,
+            }
+        )
     return {
         "schema": "banana-smasher-sensitivity-calibration-table-v1",
         "status": "PASS",
@@ -140,7 +176,10 @@ def fit_multiplicative_calibration(
         "source_option_ledger_sha256": probe_manifest.get("source_option_ledger_sha256"),
         "source_assignment_sha256": probe_manifest.get("source_assignment_sha256"),
         "probe_manifest_sha256": _sha256(_canonical(probe_manifest)),
-        "probe_count": len(probes),
+        "probe_count": len(measured_fit_ids),
+        "manifest_fit_probe_count": len(fit_ids),
+        "partial_coverage": measured_fit_ids != fit_ids,
+        "coverage": coverage_rows,
         "fit": "through-origin ratio-of-sums per (layer_band,tier_pair)",
         "delta_convention": "target_mean_kld - source_mean_kld",
         "rows": rows,
@@ -159,11 +198,25 @@ def apply_calibration_to_rows(
         for row in calibration.get("rows", [])
     }
     band_by_layer = {}
+    band_starts = []
     for band, layers in layers_by_band.items():
-        for layer in layers:
+        normalized_layers = [int(layer) for layer in layers]
+        if not normalized_layers:
+            raise ValueError(f"calibration band {band!r} has no sampled layers")
+        band_starts.append((min(normalized_layers), str(band)))
+        for layer in normalized_layers:
             if layer in band_by_layer:
                 raise ValueError(f"layer {layer} appears in multiple bands")
-            band_by_layer[int(layer)] = str(band)
+            band_by_layer[layer] = str(band)
+    band_starts.sort()
+    for raw in rows:
+        raw_layer = raw.get("layer")
+        if isinstance(raw_layer, bool) or not isinstance(raw_layer, int):
+            raise ValueError("ledger layer must be an integer")
+        eligible = [band for start, band in band_starts if start <= raw_layer]
+        if not eligible:
+            raise ValueError(f"layer {raw_layer} precedes every calibration band")
+        band_by_layer.setdefault(raw_layer, eligible[-1])
     by_cell_tier = {(str(row["cell_id"]), str(row["tier"])): row for row in rows}
     output = []
     for raw in rows:
@@ -220,6 +273,7 @@ def run_sensitivity_calibration(
     *,
     output_table: str | Path,
     output_ledger: str | Path,
+    allow_partial: bool = False,
 ) -> dict[str, Any]:
     manifest_path = Path(probe_manifest_path).expanduser().resolve()
     measurement_path = Path(measurements_path).expanduser().resolve()
@@ -232,7 +286,7 @@ def run_sensitivity_calibration(
     rows = [json.loads(line) for line in ledger_raw.splitlines() if line.strip()]
     if _sha256(ledger_raw) != manifest.get("source_option_ledger_sha256"):
         raise ValueError("option ledger SHA mismatch")
-    table = fit_multiplicative_calibration(manifest, measurements)
+    table = fit_multiplicative_calibration(manifest, measurements, allow_partial=allow_partial)
     calibrated = apply_calibration_to_rows(
         rows, table, manifest["stratification"]["layers_by_band"]
     )

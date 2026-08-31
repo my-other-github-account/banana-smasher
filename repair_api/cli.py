@@ -261,6 +261,7 @@ def build_parser() -> argparse.ArgumentParser:
     calibration.add_argument("--option-ledger", type=Path, required=True)
     calibration.add_argument("--output-table", type=Path, required=True)
     calibration.add_argument("--output-ledger", type=Path, required=True)
+    calibration.add_argument("--allow-partial", action="store_true")
 
     smoke = verbs.add_parser("smoke")
     smoke.add_argument("--windows", type=int, default=1)
@@ -390,6 +391,7 @@ def main(argv: list[str] | None = None) -> int:
             args.option_ledger,
             output_table=args.output_table,
             output_ledger=args.output_ledger,
+            allow_partial=args.allow_partial,
         )
     elif args.verb == "diagnostic-perturb-validate":
         identity = distributed_identity()
