@@ -283,6 +283,8 @@ class _MixedProviderSession:
 
     def score(self, phase: str) -> Mapping[str, Any]:
         result = dict(self.provider.score(phase))
+        if "support" not in result and "support_width" in result:
+            result["support"] = result["support_width"]
         result.setdefault("checkpoint", self.binding.checkpoint)
         result.setdefault("physical_checkpoint", result["checkpoint"])
         return result
