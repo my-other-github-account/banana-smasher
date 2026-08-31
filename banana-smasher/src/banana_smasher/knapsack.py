@@ -1152,6 +1152,7 @@ def solve_class_balanced_options(
     | None = None,
     concentration_groups_by_cell: dict[str, str] | None = None,
     concentration_caps: dict[str, dict[str, float]] | None = None,
+    mip_rel_gap: float = 0.0,
 ) -> dict[str, Any]:
     """Select one tier per cell under exact bytes and aggregate class ceilings.
 
@@ -1166,6 +1167,8 @@ def solve_class_balanced_options(
         raise KnapsackValidationError("tiers must be a non-empty unique list")
     if isinstance(envelope_bytes, bool) or not isinstance(envelope_bytes, int) or envelope_bytes < 0:
         raise KnapsackValidationError("envelope_bytes must be a non-negative integer")
+    if not math.isfinite(float(mip_rel_gap)) or not 0.0 <= float(mip_rel_gap) < 1.0:
+        raise KnapsackValidationError("mip_rel_gap must be finite and in [0, 1)")
     if not class_caps:
         raise KnapsackValidationError("class_caps must be a non-empty object")
     classes = sorted(class_caps)
@@ -1505,7 +1508,7 @@ def solve_class_balanced_options(
         integrality=np.ones(variable_count, dtype=np.int8),
         bounds=Bounds(np.zeros(variable_count), variable_upper),
         constraints=LinearConstraint(matrix, lower, upper),
-        options={"presolve": True, "mip_rel_gap": 0.0},
+        options={"presolve": True, "mip_rel_gap": float(mip_rel_gap)},
     )
     if not solution.success or solution.x is None or int(solution.status) != 0:
         raise RuntimeError(

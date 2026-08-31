@@ -270,6 +270,7 @@ def run_full_wire_provenance_solve(
     allowed_tiers: tuple[str, ...] | None = None,
     exact_envelope: bool = False,
     padding_policy: str | None = None,
+    mip_rel_gap: float = 0.0,
 ) -> dict[str, Any]:
     """Solve a full-wire provenance ledger, charging shared assets once."""
 
@@ -381,6 +382,7 @@ def run_full_wire_provenance_solve(
         class_caps=effective_caps,
         class_weights=class_weights,
         exact_envelope=exact_envelope,
+        mip_rel_gap=mip_rel_gap,
     )
     selected_expert_bytes = int(result["assigned_bytes"])
     unpadded_whole_bytes = fixed_bytes + selected_expert_bytes
