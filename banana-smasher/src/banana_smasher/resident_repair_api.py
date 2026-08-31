@@ -388,6 +388,7 @@ class ResidentRepairAPI:
         native_rest: bool | None = None,
         revision: str | None = None,
         output: str | Path | None = None,
+        source_admission: Mapping[str, Any] | str | Path | None = None,
         native_spill_root: str | Path | None = None,
     ) -> "UniformBuild | ResidentRepairAPI | dict[str, Any]":
         """Build through an injected provider, or open an admitted Q2 artifact.
@@ -436,6 +437,7 @@ class ResidentRepairAPI:
                 scope=scope,
                 native_rest=native_rest,
                 output=output,
+                source_admission=source_admission,
                 native_spill_root=native_spill_root,
             )
         if checkpoint_sha is None:

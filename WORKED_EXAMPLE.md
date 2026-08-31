@@ -14,14 +14,15 @@ it (`HF_SOLVE_EXTRA_REQUIREMENT`) instead of raising a bare `ModuleNotFoundError
 
 ## Step 0: is this host capable, and what would be quantized?
 
-Both calls below are metadata-only and cheap. Run them **before** staging a
-multi-hundred-gigabyte source.
+The generic host probe is cheap. Initial source admission deliberately reads and hashes
+every shard once; reuse its sealed receipt in later calls to avoid payload rereads.
 
 ```python
 from banana_smasher import (
     admit_hf_source,
     balanced64_hardware_contract,
     discover_hf_moe_routed_scope,
+    preflight_balanced64_runtime,
 )
 
 # Published hardware/capability contract of the teacher-capture and PRE path. Each
@@ -42,6 +43,7 @@ source = admit_hf_source(
     receipt_path="./uniform-plan/SOURCE_ADMISSION.json",
 )
 assert source["binding"]["identity"] == "content-sha256"
+print(source["config_semantics"]["architectures"], source["config_semantics"]["model_type"])
 # The receipt publishes the authoritative repository roster and, separately, the
 # client-side bookkeeping subtree the downloader wrote, so file/byte identity is
 # reproducible without inferring which paths are the repository:
@@ -56,11 +58,14 @@ print(boundary["excluded_file_count"], boundary["excluded_bytes"])
 scope = discover_hf_moe_routed_scope(
     "/local/hf-model",
     revision="<immutable-hf-revision>",
+    source_admission=source,
     receipt_path="./uniform-plan/ROUTED_SCOPE.json",
 )
 assert scope["reads_tensor_bytes"] is False
 print(scope["adapter"]["id"], scope["accounting"])
 print(scope["routed_tensor_names"][:3], scope["native_tensor_names"][:3])
+teacher_runtime = preflight_balanced64_runtime(source, role="teacher")
+assert teacher_runtime["selection"]["matches"] == 1
 ```
 
 `scope["geometry"]` states the routed-scope bound inline and data-driven — never by
@@ -115,6 +120,7 @@ plan = plan_hf_moe_uniform(
     tier="q2",
     scope="routed_only",
     native_rest=True,
+    source_admission=source,
     receipt_path="./uniform-plan/UNIFORM_PLAN.json",
 )
 
@@ -139,6 +145,7 @@ estimate = estimate_hf_moe_uniform(
     tier="q2",
     scope="routed_only",
     native_rest=True,
+    source_admission=source,
     receipt_path="./uniform-plan/BUILD_ESTIMATE.json",
 )
 if estimate["projection"]["complete_wall_seconds"] > 6 * 60 * 60:
@@ -150,11 +157,14 @@ built = ResidentRepairAPI.build_uniform(
     tier="q2",
     scope="routed_only",
     native_rest=True,
+    source_admission=source,
     output="/local/output-filesystem/uniform-q2",
 )
 reopened = open_hf_moe_uniform("/local/output-filesystem/uniform-q2")
 assert reopened == built
 assert reopened["artifact_root"] == "/local/output-filesystem/uniform-q2"
+candidate_runtime = preflight_balanced64_runtime(reopened, role="candidate_pre")
+assert candidate_runtime["selection"]["matches"] == 1
 
 # When routed encoding dominates wall time, independent hosts may build
 # canonical half-open ordinal ranges. Each host uses the same immutable model,
