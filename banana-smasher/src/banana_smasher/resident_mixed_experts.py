@@ -101,11 +101,16 @@ class FullyResidentGroupedV7Experts(nn.Module):
         for expert in expert_index.unique(sorted=True).tolist():
             selected = expert_index == int(expert)
             value = routed_hidden[selected]
-            gate_up = gate_up_wire[int(expert)].reshape(8192, 2048)
+            # The authenticated fused13 producer stores w1/w3 concatenated on
+            # the output axis as [4096, 4096].  F.linear consumes that layout
+            # directly: [N, 4096] -> [N, 4096], then SwiGLU halves it to 2048.
+            # Reshaping to [8192, 2048] swaps the hidden/intermediate axes and
+            # makes the first physical forward fail before scoring.
+            gate_up = gate_up_wire[int(expert)]
             gate, up = torch.nn.functional.linear(value, gate_up).chunk(2, dim=-1)
             activated = torch.nn.functional.silu(gate) * up
             routed_output[selected] = torch.nn.functional.linear(
-                activated, down_wire[int(expert)].transpose(0, 1)
+                activated, down_wire[int(expert)]
             )
         del gate_up_wire, down_wire
         routed_output = routed_output * route_weight
