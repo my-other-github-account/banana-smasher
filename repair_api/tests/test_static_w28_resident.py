@@ -1,11 +1,46 @@
+import ast
 import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Iterable
 
 from repair_api.balanced64 import ScoreResult
 from repair_api import static_w28_resident
 from repair_api.api import _localize_official_k2_rank_seat
+
+
+def test_l006_identical_duplicate_wire_candidates_are_unambiguous(tmp_path) -> None:
+    """Mirror the accepted PlaneSource rule: identical duplicates are one member."""
+    source_path = (
+        Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
+    )
+    tree = ast.parse(source_path.read_text())
+    selected = [
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name in {"sha256_file", "resolve_wire_candidate"}
+    ]
+    namespace = {"Path": Path, "Iterable": Iterable, "os": __import__("os"), "hashlib": hashlib}
+    exec(compile(ast.Module(body=selected, type_ignores=[]), str(source_path), "exec"), namespace)
+
+    flat = tmp_path / "L006" / "E000_w1.q2v7wire"
+    nested = tmp_path / "L006" / "wire" / "E000" / "w1.q2v7wire"
+    flat.parent.mkdir(parents=True)
+    nested.parent.mkdir(parents=True)
+    flat.write_bytes(b"accepted-wire")
+    nested.write_bytes(flat.read_bytes())
+
+    resolve = namespace["resolve_wire_candidate"]
+    assert resolve([flat, nested], member="L006 E000/w1") == flat.resolve()
+    nested.write_bytes(b"conflicting-wire")
+    try:
+        resolve([flat, nested], member="L006 E000/w1")
+    except RuntimeError as exc:
+        assert str(exc) == "L006 E000/w1 conflicting duplicate"
+    else:
+        raise AssertionError("conflicting L006 duplicate was accepted")
 
 
 def _write_reference(path: Path) -> str:

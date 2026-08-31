@@ -80,6 +80,19 @@ def canonical_sha256(value: object) -> str:
     ).hexdigest()
 
 
+def resolve_wire_candidate(candidates: Iterable[Path], *, member: str) -> Path:
+    """Accept duplicate layouts only when they contain identical wire bytes."""
+    present = [path.resolve() for path in candidates if path.is_file()]
+    if not present:
+        raise RuntimeError(f"{member} member missing")
+    selected = present[0]
+    selected_sha = sha256_file(selected)
+    for duplicate in present[1:]:
+        if sha256_file(duplicate) != selected_sha:
+            raise RuntimeError(f"{member} conflicting duplicate")
+    return selected
+
+
 def fsync_dir(path: Path) -> None:
     fd = os.open(path, os.O_RDONLY)
     try:
@@ -265,15 +278,15 @@ class PlaneSource:
                     candidates = [
                         root / f"E{expert:03d}_{projection}.q2v7wire",
                         root / f"E{expert:03d}_{projection}.k2wire",
+                        root / "wire" / f"E{expert:03d}_{projection}.q2v7wire",
+                        root / "wire" / f"E{expert:03d}_{projection}.k2wire",
                         root / "wire" / f"E{expert:03d}" / f"{projection}.q2v7wire",
                         root / "wire" / f"E{expert:03d}" / f"{projection}.k2wire",
                     ]
-                    present = [p.resolve() for p in candidates if p.is_file()]
-                    if len(present) != 1:
-                        raise RuntimeError(
-                            f"L{self.layer:03d} member ambiguity E{expert:03d}/{projection}"
-                        )
-                    self.member_paths[(expert, projection)] = present[0]
+                    member = f"L{self.layer:03d} E{expert:03d}/{projection}"
+                    self.member_paths[(expert, projection)] = resolve_wire_candidate(
+                        candidates, member=member
+                    )
         expected = {(e, p) for e in range(256) for p in PROJECTIONS}
         if set(self.member_paths) != expected:
             raise RuntimeError(f"L{self.layer:03d} member coverage drift")

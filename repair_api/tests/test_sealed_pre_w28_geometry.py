@@ -69,7 +69,7 @@ def test_sealed_pre_w28_keeps_target_producer_mb2_geometry(monkeypatch) -> None:
     assert resolved["expert_path"].name == "static_w28_fast_v7_expert_base.py"
     assert resolved["expert_sha256"] == modern_green_resident.STATIC_W28_GROUPED_EXPERT_SHA256
     trainer = Path(modern_green_resident.__file__).parent / "assets" / "static_w28_modern_green_clean_u0.py"
-    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "603dc65278597d0cc5a771b498f03c9b5ece92e78ce306a3f28a096384cbff47"
+    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "a0e2d37e81bde1b4a5b18ae23d66362a3e9e331359ebffe5b6c322017b291c0e"
     trainer_source = trainer.read_text()
     assert 'root / "wire" / f"E{expert:03d}" / f"{projection}.q2v7wire"' in trainer_source
     assert 'root / "wire" / f"E{expert:03d}" / f"{projection}.k2wire"' in trainer_source
