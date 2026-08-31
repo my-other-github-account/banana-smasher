@@ -55,7 +55,8 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
         su = np.arange(16, dtype="<f2") + expert
         sv = np.arange(16, dtype="<f2") + expert * 2
         path = tmp_path / f"E{expert:03d}_w1.q2v7wire"
-        path.write_bytes(packed.tobytes() + su.tobytes() + sv.tobytes() + b"wire")
+        trailer = expert.to_bytes(4, "little")
+        path.write_bytes(packed.tobytes() + su.tobytes() + sv.tobytes() + trailer)
         paths.append(path)
         expected_packed.append(torch.from_numpy(packed.copy()))
 
@@ -70,6 +71,7 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     assert tuple(sv.shape) == (3, 16)
     assert read_calls == 3
     assert read_bytes == 3 * 132
+    assert 'trailer != b"wire"' not in source_path.read_text()
 
     source = source_path.read_text()
     assert "pin_memory: bool = True" in source

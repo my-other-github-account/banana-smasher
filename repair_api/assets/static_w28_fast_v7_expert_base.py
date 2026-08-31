@@ -122,7 +122,9 @@ def _load_projection_payloads_into(
             )
         finally:
             os.close(fd)
-        if count != expected or trailer != b"wire":
+        # The final four bytes are authenticated opaque wire payload, not a
+        # format magic.  Exact total geometry is the invariant.
+        if count != expected:
             raise RuntimeError(f"wire byte geometry drift: {path}")
         return count
 
