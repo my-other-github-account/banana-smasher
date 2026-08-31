@@ -82,6 +82,12 @@ def run_static_w28_resident_acceptance(
     if not isinstance(score_config, dict):
         raise RuntimeError("STATIC_W28_OFFICIAL_CONFIG_MISSING")
     source_binding = sealed_pre_forward.bind_sealed_pre_resident_config(score_config)
+    # The acceptance reports exactly one W28 window.  Do not expand it back to
+    # the manifest's aligned four-window production batch: two same-process
+    # resident shards leave 1.28 GiB free, while the extra physical windows make
+    # the first attention normalization request another 1 GiB and OOM.  The
+    # resident provider already defines configured=1 as the singleton W28 path.
+    score_config["score_window_batch_size"] = 1
     # Static W28 owns one Spark seat.  The sealed resident backend is two-shard,
     # so running its rank-0 engine alone reaches NCCL P2P warmup after the full
     # cold load and waits for a rank-1 process that this entry point never
@@ -148,7 +154,8 @@ def run_static_w28_resident_acceptance(
         "full64_launched": False,
         "public_api": "ResidentRepairAPI.score",
         "runtime_topology": "same_process_dual_shard",
-        "one_variable": "same-process dual-shard runtime replaces orphaned rank-0 NCCL rendezvous",
+        "runtime_score_window_batch_size": 1,
+        "one_variable": "singleton physical W28 batch replaces aligned four-window expansion",
         "runtime_rank_seat": dict(rank_seat) if rank_seat is not None else None,
     }
     path = root / "receipts" / f"STATIC_W28_RESIDENT_ACCEPTANCE.{task}.json"

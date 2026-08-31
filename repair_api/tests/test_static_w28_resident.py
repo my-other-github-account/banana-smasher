@@ -314,6 +314,9 @@ def test_static_w28_forces_same_process_dual_shard_only_during_score(
             seen["same_process_dual_shard"] = os.environ.get(
                 "BANANA_SMASHER_SAME_PROCESS_DUAL_SHARD"
             )
+            seen["score_window_batch_size"] = self.artifact.manifest["score"][
+                "official_k2_resident"
+            ]["score_window_batch_size"]
             return ScoreResult(
                 checkpoint=checkpoint, windows=(28,), positions=1024, support=8192,
                 kld=0.1364830042977786, top1=880, top1_rate=880 / 1024,
@@ -349,6 +352,7 @@ def test_static_w28_forces_same_process_dual_shard_only_during_score(
     import os
 
     assert seen["same_process_dual_shard"] == "1"
+    assert seen["score_window_batch_size"] == 1
     assert "BANANA_SMASHER_SAME_PROCESS_DUAL_SHARD" not in os.environ
     assert receipt["runtime_topology"] == "same_process_dual_shard"
 
