@@ -36,12 +36,13 @@ def decode_k2_matrix_batched(
     shifts = torch.arange(14, -1, -2, device=packed.device, dtype=torch.int32)
     codes = ((words.unsqueeze(-1) >> shifts) & 3).reshape(*packed.shape[:-1], 256)
 
-    # The official decoder forms each cyclic eight-code state serially. Unfold
-    # expresses the same windows in one kernel while preserving integer math.
+    # The official decoder forms each cyclic eight-code state serially. Build
+    # the eight shifted vectors without materializing an [..., 256, 8] tensor;
+    # this preserves integer math while bounding transient GPU memory.
     circular = torch.cat((codes[..., 249:], codes), dim=-1)
-    windows = circular.unfold(-1, 8, 1).to(torch.int64)
-    state_shifts = torch.arange(14, -1, -2, device=packed.device, dtype=torch.int64)
-    states = (windows << state_shifts).sum(dim=-1) & 0xFFFF
+    states = torch.zeros_like(codes, dtype=torch.int64)
+    for offset, shift in enumerate(range(14, -1, -2)):
+        states |= circular[..., offset : offset + 256].to(torch.int64) << shift
     products = (states * _MUL1) & 0xFFFFFFFF
     parents = (
         (products & 0xFF)
