@@ -201,23 +201,27 @@ def _stream_projection_payloads(
     packed_cuda = torch.empty(packed_shape, dtype=torch.int16, device=device)
     su_cuda = torch.empty((len(paths), k), dtype=torch.float16, device=device)
     sv_cuda = torch.empty((len(paths), m), dtype=torch.float16, device=device)
-    arena_shape = (HOST_STREAM_EXPERTS, *packed_shape[1:])
+    # w1/w3 and w2 contain the same packed bytes per expert with transposed
+    # logical dimensions.  Keep the reusable relay flat so all projections
+    # share one lifetime-bounded allocation, then expose the active view only.
+    arena_shape = (HOST_STREAM_EXPERTS, int(np.prod(packed_shape[1:])))
     arena_cpu = _shared_packed_host_arena(arena_shape).numpy()
     read_calls = 0
     read_bytes = 0
     for start in range(0, len(paths), HOST_STREAM_EXPERTS):
         end = min(start + HOST_STREAM_EXPERTS, len(paths))
         count = end - start
+        packed_view = arena_cpu[:count].reshape((count, *packed_shape[1:]))
         su_cpu, sv_cpu, calls, nbytes = _load_projection_payloads_into(
             paths[start:end],
-            arena_cpu[:count],
+            packed_view,
             m=m,
             k=k,
             packed_bytes=packed_bytes,
             pin_memory=False,
         )
         packed_cuda[start:end].copy_(
-            torch.from_numpy(arena_cpu[:count]), non_blocking=False
+            torch.from_numpy(packed_view), non_blocking=False
         )
         su_cuda[start:end].copy_(su_cpu, non_blocking=False)
         sv_cuda[start:end].copy_(sv_cpu, non_blocking=False)

@@ -13,7 +13,7 @@ def test_static_w28_streams_bounded_pageable_chunks_into_resident_cuda() -> None
     stream = source[source.index("def _stream_projection_payloads("):class_start]
     assert "HOST_STREAM_EXPERTS = 16" in source
     assert "for start in range(0, len(paths), HOST_STREAM_EXPERTS):" in stream
-    assert "arena_cpu[:count]" in stream
+    assert "packed_view = arena_cpu[:count].reshape" in stream
     assert "packed_cuda[start:end].copy_(" in stream
     assert "su_cuda[start:end].copy_(" in stream
     assert "sv_cuda[start:end].copy_(" in stream
@@ -87,4 +87,4 @@ def test_streamed_projection_preserves_bytes_across_chunk_boundary(
     assert torch.equal(sv[:, 0], torch.arange(17, dtype=torch.float16) * 2)
     assert calls == 17
     assert read_bytes == 17 * 132
-    assert namespace["_PACKED_HOST_ARENA"].shape == (16, 1, 1, 32)
+    assert namespace["_PACKED_HOST_ARENA"].shape == (16, 32)
