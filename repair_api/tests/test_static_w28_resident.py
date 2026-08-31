@@ -63,62 +63,17 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     assert read_bytes == 3 * 132
 
 
-def test_static_wire_cache_eviction_keeps_each_fadvise_but_uses_bounded_workers() -> None:
+def test_static_wire_cache_remains_kernel_reclaimable_without_startup_fadvise() -> None:
     source_path = (
         Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
     )
-    tree = ast.parse(source_path.read_text())
-    function = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == "release_file_cache_paths"
-    )
-    seen: dict[str, object] = {}
-    calls: list[tuple[object, ...]] = []
-
-    class RecordingExecutor(ThreadPoolExecutor):
-        def __init__(self, *args, **kwargs):
-            seen["max_workers"] = kwargs.get("max_workers")
-            seen["thread_name_prefix"] = kwargs.get("thread_name_prefix")
-            super().__init__(*args, **kwargs)
-
-    class FakeOS:
-        O_RDONLY = 0
-        POSIX_FADV_DONTNEED = 4
-
-        @staticmethod
-        def open(path, flags):
-            calls.append(("open", path, flags))
-            return int(str(path))
-
-        @staticmethod
-        def posix_fadvise(descriptor, offset, length, advice):
-            calls.append(("advise", descriptor, offset, length, advice))
-
-        @staticmethod
-        def close(descriptor):
-            calls.append(("close", descriptor))
-
-    namespace = {
-        "Iterable": Iterable,
-        "Path": Path,
-        "ThreadPoolExecutor": RecordingExecutor,
-        "os": FakeOS,
-    }
-    exec(compile(ast.Module(body=[function], type_ignores=[]), str(source_path), "exec"), namespace)
-    namespace["release_file_cache_paths"]([Path("1"), Path("2"), Path("3")])
-
-    assert seen == {"max_workers": 3, "thread_name_prefix": "w28-wire-evict"}
-    assert sorted(call for call in calls if call[0] == "advise") == [
-        ("advise", 1, 0, 0, 4),
-        ("advise", 2, 0, 0, 4),
-        ("advise", 3, 0, 0, 4),
-    ]
-    assert sorted(call for call in calls if call[0] == "close") == [
-        ("close", 1),
-        ("close", 2),
-        ("close", 3),
-    ]
+    source = source_path.read_text()
+    release = source[source.index("        def release_expert_source_cache(") :]
+    release = release[: release.index("\n\n        self.get_tensor")]
+    assert "gc.collect()" in release
+    assert "posix_fadvise" not in release
+    assert "POSIX_FADV_DONTNEED" not in release
+    assert "member_paths" not in release
 
 
 def test_l006_identical_duplicate_wire_candidates_are_unambiguous(tmp_path) -> None:

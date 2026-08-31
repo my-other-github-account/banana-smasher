@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import gc
 import hashlib
 import json
@@ -114,31 +113,6 @@ def active_wire_templates(root: Path) -> tuple[str, ...]:
         if (root / template.format(expert=0, projection="w1")).is_file()
     )
     return active or WIRE_MEMBER_TEMPLATES
-
-
-def release_file_cache_paths(paths: Iterable[Path]) -> None:
-    """Evict independent immutable wires with bounded path concurrency."""
-    advise = getattr(os, "posix_fadvise", None)
-    dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
-    if advise is None or dontneed is None:
-        raise RuntimeError("expert source page-cache eviction is unavailable")
-    member_paths = tuple(paths)
-
-    def drop(path: Path) -> None:
-        descriptor = os.open(path, os.O_RDONLY)
-        try:
-            advise(descriptor, 0, 0, dontneed)
-        except OSError as exc:
-            raise RuntimeError(f"expert source page-cache eviction failed: {path}: {exc}") from exc
-        finally:
-            os.close(descriptor)
-
-    workers = min(16, len(member_paths))
-    with ThreadPoolExecutor(
-        max_workers=workers, thread_name_prefix="w28-wire-evict"
-    ) as pool:
-        for _ in pool.map(drop, member_paths):
-            pass
 
 
 def fsync_dir(path: Path) -> None:
@@ -587,9 +561,8 @@ class ShardStudent:
                     os.close(descriptor)
 
         def release_expert_source_cache(source: PlaneSource) -> None:
-            """Drop clean selected-wire pages after their CUDA copies are sealed."""
+            """Release Python relays; immutable page cache remains kernel-reclaimable."""
             gc.collect()
-            release_file_cache_paths(source.member_paths.values())
 
         self.get_tensor = get_tensor
         m = self.model
