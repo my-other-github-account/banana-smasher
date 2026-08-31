@@ -89,15 +89,11 @@ def _managed_packed_tensor(
     return tensor
 
 
-def _load_projection_payloads(
-    paths: list[Path], *, m: int, k: int, packed_bytes: int = PACKED_BYTES,
-    pin_memory: bool = True, device: torch.device,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
-    """Read wires into coherent managed packed state and pinned scales."""
-    packed_shape = (len(paths), k // 16, m // 16, 32)
-    packed_pointer, packed_owner, packed = _managed_packed_allocation(
-        packed_shape, device=device,
-    )
+def _load_projection_payloads_into(
+    paths: list[Path], packed: np.ndarray, *, m: int, k: int,
+    packed_bytes: int = PACKED_BYTES, pin_memory: bool = True,
+) -> tuple[torch.Tensor, torch.Tensor, int, int]:
+    """Read one projection into an admitted managed view and pinned scales."""
     su_tensor = torch.empty((len(paths), k), dtype=torch.float16, pin_memory=pin_memory)
     sv_tensor = torch.empty((len(paths), m), dtype=torch.float16, pin_memory=pin_memory)
     su = su_tensor.numpy()
@@ -124,9 +120,22 @@ def _load_projection_payloads(
                 payload[packed_bytes + k * 2 : packed_bytes + (k + m) * 2], dtype="<f2"
             )
             read_bytes += len(payload)
-    # Constructing a CUDA storage mapping before the CPU fill serializes page
-    # admission on GB10.  Keep the proven host-prefetch/fill order and expose
-    # the exact same managed bytes to CUDA only after all immutable wires land.
+    return su_tensor, sv_tensor, len(paths), read_bytes
+
+
+def _load_projection_payloads(
+    paths: list[Path], *, m: int, k: int, packed_bytes: int = PACKED_BYTES,
+    pin_memory: bool = True, device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
+    """Read one projection into coherent managed state for focused admission."""
+    packed_shape = (len(paths), k // 16, m // 16, 32)
+    packed_pointer, packed_owner, packed = _managed_packed_allocation(
+        packed_shape, device=device,
+    )
+    su_tensor, sv_tensor, read_calls, read_bytes = _load_projection_payloads_into(
+        paths, packed, m=m, k=k, packed_bytes=packed_bytes,
+        pin_memory=pin_memory,
+    )
     packed_tensor = _managed_packed_tensor(
         packed_pointer, packed_owner, packed_shape, device=device
     )
@@ -134,7 +143,7 @@ def _load_projection_payloads(
         packed_tensor,
         su_tensor,
         sv_tensor,
-        len(paths),
+        read_calls,
         read_bytes,
     )
 
@@ -184,24 +193,53 @@ class FullyResidentGroupedV7Experts(nn.Module):
         self._trace_unique_experts = 0
         self.act = F.silu
 
+        # One layer arena preserves the exact three contiguous projection
+        # payloads while avoiding three repeated CUDA-storage admissions.  The
+        # proven 8-GiB managed admission covers this 1.5-GiB allocation.
+        projection_elements = (
+            EXPERTS * PROJECTION_SHAPES["w1"][0]
+            * PROJECTION_SHAPES["w1"][1] * 32 // 256
+        )
+        arena_shape = (len(PROJECTIONS), projection_elements)
+        arena_pointer, arena_owner, arena_cpu = _managed_packed_allocation(
+            arena_shape, device=device
+        )
+        loaded = {}
+        for projection_index, projection in enumerate(PROJECTIONS):
+            m, k = PROJECTION_SHAPES[projection]
+            packed_shape = (EXPERTS, k // 16, m // 16, 32)
+            paths = [
+                plane_source.member_path(expert, projection)
+                for expert in range(EXPERTS)
+            ]
+            su_cpu, sv_cpu, read_calls, read_bytes = _load_projection_payloads_into(
+                paths,
+                arena_cpu[projection_index].reshape(packed_shape),
+                m=m,
+                k=k,
+            )
+            loaded[projection] = (
+                projection_index, packed_shape, su_cpu, sv_cpu,
+                read_calls, read_bytes,
+            )
+        arena = _managed_packed_tensor(
+            arena_pointer, arena_owner, arena_shape, device=device
+        )
         pending_transfers = {}
         with ThreadPoolExecutor(
             max_workers=len(PROJECTIONS), thread_name_prefix="w28-h2d"
         ) as transfer_pool:
             for projection in PROJECTIONS:
                 m, k = PROJECTION_SHAPES[projection]
-                paths = [
-                    plane_source.member_path(expert, projection)
-                    for expert in range(EXPERTS)
-                ]
-                payload = _load_projection_payloads(
-                    paths, m=m, k=k, device=device
-                )
-                packed_cpu, su_cpu, sv_cpu, read_calls, read_bytes = payload
+                (
+                    projection_index, packed_shape, su_cpu, sv_cpu,
+                    read_calls, read_bytes,
+                ) = loaded[projection]
+                packed_tensor = arena[projection_index].reshape(packed_shape)
                 pending_transfers[projection] = (
                     transfer_pool.submit(
                         _transfer_projection_payloads,
-                        packed_cpu,
+                        packed_tensor,
                         su_cpu,
                         sv_cpu,
                         device=device,

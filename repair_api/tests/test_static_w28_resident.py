@@ -16,11 +16,12 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
         Path(__file__).parents[1] / "assets" / "static_w28_fast_v7_expert_base.py"
     )
     tree = ast.parse(source_path.read_text())
-    function = next(
+    functions = [
         node
         for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == "_load_projection_payloads"
-    )
+        if isinstance(node, ast.FunctionDef)
+        and node.name in {"_load_projection_payloads_into", "_load_projection_payloads"}
+    ]
     seen: dict[str, object] = {}
 
     class RecordingExecutor(ThreadPoolExecutor):
@@ -45,7 +46,7 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
         ),
         "_managed_packed_tensor": lambda pointer, owner, shape, device: owner,
     }
-    exec(compile(ast.Module(body=[function], type_ignores=[]), str(source_path), "exec"), namespace)
+    exec(compile(ast.Module(body=functions, type_ignores=[]), str(source_path), "exec"), namespace)
     paths = []
     expected_packed = []
     for expert in range(3):
@@ -100,6 +101,25 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     assert "transfer_pool.submit(" in source
     assert "for projection in PROJECTIONS:" in source[source.index("with ThreadPoolExecutor(") :]
     assert first_copy < last_copy < sync
+
+
+def test_static_provider_constructs_one_managed_alias_per_layer() -> None:
+    source = (
+        Path(__file__).parents[1]
+        / "assets"
+        / "static_w28_fast_v7_expert_base.py"
+    ).read_text()
+    constructor = source[source.index("class FullyResidentGroupedV7Experts") :]
+    allocation = constructor.index("arena_pointer, arena_owner, arena_cpu")
+    projection_loop = constructor.index(
+        "for projection_index, projection in enumerate(PROJECTIONS)", allocation
+    )
+    fill = constructor.index("_load_projection_payloads_into(", projection_loop)
+    alias = constructor.index("arena = _managed_packed_tensor(", fill)
+    transfer = constructor.index("with ThreadPoolExecutor(", alias)
+    assert allocation < projection_loop < fill < alias < transfer
+    assert "arena_cpu[projection_index].reshape(packed_shape)" in constructor
+    assert "arena[projection_index].reshape(packed_shape)" in constructor
 
 
 def test_static_wire_cache_remains_kernel_reclaimable_without_startup_fadvise() -> None:
