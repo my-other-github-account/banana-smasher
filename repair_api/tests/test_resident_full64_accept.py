@@ -508,7 +508,7 @@ def test_sealed_pre_binding_owns_accepted_trainer_identity() -> None:
     from repair_api.modern_green_resident import _require_file
     from repair_api.sealed_pre_forward import bind_sealed_pre_resident_config
 
-    authoritative_sha = "e952ccb6d96eca91015fd60210962a23c120053fdc5c99a4e4aded465dd6fbca"
+    authoritative_sha = "6cf2e10ca36af2dd73b8881c257db8b037e34b0597d0c6b20f092b1fc3e652aa"
     stale_sha = "cc0520e00a6cc5b979c638e3f1fd98ae92c882f3cf9f48cbcdf3fa55fad343cc"
     config = {
         "trainer_source": "/stale/inherited/trainer.py",

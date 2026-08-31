@@ -82,7 +82,7 @@ def canonical_sha256(value: object) -> str:
 
 def resolve_wire_candidate(candidates: Iterable[Path], *, member: str) -> Path:
     """Accept duplicate layouts only when they contain identical wire bytes."""
-    present = [path.resolve() for path in candidates if path.is_file()]
+    present = [path for path in candidates if path.is_file()]
     if not present:
         raise RuntimeError(f"{member} member missing")
     selected = present[0]
