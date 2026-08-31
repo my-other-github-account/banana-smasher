@@ -537,28 +537,9 @@ class ShardStudent:
             return handles[shard].get_tensor(name)
 
         def release_model_source_cache(layer: int) -> None:
-            """Drop clean source-shard pages after their CUDA copies are sealed."""
-            prefix = f"layers.{layer}."
-            shards = sorted({
-                shard for name, shard in self.wm.items() if name.startswith(prefix)
-            })
+            """Close source mmaps; immutable pages remain kernel-reclaimable."""
             handles.clear()
             gc.collect()
-            advise = getattr(os, "posix_fadvise", None)
-            dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
-            if advise is None or dontneed is None:
-                raise RuntimeError("model source page-cache eviction is unavailable")
-            for shard in shards:
-                path = model_root / shard
-                descriptor = os.open(path, os.O_RDONLY)
-                try:
-                    advise(descriptor, 0, 0, dontneed)
-                except OSError as exc:
-                    raise RuntimeError(
-                        f"L{layer:03d} model source page-cache eviction failed: {path}: {exc}"
-                    ) from exc
-                finally:
-                    os.close(descriptor)
 
         def release_expert_source_cache(source: PlaneSource) -> None:
             """Release Python relays; immutable page cache remains kernel-reclaimable."""

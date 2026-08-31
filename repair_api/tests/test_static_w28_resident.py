@@ -75,6 +75,13 @@ def test_static_wire_cache_remains_kernel_reclaimable_without_startup_fadvise() 
     assert "POSIX_FADV_DONTNEED" not in release
     assert "member_paths" not in release
 
+    model_release = source[source.index("        def release_model_source_cache(") :]
+    model_release = model_release[: model_release.index("\n\n        def release_expert_source_cache")]
+    assert "handles.clear()" in model_release
+    assert "gc.collect()" in model_release
+    assert "posix_fadvise" not in model_release
+    assert "POSIX_FADV_DONTNEED" not in model_release
+
 
 def test_l006_identical_duplicate_wire_candidates_are_unambiguous(tmp_path) -> None:
     """Mirror the accepted PlaneSource rule: identical duplicates are one member."""
