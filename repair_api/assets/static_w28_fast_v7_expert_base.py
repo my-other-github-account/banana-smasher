@@ -29,12 +29,13 @@ PROJECTION_SHAPES = {
     "w3": (2048, 4096),
 }
 
-# The resident builder installs layers serially.  Keep only sixteen experts of
-# one projection in pageable host memory at once; each chunk is synchronously
-# copied into its final resident CUDA tensor before the relay is reused.  A
-# whole-layer three-projection arena stayed alive while both local shards were
-# materialized and pushed coherent-memory cold start over the Spark limit.
-HOST_STREAM_EXPERTS = 16
+# The resident builder installs layers serially.  Keep only one expert of one
+# projection in pageable host memory at once; each 2-MiB copy is synchronously
+# completed before the relay is reused.  Attempt68 reached 117322 MiB coherent
+# residency and host-OOMed with a sixteen-expert (32-MiB) cold copy transaction;
+# the single-expert transaction preserves byte order and final resident tensors
+# while bounding the only transient materialization variable.
+HOST_STREAM_EXPERTS = 1
 _PACKED_HOST_ARENA: torch.Tensor | None = None
 
 

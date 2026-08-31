@@ -11,7 +11,7 @@ def test_static_w28_streams_bounded_pageable_chunks_into_resident_cuda() -> None
     class_start = source.index("class FullyResidentGroupedV7Experts")
     constructor = source[class_start:]
     stream = source[source.index("def _stream_projection_payloads("):class_start]
-    assert "HOST_STREAM_EXPERTS = 16" in source
+    assert "HOST_STREAM_EXPERTS = 1" in source.splitlines()
     assert "for start in range(0, len(paths), HOST_STREAM_EXPERTS):" in stream
     assert "packed_view = arena_cpu[:count].reshape" in stream
     assert "packed_cuda[start:end].copy_(" in stream
