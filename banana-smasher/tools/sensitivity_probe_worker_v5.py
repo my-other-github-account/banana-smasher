@@ -37,7 +37,6 @@ from banana_smasher.sensitivity_probe_v2 import (
 )
 
 BASIS = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
-PROBE_MANIFEST_V5_COMPLETE20_SHA = "21113fc48a370cbaf479071c96d46143b0158abe938f13968e297b536b7ec9df"
 PROBE_MANIFEST_V5_COMPLETE20_COUNT = 20
 LEDGER_SHA = "45b124e40a0f41a10e25949efdf32cc11a4271f24cf1331c6dbab6deacd813ee"
 BASELINE_MANIFEST_SHA = "bbed6a44c690f89555b44ccfd4c8b0a0c5ed5dda0aca7bb3d0de2b60fd30d07a"
@@ -155,7 +154,10 @@ def main() -> int:
     args = parser.parse_args()
     root = args.root.resolve()
     root.mkdir(parents=True, exist_ok=True)
-    if sha(args.probe_manifest) != PROBE_MANIFEST_V5_COMPLETE20_SHA:
+    expected_manifest_sha = os.environ.get("BANANA_SMASHER_PROBE_MANIFEST_SHA256")
+    if not expected_manifest_sha:
+        raise RuntimeError("PROBE_MANIFEST_EXPECTED_SHA_MISSING")
+    if sha(args.probe_manifest) != expected_manifest_sha:
         raise RuntimeError("PROBE_MANIFEST_V5_COMPLETE20_SHA_RED")
     if sha(args.ledger) != LEDGER_SHA:
         raise RuntimeError("LEDGER_SHA_RED")
@@ -340,7 +342,7 @@ def main() -> int:
             "board_run_id": int(os.environ.get("BANANA_SMASHER_RUN_ID", "0")),
             "canonical_git_pin": os.environ.get("BANANA_SMASHER_PIN"),
             "basis_sha256": BASIS,
-            "probe_manifest_sha256": PROBE_MANIFEST_V5_COMPLETE20_SHA,
+            "probe_manifest_sha256": expected_manifest_sha,
             "probe_id": probe_id,
             "role": probe.get("role"),
             "replicate_of": probe.get("replicate_of"),
@@ -403,7 +405,7 @@ def main() -> int:
         "board_run_id": int(os.environ.get("BANANA_SMASHER_RUN_ID", "0")),
         "basis_sha256": BASIS,
         "canonical_git_pin": os.environ.get("BANANA_SMASHER_PIN"),
-        "probe_manifest_sha256": PROBE_MANIFEST_V5_COMPLETE20_SHA,
+        "probe_manifest_sha256": expected_manifest_sha,
         "shard": shard_label,
         "completed": len(selected),
         "measurements_path": str(measurements),
