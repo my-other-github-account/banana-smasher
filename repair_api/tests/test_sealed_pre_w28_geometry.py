@@ -30,7 +30,7 @@ def test_sealed_pre_binding_preserves_explicit_accepted_static_provider(monkeypa
         "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
     )
     assert resolved["expert_sha256"] == (
-        "c3cf5410d180aeaa321b59d399d2ef8160ce200cd0c85457f51975bb17589c29"
+        "13d540c3b34d80dea1fbdf19221d9d0088b36ea491e7ed87b29051eefd5e94f5"
     )
 
 
