@@ -265,6 +265,8 @@ class PlaneSource:
                     candidates = [
                         root / f"E{expert:03d}_{projection}.q2v7wire",
                         root / f"E{expert:03d}_{projection}.k2wire",
+                        root / "wire" / f"E{expert:03d}" / f"{projection}.q2v7wire",
+                        root / "wire" / f"E{expert:03d}" / f"{projection}.k2wire",
                     ]
                     present = [p.resolve() for p in candidates if p.is_file()]
                     if len(present) != 1:

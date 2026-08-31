@@ -410,7 +410,7 @@ def test_u20_static_provider_rebinds_inherited_trainer_to_canonical_layerwise_lo
         / "assets"
         / "static_w28_modern_green_clean_u0.py"
     )
-    assert sha256 == "126c11f306a12ed35c1234bd12952a32662c3bd81fc2e74361f0a55ebdc21fc0"
+    assert sha256 == "603dc65278597d0cc5a771b498f03c9b5ece92e78ce306a3f28a096384cbff47"
 
 
 def test_exact_u20_full_surface_backend_is_an_authenticated_resume():
