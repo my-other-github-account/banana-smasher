@@ -1587,6 +1587,10 @@ class ModernGreenResidentEngine:
             "mean_kld": math.fsum(float(row["kld_sum"]) for row in rows) / positions,
             "top1_matches": sum(int(row["top1"]) for row in rows),
             "positions": positions,
+            # _teacher_support() has already required exact length x 8192
+            # teacher rows for every scored window. Preserve that physical
+            # proof in the score receipt consumed by the production rail.
+            "support_width": 8192,
             "checkpoint": f"UPDATE_{self.global_step:03d}",
             "timed_wall_seconds": elapsed,
             "execution_mode": "resident_model_in_memory",
