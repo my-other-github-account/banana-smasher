@@ -11,6 +11,7 @@ from __future__ import annotations
 import fcntl
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -130,6 +131,7 @@ class Qtip3ApiConfig:
     """Immutable acceptance settings for one QTIP V7 ladder tier."""
 
     bpw: float = 3.00
+    tier: Literal["qtip1_v7", "qtip3_v7", "qtip4_v7"] = "qtip3_v7"
     codec_version: Literal["v6"] = "v6"
     provider: str = "qtip-native-v6@3.00"
     backend: Literal["cuda"] = "cuda"
@@ -156,22 +158,34 @@ class Qtip3ApiConfig:
         rate = float(bpw)
         if rate not in {1.0, 3.0, 4.0}:
             raise ValueError("QTIP V7 ladder supports only BPW 1.00, 3.00, and 4.00")
+        tiers: dict[float, Literal["qtip1_v7", "qtip3_v7", "qtip4_v7"]] = {
+            1.0: "qtip1_v7", 3.0: "qtip3_v7", 4.0: "qtip4_v7"
+        }
         return cls(
             bpw=rate,
+            tier=tiers[rate],
             provider=f"qtip-native-v6@{rate:.2f}",
             geometry=(int(rate * 4), 16, 4),
         )
 
+    @classmethod
+    def for_tier(cls, tier: str) -> "Qtip3ApiConfig":
+        """Resolve a canonical V7 tier name to the proven producer geometry."""
+        rates = {"qtip1_v7": 1.0, "qtip3_v7": 3.0, "qtip4_v7": 4.0}
+        if tier not in rates:
+            raise ValueError("QTIP V7 tier must be qtip1_v7, qtip3_v7, or qtip4_v7")
+        return cls.for_bpw(rates[tier])
+
     def __post_init__(self) -> None:
         expected = {
-            1.0: ("qtip-native-v6@1.00", (4, 16, 4)),
-            3.0: ("qtip-native-v6@3.00", (12, 16, 4)),
-            4.0: ("qtip-native-v6@4.00", (16, 16, 4)),
+            1.0: ("qtip1_v7", "qtip-native-v6@1.00", (4, 16, 4)),
+            3.0: ("qtip3_v7", "qtip-native-v6@3.00", (12, 16, 4)),
+            4.0: ("qtip4_v7", "qtip-native-v6@4.00", (16, 16, 4)),
         }.get(self.bpw)
         if expected is None or self.codec_version != "v6":
             raise ValueError("QTIP V7 ladder supports only codec v6 at BPW 1.00, 3.00, and 4.00")
-        if (self.provider, self.geometry) != expected:
-            raise ValueError("QTIP V7 provider/geometry does not match its declared BPW")
+        if (self.tier, self.provider, self.geometry) != expected:
+            raise ValueError("QTIP V7 tier/provider/geometry does not match its declared BPW")
         if self.backend != "cuda":
             raise ValueError("QTIP V7 producer requires CUDA")
         if self.tlut_shape != (512, 2):
@@ -422,7 +436,8 @@ def _cell_terminal(plan: Qtip3ApiPlan, cell: CellSpec, api_receipt: dict[str, An
         "cell": cell.key, "layer": cell.layer, "expert": cell.expert, "projection": cell.projection,
         "api_receipt": api_receipt.get("receipt", str(cell.output / "CELL_RECEIPT.json")),
         "api_receipt_sha256": api_receipt.get("receipt_sha256"),
-        "backend": config.backend, "codec_version": config.codec_version, "provider": config.provider,
+        "tier": config.tier, "backend": config.backend, "codec_version": config.codec_version,
+        "provider": config.provider,
         "geometry": {"B": config.geometry[0], "L": config.geometry[1], "V": config.geometry[2]},
         "bpw": config.bpw,
         "materialize_decoded": False, "scale_factors": [1.0],
@@ -432,6 +447,101 @@ def _cell_terminal(plan: Qtip3ApiPlan, cell: CellSpec, api_receipt: dict[str, An
     }
     payload["receipt_sha256"] = _atomic_json(cell.output / "PUBLIC_CELL_RECEIPT.json", payload)
     return payload
+
+
+def build_clean102_option_row(
+    public_receipt_path: str | Path,
+    *,
+    prediction_receipt_path: str | Path,
+    config: Qtip3ApiConfig,
+    physical_bytes: int,
+    prediction_by_class: dict[str, float],
+    bank_sha256: str,
+    teacher_sha256: str,
+    scorer_sha256: str,
+    model_id: str = "deepseek-ai/DeepSeek-V4-Flash-0731",
+    model_revision: str = "0731",
+) -> dict[str, Any]:
+    """Build one SHA-bound CLEAN102 predicted-KLD option-ledger row."""
+    path = Path(public_receipt_path).expanduser().resolve()
+    raw = path.read_bytes()
+    receipt = json.loads(raw)
+    prediction_path = Path(prediction_receipt_path).expanduser().resolve()
+    prediction_raw = prediction_path.read_bytes()
+    prediction_receipt = json.loads(prediction_raw)
+    expected_geometry = {
+        "B": config.geometry[0], "L": config.geometry[1], "V": config.geometry[2]
+    }
+    if (
+        receipt.get("schema") != f"{SCHEMA}-cell"
+        or receipt.get("status") != "PASS"
+        or receipt.get("tier") != config.tier
+        or receipt.get("provider") != config.provider
+        or receipt.get("geometry") != expected_geometry
+        or receipt.get("bpw") != config.bpw
+    ):
+        raise ValueError("PUBLIC_CELL receipt does not match the requested QTIP V7 tier")
+    basis = _sha256(str(receipt.get("basis_sha256", "")), "basis_sha256")
+    if model_id != "deepseek-ai/DeepSeek-V4-Flash-0731" or model_revision != "0731":
+        raise ValueError("CLEAN102 QTIP V7 rows require DeepSeek-V4-Flash-0731 revision 0731")
+    for value, label in (
+        (bank_sha256, "bank_sha256"),
+        (teacher_sha256, "teacher_sha256"),
+        (scorer_sha256, "scorer_sha256"),
+    ):
+        _sha256(value, label)
+    if isinstance(physical_bytes, bool) or not isinstance(physical_bytes, int) or physical_bytes <= 0:
+        raise ValueError("physical_bytes must be a positive integer")
+    codes = path.parent / "codes.npy"
+    if not codes.is_file() or codes.stat().st_size != physical_bytes:
+        raise ValueError("physical_bytes must equal the retained codes.npy byte count")
+    if not prediction_by_class or any(
+        not isinstance(name, str)
+        or not name
+        or isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+        or float(value) < 0
+        for name, value in prediction_by_class.items()
+    ):
+        raise ValueError("prediction_by_class must contain finite non-negative KLD values")
+    match = re.fullmatch(r"L(\d{3})/E(\d{3})_(down|fused13)", str(receipt.get("cell", "")))
+    if match is None:
+        raise ValueError("PUBLIC_CELL receipt has an invalid cell identity")
+    layer, expert, projection = int(match.group(1)), int(match.group(2)), match.group(3)
+    cell_id = f"L{layer:03d}:E{expert:03d}:{projection}"
+    if (
+        prediction_receipt.get("status") != "PASS"
+        or prediction_receipt.get("basis_sha256") != basis
+        or prediction_receipt.get("cell_id") != cell_id
+    ):
+        raise ValueError("CLEAN102 prediction receipt does not match PUBLIC_CELL basis/cell")
+    descriptor = {"path": str(path), "sha256": _sha_bytes(raw), "bytes": len(raw)}
+    prediction_descriptor = {
+        "path": str(prediction_path), "sha256": _sha_bytes(prediction_raw),
+        "bytes": len(prediction_raw),
+    }
+    return {
+        "schema": "banana-smasher-provenance-option-row-v1",
+        "model_id": model_id,
+        "model_revision": model_revision,
+        "basis_sha256": basis,
+        "bank_sha256": bank_sha256,
+        "teacher_sha256": teacher_sha256,
+        "scorer_sha256": scorer_sha256,
+        "cell_id": cell_id,
+        "layer": layer,
+        "expert": expert,
+        "projection": projection,
+        "tier": config.tier,
+        "physical_bytes": physical_bytes,
+        "activation_ids": [],
+        "prediction_by_class": {
+            name: float(value) for name, value in sorted(prediction_by_class.items())
+        },
+        "prediction_producer": prediction_descriptor,
+        "physical_producer": {**descriptor, "artifact_sha256": sha256_file(codes)},
+    }
 
 
 def _adopt_existing_api_receipt(
@@ -461,7 +571,11 @@ def _is_resumable(path: Path, plan: Qtip3ApiPlan, cell: CellSpec, config: Qtip3A
         return (
             value.get("status") == "PASS" and value.get("task_id") == plan.task_id
             and value.get("cell") == cell.key and value.get("basis_sha256") == plan.intended_basis_sha256
-            and value.get("provider") == config.provider and value.get("fallback_calls") == 0
+            and value.get("tier") == config.tier and value.get("provider") == config.provider
+            and value.get("geometry") == {
+                "B": config.geometry[0], "L": config.geometry[1], "V": config.geometry[2]
+            }
+            and value.get("bpw") == config.bpw and value.get("fallback_calls") == 0
             and int(value.get("cuda_decode_calls", 0)) > 0
         )
     except (OSError, ValueError, TypeError):
@@ -565,7 +679,8 @@ def run_cells(
         "cells": len(passed), "expected_cells": plan.expected_cells,
         "cuda_positive": all(int(row["cuda_decode_calls"]) > 0 for row in passed),
         "fallback_calls": sum(int(row["fallback_calls"]) for row in passed),
-        "materialize_decoded": False, "provider": config.provider,
+        "materialize_decoded": False, "tier": config.tier, "bpw": config.bpw,
+        "provider": config.provider,
         "geometry": {"B": config.geometry[0], "L": config.geometry[1], "V": config.geometry[2]},
         "cell_receipts": [row["receipt_sha256"] for row in passed],
         "pid": pid, "startticks": ticks,
@@ -740,7 +855,8 @@ def run_cells_batched(
         "cells": len(passed), "expected_cells": plan.expected_cells,
         "cuda_positive": all(int(row["cuda_decode_calls"]) > 0 for row in passed),
         "fallback_calls": sum(int(row["fallback_calls"]) for row in passed),
-        "materialize_decoded": False, "provider": config.provider,
+        "materialize_decoded": False, "tier": config.tier, "bpw": config.bpw,
+        "provider": config.provider,
         "geometry": {"B": config.geometry[0], "L": config.geometry[1], "V": config.geometry[2]},
         "cell_receipts": [row["receipt_sha256"] for row in passed],
         "pid": pid, "startticks": ticks, "execution": "public-cross-cell-batch",

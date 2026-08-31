@@ -32,7 +32,9 @@ BASIS = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 TASK_ID = os.environ["QTIP3_TASK_ID"]
 BOARD_RUN_ID = int(os.environ["QTIP3_BOARD_RUN_ID"])
 HOST = os.environ["QTIP3_HOST"]
-TIER_CONFIG = Qtip3ApiConfig.for_bpw(float(os.environ.get("QTIP3_BPW", "3.0")))
+TIER_CONFIG = Qtip3ApiConfig.for_tier(os.environ.get("QTIP3_TIER", "qtip3_v7"))
+if "QTIP3_BPW" in os.environ and float(os.environ["QTIP3_BPW"]) != TIER_CONFIG.bpw:
+    raise RuntimeError("QTIP3_TIER and QTIP3_BPW select inconsistent V7 geometry")
 ALLOC = os.environ["QTIP3_ALLOCATION"]
 DRIVER_SHA = os.environ["QTIP3_DRIVER_SHA"]
 EXPECTED_CLAIM = os.environ["QTIP3_EXPECTED_CLAIM"]
