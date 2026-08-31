@@ -95,6 +95,26 @@ def resolve_wire_candidate(candidates: Iterable[Path], *, member: str) -> Path:
     return selected
 
 
+WIRE_MEMBER_TEMPLATES = (
+    "E{expert:03d}_{projection}.q2v7wire",
+    "E{expert:03d}_{projection}.k2wire",
+    "wire/E{expert:03d}_{projection}.q2v7wire",
+    "wire/E{expert:03d}_{projection}.k2wire",
+    "wire/E{expert:03d}/{projection}.q2v7wire",
+    "wire/E{expert:03d}/{projection}.k2wire",
+)
+
+
+def active_wire_templates(root: Path) -> tuple[str, ...]:
+    """Probe each complete-cache layout once instead of once per member."""
+    active = tuple(
+        template
+        for template in WIRE_MEMBER_TEMPLATES
+        if (root / template.format(expert=0, projection="w1")).is_file()
+    )
+    return active or WIRE_MEMBER_TEMPLATES
+
+
 def fsync_dir(path: Path) -> None:
     fd = os.open(path, os.O_RDONLY)
     try:
@@ -275,15 +295,12 @@ class PlaneSource:
                 self.member_paths[(expert, projection)] = path
         else:
             root = parent_root.resolve() / f"L{self.layer:03d}"
+            wire_templates = active_wire_templates(root)
             for expert in range(256):
                 for projection in PROJECTIONS:
                     candidates = [
-                        root / f"E{expert:03d}_{projection}.q2v7wire",
-                        root / f"E{expert:03d}_{projection}.k2wire",
-                        root / "wire" / f"E{expert:03d}_{projection}.q2v7wire",
-                        root / "wire" / f"E{expert:03d}_{projection}.k2wire",
-                        root / "wire" / f"E{expert:03d}" / f"{projection}.q2v7wire",
-                        root / "wire" / f"E{expert:03d}" / f"{projection}.k2wire",
+                        root / template.format(expert=expert, projection=projection)
+                        for template in wire_templates
                     ]
                     member = f"L{self.layer:03d} E{expert:03d}/{projection}"
                     self.member_paths[(expert, projection)] = resolve_wire_candidate(

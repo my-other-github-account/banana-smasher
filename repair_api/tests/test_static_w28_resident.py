@@ -20,8 +20,17 @@ def test_l006_identical_duplicate_wire_candidates_are_unambiguous(tmp_path) -> N
         node
         for node in tree.body
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and node.name in {"sha256_file", "resolve_wire_candidate"}
+        and node.name in {"sha256_file", "resolve_wire_candidate", "active_wire_templates"}
     ]
+    selected.extend(
+        node
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "WIRE_MEMBER_TEMPLATES"
+            for target in node.targets
+        )
+    )
     namespace = {"Path": Path, "Iterable": Iterable, "os": __import__("os"), "hashlib": hashlib}
     exec(compile(ast.Module(body=selected, type_ignores=[]), str(source_path), "exec"), namespace)
 
@@ -40,6 +49,20 @@ def test_l006_identical_duplicate_wire_candidates_are_unambiguous(tmp_path) -> N
     assert resolve([flat], member="L006 E000/w1") == flat.resolve()
     namespace["sha256_file"] = original_sha256_file
     assert resolve([flat, nested], member="L006 E000/w1") == flat.resolve()
+    active_templates = namespace["active_wire_templates"]
+    unique_root = tmp_path / "unique-layout"
+    unique_flat = unique_root / "E000_w1.q2v7wire"
+    unique_flat.parent.mkdir(parents=True)
+    unique_flat.write_bytes(b"wire")
+    assert active_templates(unique_root) == ("E{expert:03d}_{projection}.q2v7wire",)
+    duplicate_root = tmp_path / "duplicate-layout"
+    duplicate_flat = duplicate_root / "E000_w1.q2v7wire"
+    duplicate_nested = duplicate_root / "wire" / "E000" / "w1.q2v7wire"
+    duplicate_flat.parent.mkdir(parents=True)
+    duplicate_nested.parent.mkdir(parents=True)
+    duplicate_flat.write_bytes(b"wire")
+    duplicate_nested.write_bytes(b"wire")
+    assert len(active_templates(duplicate_root)) == 2
     nested.write_bytes(b"conflicting-wire")
     try:
         resolve([flat, nested], member="L006 E000/w1")

@@ -69,10 +69,11 @@ def test_sealed_pre_w28_keeps_target_producer_mb2_geometry(monkeypatch) -> None:
     assert resolved["expert_path"].name == "static_w28_fast_v7_expert_base.py"
     assert resolved["expert_sha256"] == modern_green_resident.STATIC_W28_GROUPED_EXPERT_SHA256
     trainer = Path(modern_green_resident.__file__).parent / "assets" / "static_w28_modern_green_clean_u0.py"
-    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "6cf2e10ca36af2dd73b8881c257db8b037e34b0597d0c6b20f092b1fc3e652aa"
+    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "e7165ac0f5054ad6df5dfe6da36e07ce00e678630bda5cad6ed43dc839a79abc"
     trainer_source = trainer.read_text()
-    assert 'root / "wire" / f"E{expert:03d}" / f"{projection}.q2v7wire"' in trainer_source
-    assert 'root / "wire" / f"E{expert:03d}" / f"{projection}.k2wire"' in trainer_source
+    assert '"wire/E{expert:03d}/{projection}.q2v7wire"' in trainer_source
+    assert '"wire/E{expert:03d}/{projection}.k2wire"' in trainer_source
+    assert "wire_templates = active_wire_templates(root)" in trainer_source
 
 
 def test_u20_continuation_resolves_commit_owned_serial_provider_descendant() -> None:
