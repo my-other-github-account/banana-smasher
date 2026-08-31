@@ -1,4 +1,5 @@
 from importlib.util import module_from_spec, spec_from_file_location
+import hashlib
 from pathlib import Path
 
 
@@ -41,3 +42,8 @@ def test_u57_target_identity_and_score_argv_are_parameterized():
     assert argv[argv.index("--checkpoint") + 1] == "UPDATE_057"
     assert argv[argv.index("--receipt") + 1] == str(receipt)
     assert "UPDATE_058" not in argv
+
+
+def test_pinned_resident_expert_is_the_attempt24_byte_identity():
+    asset = Path(__file__).parents[1] / "assets" / "static_w28_pinned_3079" / "static_w28_fast_v7_expert_base.py"
+    assert hashlib.sha256(asset.read_bytes()).hexdigest() == "4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
