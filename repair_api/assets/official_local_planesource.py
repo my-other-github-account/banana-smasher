@@ -650,7 +650,7 @@ class PlaneSource:
         import torch
 
         started = time.perf_counter()
-        batch_size = 16
+        batch_size = 64
         decoded = {}
         for projection in ("w1", "w2", "w3"):
             for first in range(0, 256, batch_size):

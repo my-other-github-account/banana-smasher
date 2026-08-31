@@ -249,4 +249,4 @@ def test_public_planes_predecode_uses_vectorized_batched_k2_and_is_hash_bound() 
     assert "from repair_api.batched_k2 import" in source
     assert "decode_k2_matrix_batched" in source
     assert "inverse_transform_batched" in source
-    assert "batch_size = 16" in source
+    assert "batch_size = 64" in source
