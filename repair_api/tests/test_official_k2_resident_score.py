@@ -81,7 +81,7 @@ class FakeOfficialBackend:
 
 
 class OfficialK2ResidentScoreTests(unittest.TestCase):
-    def test_static_w28_resolves_unused_missing_delta_input_without_restage(self):
+    def test_resident_rank_resolves_unused_missing_delta_input_without_restage(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             manifest = root / "manifest.json"
@@ -93,7 +93,6 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             engine.asset_root = root
             engine.windows = (28,)
             engine.config = {
-                "provider_resolution_mode": "STATIC_W28_GROUPED",
                 "binrepair_manifest": str(manifest),
                 "binrepair_delta_dir": str(missing_delta),
                 "binrepair_vq3b_dir": str(vq3b),
@@ -107,9 +106,9 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             self.assertNotEqual(resolved, missing_delta)
             self.assertEqual(
                 (resolved / "DELTA_PACK.COMPLETE").read_text(),
-                "STATIC_W28_GROUPED_UNUSED\n",
+                "RESIDENT_GROUPED_PROVIDER_UNUSED\n",
             )
-            self.assertEqual(engine._static_w28_base_input_dir, resolved)
+            self.assertEqual(engine._resident_base_input_dir, resolved)
             (resolved / "DELTA_PACK.COMPLETE").unlink()
             resolved.rmdir()
 
