@@ -407,11 +407,39 @@ def test_canonical_mixed_provider_drives_public_api_and_preserves_rank_geometry(
             for projection in ("down", "fused13")
         )
     )
+    identity["composition"]["layers"] = [
+        {
+            "layer": layer,
+            "tiers": {
+                tier: sum(
+                    2
+                    for expert in range(256)
+                    if ("native_mxfp4", "qtip2", "qtip3")[(layer + expert) % 3]
+                    == tier
+                )
+                for tier in ("native_mxfp4", "qtip2", "qtip3")
+            },
+        }
+        for layer in range(43)
+    ]
+    (root / "identity.json").write_text(json.dumps(identity, sort_keys=True))
     virtual["materialization_index"] = {
         "file": index_path.name,
         "bytes": index_path.stat().st_size,
         "sha256": _sha(index_path.read_bytes()),
     }
+    virtual["source_bindings"] = {
+        tier: {
+            "basis_sha256": identity["basis"]["model_index_sha256"],
+            "identity_sha256": _sha(f"{tier}-source".encode()),
+        }
+        for tier in ("native_mxfp4", "qtip2", "qtip3")
+    }
+    virtual["source_component_counts"] = {
+        tier: sum(row["tiers"][tier] for row in identity["composition"]["layers"])
+        for tier in ("native_mxfp4", "qtip2", "qtip3")
+    }
+    virtual["tier_counts"] = dict(virtual["source_component_counts"])
     (root / "BACKPACK_VIRTUAL_MANIFEST.json").write_text(
         json.dumps(virtual, sort_keys=True)
     )
@@ -422,6 +450,14 @@ def test_canonical_mixed_provider_drives_public_api_and_preserves_rank_geometry(
     )
     spec["materialization_index_sha256"] = _sha(index_path.read_bytes())
     spec.pop("allow_test_mixed_provider")
+    identity_manifest = tmp_path / "authenticated-mixed-identity.json"
+    identity_manifest.write_bytes((root / "identity.json").read_bytes())
+    (root / "identity.json").unlink()
+    spec.pop("identity_sha256")
+    spec["identity_manifest"] = {
+        "path": str(identity_manifest),
+        "sha256": _sha(identity_manifest.read_bytes()),
+    }
     for rank, continuation in spec["continuations"].items():
         continuation.pop("mixed_provider_factory")
         continuation.pop("mixed_provider_source")
@@ -479,6 +515,9 @@ def test_canonical_mixed_provider_drives_public_api_and_preserves_rank_geometry(
         lambda _root: object(),
     )
     receipt = admit_mixed_resident_artifact(spec_path, root)
+    assert (root / "identity.json").read_bytes() == identity_manifest.read_bytes()
+    assert receipt["artifact_identity_sha256"] == _sha(identity_manifest.read_bytes())
+    assert receipt["identity_manifest_source"] == str(identity_manifest.resolve())
     for rank in (0, 1):
         config = json.loads((root / f"production-rails.rank{rank}.json").read_text())
         continuation = config["continuation"]
@@ -543,6 +582,27 @@ def test_mixed_admission_rejects_mismatched_chain_identity(tmp_path: Path) -> No
 
     with pytest.raises(ValueError, match="materialization index identity mismatch"):
         admit_mixed_resident_artifact(spec, root)
+    assert not (root / "production-rails.rank0.json").exists()
+
+
+def test_identityless_mixed_admission_rejects_unauthenticated_identity_manifest(
+    tmp_path: Path,
+) -> None:
+    root, spec_path = _mixed_chain(tmp_path)
+    identity_manifest = tmp_path / "authenticated-mixed-identity.json"
+    identity_manifest.write_bytes((root / "identity.json").read_bytes())
+    (root / "identity.json").unlink()
+    spec = json.loads(spec_path.read_text())
+    spec.pop("identity_sha256")
+    spec["identity_manifest"] = {
+        "path": str(identity_manifest),
+        "sha256": _sha(b"different identity bytes"),
+    }
+    spec_path.write_text(json.dumps(spec, sort_keys=True))
+
+    with pytest.raises(ValueError, match="identity manifest identity mismatch"):
+        admit_mixed_resident_artifact(spec_path, root)
+    assert not (root / "identity.json").exists()
     assert not (root / "production-rails.rank0.json").exists()
 
 

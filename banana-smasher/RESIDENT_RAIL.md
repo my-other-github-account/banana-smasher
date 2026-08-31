@@ -49,6 +49,30 @@ The config schema is `banana-smasher-production-resident-rails-v1`. It must decl
 
 The artifact's `identity.json` must contain `runtime.production_rails.provider_binding_sha256`. This is the canonical SHA-256 of the provider ABI fields (schema, microbatch, ordered layers, and builder/mixer hook references). The full config SHA and provider-binding SHA are both recorded in the lifecycle receipt. Artifact identity must also cover all 43 layers in generic order and be admitted by `allowed_artifacts`; unknown identity, provider drift, basis drift, manifest/checkpoint-byte drift, malformed composition, or canary mismatch is rejected before score publication.
 
+A sealed mixed virtual chain uses admission schema
+`banana-smasher-mixed-resident-admission-spec-v1`. For a legacy chain that already
+contains `identity.json`, the spec binds it with top-level `identity_sha256`. For
+an identity-less chain, omit `identity_sha256` and supply exactly:
+
+```json
+"identity_manifest": {
+  "path": "/authenticated/handoff/identity.json",
+  "sha256": "<lowercase SHA-256 of those exact bytes>"
+}
+```
+
+The handoff bytes must be a valid `banana-smasher-artifact-identity-v1` document.
+They carry the basis, exact ordered 43-layer mixed tier composition, corpora,
+canary, and selected checkpoint name/SHA/identity. Admission validates those
+bytes in isolation, validates the separately SHA-bound virtual manifest and
+materialization index, requires the canonical production provider/basis/rank
+geometry, and only then atomically installs the exact handoff bytes as
+`identity.json`. It never serializes, synthesizes, or changes the handoff,
+virtual-manifest, or index bytes. Supplying both identity forms, handing off to
+a chain that already has `identity.json`, or mismatching any SHA fails closed.
+`MIXED_ADMISSION.json` records `artifact_identity_sha256` and the resolved
+`identity_manifest_source` (null for the legacy in-place form).
+
 The default session scores directly through the live two-rank ShardStudent. Training calls `advance_to` on that same object, persists recovery bytes, and advances the in-memory binding to the returned checkpoint without loading it back. Post-score therefore measures the just-trained resident parameters; it never selects pre-existing candidate rows or reconstructs a model.
 
 Each rank writes `RESIDENT_LIFECYCLE.rankN.json` and rank-qualified continuation receipts. When both rank lifecycles are present, the provider atomically publishes the paired `RESIDENT_LIFECYCLE.json`; rank processes never race on one rank-specific receipt.

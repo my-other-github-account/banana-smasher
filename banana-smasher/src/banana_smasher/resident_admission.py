@@ -53,8 +53,83 @@ def _sha(value: object, label: str) -> str:
     return value
 
 
+def _mixed_index_composition(index_raw: bytes) -> list[dict[str, Any]]:
+    """Validate and summarize the canonical 43x256x2 physical cell roster."""
+
+    counts = {
+        layer: {tier: 0 for tier in MIXED_PHYSICAL_TIERS}
+        for layer in ALL_LAYERS
+    }
+    cells: set[tuple[int, int, str]] = set()
+    try:
+        rows = [json.loads(line) for line in index_raw.splitlines() if line.strip()]
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("mixed chain materialization index is not valid JSONL") from exc
+    for row in rows:
+        if not isinstance(row, Mapping):
+            raise ValueError("mixed chain requires an exact 43x256x2 cell roster")
+        layer, expert, projection, tier = (
+            row.get("layer"),
+            row.get("expert"),
+            row.get("projection"),
+            row.get("source_key"),
+        )
+        if (
+            isinstance(layer, bool)
+            or not isinstance(layer, int)
+            or layer not in counts
+            or isinstance(expert, bool)
+            or not isinstance(expert, int)
+            or expert not in range(256)
+            or projection not in {"down", "fused13"}
+            or tier not in MIXED_PHYSICAL_TIERS
+            or (row.get("tier") is not None and row.get("tier") != tier)
+        ):
+            raise ValueError("mixed chain requires an exact 43x256x2 cell roster")
+        cell = (layer, expert, str(projection))
+        if cell in cells:
+            raise ValueError("mixed chain requires an exact 43x256x2 cell roster")
+        cells.add(cell)
+        counts[layer][str(tier)] += 1
+    expected = {
+        (layer, expert, projection)
+        for layer in ALL_LAYERS
+        for expert in range(256)
+        for projection in ("down", "fused13")
+    }
+    if cells != expected:
+        raise ValueError("mixed chain requires an exact 43x256x2 cell roster")
+    return [
+        {"layer": layer, "tiers": dict(sorted(counts[layer].items()))}
+        for layer in ALL_LAYERS
+    ]
+
+
 def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
     payload = (json.dumps(dict(value), indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
+def _atomic_bytes(path: Path, payload: bytes) -> None:
+    """Install authenticated bytes without JSON reserialization."""
+
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
@@ -318,13 +393,8 @@ def admit_mixed_resident_artifact(
     identity_path = root / "identity.json"
     virtual_path = root / "BACKPACK_VIRTUAL_MANIFEST.json"
     index_path = root / "MATERIALIZATION_INDEX.jsonl"
-    identity_raw = identity_path.read_bytes()
     virtual_raw = virtual_path.read_bytes()
     index_raw = index_path.read_bytes()
-    if hashlib.sha256(identity_raw).hexdigest() != _sha(
-        spec.get("identity_sha256"), "identity_sha256"
-    ):
-        raise ValueError("mixed chain identity.json identity mismatch")
     if hashlib.sha256(virtual_raw).hexdigest() != _sha(
         spec.get("virtual_manifest_sha256"), "virtual_manifest_sha256"
     ):
@@ -334,7 +404,43 @@ def admit_mixed_resident_artifact(
     ):
         raise ValueError("mixed chain materialization index identity mismatch")
 
-    identity = ArtifactIdentity.load(root)
+    identity_manifest = spec.get("identity_manifest")
+    install_identity = False
+    identity_source: Path | None = None
+    if identity_path.is_file():
+        if identity_manifest is not None:
+            raise ValueError(
+                "identity_manifest handoff requires an identity-less sealed chain"
+            )
+        identity_raw = identity_path.read_bytes()
+        expected_identity_sha = _sha(spec.get("identity_sha256"), "identity_sha256")
+    else:
+        if not isinstance(identity_manifest, Mapping) or set(identity_manifest) != {
+            "path",
+            "sha256",
+        }:
+            raise ValueError(
+                "identity-less mixed chain requires identity_manifest with exactly path and sha256"
+            )
+        if spec.get("identity_sha256") is not None:
+            raise ValueError(
+                "identity-less mixed chain must bind identity only through identity_manifest"
+            )
+        identity_source = Path(str(identity_manifest.get("path", ""))).expanduser().resolve()
+        expected_identity_sha = _sha(
+            identity_manifest.get("sha256"), "identity_manifest.sha256"
+        )
+        if not identity_source.is_file():
+            raise ValueError("authenticated mixed identity manifest is not a file")
+        identity_raw = identity_source.read_bytes()
+        install_identity = True
+    if hashlib.sha256(identity_raw).hexdigest() != expected_identity_sha:
+        raise ValueError("mixed chain identity manifest identity mismatch")
+
+    with tempfile.TemporaryDirectory(prefix="banana-smasher-mixed-identity-") as temporary:
+        temporary_root = Path(temporary)
+        (temporary_root / "identity.json").write_bytes(identity_raw)
+        identity = ArtifactIdentity.load(temporary_root)
     tiers = {
         str(tier)
         for layer in identity.composition
@@ -429,6 +535,46 @@ def admit_mixed_resident_artifact(
             )
         if identity.basis_sha256 != CANONICAL_BASIS_SHA256:
             raise ValueError("canonical physical mixed provider basis identity mismatch")
+        index_composition = _mixed_index_composition(index_raw)
+        index_tier_counts = {
+            tier: sum(row["tiers"][tier] for row in index_composition)
+            for tier in sorted(MIXED_PHYSICAL_TIERS)
+        }
+        if (
+            virtual.get("source_component_counts") != index_tier_counts
+            or virtual.get("tier_counts") != index_tier_counts
+        ):
+            raise ValueError(
+                "mixed virtual manifest tier counts do not match exact materialization roster"
+            )
+        identity_composition = [
+            {
+                "layer": row.get("layer"),
+                "tiers": dict(sorted(dict(row.get("tiers", {})).items())),
+            }
+            for row in identity.composition
+        ]
+        if identity_composition != index_composition:
+            raise ValueError(
+                "mixed identity composition does not match exact materialization roster"
+            )
+        source_bindings = virtual.get("source_bindings")
+        if (
+            not isinstance(source_bindings, Mapping)
+            or set(source_bindings) != MIXED_PHYSICAL_TIERS
+        ):
+            raise ValueError("mixed virtual manifest requires exact physical source bindings")
+        for tier in sorted(MIXED_PHYSICAL_TIERS):
+            source_binding = source_bindings.get(tier)
+            if (
+                not isinstance(source_binding, Mapping)
+                or source_binding.get("basis_sha256") != identity.basis_sha256
+            ):
+                raise ValueError("mixed virtual manifest source binding basis mismatch")
+            _sha(
+                source_binding.get("identity_sha256"),
+                f"source_bindings.{tier}.identity_sha256",
+            )
         for rank in (0, 1):
             continuation = continuations.get(str(rank))
             if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
@@ -479,6 +625,12 @@ def admit_mixed_resident_artifact(
         provider_sources.append((source, expected))
     if provider_sources[0] != provider_sources[1]:
         raise ValueError("mixed continuations provider source mismatch")
+    if install_identity:
+        _atomic_bytes(identity_path, identity_raw)
+        installed_identity = ArtifactIdentity.load(root)
+        if installed_identity.sha256 != identity.sha256:
+            raise RuntimeError("installed mixed identity manifest failed read-back verification")
+        identity = installed_identity
     for rank in (0, 1):
         continuation = bound_continuations.get(str(rank))
         if not isinstance(continuation, Mapping) or continuation.get("rank") != rank:
@@ -501,6 +653,9 @@ def admit_mixed_resident_artifact(
         "artifact_mode": MIXED_ARTIFACT_MODE,
         "artifact_root": str(root),
         "artifact_identity_sha256": identity_sha,
+        "identity_manifest_source": (
+            None if identity_source is None else str(identity_source)
+        ),
         "virtual_manifest_sha256": hashlib.sha256(virtual_raw).hexdigest(),
         "materialization_index_sha256": hashlib.sha256(index_raw).hexdigest(),
         "checkpoint": checkpoint,
