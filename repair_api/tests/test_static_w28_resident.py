@@ -1,4 +1,5 @@
 import ast
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 from pathlib import Path
@@ -8,6 +9,58 @@ from typing import Iterable
 from repair_api.balanced64 import ScoreResult
 from repair_api import static_w28_resident
 from repair_api.api import _localize_official_k2_rank_seat
+
+
+def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> None:
+    source_path = (
+        Path(__file__).parents[1] / "assets" / "static_w28_fast_v7_expert_base.py"
+    )
+    tree = ast.parse(source_path.read_text())
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_load_projection_payloads"
+    )
+    seen: dict[str, object] = {}
+
+    class RecordingExecutor(ThreadPoolExecutor):
+        def __init__(self, *args, **kwargs):
+            seen["max_workers"] = kwargs.get("max_workers")
+            seen["thread_name_prefix"] = kwargs.get("thread_name_prefix")
+            super().__init__(*args, **kwargs)
+
+    import numpy as np
+    import torch
+
+    namespace = {
+        "Path": Path,
+        "ThreadPoolExecutor": RecordingExecutor,
+        "np": np,
+        "torch": torch,
+        "PACKED_BYTES": 64,
+    }
+    exec(compile(ast.Module(body=[function], type_ignores=[]), str(source_path), "exec"), namespace)
+    paths = []
+    expected_packed = []
+    for expert in range(3):
+        packed = (np.arange(32, dtype="<i2") + expert * 100).reshape(1, 1, 32)
+        su = np.arange(16, dtype="<f2") + expert
+        sv = np.arange(16, dtype="<f2") + expert * 2
+        path = tmp_path / f"E{expert:03d}_w1.q2v7wire"
+        path.write_bytes(packed.tobytes() + su.tobytes() + sv.tobytes() + b"wire")
+        paths.append(path)
+        expected_packed.append(torch.from_numpy(packed.copy()))
+
+    packed, su, sv, read_calls, read_bytes = namespace["_load_projection_payloads"](
+        paths, m=16, k=16, packed_bytes=64
+    )
+
+    assert seen == {"max_workers": 3, "thread_name_prefix": "w28-wire-read"}
+    assert torch.equal(packed, torch.stack(expected_packed))
+    assert tuple(su.shape) == (3, 16)
+    assert tuple(sv.shape) == (3, 16)
+    assert read_calls == 3
+    assert read_bytes == 3 * 132
 
 
 def test_l006_identical_duplicate_wire_candidates_are_unambiguous(tmp_path) -> None:

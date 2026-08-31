@@ -1,6 +1,7 @@
 """Fully resident, grouped official-K2 routed experts for all V7 layers."""
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -31,26 +32,32 @@ PROJECTION_SHAPES = {
 def _load_projection_payloads(
     paths: list[Path], *, m: int, k: int, packed_bytes: int = PACKED_BYTES
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
-    """Assemble exact wire bytes on CPU before three batched H2D copies."""
+    """Read wires concurrently, then assemble exact bytes for three H2D copies."""
     packed = np.empty((len(paths), k // 16, m // 16, 32), dtype="<i2")
     su = np.empty((len(paths), k), dtype="<f2")
     sv = np.empty((len(paths), m), dtype="<f2")
     expected = packed_bytes + (k + m) * 2 + 4
     read_bytes = 0
-    for expert, path in enumerate(paths):
-        payload = Path(path).read_bytes()
-        if len(payload) != expected:
-            raise RuntimeError(f"wire byte geometry drift: {path}")
-        packed[expert] = np.frombuffer(payload[:packed_bytes], dtype="<i2").reshape(
-            k // 16, m // 16, 32
-        )
-        su[expert] = np.frombuffer(
-            payload[packed_bytes : packed_bytes + k * 2], dtype="<f2"
-        )
-        sv[expert] = np.frombuffer(
-            payload[packed_bytes + k * 2 : packed_bytes + (k + m) * 2], dtype="<f2"
-        )
-        read_bytes += len(payload)
+    # The verified cache is one local file per expert/projection. Serial 2-MiB
+    # reads leave the NVMe queue at depth one and made the immutable 34-GiB
+    # rank shard exceed the cold-start bound. Keep expert order deterministic,
+    # but admit a bounded queue so only this local input mechanic changes.
+    workers = min(16, len(paths))
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="w28-wire-read") as pool:
+        payloads = pool.map(Path.read_bytes, paths)
+        for expert, (path, payload) in enumerate(zip(paths, payloads, strict=True)):
+            if len(payload) != expected:
+                raise RuntimeError(f"wire byte geometry drift: {path}")
+            packed[expert] = np.frombuffer(payload[:packed_bytes], dtype="<i2").reshape(
+                k // 16, m // 16, 32
+            )
+            su[expert] = np.frombuffer(
+                payload[packed_bytes : packed_bytes + k * 2], dtype="<f2"
+            )
+            sv[expert] = np.frombuffer(
+                payload[packed_bytes + k * 2 : packed_bytes + (k + m) * 2], dtype="<f2"
+            )
+            read_bytes += len(payload)
     return (
         torch.from_numpy(packed),
         torch.from_numpy(su),
