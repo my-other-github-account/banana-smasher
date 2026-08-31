@@ -29,7 +29,7 @@ def configure_mixed_backpack(config: Mapping[str, Any]) -> None:
 
 
 class FullyResidentGroupedV7Experts(nn.Module):
-    """Clamp-free routed experts materialized from the sealed mixed cells.
+    """Routed experts materialized from the sealed mixed cells.
 
     The historical class name is the trainer's authenticated provider ABI. This
     implementation does not reinterpret cells as V7: it asks
@@ -108,6 +108,11 @@ class FullyResidentGroupedV7Experts(nn.Module):
             # makes the first physical forward fail before scoring.
             gate_up = gate_up_wire[int(expert)]
             gate, up = torch.nn.functional.linear(value, gate_up).chunk(2, dim=-1)
+            # Match the canonical DeepseekV4Experts._apply_gate arithmetic used
+            # by the sealed layerwise scorer.  Omitting these clamps changes the
+            # model (and can amplify compact-weight error across all 43 layers).
+            gate = gate.clamp(max=self.limit)
+            up = up.clamp(min=-self.limit, max=self.limit)
             activated = torch.nn.functional.silu(gate) * up
             routed_output[selected] = torch.nn.functional.linear(
                 activated, down_wire[int(expert)]
