@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from repair_api.api import (
+    _resolve_official_br_manifest,
     _resolve_exact_parent_manifest,
     _resolve_official_k2_config_locators,
     _select_exact_manifest_member,
@@ -12,6 +13,28 @@ from repair_api.balanced64 import ArtifactError
 
 
 STALE = "/home/dnola/missions/STAGE_U20_t_3a6f22a5_spark-5-work/sparse-model-rank0-v1"
+
+
+def test_br_manifest_localizes_only_missing_sealed_locator_with_exact_sha(
+    monkeypatch, tmp_path: Path
+) -> None:
+    stale = tmp_path / "stale" / "DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json"
+    localized = tmp_path / "sealed" / "DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json"
+    localized.parent.mkdir()
+    localized.write_bytes(b"sealed-br-manifest")
+    expected = hashlib.sha256(localized.read_bytes()).hexdigest()
+    monkeypatch.setattr("repair_api.api._STALE_BR_MANIFEST", stale)
+    monkeypatch.setattr("repair_api.api._SPARK2_SEALED_BR_MANIFEST", localized)
+    monkeypatch.setattr("repair_api.api._SPARK2_SEALED_BR_MANIFEST_SHA256", expected)
+
+    assert _resolve_official_br_manifest(stale) == localized.resolve()
+
+    localized.write_bytes(b"drifted-br-manifest")
+    with pytest.raises(ArtifactError, match="immutable SHA mismatch"):
+        _resolve_official_br_manifest(stale)
+
+    with pytest.raises(ArtifactError, match="sealed stale locator"):
+        _resolve_official_br_manifest(tmp_path / "other.json")
 
 
 def test_localizes_only_missing_sealed_locator_with_exact_basis(monkeypatch, tmp_path: Path) -> None:

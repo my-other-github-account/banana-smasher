@@ -174,6 +174,17 @@ _SPARK3_SEALED_L034_ROSTER = Path(
     "/home/dnola/missions/QTIP2_V7_JOINT_t_6aceaf1f_s3/l034/"
     "L034_SELECTED_WIRE_PROVIDER_ROSTER.json"
 )
+_STALE_BR_MANIFEST = Path(
+    "/home/dnola/missions/P629_GLOBAL_QTIP2_t_2987ad15_s1/inputs/baseline/"
+    "DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json"
+)
+_SPARK2_SEALED_BR_MANIFEST = Path(
+    "/home/dnola/missions/SEALED_RESIDENT_t_71ec433e/staged/manifest/"
+    "DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json"
+)
+_SPARK2_SEALED_BR_MANIFEST_SHA256 = (
+    "b4b19184e3c56e8b2de2bb1bb6837a2afc3079de2c315e9e6e15065e2b5b8d0e"
+)
 
 
 def _select_exact_manifest_member(
@@ -199,6 +210,19 @@ def _resolve_exact_parent_manifest(
     observed = hashlib.sha256(candidate.read_bytes()).hexdigest()
     if observed != expected_sha256:
         raise ArtifactError(f"official-K2 sealed parent manifest identity drift: {label}")
+    return candidate.resolve()
+
+
+def _resolve_official_br_manifest(declared: Path) -> Path:
+    """Localize only the sealed stale BR manifest to its authenticated local copy."""
+    if declared != _STALE_BR_MANIFEST:
+        raise ArtifactError("official-K2 BR manifest localization requires the sealed stale locator")
+    candidate = declared if declared.is_file() else _SPARK2_SEALED_BR_MANIFEST
+    if not candidate.is_file():
+        raise ArtifactError(f"official-K2 localized immutable input is missing: {candidate}")
+    observed = hashlib.sha256(candidate.read_bytes()).hexdigest()
+    if observed != _SPARK2_SEALED_BR_MANIFEST_SHA256:
+        raise ArtifactError(f"official-K2 localized immutable SHA mismatch: {candidate}")
     return candidate.resolve()
 
 
@@ -240,6 +264,11 @@ def _validate_sealed_parent_root(
 def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str, Any]:
     """Localize the sealed Spark-5 closure to identity-equal Spark-3 inputs."""
     resolved = dict(config)
+    declared_br_manifest = Path(str(resolved.get("binrepair_manifest", ""))).expanduser()
+    if declared_br_manifest == _STALE_BR_MANIFEST:
+        resolved["binrepair_manifest"] = str(
+            _resolve_official_br_manifest(declared_br_manifest)
+        )
     override = os.environ.get("BANANA_SMASHER_OFFICIAL_MODEL_ROOT")
     if not override:
         return resolved
