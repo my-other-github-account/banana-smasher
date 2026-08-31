@@ -22,6 +22,7 @@ import pickle
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import time
 from types import MappingProxyType
 from typing import Any, Callable, Iterable, Mapping, cast
@@ -2262,11 +2263,28 @@ class OfficialK2ResidentRankEngine:
         """Bind the legacy base loader's required env to the public manifest."""
         attention = _configured_attention_implementation(self.config)
         os.environ["BR_ATTN_IMPL"] = attention
+        delta_dir = self.config.get("binrepair_delta_dir", self.asset_root / "delta")
+        delta_path = Path(str(delta_dir)).expanduser().resolve()
+        if (
+            self.config.get("provider_resolution_mode") == "STATIC_W28_GROUPED"
+            and not delta_path.exists()
+        ):
+            # The accepted static provider supplies every expert plane from its
+            # hash-bound compact cache.  The imported historical base module
+            # still checks BR_DELTA_DIR at import time even though that provider
+            # never calls its IQ3-bin PlaneSource.  Give that legacy import an
+            # isolated process-lifetime sentinel instead of requiring or
+            # restaging scientifically unused delta tensors.
+            delta_path = Path(
+                tempfile.mkdtemp(prefix="banana-smasher-static-w28-base-")
+            ).resolve()
+            (delta_path / "DELTA_PACK.COMPLETE").write_text("STATIC_W28_GROUPED_UNUSED\n")
+            self._static_w28_base_input_dir = delta_path
         path_values = {
             "BR_MANIFEST": self.config.get(
                 "binrepair_manifest", self.asset_root / "code" / "DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json"
             ),
-            "BR_DELTA_DIR": self.config.get("binrepair_delta_dir", self.asset_root / "delta"),
+            "BR_DELTA_DIR": delta_path,
             "BR_VQ3B_DIR": self.config.get("binrepair_vq3b_dir"),
         }
         if path_values["BR_VQ3B_DIR"] is None:

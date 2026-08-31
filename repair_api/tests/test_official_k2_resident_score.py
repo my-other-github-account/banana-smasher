@@ -81,6 +81,38 @@ class FakeOfficialBackend:
 
 
 class OfficialK2ResidentScoreTests(unittest.TestCase):
+    def test_static_w28_resolves_unused_missing_delta_input_without_restage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.json"
+            vq3b = root / "vq3b"
+            missing_delta = root / "dummy_delta"
+            manifest.write_text("{}")
+            vq3b.mkdir()
+            engine = cast(Any, object.__new__(OfficialK2ResidentRankEngine))
+            engine.asset_root = root
+            engine.windows = (28,)
+            engine.config = {
+                "provider_resolution_mode": "STATIC_W28_GROUPED",
+                "binrepair_manifest": str(manifest),
+                "binrepair_delta_dir": str(missing_delta),
+                "binrepair_vq3b_dir": str(vq3b),
+                "attention_implementation": "eager",
+            }
+
+            engine._configure_base_environment()
+
+            resolved = Path(os.environ["BR_DELTA_DIR"])
+            self.assertFalse(missing_delta.exists())
+            self.assertNotEqual(resolved, missing_delta)
+            self.assertEqual(
+                (resolved / "DELTA_PACK.COMPLETE").read_text(),
+                "STATIC_W28_GROUPED_UNUSED\n",
+            )
+            self.assertEqual(engine._static_w28_base_input_dir, resolved)
+            (resolved / "DELTA_PACK.COMPLETE").unlink()
+            resolved.rmdir()
+
     def test_q_lp_capture_is_complete_immutable_and_no_overwrite(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "q_lp.npy"
