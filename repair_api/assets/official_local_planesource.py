@@ -238,6 +238,7 @@ class PlaneSource:
             "pass_through_bytes": 0, "hidden_fp32_control_bytes": 0, "fallback_calls": 0,
             "local_staged_layers": [], "local_staged_count": 0,
             "nas_bulk_tar_layers": [], "nas_bulk_tar_bytes": 0,
+            "layer_decode_seconds": [],
         }
         sys.path.insert(0, str(BUNDLE))
         from packed4_bs import qtip_k2
@@ -560,6 +561,61 @@ class PlaneSource:
         del raw, packed, suh, svh, decoded
         return physical
 
+    def _decode_batch(self, paths: list[Path], projection: str):
+        """Decode one projection batch with exact vectorized K2 arithmetic."""
+        import torch
+        from repair_api.batched_k2 import (
+            decode_k2_matrix_batched,
+            inverse_transform_batched,
+        )
+
+        if projection == "w2":
+            packed_shape, suh_count, svh_count = (128, 256, 32), 2048, 4096
+            expected_shape = (4096, 2048)
+        elif projection in ("w1", "w3"):
+            packed_shape, suh_count, svh_count = (256, 128, 32), 4096, 2048
+            expected_shape = (2048, 4096)
+        else:
+            raise RuntimeError(f"unknown compact projection {projection}")
+        packed_end = 2_097_152
+        suh_end = packed_end + 2 * suh_count
+        svh_end = suh_end + 2 * svh_count
+
+        raw = []
+        for path in paths:
+            if not path.is_file() or path.stat().st_size != WIRE_BYTES:
+                raise RuntimeError(f"compact wire size/path refused {path}")
+            raw.append(path.read_bytes())
+        packed_np = np.stack([
+            np.frombuffer(payload[:packed_end], dtype="<i2").reshape(packed_shape)
+            for payload in raw
+        ])
+        suh_np = np.stack([
+            np.frombuffer(payload[packed_end:suh_end], dtype="<f2") for payload in raw
+        ])
+        svh_np = np.stack([
+            np.frombuffer(payload[suh_end:svh_end], dtype="<f2") for payload in raw
+        ])
+        packed = torch.from_numpy(packed_np).to(BUILDER.DEV)
+        suh = torch.from_numpy(suh_np).to(BUILDER.DEV)
+        svh = torch.from_numpy(svh_np).to(BUILDER.DEV)
+        decoded = decode_k2_matrix_batched(packed, self.active_lut)
+        physical = inverse_transform_batched(
+            decoded, suh.float(), svh.float()
+        ).transpose(-2, -1).contiguous().to(torch.bfloat16)
+        if tuple(physical.shape[1:]) != expected_shape:
+            raise RuntimeError(
+                f"compact batched physical shape refused {projection} "
+                f"{tuple(physical.shape)} expected={expected_shape}"
+            )
+        self.counters["compact_member_payloads_read"] += len(raw)
+        self.counters["compact_payload_bytes_read"] += sum(map(len, raw))
+        self._write_progress(
+            status="RUNNING_BATCHED_K2",
+            active_layer=self.counters["compact_layers_touched"][-1],
+        )
+        return tuple(physical.unbind(0))
+
     def _load_complete34(self):
         import torch
         if sha256(COMPLETE34_TERMINAL) != COMPLETE34_TERMINAL_SHA or sha256(COMPLETE34_BINDING) != COMPLETE34_BINDING_SHA:
@@ -586,31 +642,35 @@ class PlaneSource:
             path = COMPLETE34_ROOT / row["path"]
             if path.stat().st_size != WIRE_BYTES or sha256(path) != row["sha256"]:
                 raise RuntimeError(f"L034 selected-wire member identity refused E{expert:03d}/{projection}")
-            return self._decode(path, projection)
+            return path
         return read
 
     def _predecode_layer(self, read):
-        """Materialize one admitted layer with four independent CUDA streams."""
+        """Materialize one admitted layer in exact vectorized K2 batches."""
         import torch
-        from concurrent.futures import ThreadPoolExecutor
 
-        workers = 4
-        streams = [torch.cuda.Stream(device=BUILDER.DEV) for _ in range(workers)]
-
-        def decode(item):
-            ordinal, expert, projection = item
-            with torch.cuda.stream(streams[ordinal % workers]):
-                return (expert, projection), read(expert, projection)
-
-        items = [
-            (ordinal, expert, projection)
-            for ordinal, (expert, projection) in enumerate(
-                (e, p) for e in range(256) for p in ("w1", "w2", "w3")
-            )
-        ]
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            decoded = dict(pool.map(decode, items))
+        started = time.perf_counter()
+        batch_size = 16
+        decoded = {}
+        for projection in ("w1", "w2", "w3"):
+            for first in range(0, 256, batch_size):
+                experts = range(first, min(first + batch_size, 256))
+                values = self._decode_batch(
+                    [read(expert, projection) for expert in experts], projection
+                )
+                decoded.update(
+                    ((expert, projection), value)
+                    for expert, value in zip(experts, values)
+                )
         torch.cuda.synchronize(BUILDER.DEV)
+        self.counters["layer_decode_seconds"].append({
+            "layer": self.counters["compact_layers_touched"][-1],
+            "seconds": time.perf_counter() - started,
+        })
+        self._write_progress(
+            status="RUNNING_BATCHED_K2_LAYER_READY",
+            active_layer=self.counters["compact_layers_touched"][-1],
+        )
         return lambda expert, which: torch.cat(
             [decoded[(expert, "w1")], decoded[(expert, "w3")]], dim=0
         ) if which == "13" else decoded[(expert, "w2")]
@@ -643,5 +703,5 @@ class PlaneSource:
             self.counters["compact_layers_touched"].append(layer)
         self._write_progress(status="RUNNING_COMPACT", active_layer=layer)
         def read(expert: int, projection: str):
-            return self._decode(self._wire_path(stage, route, expert, projection), projection)
+            return self._wire_path(stage, route, expert, projection)
         return self._predecode_layer(read), (256, 4096, 4096, 4096, 2048)

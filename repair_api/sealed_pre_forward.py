@@ -12,7 +12,7 @@ import time
 from typing import Any
 
 BUILDER_SHA256 = "11ead706db562197e76cdc320d5d13044bb254a411b6412326667f524ddf29ed"
-PLANESOURCE_SHA256 = "deece11e0bbdcd0144ecab0f9055f106c1d0618d648ec706cad962ed859797a5"
+PLANESOURCE_SHA256 = "0158facf17902fea9c9ff8cda08eb91eaadc4084fe68986f06e8d385df8931c6"
 BASIS_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 CHECKPOINT_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
 CANDIDATE_IDENTITY = "51074d5fedfc922b8442cb6cf988773f32991c16e6cf34ca21131c4f7b1726f8"
@@ -73,7 +73,7 @@ def source_binding(root: Path | None = None) -> dict[str, Any]:
         "builder_forward_source": "repair_api/assets/builder_B2_PUBLISHED_PRE.py:593-643",
         "planesource_path": str(planesource),
         "planesource_sha256": observed["planesource"],
-        "planesource_forward_source": "repair_api/assets/official_local_planesource.py:592-624",
+        "planesource_forward_source": "repair_api/assets/official_local_planesource.py:648-705",
         "known_value_fixture": {"window": 28, "kld_mean": W28_KLD, "top1": W28_TOP1},
         "surface": required,
     }
@@ -250,14 +250,28 @@ def run_static_w28_acceptance(*, task: str, rank: int, root: Path,
     config.setdefault("sealed_builder_window_microbatch", 2)
     config.setdefault("sealed_builder_chunk", 64)
     config.setdefault("sealed_pre_use_local_model", True)
-    builder, _, _ = _prepare_exact_modules(
+    builder, planesource, _ = _prepare_exact_modules(
         task=task, rank=rank, root=root, config=config, checkpoint=checkpoint
     )
     rows, wall = _run_builder(
         builder, root=root, config=config, windows=(28, 56), label="PLANES_MB2_PAIRED"
     )
     row = next(item for item in rows if item["window"] == 28)
-    passed = row["kld_mean"] == W28_KLD and row["top1"] == W28_TOP1
+    progress = json.loads(Path(planesource.PROGRESS).read_text())
+    layer_timings = progress["runtime_counters"]["layer_decode_seconds"]
+    resident_seconds = math.fsum(float(item["seconds"]) for item in layer_timings)
+    resident_measurement = {
+        "budget_seconds": 300.0,
+        "layer_count": len(layer_timings),
+        "seconds": resident_seconds,
+    }
+    passed = (
+        row["kld_mean"] == W28_KLD
+        and row["top1"] == W28_TOP1
+        and wall <= 900.0
+        and len(layer_timings) == 43
+        and resident_seconds <= 300.0
+    )
     receipt = {
         "schema": "banana-smasher-static-w28-acceptance-v1",
         "status": "PASS" if passed else "RED",
@@ -272,6 +286,8 @@ def run_static_w28_acceptance(*, task: str, rank: int, root: Path,
         "measurement": row,
         "all_measurements": rows,
         "wall_seconds": wall,
+        "static_measurement_budget_seconds": 900.0,
+        "resident_measurement": resident_measurement,
         "full64_launched": False,
     }
     path = root / "receipts" / f"STATIC_W28_ACCEPTANCE.{task}.rank0.json"

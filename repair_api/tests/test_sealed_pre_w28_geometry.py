@@ -1,4 +1,5 @@
 import hashlib
+import json
 from pathlib import Path
 import sys
 
@@ -145,7 +146,20 @@ def test_builder_uses_configured_paired_geometry(monkeypatch, tmp_path) -> None:
 
 def test_static_w28_acceptance_is_paired_and_never_full64(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(sealed_pre_forward, "bind_sealed_pre_resident_config", lambda config: {"status": "PASS"})
-    monkeypatch.setattr(sealed_pre_forward, "_prepare_exact_modules", lambda **kwargs: (object(), object(), {}))
+    progress = tmp_path / "progress.json"
+    progress.write_text(json.dumps({
+        "runtime_counters": {
+            "layer_decode_seconds": [
+                {"layer": layer, "seconds": 1.0} for layer in range(43)
+            ]
+        }
+    }))
+    planesource = type("PlaneSourceModule", (), {"PROGRESS": progress})()
+    monkeypatch.setattr(
+        sealed_pre_forward,
+        "_prepare_exact_modules",
+        lambda **kwargs: (object(), planesource, {}),
+    )
     seen = {}
 
     def run_builder(*args, **kwargs):
@@ -162,6 +176,12 @@ def test_static_w28_acceptance_is_paired_and_never_full64(monkeypatch, tmp_path)
     )
     assert seen["windows"] == (28, 56)
     assert receipt["producer"] == {"mode": "planes", "mb": 2, "chunk": 64, "windows": [28, 56]}
+    assert receipt["resident_measurement"] == {
+        "budget_seconds": 300.0,
+        "layer_count": 43,
+        "seconds": 43.0,
+    }
+    assert receipt["static_measurement_budget_seconds"] == 900.0
     assert receipt["full64_launched"] is False
     assert receipt["status"] == "PASS"
 
@@ -173,12 +193,13 @@ def test_static_w28_acceptance_is_a_public_api_path() -> None:
     assert "run_static_w28_acceptance" in repair_api.__all__
 
 
-def test_public_planes_predecode_uses_four_streams_and_is_hash_bound() -> None:
+def test_public_planes_predecode_uses_vectorized_batched_k2_and_is_hash_bound() -> None:
     binding = sealed_pre_forward.source_binding()
     source = Path(binding["planesource_path"]).read_text()
 
     assert binding["status"] == "PASS"
     assert "def _predecode_layer(self, read):" in source
-    assert "workers = 4" in source
-    assert "ThreadPoolExecutor(max_workers=workers)" in source
-    assert "torch.cuda.synchronize(BUILDER.DEV)" in source
+    assert "from repair_api.batched_k2 import" in source
+    assert "decode_k2_matrix_batched" in source
+    assert "inverse_transform_batched" in source
+    assert "batch_size = 16" in source
