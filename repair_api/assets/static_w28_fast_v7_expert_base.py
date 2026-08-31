@@ -105,21 +105,30 @@ def _load_projection_payloads_into(
     # rank shard exceed the cold-start bound. Keep expert order deterministic,
     # but admit a bounded queue so only this local input mechanic changes.
     workers = min(16, len(paths))
+    def read_one(item: tuple[int, Path]) -> int:
+        expert, path = item
+        trailer = bytearray(4)
+        fd = os.open(path, os.O_RDONLY)
+        try:
+            count = os.preadv(
+                fd,
+                [
+                    memoryview(packed[expert]).cast("B"),
+                    memoryview(su[expert]).cast("B"),
+                    memoryview(sv[expert]).cast("B"),
+                    trailer,
+                ],
+                0,
+            )
+        finally:
+            os.close(fd)
+        if count != expected or trailer != b"wire":
+            raise RuntimeError(f"wire byte geometry drift: {path}")
+        return count
+
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="w28-wire-read") as pool:
-        payloads = pool.map(Path.read_bytes, paths)
-        for expert, (path, payload) in enumerate(zip(paths, payloads, strict=True)):
-            if len(payload) != expected:
-                raise RuntimeError(f"wire byte geometry drift: {path}")
-            packed[expert] = np.frombuffer(payload[:packed_bytes], dtype="<i2").reshape(
-                k // 16, m // 16, 32
-            )
-            su[expert] = np.frombuffer(
-                payload[packed_bytes : packed_bytes + k * 2], dtype="<f2"
-            )
-            sv[expert] = np.frombuffer(
-                payload[packed_bytes + k * 2 : packed_bytes + (k + m) * 2], dtype="<f2"
-            )
-            read_bytes += len(payload)
+        for count in pool.map(read_one, enumerate(paths)):
+            read_bytes += count
     return su_tensor, sv_tensor, len(paths), read_bytes
 
 

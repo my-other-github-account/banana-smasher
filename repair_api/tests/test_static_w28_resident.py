@@ -37,6 +37,7 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
         "Path": Path,
         "ThreadPoolExecutor": RecordingExecutor,
         "np": np,
+        "os": __import__("os"),
         "torch": torch,
         "PACKED_BYTES": 64,
         "_managed_packed_allocation": lambda shape, device: (
@@ -79,7 +80,7 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     managed_allocate = source.index("cudaMallocManaged")
     managed_prefetch = source.index("cudaMemPrefetchAsync", managed_allocate)
     managed_cpu_view = source.index("np.ctypeslib.as_array(owner)", managed_prefetch)
-    managed_fill = source.index("packed[expert] =", managed_cpu_view)
+    managed_fill = source.index('memoryview(packed[expert]).cast("B")', managed_cpu_view)
     managed_cuda_alias = source.index(
         "packed_tensor = _managed_packed_tensor", managed_fill
     )
@@ -94,6 +95,8 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     assert "_construct_storage_from_data_pointer" in source
     assert "_construct_CUDA_Tensor_From_Storage_And_Metadata" in source
     assert 'setattr(tensor, "_managed_cpu_owner", owner)' in source
+    assert "os.preadv(" in source
+    assert "Path.read_bytes" not in source
     assert "packed_cpu.to(device=device" not in source
     assert "stream = torch.cuda.Stream(device=device)" in source
     assert "with torch.cuda.stream(stream):" in source
