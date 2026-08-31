@@ -68,8 +68,8 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     first_copy = source.index("su_cpu.to(device=device, non_blocking=True)")
     last_copy = source.index("sv_cpu.to(device=device, non_blocking=True)", first_copy)
     sync = source.index("stream.synchronize()", last_copy)
-    assert "cudaHostGetDevicePointer" in source
-    assert '"/usr/local/cuda/targets/sbsa-linux/lib/libcudart.so.12"' in source
+    assert "cudaHostGetDevicePointer" not in source
+    assert "packed_cpu.data_ptr(), device" in source
     assert "_construct_storage_from_data_pointer" in source
     assert "_construct_CUDA_Tensor_From_Storage_And_Metadata" in source
     assert "packed._cpu_uva_owner = packed_cpu" in source

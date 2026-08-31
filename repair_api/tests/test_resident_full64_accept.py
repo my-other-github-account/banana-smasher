@@ -291,7 +291,7 @@ def test_production_installs_provider_global_native_bf16_w2_before_engine() -> N
 
     assert api_open < binder < engine
     assert CURRENT_PROVIDER_EXPERT_SHA256 == (
-        "f29506abf4383076fd65b6e8068226bdd074533d758a3276f7adf7ab980596bf"
+        "4f9e17ba25a6a8cac1e3d963b41c9bb3dc2dbad1664761796cfb9f9f08a87028"
     )
     bound = ResidentRepairAPI.bind_combined_gate_up_projection(
         {}, provider_expert_sha256=CURRENT_PROVIDER_EXPERT_SHA256

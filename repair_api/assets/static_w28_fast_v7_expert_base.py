@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-import ctypes
 import hashlib
 import json
 import os
@@ -85,24 +84,8 @@ def _transfer_projection_payloads(
     """Expose the exact packed wire through coherent CPU-UVA and migrate scales."""
     if not packed_cpu.is_pinned() or not packed_cpu.is_contiguous():
         raise RuntimeError("packed CPU-UVA source must be pinned and contiguous")
-    cudart = ctypes.CDLL(
-        "/usr/local/cuda/targets/sbsa-linux/lib/libcudart.so.12"
-    )
-    host_get_device_pointer = cudart.cudaHostGetDevicePointer
-    host_get_device_pointer.argtypes = [
-        ctypes.POINTER(ctypes.c_void_p),
-        ctypes.c_void_p,
-        ctypes.c_uint,
-    ]
-    host_get_device_pointer.restype = ctypes.c_int
-    device_pointer = ctypes.c_void_p()
-    result = host_get_device_pointer(
-        ctypes.byref(device_pointer), ctypes.c_void_p(packed_cpu.data_ptr()), 0
-    )
-    if result != 0 or not device_pointer.value:
-        raise RuntimeError(f"cudaHostGetDevicePointer refused pinned wire: {result}")
     storage = torch._C._construct_storage_from_data_pointer(
-        device_pointer.value, device, packed_cpu.untyped_storage().nbytes()
+        packed_cpu.data_ptr(), device, packed_cpu.untyped_storage().nbytes()
     )
     metadata = {
         "size": packed_cpu.shape,
