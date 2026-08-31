@@ -30,9 +30,9 @@ PROJECTION_SHAPES = {
 }
 
 
-def _managed_packed_tensor(
+def _managed_packed_allocation(
     shape: tuple[int, ...], *, device: torch.device
-) -> tuple[torch.Tensor, np.ndarray]:
+) -> tuple[int, Any, np.ndarray]:
     """Allocate one coherent managed wire and expose its CPU fill view."""
     elements = int(np.prod(shape, dtype=np.int64))
     nbytes = elements * 2
@@ -61,9 +61,17 @@ def _managed_packed_tensor(
     if result != 0:
         raise RuntimeError(f"cudaMemPrefetchAsync refused CPU fill: {result}")
     torch.cuda.synchronize(device=device)
-    storage = torch._C._construct_storage_from_data_pointer(
-        pointer.value, device, nbytes
-    )
+    owner = (ctypes.c_uint8 * nbytes).from_address(pointer.value)
+    array = np.ctypeslib.as_array(owner).view("<i2").reshape(shape)
+    return pointer.value, owner, array
+
+
+def _managed_packed_tensor(
+    pointer: int, owner: Any, shape: tuple[int, ...], *, device: torch.device
+) -> torch.Tensor:
+    """Expose a CPU-populated managed wire as a CUDA tensor."""
+    nbytes = int(np.prod(shape, dtype=np.int64)) * 2
+    storage = torch._C._construct_storage_from_data_pointer(pointer, device, nbytes)
     stride = [1] * len(shape)
     for index in range(len(shape) - 2, -1, -1):
         stride[index] = stride[index + 1] * shape[index + 1]
@@ -77,10 +85,8 @@ def _managed_packed_tensor(
     tensor = torch._C._construct_CUDA_Tensor_From_Storage_And_Metadata(
         metadata, storage
     )
-    owner = (ctypes.c_uint8 * nbytes).from_address(pointer.value)
     setattr(tensor, "_managed_cpu_owner", owner)
-    array = np.ctypeslib.as_array(owner).view("<i2").reshape(shape)
-    return tensor, array
+    return tensor
 
 
 def _load_projection_payloads(
@@ -88,8 +94,9 @@ def _load_projection_payloads(
     pin_memory: bool = True, device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
     """Read wires into coherent managed packed state and pinned scales."""
-    packed_tensor, packed = _managed_packed_tensor(
-        (len(paths), k // 16, m // 16, 32), device=device,
+    packed_shape = (len(paths), k // 16, m // 16, 32)
+    packed_pointer, packed_owner, packed = _managed_packed_allocation(
+        packed_shape, device=device,
     )
     su_tensor = torch.empty((len(paths), k), dtype=torch.float16, pin_memory=pin_memory)
     sv_tensor = torch.empty((len(paths), m), dtype=torch.float16, pin_memory=pin_memory)
@@ -117,6 +124,12 @@ def _load_projection_payloads(
                 payload[packed_bytes + k * 2 : packed_bytes + (k + m) * 2], dtype="<f2"
             )
             read_bytes += len(payload)
+    # Constructing a CUDA storage mapping before the CPU fill serializes page
+    # admission on GB10.  Keep the proven host-prefetch/fill order and expose
+    # the exact same managed bytes to CUDA only after all immutable wires land.
+    packed_tensor = _managed_packed_tensor(
+        packed_pointer, packed_owner, packed_shape, device=device
+    )
     return (
         packed_tensor,
         su_tensor,

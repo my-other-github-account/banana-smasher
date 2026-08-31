@@ -38,9 +38,12 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
         "np": np,
         "torch": torch,
         "PACKED_BYTES": 64,
-        "_managed_packed_tensor": lambda shape, device: (
-            (tensor := torch.empty(shape, dtype=torch.int16)), tensor.numpy()
+        "_managed_packed_allocation": lambda shape, device: (
+            1,
+            (tensor := torch.empty(shape, dtype=torch.int16)),
+            tensor.numpy(),
         ),
+        "_managed_packed_tensor": lambda pointer, owner, shape, device: owner,
     }
     exec(compile(ast.Module(body=[function], type_ignores=[]), str(source_path), "exec"), namespace)
     paths = []
@@ -75,8 +78,18 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     managed_allocate = source.index("cudaMallocManaged")
     managed_prefetch = source.index("cudaMemPrefetchAsync", managed_allocate)
     managed_cpu_view = source.index("np.ctypeslib.as_array(owner)", managed_prefetch)
+    managed_fill = source.index("packed[expert] =", managed_cpu_view)
+    managed_cuda_alias = source.index(
+        "packed_tensor = _managed_packed_tensor", managed_fill
+    )
     assert "CudaMemLocation(2, 0)" in source
-    assert managed_allocate < managed_prefetch < managed_cpu_view
+    assert (
+        managed_allocate
+        < managed_prefetch
+        < managed_cpu_view
+        < managed_fill
+        < managed_cuda_alias
+    )
     assert "_construct_storage_from_data_pointer" in source
     assert "_construct_CUDA_Tensor_From_Storage_And_Metadata" in source
     assert 'setattr(tensor, "_managed_cpu_owner", owner)' in source
