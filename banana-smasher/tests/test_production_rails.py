@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 from pathlib import Path
 
@@ -18,7 +19,10 @@ from banana_smasher.production_rails import (
     ProductionRailsError,
 )
 from banana_smasher.resident_balanced64 import ArtifactError, RepairArtifact
-from banana_smasher.resident_continuation import _window_microbatches
+from banana_smasher.resident_continuation import (
+    ModernGreenResidentEngine,
+    _window_microbatches,
+)
 from banana_smasher.resident_repair_api import BackpackArtifact, ResidentRepairAPI
 
 
@@ -32,6 +36,12 @@ def fixture_builder(**kwargs):
 
 def fixture_mixer(**kwargs):
     return kwargs["output"]
+
+
+def test_physical_balanced64_receipt_preserves_proven_support_width() -> None:
+    source = inspect.getsource(ModernGreenResidentEngine.score_balanced64)
+    assert '"support_width": 8192' in source
+    assert source.index("_teacher_support(") < source.index('"support_width": 8192')
 
 
 def test_heldout_gate_kills_after_two_flat_or_rising_boundaries() -> None:
