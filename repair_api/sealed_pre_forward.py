@@ -109,8 +109,6 @@ def _load_module(name: str, path: Path):
 
 
 def _bind_l034(planesource: Any, roster_path: Path) -> None:
-    import torch
-
     roster_sha = sha256(roster_path)
     roster = json.loads(roster_path.read_text())
     if roster.get("basis_sha256") != BASIS_SHA256 or roster.get("member_count") != 768:
@@ -133,7 +131,7 @@ def _bind_l034(planesource: Any, roster_path: Path) -> None:
             path = base / row["path"]
             if path.stat().st_size != int(row["bytes"]) or sha256(path) != row["sha256"]:
                 raise RuntimeError(f"L034 selected-wire member identity refused E{expert:03d}/{projection}")
-            return self._decode(path, projection)
+            return path
 
         return read
 

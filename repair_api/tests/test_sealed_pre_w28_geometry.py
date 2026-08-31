@@ -193,6 +193,53 @@ def test_static_w28_acceptance_is_a_public_api_path() -> None:
     assert "run_static_w28_acceptance" in repair_api.__all__
 
 
+def test_l034_binding_returns_verified_paths_to_batched_decoder(tmp_path) -> None:
+    selected = tmp_path / "E000_w1.bin"
+    selected.write_bytes(b"selected wire")
+    selected_sha = hashlib.sha256(selected.read_bytes()).hexdigest()
+    members = []
+    for expert in range(256):
+        for projection in ("w1", "w2", "w3"):
+            members.append({
+                "expert": expert,
+                "projection": projection,
+                "path": selected.name if (expert, projection) == (0, "w1") else "unused",
+                "bytes": selected.stat().st_size,
+                "sha256": selected_sha,
+            })
+    roster = tmp_path / "roster.json"
+    roster.write_text(json.dumps({
+        "basis_sha256": sealed_pre_forward.BASIS_SHA256,
+        "member_count": 768,
+        "members": members,
+    }))
+
+    class PlaneSource:
+        def __init__(self) -> None:
+            self.counters = {
+                "compact_layers_touched": [],
+                "local_staged_layers": [],
+                "local_staged_count": 0,
+            }
+
+        def _write_progress(self, **kwargs) -> None:
+            pass
+
+        def _decode(self, path, projection):
+            raise AssertionError("L034 binder must not decode before _decode_batch")
+
+    planesource = type(
+        "PlaneSourceModule",
+        (),
+        {"PlaneSource": PlaneSource, "candidate_lut": staticmethod(lambda layer: layer)},
+    )
+    sealed_pre_forward._bind_l034(planesource, roster)
+
+    read = PlaneSource()._load_complete34()
+
+    assert read(0, "w1") == selected
+
+
 def test_public_planes_predecode_uses_vectorized_batched_k2_and_is_hash_bound() -> None:
     binding = sealed_pre_forward.source_binding()
     source = Path(binding["planesource_path"]).read_text()
