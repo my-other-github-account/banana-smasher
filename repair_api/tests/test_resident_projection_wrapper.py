@@ -6,7 +6,7 @@ import torch
 from repair_api import ArtifactError, ResidentRepairAPI
 
 
-PROVIDER_SHA256 = "86eb159a36aeb3ce59ea66c15a41c8df26ac60eb0f12ac1561df6aa6fdf7b59e"
+PROVIDER_SHA256 = "f29506abf4383076fd65b6e8068226bdd074533d758a3276f7adf7ab980596bf"
 ATTEMPT106BP_TERMINAL_SHA256 = (
     "a5964b1276475629e0e2ab1a22ec0fe82fd81ef0302f31b06873c31c2b358faa"
 )

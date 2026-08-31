@@ -64,10 +64,16 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
 
     source = source_path.read_text()
     assert "pin_memory: bool = True" in source
-    assert source.count("non_blocking=True") == 3
-    first_copy = source.index("packed_cpu.to(device=device, non_blocking=True)")
+    assert source.count("non_blocking=True") == 2
+    first_copy = source.index("su_cpu.to(device=device, non_blocking=True)")
     last_copy = source.index("sv_cpu.to(device=device, non_blocking=True)", first_copy)
     sync = source.index("stream.synchronize()", last_copy)
+    assert "cudaHostGetDevicePointer" in source
+    assert '"/usr/local/cuda/targets/sbsa-linux/lib/libcudart.so.12"' in source
+    assert "_construct_storage_from_data_pointer" in source
+    assert "_construct_CUDA_Tensor_From_Storage_And_Metadata" in source
+    assert "packed._cpu_uva_owner = packed_cpu" in source
+    assert "packed_cpu.to(device=device" not in source
     assert "stream = torch.cuda.Stream(device=device)" in source
     assert "with torch.cuda.stream(stream):" in source
     assert 'thread_name_prefix="w28-h2d"' in source
