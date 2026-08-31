@@ -1,6 +1,7 @@
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from repair_api.balanced64 import ScoreResult
 from repair_api import static_w28_resident
@@ -26,6 +27,10 @@ def test_static_w28_calls_existing_resident_scorer_once_and_seals_truth(monkeypa
     seen = {}
 
     class API:
+        artifact = SimpleNamespace(
+            manifest={"score": {"official_k2_resident": {"provider_resolution_mode": "STATIC_W28_GROUPED"}}}
+        )
+
         def score(self, checkpoint, windows):
             seen["checkpoint"] = checkpoint
             seen["windows"] = tuple(windows)
@@ -62,8 +67,8 @@ def test_static_w28_calls_existing_resident_scorer_once_and_seals_truth(monkeypa
     )
     monkeypatch.setattr(
         static_w28_resident.sealed_pre_forward,
-        "source_binding",
-        lambda: {"status": "PASS", "builder_sha256": "builder", "known_value_fixture": {
+        "bind_sealed_pre_resident_config",
+        lambda config: {"status": "PASS", "builder_sha256": "builder", "known_value_fixture": {
             "window": 28, "kld_mean": 0.1364830042977786, "top1": 880,
         }},
     )
@@ -163,6 +168,10 @@ def test_static_w28_refuses_nonresident_or_slow_result(monkeypatch, tmp_path) ->
     reference_sha = _write_reference(reference)
 
     class API:
+        artifact = SimpleNamespace(
+            manifest={"score": {"official_k2_resident": {"provider_resolution_mode": "STATIC_W28_GROUPED"}}}
+        )
+
         def score(self, checkpoint, windows):
             return ScoreResult(
                 checkpoint=checkpoint,
@@ -182,7 +191,11 @@ def test_static_w28_refuses_nonresident_or_slow_result(monkeypatch, tmp_path) ->
         "open",
         lambda root, official_rank_seat=None: API(),
     )
-    monkeypatch.setattr(static_w28_resident.sealed_pre_forward, "source_binding", lambda: {"status": "PASS"})
+    monkeypatch.setattr(
+        static_w28_resident.sealed_pre_forward,
+        "bind_sealed_pre_resident_config",
+        lambda config: {"status": "PASS"},
+    )
 
     try:
         static_w28_resident.run_static_w28_resident_acceptance(

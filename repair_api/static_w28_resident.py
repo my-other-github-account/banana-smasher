@@ -74,10 +74,13 @@ def run_static_w28_resident_acceptance(
     """Call ``ResidentRepairAPI.score`` once for sealed W28 and gate its receipt."""
     root = root.resolve()
     truth = _sealed_truth(reference_receipt.resolve(), reference_sha256)
-    source_binding = sealed_pre_forward.source_binding()
     api = ResidentRepairAPI.open(
         artifact_root.resolve(), official_rank_seat=rank_seat
     )
+    score_config = api.artifact.manifest.get("score", {}).get("official_k2_resident")
+    if not isinstance(score_config, dict):
+        raise RuntimeError("STATIC_W28_OFFICIAL_CONFIG_MISSING")
+    source_binding = sealed_pre_forward.bind_sealed_pre_resident_config(score_config)
     result = api.score(checkpoint, windows=(W28_WINDOW,))
     measurement = result.as_dict()
     counters = dict(result.runtime_counters)
