@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import ctypes
 import hashlib
 import json
 import os
@@ -29,18 +30,54 @@ PROJECTION_SHAPES = {
 }
 
 
+def _managed_packed_tensor(
+    shape: tuple[int, ...], *, device: torch.device
+) -> tuple[torch.Tensor, np.ndarray]:
+    """Allocate one coherent managed wire and expose its CPU fill view."""
+    elements = int(np.prod(shape, dtype=np.int64))
+    nbytes = elements * 2
+    cudart = ctypes.CDLL("/usr/local/cuda/targets/sbsa-linux/lib/libcudart.so.12")
+    malloc_managed = cudart.cudaMallocManaged
+    malloc_managed.argtypes = [
+        ctypes.POINTER(ctypes.c_void_p), ctypes.c_size_t, ctypes.c_uint
+    ]
+    malloc_managed.restype = ctypes.c_int
+    pointer = ctypes.c_void_p()
+    result = malloc_managed(ctypes.byref(pointer), nbytes, 1)
+    if result != 0 or not pointer.value:
+        raise RuntimeError(f"cudaMallocManaged refused packed wire: {result}")
+    storage = torch._C._construct_storage_from_data_pointer(
+        pointer.value, device, nbytes
+    )
+    stride = [1] * len(shape)
+    for index in range(len(shape) - 2, -1, -1):
+        stride[index] = stride[index + 1] * shape[index + 1]
+    metadata = {
+        "size": shape,
+        "stride": tuple(stride),
+        "dtype": torch.int16,
+        "device": device,
+        "storage_offset": 0,
+    }
+    tensor = torch._C._construct_CUDA_Tensor_From_Storage_And_Metadata(
+        metadata, storage
+    )
+    owner = (ctypes.c_uint8 * nbytes).from_address(pointer.value)
+    setattr(tensor, "_managed_cpu_owner", owner)
+    array = np.ctypeslib.as_array(owner).view("<i2").reshape(shape)
+    return tensor, array
+
+
 def _load_projection_payloads(
     paths: list[Path], *, m: int, k: int, packed_bytes: int = PACKED_BYTES,
-    pin_memory: bool = True,
+    pin_memory: bool = True, device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
-    """Read wires concurrently into pinned tensors for three async H2D copies."""
-    packed_tensor = torch.empty(
-        (len(paths), k // 16, m // 16, 32), dtype=torch.int16,
-        pin_memory=pin_memory,
+    """Read wires into coherent managed packed state and pinned scales."""
+    packed_tensor, packed = _managed_packed_tensor(
+        (len(paths), k // 16, m // 16, 32), device=device,
     )
     su_tensor = torch.empty((len(paths), k), dtype=torch.float16, pin_memory=pin_memory)
     sv_tensor = torch.empty((len(paths), m), dtype=torch.float16, pin_memory=pin_memory)
-    packed = packed_tensor.numpy()
     su = su_tensor.numpy()
     sv = sv_tensor.numpy()
     expected = packed_bytes + (k + m) * 2 + 4
@@ -75,29 +112,15 @@ def _load_projection_payloads(
 
 
 def _transfer_projection_payloads(
-    packed_cpu: torch.Tensor,
+    packed: torch.Tensor,
     su_cpu: torch.Tensor,
     sv_cpu: torch.Tensor,
     *,
     device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Expose the exact packed wire through coherent CPU-UVA and migrate scales."""
-    if not packed_cpu.is_pinned() or not packed_cpu.is_contiguous():
-        raise RuntimeError("packed CPU-UVA source must be pinned and contiguous")
-    storage = torch._C._construct_storage_from_data_pointer(
-        packed_cpu.data_ptr(), device, packed_cpu.untyped_storage().nbytes()
-    )
-    metadata = {
-        "size": packed_cpu.shape,
-        "stride": packed_cpu.stride(),
-        "dtype": packed_cpu.dtype,
-        "device": device,
-        "storage_offset": 0,
-    }
-    packed = torch._C._construct_CUDA_Tensor_From_Storage_And_Metadata(
-        metadata, storage
-    )
-    packed._cpu_uva_owner = packed_cpu
+    """Retain the exact managed packed wire and migrate only its scales."""
+    if packed.device != device or not packed.is_contiguous():
+        raise RuntimeError("managed packed wire device/geometry drift")
     stream = torch.cuda.Stream(device=device)
     with torch.cuda.stream(stream):
         su = su_cpu.to(device=device, non_blocking=True)
@@ -143,7 +166,9 @@ class FullyResidentGroupedV7Experts(nn.Module):
                     plane_source.member_path(expert, projection)
                     for expert in range(EXPERTS)
                 ]
-                payload = _load_projection_payloads(paths, m=m, k=k)
+                payload = _load_projection_payloads(
+                    paths, m=m, k=k, device=device
+                )
                 packed_cpu, su_cpu, sv_cpu, read_calls, read_bytes = payload
                 pending_transfers[projection] = (
                     transfer_pool.submit(

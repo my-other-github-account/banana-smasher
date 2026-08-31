@@ -38,6 +38,9 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
         "np": np,
         "torch": torch,
         "PACKED_BYTES": 64,
+        "_managed_packed_tensor": lambda shape, device: (
+            (tensor := torch.empty(shape, dtype=torch.int16)), tensor.numpy()
+        ),
     }
     exec(compile(ast.Module(body=[function], type_ignores=[]), str(source_path), "exec"), namespace)
     paths = []
@@ -52,7 +55,8 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
         expected_packed.append(torch.from_numpy(packed.copy()))
 
     packed, su, sv, read_calls, read_bytes = namespace["_load_projection_payloads"](
-        paths, m=16, k=16, packed_bytes=64, pin_memory=False
+        paths, m=16, k=16, packed_bytes=64, pin_memory=False,
+        device=torch.device("cpu"),
     )
 
     assert seen == {"max_workers": 3, "thread_name_prefix": "w28-wire-read"}
@@ -68,11 +72,11 @@ def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> Non
     first_copy = source.index("su_cpu.to(device=device, non_blocking=True)")
     last_copy = source.index("sv_cpu.to(device=device, non_blocking=True)", first_copy)
     sync = source.index("stream.synchronize()", last_copy)
-    assert "cudaHostGetDevicePointer" not in source
-    assert "packed_cpu.data_ptr(), device" in source
+    assert "cudaMallocManaged" in source
+    assert "np.ctypeslib.as_array(owner)" in source
     assert "_construct_storage_from_data_pointer" in source
     assert "_construct_CUDA_Tensor_From_Storage_And_Metadata" in source
-    assert "packed._cpu_uva_owner = packed_cpu" in source
+    assert 'setattr(tensor, "_managed_cpu_owner", owner)' in source
     assert "packed_cpu.to(device=device" not in source
     assert "stream = torch.cuda.Stream(device=device)" in source
     assert "with torch.cuda.stream(stream):" in source
