@@ -2313,6 +2313,14 @@ class OfficialK2ResidentRankEngine:
     def _load_base(self) -> Any:
         path = self.asset_root / "source" / "base_binrepair_e2e.py"
         if not path.is_file():
+            path = (
+                Path(__file__).resolve().parents[1]
+                / "runtime"
+                / "v7"
+                / "runner"
+                / "base_binrepair_e2e.py"
+            )
+        if not path.is_file():
             raise ArtifactError(f"official resident base source is missing: {path}")
         module = self._load_module(f"banana_smasher_resident_score_base_{os.getpid()}_{self.rank}", path)
         module.T.CKPT = str(self.model_root)

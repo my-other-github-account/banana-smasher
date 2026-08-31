@@ -91,6 +91,8 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             engine = cast(Any, object.__new__(OfficialK2ResidentRankEngine))
             engine.asset_root = root
             engine.windows = (28,)
+            engine.rank = 0
+            engine.model_root = root / "model"
             engine.config = {
                 "binrepair_manifest": str(manifest),
                 "binrepair_delta_dir": str(missing_delta),
@@ -110,6 +112,17 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
                 "RESIDENT_GROUPED_PROVIDER_UNUSED\n",
             )
             self.assertEqual(engine._resident_base_input_dir, resolved)
+            loaded = {}
+            engine._load_module = lambda name, path: loaded.setdefault(
+                "module", SimpleNamespace(T=SimpleNamespace(CKPT=None, DEV=None), path=path)
+            )
+            base = engine._load_base()
+            self.assertEqual(
+                base.path,
+                Path(__file__).parents[2] / "runtime" / "v7" / "runner" / "base_binrepair_e2e.py",
+            )
+            self.assertEqual(base.T.CKPT, str(engine.model_root))
+            self.assertEqual(base.T.DEV, "cuda")
             (resolved / "DELTA_PACK.COMPLETE").unlink()
             resolved.rmdir()
 
