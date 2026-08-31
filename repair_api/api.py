@@ -297,6 +297,56 @@ def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str,
     return resolved
 
 
+def _localize_official_k2_rank_seat(
+    config: Mapping[str, Any], rank_seat: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    """Bind a copied runtime config to one explicit QSFP rank seat.
+
+    The artifact manifest remains immutable. Only the rendezvous address and
+    its matching rank map may change, and the peer must retain the address
+    already authorized by the sealed config.
+    """
+    resolved = dict(config)
+    if rank_seat is None:
+        return resolved
+    allowed = {"rank", "host", "local_qsfp_ip", "peer_rank", "peer_host", "peer_qsfp_ip"}
+    unknown = sorted(set(rank_seat) - allowed)
+    if unknown:
+        raise ArtifactError(f"official-K2 rank-seat localization fields refused: {unknown}")
+    required = allowed - {"host", "peer_host"}
+    missing = sorted(key for key in required if rank_seat.get(key) in (None, ""))
+    if missing:
+        raise ArtifactError(f"official-K2 rank-seat localization fields are missing: {missing}")
+    rank = int(rank_seat["rank"])
+    peer_rank = int(rank_seat["peer_rank"])
+    if {rank, peer_rank} != {0, 1} or rank != int(resolved.get("rank", -1)):
+        raise ArtifactError("official-K2 rank-seat localization must preserve the declared two-rank seat")
+    mapping = resolved.get("qsfp_host_ip_by_rank")
+    if not isinstance(mapping, Mapping):
+        raise ArtifactError("official-K2 rank-seat localization requires the sealed QSFP rank map")
+    try:
+        original = {
+            seat: str(mapping[seat] if seat in mapping else mapping[str(seat)])
+            for seat in (0, 1)
+        }
+    except (KeyError, TypeError) as exc:
+        raise ArtifactError("official-K2 sealed QSFP rank map is incomplete") from exc
+    if str(resolved.get("master_addr", "")) != original[0]:
+        raise ArtifactError("official-K2 sealed rendezvous identity is internally inconsistent")
+    local = str(rank_seat["local_qsfp_ip"])
+    peer = str(rank_seat["peer_qsfp_ip"])
+    if not local.startswith("192.168.200.") or not peer.startswith("192.168.200.") or local == peer:
+        raise ArtifactError("official-K2 rank-seat localization requires distinct QSFP addresses")
+    if peer != original[peer_rank]:
+        raise ArtifactError("official-K2 rank-seat localization cannot change the authorized peer")
+    localized_map = dict(mapping)
+    localized_map[str(rank)] = local
+    localized_map[str(peer_rank)] = peer
+    resolved["master_addr"] = local if rank == 0 else peer
+    resolved["qsfp_host_ip_by_rank"] = localized_map
+    return resolved
+
+
 def _validate_published_pre_resume_start(
     start_update: int,
     start_meta: Mapping[str, Any],
@@ -775,12 +825,18 @@ class ResidentRepairAPI:
             bound["resident_gate_up_active_row_expert"] = int(active_row_expert)
         return bound
 
-    def __init__(self, artifact: RepairArtifact, *, loader=None, official_backend_factory=None):
+    def __init__(
+        self, artifact: RepairArtifact, *, loader=None, official_backend_factory=None,
+        official_rank_seat: Mapping[str, Any] | None = None,
+    ):
         self.artifact = artifact
         self.loader = loader or _load_torch
         self._shared_preflight = SharedPreflight(artifact)
         self._last_preflight: dict[str, Any] = {}
         self._official_backend_factory = official_backend_factory
+        self._official_rank_seat = (
+            dict(official_rank_seat) if official_rank_seat is not None else None
+        )
         self._official_backends: dict[tuple[Any, ...], Any] = {}
         self._resident: dict[tuple[str, tuple[int, ...]], Any] = {}
         self._row_metric_resident: dict[tuple[str, tuple[int, ...]], tuple[dict[str, Any], ...]] = {}
@@ -799,11 +855,13 @@ class ResidentRepairAPI:
         *,
         loader=None,
         official_backend_factory=None,
+        official_rank_seat: Mapping[str, Any] | None = None,
     ) -> "ResidentRepairAPI":
         return cls(
             RepairArtifact.open(artifact_root),
             loader=loader,
             official_backend_factory=official_backend_factory,
+            official_rank_seat=official_rank_seat,
         )
 
     @property
@@ -2281,7 +2339,10 @@ class ResidentRepairAPI:
                     factory = OfficialK2ResidentScorer
                 backend = factory(
                     self.artifact,
-                    _resolve_official_k2_config_locators(official_config),
+                    _localize_official_k2_rank_seat(
+                        _resolve_official_k2_config_locators(official_config),
+                        self._official_rank_seat,
+                    ),
                 )
                 self._official_backends[backend_key] = backend
             try:

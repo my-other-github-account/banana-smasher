@@ -69,12 +69,15 @@ def run_static_w28_resident_acceptance(
     canonical_pin: str,
     reference_receipt: Path,
     reference_sha256: str,
+    rank_seat: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Call ``ResidentRepairAPI.score`` once for sealed W28 and gate its receipt."""
     root = root.resolve()
     truth = _sealed_truth(reference_receipt.resolve(), reference_sha256)
     source_binding = sealed_pre_forward.source_binding()
-    api = ResidentRepairAPI.open(artifact_root.resolve())
+    api = ResidentRepairAPI.open(
+        artifact_root.resolve(), official_rank_seat=rank_seat
+    )
     result = api.score(checkpoint, windows=(W28_WINDOW,))
     measurement = result.as_dict()
     counters = dict(result.runtime_counters)
@@ -126,6 +129,7 @@ def run_static_w28_resident_acceptance(
         "full64_launched": False,
         "public_api": "ResidentRepairAPI.score",
         "one_variable": "resident packed-state scorer replaces per-layer full-BF16 static builder expansion",
+        "runtime_rank_seat": dict(rank_seat) if rank_seat is not None else None,
     }
     path = root / "receipts" / f"STATIC_W28_RESIDENT_ACCEPTANCE.{task}.json"
     receipt["receipt_sha256"] = sealed_pre_forward.atomic_json(path, receipt)
@@ -154,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         canonical_pin=head,
         reference_receipt=Path(config["reference_receipt"]),
         reference_sha256=config["reference_sha256"],
+        rank_seat=config.get("rank_seat"),
     )
     print(json.dumps(receipt, sort_keys=True), flush=True)
     return 0
