@@ -9,8 +9,9 @@ def test_static_w28_fills_bounded_host_arena_before_cuda_migration() -> None:
     ).read_text()
 
     constructor = source[source.index("class FullyResidentGroupedV7Experts"):]
-    assert "arena_cpu_tensor = torch.empty(" in constructor
-    assert "dtype=torch.int16, pin_memory=True" in constructor
+    assert "arena_cpu_tensor = _shared_packed_host_arena(arena_shape)" in constructor
+    assert "_PACKED_HOST_ARENA = torch.empty(shape, dtype=torch.int16, pin_memory=True)" in source
+    assert "elif tuple(_PACKED_HOST_ARENA.shape) != shape" in source
     assert "self._packed_host_arena_owner = arena_cpu_tensor" in constructor
     assert "arena_pointer, arena_owner" not in constructor
     assert "packed_cuda = packed.to(device=device)" in source

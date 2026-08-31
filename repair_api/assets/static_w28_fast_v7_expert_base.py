@@ -29,6 +29,21 @@ PROJECTION_SHAPES = {
     "w3": (2048, 4096),
 }
 
+# The resident builder installs layers serially and each blocking H2D migration
+# completes before the next layer starts. Reuse one registered packed-wire
+# arena across those layers: registering or retaining a fresh 4.5-GiB pinned
+# arena per layer stalls the bounded cold load after the first resident tranche.
+_PACKED_HOST_ARENA: torch.Tensor | None = None
+
+
+def _shared_packed_host_arena(shape: tuple[int, int]) -> torch.Tensor:
+    global _PACKED_HOST_ARENA
+    if _PACKED_HOST_ARENA is None:
+        _PACKED_HOST_ARENA = torch.empty(shape, dtype=torch.int16, pin_memory=True)
+    elif tuple(_PACKED_HOST_ARENA.shape) != shape:
+        raise RuntimeError("shared packed host arena geometry drift")
+    return _PACKED_HOST_ARENA
+
 
 def _managed_packed_allocation(
     shape: tuple[int, ...], *, device: torch.device
@@ -211,12 +226,9 @@ class FullyResidentGroupedV7Experts(nn.Module):
             * PROJECTION_SHAPES["w1"][1] * 32 // 256
         )
         arena_shape = (len(PROJECTIONS), projection_elements)
-        arena_cpu_tensor = torch.empty(
-            arena_shape, dtype=torch.int16, pin_memory=True
-        )
-        # Keep the large registration alive for the resident layer.  Releasing
-        # each 1.5-GiB pinned arena immediately after H2D made cudaFreeHost page
-        # unregistration consume the remainder of the bounded cold start.
+        arena_cpu_tensor = _shared_packed_host_arena(arena_shape)
+        # Keep the single shared registration alive while each layer's blocking
+        # H2D copy leaves independent ordinary CUDA storage behind.
         self._packed_host_arena_owner = arena_cpu_tensor
         arena_cpu = arena_cpu_tensor.numpy()
         loaded = {}
