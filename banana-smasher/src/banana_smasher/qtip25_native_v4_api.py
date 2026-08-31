@@ -130,7 +130,17 @@ def _torch_control(path: Path) -> dict[str, Any]:
         import torch
     except ModuleNotFoundError as exc:
         raise RuntimeError("loading a PT control requires torch; use an NPZ control for CPU fixtures") from exc
-    raw = torch.load(path, map_location="cpu", mmap=True, weights_only=True)
+    mmap_legacy_error = (
+        "mmap can only be used with files saved with "
+        "`torch.save(_use_new_zipfile_serialization=True), please torch.save your "
+        "checkpoint with this option in order to use mmap."
+    )
+    try:
+        raw = torch.load(path, map_location="cpu", mmap=True, weights_only=True)
+    except RuntimeError as exc:
+        if str(exc) != mmap_legacy_error:
+            raise
+        raw = torch.load(path, map_location="cpu", mmap=False, weights_only=True)
     if not isinstance(raw, Mapping):
         raise ValueError("native V4 PT control must contain a mapping")
     result: dict[str, Any] = {}
