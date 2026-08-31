@@ -80,6 +80,41 @@ def canonical_sha256(value: object) -> str:
     ).hexdigest()
 
 
+def resolve_wire_candidate(candidates: Iterable[Path], *, member: str) -> Path:
+    """Accept duplicate layouts only when they contain identical wire bytes."""
+    present = [path for path in candidates if path.is_file()]
+    if not present:
+        raise RuntimeError(f"{member} member missing")
+    selected = present[0]
+    if len(present) == 1:
+        return selected
+    selected_sha = sha256_file(selected)
+    for duplicate in present[1:]:
+        if sha256_file(duplicate) != selected_sha:
+            raise RuntimeError(f"{member} conflicting duplicate")
+    return selected
+
+
+WIRE_MEMBER_TEMPLATES = (
+    "E{expert:03d}_{projection}.q2v7wire",
+    "E{expert:03d}_{projection}.k2wire",
+    "wire/E{expert:03d}_{projection}.q2v7wire",
+    "wire/E{expert:03d}_{projection}.k2wire",
+    "wire/E{expert:03d}/{projection}.q2v7wire",
+    "wire/E{expert:03d}/{projection}.k2wire",
+)
+
+
+def active_wire_templates(root: Path) -> tuple[str, ...]:
+    """Probe each complete-cache layout once instead of once per member."""
+    active = tuple(
+        template
+        for template in WIRE_MEMBER_TEMPLATES
+        if (root / template.format(expert=0, projection="w1")).is_file()
+    )
+    return active or WIRE_MEMBER_TEMPLATES
+
+
 def fsync_dir(path: Path) -> None:
     fd = os.open(path, os.O_RDONLY)
     try:
@@ -260,18 +295,20 @@ class PlaneSource:
                 self.member_paths[(expert, projection)] = path
         else:
             root = parent_root.resolve() / f"L{self.layer:03d}"
+            wire_templates = active_wire_templates(root)
             for expert in range(256):
                 for projection in PROJECTIONS:
                     candidates = [
-                        root / f"E{expert:03d}_{projection}.q2v7wire",
-                        root / f"E{expert:03d}_{projection}.k2wire",
+                        root / template.format(expert=expert, projection=projection)
+                        for template in wire_templates
                     ]
-                    present = [p.resolve() for p in candidates if p.is_file()]
-                    if len(present) != 1:
-                        raise RuntimeError(
-                            f"L{self.layer:03d} member ambiguity E{expert:03d}/{projection}"
+                    member = f"L{self.layer:03d} E{expert:03d}/{projection}"
+                    if len(candidates) == 1:
+                        self.member_paths[(expert, projection)] = candidates[0]
+                    else:
+                        self.member_paths[(expert, projection)] = resolve_wire_candidate(
+                            candidates, member=member
                         )
-                    self.member_paths[(expert, projection)] = present[0]
         expected = {(e, p) for e in range(256) for p in PROJECTIONS}
         if set(self.member_paths) != expected:
             raise RuntimeError(f"L{self.layer:03d} member coverage drift")
@@ -500,46 +537,13 @@ class ShardStudent:
             return handles[shard].get_tensor(name)
 
         def release_model_source_cache(layer: int) -> None:
-            """Drop clean source-shard pages after their CUDA copies are sealed."""
-            prefix = f"layers.{layer}."
-            shards = sorted({
-                shard for name, shard in self.wm.items() if name.startswith(prefix)
-            })
+            """Close source mmaps; immutable pages remain kernel-reclaimable."""
             handles.clear()
             gc.collect()
-            advise = getattr(os, "posix_fadvise", None)
-            dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
-            if advise is None or dontneed is None:
-                raise RuntimeError("model source page-cache eviction is unavailable")
-            for shard in shards:
-                path = model_root / shard
-                descriptor = os.open(path, os.O_RDONLY)
-                try:
-                    advise(descriptor, 0, 0, dontneed)
-                except OSError as exc:
-                    raise RuntimeError(
-                        f"L{layer:03d} model source page-cache eviction failed: {path}: {exc}"
-                    ) from exc
-                finally:
-                    os.close(descriptor)
 
         def release_expert_source_cache(source: PlaneSource) -> None:
-            """Drop clean selected-wire pages after their CUDA copies are sealed."""
-            advise = getattr(os, "posix_fadvise", None)
-            dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
-            if advise is None or dontneed is None:
-                raise RuntimeError("expert source page-cache eviction is unavailable")
+            """Release Python relays; immutable page cache remains kernel-reclaimable."""
             gc.collect()
-            for path in source.member_paths.values():
-                descriptor = os.open(path, os.O_RDONLY)
-                try:
-                    advise(descriptor, 0, 0, dontneed)
-                except OSError as exc:
-                    raise RuntimeError(
-                        f"L{source.layer:03d} expert source page-cache eviction failed: {path}: {exc}"
-                    ) from exc
-                finally:
-                    os.close(descriptor)
 
         self.get_tensor = get_tensor
         m = self.model

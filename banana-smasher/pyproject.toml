@@ -22,7 +22,7 @@ solve = [
   "ninja==1.13.0",
   "torch==2.8.0",
   "transformers @ git+https://github.com/huggingface/transformers.git@b6c0bfe04c823a7b2ca48f91b8b91b2a7741f309",
-  "triton==3.4.0; platform_system == 'Linux'",
+  "triton==3.4.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
 ]
 
 [project.scripts]

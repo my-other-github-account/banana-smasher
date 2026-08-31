@@ -268,6 +268,41 @@ def _resolve_runtime(
     return discovered[0]
 
 
+def preflight_balanced64_runtime(
+    subject: Mapping[str, Any],
+    *,
+    role: str,
+    runtime: Balanced64Runtime | None = None,
+) -> dict[str, Any]:
+    """Select exactly one semantic teacher/PRE runtime without a forward pass."""
+
+    if role not in {"teacher", "candidate_pre"}:
+        raise ValueError("BALANCED64 runtime preflight role must be teacher or candidate_pre")
+    if runtime is not None:
+        supports = getattr(runtime, "supports", None)
+        if not callable(supports) or supports(subject=subject, role=role) is not True:
+            raise ValueError(f"explicit BALANCED64 runtime does not support role={role}")
+        selected = runtime
+    else:
+        selected = _resolve_runtime(None, subject=subject, role=role)
+    report = balanced64_hardware_contract(selected)
+    return {
+        "schema": "banana-smasher.balanced64-runtime-preflight.v1",
+        "status": "PASS",
+        "role": role,
+        "runtime": {"id": _runtime_id(selected)},
+        "selection": {"matches": 1, "basis": "subject-config-index-artifact-semantics"},
+        "hardware_contract": report["runtimes"][0]["contract"],
+        "executes_forward_pass": False,
+        "mechanisms": {
+            "fallback": 0,
+            "relay": 0,
+            "reconstruction": 0,
+            "streaming": 0,
+        },
+    }
+
+
 def _zero_mechanisms(value: Any, *, timed: bool) -> dict[str, int]:
     required = ["fallback", "relay", "reconstruction", "streaming"]
     if timed:

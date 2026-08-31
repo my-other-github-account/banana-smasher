@@ -9,6 +9,7 @@ from banana_smasher.qtip25_native_v4 import (
     decode_native_v4_torch,
     expand_native_v4_tlut,
     native_v4_geometry,
+    _native_v4_cuda_source,
     native_v4_wire_accounting,
     pack_native_v4_states,
     solve_native_v4,
@@ -83,6 +84,15 @@ def test_native_v4_roundtrip_decode_and_exact_code_rate() -> None:
     assert accounting["unique_transition_bits_per_payload"] == 1
     assert accounting["assignment_map_bytes"] == 0
     assert accounting["routing_bytes"] == 0
+
+
+
+def test_qtip1_cuda_source_strides_all_prefixes_beyond_one_block() -> None:
+    source = _native_v4_cuda_source(native_v4_geometry(1.0))
+
+    assert "for (int prefix = tid; prefix < PREFIXES; prefix += THREADS)" in source
+    assert "for (int branch = 0; branch < (1 << BRANCH_BITS); ++branch)" in source
+    assert source.count("static_cast<int64_t>(step - capture_step)") == 3
 
 
 def test_native_v4_torch_extracts_state_windows_without_reductions(monkeypatch) -> None:

@@ -16,7 +16,9 @@ PLANESOURCE_SHA256 = "167603b5662437a2f9fc4b3ead1561d777a7a831a898133993b9e1c0c2
 BASIS_SHA256 = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 CHECKPOINT_SHA256 = "f9bffe04c6e1ee03ea2eefe838f68ed773179e05363d08ac509602cb740f9f70"
 CANDIDATE_IDENTITY = "51074d5fedfc922b8442cb6cf988773f32991c16e6cf34ca21131c4f7b1726f8"
-TRAINER_SHA256 = "126c11f306a12ed35c1234bd12952a32662c3bd81fc2e74361f0a55ebdc21fc0"
+TRAINER_SHA256 = "b900549ac65afe30fcc857800c7127f555d5b0e437a4824693172b88cedea5f7"
+STATIC_W28_WRAPPER_SHA256 = "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
+STATIC_W28_EXPERT_SHA256 = "ca554e444839bbb3cf3e03aa21174937d9596a6a3861c0a592fdfebac6baf1ff"
 SEALED_MODEL_ROOT = Path("/home/dnola/models/hf/DeepSeek-V4-Flash-0731")
 W28_KLD = 0.1364830042977786
 W28_TOP1 = 880
@@ -91,10 +93,17 @@ def bind_sealed_pre_resident_config(config: dict[str, Any]) -> dict[str, Any]:
     # explicit singleton request used by the public parity-tap comparator.
     config.setdefault("score_window_batch_size", 2)
     config.setdefault("sealed_builder_window_microbatch", 2)
-    config["trainer_source"] = str(
-        (Path(__file__).resolve().parent / "assets" / "static_w28_modern_green_clean_u0.py")
-    )
+    assets = Path(__file__).resolve().parent / "assets"
+    config["trainer_source"] = str(assets / "static_w28_modern_green_clean_u0.py")
     config["trainer_source_sha256"] = TRAINER_SHA256
+    # OfficialK2ResidentRankEngine imports these historical top-level modules
+    # before the trainer. Bind the same commit-owned provider bytes here so the
+    # accepted trainer cannot inherit the mutable full64 provider from the
+    # artifact manifest.
+    config["fast_k2_wrapper_source"] = str(assets / "static_w28_fast_k2_grouped.py")
+    config["fast_k2_wrapper_source_sha256"] = STATIC_W28_WRAPPER_SHA256
+    config["resident_expert_source"] = str(assets / "static_w28_fast_v7_expert_base.py")
+    config["resident_expert_source_sha256"] = STATIC_W28_EXPERT_SHA256
     return config["sealed_pre_source_binding"]
 
 

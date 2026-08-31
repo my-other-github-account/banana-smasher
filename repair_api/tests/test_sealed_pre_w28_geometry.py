@@ -30,7 +30,7 @@ def test_sealed_pre_binding_preserves_explicit_accepted_static_provider(monkeypa
         "ec681dd1ac35d5c4368071db12c8bb0801cbf78c3677c51ef9a56d0cacdf3454"
     )
     assert resolved["expert_sha256"] == (
-        "4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
+        "ca554e444839bbb3cf3e03aa21174937d9596a6a3861c0a592fdfebac6baf1ff"
     )
 
 
@@ -54,6 +54,14 @@ def test_sealed_pre_w28_keeps_target_producer_mb2_geometry(monkeypatch) -> None:
     assert config["resident_validation_expert_implementation"] == "accepted_static_w28"
     assert config["score_window_batch_size"] == 2
     assert config["sealed_builder_window_microbatch"] == 2
+    assert Path(config["fast_k2_wrapper_source"]).name == "static_w28_fast_k2_grouped.py"
+    assert config["fast_k2_wrapper_source_sha256"] == (
+        modern_green_resident.STATIC_W28_GROUPED_WRAPPER_SHA256
+    )
+    assert Path(config["resident_expert_source"]).name == "static_w28_fast_v7_expert_base.py"
+    assert config["resident_expert_source_sha256"] == (
+        modern_green_resident.STATIC_W28_GROUPED_EXPERT_SHA256
+    )
 
     resolved = modern_green_resident._resolve_runtime_provider_files(config)
     assert resolved["wrapper_path"].name == "static_w28_fast_k2_grouped.py"
@@ -61,7 +69,11 @@ def test_sealed_pre_w28_keeps_target_producer_mb2_geometry(monkeypatch) -> None:
     assert resolved["expert_path"].name == "static_w28_fast_v7_expert_base.py"
     assert resolved["expert_sha256"] == modern_green_resident.STATIC_W28_GROUPED_EXPERT_SHA256
     trainer = Path(modern_green_resident.__file__).parent / "assets" / "static_w28_modern_green_clean_u0.py"
-    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "126c11f306a12ed35c1234bd12952a32662c3bd81fc2e74361f0a55ebdc21fc0"
+    assert hashlib.sha256(trainer.read_bytes()).hexdigest() == "b900549ac65afe30fcc857800c7127f555d5b0e437a4824693172b88cedea5f7"
+    trainer_source = trainer.read_text()
+    assert '"wire/E{expert:03d}/{projection}.q2v7wire"' in trainer_source
+    assert '"wire/E{expert:03d}/{projection}.k2wire"' in trainer_source
+    assert "wire_templates = active_wire_templates(root)" in trainer_source
 
 
 def test_u20_continuation_resolves_commit_owned_serial_provider_descendant() -> None:

@@ -174,6 +174,17 @@ _SPARK3_SEALED_L034_ROSTER = Path(
     "/home/dnola/missions/QTIP2_V7_JOINT_t_6aceaf1f_s3/l034/"
     "L034_SELECTED_WIRE_PROVIDER_ROSTER.json"
 )
+_STALE_BR_MANIFEST = Path(
+    "/home/dnola/missions/P629_GLOBAL_QTIP2_t_2987ad15_s1/inputs/baseline/"
+    "DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json"
+)
+_SPARK2_SEALED_BR_MANIFEST = Path(
+    "/home/dnola/missions/SEALED_RESIDENT_t_71ec433e/staged/manifest/"
+    "DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json"
+)
+_SPARK2_SEALED_BR_MANIFEST_SHA256 = (
+    "b4b19184e3c56e8b2de2bb1bb6837a2afc3079de2c315e9e6e15065e2b5b8d0e"
+)
 
 
 def _select_exact_manifest_member(
@@ -199,6 +210,19 @@ def _resolve_exact_parent_manifest(
     observed = hashlib.sha256(candidate.read_bytes()).hexdigest()
     if observed != expected_sha256:
         raise ArtifactError(f"official-K2 sealed parent manifest identity drift: {label}")
+    return candidate.resolve()
+
+
+def _resolve_official_br_manifest(declared: Path) -> Path:
+    """Localize only the sealed stale BR manifest to its authenticated local copy."""
+    if declared != _STALE_BR_MANIFEST:
+        raise ArtifactError("official-K2 BR manifest localization requires the sealed stale locator")
+    candidate = declared if declared.is_file() else _SPARK2_SEALED_BR_MANIFEST
+    if not candidate.is_file():
+        raise ArtifactError(f"official-K2 localized immutable input is missing: {candidate}")
+    observed = hashlib.sha256(candidate.read_bytes()).hexdigest()
+    if observed != _SPARK2_SEALED_BR_MANIFEST_SHA256:
+        raise ArtifactError(f"official-K2 localized immutable SHA mismatch: {candidate}")
     return candidate.resolve()
 
 
@@ -240,6 +264,11 @@ def _validate_sealed_parent_root(
 def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str, Any]:
     """Localize the sealed Spark-5 closure to identity-equal Spark-3 inputs."""
     resolved = dict(config)
+    declared_br_manifest = Path(str(resolved.get("binrepair_manifest", ""))).expanduser()
+    if declared_br_manifest == _STALE_BR_MANIFEST:
+        resolved["binrepair_manifest"] = str(
+            _resolve_official_br_manifest(declared_br_manifest)
+        )
     override = os.environ.get("BANANA_SMASHER_OFFICIAL_MODEL_ROOT")
     if not override:
         return resolved
@@ -294,6 +323,56 @@ def _resolve_official_k2_config_locators(config: Mapping[str, Any]) -> dict[str,
         manifest_root=_SPARK3_SEALED_PARENT_MANIFEST_ROOT,
     )
     bind_sealed_pre_resident_config(resolved)
+    return resolved
+
+
+def _localize_official_k2_rank_seat(
+    config: Mapping[str, Any], rank_seat: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    """Bind a copied runtime config to one explicit QSFP rank seat.
+
+    The artifact manifest remains immutable. Only the rendezvous address and
+    its matching rank map may change, and the peer must retain the address
+    already authorized by the sealed config.
+    """
+    resolved = dict(config)
+    if rank_seat is None:
+        return resolved
+    allowed = {"rank", "host", "local_qsfp_ip", "peer_rank", "peer_host", "peer_qsfp_ip"}
+    unknown = sorted(set(rank_seat) - allowed)
+    if unknown:
+        raise ArtifactError(f"official-K2 rank-seat localization fields refused: {unknown}")
+    required = allowed - {"host", "peer_host"}
+    missing = sorted(key for key in required if rank_seat.get(key) in (None, ""))
+    if missing:
+        raise ArtifactError(f"official-K2 rank-seat localization fields are missing: {missing}")
+    rank = int(rank_seat["rank"])
+    peer_rank = int(rank_seat["peer_rank"])
+    if {rank, peer_rank} != {0, 1} or rank != int(resolved.get("rank", -1)):
+        raise ArtifactError("official-K2 rank-seat localization must preserve the declared two-rank seat")
+    mapping = resolved.get("qsfp_host_ip_by_rank")
+    if not isinstance(mapping, Mapping):
+        raise ArtifactError("official-K2 rank-seat localization requires the sealed QSFP rank map")
+    try:
+        original = {
+            seat: str(mapping[seat] if seat in mapping else mapping[str(seat)])
+            for seat in (0, 1)
+        }
+    except (KeyError, TypeError) as exc:
+        raise ArtifactError("official-K2 sealed QSFP rank map is incomplete") from exc
+    if str(resolved.get("master_addr", "")) != original[0]:
+        raise ArtifactError("official-K2 sealed rendezvous identity is internally inconsistent")
+    local = str(rank_seat["local_qsfp_ip"])
+    peer = str(rank_seat["peer_qsfp_ip"])
+    if not local.startswith("192.168.200.") or not peer.startswith("192.168.200.") or local == peer:
+        raise ArtifactError("official-K2 rank-seat localization requires distinct QSFP addresses")
+    if peer != original[peer_rank]:
+        raise ArtifactError("official-K2 rank-seat localization cannot change the authorized peer")
+    localized_map = dict(mapping)
+    localized_map[str(rank)] = local
+    localized_map[str(peer_rank)] = peer
+    resolved["master_addr"] = local if rank == 0 else peer
+    resolved["qsfp_host_ip_by_rank"] = localized_map
     return resolved
 
 
@@ -761,10 +840,10 @@ class ResidentRepairAPI:
     ) -> dict[str, Any]:
         """Bind the production static provider to sealed native-BF16 projections."""
         accepted_provider = (
-            "4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
+            "ca554e444839bbb3cf3e03aa21174937d9596a6a3861c0a592fdfebac6baf1ff"
         )
         if provider_expert_sha256 != accepted_provider:
-            raise ArtifactError("combined gate/up projection requires provider 4ba14116")
+            raise ArtifactError("combined gate/up projection requires provider ca554e44")
         bound = dict(config)
         bound["resident_gate_up_projection"] = "combined_4096_bf16_f_linear_v1"
         bound["resident_gate_up_provider_sha256"] = accepted_provider
@@ -775,12 +854,18 @@ class ResidentRepairAPI:
             bound["resident_gate_up_active_row_expert"] = int(active_row_expert)
         return bound
 
-    def __init__(self, artifact: RepairArtifact, *, loader=None, official_backend_factory=None):
+    def __init__(
+        self, artifact: RepairArtifact, *, loader=None, official_backend_factory=None,
+        official_rank_seat: Mapping[str, Any] | None = None,
+    ):
         self.artifact = artifact
         self.loader = loader or _load_torch
         self._shared_preflight = SharedPreflight(artifact)
         self._last_preflight: dict[str, Any] = {}
         self._official_backend_factory = official_backend_factory
+        self._official_rank_seat = (
+            dict(official_rank_seat) if official_rank_seat is not None else None
+        )
         self._official_backends: dict[tuple[Any, ...], Any] = {}
         self._resident: dict[tuple[str, tuple[int, ...]], Any] = {}
         self._row_metric_resident: dict[tuple[str, tuple[int, ...]], tuple[dict[str, Any], ...]] = {}
@@ -799,11 +884,13 @@ class ResidentRepairAPI:
         *,
         loader=None,
         official_backend_factory=None,
+        official_rank_seat: Mapping[str, Any] | None = None,
     ) -> "ResidentRepairAPI":
         return cls(
             RepairArtifact.open(artifact_root),
             loader=loader,
             official_backend_factory=official_backend_factory,
+            official_rank_seat=official_rank_seat,
         )
 
     @property
@@ -2281,7 +2368,10 @@ class ResidentRepairAPI:
                     factory = OfficialK2ResidentScorer
                 backend = factory(
                     self.artifact,
-                    _resolve_official_k2_config_locators(official_config),
+                    _localize_official_k2_rank_seat(
+                        _resolve_official_k2_config_locators(official_config),
+                        self._official_rank_seat,
+                    ),
                 )
                 self._official_backends[backend_key] = backend
             try:

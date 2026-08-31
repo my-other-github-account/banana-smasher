@@ -33,9 +33,11 @@ from repair_api.official_k2_resident_score import (
     PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
     OfficialK2ResidentRankEngine,
     OfficialK2ResidentScorer,
+    _published_pre_production_admitted,
     _write_q_lp_capture,
     _canonical_causal_score_tokens,
     _prune_loaded_parent_members,
+    _resident_runtime_path,
     _validate_raw_u0_gates,
     _validate_qsfp_pin,
     authorize_production_score,
@@ -80,6 +82,64 @@ class FakeOfficialBackend:
 
 
 class OfficialK2ResidentScoreTests(unittest.TestCase):
+    def test_resident_rank_resolves_unused_missing_delta_input_without_restage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.json"
+            vq3b = root / "vq3b"
+            missing_delta = root / "dummy_delta"
+            manifest.write_text("{}")
+            engine = cast(Any, object.__new__(OfficialK2ResidentRankEngine))
+            engine.asset_root = root
+            engine.windows = (28,)
+            engine.rank = 0
+            engine.model_root = root / "model"
+            engine.config = {
+                "binrepair_manifest": str(manifest),
+                "binrepair_delta_dir": str(missing_delta),
+                "binrepair_vq3b_dir": str(vq3b),
+                "attention_implementation": "eager",
+            }
+
+            engine._configure_base_environment()
+
+            override = root / "verified-cache"
+            override.mkdir()
+            with patch.dict(
+                os.environ,
+                {"BANANA_SMASHER_RESIDENT_PARENT_ROOT": str(override)},
+            ):
+                self.assertEqual(
+                    _resident_runtime_path(
+                        root / "missing-parent", "BANANA_SMASHER_RESIDENT_PARENT_ROOT"
+                    ),
+                    override.resolve(),
+                )
+
+            resolved = Path(os.environ["BR_DELTA_DIR"])
+            self.assertFalse(missing_delta.exists())
+            self.assertFalse(vq3b.exists())
+            self.assertNotEqual(resolved, missing_delta)
+            self.assertEqual(Path(os.environ["BR_VQ3B_DIR"]), resolved)
+            self.assertEqual(
+                (resolved / "DELTA_PACK.COMPLETE").read_text(),
+                "RESIDENT_GROUPED_PROVIDER_UNUSED\n",
+            )
+            self.assertEqual(engine._resident_base_input_dir, resolved)
+            loaded = {}
+            engine._load_module = lambda name, path: loaded.setdefault(
+                "module", SimpleNamespace(T=SimpleNamespace(CKPT=None, DEV=None), path=path)
+            )
+            base = engine._load_base()
+            self.assertEqual(
+                base.path,
+                Path(__file__).parents[2] / "runtime" / "v7" / "runner" / "base_binrepair_e2e.py",
+            )
+            self.assertEqual(base.T.CKPT, str(engine.model_root))
+            self.assertEqual(base.T.DEV, "cuda")
+            (resolved / "DELTA_PACK.COMPLETE").unlink()
+            resolved.rmdir()
+
     def test_q_lp_capture_is_complete_immutable_and_no_overwrite(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "q_lp.npy"
@@ -740,19 +800,39 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             with self.assertRaisesRegex(ArtifactError, "quarantine-only"):
                 api.score("UPDATE_000", windows=WINDOWS)
 
+    def test_published_pre_admits_authentic_payload_identity_lineage(self):
+        manifest = {
+            "checkpoints": {
+                "UPDATE_000": {
+                    "sha256": ALTERNATE_PRE_CHECKPOINT_SHA256,
+                    "identity_sha256": PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256,
+                    "parent_sha256": None,
+                    "next_update": 0,
+                },
+                "UPDATE_001": {
+                    "parent_sha256": ALTERNATE_PRE_CHECKPOINT_SHA256,
+                    "parent_identity_sha256": PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256,
+                    "optimizer_scheduler_lineage": PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
+                    "next_update": 1,
+                },
+            }
+        }
+
+        self.assertTrue(_published_pre_production_admitted(manifest))
+
     def test_api_score_admits_only_identity_exact_fresh_published_pre_lineage(self):
         def manifest_for(root: Path) -> dict[str, Any]:
             self.make_artifact(root, checkpoint_sha=ALTERNATE_PRE_CHECKPOINT_SHA256)
             manifest = json.loads((root / "ARTIFACT.json").read_text())
             pre = manifest["checkpoints"]["UPDATE_000"]
-            pre["identity_sha256"] = PUBLISHED_PRE_IDENTITY_SHA256
+            pre["identity_sha256"] = PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256
             pre["parent_sha256"] = None
             manifest["checkpoints"]["UPDATE_001"] = {
                 "path": "checkpoints/UPDATE_001.pt",
                 "sha256": "candidate-sha",
                 "identity_sha256": "candidate-identity",
                 "parent_sha256": ALTERNATE_PRE_CHECKPOINT_SHA256,
-                "parent_identity_sha256": PUBLISHED_PRE_IDENTITY_SHA256,
+                "parent_identity_sha256": PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256,
                 "optimizer_scheduler_lineage": PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE,
                 "next_update": 1,
             }

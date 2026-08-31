@@ -22,6 +22,7 @@ import pickle
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import time
 from types import MappingProxyType
 from typing import Any, Callable, Iterable, Mapping, cast
@@ -103,7 +104,7 @@ def _published_pre_production_admitted(manifest: Mapping[str, Any]) -> bool:
     published_pre = any(
         isinstance(meta, Mapping)
         and meta.get("sha256") == ALTERNATE_PRE_CHECKPOINT_SHA256
-        and meta.get("identity_sha256") == PUBLISHED_PRE_IDENTITY_SHA256
+        and meta.get("identity_sha256") == PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256
         and int(meta.get("next_update", meta.get("update", -1))) == 0
         and not (meta.get("parent_sha256") or meta.get("parent_checkpoint_sha256"))
         for meta in checkpoints.values()
@@ -113,7 +114,7 @@ def _published_pre_production_admitted(manifest: Mapping[str, Any]) -> bool:
         and int(meta.get("next_update", meta.get("update", -1))) == 1
         and (meta.get("parent_sha256") or meta.get("parent_checkpoint_sha256"))
             == ALTERNATE_PRE_CHECKPOINT_SHA256
-        and meta.get("parent_identity_sha256") == PUBLISHED_PRE_IDENTITY_SHA256
+        and meta.get("parent_identity_sha256") == PUBLISHED_PRE_PAYLOAD_IDENTITY_SHA256
         and meta.get("optimizer_scheduler_lineage")
             == PUBLISHED_PRE_OPTIMIZER_SCHEDULER_LINEAGE
         for meta in checkpoints.values()
@@ -672,6 +673,17 @@ def _load_json(path: Path) -> Any:
         return json.loads(path.read_text())
     except (OSError, ValueError) as exc:
         raise ArtifactError(f"cannot read resident JSON input {path}: {exc}") from exc
+
+
+def _resident_runtime_path(value: Any, environment: str) -> Path:
+    """Localize a missing, identity-checked resident input without restaging."""
+    configured = Path(str(value)).expanduser().resolve()
+    if configured.exists():
+        return configured
+    override = os.environ.get(environment)
+    if override:
+        return Path(override).expanduser().resolve(strict=True)
+    return configured
 
 
 def _rebase_admission_lut_sources(admission: Mapping[str, Any], root: str | Path) -> dict[str, Any]:
@@ -1675,7 +1687,8 @@ class OfficialK2ResidentRankEngine:
         self.np = np
         self.torch = torch
         self.dist = dist
-        self.config = dict(config)
+        config = dict(config)
+        self.config = config
         self.local_dual_shard = bool(config.get("same_process_dual_shard", False))
         self.local_coordinator = config.get("local_dual_shard_coordinator")
         self.rank = int(config.get("rank", 0)) if self.local_dual_shard else int(
@@ -1693,8 +1706,22 @@ class OfficialK2ResidentRankEngine:
         self.checkpoint_identity_sha256 = checkpoint_identity_sha256
         self.model_root = Path(str(config["model_root"])).expanduser().resolve()
         self.asset_root = Path(str(config["asset_root"])).expanduser().resolve()
-        self.parent_root = Path(str(config["parent_root"])).expanduser().resolve()
-        self.teacher_root = Path(str(config["teacher_root"])).expanduser().resolve()
+        if not (self.asset_root / "code" / "JOINT_REPAIR_ADMISSION.json").is_file():
+            canonical_asset_root = Path(__file__).resolve().parents[1] / "runtime" / "v7"
+            if (canonical_asset_root / "code" / "JOINT_REPAIR_ADMISSION.json").is_file():
+                self.asset_root = canonical_asset_root
+        self.parent_root = _resident_runtime_path(
+            config["parent_root"], "BANANA_SMASHER_RESIDENT_PARENT_ROOT"
+        )
+        self.teacher_root = _resident_runtime_path(
+            config["teacher_root"], "BANANA_SMASHER_RESIDENT_TEACHER_ROOT"
+        )
+        lut_parent = config.get("lut_parent_root")
+        if lut_parent is not None:
+            localized_lut_parent = _resident_runtime_path(
+                lut_parent, "BANANA_SMASHER_RESIDENT_LUT_PARENT_ROOT"
+            )
+            config["lut_parent_root"] = str(localized_lut_parent)
         self.corpus_path = Path(str(config["corpus"])).expanduser().resolve()
         self.trainer_path = Path(str(config["trainer_source"])).expanduser().resolve()
         self.lp4_pack_path = Path(str(config.get(
@@ -2262,15 +2289,41 @@ class OfficialK2ResidentRankEngine:
         """Bind the legacy base loader's required env to the public manifest."""
         attention = _configured_attention_implementation(self.config)
         os.environ["BR_ATTN_IMPL"] = attention
+        delta_dir = self.config.get("binrepair_delta_dir", self.asset_root / "delta")
+        delta_path = Path(str(delta_dir)).expanduser().resolve()
+        if not delta_path.exists():
+            # The resident rank supplies every expert plane from its hash-bound
+            # parent/L034 cache.  The imported historical base module still
+            # checks BR_DELTA_DIR at import time even though ShardStudent never
+            # calls its IQ3-bin PlaneSource.  Give that legacy import an isolated
+            # process-lifetime sentinel instead of requiring or restaging
+            # scientifically unused delta tensors.
+            delta_path = Path(
+                tempfile.mkdtemp(prefix="banana-smasher-resident-base-")
+            ).resolve()
+            (delta_path / "DELTA_PACK.COMPLETE").write_text("RESIDENT_GROUPED_PROVIDER_UNUSED\n")
+            self._resident_base_input_dir = delta_path
+        vq3b_value = self.config.get("binrepair_vq3b_dir")
+        if vq3b_value is None:
+            raise ArtifactError("official resident manifest is missing binrepair_vq3b_dir")
+        vq3b_path = Path(str(vq3b_value)).expanduser().resolve()
+        if not vq3b_path.exists():
+            vq3b_path = getattr(self, "_resident_base_input_dir", None)
+            if vq3b_path is None:
+                vq3b_path = Path(
+                    tempfile.mkdtemp(prefix="banana-smasher-resident-base-")
+                ).resolve()
+                (vq3b_path / "DELTA_PACK.COMPLETE").write_text(
+                    "RESIDENT_GROUPED_PROVIDER_UNUSED\n"
+                )
+                self._resident_base_input_dir = vq3b_path
         path_values = {
             "BR_MANIFEST": self.config.get(
                 "binrepair_manifest", self.asset_root / "code" / "DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json"
             ),
-            "BR_DELTA_DIR": self.config.get("binrepair_delta_dir", self.asset_root / "delta"),
-            "BR_VQ3B_DIR": self.config.get("binrepair_vq3b_dir"),
+            "BR_DELTA_DIR": delta_path,
+            "BR_VQ3B_DIR": vq3b_path,
         }
-        if path_values["BR_VQ3B_DIR"] is None:
-            raise ArtifactError("official resident manifest is missing binrepair_vq3b_dir")
         for key, value in path_values.items():
             path = Path(str(value)).expanduser().resolve()
             if not path.exists():
@@ -2285,6 +2338,14 @@ class OfficialK2ResidentRankEngine:
 
     def _load_base(self) -> Any:
         path = self.asset_root / "source" / "base_binrepair_e2e.py"
+        if not path.is_file():
+            path = (
+                Path(__file__).resolve().parents[1]
+                / "runtime"
+                / "v7"
+                / "runner"
+                / "base_binrepair_e2e.py"
+            )
         if not path.is_file():
             raise ArtifactError(f"official resident base source is missing: {path}")
         module = self._load_module(f"banana_smasher_resident_score_base_{os.getpid()}_{self.rank}", path)

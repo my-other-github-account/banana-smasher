@@ -197,6 +197,10 @@ def admit_hf_source(
         "revision": str(revision),
         "config_sha256": config_member["sha256"],
         "model_index_sha256": index_member["sha256"],
+        "config_semantics": {
+            "architectures": config.get("architectures"),
+            "model_type": config.get("model_type"),
+        },
         "tensor_count": len(weight_map),
         "shards": sorted(shards),
         "shard_count": len(shards),
@@ -216,6 +220,56 @@ def admit_hf_source(
     destination = Path(receipt_path).expanduser().resolve()
     _atomic_json(destination, receipt)
     return receipt
+
+
+def _reuse_hf_source_admission(
+    admission: Mapping[str, Any] | str | Path,
+    *,
+    model: str | Path,
+    revision: str,
+) -> dict[str, Any]:
+    """Reuse a sealed admission after cheap identity/stat checks, without payload reads."""
+
+    if isinstance(admission, Mapping):
+        source = dict(admission)
+    else:
+        path = Path(admission).expanduser().resolve()
+        try:
+            source = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"HF source admission is not readable canonical JSON: {path}") from exc
+    root = Path(model).expanduser().resolve()
+    if (
+        source.get("schema") != HF_SOURCE_ADMISSION_SCHEMA
+        or source.get("status") != "PASS"
+        or source.get("model_root") != str(root)
+        or source.get("revision") != revision
+    ):
+        raise ValueError("HF source admission does not match model root/revision")
+    binding = source.get("binding")
+    members = binding.get("members") if isinstance(binding, Mapping) else None
+    if not isinstance(members, list) or not members:
+        raise ValueError("HF source admission has no sealed member inventory")
+    for row in members:
+        if not isinstance(row, Mapping) or not isinstance(row.get("path"), str):
+            raise ValueError("HF source admission member inventory is invalid")
+        path = (root / row["path"]).resolve()
+        try:
+            status = path.stat()
+        except OSError as exc:
+            raise ValueError(f"sealed admission member is missing: {row.get('path')}") from exc
+        if (
+            not path.is_file()
+            or str(path) != row.get("realpath")
+            or status.st_ino != row.get("inode")
+            or status.st_size != row.get("bytes")
+        ):
+            raise ValueError(f"sealed admission member stat drift: {row.get('path')}")
+    if _sha256(root / "config.json") != source.get("config_sha256") or _sha256(
+        root / "model.safetensors.index.json"
+    ) != source.get("model_index_sha256"):
+        raise ValueError("sealed admission config/index hash drift")
+    return {**source, "reuse_verified": True, "payloads_rehashed": False}
 
 
 class HFMoeAdapter(Protocol):
@@ -374,6 +428,7 @@ def discover_hf_moe_routed_scope(
     model: str | Path,
     *,
     revision: str,
+    source_admission: Mapping[str, Any] | str | Path | None = None,
     receipt_path: str | Path,
 ) -> dict[str, Any]:
     """Answer 'which tensors would routed_only select' from config + index alone.
@@ -386,10 +441,14 @@ def discover_hf_moe_routed_scope(
     """
 
     destination = Path(receipt_path).expanduser().resolve()
-    source = admit_hf_source(
-        model,
-        revision=revision,
-        receipt_path=destination.with_name("ROUTED_SCOPE_SOURCE_ADMISSION.json"),
+    source = (
+        admit_hf_source(
+            model,
+            revision=revision,
+            receipt_path=destination.with_name("ROUTED_SCOPE_SOURCE_ADMISSION.json"),
+        )
+        if source_admission is None
+        else _reuse_hf_source_admission(source_admission, model=model, revision=revision)
     )
     root = Path(source["model_root"])
     config = json.loads((root / "config.json").read_text(encoding="utf-8"))
@@ -428,6 +487,7 @@ def plan_hf_moe_uniform(
     tier: str,
     scope: str,
     native_rest: bool,
+    source_admission: Mapping[str, Any] | str | Path | None = None,
     receipt_path: str | Path,
 ) -> dict[str, Any]:
     """Plan a metadata-only routed-Q2/native-rest build without loading tensors."""
@@ -437,10 +497,14 @@ def plan_hf_moe_uniform(
     if scope != "routed_only" or native_rest is not True:
         raise ValueError("HF MoE uniform planner requires routed_only with native_rest=True")
     destination = Path(receipt_path).expanduser().resolve()
-    source = admit_hf_source(
-        model,
-        revision=revision,
-        receipt_path=destination.with_name("SOURCE_ADMISSION.json"),
+    source = (
+        admit_hf_source(
+            model,
+            revision=revision,
+            receipt_path=destination.with_name("SOURCE_ADMISSION.json"),
+        )
+        if source_admission is None
+        else _reuse_hf_source_admission(source_admission, model=model, revision=revision)
     )
     root = Path(source["model_root"])
     config = json.loads((root / "config.json").read_text(encoding="utf-8"))
@@ -679,6 +743,7 @@ def estimate_hf_moe_uniform(
     tier: str,
     scope: str,
     native_rest: bool,
+    source_admission: Mapping[str, Any] | str | Path | None = None,
     receipt_path: str | Path,
 ) -> dict[str, Any]:
     """Encode one representative routed tensor and project a complete build.
@@ -701,6 +766,7 @@ def estimate_hf_moe_uniform(
         tier=tier,
         scope=scope,
         native_rest=native_rest,
+        source_admission=source_admission,
         receipt_path=destination.with_name("CANARY_PLAN.json"),
     )
     ordered = sorted(plan["routed_tensors"], key=lambda row: (row["source_bytes"], row["name"]))
@@ -867,6 +933,7 @@ def build_hf_moe_uniform(
     scope: str,
     native_rest: bool,
     output: str | Path,
+    source_admission: Mapping[str, Any] | str | Path | None = None,
     native_spill_root: str | Path | None = None,
     _routed_ordinal_range: tuple[int, int] | None = None,
 ) -> dict[str, Any]:
@@ -898,6 +965,7 @@ def build_hf_moe_uniform(
             tier=tier,
             scope=scope,
             native_rest=native_rest,
+            source_admission=source_admission,
             receipt_path=staging / "UNIFORM_PLAN.json",
         )
         root = Path(plan["source"]["model_root"])
@@ -1178,6 +1246,7 @@ def build_hf_moe_uniform_shard(
     routed_ordinal_start: int,
     routed_ordinal_end: int,
     output: str | Path,
+    source_admission: Mapping[str, Any] | str | Path | None = None,
     native_spill_root: str | Path | None = None,
 ) -> dict[str, Any]:
     """Build one canonical half-open routed-tensor ordinal range."""
@@ -1189,6 +1258,7 @@ def build_hf_moe_uniform_shard(
         scope=scope,
         native_rest=native_rest,
         output=output,
+        source_admission=source_admission,
         native_spill_root=native_spill_root,
         _routed_ordinal_range=(routed_ordinal_start, routed_ordinal_end),
     )

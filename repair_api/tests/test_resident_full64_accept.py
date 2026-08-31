@@ -291,7 +291,7 @@ def test_production_installs_provider_global_native_bf16_w2_before_engine() -> N
 
     assert api_open < binder < engine
     assert CURRENT_PROVIDER_EXPERT_SHA256 == (
-        "4ba1411601b186dd0d6a3a89c829320f1b50e3112a40db40034e9fbadfb5d552"
+        "ca554e444839bbb3cf3e03aa21174937d9596a6a3861c0a592fdfebac6baf1ff"
     )
     bound = ResidentRepairAPI.bind_combined_gate_up_projection(
         {}, provider_expert_sha256=CURRENT_PROVIDER_EXPERT_SHA256
@@ -508,7 +508,7 @@ def test_sealed_pre_binding_owns_accepted_trainer_identity() -> None:
     from repair_api.modern_green_resident import _require_file
     from repair_api.sealed_pre_forward import bind_sealed_pre_resident_config
 
-    authoritative_sha = "126c11f306a12ed35c1234bd12952a32662c3bd81fc2e74361f0a55ebdc21fc0"
+    authoritative_sha = "b900549ac65afe30fcc857800c7127f555d5b0e437a4824693172b88cedea5f7"
     stale_sha = "cc0520e00a6cc5b979c638e3f1fd98ae92c882f3cf9f48cbcdf3fa55fad343cc"
     config = {
         "trainer_source": "/stale/inherited/trainer.py",

@@ -11,8 +11,10 @@ The public API has two declared, testable dependency tiers:
 - **Base install** — `python -m pip install ./banana-smasher`. Supports the complete
   metadata-only planning tier: `admit_hf_source`, `discover_hf_moe_routed_scope`,
   `plan_hf_moe_uniform`, `preflight_hf_moe_output_fit`, and
-  `balanced64_hardware_contract`. These read config, index, and safetensors headers
-  only; they never read tensor bytes and never need torch.
+  `balanced64_hardware_contract`. Initial source admission deliberately content-hashes
+  every declared shard (and therefore reads the complete payload); later calls may reuse
+  that sealed receipt via `source_admission=` and then read only config/index hashes,
+  member stats, and safetensors headers. None decode tensor payloads or need torch.
 - **`[solve]` extra** — `python -m pip install './banana-smasher[solve]'`. Required by
   every call that encodes or executes: `estimate_hf_moe_uniform` and
   `build_hf_moe_uniform*` for production-sized routed tensors (the encoder refuses a
@@ -36,6 +38,7 @@ map, `CODEBASE_MAP.md`, `runtime/` internals, or fleet-specific path is required
 | horizontal build | `build_hf_moe_uniform_shard(...)`, `union_hf_moe_uniform_shards(...)` | solve |
 | reload / admit | `open_hf_moe_uniform(...)`, `open_hf_moe_uniform_shard(...)` | base |
 | hardware contract | `balanced64_hardware_contract()` | base |
+| semantic runtime preflight | `preflight_balanced64_runtime(subject, role=...)` | base |
 | eval inputs | `recover_balanced64_source_text(...)`, `build_balanced64_token_ledger(...)` | base |
 | teacher capture | `capture_balanced64_teacher(...)` | solve + CUDA |
 | canonical PRE | `score_balanced64_pre(...)` | solve + CUDA |
@@ -43,7 +46,8 @@ map, `CODEBASE_MAP.md`, `runtime/` internals, or fleet-specific path is required
 Source admission accepts the canonical HuggingFace cache/snapshot layout: symlinked
 members are resolved and bound by content SHA-256, and the receipt publishes the
 authoritative repository roster plus the excluded client-side `.cache/huggingface/`
-bookkeeping subtree, so file/byte identity is reproducible without guesswork.
+bookkeeping subtree, so file/byte identity is reproducible without guesswork. It also
+publishes `config_semantics.architectures` and `config_semantics.model_type`.
 
 Routed scope is derived from config and tensor-name semantics, never from a model name
 or a hardcoded roster: routed layer ids are `[first_k_dense_replace, num_hidden_layers)`,
@@ -55,6 +59,16 @@ Teacher capture and PRE execute a real forward pass. Call `balanced64_hardware_c
 **before** staging a large source: it reports each registered runtime's declared
 requirement (the shipped `hf-sharded` runtime requires CUDA, minimum 1 rank) and whether
 this host satisfies it. The public calls fail closed with that contract stated.
+After admission/open, `preflight_balanced64_runtime(source, role="teacher")` and
+`preflight_balanced64_runtime(artifact, role="candidate_pre")` prove semantic selection
+resolves exactly once without executing. They declare zero fallback, relay,
+reconstruction, and streaming.
+
+Storage-fit failures and missing historical suite inputs remain explicit external
+prerequisites: a FAILED output-fit receipt blocks building, and source-text recovery
+requires the separately provisioned digest-bound historical ledger and tokenizer named
+by the selected protocol. No API guesses those inputs, substitutes another model family,
+or uses CPU relay.
 
 ## Checkpoint identity
 Canonical checkpoint identity: the published QTIP2 V7 pre-repair artifact is

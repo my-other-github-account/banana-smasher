@@ -86,6 +86,7 @@ def test_project_registers_balanced64_runtime_entry_point() -> None:
     text = project.read_text()
     assert '[project.entry-points."banana_smasher.balanced64_runtimes"]' in text
     assert "hf-sharded" in text
+    assert 'triton==3.4.0; platform_system == \'Linux\' and platform_machine == \'x86_64\'' in text
 
 
 def test_runtime_capability_matches_package_executor_hybrid_contract(tmp_path: Path) -> None:
@@ -110,6 +111,34 @@ def test_runtime_capability_ignores_vision_layer_ordinals(tmp_path: Path) -> Non
     source["model_index_sha256"] = hashlib.sha256(index_path.read_bytes()).hexdigest()
 
     assert runtime.supports(subject=source, role="teacher") is True
+
+
+def test_public_runtime_preflight_selects_exactly_one_semantic_runtime(tmp_path: Path) -> None:
+    from banana_smasher import preflight_balanced64_runtime
+
+    runtime = ShardedHFBalanced64Runtime(executor_factory=lambda **_: None)
+    source = _source(tmp_path)
+    report = preflight_balanced64_runtime(
+        source, role="teacher", runtime=runtime
+    )
+
+    assert report["status"] == "PASS"
+    assert report["runtime"]["id"] == "hf-sharded-balanced64-v1"
+    assert report["role"] == "teacher"
+    assert report["selection"]["matches"] == 1
+    assert report["mechanisms"] == {
+        "fallback": 0,
+        "relay": 0,
+        "reconstruction": 0,
+        "streaming": 0,
+    }
+
+    with pytest.raises(ValueError, match="does not support"):
+        preflight_balanced64_runtime(
+            source,
+            role="candidate_pre",
+            runtime=runtime,
+        )
 
 
 class _Session:

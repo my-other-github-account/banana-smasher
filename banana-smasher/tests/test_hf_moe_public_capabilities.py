@@ -403,7 +403,6 @@ def test_encoding_beyond_the_fixture_bound_fails_closed_naming_the_solve_extra()
     from banana_smasher.hf_moe import _encode_hf_q2
     from banana_smasher.qtip1 import QTIP2_GEOMETRY, gaussian_tlut
 
-    torch = pytest.importorskip("torch") if False else None  # documented boundary probe
     try:
         import torch as _torch
 
@@ -670,3 +669,75 @@ def test_admission_rejects_an_unsafe_shard_binding(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="unsafe shard binding"):
         admit_hf_source(model, revision=REVISION, receipt_path=tmp_path / "A.json")
+
+
+def test_admission_publishes_architecture_and_model_type(tmp_path: Path) -> None:
+    from banana_smasher import admit_hf_source
+
+    admitted = admit_hf_source(
+        _write_tree(tmp_path / "m"),
+        revision=REVISION,
+        receipt_path=tmp_path / "A.json",
+    )
+
+    assert admitted["config_semantics"] == {
+        "architectures": ["FixtureMoeForCausalLM"],
+        "model_type": "fixture_moe",
+    }
+
+
+def test_discovery_and_plan_reuse_sealed_admission_without_rehashing_payloads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import banana_smasher.hf_moe as hf_moe
+
+    model = _write_tree(tmp_path / "m")
+    admission = hf_moe.admit_hf_source(
+        model, revision=REVISION, receipt_path=tmp_path / "A.json"
+    )
+    original_sha256 = hf_moe._sha256
+
+    def metadata_only_hash(path: Path) -> str:
+        if path.suffix == ".safetensors":
+            raise AssertionError("sealed payload shard was rehashed")
+        return original_sha256(path)
+
+    monkeypatch.setattr(hf_moe, "_sha256", metadata_only_hash)
+    scope = hf_moe.discover_hf_moe_routed_scope(
+        model,
+        revision=REVISION,
+        source_admission=admission,
+        receipt_path=tmp_path / "S.json",
+    )
+    plan = hf_moe.plan_hf_moe_uniform(
+        model,
+        revision=REVISION,
+        source_admission=tmp_path / "A.json",
+        tier="q2",
+        scope="routed_only",
+        native_rest=True,
+        receipt_path=tmp_path / "P.json",
+    )
+
+    assert scope["source"]["reuse_verified"] is True
+    assert plan["source"]["reuse_verified"] is True
+    assert scope["routed_tensor_names"] == sorted(ROUTED)
+
+
+def test_sealed_admission_reuse_rejects_payload_stat_drift(tmp_path: Path) -> None:
+    from banana_smasher import admit_hf_source, discover_hf_moe_routed_scope
+
+    model = _write_tree(tmp_path / "m")
+    admission = admit_hf_source(
+        model, revision=REVISION, receipt_path=tmp_path / "A.json"
+    )
+    shard = model / admission["shards"][0]
+    shard.write_bytes(shard.read_bytes() + b"drift")
+
+    with pytest.raises(ValueError, match="sealed admission member stat drift"):
+        discover_hf_moe_routed_scope(
+            model,
+            revision=REVISION,
+            source_admission=admission,
+            receipt_path=tmp_path / "S.json",
+        )

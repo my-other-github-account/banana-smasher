@@ -42,6 +42,16 @@ class DeepseekV4D4Runtime:
         )
         index_path = self.model_root / "model.safetensors.index.json"
         self.weight_map = json.loads(index_path.read_text())["weight_map"]
+        native_source_value = os.environ.get("BANANA_SMASHER_NATIVE_MODEL_ROOT")
+        self.native_source_root = (
+            Path(native_source_value).expanduser().resolve()
+            if native_source_value
+            else self.model_root
+        )
+        native_index_path = self.native_source_root / "model.safetensors.index.json"
+        if native_index_path.read_bytes() != index_path.read_bytes():
+            raise RuntimeError("DeepSeek-V4 native source basis mismatch")
+        self.native_source_weight_map = json.loads(native_index_path.read_text())["weight_map"]
         with torch.device("meta"):
             self.model = AutoModelForCausalLM.from_config(
                 self.config,
@@ -63,9 +73,18 @@ class DeepseekV4D4Runtime:
     def _get_tensor(self, name: str) -> Any:
         from safetensors import safe_open
 
-        path = self.model_root / self.weight_map[name]
-        self._record_path(path)
-        with safe_open(path, framework="pt", device="cpu") as handle:
+        primary_path = self.model_root / self.weight_map[name]
+        with safe_open(primary_path, framework="pt", device="cpu") as handle:
+            if name in handle.keys():
+                self._record_path(primary_path)
+                return handle.get_tensor(name)
+        fallback_path = self.native_source_root / self.native_source_weight_map[name]
+        if fallback_path == primary_path:
+            raise RuntimeError(f"native source tensor is physically missing: {name}")
+        with safe_open(fallback_path, framework="pt", device="cpu") as handle:
+            if name not in handle.keys():
+                raise RuntimeError(f"native source tensor is physically missing: {name}")
+            self._record_path(fallback_path)
             return handle.get_tensor(name)
 
     def _resident_now(self) -> int:

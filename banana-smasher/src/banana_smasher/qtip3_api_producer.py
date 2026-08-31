@@ -127,7 +127,7 @@ def _startticks(pid: int) -> int | str | None:
 
 @dataclass(frozen=True)
 class Qtip3ApiConfig:
-    """Immutable acceptance settings for every cell in a producer run."""
+    """Immutable acceptance settings for one QTIP V7 ladder tier."""
 
     bpw: float = 3.00
     codec_version: Literal["v6"] = "v6"
@@ -150,13 +150,30 @@ class Qtip3ApiConfig:
     # Explicit immutable safety reserve; CUDA enforces peak + reserve <= free.
     reserve_bytes: int = 256 << 20
 
+    @classmethod
+    def for_bpw(cls, bpw: float) -> "Qtip3ApiConfig":
+        """Resolve the production Q1/Q3/Q4 V7 ladder without changing its path."""
+        rate = float(bpw)
+        if rate not in {1.0, 3.0, 4.0}:
+            raise ValueError("QTIP V7 ladder supports only BPW 1.00, 3.00, and 4.00")
+        return cls(
+            bpw=rate,
+            provider=f"qtip-native-v6@{rate:.2f}",
+            geometry=(int(rate * 4), 16, 4),
+        )
+
     def __post_init__(self) -> None:
-        if self.bpw != 3.00 or self.codec_version != "v6":
-            raise ValueError("QTIP3 V7 producer is fixed to codec v6 at BPW 3.00")
-        if self.provider != "qtip-native-v6@3.00":
-            raise ValueError("QTIP3 V7 producer requires provider qtip-native-v6@3.00")
-        if self.backend != "cuda" or self.geometry != (12, 16, 4):
-            raise ValueError("QTIP3 V7 producer requires CUDA B12/L16/V4")
+        expected = {
+            1.0: ("qtip-native-v6@1.00", (4, 16, 4)),
+            3.0: ("qtip-native-v6@3.00", (12, 16, 4)),
+            4.0: ("qtip-native-v6@4.00", (16, 16, 4)),
+        }.get(self.bpw)
+        if expected is None or self.codec_version != "v6":
+            raise ValueError("QTIP V7 ladder supports only codec v6 at BPW 1.00, 3.00, and 4.00")
+        if (self.provider, self.geometry) != expected:
+            raise ValueError("QTIP V7 provider/geometry does not match its declared BPW")
+        if self.backend != "cuda":
+            raise ValueError("QTIP V7 producer requires CUDA")
         if self.tlut_shape != (512, 2):
             raise ValueError("QTIP3 V7 producer requires float32 TLUT shape [512,2]")
         if self.materialize_decoded:
@@ -276,6 +293,7 @@ def admit_host_and_shard(
     *,
     gpu_probe: Callable[[], Sequence[Any]] = lambda: (),
     pid: int | None = None,
+    config: Qtip3ApiConfig | None = None,
 ) -> dict[str, Any]:
     """Perform fail-closed basis/authority checks and exact local CAS admission.
 
@@ -367,7 +385,7 @@ def admit_host_and_shard(
         "basis": basis, "authority": authority, "claim_preimage_sha256": preimage_sha,
         "claim_sha256": claim_sha, "shards_sha256": shard_sha, "pid": pid,
         "startticks": ticks, "scope_layers": list(plan.layers), "cells": plan.expected_cells,
-        "config": Qtip3ApiConfig().__dict__,
+        "config": (config or Qtip3ApiConfig()).__dict__,
     }
     receipt = plan.mission_root / "receipts" / "ADMISSION.json"
     if receipt.exists():
@@ -405,7 +423,8 @@ def _cell_terminal(plan: Qtip3ApiPlan, cell: CellSpec, api_receipt: dict[str, An
         "api_receipt": api_receipt.get("receipt", str(cell.output / "CELL_RECEIPT.json")),
         "api_receipt_sha256": api_receipt.get("receipt_sha256"),
         "backend": config.backend, "codec_version": config.codec_version, "provider": config.provider,
-        "geometry": {"B": 12, "L": 16, "V": 4}, "bpw": config.bpw,
+        "geometry": {"B": config.geometry[0], "L": config.geometry[1], "V": config.geometry[2]},
+        "bpw": config.bpw,
         "materialize_decoded": False, "scale_factors": [1.0],
         "scale_semantics": config.scale_semantics, "feedback_mode": "off", "objective": "sum_sse",
         "cuda_decode_calls": int(api_receipt["installed_cuda_decode"]["counters"]["cuda_decode_calls"]),
@@ -546,7 +565,8 @@ def run_cells(
         "cells": len(passed), "expected_cells": plan.expected_cells,
         "cuda_positive": all(int(row["cuda_decode_calls"]) > 0 for row in passed),
         "fallback_calls": sum(int(row["fallback_calls"]) for row in passed),
-        "materialize_decoded": False, "provider": config.provider, "geometry": {"B": 12, "L": 16, "V": 4},
+        "materialize_decoded": False, "provider": config.provider,
+        "geometry": {"B": config.geometry[0], "L": config.geometry[1], "V": config.geometry[2]},
         "cell_receipts": [row["receipt_sha256"] for row in passed],
         "pid": pid, "startticks": ticks,
     }
@@ -721,7 +741,7 @@ def run_cells_batched(
         "cuda_positive": all(int(row["cuda_decode_calls"]) > 0 for row in passed),
         "fallback_calls": sum(int(row["fallback_calls"]) for row in passed),
         "materialize_decoded": False, "provider": config.provider,
-        "geometry": {"B": 12, "L": 16, "V": 4},
+        "geometry": {"B": config.geometry[0], "L": config.geometry[1], "V": config.geometry[2]},
         "cell_receipts": [row["receipt_sha256"] for row in passed],
         "pid": pid, "startticks": ticks, "execution": "public-cross-cell-batch",
         "batch_size": batch_size, "bounded_partial": max_new_batches is not None,

@@ -10,9 +10,33 @@ from banana_smasher import (
 )
 from banana_smasher.qtip1 import gaussian_tlut
 from banana_smasher.cli import main
+from banana_smasher.qtip25_native_v4_api import _torch_control
 
 
 CLASSES = ("agentic", "chat", "code", "multilingual", "prose", "reasoning")
+
+
+def test_torch_control_loads_legacy_serialization(tmp_path: Path) -> None:
+    import torch
+
+    control = tmp_path / "legacy-control.pt"
+    expected = {
+        "SU": torch.ones(16, dtype=torch.float16),
+        "SV": torch.ones(16, dtype=torch.float16),
+        "Wscale": torch.asarray(1.0, dtype=torch.float32),
+        "shape": torch.asarray([16, 16], dtype=torch.int64),
+    }
+    torch.save(
+        expected,
+        control,
+        _use_new_zipfile_serialization=False,
+        pickle_protocol=4,
+    )
+
+    observed = _torch_control(control)
+
+    assert set(observed) == set(expected)
+    assert np.array_equal(observed["shape"], np.asarray([16, 16], dtype=np.int64))
 
 
 def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:

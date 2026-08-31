@@ -32,6 +32,7 @@ BASIS = "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
 TASK_ID = os.environ["QTIP3_TASK_ID"]
 BOARD_RUN_ID = int(os.environ["QTIP3_BOARD_RUN_ID"])
 HOST = os.environ["QTIP3_HOST"]
+TIER_CONFIG = Qtip3ApiConfig.for_bpw(float(os.environ.get("QTIP3_BPW", "3.0")))
 ALLOC = os.environ["QTIP3_ALLOCATION"]
 DRIVER_SHA = os.environ["QTIP3_DRIVER_SHA"]
 EXPECTED_CLAIM = os.environ["QTIP3_EXPECTED_CLAIM"]
@@ -270,7 +271,7 @@ def smoke(new_plan, cells):
     batch_source_root = Path(os.environ.get("QTIP3_SMOKE_SOURCE_ROOT", str(WORK / "batch_sources")))
     accelerated_root = Path(os.environ.get("QTIP3_SMOKE_ACCEL_ROOT", str(ROOT / "outputs/smoke_accelerated")))
     common = dict(
-        bpw=3.0,
+        bpw=TIER_CONFIG.bpw,
         codec_version="v6",
         backend="cuda",
         intended_basis_sha256=BASIS,
@@ -394,7 +395,7 @@ def smoke(new_plan, cells):
 
 
 new_plan = plan(EXPECTED_CLAIM)
-admission = admit_host_and_shard(new_plan, gpu_probe=gpu_probe)
+admission = admit_host_and_shard(new_plan, gpu_probe=gpu_probe, config=TIER_CONFIG)
 atomic(
     REC / "FULL_API_START.json",
     {
@@ -411,7 +412,7 @@ cells = all_cells()
 if SMOKE_COUNT:
     smoke(new_plan, cells)
 else:
-    config = Qtip3ApiConfig(reserve_bytes=256 << 20)
+    config = TIER_CONFIG
     terminal = run_cells_batched(
         new_plan, config, cells, batch_api=build_qtip_native_cells, batch_size=40,
         prepare_cell=materialize, cleanup_cell=cleanup,
