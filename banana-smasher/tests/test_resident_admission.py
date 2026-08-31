@@ -252,7 +252,7 @@ class Provider:
             "mean_kld": 0.25 if phase == "pre" else 0.24,
             "top1_matches": 7,
             "positions": 65536,
-            "support": 8192,
+            "support_width": 8192,
             "execution_mode": "resident_model_in_memory",
             "runtime_counters": {
                 "windows": 64,
