@@ -303,9 +303,12 @@ class PlaneSource:
                         for template in wire_templates
                     ]
                     member = f"L{self.layer:03d} E{expert:03d}/{projection}"
-                    self.member_paths[(expert, projection)] = resolve_wire_candidate(
-                        candidates, member=member
-                    )
+                    if len(candidates) == 1:
+                        self.member_paths[(expert, projection)] = candidates[0]
+                    else:
+                        self.member_paths[(expert, projection)] = resolve_wire_candidate(
+                            candidates, member=member
+                        )
         expected = {(e, p) for e in range(256) for p in PROJECTIONS}
         if set(self.member_paths) != expected:
             raise RuntimeError(f"L{self.layer:03d} member coverage drift")
