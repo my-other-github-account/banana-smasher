@@ -166,15 +166,16 @@ def _transfer_projection_payloads(
     *,
     device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Retain the exact managed packed wire and migrate only its scales."""
-    if packed.device != device or not packed.is_contiguous():
-        raise RuntimeError("managed packed wire device/geometry drift")
+    """Migrate one exact host-filled projection into ordinary CUDA storage."""
+    if packed.device.type != "cpu" or not packed.is_contiguous():
+        raise RuntimeError("host-filled packed wire device/geometry drift")
     stream = torch.cuda.Stream(device=device)
     with torch.cuda.stream(stream):
+        packed_cuda = packed.to(device=device, non_blocking=True)
         su = su_cpu.to(device=device, non_blocking=True)
         sv = sv_cpu.to(device=device, non_blocking=True)
     stream.synchronize()
-    return packed, su, sv
+    return packed_cuda, su, sv
 
 
 class FullyResidentGroupedV7Experts(nn.Module):
@@ -204,17 +205,19 @@ class FullyResidentGroupedV7Experts(nn.Module):
         self._trace_unique_experts = 0
         self.act = F.silu
 
-        # One layer arena preserves the exact three contiguous projection
-        # payloads while avoiding three repeated CUDA-storage admissions.  The
-        # proven 8-GiB managed admission covers this 1.5-GiB allocation.
+        # Fill one bounded pinned host arena directly from the local verified
+        # wires, then migrate each projection into ordinary CUDA storage.  This
+        # avoids the pathological per-page managed-memory write fault observed
+        # when preadv targeted a 1.5-GiB cudaMallocManaged arena.
         projection_elements = (
             EXPERTS * PROJECTION_SHAPES["w1"][0]
             * PROJECTION_SHAPES["w1"][1] * 32 // 256
         )
         arena_shape = (len(PROJECTIONS), projection_elements)
-        arena_pointer, arena_owner, arena_cpu = _managed_packed_allocation(
-            arena_shape, device=device
+        arena_cpu_tensor = torch.empty(
+            arena_shape, dtype=torch.int16, pin_memory=True
         )
+        arena_cpu = arena_cpu_tensor.numpy()
         loaded = {}
         for projection_index, projection in enumerate(PROJECTIONS):
             m, k = PROJECTION_SHAPES[projection]
@@ -233,9 +236,7 @@ class FullyResidentGroupedV7Experts(nn.Module):
                 projection_index, packed_shape, su_cpu, sv_cpu,
                 read_calls, read_bytes,
             )
-        arena = _managed_packed_tensor(
-            arena_pointer, arena_owner, arena_shape, device=device
-        )
+        arena = arena_cpu_tensor
         pending_transfers = {}
         with ThreadPoolExecutor(
             max_workers=len(PROJECTIONS), thread_name_prefix="w28-h2d"
