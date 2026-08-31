@@ -522,7 +522,7 @@ def test_public_full64_binds_exact_sealed_pre_sources_to_resident_zero_reload_ap
     assert "W28_KLD = 0.1364830042977786" in runner
     assert "W28_TOP1 = 880" in runner
     assert 'BUILDER_SHA256 = "11ead706db562197e76cdc320d5d13044bb254a411b6412326667f524ddf29ed"' in binding
-    assert 'PLANESOURCE_SHA256 = "167603b5662437a2f9fc4b3ead1561d777a7a831a898133993b9e1c0c26c9f87"' in binding
+    assert 'PLANESOURCE_SHA256 = "0158facf17902fea9c9ff8cda08eb91eaadc4084fe68986f06e8d385df8931c6"' in binding
     assert 'SEALED_MODEL_ROOT = Path("/home/dnola/models/hf/DeepSeek-V4-Flash-0731")' in binding
     assert 'source_args = ["--local-dir", str(SEALED_MODEL_ROOT)]' in binding
     assert '"--remote", "dnola@192.168.200.4:/home/dnola/models/hf/DeepSeek-V4-Flash-0731"' in binding
