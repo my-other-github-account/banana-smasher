@@ -2273,19 +2273,31 @@ class OfficialK2ResidentRankEngine:
             # process-lifetime sentinel instead of requiring or restaging
             # scientifically unused delta tensors.
             delta_path = Path(
-                tempfile.mkdtemp(prefix="banana-smasher-static-w28-base-")
+                tempfile.mkdtemp(prefix="banana-smasher-resident-base-")
             ).resolve()
             (delta_path / "DELTA_PACK.COMPLETE").write_text("RESIDENT_GROUPED_PROVIDER_UNUSED\n")
             self._resident_base_input_dir = delta_path
+        vq3b_value = self.config.get("binrepair_vq3b_dir")
+        if vq3b_value is None:
+            raise ArtifactError("official resident manifest is missing binrepair_vq3b_dir")
+        vq3b_path = Path(str(vq3b_value)).expanduser().resolve()
+        if not vq3b_path.exists():
+            vq3b_path = getattr(self, "_resident_base_input_dir", None)
+            if vq3b_path is None:
+                vq3b_path = Path(
+                    tempfile.mkdtemp(prefix="banana-smasher-resident-base-")
+                ).resolve()
+                (vq3b_path / "DELTA_PACK.COMPLETE").write_text(
+                    "RESIDENT_GROUPED_PROVIDER_UNUSED\n"
+                )
+                self._resident_base_input_dir = vq3b_path
         path_values = {
             "BR_MANIFEST": self.config.get(
                 "binrepair_manifest", self.asset_root / "code" / "DUALVQ_K4096MENU_IQ3_BIN_MANIFEST.json"
             ),
             "BR_DELTA_DIR": delta_path,
-            "BR_VQ3B_DIR": self.config.get("binrepair_vq3b_dir"),
+            "BR_VQ3B_DIR": vq3b_path,
         }
-        if path_values["BR_VQ3B_DIR"] is None:
-            raise ArtifactError("official resident manifest is missing binrepair_vq3b_dir")
         for key, value in path_values.items():
             path = Path(str(value)).expanduser().resolve()
             if not path.exists():

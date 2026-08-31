@@ -88,7 +88,6 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
             vq3b = root / "vq3b"
             missing_delta = root / "dummy_delta"
             manifest.write_text("{}")
-            vq3b.mkdir()
             engine = cast(Any, object.__new__(OfficialK2ResidentRankEngine))
             engine.asset_root = root
             engine.windows = (28,)
@@ -103,7 +102,9 @@ class OfficialK2ResidentScoreTests(unittest.TestCase):
 
             resolved = Path(os.environ["BR_DELTA_DIR"])
             self.assertFalse(missing_delta.exists())
+            self.assertFalse(vq3b.exists())
             self.assertNotEqual(resolved, missing_delta)
+            self.assertEqual(Path(os.environ["BR_VQ3B_DIR"]), resolved)
             self.assertEqual(
                 (resolved / "DELTA_PACK.COMPLETE").read_text(),
                 "RESIDENT_GROUPED_PROVIDER_UNUSED\n",
