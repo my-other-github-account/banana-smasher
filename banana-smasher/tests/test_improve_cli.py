@@ -121,6 +121,31 @@ def test_run_improve_fails_nonzero_when_post_does_not_improve(tmp_path: Path, mo
     assert json.loads((tmp_path / "run" / "IMPROVE_RESULT.json").read_text())["status"] == "FAILED"
 
 
+def test_execute_score_probe_forwards_only_explicit_windows(tmp_path: Path) -> None:
+    calls: list[tuple[int, ...]] = []
+
+    class API:
+        def score_probe(self, windows):
+            calls.append(tuple(windows))
+            return {"mean_kld": 0.09936928004026413, "positions": 1024}
+
+    result = _execute_phase(
+        "score_probe",
+        tmp_path / "artifact",
+        CHECKPOINT_SHA,
+        tmp_path / "run",
+        45,
+        (28,),
+        api_factory=lambda *args, **kwargs: API(),
+    )
+
+    assert calls == [(28,)]
+    assert result["positions"] == 1024
+    receipt = json.loads((tmp_path / "run" / "score_probe.json").read_text())
+    assert receipt["phase"] == "score_probe"
+    assert receipt["result"]["mean_kld"] == 0.09936928004026413
+
+
 def test_smash_improve_is_one_documented_command(tmp_path: Path, monkeypatch, capsys) -> None:
     expected = {"status": "PASS", "improvement": {"improved": True}}
     monkeypatch.setattr("banana_smasher.improve.run_improve", lambda *args, **kwargs: expected)

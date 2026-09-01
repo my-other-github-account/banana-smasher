@@ -95,6 +95,10 @@ class PipelineRails(Protocol):
 
     def score(self, artifact: "BackpackArtifact", phase: str) -> Mapping[str, Any]: ...
 
+    def score_probe(
+        self, artifact: "BackpackArtifact", windows: Sequence[int]
+    ) -> Mapping[str, Any]: ...
+
     def train(
         self, artifact: "BackpackArtifact", updates: int
     ) -> Mapping[str, Any]: ...
@@ -710,6 +714,32 @@ class ResidentRepairAPI:
         self._phase_state = "pre_scored"
         self._pre_result = result
         return result
+
+    def score_probe(
+        self,
+        windows: Sequence[int],
+        artifact: BackpackArtifact | None = None,
+        *,
+        checkpoint_sha: str | None = None,
+    ) -> Mapping[str, Any]:
+        """Run bounded windows through the canonical resident scorer."""
+        checkpoint_sha = self._selected_checkpoint_sha(checkpoint_sha, "score_probe")
+        selected = artifact or self._mixed
+        ordered = tuple(int(value) for value in windows)
+        if selected is None:
+            raise ValueError("score_probe requires a mixed Backpack")
+        if not ordered or len(set(ordered)) != len(ordered):
+            raise ValueError("score_probe requires non-empty unique windows")
+        if self._phase_state != "initialized":
+            raise ValueError("score_probe requires a fresh isolated resident phase")
+        _checkpoint_sha(selected.identity, checkpoint_sha, operation="score_probe")
+        if selected.checkpoint_sha256 != checkpoint_sha:
+            raise ValueError("score_probe checkpoint SHA mismatch for selected artifact")
+        return _checkpoint_receipt(
+            self.rails.score_probe(selected, ordered),
+            checkpoint_sha,
+            operation="score_probe",
+        )
 
     def repair_train(
         self,
