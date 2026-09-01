@@ -608,10 +608,12 @@ def test_materialize_provenance_assignment_for_exact64(tmp_path) -> None:
         "shipping_bytes_cap": 34,
         "expert_envelope_bytes": 27,
         "selected_expert_bytes": 27,
-        "dense_nonrouted_bytes": 5,
+        "dense_nonrouted_bytes": 4,
         "repair_bytes": 0,
         "metadata_bytes": 2,
-        "fixed_nonexpert_bytes": 7,
+        "fixed_nonexpert_bytes": 6,
+        "padding_bytes": 1,
+        "padding_policy": "metadata_reserve",
         "whole_shipping_bytes": 34,
         "shipping_slack_bytes": 0,
     }
@@ -702,11 +704,8 @@ def test_verify_virtual_backpack_charges_explicit_whole_model_padding(tmp_path) 
     test_materialize_provenance_assignment_for_exact64(tmp_path)
     manifest_path = tmp_path / "virtual" / "BACKPACK_VIRTUAL_MANIFEST.json"
     manifest = json.loads(manifest_path.read_text())
-    manifest["byte_accounting"]["fixed_nonexpert_bytes"] -= 1
-    manifest["whole_model_accounting"]["fixed_nonexpert_bytes"] -= 1
-    manifest["whole_model_accounting"]["metadata_bytes"] -= 1
-    manifest["whole_model_accounting"]["padding_bytes"] = 1
-    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+    assert manifest["whole_model_accounting"]["padding_bytes"] == 1
+    assert manifest["whole_model_accounting"]["padding_policy"] == "metadata_reserve"
 
     result = verify_virtual_backpack(tmp_path / "virtual")
 

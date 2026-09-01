@@ -829,11 +829,14 @@ def materialize_provenance_virtual_backpack(
         raise ValueError("provenance whole-model accounting binding mismatch")
     payload_bytes = sum(tier_payload_bytes.values())
     fixed_bytes = int(source_accounting["fixed_nonexpert_bytes"])
+    padding_bytes = int(source_accounting.get("padding_bytes", 0))
     whole_bytes = int(source_accounting["whole_shipping_bytes"])
     if (
         int(source_accounting["selected_expert_bytes"])
         != payload_bytes + activation_bytes
-        or whole_bytes != payload_bytes + activation_bytes + fixed_bytes
+        or padding_bytes < 0
+        or whole_bytes
+        != payload_bytes + activation_bytes + fixed_bytes + padding_bytes
         or fixed_bytes
         != int(source_accounting["dense_nonrouted_bytes"])
         + int(source_accounting["repair_bytes"])
@@ -854,6 +857,8 @@ def materialize_provenance_virtual_backpack(
         "repair_bytes": int(source_accounting["repair_bytes"]),
         "metadata_bytes": int(source_accounting["metadata_bytes"]),
         "fixed_nonexpert_bytes": fixed_bytes,
+        "padding_bytes": padding_bytes,
+        "padding_policy": source_accounting.get("padding_policy"),
         "whole_shipping_bytes": whole_bytes,
         "shipping_bytes_cap": int(source_accounting["shipping_bytes_cap"]),
         "shipping_slack_bytes": int(source_accounting["shipping_slack_bytes"]),
