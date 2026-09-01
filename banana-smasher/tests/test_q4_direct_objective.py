@@ -52,3 +52,34 @@ def test_rejects_non_direct_or_fallback_receipt(tmp_path: Path) -> None:
     physical.write_text(json.dumps({"cell": "L000/E000_down", "api_receipt_sha256": "0" * 64, "fallback_calls": 1}) + "\n")
     with pytest.raises(ValueError, match="fallback"):
         build_direct_objective_ledger(physical, [tmp_path], tmp_path / "out.jsonl", "b" * 64, expected_rows=1)
+
+
+def test_accepts_hash_bound_embedded_receipt_census(tmp_path: Path) -> None:
+    basis = "b" * 64
+    receipt = {
+        "status": "PASS", "basis_sha256": basis,
+        "source": {"sha256": "s" * 64},
+        "artifacts": {"decoded": {"sha256": "d" * 64}, "codes": {"sha256": "c" * 64}},
+        "direct_error": {"sse": 2.0, "mse": 0.5},
+        "accounting": {"weights": 4},
+        "cuda": {"fallback_calls": 0},
+    }
+    raw = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    receipt_sha = hashlib.sha256(raw).hexdigest()
+    census = tmp_path / "census.json"
+    census.write_text(json.dumps({"json_receipts": {
+        "outputs/q4/L000_E000_down/CELL_RECEIPT.json": {
+            "stat": {"path": "/sealed/L000_E000_down/CELL_RECEIPT.json", "sha256": receipt_sha},
+            "object": receipt,
+        }
+    }}))
+    physical = tmp_path / "physical.jsonl"
+    physical.write_text(json.dumps({
+        "cell": "L000/E000_down", "api_receipt_sha256": receipt_sha,
+        "codes_sha256": "c" * 64, "fallback_calls": 0,
+    }) + "\n")
+    terminal = build_direct_objective_ledger(
+        physical, [], tmp_path / "out.jsonl", basis, expected_rows=1,
+        embedded_censuses=[census],
+    )
+    assert terminal["rows"] == 1

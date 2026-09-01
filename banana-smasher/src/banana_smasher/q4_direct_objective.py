@@ -58,7 +58,9 @@ def _atomic_jsonl(path: Path, rows: Iterable[dict]) -> tuple[int, str]:
     return count, digest.hexdigest()
 
 
-def _receipt_index(roots: Iterable[Path]) -> dict[str, tuple[Path, dict]]:
+def _receipt_index(
+    roots: Iterable[Path], embedded_censuses: Iterable[Path]
+) -> dict[str, tuple[Path, dict]]:
     index: dict[str, tuple[Path, dict]] = {}
     for root in roots:
         for path in sorted(root.rglob("CELL_RECEIPT.json")):
@@ -67,6 +69,17 @@ def _receipt_index(roots: Iterable[Path]) -> dict[str, tuple[Path, dict]]:
             if digest in index:
                 raise ValueError(f"duplicate receipt sha256: {digest}")
             index[digest] = (path, json.loads(raw))
+    for census_path in embedded_censuses:
+        census = json.loads(census_path.read_bytes())
+        for relative_path, captured in census.get("json_receipts", {}).items():
+            if not relative_path.endswith("/CELL_RECEIPT.json"):
+                continue
+            stat = captured["stat"]
+            digest = stat["sha256"]
+            receipt_path = Path(stat["path"])
+            if digest in index:
+                raise ValueError(f"duplicate receipt sha256: {digest}")
+            index[digest] = (receipt_path, captured["object"])
     return index
 
 
@@ -77,11 +90,15 @@ def build_direct_objective_ledger(
     basis_sha256: str,
     *,
     expected_rows: int = 22016,
+    embedded_censuses: Iterable[str | Path] = (),
 ) -> dict:
     """Seal one direct-MSE objective row for every physical Q4 cell."""
     physical_ledger = Path(physical_ledger)
     output = Path(output)
-    index = _receipt_index(Path(root) for root in receipt_roots)
+    index = _receipt_index(
+        (Path(root) for root in receipt_roots),
+        (Path(path) for path in embedded_censuses),
+    )
     seen: set[str] = set()
     rows: list[dict] = []
     with physical_ledger.open() as handle:
@@ -204,6 +221,7 @@ def main() -> None:
     build.add_argument("--output", required=True)
     build.add_argument("--basis-sha256", required=True)
     build.add_argument("--expected-rows", type=int, default=22016)
+    build.add_argument("--embedded-receipt-census", action="append", default=[])
     rewrite = sub.add_parser("rewrite")
     rewrite.add_argument("--expanded-ledger", required=True)
     rewrite.add_argument("--objective-ledger", required=True)
@@ -211,7 +229,14 @@ def main() -> None:
     rewrite.add_argument("--expected-q4-rows", type=int, default=22016)
     args = parser.parse_args()
     if args.command == "build":
-        result = build_direct_objective_ledger(args.physical_ledger, args.receipt_root, args.output, args.basis_sha256, expected_rows=args.expected_rows)
+        result = build_direct_objective_ledger(
+            args.physical_ledger,
+            args.receipt_root,
+            args.output,
+            args.basis_sha256,
+            expected_rows=args.expected_rows,
+            embedded_censuses=args.embedded_receipt_census,
+        )
     else:
         result = rewrite_q4_predictions(args.expanded_ledger, args.objective_ledger, args.output, expected_q4_rows=args.expected_q4_rows)
     print(json.dumps(result, sort_keys=True))
