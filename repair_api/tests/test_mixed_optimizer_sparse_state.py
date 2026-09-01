@@ -7,7 +7,7 @@ import sys
 
 _ASSET_ROOT = Path(__file__).parents[1] / "assets"
 sys.path.insert(0, str(_ASSET_ROOT))
-_SOURCE = _ASSET_ROOT / "modern_green_clean_u0.py"
+_SOURCE = _ASSET_ROOT / "static_w28_modern_green_clean_u0.py"
 _SPEC = importlib.util.spec_from_file_location("modern_green_clean_u0_sparse_test", _SOURCE)
 assert _SPEC is not None and _SPEC.loader is not None
 _MODULE = importlib.util.module_from_spec(_SPEC)
