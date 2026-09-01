@@ -710,10 +710,10 @@ def test_score_configuration_forces_a1_eager_attention(monkeypatch):
     assert os.environ["BR_ATTN_IMPL"] == "eager"
 
 
-def test_physical_score_uses_ordered_four_window_memory_bounded_groups():
+def test_physical_score_preserves_sealed_w28_pair_geometry():
     groups = _score_window_groups(tuple(range(64)))
     assert groups == [
-        list(range(offset, offset + 4)) for offset in range(0, 64, 4)
+        list(range(offset, offset + 2)) for offset in range(0, 64, 2)
     ]
 
 

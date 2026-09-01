@@ -30,9 +30,10 @@ TRAINER_SHA256 = "7d52df6f99f70b0a52c94cb023a5d1a137b1538c0a657bedc792968115d9ce
 OFFICIAL_PHYSICAL_LAYER_SHA256 = "fc612f7863ad9d09a9faf11e203a9d20739b7dbb273b982fc3d36ee01d15a9b4"
 WINDOWS_PER_STEP = 4
 PIPELINE_MICROBATCH = 4
-# Keep score-only attention at the proven per-step memory envelope. Balanced64
-# still covers all 64 ordered 1024-token windows; only the transient batch changes.
-SCORE_MICROBATCH = 4
+# Preserve the sealed W28 scoring producer's admitted pair geometry. The routed
+# expert path observes the leading batch dimension, so score groups are part of
+# the scientific arithmetic rather than a memory-only scheduling choice.
+SCORE_MICROBATCH = 2
 SCORE_LOGIT_MICROBATCH = 4
 BASE_LRS = {"luts": 1.0e-2, "norms": 1.0e-4, "outputs": 1.0e-2}
 EXPERT_PLANE_SURFACE = "expert_planes_l028_su_sv"
