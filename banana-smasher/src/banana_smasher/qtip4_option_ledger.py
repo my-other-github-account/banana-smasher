@@ -123,9 +123,16 @@ def emit_root_option_ledger(
                 raise ValueError(f"authenticated public receipt SHA mismatch: {cell}")
             if authority.get("cell_receipt_sha256") != hashlib.sha256(api_raw).hexdigest():
                 raise ValueError(f"authenticated API receipt SHA mismatch: {cell}")
-            codes_sha256 = str(authority.get("codes_sha256", ""))
-            if api.get("artifacts", {}).get("codes", {}).get("sha256") != codes_sha256:
-                raise ValueError(f"authenticated codes SHA mismatch: {cell}")
+            declared_codes_sha256 = str(
+                api.get("artifacts", {}).get("codes", {}).get("sha256", "")
+            )
+            authority_codes_sha256 = authority.get("codes_sha256")
+            if authority_codes_sha256 is None and authority.get("authority") == "sealed-base-frontier":
+                codes_sha256 = declared_codes_sha256
+            else:
+                codes_sha256 = str(authority_codes_sha256 or "")
+                if declared_codes_sha256 != codes_sha256:
+                    raise ValueError(f"authenticated codes SHA mismatch: {cell}")
         rows[cell] = emit_qtip4_option_row(public_raw, api_raw, codes_sha256)
     return b"".join(rows[cell] + b"\n" for cell in sorted(rows))
 

@@ -148,3 +148,32 @@ def test_emit_root_option_ledger_accepts_authenticated_physical_cells(tmp_path):
         tmp_path, expected_cells=1, authenticated_cells=authenticated
     )
     assert json.loads(ledger)["codes_sha256"] == codes_sha
+
+
+def test_emit_root_option_ledger_adopts_sealed_base_codes_binding(tmp_path):
+    public_raw, api_raw, codes_sha, _ = _fixture()
+    cell_dir = tmp_path / "outputs" / "q4" / "L000_E000_down"
+    cell_dir.mkdir(parents=True)
+    api_path = cell_dir / "CELL_RECEIPT.json"
+    api_path.write_bytes(api_raw)
+    public = json.loads(public_raw)
+    public.update(
+        {
+            "api_receipt": str(api_path),
+            "api_receipt_sha256": hashlib.sha256(api_raw).hexdigest(),
+        }
+    )
+    current_public_raw = json.dumps(public, sort_keys=True, separators=(",", ":")).encode()
+    (cell_dir / "PUBLIC_CELL_RECEIPT.json").write_bytes(current_public_raw)
+    authenticated = {
+        public["cell"]: {
+            "authority": "sealed-base-frontier",
+            "public_receipt_sha256": hashlib.sha256(current_public_raw).hexdigest(),
+            "cell_receipt_sha256": hashlib.sha256(api_raw).hexdigest(),
+        }
+    }
+
+    ledger = emit_root_option_ledger(
+        tmp_path, expected_cells=1, authenticated_cells=authenticated
+    )
+    assert json.loads(ledger)["codes_sha256"] == codes_sha
