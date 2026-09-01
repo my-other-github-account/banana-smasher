@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 from repair_api.official_k2_resident_score import (
+    CANONICAL_U0_KLD_MEAN,
     OfficialK2ResidentRankEngine,
     OfficialK2ResidentScorer,
     _aggregate_score_phase_profiles,
@@ -115,6 +116,15 @@ def test_w28_canary_executes_the_exact_aligned_batch4_shape() -> None:
         assert "complete aligned batch" in str(exc)
     else:
         raise AssertionError("incomplete W28 physical batch was accepted")
+
+
+def test_same_lineage_u0_calibration_uses_the_sealed_w28_truth() -> None:
+    assert CANONICAL_U0_KLD_MEAN == 0.13712959240533734
+
+
+def test_w28_canary_batch2_uses_the_sealed_w28_w56_pair() -> None:
+    balanced64 = tuple(range(20, 84))
+    assert _physical_canary_batch_windows((28,), 2, balanced64) == (28, 56)
 
 
 def test_resident_layers_share_the_sealed_builder_cache_across_layers() -> None:

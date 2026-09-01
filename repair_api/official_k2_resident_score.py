@@ -62,7 +62,7 @@ CANONICAL_U0_LOCK_CORPUS_SHA256 = "434a3f9eec14e54d348efde3265998c9521bb3579cba0
 CANONICAL_CORPUS_SHA256 = SCORE_TRAIN_CORPUS_SHA256
 CANONICAL_U1_CHECKPOINT_SHA256 = "1fb277193daac5f3eb81ca73acd1d1df29bd4f3537637b914e023f7deed0e546"
 CANONICAL_U1_IDENTITY_SHA256 = "53cb15a23aa2c695b2ff1ca5d0bcb6dabc7848d154785c2ffd32faec18ba3faf"
-CANONICAL_U0_KLD_MEAN = 0.229392
+CANONICAL_U0_KLD_MEAN = 0.13712959240533734
 CANONICAL_U0_KLD_RELATIVE_TOLERANCE = 0.02
 # This exact predecessor differs only by the U1 raw-identity adapter.  Its U0
 # binary64 resume rows therefore remain byte-for-byte valid after that repair.
@@ -802,6 +802,10 @@ def _physical_canary_batch_windows(
     """Execute W28 in its aligned full-rail batch while reporting only W28."""
     if selected != (28,) or configured == 1:
         return selected
+    if configured == 2:
+        if 28 not in balanced64 or 56 not in balanced64:
+            raise ArtifactError("official-K2 W28 canary requires the sealed W28/W56 pair")
+        return (28, 56)
     if configured < 1 or 28 not in balanced64:
         raise ArtifactError("official-K2 W28 physical batch configuration is invalid")
     offset = balanced64.index(28)
