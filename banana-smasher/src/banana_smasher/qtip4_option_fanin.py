@@ -44,7 +44,11 @@ def fanin_qtip4_option_ledgers(
             raise ValueError(f"duplicate or empty physical cell: {cell!r}")
         if row.get("basis_sha256") != QTIP4_BASIS_SHA256:
             raise ValueError(f"physical basis mismatch: {cell}")
-        if row.get("errors") or int(row.get("fallback_calls", -1)) != 0:
+        sealed_base = row.get("authority") == "sealed-base-frontier"
+        fallback_clean = row.get("fallback_calls") == 0 or (
+            sealed_base and "fallback_calls" not in row
+        )
+        if row.get("errors") or not fallback_clean:
             raise ValueError(f"physical cell is not clean: {cell}")
         physical[cell] = row
     if len(physical) != expected_cells:
@@ -65,10 +69,15 @@ def fanin_qtip4_option_ledgers(
                 raise ValueError(f"non-QTIP4/U16 option row: {cell}")
             if int(row.get("fallback_calls", -1)) != 0:
                 raise ValueError(f"option row fallback mismatch: {cell}")
+            codes_match = (
+                row.get("codes_sha256") == authority.get("codes_sha256")
+                if authority.get("codes_sha256") is not None
+                else authority.get("authority") == "sealed-base-frontier"
+            )
             bindings_match = (
                 row.get("public_receipt_sha256") == authority.get("public_receipt_sha256")
                 and row.get("api_receipt_sha256") == authority.get("cell_receipt_sha256")
-                and row.get("codes_sha256") == authority.get("codes_sha256")
+                and codes_match
             )
             if not bindings_match:
                 continue

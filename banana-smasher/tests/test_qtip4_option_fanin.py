@@ -52,3 +52,27 @@ def test_fanin_refuses_missing_selected_row():
     }
     with pytest.raises(ValueError, match="missing option rows"):
         fanin_qtip4_option_ledgers(_raw(physical), [], expected_cells=1)
+
+
+def test_fanin_accepts_sealed_base_frontier_without_reopening_codes():
+    physical = {
+        "cell_id": "L008/E000_down",
+        "authority": "sealed-base-frontier",
+        "basis_sha256": BASIS,
+        "public_receipt_sha256": "a" * 64,
+        "cell_receipt_sha256": "b" * 64,
+        "errors": [],
+    }
+    selected = {
+        "schema": "qtip4-v7-option-ledger-row-v1",
+        "cell": physical["cell_id"],
+        "tier": "qtip4",
+        "bpw": 4.0,
+        "public_receipt_sha256": physical["public_receipt_sha256"],
+        "api_receipt_sha256": physical["cell_receipt_sha256"],
+        "codes_sha256": "c" * 64,
+        "fallback_calls": 0,
+    }
+    assert fanin_qtip4_option_ledgers(
+        _raw(physical), [_raw(selected)], expected_cells=1
+    ) == _raw(selected)
