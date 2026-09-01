@@ -57,6 +57,22 @@ def test_validated_adam_keeps_moments_fp64_across_state_reload() -> None:
     assert restored_state["exp_avg_sq"].dtype == torch.float64
 
 
+def test_score_probe_accepts_one_window_without_relaxing_balanced64() -> None:
+    engine = ModernGreenResidentEngine.__new__(ModernGreenResidentEngine)
+    calls: list[tuple[int, ...]] = []
+    engine._score_windows = lambda selected: calls.append(tuple(selected)) or {
+        "positions": len(tuple(selected)) * 1024,
+        "runtime_counters": {"windows": len(tuple(selected))},
+    }
+
+    result = engine.score_probe((28,))
+
+    assert result["positions"] == 1024
+    assert calls == [(28,)]
+    with pytest.raises(ArtifactError, match="64 unique ordered windows"):
+        engine.score_balanced64((28,))
+
+
 def test_update_loss_guard_records_monotonicity_and_rejects_explosion() -> None:
     stable = _enforce_update_loss_guard(
         loss=0.20, baseline=0.25, previous_loss=0.21, global_update=17

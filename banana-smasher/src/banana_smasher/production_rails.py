@@ -468,9 +468,11 @@ class _ProvenSession:
             self.engine = _construct_resident_score_engine(
                 self.api, self.binding, self.continuation_config
             )
-        method = getattr(self.engine, "score_balanced64", None)
+        method = getattr(self.engine, "score_probe", None)
         if not callable(method):
-            raise ProductionRailsError("physical resident engine cannot score in memory")
+            raise ProductionRailsError(
+                "physical resident engine cannot run bounded score probe"
+            )
         raw = method(ordered)
         if not isinstance(raw, Mapping):
             raise ProductionRailsError("resident score probe returned a non-mapping")

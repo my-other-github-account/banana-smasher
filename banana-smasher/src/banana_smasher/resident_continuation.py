@@ -1485,6 +1485,16 @@ class ModernGreenResidentEngine:
         selected = tuple(int(value) for value in windows)
         if len(selected) != 64 or len(set(selected)) != 64:
             raise ArtifactError("resident physical score requires 64 unique ordered windows")
+        return self._score_windows(selected)
+
+    def score_probe(self, windows: Any) -> dict[str, Any]:
+        """Score a bounded unique subset through the same live physical scorer."""
+        selected = tuple(int(value) for value in windows)
+        if not selected or len(set(selected)) != len(selected):
+            raise ArtifactError("resident physical score probe requires unique ordered windows")
+        return self._score_windows(selected)
+
+    def _score_windows(self, selected: tuple[int, ...]) -> dict[str, Any]:
         missing = [window for window in selected if window not in self.score_ids_cache]
         if missing:
             raise ArtifactError(f"resident physical score windows were not preloaded: {missing}")
@@ -1577,10 +1587,13 @@ class ModernGreenResidentEngine:
             gathered, local_rows if self.rank == 1 else None
         )
         rows = gathered[1]
-        if not isinstance(rows, list) or len(rows) != 64:
-            raise ArtifactError("rank1 resident score did not publish 64 complete rows")
+        expected_windows = len(selected)
+        if not isinstance(rows, list) or len(rows) != expected_windows:
+            raise ArtifactError(
+                f"rank1 resident score did not publish {expected_windows} complete rows"
+            )
         positions = sum(int(row["positions"]) for row in rows)
-        if positions != 64 * 1024:
+        if positions != expected_windows * 1024:
             raise ArtifactError("resident physical score position count drift")
         _cuda_sync(torch)
         elapsed = time.perf_counter() - started
@@ -1599,7 +1612,7 @@ class ModernGreenResidentEngine:
                 "model_constructions": 1,
                 "checkpoint_loads_during_score": 0,
                 "candidate_file_reads_during_score": 0,
-                "windows": 64,
+                "windows": expected_windows,
                 "pipeline_compute_seconds": pipeline_compute_seconds,
                 "pipeline_wait_seconds": pipeline_wait_seconds,
             },

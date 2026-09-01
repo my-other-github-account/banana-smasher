@@ -39,7 +39,7 @@ def fixture_mixer(**kwargs):
 
 
 def test_physical_balanced64_receipt_preserves_proven_support_width() -> None:
-    source = inspect.getsource(ModernGreenResidentEngine.score_balanced64)
+    source = inspect.getsource(ModernGreenResidentEngine._score_windows)
     assert '"support_width": 8192' in source
     assert source.index("_teacher_support(") < source.index('"support_width": 8192')
 
@@ -585,6 +585,76 @@ def test_resident_score_normalizes_authenticated_checkpoint_alias(
 
     assert result["checkpoint"] == "PRE"
     assert result["physical_checkpoint"] == "UPDATE_000"
+
+
+def test_resident_score_probe_uses_bounded_engine_entrypoint(tmp_path, monkeypatch):
+    calls: list[tuple[str, tuple[int, ...]]] = []
+
+    class FakeEngine:
+        def close(self, *, phase):
+            return {"phase": phase, "post_release_allocated_bytes": 0}
+
+        def score_balanced64(self, windows):
+            raise AssertionError("bounded probe reached the full64-only entrypoint")
+
+        def score_probe(self, windows):
+            ordered = tuple(windows)
+            calls.append(("score_probe", ordered))
+            return {
+                "mean_kld": 0.09936928004026413,
+                "top1_matches": 900,
+                "positions": len(ordered) * 1024,
+                "checkpoint": "UPDATE_000",
+                "timed_wall_seconds": 0.01,
+                "execution_mode": "resident_model_in_memory",
+                "runtime_counters": {
+                    "model_constructions": 1,
+                    "windows": len(ordered),
+                    "checkpoint_loads_during_score": 0,
+                    "candidate_file_reads_during_score": 0,
+                },
+            }
+
+    class FakeProvenAPI:
+        artifact = type(
+            "Artifact",
+            (),
+            {
+                "windows": tuple(range(64)),
+                "manifest": {"checkpoints": {"PRE": {"next_update": 0}}},
+            },
+        )()
+
+    monkeypatch.setattr(
+        production_rails._ProvenResidentAPI, "open", lambda root: FakeProvenAPI()
+    )
+    monkeypatch.setattr(
+        production_rails,
+        "_construct_resident_score_engine",
+        lambda api, binding, config: FakeEngine(),
+    )
+    config = _base_config()
+    artifact = _artifact(tmp_path / "artifact", _binding_sha(config))
+    session = production_rails._ProvenSession(
+        artifact,
+        production_rails._ArtifactBinding(
+            identity_sha256=artifact.identity.sha256,
+            basis_sha256=artifact.identity.basis_sha256,
+            checkpoint="PRE",
+            score_checkpoints={"pre": "PRE"},
+            artifact_manifest_sha256=hashlib.sha256(
+                (artifact.root / "ARTIFACT.json").read_bytes()
+            ).hexdigest(),
+            checkpoint_sha256=artifact.checkpoint_sha256,
+        ),
+        continuation_config={},
+        receipt_root=tmp_path / "receipts",
+    )
+
+    result = session.score_probe((28,))
+
+    assert result["positions"] == 1024
+    assert calls == [("score_probe", (28,))]
 
 
 def test_default_provider_releases_each_phase_engine_and_scores_trained_state(
