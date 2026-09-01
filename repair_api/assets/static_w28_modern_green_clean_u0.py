@@ -161,6 +161,18 @@ def _drop_consumed_safetensor_ranges(path: Path, names: Iterable[str]) -> int:
         os.close(descriptor)
 
 
+def _consumed_layer_members(
+    weight_map: Mapping[str, str], consumed: set[str], layer: int
+) -> dict[str, list[str]]:
+    """Group only tensor names the nonexpert materializer actually requested."""
+    prefix = f"layers.{layer}."
+    grouped: dict[str, list[str]] = {}
+    for name in sorted(consumed):
+        if name.startswith(prefix):
+            grouped.setdefault(weight_map[name], []).append(name)
+    return grouped
+
+
 def fsync_dir(path: Path) -> None:
     fd = os.open(path, os.O_RDONLY)
     try:
@@ -573,6 +585,7 @@ class ShardStudent:
             self.model.config._attn_implementation_internal = "sdpa"
         self.model.eval()
         handles: dict[str, Any] = {}
+        consumed_names: set[str] = set()
 
         def get_tensor(name: str):
             shard = self.wm[name]
@@ -580,19 +593,18 @@ class ShardStudent:
                 while len(handles) >= 3:
                     handles.pop(next(iter(handles)))
                 handles[shard] = safe_open(str(model_root / shard), framework="pt")
-            return handles[shard].get_tensor(name)
+            tensor = handles[shard].get_tensor(name)
+            consumed_names.add(name)
+            return tensor
 
         def release_model_source_cache(layer: int) -> None:
             """Drop only consumed tensor ranges, preserving unread shard layers."""
-            prefix = f"layers.{layer}."
-            by_shard: dict[str, list[str]] = {}
-            for name, shard in self.wm.items():
-                if name.startswith(prefix):
-                    by_shard.setdefault(shard, []).append(name)
+            by_shard = _consumed_layer_members(self.wm, consumed_names, layer)
             handles.clear()
             gc.collect()
             for shard, names in sorted(by_shard.items()):
                 _drop_consumed_safetensor_ranges(model_root / shard, names)
+                consumed_names.difference_update(names)
 
         def release_expert_source_cache(source: PlaneSource) -> None:
             """Release Python relays; immutable page cache remains kernel-reclaimable."""

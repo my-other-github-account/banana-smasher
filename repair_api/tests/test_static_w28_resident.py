@@ -4,11 +4,40 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Iterable
+from typing import Iterable, Mapping
 
 from repair_api.balanced64 import ScoreResult
 from repair_api import static_w28_resident
 from repair_api.api import _localize_official_k2_rank_seat
+def test_model_cache_release_selects_only_members_actually_consumed() -> None:
+    source_path = (
+        Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
+    )
+    tree = ast.parse(source_path.read_text())
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_consumed_layer_members"
+    )
+    namespace = {"Mapping": Mapping}
+    exec(
+        compile(ast.Module(body=[function], type_ignores=[]), str(source_path), "exec"),
+        namespace,
+    )
+    weight_map = {
+        "layers.0.input_layernorm.weight": "model-00002.safetensors",
+        "layers.0.ffn.experts.0.w1.weight": "model-00002.safetensors",
+        "layers.1.input_layernorm.weight": "model-00003.safetensors",
+    }
+    selected = namespace["_consumed_layer_members"](
+        weight_map,
+        {"layers.0.input_layernorm.weight", "layers.1.input_layernorm.weight"},
+        0,
+    )
+    assert selected == {
+        "model-00002.safetensors": ["layers.0.input_layernorm.weight"]
+    }
 
 
 def test_static_wire_loader_uses_bounded_ordered_parallel_reads(tmp_path) -> None:
