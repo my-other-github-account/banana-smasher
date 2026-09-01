@@ -289,6 +289,12 @@ class _MixedProviderSession:
         result.setdefault("physical_checkpoint", result["checkpoint"])
         return result
 
+    def score_probe(self, windows: Sequence[int]) -> Mapping[str, Any]:
+        method = getattr(self.provider, "score_probe", None)
+        if not callable(method):
+            raise ProductionRailsError("mixed resident provider lacks score_probe()")
+        return dict(method(tuple(int(value) for value in windows)))
+
     def train(self, updates: int) -> Mapping[str, Any]:
         result = dict(self.provider.train(updates))
         if result.get("updates") != updates:
@@ -452,6 +458,26 @@ class _ProvenSession:
             except (KeyError, TypeError, ValueError) as exc:
                 raise ProductionRailsError("resident pre-score lacks a loss-guard baseline") from exc
         result["phase_release"] = dict(self._release_engine(f"score_{phase}"))
+        return result
+
+    def score_probe(self, windows: Sequence[int]) -> Mapping[str, Any]:
+        ordered = tuple(int(value) for value in windows)
+        if not ordered or len(set(ordered)) != len(ordered):
+            raise ProductionRailsError("resident score probe requires unique windows")
+        if self.engine is None:
+            self.engine = _construct_resident_score_engine(
+                self.api, self.binding, self.continuation_config
+            )
+        method = getattr(self.engine, "score_balanced64", None)
+        if not callable(method):
+            raise ProductionRailsError("physical resident engine cannot score in memory")
+        raw = method(ordered)
+        if not isinstance(raw, Mapping):
+            raise ProductionRailsError("resident score probe returned a non-mapping")
+        result = dict(raw)
+        if "support" not in result and "support_width" in result:
+            result["support"] = result["support_width"]
+        result["phase_release"] = dict(self._release_engine("score_probe"))
         return result
 
     def train(self, updates: int) -> Mapping[str, Any]:
@@ -1332,6 +1358,35 @@ class ProductionRails:
             checkpoint=binding.checkpoint,
             checkpoint_sha256=binding.checkpoint_sha256,
         )
+        return result
+
+    def score_probe(
+        self, artifact: BackpackArtifact, windows: Sequence[int]
+    ) -> Mapping[str, Any]:
+        if self._session is None or self._active is None:
+            raise ProductionRailsError("score_probe requires a resident model/session")
+        binding = self._binding(artifact)
+        self._require_live_checkpoint_bytes(artifact, binding)
+        method = getattr(self._session, "score_probe", None)
+        if not callable(method):
+            raise ProductionRailsError("resident session does not implement score_probe")
+        ordered = tuple(int(value) for value in windows)
+        raw = method(ordered)
+        if not isinstance(raw, Mapping):
+            raise ProductionRailsError("resident score probe returned a non-mapping")
+        result = dict(raw)
+        counters = result.get("runtime_counters")
+        if (
+            int(result.get("positions", -1)) != len(ordered) * 1024
+            or result.get("execution_mode") != "resident_model_in_memory"
+            or not isinstance(counters, Mapping)
+            or int(counters.get("windows", -1)) != len(ordered)
+            or int(counters.get("checkpoint_loads_during_score", -1)) != 0
+            or int(counters.get("candidate_file_reads_during_score", -1)) != 0
+        ):
+            raise ProductionRailsError(
+                "resident score probe did not prove bounded in-memory execution"
+            )
         return result
 
     def train(self, artifact: BackpackArtifact, updates: int) -> Mapping[str, Any]:

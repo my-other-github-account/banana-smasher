@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 _PHASES = ("score_pre", "repair_train", "score_post")
+_EXECUTABLE_PHASES = _PHASES + ("score_probe",)
 _SCHEMA = "banana-smasher-improve-phase-v1"
 
 
@@ -137,6 +138,7 @@ def _execute_phase(
     checkpoint_sha: str,
     run_root: str | Path,
     updates: int,
+    windows: tuple[int, ...] | None = None,
     *,
     api_factory=None,
 ) -> dict[str, Any]:
@@ -152,7 +154,11 @@ def _execute_phase(
             checkpoint_sha=checkpoint_sha,
             run_root=root,
         )
-        if phase == "score_pre":
+        if phase == "score_probe":
+            if not windows:
+                raise ValueError("score_probe requires --windows")
+            result = dict(api.score_probe(windows))
+        elif phase == "score_pre":
             result = dict(api.score_pre())
         elif phase == "repair_train":
             pre = _read_phase(root, "score_pre")
@@ -180,22 +186,27 @@ def _execute_phase(
 
 def _phase_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m banana_smasher.improve")
-    parser.add_argument("--phase", choices=_PHASES, required=True)
+    parser.add_argument("--phase", choices=_EXECUTABLE_PHASES, required=True)
     parser.add_argument("--artifact-root", type=Path, required=True)
     parser.add_argument("--checkpoint-sha", required=True)
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--updates", type=int, default=45)
+    parser.add_argument("--windows")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _phase_parser().parse_args(argv)
+    windows = None if args.windows is None else tuple(
+        int(value) for value in args.windows.split(",") if value
+    )
     _execute_phase(
         args.phase,
         args.artifact_root,
         args.checkpoint_sha,
         args.run_root,
         args.updates,
+        windows,
     )
     return 0
 

@@ -178,6 +178,12 @@ class MixedPhysicalProvider:
         result["rank_layer_range"] = list(self.layer_split[self.rank])
         return result
 
+    def score_probe(self, windows: tuple[int, ...]) -> Mapping[str, Any]:
+        result = dict(self.session.score_probe(windows))
+        result["physical_provider"] = "mixed-backpack-resident-v1"
+        result["rank_layer_range"] = list(self.layer_split[self.rank])
+        return result
+
     def train(self, updates: int) -> Mapping[str, Any]:
         result = dict(self.session.train(updates))
         self.checkpoint = str(result["checkpoint"])
