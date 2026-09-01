@@ -37,7 +37,10 @@ def emit_qtip4_option_row(
         raise ValueError("QTIP4 basis mismatch")
     if public.get("bpw") != 4.0 or public.get("provider") != QTIP4_PROVIDER:
         raise ValueError("QTIP4 tier/provider mismatch")
-    if public.get("geometry") != QTIP4_GEOMETRY or api.get("geometry") != QTIP4_GEOMETRY:
+    api_geometry = api.get("geometry", {})
+    if public.get("geometry") != QTIP4_GEOMETRY or any(
+        api_geometry.get(key) != value for key, value in QTIP4_GEOMETRY.items()
+    ):
         raise ValueError("QTIP4 geometry mismatch")
     if public.get("backend") != "cuda" or int(public.get("cuda_decode_calls", 0)) <= 0:
         raise ValueError("CUDA-positive evidence missing")

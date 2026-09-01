@@ -14,7 +14,7 @@ def _fixture():
     api = {
         "status": "PASS",
         "basis_sha256": BASIS,
-        "geometry": {"B": 16, "L": 16, "V": 4},
+        "geometry": {"B": 16, "L": 16, "V": 4, "rate_num": 4},
         "accounting": {"exact_code_bpw": 4.0, "exact_code_bits": 128, "weights": 32},
         "optimization": {"selected_factor": 1.0, "selected_scale": 0.125},
         "installed_cuda_decode": {"counters": {"fallback_calls": 0}},
