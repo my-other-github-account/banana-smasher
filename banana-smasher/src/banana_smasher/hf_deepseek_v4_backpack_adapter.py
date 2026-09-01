@@ -335,9 +335,13 @@ class DeepseekV4BackpackRuntime(DeepseekV4D4Runtime):
             # The immutable source binding above names the already-sealed pack
             # manifest.  Do not re-hash a ~100 GB pack at exact64 startup.
             loader = PackLoader(root, verify=False)
-            expected_prefix = f"layers.0.truevq_d4.{source_key}."
+            # A selected-cell pack legitimately omits layers with no selected
+            # D4 cells (the full-menu exact102 solve selects none in L000/L001),
+            # so presence must be checked against ANY layer, not layer 0.
+            expected_marker = f".truevq_d4.{source_key}."
             if not any(
-                name.startswith(expected_prefix) for name in loader.tensor_index
+                name.startswith("layers.") and expected_marker in name
+                for name in loader.tensor_index
             ):
                 raise ValueError(f"{source_key} pack lacks its declared D4 tensors")
             self.d4_loaders[source_key] = loader
