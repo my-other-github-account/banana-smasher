@@ -94,6 +94,10 @@ class Rails:
             "phase": phase,
         }
 
+    def score_probe(self, artifact, windows):
+        self.calls.append(("score_probe", tuple(windows), artifact.root))
+        return {"mean_kld": 0.1, "positions": 1024 * len(windows)}
+
     def train(self, artifact, updates: int):
         self.calls.append(("train", updates, artifact.root))
         return {"updates": updates, "artifact_root": artifact.root}
@@ -218,6 +222,42 @@ def test_documented_class_call_opens_admitted_mixed_three_tier_provider(
     assert api.score_pre()["input_checkpoint_sha256"] == checkpoint_sha
     assert api.repair_train(updates=45)["input_checkpoint_sha256"] == checkpoint_sha
     assert api.score_post()["input_checkpoint_sha256"] == checkpoint_sha
+
+
+def test_bounded_score_probe_activates_fresh_resident_session(
+    tmp_path: Path, monkeypatch
+) -> None:
+    checkpoint_sha = sha("u0")
+    artifact_root = tmp_path / "admitted-mixed-probe"
+    identity(
+        artifact_root,
+        kind="mixed-per-layer-per-expert",
+        tiers=[
+            {
+                "layer": 0,
+                "tiers": {"native_mxfp4": 1, "qtip2": 1, "qtip3": 1},
+            }
+        ],
+    )
+    (artifact_root / "production-rails.rank0.json").write_text("{}")
+    rails = Rails(tmp_path)
+    monkeypatch.setenv("RANK", "0")
+    monkeypatch.setattr(
+        "banana_smasher.production_rails.ProductionRails.from_file",
+        lambda config, *, run_root: rails,
+    )
+
+    api = ResidentRepairAPI.build_uniform(
+        artifact_root,
+        tier="q2",
+        checkpoint_sha=checkpoint_sha,
+        run_root=tmp_path / "probe-run",
+    )
+
+    result = api.score_probe((28,))
+
+    assert result["input_checkpoint_sha256"] == checkpoint_sha
+    assert [call[0] for call in rails.calls] == ["load_resident", "score_probe"]
 
 
 def test_documented_class_call_rejects_unsupported_mixed_composition(
