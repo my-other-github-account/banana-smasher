@@ -19,6 +19,7 @@ from .hf_balanced64 import POSITIONS_PER_WINDOW, SUPPORT, _suite_lock
 from .hf_moe import open_hf_moe_uniform
 from .hf_sharded_balanced64_executor import ArtifactTensorStore, LayerStreamedHFSession
 from .hf_sharded_balanced64_runtime import ShardedHFBalanced64Runtime
+from .qtip1 import EncodedQtip, QtipGeometry, decode_qtip, gaussian_tlut
 from .resident_training import (
     ParameterDescriptor,
     ResidentModelAdapter,
@@ -30,7 +31,7 @@ HF_UNIFORM_ARTIFACT_MODE = "hf-uniform-q2-native-rest-v1"
 HF_UNIFORM_PROVIDER_FACTORY = "banana_smasher.hf_uniform_physical_provider:open_provider"
 HF_UNIFORM_CHECKPOINT_FORMAT = "banana-smasher-hf-uniform-resident-checkpoint-v1"
 HF_UNIFORM_MODEL_LAYER_COUNT = 45
-HF_UNIFORM_PARAMETER_FAMILY = "routed_q2"
+HF_UNIFORM_PARAMETER_FAMILY = "routed_q2_scales"
 HF_UNIFORM_MICROBATCH = 4
 HF_UNIFORM_CANONICAL_UPDATES = 45
 _UPDATE_RE = re.compile(r"UPDATE_(\d+)\Z")
@@ -121,6 +122,14 @@ def _layer_split(value: Any, *, model_layer_count: int) -> dict[int, tuple[int, 
     if covered != list(range(model_layer_count)):
         raise ValueError(
             f"HF-uniform resident provider requires exact 0..{model_layer_count - 1} coverage"
+        )
+    if model_layer_count == HF_UNIFORM_MODEL_LAYER_COUNT and result != {
+        0: (0, 23),
+        1: (24, 44),
+    }:
+        raise ValueError(
+            "HF-uniform resident provider requires exact repair45 rank layer ranges "
+            "[0,23]/[24,44]"
         )
     return result
 
@@ -357,12 +366,21 @@ class _HFUniformTrainableSession(LayerStreamedHFSession):
                     f"checkpoint={tuple(value.shape)} module={tuple(target.shape)}"
                 )
             state[local_name] = value.to(self.device)
-        missing, unexpected = module.load_state_dict(state, strict=True, assign=True)
-        if missing or unexpected:
-            raise RuntimeError(
-                f"native HF working-set state mismatch: prefix={prefix} "
-                f"missing={list(missing)[:8]} unexpected={list(unexpected)[:8]}"
-            )
+        # ``load_state_dict(assign=True)`` wraps composed tensors in fresh leaf
+        # Parameters and severs their graph from the resident Q2 row scales.
+        # Install the exact state entries directly so routed decoded weights keep
+        # their MulBackward link to the only trainable artifact members.
+        for local_name, value in state.items():
+            parent_name, separator, leaf_name = local_name.rpartition(".")
+            parent = module.get_submodule(parent_name) if separator else module
+            if leaf_name in parent._parameters:  # pyright: ignore[reportPrivateUsage]
+                parent._parameters[leaf_name] = value  # pyright: ignore[reportPrivateUsage]
+            elif leaf_name in parent._buffers:  # pyright: ignore[reportPrivateUsage]
+                parent._buffers[leaf_name] = value  # pyright: ignore[reportPrivateUsage]
+            else:
+                raise RuntimeError(
+                    f"native HF working-set state has no destination: {prefix + local_name}"
+                )
         meta = [name for name, value in module.state_dict().items() if value.is_meta]
         if meta:
             raise RuntimeError(f"native HF working set retains meta tensors: {prefix}{meta[:8]}")
@@ -446,15 +464,36 @@ class _HFUniformTrainableSession(LayerStreamedHFSession):
 
 
 class _TrainableArtifactTensorStore(ArtifactTensorStore):
-    """Artifact tensor store that can return live trainable tensors by name."""
+    """Compose immutable Q2 trellises with live per-row artifact scales."""
 
     def __init__(self, artifact: Mapping[str, Any], *, tensor_overrides: Mapping[str, Any]) -> None:
         super().__init__(artifact)
         self.tensor_overrides = dict(tensor_overrides)
 
     def tensor(self, name: str):
-        if name in self.tensor_overrides:
-            return self.tensor_overrides[name]
+        if name in self.tensor_overrides and name in self.routed:
+            row = self.routed[name]
+            geometry = QtipGeometry.from_mapping(row["wire"]["geometry"])
+            packed = self._load_array(row["wire"]["trellis"])
+            raw_shape = tuple(int(value) for value in row["shape"])
+            if len(raw_shape) != 2:
+                raise ValueError(f"invalid HF-uniform routed Q2 shape: {raw_shape}")
+            shape = (raw_shape[0], raw_shape[1])
+            unit = decode_qtip(
+                EncodedQtip(
+                    geometry=geometry,
+                    shape=shape,
+                    states=np.empty((0, 0), dtype=np.int32),
+                    packed=np.asarray(packed, dtype=np.uint16),
+                    scales=np.ones((shape[0],), dtype=np.float32),
+                ),
+                tlut=gaussian_tlut(bits=geometry.tlut_bits, columns=geometry.V),
+            )
+            scale = self.tensor_overrides[name]
+            unit_tensor = self._torch_from_numpy(unit).to(
+                device=scale.device, dtype=scale.dtype
+            )
+            return unit_tensor * scale[:, None]
         return super().tensor(name)
 
     def load_many(self, names: Sequence[str]) -> dict[str, Any]:
@@ -462,7 +501,7 @@ class _TrainableArtifactTensorStore(ArtifactTensorStore):
 
 
 class _HFUniformLayerStreamedBackend:
-    """Resident backend that trains live routed-Q2 module parameters via teacher KL."""
+    """Resident backend that trains only routed-Q2 per-row artifact scales."""
 
     def __init__(
         self,
@@ -502,8 +541,6 @@ class _HFUniformLayerStreamedBackend:
         self.store = _TrainableArtifactTensorStore(artifact, tensor_overrides={})
         self.session.store = self.store
         self._parameters: dict[str, Any] = {}
-        self._masks: dict[str, Any] = {}
-        self._bases: dict[str, Any] = {}
         self._descriptors: tuple[ParameterDescriptor, ...] = ()
         self._build_trainables()
 
@@ -517,117 +554,38 @@ class _HFUniformLayerStreamedBackend:
                 selected.add(name)
         return selected
 
-    def _binding_mask(
-        self,
-        *,
-        full_name: str,
-        binding: tuple[Any, ...],
-        loaded: Mapping[str, Any],
-        selected_routed: set[str],
-    ):
-        torch = self.session.torch
-        kind = binding[0]
-        if kind in {"direct", "alias"}:
-            _, weight_name, _scale_name = binding
-            value = loaded[weight_name]
-            fill = weight_name in selected_routed
-            return torch.ones_like(value, dtype=torch.bool) if fill else torch.zeros_like(
-                value, dtype=torch.bool
-            )
-        if kind == "concat":
-            _, weight_names, _dependencies = binding
-            pieces = [
-                torch.ones_like(loaded[name], dtype=torch.bool)
-                if name in selected_routed
-                else torch.zeros_like(loaded[name], dtype=torch.bool)
-                for name in weight_names
-            ]
-            return torch.cat(pieces, dim=0)
-        if kind not in {"gate_up", "down"}:
-            raise ValueError(f"unsupported HF-uniform trainable binding: {kind!r}")
-        _kind, observed, projections, _dependencies = binding
-        base = full_name.rsplit(".", 1)[0]
-        masks = []
-        for expert in observed:
-            pieces = []
-            for projection in projections:
-                weight_name = f"{base}.{expert}.{projection}.weight"
-                piece = loaded[weight_name]
-                fill = weight_name in selected_routed
-                pieces.append(
-                    torch.ones_like(piece, dtype=torch.bool)
-                    if fill
-                    else torch.zeros_like(piece, dtype=torch.bool)
-                )
-            masks.append(pieces[0] if kind == "down" else torch.cat(pieces, dim=0))
-        return torch.stack(masks, dim=0)
-
     def _build_trainables(self) -> None:
         torch = self.session.torch
-        available = self.store.names()
         selected_routed = self._selected_routed_names()
         if not selected_routed:
             raise ValueError("HF-uniform resident provider found no routed trainable tensors")
-        language = self.session._language_model()
         descriptors: list[ParameterDescriptor] = []
-        start, stop = self.layer_split[self.rank]
-        for layer_index in range(language.config.num_hidden_layers):
-            if not start <= layer_index <= stop:
+        stable_ids: set[str] = set()
+        for row in sorted(self.artifact["routed_tensors"], key=lambda value: str(value["name"])):
+            name = str(row["name"])
+            if name not in selected_routed:
                 continue
-            layer = language.layers[layer_index]
-            prefix = self.session._prefix_for(layer)
-            for local_name, target in layer.state_dict().items():
-                full_name = prefix + local_name
-                if full_name in available:
-                    binding: tuple[Any, ...] | None = (
-                        ("direct", full_name, f"{full_name}_scale_inv")
-                        if f"{full_name}_scale_inv" in available
-                        else ("direct", full_name, None)
-                    )
-                else:
-                    binding = self.session._expert_binding(full_name, available, int(target.shape[0]))
-                    if binding is None:
-                        binding = self.session._semantic_binding(full_name, available)
-                if binding is None:
-                    continue
-                dependencies = _binding_dependencies(binding)
-                if not selected_routed.intersection(dependencies or {full_name}):
-                    continue
-                loaded = self.store.load_many(list(dict.fromkeys(dependencies)))
-                value = _compose_binding_value(
-                    self.session,
-                    full_name=full_name,
-                    target=target,
-                    binding=binding,
-                    loaded=loaded,
-                )
-                mask = self._binding_mask(
-                    full_name=full_name,
-                    binding=binding,
-                    loaded=loaded,
-                    selected_routed=selected_routed,
-                )
-                if not bool(mask.any().item()):
-                    continue
-                if value.is_floating_point() and target.is_floating_point():
-                    value = value.to(dtype=target.dtype)
-                parameter = torch.nn.Parameter(
-                    value.to(self.session.device).contiguous(), requires_grad=True
-                )
-                base = parameter.detach().clone()
-                bool_mask = mask.to(device=parameter.device, dtype=torch.bool)
-                float_mask = bool_mask.to(dtype=parameter.dtype)
-                parameter.register_hook(lambda grad, keep=float_mask: grad * keep)
-                descriptor = ParameterDescriptor(full_name, HF_UNIFORM_PARAMETER_FAMILY, full_name)
-                self._parameters[full_name] = parameter
-                self._bases[full_name] = base
-                self._masks[full_name] = bool_mask
-                descriptors.append(descriptor)
+            scale_binding = row["wire"]["scales"]
+            scale_path = str(scale_binding["path"])
+            stable_id = f"artifact-scale:{scale_path}"
+            if stable_id in stable_ids:
+                raise ValueError(f"duplicate HF-uniform artifact scale member: {scale_path}")
+            scales = np.asarray(self.store._load_array(scale_binding), dtype=np.float32)
+            shape = tuple(int(value) for value in row["shape"])
+            if scales.shape != (shape[0],) or not np.isfinite(scales).all():
+                raise ValueError(f"invalid HF-uniform Q2 per-row scale array: {scale_path}")
+            parameter = torch.nn.Parameter(
+                torch.from_numpy(scales.copy()).to(self.session.device), requires_grad=True
+            )
+            descriptor = ParameterDescriptor(name, HF_UNIFORM_PARAMETER_FAMILY, stable_id)
+            self._parameters[name] = parameter
+            stable_ids.add(stable_id)
+            descriptors.append(descriptor)
         if not descriptors:
-            raise ValueError("HF-uniform resident provider found no module parameters to train")
+            raise ValueError("HF-uniform resident provider found no Q2 scale arrays to train")
         self._descriptors = tuple(sorted(descriptors, key=lambda row: row.stable_id))
         self.store.tensor_overrides = dict(self._parameters)
-        self.session.combined_overrides = dict(self._parameters)
+        self.session.combined_overrides = {}
 
     def resident_parameters(self):
         return [
@@ -677,12 +635,7 @@ class _HFUniformLayerStreamedBackend:
             self.session.corpus_rows = previous
 
     def post_optimizer_step(self, names: Sequence[str]) -> None:
-        with self.session.torch.no_grad():
-            for name in names:
-                parameter = self._parameters[name]
-                base = self._bases[name]
-                mask = self._masks[name]
-                parameter.copy_(self.session.torch.where(mask, parameter, base))
+        del names
 
     def trainable_state_dict(self) -> Mapping[str, Any]:
         return {

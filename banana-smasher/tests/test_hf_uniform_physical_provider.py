@@ -8,6 +8,7 @@ import numpy as np
 
 from banana_smasher.artifact_identity import ArtifactIdentity
 from banana_smasher.hf_uniform_physical_provider import (
+    HF_UNIFORM_PARAMETER_FAMILY,
     HFUniformPhysicalProvider,
     _load_bound_inputs,
 )
@@ -128,7 +129,7 @@ class _FixtureHFUniformBackend:
             (
                 ParameterDescriptor(
                     self.PARAMETER_ID,
-                    "routed_q2",
+                    HF_UNIFORM_PARAMETER_FAMILY,
                     self.PARAMETER_ID,
                 ),
                 self.parameter,
@@ -501,7 +502,7 @@ def _config(
         "continuation": {
             "rank": 0,
             "world_size": 2,
-            "layer_split": {"0": [0, 22], "1": [23, 44]},
+            "layer_split": {"0": [0, 23], "1": [24, 44]},
             "hf_uniform_provider_factory": (
                 "banana_smasher.hf_uniform_physical_provider:open_provider"
             ),
@@ -560,7 +561,7 @@ def _provider(
         run_root=tmp_path / "provider-run" if run_root is None else run_root,
         config={
             "model_layer_count": 45,
-            "layer_split": {"0": [0, 22], "1": [23, 44]},
+            "layer_split": {"0": [0, 23], "1": [24, 44]},
             "hf_uniform_backend_factory": (
                 "test_hf_uniform_physical_provider:open_fixture_hf_uniform_backend"
             ),
@@ -639,7 +640,7 @@ def test_hf_uniform_provider_uses_checkpointed_parameter_state_not_posthoc_logit
 
     info = checkpoint_info(training["checkpoint_path"])
     assert info["format"] == "banana-smasher-resident-checkpoint-v1"
-    assert info["parameter_groups"]["routed_q2"] == list(parameter_ids)
+    assert info["parameter_groups"][HF_UNIFORM_PARAMETER_FAMILY] == list(parameter_ids)
     assert info["trainable_count"] == len(parameter_ids)
 
     restored = _provider(
@@ -739,10 +740,10 @@ def test_hf_uniform_provider_persists_trained_checkpoint_for_fresh_post_score(
         Path(str(training["checkpoint_path"])).read_bytes()
     )
     assert checkpoint_info_row["format"] == "banana-smasher-resident-checkpoint-v1"
-    assert checkpoint_info_row["parameter_groups"]["routed_q2"] == training["trainable_parameter_ids"]
+    assert checkpoint_info_row["parameter_groups"][HF_UNIFORM_PARAMETER_FAMILY] == training["trainable_parameter_ids"]
     assert checkpoint_info_row["trainable_count"] == len(training["trainable_parameter_ids"])
     assert training["objective"] == "teacher_kl"
     assert training["changed_parameter_ids"] == training["trainable_parameter_ids"]
     assert post["checkpoint"] == "UPDATE_045"
-    assert post["rank_layer_range"] == [0, 22]
+    assert post["rank_layer_range"] == [0, 23]
     assert post["mean_kld"] != pre["mean_kld"]
