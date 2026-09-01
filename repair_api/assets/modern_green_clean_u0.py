@@ -756,6 +756,7 @@ def merge_optimizer_state(
             global_ids[name] = next_id
             next_id += 1
     merged_state: dict[int, Any] = {}
+    expected_sparse_state_names: set[str] = set()
     seen_global_ids: set[int] = set()
     templates: dict[str, dict[str, Any]] = {}
     for row in state_rows:
@@ -783,12 +784,14 @@ def merge_optimizer_state(
                 if global_id in seen_global_ids:
                     raise RuntimeError(f"optimizer parameter overlap: {name}")
                 seen_global_ids.add(global_id)
-                # Adam creates state lazily only when a parameter has a gradient.
-                # The accepted roster intentionally has 21 dormant kv_norms, so
-                # their parameter-group entries are real while state entries may
-                # be absent. Preserve that canonical sparse state_dict shape.
+                # Adam creates state lazily only when an actual trainable receives a
+                # gradient.  Build the sparse template from this rank's enumerated
+                # optimizer parameters rather than a pure-K2 name roster: mixed
+                # providers legitimately include dormant qtip2_v7.layer_lut rows.
                 if local_id in local["state"]:
                     merged_state[global_id] = local["state"][local_id]
+                else:
+                    expected_sparse_state_names.add(name)
         dangling_local_state = set(local["state"]) - local_param_ids
         if dangling_local_state:
             raise RuntimeError(
@@ -799,15 +802,11 @@ def merge_optimizer_state(
     missing_state_names = {
         name for name, global_id in global_ids.items() if global_id not in merged_state
     }
-    expected_missing_state_names = set(global_ids) & DORMANT_NORMS
-    # A resumed Adam checkpoint may already contain state for parameters that
-    # are dormant in the current step.  Only unexpected missing state is a
-    # coverage error; pre-existing dormant state is valid and must persist.
-    if not missing_state_names.issubset(expected_missing_state_names):
+    if missing_state_names != expected_sparse_state_names:
         raise RuntimeError(
             "global optimizer sparse-state coverage drift: "
             f"missing={sorted(missing_state_names)[:3]} "
-            f"expected={sorted(expected_missing_state_names)[:3]}"
+            f"expected={sorted(expected_sparse_state_names)[:3]}"
         )
     param_groups = []
     for surface in surfaces:
