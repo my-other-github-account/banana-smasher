@@ -24,6 +24,8 @@ from .resident_repair_api import BackpackArtifact, UniformBuild
 PRODUCTION_RAILS_SCHEMA = "banana-smasher-production-resident-rails-v1"
 PIPELINE_MICROBATCH = 4
 DEFAULT_IMPROVE_LR_SCALE = 0.1
+MIXED_ARTIFACT_MODE = "mixed-backpack-virtual-v1"
+HF_UNIFORM_ARTIFACT_MODE = "hf-uniform-q2-native-rest-v1"
 VALIDATED_REPAIR_RECIPE = {
     "training_recipe": "u45_validated_v1",
     "sampling_mode": "broad_rotation_v1",
@@ -148,6 +150,7 @@ class _ArtifactBinding:
     artifact_mode: str = "repair-artifact-v1"
     virtual_manifest_sha256: str | None = None
     materialization_index_sha256: str | None = None
+    provider_checkpoint_path: str | None = None
 
 
 def _require_distributed_pair_binding(
@@ -313,6 +316,7 @@ class _MixedProviderSession:
             artifact_mode=self.binding.artifact_mode,
             virtual_manifest_sha256=self.binding.virtual_manifest_sha256,
             materialization_index_sha256=self.binding.materialization_index_sha256,
+            provider_checkpoint_path=None,
         )
         return result
 
@@ -333,6 +337,116 @@ class _MixedProviderSession:
             artifact_mode=self.binding.artifact_mode,
             virtual_manifest_sha256=self.binding.virtual_manifest_sha256,
             materialization_index_sha256=self.binding.materialization_index_sha256,
+            provider_checkpoint_path=None,
+        )
+
+
+class _HFUniformProviderSession:
+    """Adapter for one authenticated HF-uniform resident provider."""
+
+    def __init__(
+        self,
+        artifact: BackpackArtifact,
+        binding: _ArtifactBinding,
+        *,
+        continuation_config: Mapping[str, Any],
+        receipt_root: Path,
+    ) -> None:
+        reference = continuation_config.get("hf_uniform_provider_factory")
+        expected_source_sha = continuation_config.get("hf_uniform_provider_source_sha256")
+        if not isinstance(reference, str) or not isinstance(expected_source_sha, str):
+            raise ProductionRailsError(
+                "HF-uniform resident continuation requires an authenticated hf_uniform_provider_factory"
+            )
+        factory = _callable(reference, "hf_uniform_provider_factory")
+        module = importlib.import_module(factory.__module__)
+        source = Path(str(getattr(module, "__file__", ""))).resolve()
+        if not source.is_file() or _sha256(source) != expected_source_sha:
+            raise ProductionRailsError("HF-uniform resident provider source identity mismatch")
+        self.root = artifact.root.resolve()
+        self.binding = binding
+        self.provider = factory(
+            artifact_root=self.root,
+            identity_sha256=artifact.identity.sha256,
+            basis_sha256=artifact.identity.basis_sha256,
+            checkpoint=binding.checkpoint,
+            checkpoint_sha256=binding.checkpoint_sha256,
+            rank=continuation_config.get("rank"),
+            run_root=receipt_root,
+            config=dict(continuation_config),
+        )
+        for method in ("score", "train", "restore_pre_score", "restore_training"):
+            if not callable(getattr(self.provider, method, None)):
+                raise ProductionRailsError(
+                    f"HF-uniform resident physical provider lacks required {method}()"
+                )
+        if getattr(self.provider, "physical_hf_uniform_provider", None) is not True:
+            raise ProductionRailsError(
+                "HF-uniform resident continuation rejected a non-physical provider"
+            )
+
+    def hot_swap(self, artifact: BackpackArtifact, binding: _ArtifactBinding) -> None:
+        if (
+            artifact.root.resolve() != self.root
+            or binding.identity_sha256 != self.binding.identity_sha256
+        ):
+            raise ProductionRailsError("HF-uniform resident hot swap changed provider identity")
+        self.binding = binding
+
+    def score(self, phase: str) -> Mapping[str, Any]:
+        result = dict(self.provider.score(phase))
+        if "support" not in result and "support_width" in result:
+            result["support"] = result["support_width"]
+        result.setdefault("checkpoint", self.binding.checkpoint)
+        return result
+
+    def score_probe(self, windows: Sequence[int]) -> Mapping[str, Any]:
+        method = getattr(self.provider, "score_probe", None)
+        if not callable(method):
+            raise ProductionRailsError("HF-uniform resident provider lacks score_probe()")
+        return dict(method(tuple(int(value) for value in windows)))
+
+    def train(self, updates: int) -> Mapping[str, Any]:
+        result = dict(self.provider.train(updates))
+        if result.get("updates") != updates:
+            raise ProductionRailsError("HF-uniform resident provider update count mismatch")
+        checkpoint = result.get("checkpoint")
+        checkpoint_sha = result.get("checkpoint_sha256")
+        checkpoint_path = result.get("checkpoint_path")
+        if (
+            not isinstance(checkpoint, str)
+            or not isinstance(checkpoint_sha, str)
+            or not isinstance(checkpoint_path, str)
+        ):
+            raise ProductionRailsError("HF-uniform resident training did not return a bound checkpoint")
+        self.binding = _ArtifactBinding(
+            identity_sha256=self.binding.identity_sha256,
+            basis_sha256=self.binding.basis_sha256,
+            checkpoint=checkpoint,
+            score_checkpoints={"post": checkpoint},
+            artifact_manifest_sha256=self.binding.artifact_manifest_sha256,
+            checkpoint_sha256=checkpoint_sha,
+            artifact_mode=self.binding.artifact_mode,
+            provider_checkpoint_path=checkpoint_path,
+        )
+        return result
+
+    def restore_pre_score(self, pre: Mapping[str, Any]) -> None:
+        self.provider.restore_pre_score(dict(pre))
+
+    def restore_training(
+        self, pre: Mapping[str, Any], training: Mapping[str, Any]
+    ) -> None:
+        self.provider.restore_training(dict(pre), dict(training))
+        self.binding = _ArtifactBinding(
+            identity_sha256=self.binding.identity_sha256,
+            basis_sha256=self.binding.basis_sha256,
+            checkpoint=str(training["checkpoint"]),
+            score_checkpoints={"post": str(training["checkpoint"])},
+            artifact_manifest_sha256=self.binding.artifact_manifest_sha256,
+            checkpoint_sha256=str(training["checkpoint_sha256"]),
+            artifact_mode=self.binding.artifact_mode,
+            provider_checkpoint_path=str(training["checkpoint_path"]),
         )
 
 
@@ -651,6 +765,7 @@ class ProductionRails:
             for key in (
                 "schema",
                 "pipeline_microbatch",
+                "model_layer_count",
                 "layers",
                 "uniform_builder",
                 "backpack_mixer",
@@ -701,9 +816,21 @@ class ProductionRails:
             raise ProductionRailsError(f"production rails schema must be {PRODUCTION_RAILS_SCHEMA}")
         if self.config.get("pipeline_microbatch") != PIPELINE_MICROBATCH:
             raise ProductionRailsError("production rails require sealed PIPELINE_MICROBATCH=4")
+        model_layer_count = self.config.get("model_layer_count", len(ALL_LAYERS))
+        if (
+            isinstance(model_layer_count, bool)
+            or not isinstance(model_layer_count, int)
+            or model_layer_count < 1
+        ):
+            raise ProductionRailsError("production rails model_layer_count must be positive")
         layers = self.config.get("layers")
-        if layers != list(ALL_LAYERS):
-            raise ProductionRailsError("production rails must declare generic ordered layers 0..42")
+        expected_layers = list(range(model_layer_count))
+        if layers != expected_layers:
+            raise ProductionRailsError(
+                "production rails layers must match declared "
+                f"model_layer_count={model_layer_count}"
+            )
+        self.layers = tuple(expected_layers)
         if "session_factory" in self.config:
             raise ProductionRailsError("production session_factory is forbidden")
         for field in ("uniform_builder", "backpack_mixer"):
@@ -723,7 +850,7 @@ class ProductionRails:
             )
             mixed = (
                 isinstance(row, Mapping)
-                and row.get("artifact_mode") == "mixed-backpack-virtual-v1"
+                and row.get("artifact_mode") == MIXED_ARTIFACT_MODE
             )
             if mixed:
                 mode_invalid = (
@@ -821,7 +948,7 @@ class ProductionRails:
             raise ProductionRailsError("artifact basis does not match pinned provider binding")
         if raw.get("checkpoint_sha256") != artifact.checkpoint_sha256:
             raise ProductionRailsError("artifact checkpoint does not match pinned provider binding")
-        mixed = raw.get("artifact_mode") == "mixed-backpack-virtual-v1"
+        mixed = raw.get("artifact_mode") == MIXED_ARTIFACT_MODE
         if mixed:
             virtual_path = artifact.root.resolve() / "BACKPACK_VIRTUAL_MANIFEST.json"
             index_path = artifact.root.resolve() / "MATERIALIZATION_INDEX.jsonl"
@@ -861,7 +988,7 @@ class ProductionRails:
             if (
                 self._active is not None
                 and self._active_binding is not None
-                and self._active_binding.artifact_mode == "mixed-backpack-virtual-v1"
+                and self._active_binding.artifact_mode == MIXED_ARTIFACT_MODE
                 and artifact.root.resolve() == self._active.root.resolve()
                 and artifact.identity.sha256 == self._active.identity.sha256
             ):
@@ -873,11 +1000,51 @@ class ProductionRails:
                 score_checkpoints={},
                 artifact_manifest_sha256="",
                 checkpoint_sha256=str(raw["checkpoint_sha256"]),
-                artifact_mode="mixed-backpack-virtual-v1",
+                artifact_mode=MIXED_ARTIFACT_MODE,
                 virtual_manifest_sha256=str(raw["virtual_manifest_sha256"]),
                 materialization_index_sha256=str(
                     raw["materialization_index_sha256"]
                 ),
+            )
+        hf_uniform = raw.get("artifact_mode") == HF_UNIFORM_ARTIFACT_MODE
+        if hf_uniform:
+            from .hf_moe import HF_UNIFORM_ARTIFACT_SCHEMA, open_hf_moe_uniform
+
+            manifest_path = artifact.root.resolve() / "ARTIFACT.json"
+            try:
+                manifest_raw = manifest_path.read_bytes()
+                opened = open_hf_moe_uniform(artifact.root)
+                geometry = opened.get("geometry", {})
+                source = opened.get("source", {})
+            except Exception as exc:
+                raise ProductionRailsError("HF-uniform artifact binding is invalid") from exc
+            layers = [row.get("layer") for row in artifact.identity.composition]
+            if (
+                hashlib.sha256(manifest_raw).hexdigest() != raw.get("artifact_manifest_sha256")
+                or opened.get("schema") != HF_UNIFORM_ARTIFACT_SCHEMA
+                or opened.get("intent")
+                != {"tier": "q2", "scope": "routed_only", "native_rest": True}
+                or source.get("model_index_sha256") != artifact.identity.basis_sha256
+                or geometry.get("expected_model_layers") != len(self.layers)
+                or layers != list(self.layers)
+            ):
+                raise ProductionRailsError("HF-uniform artifact receipt/geometry mismatch")
+            if (
+                self._active is not None
+                and self._active_binding is not None
+                and self._active_binding.artifact_mode == HF_UNIFORM_ARTIFACT_MODE
+                and artifact.root.resolve() == self._active.root.resolve()
+                and artifact.identity.sha256 == self._active.identity.sha256
+            ):
+                return self._active_binding
+            return _ArtifactBinding(
+                identity_sha256=artifact.identity.sha256,
+                basis_sha256=artifact.identity.basis_sha256,
+                checkpoint=str(raw["checkpoint"]),
+                score_checkpoints={},
+                artifact_manifest_sha256=str(raw["artifact_manifest_sha256"]),
+                checkpoint_sha256=str(raw["checkpoint_sha256"]),
+                artifact_mode=HF_UNIFORM_ARTIFACT_MODE,
             )
         runtime = artifact.identity.runtime.get("production_rails")
         if not isinstance(runtime, Mapping):
@@ -958,9 +1125,9 @@ class ProductionRails:
         ):
             raise ProductionRailsError("artifact checkpoint bytes do not match pinned binding")
         layers = [row.get("layer") for row in artifact.identity.composition]
-        if layers != list(ALL_LAYERS):
+        if layers != list(self.layers):
             raise ProductionRailsError(
-                "resident artifact composition must cover ordered generic layers 0..42"
+                "resident artifact composition must cover the declared ordered layers"
             )
         checkpoints = raw.get("score_checkpoints", {})
         if not isinstance(checkpoints, Mapping) or any(
@@ -981,7 +1148,19 @@ class ProductionRails:
     def _require_live_checkpoint_bytes(
         artifact: BackpackArtifact, binding: _ArtifactBinding
     ) -> None:
-        if binding.artifact_mode == "mixed-backpack-virtual-v1":
+        if binding.artifact_mode == MIXED_ARTIFACT_MODE:
+            return
+        if binding.artifact_mode == HF_UNIFORM_ARTIFACT_MODE:
+            if binding.provider_checkpoint_path is None:
+                return
+            try:
+                checkpoint_path = Path(binding.provider_checkpoint_path).expanduser().resolve()
+            except (TypeError, ValueError) as exc:
+                raise ProductionRailsError("live resident checkpoint binding is invalid") from exc
+            if not checkpoint_path.is_file() or _sha256(checkpoint_path) != binding.checkpoint_sha256:
+                raise ProductionRailsError(
+                    "live resident checkpoint bytes do not match active binding"
+                )
             return
         try:
             manifest = json.loads((artifact.root.resolve() / "ARTIFACT.json").read_text())
@@ -1014,8 +1193,15 @@ class ProductionRails:
             raise ProductionRailsError("resident model/session is already constructed")
         binding = self._binding(artifact)
         continuation = dict(self.config.get("continuation", {}))
-        if binding.artifact_mode == "mixed-backpack-virtual-v1":
+        if binding.artifact_mode == MIXED_ARTIFACT_MODE:
             self._session = _MixedProviderSession(
+                artifact,
+                binding,
+                continuation_config=continuation,
+                receipt_root=self.run_root / "receipts",
+            )
+        elif binding.artifact_mode == HF_UNIFORM_ARTIFACT_MODE:
+            self._session = _HFUniformProviderSession(
                 artifact,
                 binding,
                 continuation_config=continuation,
@@ -1061,7 +1247,7 @@ class ProductionRails:
             raise ProductionRailsError("unknown artifact identity; refusing PRE restore")
         if raw.get("basis_sha256") != artifact.identity.basis_sha256:
             raise ProductionRailsError("restored PRE basis does not match admission")
-        if raw.get("artifact_mode") == "mixed-backpack-virtual-v1":
+        if raw.get("artifact_mode") == MIXED_ARTIFACT_MODE:
             try:
                 pre_kld = float(pre["mean_kld"])
             except (KeyError, TypeError, ValueError) as exc:
@@ -1070,6 +1256,40 @@ class ProductionRails:
                 raise ProductionRailsError("restored mixed PRE KLD is non-finite")
             binding = self._binding(artifact)
             self._session = _MixedProviderSession(
+                artifact,
+                binding,
+                continuation_config=dict(self.config.get("continuation", {})),
+                receipt_root=self.run_root / "receipts",
+            )
+            self._session.restore_pre_score(pre)
+            self._active = artifact
+            self._active_binding = binding
+            self._pre_checkpoint = binding.checkpoint
+            self._phase_state = "pre_scored"
+            self._counts.update(
+                {
+                    "model_constructions": 1,
+                    "resident_loads": 1,
+                    "scores": 1,
+                    "canary_passes": 1,
+                }
+            )
+            self._publish(
+                "pre_score_restored",
+                mean_kld=pre_kld,
+                checkpoint=binding.checkpoint,
+                checkpoint_sha256=binding.checkpoint_sha256,
+            )
+            return
+        if raw.get("artifact_mode") == HF_UNIFORM_ARTIFACT_MODE:
+            try:
+                pre_kld = float(pre["mean_kld"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ProductionRailsError("restored HF-uniform PRE receipt is invalid") from exc
+            if not math.isfinite(pre_kld):
+                raise ProductionRailsError("restored HF-uniform PRE KLD is non-finite")
+            binding = self._binding(artifact)
+            self._session = _HFUniformProviderSession(
                 artifact,
                 binding,
                 continuation_config=dict(self.config.get("continuation", {})),
@@ -1167,7 +1387,7 @@ class ProductionRails:
             raise ProductionRailsError("unknown artifact identity; refusing training restore")
         if raw.get("basis_sha256") != artifact.identity.basis_sha256:
             raise ProductionRailsError("restored training basis does not match admission")
-        if raw.get("artifact_mode") == "mixed-backpack-virtual-v1":
+        if raw.get("artifact_mode") == MIXED_ARTIFACT_MODE:
             try:
                 pre_kld = float(pre["mean_kld"])
                 updates = int(training["updates"])
@@ -1181,6 +1401,58 @@ class ProductionRails:
                 raise ProductionRailsError("restored mixed training identity mismatch")
             binding = self._binding(artifact)
             self._session = _MixedProviderSession(
+                artifact,
+                binding,
+                continuation_config=dict(self.config.get("continuation", {})),
+                receipt_root=self.run_root / "receipts",
+            )
+            self._session.restore_training(pre, training)
+            live_binding = self._session.binding
+            self._active = artifact
+            self._active_binding = live_binding
+            self._pre_checkpoint = binding.checkpoint
+            self._requested_updates = updates
+            self._phase_state = "trained"
+            self._counts.update(
+                {
+                    "model_constructions": 1,
+                    "resident_loads": 1,
+                    "scores": 1,
+                    "canary_passes": 1,
+                    "training_calls": 1,
+                    "updates": updates,
+                }
+            )
+            self._publish(
+                "training_restored",
+                updates=updates,
+                checkpoint=checkpoint,
+                checkpoint_sha256=checkpoint_sha,
+            )
+            return
+        if raw.get("artifact_mode") == HF_UNIFORM_ARTIFACT_MODE:
+            try:
+                pre_kld = float(pre["mean_kld"])
+                updates = int(training["updates"])
+                checkpoint = str(training["checkpoint"])
+                checkpoint_sha = str(training["checkpoint_sha256"])
+                checkpoint_path = Path(str(training["checkpoint_path"])).expanduser().resolve()
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ProductionRailsError(
+                    "restored HF-uniform training receipt is invalid"
+                ) from exc
+            if (
+                not math.isfinite(pre_kld)
+                or updates <= 0
+                or len(checkpoint_sha) != 64
+                or not checkpoint_path.is_file()
+                or _sha256(checkpoint_path) != checkpoint_sha
+            ):
+                raise ProductionRailsError(
+                    "restored HF-uniform training checkpoint bytes do not match receipt"
+                )
+            binding = self._binding(artifact)
+            self._session = _HFUniformProviderSession(
                 artifact,
                 binding,
                 continuation_config=dict(self.config.get("continuation", {})),
@@ -1300,7 +1572,7 @@ class ProductionRails:
             raise ProductionRailsError("resident scorer returned an incomplete full64 receipt") from exc
         if not math.isfinite(kld):
             raise ProductionRailsError("resident scorer returned non-finite KLD")
-        if binding.artifact_mode == "mixed-backpack-virtual-v1" and result.get(
+        if binding.artifact_mode == MIXED_ARTIFACT_MODE and result.get(
             "support"
         ) != 8192:
             raise ProductionRailsError("mixed resident scorer did not prove t8192 support")

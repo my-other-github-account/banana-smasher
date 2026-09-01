@@ -122,6 +122,7 @@ def _binding_sha(config: dict) -> str:
         for key in (
             "schema",
             "pipeline_microbatch",
+            "model_layer_count",
             "layers",
             "uniform_builder",
             "backpack_mixer",
@@ -352,8 +353,20 @@ def test_unknown_artifact_and_geometry_drift_fail_closed(tmp_path):
         ProductionRails(config, run_root=tmp_path / "bad-microbatch")
     config["pipeline_microbatch"] = 4
     config["layers"] = list(range(42))
-    with pytest.raises(ProductionRailsError, match="layers 0..42"):
+    with pytest.raises(ProductionRailsError, match="declared model_layer_count=43"):
         ProductionRails(config, run_root=tmp_path / "bad-layers")
+
+
+def test_production_rails_accepts_exact_declared_glm45_geometry(tmp_path):
+    config = _base_config()
+    config["model_layer_count"] = 45
+    config["layers"] = list(range(45))
+    rails = ProductionRails(config, run_root=tmp_path / "glm45")
+    assert rails.layers == tuple(range(45))
+
+    config["layers"] = list(range(44))
+    with pytest.raises(ProductionRailsError, match="declared model_layer_count=45"):
+        ProductionRails(config, run_root=tmp_path / "bad-glm45")
 
 
 def test_one_window_resident_score_matches_sealed_fixture_oracle(tmp_path):

@@ -180,10 +180,23 @@ def provider_binding(spec: Mapping[str, Any]) -> tuple[dict[str, Any], str]:
         for field in SHARED_CONTINUATION_BINDING_FIELDS
     ):
         raise ValueError("continuations scientific binding mismatch")
+    composition = spec.get("composition")
+    layer_rows = (
+        composition.get("layers")
+        if isinstance(composition, Mapping)
+        and isinstance(composition.get("layers"), list)
+        else None
+    )
+    layers = (
+        [int(row["layer"]) for row in layer_rows if isinstance(row, Mapping) and "layer" in row]
+        if layer_rows
+        else list(ALL_LAYERS)
+    )
     fields = {
         "schema": PRODUCTION_RAILS_SCHEMA,
         "pipeline_microbatch": PIPELINE_MICROBATCH,
-        "layers": list(ALL_LAYERS),
+        "model_layer_count": len(layers),
+        "layers": layers,
         "uniform_builder": str(provider.get("uniform_builder", "banana_smasher.resident_admission:prebuilt_uniform_builder")),
         "backpack_mixer": str(provider.get("backpack_mixer", "banana_smasher.resident_admission:prebuilt_backpack_mixer")),
         "score_contract": dict(spec.get("score", {})),
