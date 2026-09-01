@@ -577,12 +577,13 @@ class ShardStudent:
                 l034_roster=l034_roster,
                 device=self.device,
             )
-            resident = FullyResidentGroupedV7Experts(
-                layer=layer, pilot=True, plane_source=source
-            )
-            m.model.layers[layer].mlp.experts = resident
-            self.sources[layer] = source
-            self.experts[layer] = resident
+            # Match the sealed W28 selected-layer replacement path exactly:
+            # materialize the decoder/router/norm state while the original meta
+            # expert is absent, then install the authenticated resident expert.
+            # Loading with assign=True after resident installation can traverse
+            # a module tree the sealed scorer never used.
+            swiglu_limit = float(m.model.layers[layer].mlp.experts.limit)
+            m.model.layers[layer].mlp.experts = nn.Identity()
             sd = base.T.build_nonexpert_sd(layer, self.wm, get_tensor)
             base.v3.materialize_layer(m, layer, sd, self.config)
             del sd
@@ -591,8 +592,17 @@ class ShardStudent:
             # to its consumer instead of accumulating one full model in RAM.
             torch.cuda.synchronize()
             release_model_source_cache(layer)
-            release_expert_source_cache(source)
             torch.cuda.empty_cache()
+            resident = FullyResidentGroupedV7Experts(
+                layer=layer,
+                pilot=True,
+                plane_source=source,
+                swiglu_limit=swiglu_limit,
+            )
+            m.model.layers[layer].mlp.experts = resident
+            self.sources[layer] = source
+            self.experts[layer] = resident
+            release_expert_source_cache(source)
             status_cb(
                 phase="loading",
                 loaded_layer=layer,
