@@ -9,6 +9,20 @@ from torch import nn
 _RUNTIME: Any | None = None
 
 
+def _canonical_grouped_mm_forward(
+    module: nn.Module,
+    hidden_states: Any,
+    top_k_index: Any,
+    top_k_weights: Any,
+) -> Any:
+    """Dispatch through the same grouped-mm expert rail as DeepseekV4."""
+    from transformers.integrations.moe import grouped_mm_experts_forward
+
+    return grouped_mm_experts_forward(
+        module, hidden_states, top_k_index, top_k_weights
+    )
+
+
 def configure_mixed_backpack(config: Mapping[str, Any]) -> None:
     """Construct the one physical mixed-cell runtime used by all local layers."""
     global _RUNTIME
@@ -83,45 +97,32 @@ class FullyResidentGroupedV7Experts(nn.Module):
         }
 
     def forward(self, hidden_states: Any, top_k_index: Any, top_k_weights: Any) -> Any:
-        torch = self._torch
         if hidden_states.ndim != 2 or top_k_index.shape != top_k_weights.shape:
             raise RuntimeError("mixed resident routing geometry drift")
-        token_index = (
-            torch.arange(hidden_states.shape[0], device=hidden_states.device)
-            .unsqueeze(1)
-            .expand_as(top_k_index)
-            .reshape(-1)
-        )
-        expert_index = top_k_index.reshape(-1).to(torch.int64)
-        route_weight = top_k_weights.reshape(-1, 1).float()
-        routed_hidden = hidden_states[token_index]
-        routed_output = torch.empty_like(routed_hidden)
         gate_up_wire, down_wire = _RUNTIME._load_vq3u_experts(self.L)
         self.disk_read_calls += 512
-        for expert in expert_index.unique(sorted=True).tolist():
-            selected = expert_index == int(expert)
-            value = routed_hidden[selected]
-            # The authenticated fused13 producer stores w1/w3 concatenated on
-            # the output axis as [4096, 4096].  F.linear consumes that layout
-            # directly: [N, 4096] -> [N, 4096], then SwiGLU halves it to 2048.
-            # Reshaping to [8192, 2048] swaps the hidden/intermediate axes and
-            # makes the first physical forward fail before scoring.
-            gate_up = gate_up_wire[int(expert)]
-            gate, up = torch.nn.functional.linear(value, gate_up).chunk(2, dim=-1)
-            # Match the canonical DeepseekV4Experts._apply_gate arithmetic used
-            # by the sealed layerwise scorer.  Omitting these clamps changes the
-            # model (and can amplify compact-weight error across all 43 layers).
-            gate = gate.clamp(max=self.limit)
-            up = up.clamp(min=-self.limit, max=self.limit)
-            activated = torch.nn.functional.silu(gate) * up
-            routed_output[selected] = torch.nn.functional.linear(
-                activated, down_wire[int(expert)]
+        # DeepseekV4 model construction selects ``grouped_mm`` even when
+        # attention is eager.  Reuse that exact dispatch: sorted grouped GEMMs
+        # plus FP32 reshape/sum are numerically part of the canonical scorer.
+        self.num_experts = int(gate_up_wire.shape[0])
+        self.has_gate = True
+        self.has_bias = False
+        self.is_transposed = False
+        self.gate_up_proj = gate_up_wire
+        self.down_proj = down_wire
+        try:
+            return _canonical_grouped_mm_forward(
+                self, hidden_states, top_k_index, top_k_weights
             )
-        del gate_up_wire, down_wire
-        routed_output = routed_output * route_weight
-        final = torch.zeros_like(hidden_states, dtype=routed_output.dtype)
-        final.index_add_(0, token_index, routed_output)
-        return final.to(hidden_states.dtype)
+        finally:
+            del self.gate_up_proj
+            del self.down_proj
+
+    def _apply_gate(self, gate_up: Any) -> Any:
+        gate, up = gate_up.chunk(2, dim=-1)
+        gate = gate.clamp(max=self.limit)
+        up = up.clamp(min=-self.limit, max=self.limit)
+        return self._torch.nn.functional.silu(gate) * up
 
 
 __all__ = ["FullyResidentGroupedV7Experts", "configure_mixed_backpack"]
