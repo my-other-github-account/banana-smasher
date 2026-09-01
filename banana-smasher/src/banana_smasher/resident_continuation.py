@@ -849,8 +849,8 @@ def _score_group_logits(
 
 def _score_window_groups(windows: tuple[int, ...]) -> list[list[int]]:
     """Use bounded score-only groups without changing training microbatches."""
-    if len(windows) != 64:
-        raise ArtifactError("resident physical score requires exactly 64 windows")
+    if not windows or len(set(windows)) != len(windows):
+        raise ArtifactError("resident physical score requires unique ordered windows")
     return [
         list(windows[offset : offset + SCORE_MICROBATCH])
         for offset in range(0, len(windows), SCORE_MICROBATCH)

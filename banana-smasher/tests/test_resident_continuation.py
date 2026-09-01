@@ -69,6 +69,7 @@ def test_score_probe_accepts_one_window_without_relaxing_balanced64() -> None:
 
     assert result["positions"] == 1024
     assert calls == [(28,)]
+    assert _score_window_groups((28,)) == [[28]]
     with pytest.raises(ArtifactError, match="64 unique ordered windows"):
         engine.score_balanced64((28,))
 
