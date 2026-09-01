@@ -177,3 +177,39 @@ def test_emit_root_option_ledger_adopts_sealed_base_codes_binding(tmp_path):
         tmp_path, expected_cells=1, authenticated_cells=authenticated
     )
     assert json.loads(ledger)["codes_sha256"] == codes_sha
+
+
+def test_emit_root_option_ledger_can_skip_superseded_duplicate_receipts(tmp_path):
+    public_raw, api_raw, codes_sha, _ = _fixture()
+    authenticated = {}
+    for index in (0, 1):
+        cell_dir = tmp_path / "outputs" / "q4" / f"L000_E{index:03d}_down"
+        cell_dir.mkdir(parents=True)
+        api_path = cell_dir / "CELL_RECEIPT.json"
+        api_path.write_bytes(api_raw)
+        public = json.loads(public_raw)
+        public.update(
+            {
+                "cell": f"L000/E{index:03d}_down",
+                "expert": index,
+                "api_receipt": str(api_path),
+                "api_receipt_sha256": hashlib.sha256(api_raw).hexdigest(),
+            }
+        )
+        current_public_raw = json.dumps(public, sort_keys=True, separators=(",", ":")).encode()
+        (cell_dir / "PUBLIC_CELL_RECEIPT.json").write_bytes(current_public_raw)
+        if index == 1:
+            authenticated[public["cell"]] = {
+                "authority": "sealed-base-frontier",
+                "public_receipt_sha256": hashlib.sha256(current_public_raw).hexdigest(),
+                "cell_receipt_sha256": hashlib.sha256(api_raw).hexdigest(),
+            }
+
+    ledger = emit_root_option_ledger(
+        tmp_path,
+        expected_cells=2,
+        authenticated_cells=authenticated,
+        skip_unselected=True,
+    )
+    assert [json.loads(line)["cell"] for line in ledger.splitlines()] == ["L000/E001_down"]
+    assert json.loads(ledger)["codes_sha256"] == codes_sha

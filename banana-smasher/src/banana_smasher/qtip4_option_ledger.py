@@ -96,6 +96,7 @@ def emit_root_option_ledger(
     *,
     expected_cells: int,
     authenticated_cells: dict[str, dict[str, Any]] | None = None,
+    skip_unselected: bool = False,
 ) -> bytes:
     """Authenticate one producer root and emit its sorted canonical row ledger."""
     root_path = Path(root).resolve()
@@ -110,6 +111,12 @@ def emit_root_option_ledger(
         if not cell or cell in rows:
             raise ValueError(f"duplicate or empty cell: {cell!r}")
         api_path = Path(str(public.get("api_receipt", "")))
+        if authenticated_cells is not None and skip_unselected:
+            authority = authenticated_cells.get(cell)
+            if not isinstance(authority, dict):
+                continue
+            if authority.get("public_receipt_sha256") != hashlib.sha256(public_raw).hexdigest():
+                continue
         api_raw = api_path.read_bytes()
         api = _load_object(api_raw, "API receipt")
         if authenticated_cells is None:
@@ -156,6 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", required=True)
     parser.add_argument("--expected-cells", required=True, type=int)
     parser.add_argument("--authenticated-ledger")
+    parser.add_argument("--skip-unselected", action="store_true")
     args = parser.parse_args(argv)
     authenticated = (
         _read_authenticated_cells(args.authenticated_ledger)
@@ -166,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
         args.root,
         expected_cells=args.expected_cells,
         authenticated_cells=authenticated,
+        skip_unselected=args.skip_unselected,
     )
     os.write(1, raw)
     return 0
