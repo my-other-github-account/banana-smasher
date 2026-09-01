@@ -605,6 +605,7 @@ def _load_source_module(name: str, path: Path) -> Any:
 
 def _bind_published_pre_experts_dispatch(
     student: Any, *, published_pre_recipe: bool,
+    required_reduction: str = "source_eager_expert_major_index_add",
 ) -> dict[str, str]:
     """Verify and select the accepted source reduction for published PRE."""
     if not published_pre_recipe:
@@ -619,11 +620,31 @@ def _bind_published_pre_experts_dispatch(
     resident_experts = getattr(student, "experts", None)
     if not isinstance(resident_experts, Mapping) or not resident_experts:
         raise ArtifactError("published PRE resident experts are missing")
-    reduction = "source_eager_expert_major_index_add"
+    accepted_reductions = {
+        "source_eager_expert_major_index_add",
+        "source_eager_stable_expert_order_route_slot_sum",
+    }
+    if required_reduction not in accepted_reductions:
+        raise ArtifactError(
+            f"published PRE resident return reduction is unsupported: {required_reduction!r}"
+        )
+
+    def observed_reduction(expert: Any) -> str | None:
+        declared = getattr(expert, "routed_return_reduction", None)
+        # The hash-bound score19 provider predates this declaration field. Its
+        # forward source performs stable expert ordering followed by a BF16
+        # route-slot sum; admit that legacy absence only when explicitly pinned.
+        if declared is None and required_reduction == (
+            "source_eager_stable_expert_order_route_slot_sum"
+        ):
+            return required_reduction
+        return declared
+
+    reduction = required_reduction
     drift = {
-        int(layer): getattr(expert, "routed_return_reduction", None)
+        int(layer): observed_reduction(expert)
         for layer, expert in resident_experts.items()
-        if getattr(expert, "routed_return_reduction", None) != reduction
+        if observed_reduction(expert) != reduction
     }
     if drift:
         raise ArtifactError(

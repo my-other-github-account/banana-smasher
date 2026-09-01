@@ -63,6 +63,29 @@ def test_published_pre_selects_source_experts_dispatch() -> None:
     }
 
 
+def test_published_pre_selects_hash_bound_legacy_route_slot_reduction() -> None:
+    from repair_api.modern_green_resident import _bind_published_pre_experts_dispatch
+
+    model_config = SimpleNamespace(_experts_implementation="grouped_mm")
+    student = SimpleNamespace(
+        model=SimpleNamespace(config=model_config),
+        # The sealed score19 provider predates the declaration field; its exact
+        # source SHA is verified before this binding is reached.
+        experts={0: SimpleNamespace(), 42: SimpleNamespace()},
+    )
+
+    binding = _bind_published_pre_experts_dispatch(
+        student,
+        published_pre_recipe=True,
+        required_reduction="source_eager_stable_expert_order_route_slot_sum",
+    )
+
+    assert model_config._experts_implementation == "eager"
+    assert binding["resident_return_reduction"] == (
+        "source_eager_stable_expert_order_route_slot_sum"
+    )
+
+
 def test_published_pre_rejects_resident_provider_bypassing_source_dispatch() -> None:
     from repair_api.modern_green_resident import _bind_published_pre_experts_dispatch
 

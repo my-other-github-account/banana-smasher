@@ -1904,7 +1904,14 @@ class OfficialK2ResidentRankEngine:
         # token-local grouped reduction changes U0 from ~0.229 to ~2.16.
         from .modern_green_resident import _bind_published_pre_experts_dispatch
         self.experts_dispatch_binding = _bind_published_pre_experts_dispatch(
-            self.student, published_pre_recipe=True
+            self.student,
+            published_pre_recipe=True,
+            required_reduction=str(
+                config.get(
+                    "resident_return_reduction",
+                    "source_eager_expert_major_index_add",
+                )
+            ),
         )
         if self.expert_parallel_all_layers:
             for expert in self.student.experts.values():
