@@ -735,6 +735,7 @@ class ResidentRepairAPI:
         _checkpoint_sha(selected.identity, checkpoint_sha, operation="score_probe")
         if selected.checkpoint_sha256 != checkpoint_sha:
             raise ValueError("score_probe checkpoint SHA mismatch for selected artifact")
+        self._activate(selected)
         return _checkpoint_receipt(
             self.rails.score_probe(selected, ordered),
             checkpoint_sha,
