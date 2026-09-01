@@ -206,7 +206,7 @@ def test_static_w28_identical_pre_and_zero_lr_u1_use_same_sealed_provider(monkey
     pre_trainer = _resolve_trainer_source(pre_identity)
     u1_trainer = _resolve_trainer_source(u1_identity)
     assert pre_trainer == u1_trainer
-    assert pre_trainer[1] == "b900549ac65afe30fcc857800c7127f555d5b0e437a4824693172b88cedea5f7"
+    assert pre_trainer[1] == "7d52df6f99f70b0a52c94cb023a5d1a137b1538c0a657bedc792968115d9ce69"
     assert pre_trainer[0].name == "static_w28_modern_green_clean_u0.py"
     assert hashlib.sha256(pre_trainer[0].read_bytes()).hexdigest() == pre_trainer[1]
 

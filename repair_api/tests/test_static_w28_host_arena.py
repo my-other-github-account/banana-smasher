@@ -145,3 +145,21 @@ def test_projection_reads_drop_each_authenticated_member_from_page_cache(
 
     assert advice_calls == [(0, 0, 4)] * 3
     assert os.close is real_close
+
+
+def test_static_w28_replaces_meta_expert_before_nonexpert_materialization() -> None:
+    """Resident payload must not coexist with assign=True materialization traversal."""
+    source = (
+        Path(__file__).parents[1]
+        / "assets"
+        / "static_w28_modern_green_clean_u0.py"
+    ).read_text()
+    layer_loop = source[source.index("        for layer in range(first, last + 1):") :]
+    detach = layer_loop.index("m.model.layers[layer].mlp.experts = nn.Identity()")
+    materialize = layer_loop.index("base.v3.materialize_layer(m, layer, sd, self.config)")
+    resident = layer_loop.index("resident = FullyResidentGroupedV7Experts(")
+    install = layer_loop.index("m.model.layers[layer].mlp.experts = resident")
+
+    assert detach < materialize < resident < install
+    constructor = layer_loop[resident:install]
+    assert "swiglu_limit=swiglu_limit" in constructor

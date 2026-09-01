@@ -431,7 +431,7 @@ def test_sealed_planesource_restores_combined_native_swiglu_constructor() -> Non
 
 
 def test_static_w28_adapter_supplies_model_swiglu_limit_to_historical_provider() -> None:
-    """Keep accepted trainer bytes while adapting their historical constructor ABI."""
+    """Supply the model clamp before replacing the detached meta expert."""
     from repair_api.modern_green_resident import _bind_historical_swiglu_limit
 
     provider = (
@@ -442,7 +442,7 @@ def test_static_w28_adapter_supplies_model_swiglu_limit_to_historical_provider()
         layer_loop.index("            resident = FullyResidentGroupedV7Experts(") :
         layer_loop.index("            m.model.layers[layer].mlp.experts = resident")
     ]
-    assert "swiglu_limit=" not in constructor
+    assert "swiglu_limit=swiglu_limit" in constructor
 
     calls = []
 
@@ -508,7 +508,7 @@ def test_sealed_pre_binding_owns_accepted_trainer_identity() -> None:
     from repair_api.modern_green_resident import _require_file
     from repair_api.sealed_pre_forward import bind_sealed_pre_resident_config
 
-    authoritative_sha = "b900549ac65afe30fcc857800c7127f555d5b0e437a4824693172b88cedea5f7"
+    authoritative_sha = "7d52df6f99f70b0a52c94cb023a5d1a137b1538c0a657bedc792968115d9ce69"
     stale_sha = "cc0520e00a6cc5b979c638e3f1fd98ae92c882f3cf9f48cbcdf3fa55fad343cc"
     config = {
         "trainer_source": "/stale/inherited/trainer.py",
