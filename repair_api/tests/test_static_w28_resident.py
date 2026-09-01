@@ -114,8 +114,61 @@ def test_static_wire_cache_remains_kernel_reclaimable_without_startup_fadvise() 
     model_release = model_release[: model_release.index("\n\n        def release_expert_source_cache")]
     assert "handles.clear()" in model_release
     assert "gc.collect()" in model_release
-    assert "posix_fadvise" not in model_release
-    assert "POSIX_FADV_DONTNEED" not in model_release
+    assert "_drop_consumed_safetensor_ranges" in model_release
+    assert "by_shard" in model_release
+
+
+def test_model_cache_drop_targets_only_consumed_safetensor_ranges(
+    monkeypatch, tmp_path
+) -> None:
+    """Eviction must not discard unread layers sharing the same model shard."""
+    import json
+    import os
+    import runpy
+    import sys
+    from types import SimpleNamespace
+
+    source_path = (
+        Path(__file__).parents[1] / "assets" / "static_w28_modern_green_clean_u0.py"
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "fast_k2_grouped",
+        SimpleNamespace(grouped_k2_stats=lambda: {}, set_fwht_backend=lambda *_: None),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "fast_v7_expert_base",
+        SimpleNamespace(FullyResidentGroupedV7Experts=object),
+    )
+    namespace = runpy.run_path(str(source_path))
+
+    header = json.dumps(
+        {
+            "layers.0.a": {"dtype": "BF16", "shape": [4], "data_offsets": [0, 8]},
+            "layers.0.b": {"dtype": "BF16", "shape": [4], "data_offsets": [8, 16]},
+            "layers.1.a": {"dtype": "BF16", "shape": [4], "data_offsets": [16, 24]},
+        },
+        separators=(",", ":"),
+    ).encode()
+    shard = tmp_path / "model-00001-of-00001.safetensors"
+    shard.write_bytes(len(header).to_bytes(8, "little") + header + bytes(range(24)))
+    calls = []
+    monkeypatch.setattr(os, "POSIX_FADV_DONTNEED", 4, raising=False)
+    monkeypatch.setattr(
+        os,
+        "posix_fadvise",
+        lambda fd, offset, length, advice: calls.append((offset, length, advice)),
+        raising=False,
+    )
+
+    released = namespace["_drop_consumed_safetensor_ranges"](
+        shard, ("layers.0.a", "layers.0.b")
+    )
+
+    assert released == 16
+    assert calls == [(8 + len(header), 16, 4)]
+    assert shard.read_bytes().endswith(bytes(range(24)))
 
 
 def test_l006_identical_duplicate_wire_candidates_are_unambiguous(tmp_path) -> None:

@@ -115,6 +115,52 @@ def active_wire_templates(root: Path) -> tuple[str, ...]:
     return active or WIRE_MEMBER_TEMPLATES
 
 
+def _drop_consumed_safetensor_ranges(path: Path, names: Iterable[str]) -> int:
+    """Drop only authenticated tensor ranges already copied from one shard."""
+    advise = getattr(os, "posix_fadvise", None)
+    dontneed = getattr(os, "POSIX_FADV_DONTNEED", None)
+    if advise is None or dontneed is None:
+        raise RuntimeError("model source range eviction is unavailable")
+    requested = tuple(names)
+    if not requested:
+        return 0
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        raw_length = os.pread(descriptor, 8, 0)
+        if len(raw_length) != 8:
+            raise RuntimeError(f"safetensors header length truncated: {path}")
+        header_length = int.from_bytes(raw_length, "little")
+        raw_header = os.pread(descriptor, header_length, 8)
+        if len(raw_header) != header_length:
+            raise RuntimeError(f"safetensors header truncated: {path}")
+        header = json.loads(raw_header)
+        data_start = 8 + header_length
+        ranges = []
+        for name in requested:
+            row = header.get(name)
+            if not isinstance(row, dict) or "data_offsets" not in row:
+                raise RuntimeError(f"safetensors member missing from shard: {path}:{name}")
+            start, end = map(int, row["data_offsets"])
+            if start < 0 or end <= start:
+                raise RuntimeError(f"safetensors member range invalid: {path}:{name}")
+            ranges.append((data_start + start, data_start + end))
+        merged = []
+        for start, end in sorted(ranges):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        released = 0
+        for start, end in merged:
+            advise(descriptor, start, end - start, dontneed)
+            released += end - start
+        return released
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"model source range eviction failed: {path}: {exc}") from exc
+    finally:
+        os.close(descriptor)
+
+
 def fsync_dir(path: Path) -> None:
     fd = os.open(path, os.O_RDONLY)
     try:
@@ -537,9 +583,16 @@ class ShardStudent:
             return handles[shard].get_tensor(name)
 
         def release_model_source_cache(layer: int) -> None:
-            """Close source mmaps; immutable pages remain kernel-reclaimable."""
+            """Drop only consumed tensor ranges, preserving unread shard layers."""
+            prefix = f"layers.{layer}."
+            by_shard: dict[str, list[str]] = {}
+            for name, shard in self.wm.items():
+                if name.startswith(prefix):
+                    by_shard.setdefault(shard, []).append(name)
             handles.clear()
             gc.collect()
+            for shard, names in sorted(by_shard.items()):
+                _drop_consumed_safetensor_ranges(model_root / shard, names)
 
         def release_expert_source_cache(source: PlaneSource) -> None:
             """Release Python relays; immutable page cache remains kernel-reclaimable."""
