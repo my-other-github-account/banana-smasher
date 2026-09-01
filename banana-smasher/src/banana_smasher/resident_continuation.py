@@ -446,7 +446,20 @@ def _historical_schedule(config: Mapping[str, Any]) -> Mapping[str, Any]:
 
 def _training_window_ids(config: Mapping[str, Any]) -> list[int]:
     if not _historical_mode(config):
-        return list(range(20, 84))
+        declared = config.get("train_windows")
+        if declared is None:
+            return list(range(20, 84))
+        if not isinstance(declared, (list, tuple)) or not declared:
+            raise ArtifactError("declared resident train_windows must be a non-empty sequence")
+        if any(isinstance(window, bool) for window in declared):
+            raise ArtifactError("declared resident train_windows must use integer window IDs")
+        try:
+            windows = [int(window) for window in declared]
+        except (TypeError, ValueError) as exc:
+            raise ArtifactError("declared resident train_windows must use integer window IDs") from exc
+        if len(windows) != len(set(windows)) or any(window < 20 or window > 83 for window in windows):
+            raise ArtifactError("declared resident train_windows must be unique IDs within 20..83")
+        return windows
     bank = _historical_schedule(config)["train_bank"]["windows_by_category"]
     windows = [int(window) for category in HISTORICAL_CATEGORIES for window in bank[category]]
     if len(windows) != 64 or len(set(windows)) != 64:
@@ -508,12 +521,11 @@ def _window_microbatches(config: Mapping[str, Any], update: int) -> list[list[in
         raise ArtifactError("official resident window geometry must use integer counts") from exc
     if pipeline_microbatch != PIPELINE_MICROBATCH or windows_per_update not in {WINDOWS_PER_STEP, 16}:
         raise ArtifactError("official resident window geometry must be 4 or preregistered 16 as 4-window microbatches")
-    if windows_per_update == WINDOWS_PER_STEP:
-        first = 20 + WINDOWS_PER_STEP * (int(update) % 16)
-    else:
-        # Four U16..U19 updates traverse all 64 corpus windows exactly once.
-        first = 20 + 16 * ((int(update) - 16) % 4)
-    windows = [20 + ((first - 20 + offset) % 64) for offset in range(windows_per_update)]
+    train_windows = _training_window_ids(config)
+    if len(train_windows) < windows_per_update or len(train_windows) % windows_per_update:
+        raise ArtifactError("declared resident train_windows must contain complete optimizer updates")
+    first = (int(update) * windows_per_update) % len(train_windows)
+    windows = [train_windows[(first + offset) % len(train_windows)] for offset in range(windows_per_update)]
     return [windows[index:index + PIPELINE_MICROBATCH] for index in range(0, len(windows), PIPELINE_MICROBATCH)]
 
 

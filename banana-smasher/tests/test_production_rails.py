@@ -21,6 +21,7 @@ from banana_smasher.production_rails import (
 from banana_smasher.resident_balanced64 import ArtifactError, RepairArtifact
 from banana_smasher.resident_continuation import (
     ModernGreenResidentEngine,
+    _training_window_ids,
     _window_microbatches,
 )
 from banana_smasher.resident_repair_api import BackpackArtifact, ResidentRepairAPI
@@ -456,6 +457,32 @@ def test_continuation_geometry_is_sealed_to_pipeline_microbatch_four():
         _window_microbatches(
             {"windows_per_update": 16, "pipeline_microbatch": 2}, 16
         )
+
+
+def test_declared_corrected_teacher_bank_does_not_diverge_at_u2():
+    config = {
+        "train_windows": list(range(20, 36)),
+        "windows_per_update": 16,
+        "pipeline_microbatch": 4,
+    }
+
+    expected = [
+        [20, 21, 22, 23],
+        [24, 25, 26, 27],
+        [28, 29, 30, 31],
+        [32, 33, 34, 35],
+    ]
+    u2_windows = [window for group in _window_microbatches(config, 1) for window in group]
+    sidecar_loss = {
+        **{window: 0.23785905539989471 for window in range(20, 36)},
+        **{window: 19.135841846466064 for window in range(36, 52)},
+    }
+    reproduced_u2_loss = max(sidecar_loss[window] for window in u2_windows)
+
+    assert reproduced_u2_loss <= 0.34590520220808685
+    assert _training_window_ids(config) == list(range(20, 36))
+    assert _window_microbatches(config, 0) == expected
+    assert _window_microbatches(config, 1) == expected
 
 
 def test_artifact_admission_binds_manifest_and_checkpoint_bytes(tmp_path):
