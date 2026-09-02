@@ -95,6 +95,29 @@ QTIP2_GEOMETRY = QtipGeometry(L=16, K=2, V=2, tlut_bits=9, decode_mode="quantlut
 QTIP2_EXACT_MAX_CHUNK_ROWS = 8192
 
 
+def _gb10_admission_free_bytes(torch: Any, device: Any) -> int:
+    """Free bytes for CUDA admission planning.
+
+    On GB10 (unified memory) ``cuda.mem_get_info`` reports only the driver's
+    reserved slice — typically ~3 GiB when the host page cache is warm — while
+    100+ GiB of host memory is reclaimable for device allocations.  Planning
+    against that number fails admission spuriously (``free=3.6e9 <
+    reserve=4.3e9``) and forced the fresh-process-per-tranche workaround.  Use
+    the same GB10-aware probe the backpack adapter already uses: max(driver
+    free, MemAvailable).  Non-GB10 devices keep the driver number.
+    """
+    free, _total = torch.cuda.mem_get_info(device)
+    try:
+        if "GB10" not in torch.cuda.get_device_properties(device).name:
+            return int(free)
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return max(int(free), int(line.split()[1]) * 1024)
+    except (OSError, RuntimeError, ValueError, IndexError):
+        pass
+    return int(free)
+
+
 def plan_qtip2_cuda_chunks(
     *,
     rows: int,
@@ -669,7 +692,7 @@ def encode_qtip2_bounded_cuda(
     if not torch.cuda.is_available():
         raise RuntimeError("QTIP2 CUDA fast path is unavailable; refusing slower fallback")
     device = torch.device("cuda")
-    free_bytes, _total_bytes = torch.cuda.mem_get_info(device)
+    free_bytes = _gb10_admission_free_bytes(torch, device)
     plan = plan_qtip2_cuda_chunks(
         rows=int(values.shape[0]),
         width=int(values.shape[1]),
