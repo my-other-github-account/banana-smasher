@@ -198,6 +198,19 @@ class ArtifactTensorStore:
     def names(self) -> set[str]:
         return set(self.routed) | self.source.names()
 
+    def requires_source_scale(self, name: str) -> bool:
+        row = self.routed.get(name)
+        if row is None:
+            return True
+        layer_match = _LAYER_NAME.search(name)
+        if layer_match is not None and int(layer_match.group(1)) == self.source_routed_layer:
+            return True
+        transform = row.get("source_transform")
+        return not (
+            isinstance(transform, Mapping)
+            and transform.get("output_quantity") == "descaled_weight"
+        )
+
     def _load_array(self, binding: Mapping[str, Any]) -> np.ndarray:
         path = (self.root / binding["path"]).resolve()
         self.payload_reads += 1
@@ -382,6 +395,14 @@ class LayerStreamedHFSession:
             f"scale={tuple(scale.shape)}"
         )
 
+    def _scaled_stored_weight(self, loaded: Mapping[str, Any], weight_name: str) -> Any:
+        scale_name = f"{weight_name}_scale_inv"
+        requires_scale = getattr(self.store, "requires_source_scale", None)
+        scale = loaded.get(scale_name)
+        if requires_scale is not None and not requires_scale(weight_name):
+            scale = None
+        return self._scaled_weight(loaded[weight_name], scale)
+
     @staticmethod
     def _expert_binding(full_name: str, available: set[str], experts: int):
         if full_name.endswith("experts.gate_up_proj"):
@@ -475,15 +496,11 @@ class LayerStreamedHFSession:
             binding = bindings[local_name]
             if binding[0] in {"direct", "alias"}:
                 _, weight_name, scale_name = binding
-                value = self._scaled_weight(
-                    loaded[weight_name], None if scale_name is None else loaded[scale_name]
-                )
+                value = self._scaled_stored_weight(loaded, weight_name)
             elif binding[0] == "concat":
                 _, weight_names, _ = binding
                 pieces = [
-                    self._scaled_weight(
-                        loaded[weight_name], loaded.get(f"{weight_name}_scale_inv")
-                    )
+                    self._scaled_stored_weight(loaded, weight_name)
                     for weight_name in weight_names
                 ]
                 value = self.torch.cat(pieces, dim=0)
@@ -501,12 +518,7 @@ class LayerStreamedHFSession:
                     pieces = []
                     for projection in projections:
                         weight_name = f"{base}.{expert}.{projection}.weight"
-                        scale_name = f"{weight_name}_scale_inv"
-                        pieces.append(
-                            self._scaled_weight(
-                                loaded[weight_name], loaded.get(scale_name)
-                            )
-                        )
+                        pieces.append(self._scaled_stored_weight(loaded, weight_name))
                     expert_tensors.append(
                         pieces[0] if kind == "down" else self.torch.cat(pieces, dim=0)
                     )

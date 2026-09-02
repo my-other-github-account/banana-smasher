@@ -332,6 +332,19 @@ def test_candidate_source_prefix_includes_first_routed_boundary(monkeypatch, tmp
     assert store.model_reads == 2
 
 
+def test_descaled_q2_payload_is_not_scaled_twice() -> None:
+    from banana_smasher.hf_sharded_balanced64_executor import ArtifactTensorStore
+
+    name = "model.language_model.layers.4.mlp.experts.0.gate_proj.weight"
+    store = ArtifactTensorStore.__new__(ArtifactTensorStore)
+    store.routed = {
+        name: {"source_transform": {"output_quantity": "descaled_weight"}}
+    }
+    store.source_routed_layer = 3
+
+    assert store.requires_source_scale(name) is False
+
+
 def test_working_set_materialization_casts_fp_weights_and_allows_parameterless_modules() -> None:
     torch = pytest.importorskip("torch")
 
