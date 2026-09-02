@@ -259,9 +259,10 @@ def test_artifact_store_decodes_real_q2_wire(monkeypatch, tmp_path: Path) -> Non
     artifact = {
         "artifact_root": str(root),
         "source": {"model_root": "/model"},
+        "geometry": {"routed_layer_ids": [3, 4]},
         "routed_tensors": [
             {
-                "name": "model.layers.1.mlp.experts.0.gate_proj.weight",
+                "name": "model.language_model.layers.4.mlp.experts.0.gate_proj.weight",
                 "shape": [2, 32],
                 "wire": {
                     "geometry": QTIP2_GEOMETRY.as_mapping(),
@@ -274,36 +275,46 @@ def test_artifact_store_decodes_real_q2_wire(monkeypatch, tmp_path: Path) -> Non
     }
     store = ArtifactTensorStore(artifact)
 
-    decoded = store.tensor("model.layers.1.mlp.experts.0.gate_proj.weight")
+    decoded = store.tensor("model.language_model.layers.4.mlp.experts.0.gate_proj.weight")
 
     assert decoded.shape == matrix.shape
     assert np.isfinite(decoded.numpy()).all()
     assert store.payload_reads == 2
 
 
-def test_candidate_native_rest_reads_authoritative_source_model(monkeypatch, tmp_path: Path) -> None:
+def test_candidate_source_prefix_includes_first_routed_boundary(monkeypatch, tmp_path: Path) -> None:
     import banana_smasher.hf_sharded_balanced64_executor as executor
 
-    source_tensor = pytest.importorskip("torch").tensor([[1.0, 2.0]])
+    torch = pytest.importorskip("torch")
+    tensors = {
+        "model.embed_tokens.weight": torch.tensor([[1.0, 2.0]]),
+        "model.language_model.layers.3.mlp.experts.0.gate_proj.weight": torch.tensor([[3.0, 4.0]]),
+    }
 
     class _SourceStore:
         def __init__(self, source):
             assert source == {"model_root": "/model"}
 
         def names(self):
-            return {"model.embed_tokens.weight"}
+            return set(tensors)
 
         def tensor(self, name):
-            assert name == "model.embed_tokens.weight"
-            return source_tensor
+            return tensors[name]
 
     monkeypatch.setattr(executor, "SourceTensorStore", _SourceStore)
     artifact_root = tmp_path / "artifact"
     artifact_root.mkdir()
+    first_routed = "model.language_model.layers.3.mlp.experts.0.gate_proj.weight"
     artifact = {
         "artifact_root": str(artifact_root),
         "source": {"model_root": "/model"},
-        "routed_tensors": [],
+        "geometry": {"routed_layer_ids": [3, 4]},
+        "routed_tensors": [{
+            "name": first_routed,
+            "path": "routed/must-not-read.npy",
+            "shape": [1, 2],
+            "wire": {},
+        }],
         "native_tensors": [{
             "name": "model.embed_tokens.weight",
             "path": "native/stale-copy.bin",
@@ -314,10 +325,11 @@ def test_candidate_native_rest_reads_authoritative_source_model(monkeypatch, tmp
 
     store = ArtifactTensorStore(artifact)
 
-    assert store.names() == {"model.embed_tokens.weight"}
-    assert store.tensor("model.embed_tokens.weight") is source_tensor
+    assert store.names() == set(tensors)
+    assert store.tensor("model.embed_tokens.weight") is tensors["model.embed_tokens.weight"]
+    assert store.tensor(first_routed) is tensors[first_routed]
     assert store.payload_reads == 0
-    assert store.model_reads == 1
+    assert store.model_reads == 2
 
 
 def test_working_set_materialization_casts_fp_weights_and_allows_parameterless_modules() -> None:
