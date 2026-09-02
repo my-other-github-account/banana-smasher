@@ -1,0 +1,4 @@
+...............                                                          [100%]
+15 passed in 0.97s (source); 15 passed in 1.01s (immutable pin)
+Scope: authenticated U60 four-surface declaration policy at every resident policy call site, schema/runtime/optimizer/scheduler/round-trip, and resident-stage contracts.
+Physical RED predecessor: repaired2 reached _load_training_data then failed because the second policy call lacked validated U60 identity propagation.
