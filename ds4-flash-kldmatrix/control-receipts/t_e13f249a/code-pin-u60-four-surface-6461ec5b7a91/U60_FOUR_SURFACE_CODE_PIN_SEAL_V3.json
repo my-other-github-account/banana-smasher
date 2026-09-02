@@ -1,0 +1,301 @@
+{
+  "aggregate_source_sha256": "6461ec5b7a918899f7572ddd2c4bb020cdc8981b73ecb4092c51117fbd661a51",
+  "checkpoint_sha256": "1962213d88ee6b6df62311c58258dc72c38c5aca761e4dd00d3a375588c95c95",
+  "code_pin": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_e13f249a/code-pin-u60-four-surface-6461ec5b7a91",
+  "diagnosis_sha256": "396473adba770ab59c0c271ddc8bbd2360e5d72e78172c7b634f273447c961e1",
+  "files": [
+    {
+      "bytes": 1794,
+      "path": "repair_api/__init__.py",
+      "sha256": "cdb9fc94619a20d093ca32df8c03cf15e6187c7075b70f1fd5717abffa9ee07d"
+    },
+    {
+      "bytes": 48,
+      "path": "repair_api/__main__.py",
+      "sha256": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d"
+    },
+    {
+      "bytes": 179073,
+      "path": "repair_api/api.py",
+      "sha256": "111ae05ff9b0f2108ea61c3d28b98c07f99b5424ae6aa8110f07db3cbc6b94ed"
+    },
+    {
+      "bytes": 4270,
+      "path": "repair_api/assets/fast_k2_grouped.cpp",
+      "sha256": "de5e3f522fe3ef02d1b82edebd85569f5f1fe6d2b7c17261e010e40883063dee"
+    },
+    {
+      "bytes": 18168,
+      "path": "repair_api/assets/fast_k2_grouped.py",
+      "sha256": "37b919ae6adb34987e0e20ba4318352d9bf07b5183008d023a1822b3daf75126"
+    },
+    {
+      "bytes": 11268,
+      "path": "repair_api/assets/fast_k2_grouped_kernel.cu",
+      "sha256": "e11f0dc4948f9a11a3102c490fdf657df25722d936842e163d6cc69ed81dac9c"
+    },
+    {
+      "bytes": 12215,
+      "path": "repair_api/assets/fast_v7_expert_base.py",
+      "sha256": "8080d1e6ef6752c7823a4db0426c6ea048b830a1ece173b30a7b12f716d1685b"
+    },
+    {
+      "bytes": 12169,
+      "path": "repair_api/assets/fast_v7_expert_train_batched.py",
+      "sha256": "f3a56fbd5d73d1a46f0026b91a33075c0606569e035be92de34a2d053cc379dc"
+    },
+    {
+      "bytes": 99294,
+      "path": "repair_api/assets/modern_green_clean_u0.py",
+      "sha256": "164a048e3c564a2bb490a963a6fff9f953628d09279e256f2819c77246f1a036"
+    },
+    {
+      "bytes": 13109,
+      "path": "repair_api/assets/static_w28_fast_k2_grouped.py",
+      "sha256": "0d4ece20b602fc59ffef349183db2bea0861b4a7f7c0ef93e50fd728310e7371"
+    },
+    {
+      "bytes": 12244,
+      "path": "repair_api/assets/static_w28_fast_v7_expert_base.py",
+      "sha256": "fc612f7863ad9d09a9faf11e203a9d20739b7dbb273b982fc3d36ee01d15a9b4"
+    },
+    {
+      "bytes": 99184,
+      "path": "repair_api/assets/static_w28_modern_green_clean_u0.py",
+      "sha256": "a55c2f5104b8d9dd06d845684d168be6f6e9dae637bac08443bd6ddbaf94201a"
+    },
+    {
+      "bytes": 24269,
+      "path": "repair_api/balanced64.py",
+      "sha256": "8bed63aeb56c52e3b976d6aadbd1bb5b1b1fb713a00840a69115d4a7710d2a09"
+    },
+    {
+      "bytes": 2748,
+      "path": "repair_api/calibrate_u3.py",
+      "sha256": "2c34e17e67555c52bd72c3041f89fc1a84112612dcb93c7c144f40a5e6e9e5d8"
+    },
+    {
+      "bytes": 13476,
+      "path": "repair_api/cli.py",
+      "sha256": "566620b3109c9073b3d56f88ac9677a078ba99d6f8b8f4924f9e533881deb67a"
+    },
+    {
+      "bytes": 9803,
+      "path": "repair_api/continuous_four_updates_official.py",
+      "sha256": "76bb97ce6f5119412e6b75d7d76f05d5765f096e1f4e298da25fa1a47c83e249"
+    },
+    {
+      "bytes": 4727,
+      "path": "repair_api/core.py",
+      "sha256": "b7c5903dd371ab9dbb579ac3d804da2bb4c9bb05808f55a271de57f10154b847"
+    },
+    {
+      "bytes": 1992,
+      "path": "repair_api/integration.py",
+      "sha256": "ce11d71188a043b00757e879cb5ada387f499f42adaf5f9f61825d35a508ea72"
+    },
+    {
+      "bytes": 149128,
+      "path": "repair_api/modern_green_resident.py",
+      "sha256": "798c537428baaff345622505689b5bbe2700f5398ab1372e1a7deb0e6ed2a5e0"
+    },
+    {
+      "bytes": 179932,
+      "path": "repair_api/official_k2_resident_score.py",
+      "sha256": "9a3d91dee765d4c11bd712c01e8e52da758a93b77300c574b6710c49734b93d8"
+    },
+    {
+      "bytes": 9407,
+      "path": "repair_api/official_resident_campaign.py",
+      "sha256": "403a3c923285835ded874b6d8342acf7fe4094ad62a9dd6b29d30e35fecfee11"
+    },
+    {
+      "bytes": 5690,
+      "path": "repair_api/ordinary_load_fork_broker.py",
+      "sha256": "d349bfbb00e81af5b4e1bfa2eee788a7054bc57151e50f2c200661213e9e388a"
+    },
+    {
+      "bytes": 5959,
+      "path": "repair_api/physical_profile_batch.py",
+      "sha256": "b2479f0a675c10bb2ce7fcb1774d7fe3cee26629c60d651e8dac3092fd8b56da"
+    },
+    {
+      "bytes": 811,
+      "path": "repair_api/production_score_guard.py",
+      "sha256": "41f0b05f0611212d3ccea0be4a4320b41266cf093c05a071f34437297df18176"
+    },
+    {
+      "bytes": 4016,
+      "path": "repair_api/remote_integration.py",
+      "sha256": "1aceb03cbfa0862a7bbbb28a19bc08060fab0793ef0657700635c4bb1d0c2381"
+    },
+    {
+      "bytes": 9805,
+      "path": "repair_api/resident_campaign.py",
+      "sha256": "7e02c321fb6364ca2783667ae2adb7c2e8bccfb572a241b2ddf11447993e0c53"
+    },
+    {
+      "bytes": 10158,
+      "path": "repair_api/resident_full64_accept.py",
+      "sha256": "f443cb364111bc70cee49062af2cea9512f5a180c4dedf0a51047a7e4aee74a9"
+    },
+    {
+      "bytes": 12040,
+      "path": "repair_api/resume_compare_runner.py",
+      "sha256": "8ca6bda6095f2d360c46d1b5cc408855c2667fa2bacad4ecd4202242a53aa154"
+    },
+    {
+      "bytes": 16717,
+      "path": "repair_api/resume_compare_runner_r2.py",
+      "sha256": "38365ec74d86984d07cc93a210a377d080de04688340d4a4234c0699e9d09991"
+    },
+    {
+      "bytes": 25195,
+      "path": "repair_api/resume_equivalence_official.py",
+      "sha256": "3b930f73247db029d8bd540c4c888d649cb411d2e288fd83e3974fc4323c66de"
+    },
+    {
+      "bytes": 2566,
+      "path": "repair_api/score_u16.py",
+      "sha256": "4d9927dacb69401de7f3dbbc44ffe428203e1572da33e8ef84e52b976c5e1adc"
+    },
+    {
+      "bytes": 3464,
+      "path": "repair_api/sealed_rail_runner.py",
+      "sha256": "f483c21e6e034b29df598da5b74654e9afc20d5680c5e64d0a2439db3aebb405"
+    },
+    {
+      "bytes": 2943,
+      "path": "repair_api/tests/test_candidate_h_staggered_mmap.py",
+      "sha256": "0afaf1032ef34868eaae78e617e30aa690d8c12d81bf0b6c1140fa062545991f"
+    },
+    {
+      "bytes": 1645,
+      "path": "repair_api/tests/test_candidate_read_proof.py",
+      "sha256": "ba195b2920751901ff7ab97ad225bfbfecfef5efb25bd552d70af9aaf636f68e"
+    },
+    {
+      "bytes": 7979,
+      "path": "repair_api/tests/test_continuous_four_updates.py",
+      "sha256": "80323e300bf92857c8fc12bfac5bb55a7394caceff58e2089ce13dc498906aab"
+    },
+    {
+      "bytes": 4768,
+      "path": "repair_api/tests/test_controlled_arm_policy.py",
+      "sha256": "33bb6f5426b7e2a86a5ffd0f5c01b62f58f6c117e3866b1f09cae973d75ce6fd"
+    },
+    {
+      "bytes": 6755,
+      "path": "repair_api/tests/test_fp64_state_adam.py",
+      "sha256": "d64063346f604972d3822625430038b37dfb48ff5cf0dbcc02c01a5f7409001f"
+    },
+    {
+      "bytes": 21931,
+      "path": "repair_api/tests/test_full64_public_rail_repairs.py",
+      "sha256": "f8791d6451b5526c5ae2c3ddb051862629e79738cb3d21588f17594a7a2afb66"
+    },
+    {
+      "bytes": 2566,
+      "path": "repair_api/tests/test_grouped_k2_work_chunk.py",
+      "sha256": "ffa602ae2d94cd0d08e03335466739685ad9a081eed649a0a1e52ae69b61d76c"
+    },
+    {
+      "bytes": 7531,
+      "path": "repair_api/tests/test_grouped_sealed_bf16_boundary.py",
+      "sha256": "46a0c7b4ee4a1994aad820ad9ca8fc09ed27b6240e39650b086596455294eb87"
+    },
+    {
+      "bytes": 3824,
+      "path": "repair_api/tests/test_historical_score19_projection_pair.py",
+      "sha256": "888a9ec8be765a1e2d000c1b66992dacab387a976ae2ebf5c6127ef62bc79c74"
+    },
+    {
+      "bytes": 77443,
+      "path": "repair_api/tests/test_official_k2_resident_score.py",
+      "sha256": "d1c17719e13672aad93457e49673a69bff9764cb605ab8dc05f9c6f73e88b8e1"
+    },
+    {
+      "bytes": 19699,
+      "path": "repair_api/tests/test_official_k2_resident_source_binding.py",
+      "sha256": "235f30e50dcd4fba4b1a0a2bc9ea491264bb5511b5b1c5078e84fea18c401e5f"
+    },
+    {
+      "bytes": 9850,
+      "path": "repair_api/tests/test_ordinary_load_fork_broker.py",
+      "sha256": "d4336e21856404ce92dfd45798245a743bac9ac8faf4a93350970bb9f917f6b0"
+    },
+    {
+      "bytes": 8734,
+      "path": "repair_api/tests/test_parity_core_seam.py",
+      "sha256": "533158d2a7ee734b0410543674c2652d5d7b20c4ad698c4ddb31f54fb3e97689"
+    },
+    {
+      "bytes": 1779,
+      "path": "repair_api/tests/test_payload_identity.py",
+      "sha256": "031e36a59a111919a98b133a572f9146c7cda68672421a5eb28c018230393dab"
+    },
+    {
+      "bytes": 2792,
+      "path": "repair_api/tests/test_raw_u0_artifact_corpus_binding.py",
+      "sha256": "a85573c79a08c40db4f61185827f393a9c257e97fa8e727a08204d3d57111637"
+    },
+    {
+      "bytes": 2045,
+      "path": "repair_api/tests/test_resident_full64_accept.py",
+      "sha256": "818c69559836e8f9bb18004fd6ec662fc6516a2c69232b6d116dcac9598a1ef9"
+    },
+    {
+      "bytes": 13238,
+      "path": "repair_api/tests/test_resident_stage.py",
+      "sha256": "dc71763b836ed56eab048a8a45fec2e61b39ad666087a6648aa15f106d625d7e"
+    },
+    {
+      "bytes": 43297,
+      "path": "repair_api/tests/test_resident_validate.py",
+      "sha256": "2948c5bd720f703d03326626b32cddfb91bc1db62425124e26d08e5364890542"
+    },
+    {
+      "bytes": 29032,
+      "path": "repair_api/tests/test_resume_equivalence_persistence.py",
+      "sha256": "0a3e6689f331ddab287ee39fc1356720ec3476bd89195efd773c2abb25b5f045"
+    },
+    {
+      "bytes": 5331,
+      "path": "repair_api/tests/test_routed_reuse_public_rail.py",
+      "sha256": "7508341744bfcb9aa0e66f1e80ebf2cd34951ca27f1f3db862165023e8af10cc"
+    },
+    {
+      "bytes": 7719,
+      "path": "repair_api/tests/test_scorer_aligned_training_teacher.py",
+      "sha256": "510be34d4e5cdb836dd0f4107c1b000f91eedb99b81fc5baf4105171b4c18084"
+    },
+    {
+      "bytes": 2959,
+      "path": "repair_api/tests/test_sealed_rail_runner.py",
+      "sha256": "de5c20877ee20b001cab8e20f3c06ede585ec13d9edea4522249d8390aa13a4f"
+    },
+    {
+      "bytes": 4275,
+      "path": "repair_api/tests/test_u0_window28_q_lp_regression.py",
+      "sha256": "096542c8215dbf80d4c881585ccded18e0fee48da9425a3fd2ce0ff81949571d"
+    },
+    {
+      "bytes": 9927,
+      "path": "repair_api/tests/test_u60_four_surface_continuation.py",
+      "sha256": "ab6d5a1efce8a6dd779cc19ca2333e458eebe1d6e2ee127d5a66fbe8a2788a44"
+    },
+    {
+      "bytes": 7416,
+      "path": "repair_api/validate_terminal.py",
+      "sha256": "d42bdfd22170a2fd10fe29ce657e9eae682e8db600c79ce1d13f3e60f1e8c591"
+    }
+  ],
+  "focused_tests_sha256": "58fbd3048411241ca7795c55b7ab98d75c46147136eb683beb15b5e70c31933d",
+  "physical_red": "_load_training_data second policy call lacked validated U60 identity propagation",
+  "repair": "all four resident recipe-policy call sites receive the already-validated authenticated four-surface U60 identity; exact U60 checkpoint SHA remains mandatory",
+  "schema": "banana-smasher-u60-four-surface-code-pin-v3",
+  "source_commit_parent": "0ac9c95a362f4a8aa2f453819daf2d03f75734fe",
+  "status": "SEALED_TESTS_GREEN",
+  "task_id": "t_e13f249a",
+  "tests": "15 passed source and immutable pin; compileall PASS"
+}
