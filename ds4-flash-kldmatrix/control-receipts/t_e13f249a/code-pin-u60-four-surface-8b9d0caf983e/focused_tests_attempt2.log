@@ -1,0 +1,4 @@
+..............                                                           [100%]
+14 passed in 1.41s
+Scope: authenticated U60 four-surface declaration policy, schema/runtime/optimizer/scheduler/round-trip, and resident-stage contracts.
+Physical RED predecessor: attempt1 failed with repair_api.balanced64.ArtifactError: published PRE checkpoint declaration drift.
