@@ -772,6 +772,18 @@ def estimate_hf_moe_uniform(
     ordered = sorted(plan["routed_tensors"], key=lambda row: (row["source_bytes"], row["name"]))
     selected = ordered[len(ordered) // 2]
     root = Path(plan["source"]["model_root"])
+    index = json.loads(
+        (root / "model.safetensors.index.json").read_text(encoding="utf-8")
+    )
+    headers = {
+        shard: _safetensors_header(root / shard) for shard in plan["source"]["shards"]
+    }
+    scale_source, scale_row, source_transform = _routed_scale_binding(
+        root,
+        selected,
+        weight_map=index["weight_map"],
+        headers=headers,
+    )
     tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
     try:
         import torch
@@ -783,7 +795,12 @@ def estimate_hf_moe_uniform(
         prepare_exact_cuda()
     tracemalloc.start()
     started = time.perf_counter()
-    matrix = _load_safetensors_matrix(root / selected["shard"], selected)
+    matrix = _load_safetensors_matrix(
+        root / selected["shard"],
+        selected,
+        scale_source=scale_source,
+        scale_row=scale_row,
+    )
     encoded, encoder = _encode_hf_q2(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
     wall_seconds = time.perf_counter() - started
     _, traced_peak = tracemalloc.get_traced_memory()
@@ -817,6 +834,7 @@ def estimate_hf_moe_uniform(
             "parameters": selected["parameters"],
             "source_bytes": selected["source_bytes"],
             "source_dtype": selected["dtype"],
+            "source_transform": source_transform,
             "wall_seconds": wall_seconds,
             "peak_memory_bytes": peak_memory_bytes,
             "q2_code_bytes": encoded.packed.nbytes,
@@ -860,7 +878,13 @@ def _copy_tensor_data_bytes(
     return hashlib.sha256(payload).hexdigest()
 
 
-def _load_safetensors_matrix(source: Path, row: Mapping[str, Any]):
+def _load_safetensors_matrix(
+    source: Path,
+    row: Mapping[str, Any],
+    *,
+    scale_source: Path | None = None,
+    scale_row: Mapping[str, Any] | None = None,
+):
     import numpy as np
 
     if row["dtype"] != "F8_E4M3":
@@ -894,7 +918,51 @@ def _load_safetensors_matrix(source: Path, row: Mapping[str, Any]):
         raise ValueError(
             f"F8_E4M3 routed tensor contains non-finite values: {row['name']}"
         )
-    return matrix
+    if matrix.ndim != 2:
+        raise ValueError(f"F8_E4M3 routed tensor must be a matrix: {row['name']}")
+    if scale_source is None or scale_row is None:
+        raise ValueError(
+            f"F8_E4M3 routed tensor requires weight_scale_inv before Q2 encoding: {row['name']}"
+        )
+    scale = _load_safetensors_matrix(scale_source, scale_row)
+    rows, columns = (int(size) for size in matrix.shape)
+    expected_scale_shape = (math.ceil(rows / 128), math.ceil(columns / 128))
+    if scale.ndim != 2 or tuple(scale.shape) != expected_scale_shape:
+        raise ValueError(
+            "F8_E4M3 inverse-scale geometry must be one value per 128x128 block: "
+            f"weight={tuple(matrix.shape)} scale={tuple(scale.shape)} name={row['name']}"
+        )
+    expanded = scale.repeat(128, axis=0).repeat(128, axis=1)
+    return matrix * expanded[: matrix.shape[0], : matrix.shape[1]]
+
+
+def _routed_scale_binding(
+    root: Path,
+    row: Mapping[str, Any],
+    *,
+    weight_map: Mapping[str, str],
+    headers: Mapping[str, Mapping[str, Any]],
+) -> tuple[Path | None, dict[str, Any] | None, dict[str, Any] | None]:
+    if row["dtype"] != "F8_E4M3":
+        return None, None, None
+    scale_name = f"{row['name']}_scale_inv"
+    scale_shard = weight_map.get(scale_name)
+    if scale_shard is None:
+        raise ValueError(
+            f"F8_E4M3 routed tensor is missing required weight_scale_inv: {row['name']}"
+        )
+    metadata = headers[scale_shard].get(scale_name)
+    if not isinstance(metadata, Mapping):
+        raise ValueError(f"missing safetensors metadata for {scale_name}")
+    scale_row = {"name": scale_name, **metadata}
+    transform = {
+        "kind": "float8_e4m3_blockwise_scale_inv",
+        "block_shape": [128, 128],
+        "scale_name": scale_name,
+        "scale_shape": list(metadata["shape"]),
+        "output_quantity": "descaled_weight",
+    }
+    return root / scale_shard, scale_row, transform
 
 
 def _encode_hf_q2(matrix: Any, *, geometry: Any, tlut: Any):
@@ -1019,6 +1087,9 @@ def build_hf_moe_uniform(
         headers = {
             shard: _safetensors_header(root / shard) for shard in plan["source"]["shards"]
         }
+        index = json.loads(
+            (root / "model.safetensors.index.json").read_text(encoding="utf-8")
+        )
         tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
         routed_rows: list[dict[str, Any]] = []
         native_rows: list[dict[str, Any]] = []
@@ -1038,17 +1109,32 @@ def build_hf_moe_uniform(
         routed_row_by_name: dict[str, dict[str, Any]] = {}
         for batch in routed_batches:
             matrices = []
+            source_transforms = []
             for row in batch:
-                matrix = _load_safetensors_matrix(root / row["shard"], row)
+                scale_source, scale_row, source_transform = _routed_scale_binding(
+                    root,
+                    row,
+                    weight_map=index["weight_map"],
+                    headers=headers,
+                )
+                matrix = _load_safetensors_matrix(
+                    root / row["shard"],
+                    row,
+                    scale_source=scale_source,
+                    scale_row=scale_row,
+                )
                 if matrix.ndim != 2:
                     raise ValueError(f"Q2 routed tensor must be a matrix: {row['name']}")
                 matrices.append(matrix)
+                source_transforms.append(source_transform)
             combined = np.concatenate(matrices, axis=0)
             batch_encoded, batch_encoder = _encode_hf_q2(
                 combined, geometry=QTIP2_GEOMETRY, tlut=tlut
             )
             row_offset = 0
-            for batch_ordinal, (row, matrix) in enumerate(zip(batch, matrices, strict=True)):
+            for batch_ordinal, (row, matrix, source_transform) in enumerate(
+                zip(batch, matrices, source_transforms, strict=True)
+            ):
                 row_end = row_offset + int(matrix.shape[0])
                 encoded = EncodedQtip(
                     geometry=batch_encoded.geometry,
@@ -1072,6 +1158,11 @@ def build_hf_moe_uniform(
                 np.save(scales, encoded.scales, allow_pickle=False)
                 routed_row_by_name[row["name"]] = {
                         **row,
+                        **(
+                            {"source_transform": source_transform}
+                            if source_transform is not None
+                            else {}
+                        ),
                         "wire": {
                             "geometry": QTIP2_GEOMETRY.as_mapping(),
                             "code_bpw": encoded.code_bpw,

@@ -505,6 +505,109 @@ def test_public_bounded_canary_is_diagnostic_and_projects_complete_build(
     assert json.loads(receipt_path.read_text()) == estimate
 
 
+def test_q2_producer_descales_blockwise_float8_before_encoding(tmp_path: Path) -> None:
+    import banana_smasher.hf_moe as hf_moe
+
+    shard = tmp_path / "model.safetensors"
+    weight_name = "layers.0.experts.0.down_proj.weight"
+    scale_name = f"{weight_name}_scale_inv"
+    weight_shape = [256, 256]
+    scale_shape = [2, 2]
+    weight_bytes = bytes([0x38]) * (256 * 256)  # float8_e4m3 1.0
+    scale = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
+    header = {
+        weight_name: {
+            "dtype": "F8_E4M3",
+            "shape": weight_shape,
+            "data_offsets": [0, len(weight_bytes)],
+        },
+        scale_name: {
+            "dtype": "F32",
+            "shape": scale_shape,
+            "data_offsets": [len(weight_bytes), len(weight_bytes) + scale.nbytes],
+        },
+    }
+    header_bytes = json.dumps(header, separators=(",", ":")).encode()
+    header_bytes += b" " * (-len(header_bytes) % 8)
+    shard.write_bytes(
+        struct.pack("<Q", len(header_bytes)) + header_bytes + weight_bytes + scale.tobytes()
+    )
+
+    matrix = hf_moe._load_safetensors_matrix(
+        shard,
+        {"name": weight_name, **header[weight_name]},
+        scale_source=shard,
+        scale_row={"name": scale_name, **header[scale_name]},
+    )
+
+    expected = scale.repeat(128, axis=0).repeat(128, axis=1)
+    np.testing.assert_array_equal(matrix, expected)
+    assert float(np.sqrt(np.mean(matrix**2))) < 1.0
+
+
+def test_public_q2_builder_binds_float8_scale_before_codebook_fit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    from banana_smasher import build_hf_moe_uniform
+
+    usage = shutil.disk_usage(tmp_path)
+    monkeypatch.setattr(
+        shutil,
+        "disk_usage",
+        lambda _path: usage._replace(free=100 << 30),
+    )
+
+    model = tmp_path / "float8-model"
+    model.mkdir()
+    (model / "config.json").write_text(
+        json.dumps({"n_routed_experts": 1, "num_hidden_layers": 1}) + "\n"
+    )
+    shard = model / "model-00001-of-00001.safetensors"
+    weight_name = "layers.0.experts.0.down_proj.weight"
+    scale_name = f"{weight_name}_scale_inv"
+    weight_bytes = bytes([0x38]) * (128 * 128)
+    scale = np.array([[0.125]], dtype=np.float32)
+    header = {
+        weight_name: {
+            "dtype": "F8_E4M3",
+            "shape": [128, 128],
+            "data_offsets": [0, len(weight_bytes)],
+        },
+        scale_name: {
+            "dtype": "F32",
+            "shape": [1, 1],
+            "data_offsets": [len(weight_bytes), len(weight_bytes) + scale.nbytes],
+        },
+    }
+    header_bytes = json.dumps(header, separators=(",", ":")).encode()
+    header_bytes += b" " * (-len(header_bytes) % 8)
+    shard.write_bytes(
+        struct.pack("<Q", len(header_bytes)) + header_bytes + weight_bytes + scale.tobytes()
+    )
+    (model / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": {weight_name: shard.name, scale_name: shard.name}}) + "\n"
+    )
+
+    artifact = build_hf_moe_uniform(
+        model,
+        revision="3f1971b7b5f7a528c9c4ef6212c8785298a8c24a",
+        tier="q2",
+        scope="routed_only",
+        native_rest=True,
+        output=tmp_path / "artifact",
+    )
+
+    assert artifact["routed_tensors"][0]["source_transform"] == {
+        "kind": "float8_e4m3_blockwise_scale_inv",
+        "block_shape": [128, 128],
+        "scale_name": scale_name,
+        "scale_shape": [1, 1],
+        "output_quantity": "descaled_weight",
+    }
+
+
 def test_public_bounded_canary_reads_safetensors_float8_e4m3(tmp_path: Path) -> None:
     from banana_smasher import estimate_hf_moe_uniform
 
@@ -515,10 +618,12 @@ def test_public_bounded_canary_reads_safetensors_float8_e4m3(tmp_path: Path) -> 
     )
     shard = model / "model-00001-of-00001.safetensors"
     routed_name = "layers.0.experts.0.down_proj.weight"
+    scale_name = f"{routed_name}_scale_inv"
     native_name = "layers.0.router.weight"
     header = {
         routed_name: {"dtype": "F8_E4M3", "shape": [2, 8], "data_offsets": [0, 16]},
-        native_name: {"dtype": "F16", "shape": [2, 4], "data_offsets": [16, 32]},
+        scale_name: {"dtype": "F32", "shape": [1, 1], "data_offsets": [16, 20]},
+        native_name: {"dtype": "F16", "shape": [2, 4], "data_offsets": [20, 36]},
     }
     header_bytes = json.dumps(header, separators=(",", ":")).encode()
     header_bytes += b" " * (-len(header_bytes) % 8)
@@ -526,10 +631,20 @@ def test_public_bounded_canary_reads_safetensors_float8_e4m3(tmp_path: Path) -> 
         struct.pack("<Q", len(header_bytes))
         + header_bytes
         + bytes([0x38]) * 16
+        + np.array([[0.125]], dtype=np.float32).tobytes()
         + np.arange(8, dtype=np.float16).tobytes()
     )
     (model / "model.safetensors.index.json").write_text(
-        json.dumps({"weight_map": {routed_name: shard.name, native_name: shard.name}}) + "\n"
+        json.dumps(
+            {
+                "weight_map": {
+                    routed_name: shard.name,
+                    scale_name: shard.name,
+                    native_name: shard.name,
+                }
+            }
+        )
+        + "\n"
     )
 
     estimate = estimate_hf_moe_uniform(
