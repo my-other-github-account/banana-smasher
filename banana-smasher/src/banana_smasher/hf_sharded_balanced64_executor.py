@@ -187,7 +187,7 @@ class ArtifactTensorStore:
             or any(isinstance(layer, bool) or not isinstance(layer, int) for layer in routed_layer_ids)
         ):
             raise ValueError("candidate artifact requires routed layer geometry")
-        self.source_routed_layer = min(routed_layer_ids)
+        self.source_routed_layers = frozenset(sorted(routed_layer_ids)[:2])
         source = _subject_source(artifact)
         if not isinstance(source, Mapping):
             raise ValueError("candidate artifact requires admitted source identity")
@@ -215,7 +215,7 @@ class ArtifactTensorStore:
         if (
             name in self.routed
             and layer_match is not None
-            and int(layer_match.group(1)) != self.source_routed_layer
+            and int(layer_match.group(1)) not in self.source_routed_layers
         ):
             row = self.routed[name]
             geometry = QtipGeometry.from_mapping(row["wire"]["geometry"])
