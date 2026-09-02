@@ -178,12 +178,15 @@ class ArtifactTensorStore:
     def __init__(self, artifact: Mapping[str, Any]) -> None:
         self.root = Path(artifact["artifact_root"]).expanduser().resolve()
         self.routed = {row["name"]: row for row in artifact["routed_tensors"]}
-        self.native = {row["name"]: row for row in artifact["native_tensors"]}
+        source = _subject_source(artifact)
+        if not isinstance(source, Mapping):
+            raise ValueError("candidate artifact requires admitted source identity")
+        self.source = SourceTensorStore(source)
         self.payload_reads = 0
         self.model_reads = 0
 
     def names(self) -> set[str]:
-        return set(self.routed) | set(self.native)
+        return set(self.routed) | self.source.names()
 
     def _load_array(self, binding: Mapping[str, Any]) -> np.ndarray:
         path = (self.root / binding["path"]).resolve()
@@ -213,37 +216,8 @@ class ArtifactTensorStore:
             )
             tlut = gaussian_tlut(bits=geometry.tlut_bits, columns=geometry.V)
             return self._torch_from_numpy(decode_qtip(encoded, tlut=tlut))
-        if name not in self.native:
-            raise KeyError(name)
-        row = self.native[name]
-        dtype_name = row.get("dtype")
-        path = (self.root / row["path"]).resolve()
-        self.payload_reads += 1
-        raw = path.read_bytes()
-        shape = tuple(row["shape"])
-        if dtype_name == "F8_E4M3":
-            encoded = np.frombuffer(raw, dtype=np.uint8)
-            bits = np.arange(256, dtype=np.uint16)
-            exponent = (bits >> 3) & 0xF
-            mantissa = bits & 0x7
-            magnitude = np.where(
-                exponent == 0,
-                np.ldexp(mantissa.astype(np.float32) / 8.0, -6),
-                np.ldexp(
-                    1.0 + mantissa.astype(np.float32) / 8.0,
-                    exponent.astype(int) - 7,
-                ),
-            ).astype(np.float32)
-            magnitude[(exponent == 15) & (mantissa == 7)] = np.nan
-            lookup = np.where(bits & 0x80, -magnitude, magnitude).astype(np.float32)
-            array = lookup[encoded].reshape(shape)
-            if not np.isfinite(array).all():
-                raise ValueError(f"exact native FP8 tensor contains non-finite values: {name}")
-            return self._torch_from_numpy(array)
-        if dtype_name not in _DTYPES:
-            raise ValueError(f"unsupported exact native tensor dtype: {dtype_name}")
-        array = np.frombuffer(raw, dtype=_DTYPES[dtype_name]).reshape(shape)
-        return self._torch_from_numpy(array.copy())
+        self.model_reads += 1
+        return self.source.tensor(name)
 
     def load_many(self, names: Sequence[str]) -> dict[str, Any]:
         return {name: self.tensor(name) for name in names}

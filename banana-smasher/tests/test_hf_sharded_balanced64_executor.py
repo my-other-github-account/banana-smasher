@@ -235,12 +235,20 @@ def test_meta_model_uses_declared_installed_architecture_without_remote_code(tmp
     assert model.training is False
 
 
-def test_artifact_store_decodes_real_q2_wire_and_exact_native_tensor(tmp_path: Path) -> None:
+def test_artifact_store_decodes_real_q2_wire(monkeypatch, tmp_path: Path) -> None:
+    import banana_smasher.hf_sharded_balanced64_executor as executor
+
+    class _SourceStore:
+        def __init__(self, source):
+            assert source == {"model_root": "/model"}
+
+        def names(self):
+            return set()
+
+    monkeypatch.setattr(executor, "SourceTensorStore", _SourceStore)
     root = tmp_path / "artifact"
     routed_dir = root / "routed"
-    native_dir = root / "native"
     routed_dir.mkdir(parents=True)
-    native_dir.mkdir()
     matrix = np.linspace(-1.0, 1.0, 64, dtype=np.float32).reshape(2, 32)
     tlut = gaussian_tlut(bits=QTIP2_GEOMETRY.tlut_bits, columns=QTIP2_GEOMETRY.V)
     encoded = encode_qtip(matrix, geometry=QTIP2_GEOMETRY, tlut=tlut)
@@ -248,15 +256,9 @@ def test_artifact_store_decodes_real_q2_wire_and_exact_native_tensor(tmp_path: P
     scales = routed_dir / "scales.npy"
     np.save(trellis, encoded.packed, allow_pickle=False)
     np.save(scales, encoded.scales, allow_pickle=False)
-    native = np.arange(12, dtype=np.float32).reshape(3, 4)
-    native_path = native_dir / "native.bin"
-    native_path.write_bytes(native.tobytes())
-    native_sha = hashlib.sha256(native_path.read_bytes()).hexdigest()
-    fp8_path = native_dir / "fp8.bin"
-    fp8_path.write_bytes(bytes([0x38, 0x40, 0xB8, 0x00]))
-    fp8_sha = hashlib.sha256(fp8_path.read_bytes()).hexdigest()
     artifact = {
         "artifact_root": str(root),
+        "source": {"model_root": "/model"},
         "routed_tensors": [
             {
                 "name": "model.layers.1.mlp.experts.0.gate_proj.weight",
@@ -268,38 +270,54 @@ def test_artifact_store_decodes_real_q2_wire_and_exact_native_tensor(tmp_path: P
                 },
             }
         ],
-        "native_tensors": [
-            {
-                "name": "model.embed_tokens.weight",
-                "shape": [3, 4],
-                "dtype": "F32",
-                "representation": "exact-source-data-bytes",
-                "path": native_path.relative_to(root).as_posix(),
-                "source_sha256": native_sha,
-                "artifact_sha256": native_sha,
-            },
-            {
-                "name": "model.layers.0.self_attn.q_proj.weight",
-                "shape": [2, 2],
-                "dtype": "F8_E4M3",
-                "representation": "exact-source-data-bytes",
-                "path": fp8_path.relative_to(root).as_posix(),
-                "source_sha256": fp8_sha,
-                "artifact_sha256": fp8_sha,
-            },
-        ],
+        "native_tensors": [],
     }
     store = ArtifactTensorStore(artifact)
 
     decoded = store.tensor("model.layers.1.mlp.experts.0.gate_proj.weight")
-    loaded_native = store.tensor("model.embed_tokens.weight")
-    loaded_fp8 = store.tensor("model.layers.0.self_attn.q_proj.weight")
 
     assert decoded.shape == matrix.shape
     assert np.isfinite(decoded.numpy()).all()
-    assert np.allclose(loaded_native.numpy(), native)
-    assert loaded_fp8.tolist() == [[1.0, 2.0], [-1.0, 0.0]]
-    assert store.payload_reads == 4
+    assert store.payload_reads == 2
+
+
+def test_candidate_native_rest_reads_authoritative_source_model(monkeypatch, tmp_path: Path) -> None:
+    import banana_smasher.hf_sharded_balanced64_executor as executor
+
+    source_tensor = pytest.importorskip("torch").tensor([[1.0, 2.0]])
+
+    class _SourceStore:
+        def __init__(self, source):
+            assert source == {"model_root": "/model"}
+
+        def names(self):
+            return {"model.embed_tokens.weight"}
+
+        def tensor(self, name):
+            assert name == "model.embed_tokens.weight"
+            return source_tensor
+
+    monkeypatch.setattr(executor, "SourceTensorStore", _SourceStore)
+    artifact_root = tmp_path / "artifact"
+    artifact_root.mkdir()
+    artifact = {
+        "artifact_root": str(artifact_root),
+        "source": {"model_root": "/model"},
+        "routed_tensors": [],
+        "native_tensors": [{
+            "name": "model.embed_tokens.weight",
+            "path": "native/stale-copy.bin",
+            "shape": [1, 2],
+            "dtype": "F32",
+        }],
+    }
+
+    store = ArtifactTensorStore(artifact)
+
+    assert store.names() == {"model.embed_tokens.weight"}
+    assert store.tensor("model.embed_tokens.weight") is source_tensor
+    assert store.payload_reads == 0
+    assert store.model_reads == 1
 
 
 def test_working_set_materialization_casts_fp_weights_and_allows_parameterless_modules() -> None:
