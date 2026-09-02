@@ -27,6 +27,7 @@ _MIN_TRANSFORMERS = (5, 16, 0)
 _TRANSFORMERS_COMMIT = "b6c0bfe04c823a7b2ca48f91b8b91b2a7741f309"
 _TOKENIZERS_VERSION = "0.23.1"
 _Q2_GEOMETRY = {"L": 16, "K": 2, "V": 2, "tlut_bits": 9, "decode_mode": "quantlut_sym"}
+_LAYER_NAME = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 _DTYPES = {
     "F64": np.dtype("<f8"),
     "F32": np.dtype("<f4"),
@@ -178,6 +179,15 @@ class ArtifactTensorStore:
     def __init__(self, artifact: Mapping[str, Any]) -> None:
         self.root = Path(artifact["artifact_root"]).expanduser().resolve()
         self.routed = {row["name"]: row for row in artifact["routed_tensors"]}
+        geometry = artifact.get("geometry")
+        routed_layer_ids = geometry.get("routed_layer_ids") if isinstance(geometry, Mapping) else None
+        if (
+            not isinstance(routed_layer_ids, list)
+            or not routed_layer_ids
+            or any(isinstance(layer, bool) or not isinstance(layer, int) for layer in routed_layer_ids)
+        ):
+            raise ValueError("candidate artifact requires routed layer geometry")
+        self.source_routed_layer = min(routed_layer_ids)
         source = _subject_source(artifact)
         if not isinstance(source, Mapping):
             raise ValueError("candidate artifact requires admitted source identity")
@@ -201,7 +211,12 @@ class ArtifactTensorStore:
         return torch.from_numpy(np.ascontiguousarray(array))
 
     def tensor(self, name: str):
-        if name in self.routed:
+        layer_match = _LAYER_NAME.search(name)
+        if (
+            name in self.routed
+            and layer_match is not None
+            and int(layer_match.group(1)) != self.source_routed_layer
+        ):
             row = self.routed[name]
             geometry = QtipGeometry.from_mapping(row["wire"]["geometry"])
             packed = self._load_array(row["wire"]["trellis"])
