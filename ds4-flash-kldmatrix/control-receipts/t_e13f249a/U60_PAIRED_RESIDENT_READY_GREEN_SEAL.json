@@ -1,0 +1,40 @@
+{
+  "active_board_run_id": 7661,
+  "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "canonical_code_commit": "fb63e5dff5321d870268ba8688036d33f6f93ca5",
+  "checkpoint_sha256": "1962213d88ee6b6df62311c58258dc72c38c5aca761e4dd00d3a375588c95c95",
+  "payload_board_run_id": 7657,
+  "ready_receipts": [
+    {
+      "bytes": 1827,
+      "candidate_payload_reads": 42,
+      "expert_plane_candidate_read": null,
+      "host": "spark-2",
+      "rank": 0,
+      "remote_path": "/home/dnola/missions/U60_FOUR_SURFACE_t_e13f249a/READY.U60_CANARY.RUN7657.ATTEMPTFINAL2.rank0.json",
+      "resident_bytes": 41252269568,
+      "sha256": "b0062c1e3d9780eaec1d7becb06a5a9d40e4b1bbb56c65fb975c4b0acd57fe69"
+    },
+    {
+      "bytes": 2004,
+      "candidate_payload_reads": 44,
+      "expert_plane_candidate_read": {
+        "candidate_dtype": "torch.float32",
+        "candidate_name": "model.layers.28.mlp.experts.E000.w1.SU",
+        "candidate_read": true,
+        "candidate_shape": [
+          4096
+        ]
+      },
+      "host": "spark-3",
+      "rank": 1,
+      "remote_path": "/home/dnola/missions/U60_FOUR_SURFACE_t_e13f249a/READY.U60_CANARY.RUN7657.ATTEMPTFINAL2.rank1.json",
+      "resident_bytes": 43542816768,
+      "sha256": "c1afae1e8a7855f18e3f5d56f3020b01d4f255a5bb507ffa20e13f526311d5f1"
+    }
+  ],
+  "schema": "banana-smasher-u60-paired-ready-seal-v1",
+  "sealed_unix": 1788321981.131891,
+  "status": "GREEN",
+  "task_id": "t_e13f249a"
+}
