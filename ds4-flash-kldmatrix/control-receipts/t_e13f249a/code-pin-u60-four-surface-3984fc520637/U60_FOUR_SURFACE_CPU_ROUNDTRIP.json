@@ -1,0 +1,31 @@
+{
+  "candidate_name": "model.layers.28.mlp.experts.E000.w1.SU",
+  "candidate_nonzero_delta_norm": 0.0004019225106733388,
+  "checkpoint_sha256": "1962213d88ee6b6df62311c58258dc72c38c5aca761e4dd00d3a375588c95c95",
+  "optimizer_group_counts": [
+    43,
+    235,
+    43,
+    1536
+  ],
+  "scheduler_base_lrs": [
+    0.0,
+    0.0,
+    0.0,
+    7.500000000000001e-05
+  ],
+  "scheduler_last_lrs": [
+    0.0,
+    0.0,
+    0.0,
+    8.148496786390974e-06
+  ],
+  "schema": "banana-smasher-u60-four-surface-cpu-roundtrip-v1",
+  "state_counts": {
+    "expert_planes_l028_su_sv": 1536,
+    "luts": 43,
+    "norms": 235,
+    "outputs": 43
+  },
+  "status": "PASS"
+}
