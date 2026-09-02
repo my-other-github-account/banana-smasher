@@ -187,7 +187,7 @@ class ArtifactTensorStore:
             or any(isinstance(layer, bool) or not isinstance(layer, int) for layer in routed_layer_ids)
         ):
             raise ValueError("candidate artifact requires routed layer geometry")
-        self.source_routed_layers = frozenset(sorted(routed_layer_ids)[:4])
+        self.source_routed_layers = frozenset(sorted(routed_layer_ids)[:5])
         source = _subject_source(artifact)
         if not isinstance(source, Mapping):
             raise ValueError("candidate artifact requires admitted source identity")
