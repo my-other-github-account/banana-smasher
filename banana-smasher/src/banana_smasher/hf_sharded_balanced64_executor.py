@@ -27,6 +27,7 @@ _MIN_TRANSFORMERS = (5, 16, 0)
 _TRANSFORMERS_COMMIT = "b6c0bfe04c823a7b2ca48f91b8b91b2a7741f309"
 _TOKENIZERS_VERSION = "0.23.1"
 _Q2_GEOMETRY = {"L": 16, "K": 2, "V": 2, "tlut_bits": 9, "decode_mode": "quantlut_sym"}
+_LAYER_NAME = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 _DTYPES = {
     "F64": np.dtype("<f8"),
     "F32": np.dtype("<f4"),
@@ -178,12 +179,37 @@ class ArtifactTensorStore:
     def __init__(self, artifact: Mapping[str, Any]) -> None:
         self.root = Path(artifact["artifact_root"]).expanduser().resolve()
         self.routed = {row["name"]: row for row in artifact["routed_tensors"]}
-        self.native = {row["name"]: row for row in artifact["native_tensors"]}
+        geometry = artifact.get("geometry")
+        routed_layer_ids = geometry.get("routed_layer_ids") if isinstance(geometry, Mapping) else None
+        if (
+            not isinstance(routed_layer_ids, list)
+            or not routed_layer_ids
+            or any(isinstance(layer, bool) or not isinstance(layer, int) for layer in routed_layer_ids)
+        ):
+            raise ValueError("candidate artifact requires routed layer geometry")
+        self.source_routed_layers = frozenset(sorted(routed_layer_ids)[:5])
+        source = _subject_source(artifact)
+        if not isinstance(source, Mapping):
+            raise ValueError("candidate artifact requires admitted source identity")
+        self.source = SourceTensorStore(source)
         self.payload_reads = 0
         self.model_reads = 0
 
     def names(self) -> set[str]:
-        return set(self.routed) | set(self.native)
+        return set(self.routed) | self.source.names()
+
+    def requires_source_scale(self, name: str) -> bool:
+        row = self.routed.get(name)
+        if row is None:
+            return True
+        layer_match = _LAYER_NAME.search(name)
+        if layer_match is not None and int(layer_match.group(1)) in self.source_routed_layers:
+            return True
+        transform = row.get("source_transform")
+        return not (
+            isinstance(transform, Mapping)
+            and transform.get("output_quantity") == "descaled_weight"
+        )
 
     def _load_array(self, binding: Mapping[str, Any]) -> np.ndarray:
         path = (self.root / binding["path"]).resolve()
@@ -198,7 +224,12 @@ class ArtifactTensorStore:
         return torch.from_numpy(np.ascontiguousarray(array))
 
     def tensor(self, name: str):
-        if name in self.routed:
+        layer_match = _LAYER_NAME.search(name)
+        if (
+            name in self.routed
+            and layer_match is not None
+            and int(layer_match.group(1)) not in self.source_routed_layers
+        ):
             row = self.routed[name]
             geometry = QtipGeometry.from_mapping(row["wire"]["geometry"])
             packed = self._load_array(row["wire"]["trellis"])
@@ -213,37 +244,8 @@ class ArtifactTensorStore:
             )
             tlut = gaussian_tlut(bits=geometry.tlut_bits, columns=geometry.V)
             return self._torch_from_numpy(decode_qtip(encoded, tlut=tlut))
-        if name not in self.native:
-            raise KeyError(name)
-        row = self.native[name]
-        dtype_name = row.get("dtype")
-        path = (self.root / row["path"]).resolve()
-        self.payload_reads += 1
-        raw = path.read_bytes()
-        shape = tuple(row["shape"])
-        if dtype_name == "F8_E4M3":
-            encoded = np.frombuffer(raw, dtype=np.uint8)
-            bits = np.arange(256, dtype=np.uint16)
-            exponent = (bits >> 3) & 0xF
-            mantissa = bits & 0x7
-            magnitude = np.where(
-                exponent == 0,
-                np.ldexp(mantissa.astype(np.float32) / 8.0, -6),
-                np.ldexp(
-                    1.0 + mantissa.astype(np.float32) / 8.0,
-                    exponent.astype(int) - 7,
-                ),
-            ).astype(np.float32)
-            magnitude[(exponent == 15) & (mantissa == 7)] = np.nan
-            lookup = np.where(bits & 0x80, -magnitude, magnitude).astype(np.float32)
-            array = lookup[encoded].reshape(shape)
-            if not np.isfinite(array).all():
-                raise ValueError(f"exact native FP8 tensor contains non-finite values: {name}")
-            return self._torch_from_numpy(array)
-        if dtype_name not in _DTYPES:
-            raise ValueError(f"unsupported exact native tensor dtype: {dtype_name}")
-        array = np.frombuffer(raw, dtype=_DTYPES[dtype_name]).reshape(shape)
-        return self._torch_from_numpy(array.copy())
+        self.model_reads += 1
+        return self.source.tensor(name)
 
     def load_many(self, names: Sequence[str]) -> dict[str, Any]:
         return {name: self.tensor(name) for name in names}
@@ -393,6 +395,14 @@ class LayerStreamedHFSession:
             f"scale={tuple(scale.shape)}"
         )
 
+    def _scaled_stored_weight(self, loaded: Mapping[str, Any], weight_name: str) -> Any:
+        scale_name = f"{weight_name}_scale_inv"
+        requires_scale = getattr(self.store, "requires_source_scale", None)
+        scale = loaded.get(scale_name)
+        if requires_scale is not None and not requires_scale(weight_name):
+            scale = None
+        return self._scaled_weight(loaded[weight_name], scale)
+
     @staticmethod
     def _expert_binding(full_name: str, available: set[str], experts: int):
         if full_name.endswith("experts.gate_up_proj"):
@@ -486,15 +496,11 @@ class LayerStreamedHFSession:
             binding = bindings[local_name]
             if binding[0] in {"direct", "alias"}:
                 _, weight_name, scale_name = binding
-                value = self._scaled_weight(
-                    loaded[weight_name], None if scale_name is None else loaded[scale_name]
-                )
+                value = self._scaled_stored_weight(loaded, weight_name)
             elif binding[0] == "concat":
                 _, weight_names, _ = binding
                 pieces = [
-                    self._scaled_weight(
-                        loaded[weight_name], loaded.get(f"{weight_name}_scale_inv")
-                    )
+                    self._scaled_stored_weight(loaded, weight_name)
                     for weight_name in weight_names
                 ]
                 value = self.torch.cat(pieces, dim=0)
@@ -512,12 +518,7 @@ class LayerStreamedHFSession:
                     pieces = []
                     for projection in projections:
                         weight_name = f"{base}.{expert}.{projection}.weight"
-                        scale_name = f"{weight_name}_scale_inv"
-                        pieces.append(
-                            self._scaled_weight(
-                                loaded[weight_name], loaded.get(scale_name)
-                            )
-                        )
+                        pieces.append(self._scaled_stored_weight(loaded, weight_name))
                     expert_tensors.append(
                         pieces[0] if kind == "down" else self.torch.cat(pieces, dim=0)
                     )
