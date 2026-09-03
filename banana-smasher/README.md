@@ -276,17 +276,17 @@ receipts as evidence. Use
 `admission="evidence_only"` for quarantined diagnostics or historical rails;
 they are retained as evidence but cannot be promoted as current solve inputs.
 
-## QTIP 2.5 native V4 cell API
+## One QTIP build path
 
-The homogeneous `L16/B10/V4` winner is available through
-`build_qtip25_native_v4_cell(...)` and
-`anchor_qtip25_native_v4_cell(...)`, with matching
-`smash qtip-native-v4 build-cell` and `anchor-cell` commands. The CUDA path
-binds physical source weights, a same-basis compact QTIP transform, and the
-shared Q9/V2 TLUT; it emits exact 2.5-BPW codes, a physical decoded cell, and
-hash-bound mechanics/anchor receipts. See
-[QTIP25_NATIVE_V4_API.md](../archive/notes/QTIP25_NATIVE_V4_API.md) for the measured
-configuration and a pasteable agent brief.
+Every QTIP tier (K=1..4, `qtip@1.00`..`qtip@4.00`) is produced by exactly one
+path: `solve_qtip_profiles` → `qtip_runner` → `qtip_viterbi` exact-prefix
+trellis with Hessian LDLQ and the `qtip-rht-bounded36-v1` transform — the
+lineage that sealed the Q2/Q3 champion rows. There is no alternate builder.
+The former `qtip25_native_v4_api` / `qtip3_api_producer` "V7 ladder" was a
+different codec (`qtip-native-v6`, no Hessian, fixed scale) that produced
+Q1 1.25 / Q4 0.167 while labeled V7; it was removed so it cannot be selected
+again. Decode-side native-V4 support in `qtip25_native_v4.py` remains only to
+read the D4 tier of existing sealed artifacts.
 
 ## Three-command release path
 

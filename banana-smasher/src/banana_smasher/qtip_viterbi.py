@@ -196,13 +196,17 @@ def _persistent_prefix_viterbi_generic(
         best = tl.where(valid, candidate, best)
         chosen = state
     else:
+        # Hoist the per-step inputs out of the branch loop: they are invariant
+        # over q, and re-loading them BRANCHES times per step was the dominant
+        # cost for K=4 (256 branches).  Same fp32 values, same strict-< order.
+        tl.static_assert(V == 2, "ring family is V=2")
+        xa = tl.load(x_ptr + seq).to(tl.float32)
+        xb = tl.load(x_ptr + B + seq).to(tl.float32)
         for q in tl.range(0, BRANCHES):
             state = q * PREFIXES + j
-            candidate = tl.zeros((PREFIXES,), tl.float32)
-            for lane in tl.static_range(0, V):
-                xv = tl.load(x_ptr + lane * B + seq).to(tl.float32)
-                lv = tl.load(lut_ptr + lane * STATES + state).to(tl.float32)
-                candidate += (lv - xv) * (lv - xv)
+            la = tl.load(lut_ptr + state).to(tl.float32)
+            lb = tl.load(lut_ptr + STATES + state).to(tl.float32)
+            candidate = (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
             chosen = tl.where(take, state, chosen)
@@ -218,19 +222,17 @@ def _persistent_prefix_viterbi_generic(
         current_base = (step & 1) * B * PREFIXES + base
         best = tl.full((PREFIXES,), float("inf"), tl.float32)
         chosen = tl.zeros((PREFIXES,), tl.int32)
+        xa = tl.load(x_ptr + (step * V) * B + seq).to(tl.float32)
+        xb = tl.load(x_ptr + (step * V + 1) * B + seq).to(tl.float32)
         for q in tl.range(0, BRANCHES):
             predecessor_prefix = q * Q_FACTOR + residue
             predecessor_cost = tl.load(
                 scratch_ptr + previous_base + predecessor_prefix
             )
             state = q * PREFIXES + j
-            candidate = predecessor_cost
-            for lane in tl.static_range(0, V):
-                xv = tl.load(
-                    x_ptr + (step * V + lane) * B + seq
-                ).to(tl.float32)
-                lv = tl.load(lut_ptr + lane * STATES + state).to(tl.float32)
-                candidate += (lv - xv) * (lv - xv)
+            la = tl.load(lut_ptr + state).to(tl.float32)
+            lb = tl.load(lut_ptr + STATES + state).to(tl.float32)
+            candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
             chosen = tl.where(take, state, chosen)
@@ -484,6 +486,9 @@ def exact_prefix_viterbi(
             num_stages=1,
         )
     else:
+        # 512 threads for a 256-wide (K=4) or 4096-wide (K=1) prefix vector is
+        # wrong either way; size warps to the vector.  Scheduling only.
+        generic_warps = max(4, min(16, prefixes // 64))
         _persistent_prefix_viterbi_generic[(batch,)](
             x,
             lut,
@@ -500,7 +505,7 @@ def exact_prefix_viterbi(
             V=V,
             STEPS=steps,
             HAS_OVERLAP=overlap is not None,
-            num_warps=16,
+            num_warps=generic_warps,
             num_stages=1,
         )
     if builder_scope:
