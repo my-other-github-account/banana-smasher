@@ -259,10 +259,10 @@ def test_artifact_store_decodes_real_q2_wire(monkeypatch, tmp_path: Path) -> Non
     artifact = {
         "artifact_root": str(root),
         "source": {"model_root": "/model"},
-        "geometry": {"routed_layer_ids": [3, 4, 5, 6, 7, 8]},
+        "geometry": {"routed_layer_ids": [3, 4, 5, 6, 7, 8, 9, 10]},
         "routed_tensors": [
             {
-                "name": "model.language_model.layers.8.mlp.experts.0.gate_proj.weight",
+                "name": "model.language_model.layers.10.mlp.experts.0.gate_proj.weight",
                 "shape": [2, 32],
                 "wire": {
                     "geometry": QTIP2_GEOMETRY.as_mapping(),
@@ -275,7 +275,7 @@ def test_artifact_store_decodes_real_q2_wire(monkeypatch, tmp_path: Path) -> Non
     }
     store = ArtifactTensorStore(artifact)
 
-    decoded = store.tensor("model.language_model.layers.8.mlp.experts.0.gate_proj.weight")
+    decoded = store.tensor("model.language_model.layers.10.mlp.experts.0.gate_proj.weight")
 
     assert decoded.shape == matrix.shape
     assert np.isfinite(decoded.numpy()).all()
@@ -490,6 +490,46 @@ def test_candidate_source_prefix_includes_fifth_routed_boundary(monkeypatch, tmp
     store = ArtifactTensorStore(artifact)
 
     assert store.tensor(fifth_routed) is tensors[fifth_routed]
+    assert store.payload_reads == 0
+    assert store.model_reads == 1
+
+
+def test_candidate_source_prefix_includes_seventh_routed_boundary(monkeypatch, tmp_path: Path) -> None:
+    import banana_smasher.hf_sharded_balanced64_executor as executor
+
+    seventh_routed = "model.language_model.layers.9.mlp.experts.0.gate_proj.weight"
+    source_tensor = object()
+    tensors = {seventh_routed: source_tensor}
+
+    class _SourceStore:
+        def __init__(self, source):
+            assert source == {"model_root": "/model"}
+
+        def names(self):
+            return set(tensors)
+
+        def tensor(self, name):
+            return tensors[name]
+
+    monkeypatch.setattr(executor, "SourceTensorStore", _SourceStore)
+    artifact_root = tmp_path / "artifact"
+    artifact_root.mkdir()
+    artifact = {
+        "artifact_root": str(artifact_root),
+        "source": {"model_root": "/model"},
+        "geometry": {"routed_layer_ids": [3, 4, 5, 6, 7, 8, 9, 10]},
+        "routed_tensors": [{
+            "name": seventh_routed,
+            "path": "routed/must-not-read.npy",
+            "shape": [1, 2],
+            "wire": {},
+        }],
+        "native_tensors": [],
+    }
+
+    store = ArtifactTensorStore(artifact)
+
+    assert store.tensor(seventh_routed) is tensors[seventh_routed]
     assert store.payload_reads == 0
     assert store.model_reads == 1
 
