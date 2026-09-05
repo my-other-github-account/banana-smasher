@@ -819,6 +819,11 @@ def score_balanced64_pre(
         "teacher_source_model_index_sha256"
     ):
         raise ValueError("candidate and teacher suite-lock model identities differ")
+    # A custom runtime can override supports/member verification, but cannot
+    # override the public uniform inventory contract.
+    from .hf_moe import validate_hf_moe_routed_inventory
+
+    validate_hf_moe_routed_inventory(admitted)
     teacher = _mapping(teacher_capture, "BALANCED64 teacher capture")
     if (
         teacher.get("schema") != "banana-smasher-balanced64-teacher-capture-v1"

@@ -424,6 +424,41 @@ def _derive_routed_scope(
     return adapter, routed_names, geometry
 
 
+def validate_hf_moe_routed_inventory(artifact: Mapping[str, Any]) -> None:
+    """Check uniform scope against source metadata, not self-declared plan counts.
+
+    This metadata-only gate belongs above pluggable runtimes: an executor must not
+    turn omitted routed experts into native-rest and still publish uniform PRE.
+    Auxiliary prediction layers remain native under the registered adapter policy.
+    """
+    source = artifact.get("source", {})
+    try:
+        root = Path(source["model_root"])
+        config_path = root / "config.json"
+        index_path = root / "model.safetensors.index.json"
+        if (_sha256(config_path) != source.get("config_sha256")
+                or _sha256(index_path) != source.get("model_index_sha256")):
+            raise ValueError("routed-only inventory source identity drift")
+        config = json.loads(config_path.read_text())
+        names = set(json.loads(index_path.read_text())["weight_map"])
+        _, expected, _ = _derive_routed_scope(config, sorted(names))
+        routed = [row["name"] for row in artifact["routed_tensors"]]
+        native = [row["name"] for row in artifact["native_tensors"]]
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("routed-only inventory lacks bound source metadata") from exc
+    if (artifact.get("intent", {}).get("scope") != "routed_only"
+            or artifact.get("intent", {}).get("native_rest") is not True
+            or len(set(routed)) != len(routed)
+            or len(set(native)) != len(native)
+            or set(routed) != expected
+            or set(native) != names - expected):
+        raise ValueError(
+            "routed-only inventory differs from source: "
+            f"expected={len(expected)} actual={len(routed)} "
+            f"missing={len(expected - set(routed))}"
+        )
+
+
 def discover_hf_moe_routed_scope(
     model: str | Path,
     *,
