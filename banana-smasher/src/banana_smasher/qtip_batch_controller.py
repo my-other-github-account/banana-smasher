@@ -107,6 +107,11 @@ def main_batch(
     runner = solver_module._load_public_qtip_runner(runner_path, runner_sha256)
     runner.QTIP = qtip_root
     bitshift, _ldlq, _math_utils, kernel_decode = runner.load_official_qtip()
+    from .glm_qtip_source_adapter import bind_source_closure
+    source_closure = bind_source_closure(model_root, configs, runner, {
+        "bitshift": bitshift, "ldlq": _ldlq, "math_utils": _math_utils,
+        "kernel_decompress": kernel_decode,
+    })
     from . import qtip_viterbi as exact
 
     references = [
@@ -390,6 +395,7 @@ def main_batch(
             "kernel_cache": kernel_cache,
             "build": unit_build,
             "source_weight": source_ref,
+            "glm_source_closure": source_closure,
             "fit_source": fit_source,
             "fit_windows": fit_window_count,
             "hessian_layer_manifest": hessian_binding,

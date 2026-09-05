@@ -425,7 +425,7 @@ def build_qtip_batch(
     return candidates, {
         "schema": "banana-smasher-qtip-cross-unit-build-v1",
         "status": "PASS",
-        "implementation": "current-k2-full16-cross-unit-batched-ldlq-v1",
+        "implementation": f"current-k{int(codebook.K)}-full16-cross-unit-batched-ldlq-v1",
         "batch_units": units,
         "batch_wall_seconds": batch_wall_seconds,
         "mean_build_wall_seconds": batch_wall_seconds / units,
@@ -443,9 +443,9 @@ def build_qtip_batch(
         "block_ldl_unit_axis": "batched",
         "ldlq_unit_axis": "batched-and-flattened-only-at-codebook-call",
         "solver_geometry": {
-            "L": 16,
-            "K": 2,
-            "V": 2,
+            "L": int(codebook.L),
+            "K": int(codebook.K),
+            "V": int(codebook.V),
             "retained_prefix_costs": 4096,
             "branches_per_prefix": 16,
             "branch_sampling": "full",

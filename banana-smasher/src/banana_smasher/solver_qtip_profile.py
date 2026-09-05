@@ -42,7 +42,7 @@ from .qtip_rings import (
 
 QTIP_RHT_DOMAIN = "qtip-rht-manifest-v1"
 _TRUSTED_PUBLIC_QTIP_RUNNER_SHA256 = (
-    "8c45536a9f2bf8e26d324ed07a474da733f0bc144d56a456944445f71f1717af"
+    "f9da4f5cf97ffab622da3444556e281f710b8b73c5eaf8fc3c48cf857dcdf9df"
 )
 
 # A config-directory solve is one public process. These caches remove repeated
@@ -960,6 +960,11 @@ def _load_weight(model_root: Path, layer: int, expert: int, projection: str) -> 
     if mapping is None:
         mapping = json.loads(index_path.read_text())["weight_map"]
         _MODEL_INDEX_CACHE[resolved_index] = mapping
+    if any(key.startswith("model.language_model.layers.") and ".mlp.experts." in key
+           for key in mapping):
+        from .glm_qtip_source_adapter import load_glm_fp8_weight
+
+        return load_glm_fp8_weight(model_root, layer, expert, projection)
     names = ("w1", "w3") if projection == "fused13" else ("w2",)
     matrices = []
     source = []
@@ -1373,6 +1378,11 @@ def main(
     qv = _load_public_qtip_runner(qv_path, qv_sha256)
     qv.QTIP = _config_path(config, "qtip_root")
     bitshift, ldlq, math_utils, kernel_decode = qv.load_official_qtip()
+    from .glm_qtip_source_adapter import bind_source_closure
+    source_closure = bind_source_closure(_config_path(config, "model_root"), [config], qv, {
+        "bitshift": bitshift, "ldlq": ldlq, "math_utils": math_utils,
+        "kernel_decompress": kernel_decode,
+    })
     from . import qtip_viterbi as exact
 
     reference_path = _config_path(config, "reference_unit")
@@ -1549,6 +1559,7 @@ def main(
             "kernel_cache": kernel_cache,
             "build": build,
             "source_weight": source_ref,
+            "glm_source_closure": source_closure,
             "fit_source": fit_source,
             "fit_windows": fit_window_count,
             "hessian_layer_manifest": hessian_binding,
@@ -1657,6 +1668,7 @@ def main(
         },
         "reference_unit": {"path": str(reference_path), "file_sha256": _sha256(reference_path)},
         "source_weight": source_ref,
+        "glm_source_closure": source_closure,
         "fit_source": fit_source,
         "rht_seed": seed,
         "rht_seed_policy": seed_policy,
