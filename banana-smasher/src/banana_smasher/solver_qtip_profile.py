@@ -1141,6 +1141,12 @@ def _bind_builder_memory_contract(
             "QTIP source matrix/codebook does not close the builder memory contract"
         )
     state_elements = source_weight.numel() // vector_width
+    # Geometries whose per-call width exceeds the exact accelerator's 8,192
+    # sequence cap (K=1 exposes 9,216) route wide calls through the canonical
+    # bitshift chunker, which runs a roll pre-pass plus the overlap-conditioned
+    # final pass: two exact solves per element.
+    if int(getattr(cb, "K", 2)) == 1:
+        state_elements *= 2
     state_storage_bytes = state_elements * torch.empty(
         (), dtype=index_dtype
     ).element_size()
@@ -1202,6 +1208,8 @@ def _install_profiled_exact_viterbi(
     profile_mode: bool,
 ) -> dict[str, Any]:
     """Install exact Viterbi; instrumentation is profile-only, never solve overhead."""
+    base_quantize_seq = getattr(cb, "quantize_seq", None)
+
     def solve(self: Any, x: torch.Tensor, overlap: torch.Tensor | None = None) -> torch.Tensor:
         if not x.is_cuda or x.ndim != 2 or x.shape[0] != 256:
             raise ValueError(f"exact prefix Viterbi expects CUDA [256,B], got {tuple(x.shape)}")
@@ -1218,6 +1226,10 @@ def _install_profiled_exact_viterbi(
         return states
 
     def quantize_seq(self: Any, x: torch.Tensor, overlap: torch.Tensor | None = None, **_: Any):
+        # Wide calls (K=1 exposes 9,216 > 8,192 columns) go through the canonical
+        # bitshift chunker, whose inner viterbi calls remain the exact accelerator.
+        if x.ndim == 2 and int(x.shape[1]) > 8192 and base_quantize_seq is not None:
+            return base_quantize_seq(x, overlap=overlap)
         return solve(self, x, overlap)
 
     cb.viterbi = types.MethodType(solve, cb)

@@ -97,9 +97,9 @@ def main_batch(
     geometries = [config.get("geometry", {"L": 16, "K": 3, "V": 2}) for config in configs]
     geometry = _common("geometry", geometries)
     sealed_geometry = tuple(int(geometry[key]) for key in ("L", "K", "V"))
-    if sealed_geometry != (16, 2, 2):
+    if sealed_geometry[0] != 16 or sealed_geometry[2] != 2 or sealed_geometry[1] not in (1, 2, 3, 4):
         raise ValueError(
-            f"cross-unit controller is sealed for current K2/L16/V2, got {sealed_geometry}"
+            f"cross-unit controller supports L16/V2 with K in 1..4, got {sealed_geometry}"
         )
     codebooks = [solver_module._resolve_config_codebook(config, geometry) for config in configs]
     codebook = _common("codebook identity", codebooks)
@@ -138,9 +138,9 @@ def main_batch(
         raise RuntimeError("TLUT digest differs from a sealed reference unit")
 
     codebook_instance = bitshift.bitshift_codebook(
-        L=16,
-        K=2,
-        V=2,
+        L=int(geometry["L"]),
+        K=int(geometry["K"]),
+        V=int(geometry["V"]),
         tlut_bits=int(codebook["tlut_bits"]),
         decode_mode=str(codebook["decode_mode"]),
         tlut=pinned_tlut.to("cuda"),
@@ -213,7 +213,7 @@ def main_batch(
                 codebook_instance, config, source_weight
             )
             if binding is None:
-                raise RuntimeError("current K2 config lacks canonical pack contract")
+                raise RuntimeError("current QTIP config lacks canonical pack contract")
             if pack_binding is None:
                 pack_binding = binding
             elif dict(binding) != dict(pack_binding):

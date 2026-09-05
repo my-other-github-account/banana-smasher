@@ -254,12 +254,12 @@ def build_qtip_batch(
     device: torch.device,
     rht_seeds: list[int],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Build same-shape independent K2/L16/V2 units in one exact GPU batch."""
+    """Build same-shape independent L16/V2 units (K=1..4) in one exact GPU batch."""
     units = len(source_weights)
     if not units or len(fit_windows_batch) != units or len(rht_seeds) != units:
         raise ValueError("QTIP batch requires aligned non-empty inputs")
-    if (int(codebook.L), int(codebook.K), int(codebook.V)) != (16, 2, 2):
-        raise ValueError("cross-unit batch is sealed for current K2/L16/V2")
+    if int(codebook.L) != 16 or int(codebook.V) != 2 or int(codebook.K) not in (1, 2, 3, 4):
+        raise ValueError("cross-unit batch supports L16/V2 with K in 1..4")
     shapes = {tuple(weight.shape) for weight in source_weights}
     if len(shapes) != 1:
         raise ValueError(f"QTIP batch requires one matrix shape, got {sorted(shapes)}")
@@ -329,7 +329,7 @@ def build_qtip_batch(
         transformed,
         lower,
         codebook,
-        types.SimpleNamespace(td_x=16, td_y=16, V=2),
+        types.SimpleNamespace(td_x=16, td_y=16, V=int(codebook.V)),
         buf_cols=128,
         for_kernel=True,
     )
@@ -379,9 +379,9 @@ def build_qtip_batch(
     candidates = []
     packed_decode_receipts = []
     geometry = {
-        "L": 16,
-        "K": 2,
-        "V": 2,
+        "L": int(codebook.L),
+        "K": int(codebook.K),
+        "V": int(codebook.V),
         "tlut_bits": int(codebook.tlut_bits),
         "decode_mode": str(codebook.decode_mode),
         "td_x": 16,
@@ -400,10 +400,10 @@ def build_qtip_batch(
         }
         # Reconstruct from canonical packed bytes, never from pre-pack state.
         raw = kernel_decode.decode_compressed(
-            16,
+            int(codebook.L),
             int(codebook.tlut_bits),
-            2,
-            1,
+            int(codebook.K),
+            int(codebook.V) - 1,
             rows,
             width,
             packed_rows[unit].reshape(-1),
