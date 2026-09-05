@@ -51,6 +51,37 @@ The **Exact102 full64-pop** row is a distinct sealed PRE-repair artifact, not a 
 
 `Above-Chance MMLU/BPW (within model)` is `(MMLU percentage - 25) / comparison BPW`; `Raw MMLU/BPW` is `MMLU percentage / comparison BPW`. BPW density is comparable only for variants sharing the same base-model parameter denominator and is not a cross-model-family ranking. `Above-Chance MMLU/GB` is `(MMLU percentage - 25) / complete decimal artifact GB` and is the storage-normalized cross-model metric. Every metric uses exact machine-readable denominators rather than rounded display values. No MMLU value or density is projected: the published QTIP2 V7 PRE is now bound to its own sealed 500-row terminal, while the full EXL3 K2.5 greedy-optimizer artifact was retired before a score terminal could be sealed. The routed-only K2.5 row is a distinct exact greedy-assignment artifact with a fresh 500-row FP32 measurement and independent aggregation. The physical alternating row is a separately materialized 68-K2/61-K3 full-artifact comparator, not either greedy-optimizer row. The Official native row is the base-only MMLU/accounting reference: 156,035,165,824 complete bytes with native MTP and any drafter excluded. No BALANCED64 Top-1/KLD terminal is sealed for that artifact, so those cells remain blank rather than being inferred from its reference role.
 
+## Runtime-qualified Q4 PRE measurement
+
+This separate measured row is **not ranked with the historical comparison above**.
+The original Q4 PRE artifact was evaluated at committed source `06eccc69c2686676fa601f4cae1602ef89633127`
+against the frozen `TEACHER_0731_BALANCED64_V2` teacher, exact ordered 64 windows,
+65,536 scored positions and common top-8,192 support. No repair training was applied.
+
+| Measured arm | Top-1 on common support | Forward KL(teacher || candidate) | Qualification |
+|---|---:|---:|---|
+| Original Q4 PRE | 62,089 / 65,536 (94.74%) | 0.047134897943039586 | Measured; historical Q3 runtime equivalence not demonstrated |
+| Native control, same current runtime | 64,219 / 65,536 (97.99%) | 0.008627325460802393 | Separate nonzero diagnostic; not a correction term |
+
+Both arms used PyTorch `2.11.0+cu130`, Transformers `5.12.1`, CUDA `13.0`,
+eager attention, fresh per-microbatch cache, 2,048-token forwards (right-pad token 1,
+no attention mask), positions `[0:1024]`, FP16 banks and FP64 normalization/KL.
+Reduction uses ordered `math.fsum`; negative or nonfinite KL is rejected, never clamped.
+The native-control discrepancy remains unresolved: source identity and frozen scoring
+geometry do not establish recovery of the historical executable/dependency closure.
+Its KL is **not subtracted** from Q4. This row makes no historical Q3 superiority,
+parity or same-runtime ranking claim. MMLU, shipping bytes and BPW were not established
+by this measurement and are not inferred.
+
+The [machine-readable measurement](results/deepseek-v4-flash-0731-q4-pre-qualified-v1.json)
+contains both complete ordered per-window series, runtime source hashes, original
+artifact inventory/source-index identities, external-reference-derived expected identity,
+actual `forward_kl`, and receipt hashes. Controller readback verified the 64-value
+arithmetic mean; that verifies measurement integrity, not automatic quality approval.
+The identical pre/post-commit physical focused contract test passed; the separate
+full64 execution passed and was subsequently released. This publication consumes
+those sealed results without repeating any forward.
+
 ## EXL 2×3 scope/rate matrix
 
 These are scope-matched physical `BALANCED64_V1` cells. Each measured cell shows Top-1 agreement, KLD, exact shipped GB, and base-equivalent BPW. The K2.5 column uses the exact measured greedy optimizer assignment in both scopes; it is not an average or parity interpolation.
