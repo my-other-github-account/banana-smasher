@@ -1,7 +1,8 @@
 """Canonical QTIP packed tensor decoder used by builder conformance.
 
-The byte-unswizzle must be contiguous before reinterpreting uint16, including
-under torch.compile. Keep this implementation in the same git pin as the builder.
+Byte and word assembly uses integer operations instead of size-changing dtype
+views, whose contiguity requirements can be lost during Inductor lowering.
+Keep this implementation in the same git pin as the builder.
 """
 import torch
 
@@ -21,19 +22,18 @@ def decode_compressed(L, S, R, V, m, k, compressed, expanded_lut):
         .reshape(m // 16, k // 16, bits_per_block // 16, 2)
         .flip((-1,))
     )
-    torch._dynamo.graph_break()
-    compressed = compressed.contiguous().view(torch.uint16).reshape(
-        m // 16, k // 16, bits_per_block // 16
-    )
+    # Assemble little-endian words explicitly. Inductor may choose a non-unit
+    # last stride even for contiguous() before a size-changing dtype-view.
+    # Integer assembly preserves wire bits without imposing a physical layout.
+    compressed = compressed.to(torch.int32)
+    compressed = compressed[..., 0] | (compressed[..., 1] << 8)
     assert L <= 16
-    blocked = compressed.reshape(R * m * k // bits_per_block, bits_per_block // 16, 1)
-    blocked_roll = torch.roll(blocked.to(torch.int32), -1, -2).to(blocked.dtype)
-    blocked32 = torch.cat((blocked_roll, blocked), dim=-1).reshape(
-        blocked.shape[0], -1
-    ).contiguous().view(torch.uint32)
+    blocked = compressed.reshape(R * m * k // bits_per_block, bits_per_block // 16)
+    blocked_roll = torch.roll(blocked, -1, -1)
+    blocked32 = blocked_roll | (blocked << 16)
     expanded32 = blocked32.reshape(*blocked32.shape, 1).expand(
         *blocked32.shape, 16
-    ).view(torch.int32)
+    )
     shifts = torch.arange(0, 16, dtype=torch.int32, device=blocked.device).reshape(
         1, 1, -1
     ).expand(expanded32.shape)
