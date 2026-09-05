@@ -30,7 +30,7 @@ def test_calibrated_cell_uses_public_solver_and_exact_capture_roster(tmp_path, m
         config=json.loads(Path(config).read_text());calls.append(config)
         assert config['fit_windows']==2 and config['geometry']['K']==2
         assert config['pack_counts']=={'qtip2':1}
-        assert [json.loads(p.read_text())['win'] for p in sorted((root/'fitcaptures').glob('*.pt'))]==[0,1]
+        assert [json.loads(p.read_text())['win'] for p in sorted(Path(config['fit_capture_root']).glob('*.pt'))]==[0,1]
         artifact=root/'solve/L003/E000_fused13/QTIP_UNIT.pt';put(artifact,{'stub':True})
         put(artifact.parent/'QTIP_SOLVE_RECEIPT.json',{'status':'PASS','artifact_sha256':sha(artifact)})
     sp=ModuleType('banana_smasher.solver_qtip_profile');sp._atomic_json=put;sp._atomic_torch=put;sp._canonical_rht_seed=lambda *args:42;sp.main=solve
@@ -45,3 +45,9 @@ def test_calibrated_cell_uses_public_solver_and_exact_capture_roster(tmp_path, m
     runpy.run_path(str(script),run_name='__main__')
     assert len(calls)==1
     assert json.loads((output/'CORRECTION_RESULT.json').read_text())['status']=='PASS_SINGLE_CELL_CLEAN_CALIBRATION'
+    frozen={p.name:sha(p) for p in (output/'q2_cell/fitcaptures').iterdir()}
+    resumed=json.loads(spec.read_text());resumed.update(prepared_config=str(output/'q2_cell/L003_E000_fused13.json'),solve_root=str(output/'q2_cell_attempt2'),result_name='CORRECTION_A2_RESULT.json')
+    put(spec,resumed);put(output/'q2_cell_attempt2/SHARDS.json',{'intended_basis':sha(model)})
+    runpy.run_path(str(script),run_name='__main__')
+    assert {p.name:sha(p) for p in (output/'q2_cell/fitcaptures').iterdir()}==frozen
+    assert json.loads((output/'CORRECTION_A2_RESULT.json').read_text())['status']=='PASS_SINGLE_CELL_CLEAN_CALIBRATION'
