@@ -90,11 +90,12 @@ def test_public_model_neutral_teacher_capture_and_score_pre(tmp_path: Path) -> N
 
     model = tmp_path / "model"
     model.mkdir()
-    (model / "config.json").write_text(json.dumps({"model_type": "fixture_moe"}) + "\n")
+    (model / "config.json").write_text(json.dumps({"model_type": "fixture_moe", "num_hidden_layers": 1, "n_routed_experts": 1}) + "\n")
     shard = model / "model-00001-of-00001.safetensors"
     shard.write_bytes(b"fixture")
     index = model / "model.safetensors.index.json"
-    index.write_text(json.dumps({"weight_map": {"weight": shard.name}}) + "\n")
+    routed_name = "model.layers.0.mlp.experts.0.up_proj.weight"
+    index.write_text(json.dumps({"weight_map": {routed_name: shard.name, "lm_head.weight": shard.name}}) + "\n")
     corpus = tmp_path / "balanced64.json"
     corpus.write_text("fixture frozen population\n")
     suite_lock = _lock(_sha(corpus), _sha(index))
@@ -129,7 +130,10 @@ def test_public_model_neutral_teacher_capture_and_score_pre(tmp_path: Path) -> N
         "schema": "banana-smasher-hf-moe-uniform-artifact-v1",
         "status": "PASS",
         "reload_verified": True,
-        "source": {"model_index_sha256": _sha(index)},
+        "source": teacher["source"],
+        "intent": {"tier": "q2", "scope": "routed_only", "native_rest": True},
+        "routed_tensors": [{"name": routed_name}],
+        "native_tensors": [{"name": "lm_head.weight"}],
         "accounting": {"routed_tensor_count": 1, "native_tensor_count": 1},
         "mechanisms": {"fallback": 0, "relay": 0, "reconstruction": 0, "streaming": 0},
     }
