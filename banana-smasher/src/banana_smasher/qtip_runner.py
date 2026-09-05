@@ -209,9 +209,7 @@ def load_official_qtip():
     math_utils = load_source_module(
         "qtip_validation_math_utils", QTIP / "lib/utils/math_utils.py"
     )
-    kernel_decode = load_source_module(
-        "qtip_validation_kernel_decode", QTIP / "lib/utils/kernel_decompress.py"
-    )
+    from banana_smasher import qtip_kernel_decompress as kernel_decode
     return bitshift, ldlq, math_utils, kernel_decode
 
 
@@ -767,8 +765,8 @@ def decode_packed(
     decoded_fp16 = q.half().cpu()
     equal = decoded_fp16.view(torch.int16).eq(stored.view(torch.int16))
     receipt = {
-        "path": "pinned QTIP Python/CUDA tensor decompressor from kernel_decompress.py",
-        "source_sha256": sha256(QTIP / "lib/utils/kernel_decompress.py"),
+        "path": "canonical QTIP Python/CUDA tensor decompressor",
+        "source_sha256": sha256(Path(kernel_decode.__file__)),
         "shape": [m, k],
         "geometry": geometry,
         "fp16_bit_equal_fraction": float(equal.float().mean()),
