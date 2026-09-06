@@ -175,6 +175,7 @@ def _persistent_prefix_viterbi_generic(
     V: tl.constexpr,
     STEPS: tl.constexpr,
     HAS_OVERLAP: tl.constexpr,
+    REGISTER_COSTS: tl.constexpr,
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -212,12 +213,18 @@ def _persistent_prefix_viterbi_generic(
             chosen = tl.where(take, state, chosen)
 
     base = seq * PREFIXES
-    tl.store(scratch_ptr + base + j, best)
+    if not REGISTER_COSTS:
+        tl.store(scratch_ptr + base + j, best)
     tl.store(best_state_ptr + base + j, chosen)
-    tl.debug_barrier()
+    if not REGISTER_COSTS:
+        tl.debug_barrier()
 
     step = 1
     while step < STEPS:
+        # Costs belong to this CTA. Gather the preceding vector directly,
+        # avoiding global scratch reloads and stores at every timestep.
+        # No arithmetic, branch order, or tie-breaking changes.
+        previous_costs = best
         previous_base = (step & 1 ^ 1) * B * PREFIXES + base
         current_base = (step & 1) * B * PREFIXES + base
         best = tl.full((PREFIXES,), float("inf"), tl.float32)
@@ -226,9 +233,10 @@ def _persistent_prefix_viterbi_generic(
         xb = tl.load(x_ptr + (step * V + 1) * B + seq).to(tl.float32)
         for q in tl.range(0, BRANCHES):
             predecessor_prefix = q * Q_FACTOR + residue
-            predecessor_cost = tl.load(
-                scratch_ptr + previous_base + predecessor_prefix
-            )
+            if REGISTER_COSTS:
+                predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
+            else:
+                predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
             state = q * PREFIXES + j
             la = tl.load(lut_ptr + state).to(tl.float32)
             lb = tl.load(lut_ptr + STATES + state).to(tl.float32)
@@ -236,14 +244,18 @@ def _persistent_prefix_viterbi_generic(
             take = candidate < best
             best = tl.where(take, candidate, best)
             chosen = tl.where(take, state, chosen)
-        tl.store(scratch_ptr + current_base + j, best)
+        if not REGISTER_COSTS:
+            tl.store(scratch_ptr + current_base + j, best)
         tl.store(
             best_state_ptr + step * B * PREFIXES + base + j,
             chosen,
         )
-        tl.debug_barrier()
+        if not REGISTER_COSTS:
+            tl.debug_barrier()
         step += 1
 
+    # Traceback may read another lane's last backpointer.
+    tl.debug_barrier()
     if HAS_OVERLAP:
         prefix = tl.load(overlap_ptr + seq).to(tl.int32)
     else:
@@ -505,6 +517,7 @@ def exact_prefix_viterbi(
             V=V,
             STEPS=steps,
             HAS_OVERLAP=overlap is not None,
+            REGISTER_COSTS=K == 1,
             num_warps=generic_warps,
             num_stages=1,
         )
