@@ -731,9 +731,10 @@ def pack_kernel_layout(
     return kernel, receipt
 
 
-def decode_packed(
+def decode_packed_weight(
     candidate: dict[str, Any], kernel_decode, device: torch.device
-) -> tuple[torch.Tensor, dict[str, Any]]:
+) -> torch.Tensor:
+    """Decode sealed wire without a source/reference tensor or conformance replay."""
     geometry = candidate["geometry"]
     codebook_l = int(geometry["L"])
     codebook_k = int(geometry["K"])
@@ -761,6 +762,15 @@ def decode_packed(
     q = raw * candidate["Wscale"].to(device)
     q = fwht(q.T).T * candidate["SV"].float().to(device)[:, None]
     q = fwht(q) * candidate["SU"].float().to(device)
+    return q
+
+
+def decode_packed(
+    candidate: dict[str, Any], kernel_decode, device: torch.device
+) -> tuple[torch.Tensor, dict[str, Any]]:
+    q = decode_packed_weight(candidate, kernel_decode, device)
+    geometry = candidate["geometry"]
+    m, k = [int(x) for x in candidate["shape"]]
     stored = candidate["reconstructed_weight"]
     decoded_fp16 = q.half().cpu()
     equal = decoded_fp16.view(torch.int16).eq(stored.view(torch.int16))
