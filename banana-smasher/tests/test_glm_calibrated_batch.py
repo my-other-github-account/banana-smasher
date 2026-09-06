@@ -1,6 +1,32 @@
 import importlib.util,json
 from pathlib import Path
 import pytest
+import sys
+
+
+def test_resident_exec_restores_argv_and_reuses_imports(tmp_path):
+    path=Path(__file__).parents[2]/'tools/glm_calibrated_batch.py'
+    spec=importlib.util.spec_from_file_location('resident_batch_test',path)
+    m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+    helper=tmp_path/'resident_fixture.py'
+    helper.write_text('count=0\n')
+    entry=tmp_path/'cell.py'
+    entry.write_text('import resident_fixture,sys,json\nfrom pathlib import Path\nresident_fixture.count+=1\nPath(sys.argv[1]).write_text(json.dumps(dict(count=resident_fixture.count,pid=__import__("os").getpid())))\n')
+    old=list(sys.argv);sys.path.insert(0,str(tmp_path))
+    try:
+        for i in range(2):
+            output=tmp_path/f'{i}.json'
+            m.execute_resident([sys.executable,str(entry),str(output)],check=True)
+            d=json.loads(output.read_text())
+            assert d['count']==i+1
+            assert d['pid']==__import__('os').getpid()
+            assert sys.argv==old
+        entry.write_text('raise RuntimeError("cell failed")\n')
+        with pytest.raises(RuntimeError,match='cell failed'):
+            m.execute_resident([sys.executable,str(entry),'unused'],check=True)
+        assert sys.argv==old
+    finally:
+        sys.path.remove(str(tmp_path));sys.modules.pop('resident_fixture',None)
 
 def test_batch_does_not_replay_and_stops_on_failure(tmp_path):
     path=Path(__file__).parents[2]/'tools/glm_calibrated_batch.py'

@@ -5,6 +5,23 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import runpy
+
+
+def execute_resident(argv, *, check):
+    """Run the unchanged cell entry in-process; preserve immutable module caches.
+
+    Cell script globals remain fresh. Exceptions abort the finite batch, just as
+    subprocess check=True does; this is never a retry or a warm-started solve.
+    """
+    if not check or argv[0] != sys.executable or len(argv) != 3:
+        raise ValueError('resident execution requires this interpreter and one spec')
+    previous = sys.argv
+    try:
+        sys.argv = list(argv[1:])
+        runpy.run_path(argv[1], run_name='__main__')
+    finally:
+        sys.argv = previous
 
 
 def run_batch(spec_paths, progress_path, execute=subprocess.run):
@@ -42,4 +59,8 @@ def run_batch(spec_paths, progress_path, execute=subprocess.run):
 
 if __name__=='__main__':
     spec=json.loads(Path(sys.argv[1]).read_text())
-    run_batch(spec['cell_specs'],spec['progress_path'])
+    mode=spec.get('execution_mode','subprocess')
+    if mode not in ('subprocess','resident'):
+        raise ValueError(f'unsupported execution_mode: {mode}')
+    run_batch(spec['cell_specs'],spec['progress_path'],
+              execute=execute_resident if mode=='resident' else subprocess.run)
