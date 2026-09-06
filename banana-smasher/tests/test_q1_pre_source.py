@@ -74,6 +74,69 @@ def test_full_grid_admitted_but_duplicate_cell_rejected(tmp_path):
         source()
 
 
+def test_staged_source_resolves_original_absolute_paths_without_rewriting(tmp_path):
+    import hashlib, json
+    api = provider()
+    rows = [dict(cell=[l, e, p]) for l in range(43) for e in range(256)
+            for p in ('fused13', 'down')]
+    inventory = tmp_path / 'inventory.json'
+    inventory.write_text(json.dumps(dict(basis=api.BASIS, accepted_clean=rows)))
+    before = inventory.read_bytes()
+    root = tmp_path / 'input-tree'
+    root.mkdir()
+    source = api.CleanK1Source(inventory, hashlib.sha256(before).hexdigest(),
+                               tmp_path, source_root=root)
+    for name in ('artifact.pt', 'receipt.json', 'config.json', 'population.json', 'capture.json'):
+        original = '/home/dnola/mission/' + name
+        staged = root / original.lstrip('/')
+        staged.parent.mkdir(parents=True, exist_ok=True)
+        staged.write_bytes(name.encode())
+        assert source.resolve_path(original) == staged
+    assert inventory.read_bytes() == before
+    with pytest.raises(ValueError, match='absolute source path'):
+        source.resolve_path('relative.json')
+    with pytest.raises(ValueError, match='source path traversal'):
+        source.resolve_path('/home/../escape.json')
+    outside = tmp_path / 'outside'
+    outside.write_text('foreign')
+    (root / 'escape').symlink_to(outside)
+    with pytest.raises(ValueError, match='source path escape'):
+        source.resolve_path('/escape')
+
+
+def test_staged_decode_checks_nested_config_hash_without_native_fallback(tmp_path):
+    import hashlib, json
+    api = provider()
+    root = tmp_path / 'tree'
+    def put(name, data):
+        path = root / 'source' / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return '/source/' + name, hashlib.sha256(data).hexdigest()
+    artifact, artifact_sha = put('unit.pt', b'fixture-not-a-pack')
+    config, config_sha = put('config.json', b'{}')
+    receipt, receipt_sha = put('receipt.json', json.dumps(dict(
+        status='PASS', fresh_no_warm_start=True, layer=0, expert=0,
+        projection='down', artifact_sha256=artifact_sha,
+        basis_gate=dict(index_sha256=api.BASIS), config_sha256=config_sha)).encode())
+    rows = [dict(cell=[l, e, p]) for l in range(43) for e in range(256)
+            for p in ('fused13', 'down')]
+    rows[1].update(artifact=artifact, artifact_sha256=artifact_sha,
+                   artifact_bytes=len(b'fixture-not-a-pack'), receipt=receipt,
+                   sha256=receipt_sha, config=dict(path=config, sha256=config_sha))
+    inventory = tmp_path / 'inventory.json'
+    inventory.write_text(json.dumps(dict(basis=api.BASIS, accepted_clean=rows)))
+    source = api.CleanK1Source(inventory, hashlib.sha256(inventory.read_bytes()).hexdigest(),
+                               tmp_path, source_root=root)
+    (root / 'source/config.json').write_bytes(b'{"changed": true}')
+    with pytest.raises(ValueError, match='K1 config bytes'):
+        source.decode(0, 0, 'down')
+    (root / 'source/config.json').unlink()
+    with pytest.raises(FileNotFoundError):
+        source.decode(0, 0, 'down')
+    assert source.decoded_units == 0
+
+
 def test_fill_layer_preserves_full_projection_order_and_progress(tmp_path):
     api = provider()
     # Exercise the forward callback separately from numerical wire decoding.

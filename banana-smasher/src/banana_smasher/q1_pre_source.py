@@ -18,7 +18,7 @@ class CleanK1Source:
     production count. Every cell is checked again on consumption. A partial
     staging prefix is deliberately not a source for a uniform score.
     """
-    def __init__(self, inventory, inventory_sha256, output):
+    def __init__(self, inventory, inventory_sha256, output, *, source_root=None):
         require(sha(inventory) == inventory_sha256, "K1 inventory bytes")
         ledger = json.loads(Path(inventory).read_text())
         require(ledger["basis"] == BASIS, "K1 source basis")
@@ -29,16 +29,33 @@ class CleanK1Source:
         require(len(rows) == len(self.rows) and set(self.rows) == required,
                 "K1 full routed-expert coverage")
         self.output = Path(output)
+        self.source_root = None if source_root is None else Path(source_root).resolve()
         self.decoded_units = 0
+
+    def resolve_path(self, original):
+        """Locate unchanged source bytes in an explicitly selected staging tree.
+
+        No basename search or native-path fallback: all subsequent hash gates
+        still authenticate the original ledger/config bindings.
+        """
+        path = Path(original)
+        if self.source_root is None:
+            return path
+        require(path.is_absolute(), "K1 absolute source path")
+        require('..' not in path.parts, "K1 source path traversal")
+        staged = self.source_root.joinpath(*path.parts[1:]).resolve()
+        require(staged.is_relative_to(self.source_root), "K1 source path escape")
+        return staged
 
     def decode(self, layer, expert, projection):
         import torch
         row = self.rows[(layer, expert, projection)]
-        path = Path(row["artifact"])
+        path = self.resolve_path(row["artifact"])
         require(path.stat().st_size == row["artifact_bytes"] and
                 sha(path) == row["artifact_sha256"], "K1 artifact bytes")
-        require(sha(row["receipt"]) == row["sha256"], "K1 solve receipt bytes")
-        receipt = json.loads(Path(row["receipt"]).read_text())
+        receipt_path = self.resolve_path(row["receipt"])
+        require(sha(receipt_path) == row["sha256"], "K1 solve receipt bytes")
+        receipt = json.loads(receipt_path.read_text())
         require(receipt["status"] == "PASS" and receipt["fresh_no_warm_start"] is True,
                 "K1 clean solve status")
         require((receipt["layer"], receipt["expert"], receipt["projection"]) ==
@@ -46,16 +63,17 @@ class CleanK1Source:
         require(receipt["artifact_sha256"] == row["artifact_sha256"] and
                 receipt["basis_gate"]["index_sha256"] == BASIS, "K1 solve binding")
         config = row["config"]
-        require(sha(config["path"]) == config["sha256"] == receipt["config_sha256"],
+        config_path = self.resolve_path(config["path"])
+        require(sha(config_path) == config["sha256"] == receipt["config_sha256"],
                 "K1 config bytes")
-        cfg = json.loads(Path(config["path"]).read_text())
+        cfg = json.loads(config_path.read_text())
         population = cfg["fit_population_manifest"]
         # This pin authenticates original IDs, whole-window text exclusion,
         # frozen64 identity and unchanged evaluation; never admit full32 here.
         require(population["sha256"] ==
                 "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
-                == sha(population["path"]), "K1 clean population bytes")
-        require(sha(cfg["hessian_layer_manifest"]) ==
+                == sha(self.resolve_path(population["path"])), "K1 clean population bytes")
+        require(sha(self.resolve_path(cfg["hessian_layer_manifest"])) ==
                 cfg["hessian_layer_manifest_sha256"] ==
                 receipt["hessian_layer_manifest"]["sha256"], "K1 capture binding")
         require(receipt["build"]["packed_decode"]["fp16_bit_exact"] is True and
