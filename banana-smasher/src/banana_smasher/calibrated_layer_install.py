@@ -10,6 +10,42 @@ from pathlib import Path
 from typing import Any
 
 
+def checked_install_calibrated_layer(layer: Any, *, installer: Any = None, **kwargs) -> dict[str, Any]:
+    """Measure installed tensors and prove every native-rest tensor unchanged.
+
+    Hash in bounded chunks, so verifying a materialized layer does not clone its
+    full expert matrices onto CPU. No encoding or source-weight replay occurs.
+    """
+    import torch
+
+    expert_names = {'mlp.experts.gate_up_proj', 'mlp.experts.down_proj'}
+
+    def digest(tensor):
+        h = hashlib.sha256()
+        value = tensor.detach()
+        if not value.is_contiguous():
+            raise ValueError('canary requires contiguous native tensors')
+        flat = value.reshape(-1)
+        for offset in range(0, flat.numel(), 1048576):
+            chunk = flat[offset:offset + 1048576].cpu().contiguous()
+            h.update(chunk.view(torch.uint8).numpy().tobytes())
+        return {'shape': list(value.shape), 'dtype': str(value.dtype), 'sha256': h.hexdigest()}
+
+    before = {name: digest(tensor) for name, tensor in layer.state_dict().items()
+              if name not in expert_names}
+    result = (installer or install_calibrated_layer)(layer, **kwargs)
+    after = {name: digest(tensor) for name, tensor in layer.state_dict().items()
+             if name not in expert_names}
+    if before != after:
+        raise ValueError('native rest changed during calibrated installation')
+    installed = {name: digest(tensor) for name, tensor in layer.state_dict().items()
+                 if name in expert_names}
+    if set(installed) != expert_names:
+        raise ValueError('missing installed expert tensors')
+    return dict(result, native_rest_unchanged=True, native_rest_tensor_count=len(before),
+                native_rest_tensor_sha256=before, installed_tensor_sha256=installed)
+
+
 def install_calibrated_layer(
     layer: Any, *, layer_id: int, members: list[dict[str, Any]],
     expected_experts: int, tier: int, decoder: Any,
