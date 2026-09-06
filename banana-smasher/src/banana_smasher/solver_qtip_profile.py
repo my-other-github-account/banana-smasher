@@ -1110,10 +1110,29 @@ def _prepare_fit_windows(
     expert: int,
     projection: str,
     device: torch.device,
+    empty_fit_policy: str = "refuse",
 ) -> tuple[list[Any], dict[str, Any]]:
+    if empty_fit_policy not in ("refuse", "clean-capture-unit-weight-v1"):
+        raise ValueError(f"unknown empty fit policy: {empty_fit_policy}")
     routed = runner.expert_windows(captures, expert)
+    fit_policy: dict[str, Any] = {}
+    if empty_fit_policy != "refuse":
+        rows = sum(len(window["x"]) for window in routed)
+        mass = sum(float(window["weight"].double().sum()) for window in routed)
+        if rows == 0 and mass == 0:
+            # Same manifest-bound clean calibration bank, not evaluation data.
+            # This explicitly changes the fit measure, never the source weights.
+            routed = [dict(window=window["window"], x=window["x"],
+                           weight=torch.ones(len(window["x"]), dtype=torch.float32))
+                      for window in captures]
+            fallback_rows = sum(len(window["x"]) for window in routed)
+            if fallback_rows == 0:
+                raise ValueError("empty clean capture bank cannot supply fallback fit")
+            fit_policy = dict(empty_fit_policy=empty_fit_policy,
+                              original_routed_rows=rows, original_routed_mass=mass,
+                              fallback_rows=fallback_rows, counterfactual_fit=True)
     if projection != "down":
-        return routed, {"mode": "routed-source-activation"}
+        return routed, {"mode": "routed-source-activation", **fit_policy}
     source_fused13, source_ref = _load_weight(
         model_root,
         layer,
@@ -1127,6 +1146,7 @@ def _prepare_fit_windows(
     return windows, {
         "mode": "source-fused13",
         "source_weight": source_ref,
+        **fit_policy,
     }
 
 
@@ -1438,6 +1458,7 @@ def main(
         expert=expert,
         projection=projection,
         device=torch.device("cuda"),
+        empty_fit_policy=config.get("empty_fit_policy", "refuse"),
     )
     _release_capture_bank(capture_root, layer, fit_window_count, captures)
     del captures
