@@ -19,6 +19,29 @@ from .hf_moe import (
 )
 
 
+# Process-local only: one authenticated immutable shard read serves repeated
+# weight/scale bindings and resident cells. Never carry trust across processes.
+_SOURCE_DIGESTS: dict[Path, tuple[tuple[int, ...], str]] = {}
+
+
+def _source_sha256(path: Path) -> str:
+    path = Path(path).resolve(strict=True)
+    def identity():
+        s = path.stat()
+        return (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+    before = identity()
+    cached = _SOURCE_DIGESTS.get(path)
+    if cached is not None:
+        if cached[0] != before:
+            raise ValueError(f"GLM immutable source changed: {path}")
+        return cached[1]
+    digest = _sha256(path)
+    if identity() != before:
+        raise ValueError(f"GLM immutable source changed during hashing: {path}")
+    _SOURCE_DIGESTS[path] = (before, digest)
+    return digest
+
+
 def load_glm_fp8_weight(
     model_root: Path, layer: int, expert: int, projection: str
 ) -> tuple[Any, dict[str, Any]]:
@@ -63,7 +86,7 @@ def load_glm_fp8_weight(
             {
                 "path": str(shard),
                 "bytes": shard.stat().st_size,
-                "sha256": _sha256(shard),
+                "sha256": _source_sha256(shard),
                 "weight_key": key,
                 "dtype": row["dtype"],
                 "transform": transform,
@@ -72,7 +95,7 @@ def load_glm_fp8_weight(
                 else {
                     "path": str(scale_path),
                     "bytes": scale_path.stat().st_size,
-                    "sha256": _sha256(scale_path),
+                    "sha256": _source_sha256(scale_path),
                     "weight_key": scale_row["name"],
                 },
             }
