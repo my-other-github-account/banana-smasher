@@ -16,4 +16,12 @@ class ResumePlanTest(unittest.TestCase):
         with self.assertRaises(AssertionError):mod.missing_cells(configs,accepted+accepted,[])
         with self.assertRaises(AssertionError):mod.missing_cells(configs+[configs[0]],accepted,[])
 
+    def test_worker_matches_root_owned_predecessor_cache(self):
+        path=Path(__file__).with_name('s4_missing_resume.py')
+        spec=importlib.util.spec_from_file_location('resume',path)
+        mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
+        self.assertTrue(hasattr(mod,'worker_credentials'),'no explicit root-cache identity')
+        self.assertEqual(mod.worker_credentials(0),dict(user=0,group=0))
+        with self.assertRaises(AssertionError):mod.worker_credentials(1000)
+
 if __name__=='__main__':unittest.main()

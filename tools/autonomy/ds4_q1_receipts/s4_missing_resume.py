@@ -26,6 +26,11 @@ def missing_cells(configs,accepted,pending):
     omitted=set(seen)|set(map(tuple,pending))
     return [list(k) for k in keys if k not in omitted]
 
+def worker_credentials(uid):
+    # The inherited s4 solver and cache were root-owned, unlike s8's FUSE lane.
+    assert uid==0,'S4_ROOT_CACHE_IDENTITY_REQUIRED'
+    return dict(user=0,group=0)
+
 def sha(path):
     with Path(path).open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
@@ -118,7 +123,7 @@ def supervisor():
                 env=dict(os.environ,OMP_NUM_THREADS='1',PYTHONDONTWRITEBYTECODE='1',HOME=user.pw_dir,USER='dnola',LOGNAME='dnola')
                 argv=['/home/dnola/humming_env/bin/python','-u',str(Path(__file__).resolve()),'worker',str(config)]
                 with (D/(name+'.log')).open('x') as log:
-                    child=subprocess.Popen(argv,stdout=log,stderr=subprocess.STDOUT,env=env,user=user.pw_uid,group=user.pw_gid,cwd=D)
+                    child=subprocess.Popen(argv,stdout=log,stderr=subprocess.STDOUT,env=env,**worker_credentials(os.getuid()),cwd=D)
                     save(D/'ACTIVE_WORKER.json',dict(pid=child.pid,startticks=coord.ticks(child.pid),argv=argv,cell=[layer,expert,projection]))
                     rc=child.wait()
                 assert rc==0,('WORKER_EXIT',rc,str(D/(name+'.log')))
