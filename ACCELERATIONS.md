@@ -18,6 +18,27 @@ reads and zero source-model reads. Downstream output-KLD remains pending; no
 candidate or production default has been promoted. Cold consumer setup and
 validation wall are not hidden inside the producer speedup denominator.
 
+The first mixed-K2/K3 replacement consumer then stalled inside Inductor/SymPy
+symbolic stride simplification and was stopped with no replacement/forward
+sealed. Canonical `73e04f9fd8d02a7e70bc4edd59595ad626a08d3c` keeps
+`torch.compile(dynamic=False)` for the packed decoder, without changing its
+arithmetic. The physical mixed-tier canary subsequently completed in
+1.693785015 seconds and produced finite 4096-by-4096 K3 weights. This is a
+mechanical canary, not an independent numerical or held-out quality gate.
+The recovered L005 materialization took 155.398136120 seconds; all twelve
+replacement bindings and nine L005 arm/window forwards sealed with zero
+source-model reads. These sequential cold/warm consumer costs are not a
+matched producer speed comparison.
+
+The diagnostic now checkpoints every arm/window/layer. Its unchanged
+40-GiB estimated-peak plus 4-GiB reserve gate stopped before L010 allocation
+at MemAvailable 47,160,709,120 bytes. All L005--L009 forwards were preserved.
+After the source owner reclaimed only three hash-verified duplicate input
+shards (16,089,895,160 bytes), the next attempt resumed all nine slots from
+L009 and allocated L010 with MemAvailable 66,324,426,752 bytes. No sealed
+forward, baseline build, or source scorer was replayed; no resource gate was
+weakened. Output-KLD and production adoption remain pending.
+
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
 These are bounded same-input diagnostics, not production quality acceptance.
