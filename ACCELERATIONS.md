@@ -166,8 +166,26 @@ All12 replacement bindings and9 L030 arm/window checkpoints sealed. The gate
 then stopped before L033 allocation: MemAvailable46,721,032,192 bytes was below
 the unchanged40-GiB peak plus4-GiB reserve requirement47,244,640,256 bytes.
 The process is verified dead; L031/L032 forwards were in-memory and unsealed.
-Resume from the preserved L030 checkpoints, never replay the sealed producer
-arms or claim a held-out result. Output KLD and production adoption remain pending.
+The recovery preserved every L030 checkpoint and reclaimed only hash-identical
+immutable task-owned duplicate frontier storage by hardlinking (3,724,732,596
+bytes); it did not weaken the memory reserve. The resumed suffix reached L044
+and all nine readouts without replaying sealed forwards or producer builds.
+Independent binary64 verification passes all three windows28/56/71 (1024
+positions each) and pooled teacher-support8192 KL: candidate-minus-baseline
+0.0/0.0/0.0, pooled0.0, against frozen repeat-derived1e-7 limits. The validator
+checks raw teacher/readout hashes, identical support IDs, source/prefix identity,
+all12 consumed down-unit bindings, and freeze-before-candidate ordering.
+This is a four-down-K2 sparse diagnostic under the fixed earlier L005-K3 prefix,
+NOT full-vocabulary KL, uniform-K3/full-model proof, or production adoption.
+The retained independent receipt is
+`/dev/shm/t_ebcba52e_glm_down_suffix_a2/INDEPENDENT_VERIFY_run8313.json`
+(SHA256 `1ddb3052485bcda309761e144db339ad07e486d1fd4a94128e2c41acade8736b`);
+producer result SHA256
+`e9755d1bf459ff1f85553bd6fc77462878f3913016197d47055f92852c5d4d32`.
+Validation is separately charged, never part of the producer speed denominator.
+Production owner confirms no cutover: live K3 builds remain on03c531049cef93bfc020de1b313ad1270a78260e.
+A matched authentic K3-down representative is the next gate; no live production
+replay, claim transfer, or automatic promotion is authorized.
 
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
