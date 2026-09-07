@@ -308,8 +308,8 @@ def resolve_viterbi_num_warps(geometry: tuple[int, int, int], requested: int | N
     """Validate the opt-in K3 launch experiment; preserve the incumbent default."""
     if requested is None:
         return 16
-    if geometry != (16, 3, 2) or type(requested) is not int or requested not in (4, 8, 16):
-        raise ValueError("viterbi_num_warps requires L16/K3/V2 and integer 4, 8, or 16")
+    if geometry not in ((16, 1, 2), (16, 3, 2)) or type(requested) is not int or requested not in (4, 8, 16):
+        raise ValueError("viterbi_num_warps requires L16/K1-or-K3/V2 and integer 4, 8, or 16")
     return requested
 
 
@@ -526,7 +526,7 @@ def exact_prefix_viterbi(
     else:
         # 512 threads for a 256-wide (K=4) or 4096-wide (K=1) prefix vector is
         # wrong either way; size warps to the vector.  Scheduling only.
-        generic_warps = max(4, min(16, prefixes // 64))
+        generic_warps = launch_warps if K == 1 else max(4, min(16, prefixes // 64))
         _persistent_prefix_viterbi_generic[(batch,)](
             x,
             lut,

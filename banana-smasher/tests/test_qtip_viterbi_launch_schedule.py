@@ -22,7 +22,7 @@ def test_launch_schedule_rejects_invalid_counts(requested):
     with pytest.raises(ValueError):
         resolver()((16,3,2),requested)
 
-@pytest.mark.parametrize('geometry', [(16,1,2),(16,2,2),(16,4,2),(16,3,1)])
+@pytest.mark.parametrize('geometry', [(16,2,2),(16,4,2),(16,3,1)])
 def test_explicit_launch_schedule_refuses_other_geometries(geometry):
     with pytest.raises(ValueError):
         resolver()(geometry,4)
@@ -49,3 +49,16 @@ def test_configured_installer_binds_opt_in_and_reports_nondefault(monkeypatch):
         {'geometry':{'L':16,'K':3,'V':2},'viterbi_num_warps':4},profile_mode=False)
     assert getattr(cb,'_banana_smasher_viterbi_num_warps',None) == 4
     assert result['viterbi_num_warps'] == 4 and result['production_default'] is False
+
+
+@pytest.mark.parametrize('requested', [4,8,16])
+def test_k1_schedule_admitted_for_profile_identified_dominant_kernel(requested):
+    assert resolver()((16,1,2),requested) == requested
+
+
+def test_k1_generic_launch_uses_requested_schedule():
+    tree=ast.parse(SOURCE.read_text())
+    nodes=[n for n in ast.walk(tree) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='generic_warps' for t in n.targets)]
+    env=dict(K=1,prefixes=16384,launch_warps=8)
+    exec(compile(ast.Module(body=nodes,type_ignores=[]),str(SOURCE),'exec'),env)
+    assert env['generic_warps']==8
