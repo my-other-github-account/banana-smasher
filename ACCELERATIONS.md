@@ -161,8 +161,13 @@ order/JIT-confounded, not a matched cold-start speedup. Independent canonical
 decode/source-weight NMSE validation passed8/8 pairs, with unchanged objectives,
 in3.894444 s separately charged validation wall. Reconstruction alone does not
 establish full-model equivalence. The new sparse down output gate resumes the
-existing fixed L029 prefix and replaces these four down units at L030; held-out
-output KLD is in flight and production adoption remains forbidden.
+existing fixed L029 prefix and replaces these four down units at L030.
+All12 replacement bindings and9 L030 arm/window checkpoints sealed. The gate
+then stopped before L033 allocation: MemAvailable46,721,032,192 bytes was below
+the unchanged40-GiB peak plus4-GiB reserve requirement47,244,640,256 bytes.
+The process is verified dead; L031/L032 forwards were in-memory and unsealed.
+Resume from the preserved L030 checkpoints, never replay the sealed producer
+arms or claim a held-out result. Output KLD and production adoption remain pending.
 
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
