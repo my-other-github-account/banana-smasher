@@ -37,7 +37,27 @@ After the source owner reclaimed only three hash-verified duplicate input
 shards (16,089,895,160 bytes), the next attempt resumed all nine slots from
 L009 and allocated L010 with MemAvailable 66,324,426,752 bytes. No sealed
 forward, baseline build, or source scorer was replayed; no resource gate was
-weakened. Output-KLD and production adoption remain pending.
+weakened.
+
+The suffix has now sealed through L044 and readout. An independent CPU verifier
+recomputed binary64 KLD from all nine hash-authenticated readouts and the exact
+teacher-selected 8192-token supports (1024 positions/window). This is conditional
+teacher-support KLD, not full-vocabulary KL. Singleton repeats were identical;
+the predeclared repeat-derived per-window and pooled limits were each 1e-7.
+Grouped-minus-singleton deltas for windows 28, 56, and 71 were respectively
+-0.014696289583460309, -0.001827300157524414, and +0.0020095746115649515.
+The pooled delta improved by -0.004838005043139924, but window 71 failed the
+frozen per-window gate. Therefore this grouped candidate is NOT promoted.
+This is a held-out sparse diagnostic failure, not a byte-equality rejection or
+full-model/uniform-K3 conclusion; do not weaken tolerances after observing it.
+The retained independent receipt is
+`/dev/shm/t_ebcba52e_glm_suffix_a5/INDEPENDENT_VERIFY_run8290.json` on Spark-6,
+with verifier SHA256
+`4707a831d4f0aea9d49520a3e189e1967e1173a6fd56af156cbbd27013f83240`.
+Producer timing remains separate from this full suffix validation cost.
+The next causal direction is to isolate batched linear-algebra numerical changes
+from execution-scheduling gains, preserving this failed candidate and all sealed
+frontiers rather than replaying them or fitting to these frozen windows.
 
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
