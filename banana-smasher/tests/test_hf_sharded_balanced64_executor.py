@@ -273,16 +273,23 @@ def test_artifact_store_decodes_real_q2_wire(monkeypatch, tmp_path: Path) -> Non
         ],
         "native_tensors": [],
     }
+    # Full GLM routed roster, including all seven formerly bypassed layers.
+    artifact["geometry"]["routed_layer_ids"] = list(range(3, 45))
+    template = artifact["routed_tensors"][0]
+    artifact["routed_tensors"] = [
+        dict(template, name=f"model.language_model.layers.{layer}.mlp.experts.0.gate_proj.weight")
+        for layer in range(3, 45)
+    ]
     store = ArtifactTensorStore(artifact)
+    for row in artifact["routed_tensors"]:
+        decoded = store.tensor(row["name"])
+        assert decoded.shape == matrix.shape
+        assert np.isfinite(decoded.numpy()).all()
+    assert store.payload_reads == 2 * len(artifact["routed_tensors"])
+    assert store.model_reads == 0
 
-    decoded = store.tensor("model.language_model.layers.10.mlp.experts.0.gate_proj.weight")
 
-    assert decoded.shape == matrix.shape
-    assert np.isfinite(decoded.numpy()).all()
-    assert store.payload_reads == 2
-
-
-def test_candidate_source_prefix_includes_first_routed_boundary(monkeypatch, tmp_path: Path) -> None:
+def test_candidate_refuses_malformed_first_routed_boundary(monkeypatch, tmp_path: Path) -> None:
     import banana_smasher.hf_sharded_balanced64_executor as executor
 
     torch = pytest.importorskip("torch")
@@ -327,12 +334,13 @@ def test_candidate_source_prefix_includes_first_routed_boundary(monkeypatch, tmp
 
     assert store.names() == set(tensors)
     assert store.tensor("model.embed_tokens.weight") is tensors["model.embed_tokens.weight"]
-    assert store.tensor(first_routed) is tensors[first_routed]
+    with pytest.raises(KeyError, match="geometry"):
+        store.tensor(first_routed)
     assert store.payload_reads == 0
-    assert store.model_reads == 2
+    assert store.model_reads == 1
 
 
-def test_candidate_source_prefix_includes_second_routed_boundary(monkeypatch, tmp_path: Path) -> None:
+def test_candidate_refuses_malformed_second_routed_boundary(monkeypatch, tmp_path: Path) -> None:
     import banana_smasher.hf_sharded_balanced64_executor as executor
 
     torch = pytest.importorskip("torch")
@@ -369,12 +377,13 @@ def test_candidate_source_prefix_includes_second_routed_boundary(monkeypatch, tm
 
     store = ArtifactTensorStore(artifact)
 
-    assert store.tensor(second_routed) is tensors[second_routed]
+    with pytest.raises(KeyError, match="geometry"):
+        store.tensor(second_routed)
     assert store.payload_reads == 0
-    assert store.model_reads == 1
+    assert store.model_reads == 0
 
 
-def test_candidate_source_prefix_includes_third_routed_boundary(monkeypatch, tmp_path: Path) -> None:
+def test_candidate_refuses_malformed_third_routed_boundary(monkeypatch, tmp_path: Path) -> None:
     import banana_smasher.hf_sharded_balanced64_executor as executor
 
     torch = pytest.importorskip("torch")
@@ -409,12 +418,13 @@ def test_candidate_source_prefix_includes_third_routed_boundary(monkeypatch, tmp
 
     store = ArtifactTensorStore(artifact)
 
-    assert store.tensor(third_routed) is tensors[third_routed]
+    with pytest.raises(KeyError, match="geometry"):
+        store.tensor(third_routed)
     assert store.payload_reads == 0
-    assert store.model_reads == 1
+    assert store.model_reads == 0
 
 
-def test_candidate_source_prefix_includes_fourth_routed_boundary(monkeypatch, tmp_path: Path) -> None:
+def test_candidate_refuses_malformed_fourth_routed_boundary(monkeypatch, tmp_path: Path) -> None:
     import banana_smasher.hf_sharded_balanced64_executor as executor
 
     torch = pytest.importorskip("torch")
@@ -449,12 +459,13 @@ def test_candidate_source_prefix_includes_fourth_routed_boundary(monkeypatch, tm
 
     store = ArtifactTensorStore(artifact)
 
-    assert store.tensor(fourth_routed) is tensors[fourth_routed]
+    with pytest.raises(KeyError, match="geometry"):
+        store.tensor(fourth_routed)
     assert store.payload_reads == 0
-    assert store.model_reads == 1
+    assert store.model_reads == 0
 
 
-def test_candidate_source_prefix_includes_fifth_routed_boundary(monkeypatch, tmp_path: Path) -> None:
+def test_candidate_refuses_malformed_fifth_routed_boundary(monkeypatch, tmp_path: Path) -> None:
     import banana_smasher.hf_sharded_balanced64_executor as executor
 
     torch = pytest.importorskip("torch")
@@ -489,12 +500,13 @@ def test_candidate_source_prefix_includes_fifth_routed_boundary(monkeypatch, tmp
 
     store = ArtifactTensorStore(artifact)
 
-    assert store.tensor(fifth_routed) is tensors[fifth_routed]
+    with pytest.raises(KeyError, match="geometry"):
+        store.tensor(fifth_routed)
     assert store.payload_reads == 0
-    assert store.model_reads == 1
+    assert store.model_reads == 0
 
 
-def test_candidate_source_prefix_includes_seventh_routed_boundary(monkeypatch, tmp_path: Path) -> None:
+def test_candidate_refuses_malformed_seventh_routed_boundary(monkeypatch, tmp_path: Path) -> None:
     import banana_smasher.hf_sharded_balanced64_executor as executor
 
     seventh_routed = "model.language_model.layers.9.mlp.experts.0.gate_proj.weight"
@@ -529,9 +541,10 @@ def test_candidate_source_prefix_includes_seventh_routed_boundary(monkeypatch, t
 
     store = ArtifactTensorStore(artifact)
 
-    assert store.tensor(seventh_routed) is tensors[seventh_routed]
+    with pytest.raises(KeyError, match="geometry"):
+        store.tensor(seventh_routed)
     assert store.payload_reads == 0
-    assert store.model_reads == 1
+    assert store.model_reads == 0
 
 
 def test_descaled_q2_payload_is_not_scaled_twice() -> None:

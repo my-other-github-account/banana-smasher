@@ -187,7 +187,7 @@ class ArtifactTensorStore:
             or any(isinstance(layer, bool) or not isinstance(layer, int) for layer in routed_layer_ids)
         ):
             raise ValueError("candidate artifact requires routed layer geometry")
-        self.source_routed_layers = frozenset(sorted(routed_layer_ids)[:7])
+
         source = _subject_source(artifact)
         if not isinstance(source, Mapping):
             raise ValueError("candidate artifact requires admitted source identity")
@@ -201,9 +201,6 @@ class ArtifactTensorStore:
     def requires_source_scale(self, name: str) -> bool:
         row = self.routed.get(name)
         if row is None:
-            return True
-        layer_match = _LAYER_NAME.search(name)
-        if layer_match is not None and int(layer_match.group(1)) in self.source_routed_layers:
             return True
         transform = row.get("source_transform")
         return not (
@@ -224,12 +221,7 @@ class ArtifactTensorStore:
         return torch.from_numpy(np.ascontiguousarray(array))
 
     def tensor(self, name: str):
-        layer_match = _LAYER_NAME.search(name)
-        if (
-            name in self.routed
-            and layer_match is not None
-            and int(layer_match.group(1)) not in self.source_routed_layers
-        ):
+        if name in self.routed:
             row = self.routed[name]
             geometry = QtipGeometry.from_mapping(row["wire"]["geometry"])
             packed = self._load_array(row["wire"]["trellis"])
