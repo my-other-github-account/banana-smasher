@@ -95,10 +95,20 @@ Setup 29.9007654/10.0703240 s is order/JIT-confounded, not a cold speedup claim.
 Final grouped warm peak allocated memory was 2,144,155,648 bytes; batch core
 8.48452742 s included LDLQ 7.32521271 s and conformance 0.43555430 s.
 The modest warm win is not yet a substantial representative build improvement.
-A candidate-only sparse held-out suffix (`t_ebcba52e_glm_suffix_a6`) now reuses
-the sealed baseline and frozen limits; no baseline forward is repeated.
-Down/fused and DS4 representative acceptance, fresh held-out adjudication,
-and production-owner adoption remain outstanding. Defaults remain unchanged.
+The candidate-only sparse held-out suffix (`t_ebcba52e_glm_suffix_a6`) sealed
+through L044/readout, reusing the independently verified baseline by digest
+without repeating baseline forwards. Independent binary64 recomputation of the
+three authenticated candidate readouts and exact teacher-selected 8192-token
+supports (1024 positions/window) gives candidate-minus-baseline KLD deltas
+0.0/0.0/0.0 for windows28/56/71 and pooled0.0. All frozen1e-7 gates pass.
+The verifier authenticates source index, capture, prefix, baseline-result and
+freeze-time ordering. Receipt on Spark-6:
+`/dev/shm/t_ebcba52e_glm_suffix_a6/INDEPENDENT_VERIFY_run8299.json`;
+verifier SHA256 `556acfe7f0570b9278c06ee0b23b456bde93da7ed88bf1e0b44e44edaf730259`.
+This is conditional teacher-support KL for four sparse fusedK3 replacements
+under a fixed K2 prefix/suffix, NOT full-vocabulary or uniform-K3 equivalence.
+Down/fused and DS4 representative acceptance, a substantial repeatable build
+win, and production-owner adoption remain outstanding. Defaults unchanged.
 
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
