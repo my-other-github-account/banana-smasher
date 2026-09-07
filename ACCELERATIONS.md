@@ -85,6 +85,21 @@ canonical regularization profile found only E004 differed across the batch axis:
 The opt-in now also preserves singleton regularization before singleton LDL;
 this causal correction remains unpromoted until a fresh physical gate.
 
+The corrected physical comparison at `06224c6f2d8bd9e4d2fc848124a02d736377018e`
+sealed all six arms under `/dev/shm/t_ebcba52e_unitwise_a2` on Spark-6.
+Warm four-cell singleton wall was 10.5641761/10.7341428 s versus
+9.29377619/9.23560884 s grouped (1.136694x/1.162256x). All eight paired
+canonical FP32 reconstructions were identical across four experts and two
+repeats; this is diagnostic evidence, not a replacement for output acceptance.
+Setup 29.9007654/10.0703240 s is order/JIT-confounded, not a cold speedup claim.
+Final grouped warm peak allocated memory was 2,144,155,648 bytes; batch core
+8.48452742 s included LDLQ 7.32521271 s and conformance 0.43555430 s.
+The modest warm win is not yet a substantial representative build improvement.
+A candidate-only sparse held-out suffix (`t_ebcba52e_glm_suffix_a6`) now reuses
+the sealed baseline and frozen limits; no baseline forward is repeated.
+Down/fused and DS4 representative acceptance, fresh held-out adjudication,
+and production-owner adoption remain outstanding. Defaults remain unchanged.
+
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
 These are bounded same-input diagnostics, not production quality acceptance.
