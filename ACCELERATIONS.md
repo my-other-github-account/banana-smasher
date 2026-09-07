@@ -110,6 +110,32 @@ under a fixed K2 prefix/suffix, NOT full-vocabulary or uniform-K3 equivalence.
 Down/fused and DS4 representative acceptance, a substantial repeatable build
 win, and production-owner adoption remain outstanding. Defaults unchanged.
 
+## DS4 composed scheduling and unitwise preprocessing (2026-09-07)
+
+At `7abb90b4c512ed1257283f087e099fe713c902e3`, the same four authentic
+L013/E084,E085 down+fused K1 cells were measured with unchanged source,
+calibration, geometry, seeds and public API. Unitwise preprocessing/factorization
+alone gave warm37.720959/38.793669 s singleton versus36.359096/36.500272 s
+batched (1.037456x/1.062832x);24/24 build conformance checks passed.
+
+Composing `block_ldl_unitwise:true`, `viterbi_structured_gather:true` and
+`viterbi_num_warps:8` then measured28.835305/28.773447 s for the same four
+cells (1.308152x/1.348245x versus that sealed singleton baseline). This is a
+measured composition, not a product of independently measured speedup ratios.
+The candidate-only experiment reused the just-sealed baseline by digest;
+setup31.533846 s is not a matched cold-JIT comparison. Candidate12/12 build
+conformance and8/8 paired canonical reconstructions passed. The separate
+source-weight NMSE validator passed8/8 unchanged objectives in4.505666 s.
+Final warm grouped peak allocated/reserved bytes were5,196,188,160/9,223,274,496;
+LDLQ26.156191 s and conformance0.351373 s were included in28.773447 s wall.
+
+Spark-6 receipts are `/dev/shm/t_ebcba52e_ds4_unitwise_a1`,
+`/dev/shm/t_ebcba52e_ds4_combined_a1`, and
+`/dev/shm/t_ebcba52e_quality_ds4_combined_a1/RESULT.json`.
+DS4 held-out output KLD remains unmeasured; reconstruction equality is diagnostic,
+not full-model acceptance. No production defaults or adoption changed.
+A separate candidate-only4-warp composition is in progress; no result claimed.
+
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
 These are bounded same-input diagnostics, not production quality acceptance.
