@@ -73,8 +73,12 @@ Further same-panel results (all opt-in, production defaults unchanged):
   Full branch recurrence and returned int32 wire remain unchanged; default
   int32 and conservative memory admission remain. CPU tests exercise actual
   store/restore expressions over all65536 states plus public installer/launch
-  wiring. Physical same-cell speed/reconstruction canary is pending; no win
-  is inferred from reduced pointer width.
+  wiring. Physical result: warm byte-q34.983784/35.026989 s vs
+  int32 31.160164/31.181123 s (0.890703x/0.890203x), all24 builds pass.
+  Final warm peak allocated bytes1058930688 vs2677950464. Canonical
+  reconstruction passes8/8 with decoded max_abs0, validation7.999939 s.
+  The byte table saves memory but is slower; retain structured8/int32.
+  This still does not measure held-out output KLD.
 
 Exact receipts: `t_ebcba52e_k1warps_a1`, `t_ebcba52e_quality_k1warps_a1`,
 `t_ebcba52e_unroll_a1`; local terminal copies retain individual phases and peaks.
