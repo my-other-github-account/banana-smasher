@@ -1,5 +1,23 @@
 # Runtime accelerations
 
+## Exact sparse consumer staging (2026-09-07, unpromoted)
+
+`ArtifactTensorStore` accepts an explicit `native_payload_reads: true` on the
+admitted subject. This reads exact exported native bytes with path, source/hash,
+size and dtype checks instead of staging whole original source shards. The
+default remains source-backed; selected corrupt native payloads never fall back.
+The focused suite reports 46 passed, one skipped on the Mac (transformers absent).
+This is consumer infrastructure, not a measured producer speed improvement.
+
+The dedicated GLM diagnostic resumes three immutable L004 windows (ordinals
+0/1/3) and substitutes four sealed L005 fused experts. Baseline singleton repeats
+and grouped candidate share the fixed K2 prefix and suffix. It is explicitly a
+paired sparse diagnostic, not native-prefix or uniform-K3 equivalence evidence.
+The first physical L005 materialization took 269.6501306 seconds, with 1759 payload
+reads and zero source-model reads. Downstream output-KLD remains pending; no
+candidate or production default has been promoted. Cold consumer setup and
+validation wall are not hidden inside the producer speedup denominator.
+
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
 These are bounded same-input diagnostics, not production quality acceptance.
