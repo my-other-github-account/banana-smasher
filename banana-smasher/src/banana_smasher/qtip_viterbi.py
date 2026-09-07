@@ -176,6 +176,7 @@ def _persistent_prefix_viterbi_generic(
     STEPS: tl.constexpr,
     HAS_OVERLAP: tl.constexpr,
     REGISTER_COSTS: tl.constexpr,
+    BRANCH_UNROLL: tl.constexpr,
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -203,7 +204,7 @@ def _persistent_prefix_viterbi_generic(
         tl.static_assert(V == 2, "ring family is V=2")
         xa = tl.load(x_ptr + seq).to(tl.float32)
         xb = tl.load(x_ptr + B + seq).to(tl.float32)
-        for q in tl.range(0, BRANCHES):
+        for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
             state = q * PREFIXES + j
             la = tl.load(lut_ptr + state).to(tl.float32)
             lb = tl.load(lut_ptr + STATES + state).to(tl.float32)
@@ -231,7 +232,7 @@ def _persistent_prefix_viterbi_generic(
         chosen = tl.zeros((PREFIXES,), tl.int32)
         xa = tl.load(x_ptr + (step * V) * B + seq).to(tl.float32)
         xb = tl.load(x_ptr + (step * V + 1) * B + seq).to(tl.float32)
-        for q in tl.range(0, BRANCHES):
+        for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
             predecessor_prefix = q * Q_FACTOR + residue
             if REGISTER_COSTS:
                 predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
@@ -313,6 +314,15 @@ def resolve_viterbi_num_warps(geometry: tuple[int, int, int], requested: int | N
     return requested
 
 
+def resolve_branch_unroll(geometry: tuple[int, int, int], requested: bool | None) -> int:
+    """Opt-in constant-branch scheduling; no branch removal or arithmetic change."""
+    if requested is None or requested is False:
+        return 1
+    if requested is not True or geometry != (16, 1, 2):
+        raise ValueError("viterbi_branch_unroll requires boolean and L16/K1/V2")
+    return 4
+
+
 def resolve_backpointer_dtype(geometry: tuple[int, int, int], requested: str | None) -> str:
     """Opt-in lossless K1 workspace compression; returned state wire stays int32."""
     if requested is None or requested == "int32":
@@ -337,6 +347,9 @@ def exact_prefix_viterbi(
     L, K, V = int(cb.L), int(cb.K), int(cb.V)
     launch_warps = resolve_viterbi_num_warps(
         (L, K, V), getattr(cb, "_banana_smasher_viterbi_num_warps", None)
+    )
+    branch_unroll = resolve_branch_unroll(
+        (L, K, V), getattr(cb, "_banana_smasher_branch_unroll", None)
     )
     if x.shape[0] % V:
         raise ValueError(f"input rows {x.shape[0]} not divisible by V={V}")
@@ -544,6 +557,7 @@ def exact_prefix_viterbi(
             STEPS=steps,
             HAS_OVERLAP=overlap is not None,
             REGISTER_COSTS=K == 1,
+            BRANCH_UNROLL=branch_unroll,
             num_warps=generic_warps,
             num_stages=1,
         )

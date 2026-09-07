@@ -25,4 +25,4 @@ def test_generic_recurrence_has_no_global_cost_traffic():
             assert 'scratch_ptr' not in ast.unparse(call.args[0])
     # Branch ordering and strict comparison remain unchanged; gather is movement only.
     assert 'candidate < best' in ast.unparse(kernel)
-    assert 'for q in tl.range(0, BRANCHES)' in ast.unparse(kernel)
+    assert 'for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL)' in ast.unparse(kernel)

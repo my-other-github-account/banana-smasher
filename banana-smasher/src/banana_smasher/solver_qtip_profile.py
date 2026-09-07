@@ -1289,13 +1289,15 @@ def _install_configured_viterbi(
     actual = (int(cb.L), int(cb.K), int(cb.V))
     if actual != sealed:
         raise ValueError(f"QTIP codebook geometry mismatch: {actual} != {sealed}")
-    from .qtip_viterbi import resolve_viterbi_num_warps, resolve_backpointer_dtype
+    from .qtip_viterbi import resolve_viterbi_num_warps, resolve_backpointer_dtype, resolve_branch_unroll
 
     requested_warps = config.get("viterbi_num_warps")
     launch_warps = resolve_viterbi_num_warps(sealed, requested_warps)
     cb._banana_smasher_viterbi_num_warps = requested_warps
     storage_dtype = resolve_backpointer_dtype(sealed, config.get("viterbi_backpointer_dtype"))
     cb._banana_smasher_backpointer_dtype = storage_dtype
+    branch_unroll = resolve_branch_unroll(sealed, config.get("viterbi_branch_unroll"))
+    cb._banana_smasher_branch_unroll = config.get("viterbi_branch_unroll")
     expected_backend = backend_for_geometry(sealed)
     backend = config.get("backend", expected_backend)
     if backend != expected_backend:
@@ -1310,6 +1312,8 @@ def _install_configured_viterbi(
         if requested_warps is not None:
             identity.update(viterbi_num_warps=launch_warps,
                             production_default=launch_warps == 16)
+        if branch_unroll != 1:
+            identity.update(viterbi_branch_unroll=branch_unroll, production_default=False)
         if storage_dtype != "int32":
             identity.update(best_state_dtype=storage_dtype, production_default=False,
                             memory_admission="conservative-int32-workspace")
