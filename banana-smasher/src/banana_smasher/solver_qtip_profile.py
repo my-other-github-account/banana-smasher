@@ -1320,6 +1320,7 @@ def _install_configured_viterbi(
             identity.update(viterbi_branch_unroll=branch_unroll, production_default=False)
         if storage_dtype != "int32":
             identity.update(best_state_dtype=storage_dtype, production_default=False,
+                            best_state_encoding="branch-index" if storage_dtype == "uint8" else "full-state",
                             memory_admission="conservative-int32-workspace")
         return identity
     if backend != TRELLIS_V2_BACKEND:

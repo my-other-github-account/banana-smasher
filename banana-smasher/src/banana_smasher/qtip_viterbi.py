@@ -178,6 +178,7 @@ def _persistent_prefix_viterbi_generic(
     REGISTER_COSTS: tl.constexpr,
     BRANCH_UNROLL: tl.constexpr,
     STRUCTURED_GATHER: tl.constexpr,
+    BRANCH_POINTERS: tl.constexpr = False,
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -217,7 +218,8 @@ def _persistent_prefix_viterbi_generic(
     base = seq * PREFIXES
     if not REGISTER_COSTS:
         tl.store(scratch_ptr + base + j, best)
-    tl.store(best_state_ptr + base + j, chosen)
+    # The prefix is the table column; only the winning branch is needed.
+    tl.store(best_state_ptr + base + j, chosen // PREFIXES if BRANCH_POINTERS else chosen)
     if not REGISTER_COSTS:
         tl.debug_barrier()
 
@@ -262,7 +264,7 @@ def _persistent_prefix_viterbi_generic(
             tl.store(scratch_ptr + current_base + j, best)
         tl.store(
             best_state_ptr + step * B * PREFIXES + base + j,
-            chosen,
+            chosen // PREFIXES if BRANCH_POINTERS else chosen,
         )
         if not REGISTER_COSTS:
             tl.debug_barrier()
@@ -278,6 +280,8 @@ def _persistent_prefix_viterbi_generic(
         state = tl.load(
             best_state_ptr + back_step * B * PREFIXES + base + prefix
         ).to(tl.int32)
+        if BRANCH_POINTERS:
+            state = state * PREFIXES + prefix
         tl.store(states_ptr + back_step * B + seq, state)
         prefix = state >> SHIFT
 
@@ -349,9 +353,9 @@ def resolve_backpointer_dtype(geometry: tuple[int, int, int], requested: str | N
     """Opt-in lossless K1 workspace compression; returned state wire stays int32."""
     if requested is None or requested == "int32":
         return "int32"
-    if requested != "uint16" or geometry != (16, 1, 2):
-        raise ValueError("viterbi_backpointer_dtype requires L16/K1/V2 and uint16 or int32")
-    return "uint16"
+    if requested not in ("uint16", "uint8") or geometry != (16, 1, 2):
+        raise ValueError("viterbi_backpointer_dtype requires L16/K1/V2 and uint8, uint16 or int32")
+    return requested
 
 
 def exact_prefix_viterbi(
@@ -584,6 +588,7 @@ def exact_prefix_viterbi(
             REGISTER_COSTS=K == 1,
             BRANCH_UNROLL=branch_unroll,
             STRUCTURED_GATHER=structured_gather,
+            BRANCH_POINTERS=backpointer_dtype == "uint8",
             num_warps=generic_warps,
             num_stages=1,
         )
