@@ -209,8 +209,20 @@ charged and includes first-use K3-down consumer specialization. Raw roots on
 Spark-6: `/dev/shm/t_ebcba52e_glm_down_k3_a1` and
 `/dev/shm/t_ebcba52e_quality_glm_down_k3_a1`. A new singleton/repeat/warp8 sparse
 K3-down output comparison uses the exact fixed L029 frontier, not the prior K2
-quality result. Its held-out KLD remains pending. No production adoption or
-full-model equivalence is claimed; defaults and live production are unchanged.
+quality result. All nine L044 frontiers sealed before READOUT memory admission
+failed at MemAvailable46,999,478,272 bytes. A fresh READOUT-ONLY process passed
+at49,930,211,328 bytes with the unchanged40-GiB estimate plus4-GiB reserve;
+no forward, build or prefix was replayed. Independent binary64 verification of
+all nine raw readouts passes: candidate-minus-singleton conditional teacher-support
+8192 KLD deltas are0 for windows28/56/71 (1024 positions each) and pooled.
+Singleton repeats agree; all frozen reproducibility-derived limits are1e-7.
+The receipt is `/dev/shm/t_ebcba52e_glm_down_k3_readout_a1/INDEPENDENT_VERIFY_run8325.json`
+on Spark-6; verifier SHA256
+`d6587730b3b49e0c1eb99266caf1f6a6375dc26a4b071c68a5e50d98202ce20a`.
+This is a sparse four-down-K3 replacement at the existing fixed prefix and K2
+suffix, not uniform-K3 or full-vocabulary/full-model equivalence. Production
+owner readback and matched clean-boundary rollout remain required; defaults
+and live production are unchanged.
 
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
