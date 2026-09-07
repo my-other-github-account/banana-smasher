@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 import gc
+import hashlib
 import importlib
 from importlib import metadata as importlib_metadata
 import json
@@ -179,6 +180,8 @@ class ArtifactTensorStore:
     def __init__(self, artifact: Mapping[str, Any]) -> None:
         self.root = Path(artifact["artifact_root"]).expanduser().resolve()
         self.routed = {row["name"]: row for row in artifact["routed_tensors"]}
+        self.native = ({row["name"]: row for row in artifact.get("native_tensors", [])}
+                       if artifact.get("native_payload_reads") is True else {})
         geometry = artifact.get("geometry")
         routed_layer_ids = geometry.get("routed_layer_ids") if isinstance(geometry, Mapping) else None
         if (
@@ -242,6 +245,27 @@ class ArtifactTensorStore:
             )
             tlut = gaussian_tlut(bits=geometry.tlut_bits, columns=geometry.V)
             return self._torch_from_numpy(decode_qtip(encoded, tlut=tlut))
+        if name in self.native:
+            row = self.native[name]
+            path = (self.root / row["path"]).resolve()
+            if not path.is_relative_to(self.root) or row.get("storage_root", "primary") != "primary":
+                raise ValueError("native payload requires root-confined primary storage")
+            raw = path.read_bytes()
+            if (row.get("representation") != "exact-source-data-bytes"
+                    or row.get("source_sha256") != row.get("artifact_sha256")
+                    or len(raw) != row.get("source_bytes")
+                    or hashlib.sha256(raw).hexdigest() != row.get("artifact_sha256")):
+                raise ValueError("native payload source/size/hash mismatch")
+            torch = _require_torch()
+            dtypes = {"BF16": torch.bfloat16, "F16": torch.float16, "F32": torch.float32,
+                      "F64": torch.float64, "F8_E4M3": torch.float8_e4m3fn,
+                      "F8_E5M2": torch.float8_e5m2, "I64": torch.int64, "I32": torch.int32,
+                      "I16": torch.int16, "I8": torch.int8, "U8": torch.uint8, "BOOL": torch.bool}
+            if row["dtype"] not in dtypes:
+                raise ValueError("unsupported native payload dtype")
+            value = torch.frombuffer(bytearray(raw), dtype=dtypes[row["dtype"]]).reshape(row["shape"])
+            self.payload_reads += 1
+            return value
         self.model_reads += 1
         return self.source.tensor(name)
 
