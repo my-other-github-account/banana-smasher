@@ -36,6 +36,7 @@ def test_configured_installer_binds_opt_in_and_reports_nondefault(monkeypatch):
     package = types.ModuleType('banana_smasher'); package.__path__ = []
     module = types.ModuleType('banana_smasher.qtip_viterbi')
     module.resolve_viterbi_num_warps = resolver()
+    module.resolve_backpointer_dtype = lambda *args: "int32"
     monkeypatch.setitem(sys.modules, 'banana_smasher', package)
     monkeypatch.setitem(sys.modules, 'banana_smasher.qtip_viterbi', module)
     env = dict(Any=object, _ExactTimers=object, __package__='banana_smasher',

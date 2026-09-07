@@ -104,6 +104,7 @@ def main_batch(
     codebooks = [solver_module._resolve_config_codebook(config, geometry) for config in configs]
     codebook = _common("codebook identity", codebooks)
     _common("Viterbi launch schedule", [config.get("viterbi_num_warps") for config in configs])
+    _common("Viterbi backpointer storage", [config.get("viterbi_backpointer_dtype", "int32") for config in configs])
 
     runner = solver_module._load_public_qtip_runner(runner_path, runner_sha256)
     runner.QTIP = qtip_root

@@ -313,6 +313,15 @@ def resolve_viterbi_num_warps(geometry: tuple[int, int, int], requested: int | N
     return requested
 
 
+def resolve_backpointer_dtype(geometry: tuple[int, int, int], requested: str | None) -> str:
+    """Opt-in lossless K1 workspace compression; returned state wire stays int32."""
+    if requested is None or requested == "int32":
+        return "int32"
+    if requested != "uint16" or geometry != (16, 1, 2):
+        raise ValueError("viterbi_backpointer_dtype requires L16/K1/V2 and uint16 or int32")
+    return "uint16"
+
+
 def exact_prefix_viterbi(
     cb: Any,
     x: torch.Tensor,
@@ -486,8 +495,13 @@ def exact_prefix_viterbi(
     scratch = torch.empty(
         (2, batch, prefixes), device=x.device, dtype=torch.float32
     )
+    # Conservative admission above still budgets int32 workspace. Only the
+    # internal backpointer storage changes; recurrence and int32 wire do not.
+    backpointer_dtype = resolve_backpointer_dtype(
+        (L, K, V), getattr(cb, "_banana_smasher_backpointer_dtype", None)
+    )
     best_state = torch.empty(
-        (steps, batch, prefixes), device=x.device, dtype=torch.int32
+        (steps, batch, prefixes), device=x.device, dtype=getattr(torch, backpointer_dtype)
     )
     states = torch.empty((steps, batch), device=x.device, dtype=torch.int32)
     overlap_arg = (
