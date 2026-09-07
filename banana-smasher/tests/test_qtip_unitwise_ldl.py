@@ -14,6 +14,17 @@ def test_unitwise_ldl_matches_singleton_factorization_and_preserves_input():
     assert torch.equal(h, before)
 
 
+def test_unitwise_regularization_matches_singleton_preprocessing():
+    from banana_smasher.qtip_batch import _regularize_hessian_batch
+    h = torch.randn((4, 64, 64), generator=torch.Generator().manual_seed(8291))
+    h = h @ h.transpose(-1, -2) + torch.eye(64)
+    expected = h.clone()
+    for i in range(len(h)):
+        _regularize_hessian_batch(expected[i:i+1], 0.01)
+    _regularize_hessian_batch(h, 0.01, unitwise=True)
+    assert torch.equal(h, expected)
+
+
 def test_unitwise_public_config_rejects_mixed_or_nonboolean_values():
     import pytest
     from banana_smasher.qtip_batch_controller import _block_ldl_unitwise

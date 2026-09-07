@@ -201,7 +201,13 @@ def _synchronize(device: torch.device) -> None:
         torch.cuda.synchronize(device)
 
 
-def _regularize_hessian_batch(hessians: torch.Tensor, sigma: float) -> None:
+def _regularize_hessian_batch(
+    hessians: torch.Tensor, sigma: float, *, unitwise: bool = False
+) -> None:
+    if unitwise and len(hessians) > 1:
+        for unit in range(len(hessians)):
+            _regularize_hessian_batch(hessians[unit : unit + 1], sigma)
+        return
     diagonal = torch.diagonal(hessians, dim1=-2, dim2=-1)
     mean = diagonal.mean(dim=-1)
     hessians.div_(mean[:, None, None])
@@ -321,7 +327,7 @@ def build_qtip_batch(
 
     started = time.perf_counter()
     hessian_batch = torch.stack(hessians)
-    _regularize_hessian_batch(hessian_batch, 1e-2)
+    _regularize_hessian_batch(hessian_batch, 1e-2, unitwise=block_ldl_unitwise)
     lower = block_ldl_batch(hessian_batch, 16, unitwise=block_ldl_unitwise)
     lower.diagonal(dim1=-2, dim2=-1).zero_()
     transformed = torch.stack(transformed_rows)

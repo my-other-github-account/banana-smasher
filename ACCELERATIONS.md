@@ -75,6 +75,16 @@ input preservation, configuration admission and controller/builder wiring.
 This isolates the measured mechanism rather than changing frozen output gates;
 physical speed, paired reconstruction and held-out acceptance are still required.
 
+The initial factor-only physical experiment (`dd478bc0`) produced warm four-cell
+singleton 10.6650465/10.7929246 s versus grouped unitwise10.7913408/9.26281808 s
+(0.988297x/1.165188x), not a repeatably substantial improvement. All24 builds
+passed packed decode conformance. E001--003 reconstructed identically in both
+repeats, but E004 differed (max_abs0.019915267825126648). A subsequent same-input
+canonical regularization profile found only E004 differed across the batch axis:
+13,146 Hessian entries, max_abs2.9802322387695312e-8; E001--003 were identical.
+The opt-in now also preserves singleton regularization before singleton LDL;
+this causal correction remains unpromoted until a fresh physical gate.
+
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
 These are bounded same-input diagnostics, not production quality acceptance.
