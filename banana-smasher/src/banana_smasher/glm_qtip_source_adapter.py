@@ -48,6 +48,12 @@ def load_glm_fp8_weight(
     import torch
 
     root = Path(model_root)
+    selected = None
+    if (root / "SELECTED_TENSORS.json").is_file():
+        from .selected_tensor_source import SelectedTensorSource
+
+        selected = SelectedTensorSource(root)
+        root = selected.root
     config_path = root / "config.json"
     config = json.loads(config_path.read_text())
     shape = config.get("text_config", config)
@@ -72,16 +78,23 @@ def load_glm_fp8_weight(
         # Scales may reside in a different safetensors shard.
         for filename in {shard_name, mapping.get(key + "_scale_inv", shard_name)}:
             if filename not in headers:
-                headers[filename] = _safetensors_header(root / filename)
+                headers[filename] = (
+                    selected.headers[filename] if selected else _safetensors_header(root / filename)
+                )
         row = {"name": key, **headers[shard_name][key]}
         scale_path, scale_row, transform = _routed_scale_binding(
             root, row, weight_map=mapping, headers=headers
         )
         shard = root / shard_name
         matrix = _load_safetensors_matrix(
-            shard, row, scale_source=scale_path, scale_row=scale_row
+            shard, row, scale_source=scale_path, scale_row=scale_row,
+            **({"tensor_payload_reader": selected.read} if selected else {}),
         )
         matrices.append(torch.from_numpy(matrix.copy()))
+        if selected:
+            sources.append({**selected.reference(key), "transform": transform,
+                            "scale_source": None if scale_row is None else selected.reference(scale_row["name"])})
+            continue
         sources.append(
             {
                 "path": str(shard),
@@ -120,6 +133,7 @@ def load_glm_fp8_weight(
         "index_sha256": _sha256(index_path),
         "config_sha256": _sha256(config_path),
         "shards": sources,
+        **({"selected_source": selected.receipt} if selected else {}),
     }
 
 
@@ -149,6 +163,7 @@ def capture_source_closure(runner, runtime_modules) -> dict[str, Any]:
             "qtip1",
             "hf_moe",
             "glm_qtip_source_adapter",
+            "selected_tensor_source",
             "glm_qtip_producers",
         )
     }
@@ -223,6 +238,11 @@ def bind_source_closure(model_root, configs, runner, runtime_modules):
         not config.get("glm_source_closure_sha256") for config in configs
     ):
         raise ValueError("GLM launch source closure pin is required")
+    selected_path = Path(model_root) / "SELECTED_TENSORS.json"
+    selected_digest = _sha256(selected_path) if selected_path.exists() else None
+    for config in configs:
+        if config.get("selected_source_manifest_sha256") != selected_digest:
+            raise ValueError("GLM selected source manifest pin missing or mismatched")
     closure = capture_source_closure(runner, runtime_modules)
     for config in configs:
         require_source_closure(config["glm_source_closure_sha256"], closure)

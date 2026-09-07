@@ -919,22 +919,30 @@ def _load_safetensors_matrix(
     *,
     scale_source: Path | None = None,
     scale_row: Mapping[str, Any] | None = None,
+    tensor_payload_reader=None,
 ):
     import numpy as np
 
+    if tensor_payload_reader is not None and row["dtype"] != "F8_E4M3":
+        if row["dtype"] != "F32":
+            raise ValueError("selected FP8 scale payload requires F32")
+        return np.frombuffer(tensor_payload_reader(source, row), dtype="<f4").reshape(tuple(row["shape"]))
     if row["dtype"] != "F8_E4M3":
         from safetensors import safe_open
 
         with safe_open(source, framework="numpy") as handle:
             return np.asarray(handle.get_tensor(row["name"]), dtype=np.float32)
-    metadata = _safetensors_header(source)[row["name"]]
-    offsets = metadata["data_offsets"]
-    with source.open("rb") as stream:
-        header_length = struct.unpack("<Q", stream.read(8))[0]
-        stream.seek(8 + header_length + int(offsets[0]))
-        raw = np.frombuffer(
-            stream.read(int(offsets[1]) - int(offsets[0])), dtype=np.uint8
-        )
+    if tensor_payload_reader is not None:
+        raw = np.frombuffer(tensor_payload_reader(source, row), dtype=np.uint8)
+    else:
+        metadata = _safetensors_header(source)[row["name"]]
+        offsets = metadata["data_offsets"]
+        with source.open("rb") as stream:
+            header_length = struct.unpack("<Q", stream.read(8))[0]
+            stream.seek(8 + header_length + int(offsets[0]))
+            raw = np.frombuffer(
+                stream.read(int(offsets[1]) - int(offsets[0])), dtype=np.uint8
+            )
     bits = np.arange(256, dtype=np.uint16)
     exponent = (bits >> 3) & 0xF
     mantissa = bits & 0x7
@@ -959,7 +967,9 @@ def _load_safetensors_matrix(
         raise ValueError(
             f"F8_E4M3 routed tensor requires weight_scale_inv before Q2 encoding: {row['name']}"
         )
-    scale = _load_safetensors_matrix(scale_source, scale_row)
+    scale = _load_safetensors_matrix(
+        scale_source, scale_row, tensor_payload_reader=tensor_payload_reader
+    )
     rows, columns = (int(size) for size in matrix.shape)
     expected_scale_shape = (math.ceil(rows / 128), math.ceil(columns / 128))
     if scale.ndim != 2 or tuple(scale.shape) != expected_scale_shape:
