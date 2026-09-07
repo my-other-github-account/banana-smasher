@@ -1289,6 +1289,11 @@ def _install_configured_viterbi(
     actual = (int(cb.L), int(cb.K), int(cb.V))
     if actual != sealed:
         raise ValueError(f"QTIP codebook geometry mismatch: {actual} != {sealed}")
+    from .qtip_viterbi import resolve_viterbi_num_warps
+
+    requested_warps = config.get("viterbi_num_warps")
+    launch_warps = resolve_viterbi_num_warps(sealed, requested_warps)
+    cb._banana_smasher_viterbi_num_warps = requested_warps
     expected_backend = backend_for_geometry(sealed)
     backend = config.get("backend", expected_backend)
     if backend != expected_backend:
@@ -1297,9 +1302,13 @@ def _install_configured_viterbi(
             f"{expected_backend!r} for geometry {sealed}"
         )
     if backend in PERSISTENT_BACKENDS:
-        return _install_profiled_exact_viterbi(
+        identity = _install_profiled_exact_viterbi(
             cb, exact, timers, profile_mode=profile_mode
         )
+        if requested_warps is not None:
+            identity.update(viterbi_num_warps=launch_warps,
+                            production_default=launch_warps == 16)
+        return identity
     if backend != TRELLIS_V2_BACKEND:
         raise ValueError(
             f"QTIP backend {backend!r} has no compiled installer; run "

@@ -304,6 +304,15 @@ def geometry(cb: Any, *, steps: int = 128) -> dict[str, int | str | float]:
     }
 
 
+def resolve_viterbi_num_warps(geometry: tuple[int, int, int], requested: int | None) -> int:
+    """Validate the opt-in K3 launch experiment; preserve the incumbent default."""
+    if requested is None:
+        return 16
+    if geometry != (16, 3, 2) or type(requested) is not int or requested not in (4, 8, 16):
+        raise ValueError("viterbi_num_warps requires L16/K3/V2 and integer 4, 8, or 16")
+    return requested
+
+
 def exact_prefix_viterbi(
     cb: Any,
     x: torch.Tensor,
@@ -317,6 +326,9 @@ def exact_prefix_viterbi(
         )
     metadata = geometry(cb, steps=int(x.shape[0]) // int(cb.V))
     L, K, V = int(cb.L), int(cb.K), int(cb.V)
+    launch_warps = resolve_viterbi_num_warps(
+        (L, K, V), getattr(cb, "_banana_smasher_viterbi_num_warps", None)
+    )
     if x.shape[0] % V:
         raise ValueError(f"input rows {x.shape[0]} not divisible by V={V}")
     batch = int(x.shape[1])
@@ -484,7 +496,7 @@ def exact_prefix_viterbi(
         else torch.empty((1,), device=x.device, dtype=torch.int32)
     )
     if backend_for_geometry((L, K, V)) == PERSISTENT_V32_BACKEND and steps == 128:
-        # Preserve the sealed v32 launch byte-for-byte for qtip@3.00 steady state.
+        # Default stays at 16; smaller schedules are explicit unpromoted experiments.
         _persistent_prefix_viterbi[(batch,)](
             x,
             lut,
@@ -494,7 +506,7 @@ def exact_prefix_viterbi(
             states,
             B=batch,
             HAS_OVERLAP=overlap is not None,
-            num_warps=16,
+            num_warps=launch_warps,
             num_stages=1,
         )
     else:
