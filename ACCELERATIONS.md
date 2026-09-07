@@ -1,5 +1,35 @@
 # Runtime accelerations
 
+## Unpromoted single-Spark QTIP build experiments (2026-09-07)
+
+These are bounded same-input diagnostics, not production quality acceptance.
+The DS4 panel is four distinct authentic K1 cells: L013 E084/E085, each down
+and fused13, with unchanged source/calibration/geometry/seeds. Decode conformance
+is included in build wall; first-use consumer compilation is not producer speed.
+
+- Existing cross-unit batching at `dca8699d2539917c7b1259952eefd7d3649de007`:
+  warm four-cell singleton 38.194566 s versus grouped 36.810715 s (1.037594x).
+  Grouped numerical reconstruction differs: three cells exceed the strict
+  baseline-repeat diagnostic limit, one improves. This is neither a byte-based
+  rejection nor proof of meaningful held-out regression.
+- Opt-in `viterbi_backpointer_dtype="uint16"` at
+  `b5f59663e009d663d2618c460dc46fb6cd95f1e6`: lossless internal K1 backpointer
+  compression, int32 returned states and full recurrence unchanged. Warm default
+  int32 four-cell repeats 37.961138/38.300984 s versus uint16
+  48.923851/48.165708 s (0.775923x/0.795192x): **negative speed result**.
+  Final warm arm peak allocated/reserved bytes were 2677950464/4624220160
+  (int32) and 1595801600/2468347904 (uint16). The storage reduction did not
+  accelerate this panel. Packed assignments match on all four cells as a
+  diagnostic only. Default remains int32; no production activation.
+
+Provenance: task `t_ebcba52e`, dedicated Spark-6; immutable experiment roots
+`/run/user/1000/t_ebcba52e_ds4_a1`, `t_ebcba52e_quality_ds4_a1`, and
+`t_ebcba52e_bp16_a1` on that host. Compact terminal receipts are retained in the
+task workspace as `DS4_A1_TERMINAL.json` and `BP16_A1_TERMINAL.json`.
+Held-out output KLD remains unmeasured; neither variant is promoted. Next causal
+step is a bounded default-K1 device/CPU cost profile, not another blind storage
+or batch-size variant. A profile's instrumented wall is never a speed denominator.
+
 `runtime/ACCELERATION_MANIFEST.json` is the exact machine-readable inventory. This document is its concise operator view.
 
 | ID | Development source | Image build input | Runtime activation | Principal test |
