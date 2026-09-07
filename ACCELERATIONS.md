@@ -134,7 +134,35 @@ Spark-6 receipts are `/dev/shm/t_ebcba52e_ds4_unitwise_a1`,
 `/dev/shm/t_ebcba52e_quality_ds4_combined_a1/RESULT.json`.
 DS4 held-out output KLD remains unmeasured; reconstruction equality is diagnostic,
 not full-model acceptance. No production defaults or adoption changed.
-A separate candidate-only4-warp composition is in progress; no result claimed.
+The candidate-only4-warp composition has now sealed12/12 cells. Setup wall was
+825.786606 s and warm walls822.130711/822.020531 s, respectively28.511254x/
+28.568720x slower than the sealed8-warp composition. It is rejected on measured
+runtime, not assignment equality;8-warps remains the unpromoted incumbent.
+Receipt root: `/dev/shm/t_ebcba52e_ds4_combined4_a1` on Spark-6.
+
+## GLM authentic down projection and selected source ranges (2026-09-07)
+
+Canonical `216dd1dbd4a43e9112f57949ef400106a6eaceed` supports explicitly pinned
+selected safetensors payloads with unchanged original index, headers, offsets,
+FP8 weights and scale identities. The24 authentic components for L030 E000--003
+(gate/up/down plus scales) occupy100,687,872 bytes instead of requiring two full
+source shards. This is source coverage for named tensors only, never a claim to
+possess/hash complete parent shards. All16 existing fit windows were reused.
+
+The first down harness failed before any solve sealed because it accidentally
+overrode the owner's K2 recipe with a persistent K3 backend. The recipe guard
+correctly refused. The retry preserved the original canonical K2 v46 backend;
+no production guard changed and no sealed baseline was replayed.
+
+Six four-cell arms under `/dev/shm/t_ebcba52e_glm_down_unitwise_a2` completed.
+Warm singleton10.273801/10.557645 s versus unitwise8.335971/8.063009 s gives
+1.232466x/1.309393x same-input build speedup. Setup16.099151/8.326594 s is
+order/JIT-confounded, not a matched cold-start speedup. Independent canonical
+decode/source-weight NMSE validation passed8/8 pairs, with unchanged objectives,
+in3.894444 s separately charged validation wall. Reconstruction alone does not
+establish full-model equivalence. The new sparse down output gate resumes the
+existing fixed L029 prefix and replaces these four down units at L030; held-out
+output KLD is in flight and production adoption remains forbidden.
 
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
