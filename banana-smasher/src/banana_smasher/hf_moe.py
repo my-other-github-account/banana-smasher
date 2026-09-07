@@ -1334,6 +1334,11 @@ def _verify_hf_moe_members(root: Path, receipt: Mapping[str, Any]) -> None:
     ):
         raise ValueError("HF MoE artifact does not cover its complete planned inventory")
     for row in receipt["routed_tensors"]:
+        if row["wire"].get("format") == "banana-smasher-qtip-unit-v1":
+            from .sealed_qtip_unit import load_sealed_unit
+
+            load_sealed_unit(root, row)
+            continue
         for key in ("trellis", "scales"):
             member = root / row["wire"][key]["path"]
             if _sha256(member) != row["wire"][key]["sha256"]:

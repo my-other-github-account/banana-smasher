@@ -223,6 +223,12 @@ class ArtifactTensorStore:
     def tensor(self, name: str):
         if name in self.routed:
             row = self.routed[name]
+            if row["wire"].get("format") == "banana-smasher-qtip-unit-v1":
+                from .sealed_qtip_unit import decode_sealed_unit
+
+                value = decode_sealed_unit(self.root, row)
+                self.payload_reads += 1
+                return value
             geometry = QtipGeometry.from_mapping(row["wire"]["geometry"])
             packed = self._load_array(row["wire"]["trellis"])
             scales = self._load_array(row["wire"]["scales"])
