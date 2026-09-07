@@ -51,8 +51,30 @@ Further same-panel results (all opt-in, production defaults unchanged):
   passes8/8, decoded max_abs0, separately charged validation7.828695 s.
   Compiler entries for the new movement report4096 shared bytes; this is not a
   measured occupancy claim. Output KLD is still unmeasured, so no promotion.
-  Next bounded experiment compares structured8/16 schedules under the changed
-  shared-resource envelope. Generic8/16 results cannot adjudicate that variant.
+  Structured16 was then measured under the changed shared-resource envelope:
+  warm 32.018977/31.943393 s versus structured8 31.001402/31.182052 s
+  (0.968220x/0.976166x). All24 builds pass; retain structured8, not16.
+- Structured8 grouped2 vs singleton on the same four cells at `624c210f`:
+  warm 28.204494/28.214014 s vs31.105050/31.288451 s
+  (1.102840x/1.108968x). All24 builds pass. Final warm producer-core totals
+  are26.130852 vs27.864315 s, conformance0.364080 vs0.351104 s,
+  staging1.682423 vs3.025813 s; these phases are included in wall.
+  Peak allocated/reserved bytes are5213002240/9240051712 grouped,
+  2665339904/4611637248 singleton. Setup walls28.948990/33.555770 s
+  have first-use/order confounds, not matched cold-JIT evidence.
+  Separate canonical reconstruction validator took8.543186 s: only2/8
+  numerical comparisons meet baseline-repeat limits. E084 down NMSE
+  0.499220566 exceeds0.499113813; fused E0840.597373550 exceeds0.597026913,
+  fused E0850.562766462 exceeds0.562458819. E085 down improves.
+  This is a numerical diagnostic, not byte-based rejection or measured output
+  KLD harm. Preserve candidate for decisive held-out adjudication; no promotion.
+- `e782a5fe` adds opt-in K1 `viterbi_backpointer_dtype="uint8"` branch-index
+  storage, reconstructing the full state using the implicit prefix column.
+  Full branch recurrence and returned int32 wire remain unchanged; default
+  int32 and conservative memory admission remain. CPU tests exercise actual
+  store/restore expressions over all65536 states plus public installer/launch
+  wiring. Physical same-cell speed/reconstruction canary is pending; no win
+  is inferred from reduced pointer width.
 
 Exact receipts: `t_ebcba52e_k1warps_a1`, `t_ebcba52e_quality_k1warps_a1`,
 `t_ebcba52e_unroll_a1`; local terminal copies retain individual phases and peaks.
