@@ -61,3 +61,22 @@ def test_batch_refuses_mixed_branch_schedules():
     tree=ast.parse(source)
     calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and ast.unparse(n.func)=='_common']
     assert any('viterbi_structured_gather' in ast.unparse(n) for n in calls)
+
+
+@pytest.mark.parametrize('with_infinity',[False,True])
+def test_execute_actual_structured_branch(with_infinity):
+    import numpy as np
+    import types
+    tree=ast.parse(SOURCE.read_text())
+    kernel=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_persistent_prefix_viterbi_generic')
+    branch=next(n for n in ast.walk(kernel) if isinstance(n,ast.If) and ast.unparse(n.test)=='STRUCTURED_GATHER')
+    module=ast.Module(body=branch.body,type_ignores=[])
+    code=compile(module,str(SOURCE),'exec')
+    costs=np.linspace(0,1000,16384,dtype=np.float32)
+    if with_infinity: costs[::7]=np.inf
+    tl=types.SimpleNamespace(reshape=np.reshape,sum=np.sum,where=np.where,arange=np.arange,broadcast_to=np.broadcast_to)
+    for q in range(4):
+        env=dict(tl=tl,previous_costs=costs,BRANCHES=4,Q_FACTOR=4096,PREFIXES=16384,q=q)
+        exec(code,env)
+        expected=costs[q*4096+(np.arange(16384)>>2)]
+        np.testing.assert_array_equal(env['predecessor_cost'],expected)
