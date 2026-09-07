@@ -45,7 +45,14 @@ Further same-panel results (all opt-in, production defaults unchanged):
   in all six compiled warp/unroll variants. Next isolated causal experiment is
   `viterbi_structured_gather=true` for K1 only: select a contiguous predecessor
   row, then fourfold broadcast, rather than a general full-prefix gather.
-  This is unvalidated experimental API, not production adoption.
+  Matched physical result: generic8 warm four-cell 34.769903/35.412527 s
+  versus structured8 31.155750/31.166651 s (1.116003x/1.136231x), all24 builds
+  pass canonical decode conformance. Subsequent canonical paired reconstruction
+  passes8/8, decoded max_abs0, separately charged validation7.828695 s.
+  Compiler entries for the new movement report4096 shared bytes; this is not a
+  measured occupancy claim. Output KLD is still unmeasured, so no promotion.
+  Next bounded experiment compares structured8/16 schedules under the changed
+  shared-resource envelope. Generic8/16 results cannot adjudicate that variant.
 
 Exact receipts: `t_ebcba52e_k1warps_a1`, `t_ebcba52e_quality_k1warps_a1`,
 `t_ebcba52e_unroll_a1`; local terminal copies retain individual phases and peaks.
