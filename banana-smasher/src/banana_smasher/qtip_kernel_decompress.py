@@ -7,7 +7,9 @@ Keep this implementation in the same git pin as the builder.
 import torch
 
 
-@torch.compile
+# Packed bit-tier/tiling changes require separate kernels. Automatic dynamic
+# generalization of mixed K2/K3 calls creates pathological symbolic CPU strides.
+@torch.compile(dynamic=False)
 def decode_compressed(L, S, R, V, m, k, compressed, expanded_lut):
     if compressed.dtype != torch.uint16:
         compressed = compressed.view(torch.uint16)
