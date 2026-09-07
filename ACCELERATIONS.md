@@ -187,6 +187,31 @@ Production owner confirms no cutover: live K3 builds remain on03c531049cef93bfc0
 A matched authentic K3-down representative is the next gate; no live production
 replay, claim transfer, or automatic promotion is authorized.
 
+## GLM authentic K3 down schedule composition (2026-09-07, unpromoted)
+
+At pinned public API `e6ba5ebd8c90ae3bebaabe9fd132824314084438`, the owner-approved
+K3 recipe bound the existing L030 E000--003 down source inputs with controls-only
+references, canonical `resolve_qtip_ring(3)`, original per-cell RHT identity,
+Hessians and16 clean-fit windows. No K2 packed artifact was relabeled and no
+source/calibration/scorer was recaptured. Nine four-cell arms sealed36 builds.
+
+Warm singleton walls7.840529/6.743711s versus unitwise16 5.918271/5.322746s give
+1.324801x/1.266961x. Composing unitwise preprocessing with8-warps measured
+4.445550/4.432097s, or1.763680x/1.521562x against those same singleton repeats.
+Setup27.238075/5.954162/5.880815s is order/JIT-confounded, not a cold speedup.
+Final warp8 batch core3.250987s includes LDLQ2.722792s and packed conformance
+0.237834s inside4.432097s total build wall. Peak allocated/reserved bytes are
+1,280,087,040/1,619,001,344; this is measured CUDA allocation, not system peak.
+
+Independent canonical packed decode/source-weight NMSE passes16/16 candidate
+comparisons, all objective deltas0. Validation wall97.561887s is separately
+charged and includes first-use K3-down consumer specialization. Raw roots on
+Spark-6: `/dev/shm/t_ebcba52e_glm_down_k3_a1` and
+`/dev/shm/t_ebcba52e_quality_glm_down_k3_a1`. A new singleton/repeat/warp8 sparse
+K3-down output comparison uses the exact fixed L029 frontier, not the prior K2
+quality result. Its held-out KLD remains pending. No production adoption or
+full-model equivalence is claimed; defaults and live production are unchanged.
+
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
 These are bounded same-input diagnostics, not production quality acceptance.
