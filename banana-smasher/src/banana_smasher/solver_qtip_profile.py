@@ -2138,11 +2138,16 @@ def main_many(
                 if isinstance(geometry, dict)
                 else ()
             )
-            if sealed != (16, 2, 2):
+            if (
+                len(sealed) != 3
+                or sealed[0] != 16
+                or sealed[2] != 2
+                or sealed[1] not in (1, 2, 3, 4)
+            ):
                 unsupported.append((path, sealed))
                 continue
             projection = validate_qtip_projection(config["projection"])
-            batchable[(projection, (16, 2, 2))].append(path)
+            batchable[(projection, sealed)].append(path)
         if unsupported:
             detail = ", ".join(
                 f"{path.name}:{geometry}" for path, geometry in unsupported

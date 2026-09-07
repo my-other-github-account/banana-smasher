@@ -220,7 +220,7 @@ def solve_qtip_profiles(
 ) -> dict[str, Any]:
     """Solve a discoverable QTIP config set through one resident process.
 
-    ``batch_size > 1`` selects the exact K2/full16 cross-unit build path and
+    ``batch_size > 1`` selects the L16/V2, K=1..4 cross-unit build path and
     fails closed rather than falling back to serial unit solves.
     """
     from .solver_qtip_profile import main_many
