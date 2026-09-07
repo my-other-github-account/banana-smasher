@@ -177,6 +177,7 @@ def _persistent_prefix_viterbi_generic(
     HAS_OVERLAP: tl.constexpr,
     REGISTER_COSTS: tl.constexpr,
     BRANCH_UNROLL: tl.constexpr,
+    STRUCTURED_GATHER: tl.constexpr,
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -235,7 +236,19 @@ def _persistent_prefix_viterbi_generic(
         for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
             predecessor_prefix = q * Q_FACTOR + residue
             if REGISTER_COSTS:
-                predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
+                if STRUCTURED_GATHER:
+                    # K1 predecessor map is four contiguous cost rows followed
+                    # by fourfold broadcast. Select one row without an arbitrary
+                    # 16384-wide gather; nonnegative costs add only exact zeros.
+                    cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
+                    selected = tl.sum(tl.where(
+                        tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
+                    ), axis=0)
+                    predecessor_cost = tl.reshape(tl.broadcast_to(
+                        selected[:, None], (Q_FACTOR, BRANCHES)
+                    ), (PREFIXES,))
+                else:
+                    predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
             else:
                 predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
             state = q * PREFIXES + j
@@ -314,6 +327,15 @@ def resolve_viterbi_num_warps(geometry: tuple[int, int, int], requested: int | N
     return requested
 
 
+def resolve_structured_gather(geometry: tuple[int, int, int], requested: bool | None) -> bool:
+    """Experimental K1 structured predecessor row selection/broadcast."""
+    if requested is None or requested is False:
+        return False
+    if requested is not True or geometry != (16, 1, 2):
+        raise ValueError("viterbi_structured_gather requires boolean and L16/K1/V2")
+    return True
+
+
 def resolve_branch_unroll(geometry: tuple[int, int, int], requested: bool | None) -> int:
     """Opt-in constant-branch scheduling; no branch removal or arithmetic change."""
     if requested is None or requested is False:
@@ -347,6 +369,9 @@ def exact_prefix_viterbi(
     L, K, V = int(cb.L), int(cb.K), int(cb.V)
     launch_warps = resolve_viterbi_num_warps(
         (L, K, V), getattr(cb, "_banana_smasher_viterbi_num_warps", None)
+    )
+    structured_gather = resolve_structured_gather(
+        (L, K, V), getattr(cb, "_banana_smasher_structured_gather", None)
     )
     branch_unroll = resolve_branch_unroll(
         (L, K, V), getattr(cb, "_banana_smasher_branch_unroll", None)
@@ -558,6 +583,7 @@ def exact_prefix_viterbi(
             HAS_OVERLAP=overlap is not None,
             REGISTER_COSTS=K == 1,
             BRANCH_UNROLL=branch_unroll,
+            STRUCTURED_GATHER=structured_gather,
             num_warps=generic_warps,
             num_stages=1,
         )

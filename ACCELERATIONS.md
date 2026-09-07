@@ -26,9 +26,29 @@ Provenance: task `t_ebcba52e`, dedicated Spark-6; immutable experiment roots
 `/run/user/1000/t_ebcba52e_ds4_a1`, `t_ebcba52e_quality_ds4_a1`, and
 `t_ebcba52e_bp16_a1` on that host. Compact terminal receipts are retained in the
 task workspace as `DS4_A1_TERMINAL.json` and `BP16_A1_TERMINAL.json`.
-Held-out output KLD remains unmeasured; neither variant is promoted. Next causal
-step is a bounded default-K1 device/CPU cost profile, not another blind storage
-or batch-size variant. A profile's instrumented wall is never a speed denominator.
+Held-out output KLD remains unmeasured; neither variant is promoted.
+
+Further same-panel results (all opt-in, production defaults unchanged):
+- Device profile: generic Viterbi dominated two real cells (768 launches,
+  16.006374 s device). CPU synchronization is waiting, not additive opportunity.
+  Instrumented wall is never a speed denominator.
+- Warp8 vs warp16: warm four-cell 35.272042/35.248076 s vs
+  37.844731/38.561673 s (1.072938x/1.094008x). Canonical paired reconstruction
+  passes 8/8 comparisons, decoded max_abs 0, validation 8.310000 s.
+  That is a bounded numerical result, not measured output KLD or full-model proof.
+- Full branch-loop unroll4 vs rolled1, both warp8: warm four-cell
+  34.629889/34.678049 s vs 34.893328/35.640234 s (1.007607x/1.027746x),
+  24/24 builds pass canonical decode conformance. Near-neutral, not substantial.
+  Setup arms 40.015426/37.233308 s include different first-use compilation;
+  they do not establish a matched cold-build speedup.
+- Compiler metadata still reports 65,536 shared bytes for the generic gather
+  in all six compiled warp/unroll variants. Next isolated causal experiment is
+  `viterbi_structured_gather=true` for K1 only: select a contiguous predecessor
+  row, then fourfold broadcast, rather than a general full-prefix gather.
+  This is unvalidated experimental API, not production adoption.
+
+Exact receipts: `t_ebcba52e_k1warps_a1`, `t_ebcba52e_quality_k1warps_a1`,
+`t_ebcba52e_unroll_a1`; local terminal copies retain individual phases and peaks.
 
 `runtime/ACCELERATION_MANIFEST.json` is the exact machine-readable inventory. This document is its concise operator view.
 

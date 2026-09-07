@@ -35,6 +35,7 @@ def test_configured_installer_binds_storage_and_reports_workspace(monkeypatch):
     module.resolve_viterbi_num_warps=lambda *a:16
     module.resolve_backpointer_dtype=resolver()
     module.resolve_branch_unroll = lambda *a: 1
+    module.resolve_structured_gather = lambda *a: False
     monkeypatch.setitem(sys.modules,'banana_smasher',package)
     monkeypatch.setitem(sys.modules,'banana_smasher.qtip_viterbi',module)
     env=dict(Any=object,_ExactTimers=object,__package__='banana_smasher',known_qtip_geometries=lambda:{(16,1,2)},

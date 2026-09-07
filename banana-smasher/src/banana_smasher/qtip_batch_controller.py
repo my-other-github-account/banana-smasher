@@ -106,6 +106,7 @@ def main_batch(
     _common("Viterbi launch schedule", [config.get("viterbi_num_warps") for config in configs])
     _common("Viterbi backpointer storage", [config.get("viterbi_backpointer_dtype", "int32") for config in configs])
     _common("Viterbi branch unroll", [config.get("viterbi_branch_unroll", False) for config in configs])
+    _common("Viterbi structured gather", [config.get("viterbi_structured_gather", False) for config in configs])
 
     runner = solver_module._load_public_qtip_runner(runner_path, runner_sha256)
     runner.QTIP = qtip_root

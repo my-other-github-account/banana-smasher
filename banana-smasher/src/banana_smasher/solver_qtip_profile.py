@@ -1289,7 +1289,7 @@ def _install_configured_viterbi(
     actual = (int(cb.L), int(cb.K), int(cb.V))
     if actual != sealed:
         raise ValueError(f"QTIP codebook geometry mismatch: {actual} != {sealed}")
-    from .qtip_viterbi import resolve_viterbi_num_warps, resolve_backpointer_dtype, resolve_branch_unroll
+    from .qtip_viterbi import resolve_viterbi_num_warps, resolve_backpointer_dtype, resolve_branch_unroll, resolve_structured_gather
 
     requested_warps = config.get("viterbi_num_warps")
     launch_warps = resolve_viterbi_num_warps(sealed, requested_warps)
@@ -1298,6 +1298,8 @@ def _install_configured_viterbi(
     cb._banana_smasher_backpointer_dtype = storage_dtype
     branch_unroll = resolve_branch_unroll(sealed, config.get("viterbi_branch_unroll"))
     cb._banana_smasher_branch_unroll = config.get("viterbi_branch_unroll")
+    structured_gather = resolve_structured_gather(sealed, config.get("viterbi_structured_gather"))
+    cb._banana_smasher_structured_gather = structured_gather
     expected_backend = backend_for_geometry(sealed)
     backend = config.get("backend", expected_backend)
     if backend != expected_backend:
@@ -1312,6 +1314,8 @@ def _install_configured_viterbi(
         if requested_warps is not None:
             identity.update(viterbi_num_warps=launch_warps,
                             production_default=launch_warps == 16)
+        if structured_gather:
+            identity.update(viterbi_structured_gather=True, production_default=False)
         if branch_unroll != 1:
             identity.update(viterbi_branch_unroll=branch_unroll, production_default=False)
         if storage_dtype != "int32":
