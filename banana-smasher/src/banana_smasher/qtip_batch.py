@@ -68,8 +68,10 @@ class _BatchMatrixLifetime:
         }
 
 
-def block_ldl_batch(hessian: torch.Tensor, block: int) -> torch.Tensor:
-    """Return normalized block-LDL lower factors for ``[units,n,n]`` input."""
+def block_ldl_batch(
+    hessian: torch.Tensor, block: int, *, unitwise: bool = False
+) -> torch.Tensor:
+    """Normalize block-LDL; optionally retain singleton factorization arithmetic."""
     if hessian.ndim != 3 or hessian.shape[-1] != hessian.shape[-2]:
         raise ValueError("batched block LDL expects [units,n,n]")
     units, width, _ = hessian.shape
@@ -77,6 +79,13 @@ def block_ldl_batch(hessian: torch.Tensor, block: int) -> torch.Tensor:
         raise ValueError(
             f"invalid batched block LDL geometry: units={units} width={width} block={block}"
         )
+    if unitwise and units > 1:
+        normalized = torch.empty_like(hessian)
+        for unit in range(units):
+            normalized[unit : unit + 1] = block_ldl_batch(
+                hessian[unit : unit + 1], block
+            )
+        return normalized
     blocks = width // block
     lower = torch.linalg.cholesky(hessian)
     view = lower.reshape(units, blocks, block, blocks, block)
@@ -253,6 +262,8 @@ def build_qtip_batch(
     kernel_decode: Any,
     device: torch.device,
     rht_seeds: list[int],
+    *,
+    block_ldl_unitwise: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Build same-shape independent L16/V2 units (K=1..4) in one exact GPU batch."""
     units = len(source_weights)
@@ -311,7 +322,7 @@ def build_qtip_batch(
     started = time.perf_counter()
     hessian_batch = torch.stack(hessians)
     _regularize_hessian_batch(hessian_batch, 1e-2)
-    lower = block_ldl_batch(hessian_batch, 16)
+    lower = block_ldl_batch(hessian_batch, 16, unitwise=block_ldl_unitwise)
     lower.diagonal(dim1=-2, dim2=-1).zero_()
     transformed = torch.stack(transformed_rows)
     lifetime.observe(
@@ -440,7 +451,8 @@ def build_qtip_batch(
         "matrix_lifetime": lifetime.receipt(),
         "fresh_no_warm_start": True,
         "independent_unit_state": True,
-        "block_ldl_unit_axis": "batched",
+        "block_ldl_unitwise": block_ldl_unitwise,
+        "block_ldl_unit_axis": "singleton" if block_ldl_unitwise else "batched",
         "ldlq_unit_axis": "batched-and-flattened-only-at-codebook-call",
         "solver_geometry": {
             "L": int(codebook.L),

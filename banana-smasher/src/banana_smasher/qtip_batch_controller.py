@@ -36,6 +36,13 @@ def _common(label: str, values: Sequence[Any]) -> Any:
     return first
 
 
+def _block_ldl_unitwise(configs: Sequence[Mapping[str, Any]]) -> bool:
+    values = [config.get("block_ldl_unitwise", False) for config in configs]
+    if any(type(value) is not bool for value in values):
+        raise ValueError("block_ldl_unitwise must be boolean")
+    return _common("block LDL unitwise mode", values)
+
+
 def main_batch(
     config_paths: Sequence[Path],
     root: Path,
@@ -56,6 +63,7 @@ def main_batch(
     if len(set(paths)) != len(paths):
         raise ValueError("QTIP cross-unit batch contains duplicate configs")
     configs = [solver_module._read_qtip_config(path) for path in paths]
+    block_ldl_unitwise = _block_ldl_unitwise(configs)
     if any(int(config["layer"]) != layer for config in configs):
         raise ValueError("QTIP batch config layer differs from selected layer")
     if not torch.cuda.is_available():
@@ -250,6 +258,7 @@ def main_batch(
         kernel_decode,
         device,
         rht_seeds,
+        block_ldl_unitwise=block_ldl_unitwise,
     )
     torch.cuda.synchronize()
     build_wall_seconds = time.perf_counter() - build_started
@@ -466,7 +475,10 @@ def main_batch(
         "matrix_lifetime": batch_build["matrix_lifetime"],
         "accelerations": {
             "schema": "banana-smasher-qtip-active-build-accelerations-v1",
-            "active": list(_ACTIVE_BUILD_ACCELERATIONS),
+            "active": [
+                "singleton-block-LDL" if block_ldl_unitwise and name == "batched-block-LDL" else name
+                for name in _ACTIVE_BUILD_ACCELERATIONS
+            ],
             "historical_k3_alternating_branch_pruning": False,
         },
         "solver": solver_identity,

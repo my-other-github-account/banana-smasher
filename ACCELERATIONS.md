@@ -59,6 +59,22 @@ The next causal direction is to isolate batched linear-algebra numerical changes
 from execution-scheduling gains, preserving this failed candidate and all sealed
 frontiers rather than replaying them or fitting to these frozen windows.
 
+## Unitwise factorization with resident LDLQ batching (experimental)
+
+The same-input four-cell GLM causal profile isolated a numerical batch-axis
+change in block-LDL: max_abs 0.0012226838152855635, 33,338,796 changed entries
+among 67,108,864. With exactly the same lower factors and transformed weights,
+batched versus singleton LDLQ returned identical quantized values and states for
+all four cells. Profile repetitions are instrumentation, never speed evidence.
+
+The opt-in public batch config `block_ldl_unitwise: true` retains singleton
+block-LDL factorization while keeping cross-unit LDLQ and resident staging.
+Default remains false; mixed/nonboolean settings fail admission. Build receipts
+record the selected factorization axis. CPU tests cover actual factorization,
+input preservation, configuration admission and controller/builder wiring.
+This isolates the measured mechanism rather than changing frozen output gates;
+physical speed, paired reconstruction and held-out acceptance are still required.
+
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
 These are bounded same-input diagnostics, not production quality acceptance.
