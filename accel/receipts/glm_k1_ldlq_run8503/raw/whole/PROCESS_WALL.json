@@ -1,0 +1,27 @@
+[
+  {
+    "arm": "old1",
+    "returncode": 0,
+    "whole_seconds": 20.981717087997822
+  },
+  {
+    "arm": "new1",
+    "returncode": 0,
+    "whole_seconds": 18.063474555994617
+  },
+  {
+    "arm": "new2",
+    "returncode": 0,
+    "whole_seconds": 15.296070753000095
+  },
+  {
+    "arm": "old2",
+    "returncode": 0,
+    "whole_seconds": 19.400386440000148
+  },
+  {
+    "arm": "validate",
+    "returncode": 0,
+    "whole_seconds": 3.401335189002566
+  }
+]

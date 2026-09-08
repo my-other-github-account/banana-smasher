@@ -1,0 +1,677 @@
+{
+  "artifact": "QTIP_UNIT.pt",
+  "artifact_sha256": "5b00525aafb05856117dbd89716c8902c6925ce8f06608aad3523d48ba6c55c3",
+  "assignment_sha256": "210c9bec8f3d548f5d64e0611b69cb36a90a59cfbc2ddfc97bebb3d783599f96",
+  "basis_gate": {
+    "index_path": "model.safetensors.index.json",
+    "index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "schema": "banana-smasher-qtip-basis-gate-v1",
+    "shards_manifest": "SHARDS.json",
+    "shards_manifest_sha256": "31ef8a1205420651627c01f12eb19066fe9ff488690c6447188aa5a8217aaca5",
+    "status": "PASS"
+  },
+  "build": {
+    "batch": {
+      "batch_id": "65ec094d25f23c28",
+      "batch_units": 1,
+      "batch_wall_seconds": 8.7430052109994,
+      "implementation": "current-k1-full16-cross-unit-batched-ldlq-v1",
+      "independent_unit_state": true,
+      "matrix_lifetime": {
+        "batch_units": 1,
+        "events": [
+          {
+            "live_fp32_matrices": [
+              "hessian",
+              "lower",
+              "transformed"
+            ],
+            "live_fp32_matrix_equivalents": 2.0,
+            "phase": "batched_ldl_ready",
+            "unique_storage_count": 3
+          },
+          {
+            "live_fp32_matrices": [
+              "lower",
+              "quantized",
+              "transformed"
+            ],
+            "live_fp32_matrix_equivalents": 2.5,
+            "phase": "batched_ldlq_ready",
+            "unique_storage_count": 3
+          },
+          {
+            "live_fp32_matrices": [],
+            "live_fp32_matrix_equivalents": 0.0,
+            "phase": "quantized_released_before_pack",
+            "unique_storage_count": 0
+          }
+        ],
+        "max_live_fp32_matrix_equivalents": 2.5,
+        "reconstruction_source": "canonical-packed-bytes",
+        "released_after_ldlq": [
+          "lower",
+          "transformed"
+        ],
+        "released_before_pack": [
+          "lower",
+          "transformed",
+          "quantized"
+        ],
+        "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+        "unit_matrix_shape": [
+          4096,
+          2048
+        ]
+      },
+      "mean_build_wall_seconds": 8.7430052109994,
+      "member_index": 0,
+      "phase_seconds": {
+        "batched_block_ldl": 0.029773271002341062,
+        "batched_ldlq": 7.899395499000093,
+        "canonical_per_unit_pack": 0.1615690460021142,
+        "hessian_forward_fwht": 0.05782734500098741,
+        "packed_decode_conformance": 0.5524188760027755
+      },
+      "schema": "banana-smasher-qtip-cross-unit-build-v1",
+      "solver_geometry": {
+        "K": 1,
+        "L": 16,
+        "V": 2,
+        "branch_sampling": "full",
+        "branches_per_prefix": 4,
+        "retained_prefix_costs": 16384
+      }
+    },
+    "canonical_pack": {
+      "canonical_pack_roundtrip_exact": true,
+      "canonical_pack_roundtrip_fraction": 1.0,
+      "canonical_packed_dtype": "torch.uint16",
+      "canonical_packed_sha256": "44a0dedd00a71ce4e0dafcd3dd354f6aa7f89ec5a41b8bd79f1553d39046be0e",
+      "canonical_packed_shape": [
+        32768,
+        16
+      ],
+      "canonical_unpack_state_sha256": "d08bf21934fa8b7fcb665e735f3b33f97c546790970becac94d9e9ebf4f8d25e",
+      "input_state_sha256": "d08bf21934fa8b7fcb665e735f3b33f97c546790970becac94d9e9ebf4f8d25e",
+      "kernel_packed_bytes": 1048576,
+      "kernel_packed_sha256": "210c9bec8f3d548f5d64e0611b69cb36a90a59cfbc2ddfc97bebb3d783599f96",
+      "kernel_packed_shape": [
+        32768,
+        16
+      ],
+      "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+      "tile_states_shape": [
+        32768,
+        128
+      ]
+    },
+    "fit_route_mass": 17.0009765625,
+    "fit_rows": 65,
+    "packed_decode": {
+      "conformance_comparison": "cpu",
+      "fp16_bit_equal_fraction": 1.0,
+      "fp16_bit_exact": true,
+      "geometry": {
+        "K": 1,
+        "L": 16,
+        "V": 2,
+        "decode_mode": "quantlut_sym",
+        "td_x": 16,
+        "td_y": 16,
+        "tlut_bits": 9
+      },
+      "max_abs_fp32_vs_stored_fp16": 8.994340896606445e-05,
+      "path": "existing geometry-bound canonical packed-wire consumer",
+      "runtime_check_performed": true,
+      "shape": [
+        4096,
+        2048
+      ]
+    },
+    "phase_seconds": {
+      "batched_block_ldl": 0.029773271002341062,
+      "batched_ldlq": 7.899395499000093,
+      "canonical_per_unit_pack": 0.1615690460021142,
+      "hessian_forward_fwht": 0.05782734500098741,
+      "packed_decode_conformance": 0.5524188760027755
+    },
+    "quant_seconds": 7.899395499000093,
+    "rht_seed": 5413548984517567745,
+    "schema": "banana-smasher-qtip-cross-unit-build-member-v1",
+    "status": "PASS"
+  },
+  "config_sha256": "5fd8bce2679e0944ddae94bd4875bee2c89ac21761810d7abc45eca3ff5369f4",
+  "cross_unit_batch": {
+    "batch_id": "65ec094d25f23c28",
+    "batch_units": 1,
+    "config_names": [
+      "CONFIG.json"
+    ],
+    "member_index": 0,
+    "process": {
+      "pid": 1202945,
+      "startticks": 6039088
+    }
+  },
+  "epoch_ended": 1788895347.3313386,
+  "epoch_started": 1788895336.8579044,
+  "expert": 145,
+  "fit_source": {
+    "mode": "source-fused13",
+    "source_weight": {
+      "config_sha256": "bb8f01c42cb92a52ca72e65afb4d5bd8d11aef083cd210e8de25dfb904f23e9f",
+      "index_path": "model.safetensors.index.json",
+      "index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "schema": "banana-smasher.glm-fp8-source.v1",
+      "selected_source": {
+        "coverage": "selected-tensors-only",
+        "descriptor_sha256": "bd17f1dc279430d09e49d56d8591e4181f2bb91d2f05b058f76650bdcc3a3c86",
+        "index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+        "manifest_sha256": "e84b1d8fe257d741f0eeb02f30f7e16fee4404ef9f18b2f35ed28b38d7ad54a9",
+        "schema": "banana-smasher.selected-tensor-source.v1"
+      },
+      "shards": [
+        {
+          "dtype": "F8_E4M3",
+          "header_sha256": "6c623c52b77a448ee4687936f609360106ff1a94ea425353d865708f3799aa94",
+          "offset": 2227002152,
+          "parent_bytes": 5364341544,
+          "parent_path": "model-00031-of-00062.safetensors",
+          "payload_bytes": 8388608,
+          "payload_path": "model.language_model.layers.3.mlp.experts.145.gate_proj.weight.bin",
+          "payload_sha256": "6d82ec7f09314b7c4f3e6f2ebbca0eb81236b66699c2ef47973bd61ecec8d823",
+          "scale_source": {
+            "dtype": "F32",
+            "header_sha256": "6c623c52b77a448ee4687936f609360106ff1a94ea425353d865708f3799aa94",
+            "offset": 682536,
+            "parent_bytes": 5364341544,
+            "parent_path": "model-00031-of-00062.safetensors",
+            "payload_bytes": 2048,
+            "payload_path": "model.language_model.layers.3.mlp.experts.145.gate_proj.weight_scale_inv.bin",
+            "payload_sha256": "22d441ed8361b3fe5bd28e4080444f51d42c050f02318a938709d805cf8f509e",
+            "shape": [
+              16,
+              32
+            ],
+            "storage": "selected-tensor-payload",
+            "weight_key": "model.language_model.layers.3.mlp.experts.145.gate_proj.weight_scale_inv"
+          },
+          "shape": [
+            2048,
+            4096
+          ],
+          "storage": "selected-tensor-payload",
+          "transform": {
+            "block_shape": [
+              128,
+              128
+            ],
+            "kind": "float8_e4m3_blockwise_scale_inv",
+            "output_quantity": "descaled_weight",
+            "scale_name": "model.language_model.layers.3.mlp.experts.145.gate_proj.weight_scale_inv",
+            "scale_shape": [
+              16,
+              32
+            ]
+          },
+          "weight_key": "model.language_model.layers.3.mlp.experts.145.gate_proj.weight"
+        },
+        {
+          "dtype": "F8_E4M3",
+          "header_sha256": "6c623c52b77a448ee4687936f609360106ff1a94ea425353d865708f3799aa94",
+          "offset": 2235390760,
+          "parent_bytes": 5364341544,
+          "parent_path": "model-00031-of-00062.safetensors",
+          "payload_bytes": 8388608,
+          "payload_path": "model.language_model.layers.3.mlp.experts.145.up_proj.weight.bin",
+          "payload_sha256": "b1757f911cdbee1d07711a2d08ff547b29c1e3b25401f35c31739c71cee10438",
+          "scale_source": {
+            "dtype": "F32",
+            "header_sha256": "6c623c52b77a448ee4687936f609360106ff1a94ea425353d865708f3799aa94",
+            "offset": 684584,
+            "parent_bytes": 5364341544,
+            "parent_path": "model-00031-of-00062.safetensors",
+            "payload_bytes": 2048,
+            "payload_path": "model.language_model.layers.3.mlp.experts.145.up_proj.weight_scale_inv.bin",
+            "payload_sha256": "b76bfc39b3e83748b4b6c2fecff9965189aa87a4cb49b832ae9a0985dd00ec0b",
+            "shape": [
+              16,
+              32
+            ],
+            "storage": "selected-tensor-payload",
+            "weight_key": "model.language_model.layers.3.mlp.experts.145.up_proj.weight_scale_inv"
+          },
+          "shape": [
+            2048,
+            4096
+          ],
+          "storage": "selected-tensor-payload",
+          "transform": {
+            "block_shape": [
+              128,
+              128
+            ],
+            "kind": "float8_e4m3_blockwise_scale_inv",
+            "output_quantity": "descaled_weight",
+            "scale_name": "model.language_model.layers.3.mlp.experts.145.up_proj.weight_scale_inv",
+            "scale_shape": [
+              16,
+              32
+            ]
+          },
+          "weight_key": "model.language_model.layers.3.mlp.experts.145.up_proj.weight"
+        }
+      ]
+    }
+  },
+  "fit_windows": 16,
+  "fresh_no_warm_start": true,
+  "glm_source_closure": {
+    "dependencies": {
+      "numpy": "2.3.5",
+      "safetensors": "0.8.0",
+      "torch": "2.11.0",
+      "triton": "3.6.0"
+    },
+    "files": {
+      "glm_qtip_producers": {
+        "path": "glm_qtip_producers.py",
+        "sha256": "52178ff06017aa7cacade228ef83172bdf0a742682ed47999b368c6679e894f4"
+      },
+      "glm_qtip_source_adapter": {
+        "path": "glm_qtip_source_adapter.py",
+        "sha256": "bdd830c5db5c403496c8100a33c2d4991de5e2d30bf87c63cdfb784e3a7f5ac5"
+      },
+      "hf_moe": {
+        "path": "hf_moe.py",
+        "sha256": "8546957dcb2b31d2868cc0bbfc6fa1a3e8519a38b70ffcf9ad34f8f31136ecc5"
+      },
+      "qtip1": {
+        "path": "qtip1.py",
+        "sha256": "0ef6e1f65ca96db9cc24783b599d0c0894fb8a8956f12a44deef37453ba92110"
+      },
+      "qtip_batch": {
+        "path": "qtip_batch.py",
+        "sha256": "060e59a32eba7f8a777d00c5b3a12fdbf8785e452ea372f928fc773784646578"
+      },
+      "qtip_batch_controller": {
+        "path": "qtip_batch_controller.py",
+        "sha256": "b1552426a7da67ebacf0fdcdba9f8b4808d03793512e2b979d6556fafe43355e"
+      },
+      "qtip_kernel_cache": {
+        "path": "qtip_kernel_cache.py",
+        "sha256": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066"
+      },
+      "qtip_rings": {
+        "path": "qtip_rings.py",
+        "sha256": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1"
+      },
+      "qtip_rings.json": {
+        "path": "qtip_rings.json",
+        "sha256": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52"
+      },
+      "qtip_runner": {
+        "path": "qtip_runner.py",
+        "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+      },
+      "qtip_viterbi": {
+        "path": "qtip_viterbi.py",
+        "sha256": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7"
+      },
+      "runtime.bitshift": {
+        "path": "bitshift.py",
+        "sha256": "af170eabb6cd8e47409b236a2570c1c2c195f82ab298f5da49b3e3c86b11f8b2"
+      },
+      "runtime.kernel_decompress": {
+        "path": "qtip_kernel_decompress.py",
+        "sha256": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df"
+      },
+      "runtime.ldlq": {
+        "path": "ldlq.py",
+        "sha256": "793e364fbe91e5b28740d0fc81a6e8618daa6a6a8ce5adbf9b877ba2e46e5bbe"
+      },
+      "runtime.math_utils": {
+        "path": "math_utils.py",
+        "sha256": "65d50936e87b2c266806de201dea89b2d74a2ed38e33ef462bd8c3aafb333844"
+      },
+      "selected_tensor_source": {
+        "path": "selected_tensor_source.py",
+        "sha256": "ba3dee71decbf862ea5200944df1e8b1061163dda0a038c7e2a896bc40136cc6"
+      },
+      "solver_qtip_profile": {
+        "path": "solver_qtip_profile.py",
+        "sha256": "57f969da7dc718996d8e366110a895c8a332ef50f219f84c02f0e5ec7577f252"
+      }
+    },
+    "identity": {
+      "dependencies": {
+        "numpy": "2.3.5",
+        "safetensors": "0.8.0",
+        "torch": "2.11.0",
+        "triton": "3.6.0"
+      },
+      "files": {
+        "glm_qtip_producers": "52178ff06017aa7cacade228ef83172bdf0a742682ed47999b368c6679e894f4",
+        "glm_qtip_source_adapter": "bdd830c5db5c403496c8100a33c2d4991de5e2d30bf87c63cdfb784e3a7f5ac5",
+        "hf_moe": "8546957dcb2b31d2868cc0bbfc6fa1a3e8519a38b70ffcf9ad34f8f31136ecc5",
+        "qtip1": "0ef6e1f65ca96db9cc24783b599d0c0894fb8a8956f12a44deef37453ba92110",
+        "qtip_batch": "060e59a32eba7f8a777d00c5b3a12fdbf8785e452ea372f928fc773784646578",
+        "qtip_batch_controller": "b1552426a7da67ebacf0fdcdba9f8b4808d03793512e2b979d6556fafe43355e",
+        "qtip_kernel_cache": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+        "qtip_rings": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+        "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+        "qtip_runner": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c",
+        "qtip_viterbi": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7",
+        "runtime.bitshift": "af170eabb6cd8e47409b236a2570c1c2c195f82ab298f5da49b3e3c86b11f8b2",
+        "runtime.kernel_decompress": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df",
+        "runtime.ldlq": "793e364fbe91e5b28740d0fc81a6e8618daa6a6a8ce5adbf9b877ba2e46e5bbe",
+        "runtime.math_utils": "65d50936e87b2c266806de201dea89b2d74a2ed38e33ef462bd8c3aafb333844",
+        "selected_tensor_source": "ba3dee71decbf862ea5200944df1e8b1061163dda0a038c7e2a896bc40136cc6",
+        "solver_qtip_profile": "57f969da7dc718996d8e366110a895c8a332ef50f219f84c02f0e5ec7577f252"
+      },
+      "interpreter": {
+        "sha256": "1a301bb1763139d48ae638d97b11edf56de6cd185e1b054eae6dc28c271c0c5f",
+        "version": "3.12.3"
+      },
+      "schema": "banana-smasher.glm-import-closure.v1"
+    },
+    "interpreter": {
+      "executable": "python",
+      "sha256": "1a301bb1763139d48ae638d97b11edf56de6cd185e1b054eae6dc28c271c0c5f",
+      "version": "3.12.3"
+    },
+    "schema": "banana-smasher.glm-import-closure.v1",
+    "sha256": "f794c009e4f1a580eed1406045bdca2f718aecb91abd34706676a72945cf0f27"
+  },
+  "hessian_layer_manifest": {
+    "bytes": 12688,
+    "capture_root": "fitcaptures",
+    "manifest_capture_root": "fitcaptures",
+    "path": "HESSIAN_MANIFEST.json",
+    "relocated_capture_root": false,
+    "sha256": "7b2949f74932bb10c7cb9785c5404e5224be3594476b2f140b3bf8ee97f104ca",
+    "windows": 16
+  },
+  "kernel_cache": {
+    "artifacts": [
+      {
+        "bytes": 71776,
+        "path": "artifacts/triton/ALI75V7ANCK34MAQBFGY7ADHHAFHXWKKS7Y3UYIXODABJPCC4GZQ/__triton_launcher.cpython-312-aarch64-linux-gnu.so",
+        "sha256": "b6bdf7f93b1fb3a697c9b2c3179b2a1cab4e2b1916f2f645430e332b29953081"
+      },
+      {
+        "bytes": 2032,
+        "path": "artifacts/triton/GETZFOXSL54AOOWBR4TWIZYJMF5LHW64OXB4JD4I3OPTCKHJDSNQ/__grp___persistent_prefix_viterbi_generic.json",
+        "sha256": "a5664a376154615f6efd6c4e7c292f5aaa4706b5dfb3d731c6ca7ae471ae778a"
+      },
+      {
+        "bytes": 163864,
+        "path": "artifacts/triton/GETZFOXSL54AOOWBR4TWIZYJMF5LHW64OXB4JD4I3OPTCKHJDSNQ/_persistent_prefix_viterbi_generic.cubin",
+        "sha256": "2ac9024d8b554112f45642fa270f8b04e98e6073d49c211356f72cb5ad8f2297"
+      },
+      {
+        "bytes": 1136,
+        "path": "artifacts/triton/GETZFOXSL54AOOWBR4TWIZYJMF5LHW64OXB4JD4I3OPTCKHJDSNQ/_persistent_prefix_viterbi_generic.json",
+        "sha256": "ec7dd60893124eecc69434f8fe65e5579b710ef3d5a41fc58c9e8c892eaf49c2"
+      },
+      {
+        "bytes": 229004,
+        "path": "artifacts/triton/GETZFOXSL54AOOWBR4TWIZYJMF5LHW64OXB4JD4I3OPTCKHJDSNQ/_persistent_prefix_viterbi_generic.llir",
+        "sha256": "c79e618880163d3d1b231c1d6bf2b23c1a6fe7c9d403efcbe80d3d5b43fbc442"
+      },
+      {
+        "bytes": 202540,
+        "path": "artifacts/triton/GETZFOXSL54AOOWBR4TWIZYJMF5LHW64OXB4JD4I3OPTCKHJDSNQ/_persistent_prefix_viterbi_generic.ptx",
+        "sha256": "829f205165a25ec2f30fa31f3e8550d1499fe8248e6551318c671da8543be67a"
+      },
+      {
+        "bytes": 155150,
+        "path": "artifacts/triton/GETZFOXSL54AOOWBR4TWIZYJMF5LHW64OXB4JD4I3OPTCKHJDSNQ/_persistent_prefix_viterbi_generic.source",
+        "sha256": "6837b560d8848bfba66f03f836c21e552ba9a2c6007f2e626def20d580131458"
+      },
+      {
+        "bytes": 112773,
+        "path": "artifacts/triton/GETZFOXSL54AOOWBR4TWIZYJMF5LHW64OXB4JD4I3OPTCKHJDSNQ/_persistent_prefix_viterbi_generic.ttgir",
+        "sha256": "11f6a20bb786b413fee0da7e44c025bee7bb6a318d7c47b2ca013d550c64dbd4"
+      },
+      {
+        "bytes": 111184,
+        "path": "artifacts/triton/GETZFOXSL54AOOWBR4TWIZYJMF5LHW64OXB4JD4I3OPTCKHJDSNQ/_persistent_prefix_viterbi_generic.ttir",
+        "sha256": "720f017af8b73d26a4241d791f305559c937ca5c8d02b72d78f42a585cff48e9"
+      },
+      {
+        "bytes": 2032,
+        "path": "artifacts/triton/LCYMPNNU5GS6UFSVBDKRFPYR3D77BEYHF5XXFNNVVWBLJJYANSNQ/__grp___persistent_prefix_viterbi_generic.json",
+        "sha256": "c24780609672641ad5d5bd6f422449b49e2ca3daa19d4e119aedfe3e2a3c4ba0"
+      },
+      {
+        "bytes": 139184,
+        "path": "artifacts/triton/LCYMPNNU5GS6UFSVBDKRFPYR3D77BEYHF5XXFNNVVWBLJJYANSNQ/_persistent_prefix_viterbi_generic.cubin",
+        "sha256": "3bbd2f0864a0b27b352f528a08a921c549af3c22bc7a0e70af0617341334fbd9"
+      },
+      {
+        "bytes": 1136,
+        "path": "artifacts/triton/LCYMPNNU5GS6UFSVBDKRFPYR3D77BEYHF5XXFNNVVWBLJJYANSNQ/_persistent_prefix_viterbi_generic.json",
+        "sha256": "c051b8093a1f206e4e04a503b5cf7cfa7a6a95631e4aed78b529f50985b5ffcb"
+      },
+      {
+        "bytes": 224156,
+        "path": "artifacts/triton/LCYMPNNU5GS6UFSVBDKRFPYR3D77BEYHF5XXFNNVVWBLJJYANSNQ/_persistent_prefix_viterbi_generic.llir",
+        "sha256": "25ba9d4e1b509dbbff061bd3c071f2cee3bf116c9f9da86105561684bd5d2cfb"
+      },
+      {
+        "bytes": 137080,
+        "path": "artifacts/triton/LCYMPNNU5GS6UFSVBDKRFPYR3D77BEYHF5XXFNNVVWBLJJYANSNQ/_persistent_prefix_viterbi_generic.ptx",
+        "sha256": "4d11a0f7e4c418ca1424834197e4f73cc38d5bda8011b990510704e022d4c16e"
+      },
+      {
+        "bytes": 149264,
+        "path": "artifacts/triton/LCYMPNNU5GS6UFSVBDKRFPYR3D77BEYHF5XXFNNVVWBLJJYANSNQ/_persistent_prefix_viterbi_generic.source",
+        "sha256": "d169863bfe3f20cf887d24612f327ca1615986a43602ae23af7bd6d252d12f4c"
+      },
+      {
+        "bytes": 110554,
+        "path": "artifacts/triton/LCYMPNNU5GS6UFSVBDKRFPYR3D77BEYHF5XXFNNVVWBLJJYANSNQ/_persistent_prefix_viterbi_generic.ttgir",
+        "sha256": "c85ec21723716bec9ea4d2ca8ec375ad6e1b395ec50715e532f180fa0578168b"
+      },
+      {
+        "bytes": 107926,
+        "path": "artifacts/triton/LCYMPNNU5GS6UFSVBDKRFPYR3D77BEYHF5XXFNNVVWBLJJYANSNQ/_persistent_prefix_viterbi_generic.ttir",
+        "sha256": "694d62be8abb50d8d8ef96b72c9ea243000a46318ddc85b6bce4ec81220008d5"
+      },
+      {
+        "bytes": 73880,
+        "path": "artifacts/triton/YK4VZ2BI4GMJSPC3BQ2UKVAY3EVEJ2V5Y3JAVA4MQ4AUGAW7YFUA/cuda_utils.cpython-312-aarch64-linux-gnu.so",
+        "sha256": "2f4defaf8ff6fc2756ee40befa5a6d08d4d8bca5967b5c06bddf97d8c3e8685f"
+      }
+    ],
+    "cache_hit": false,
+    "cache_key_sha256": "4e25e2ce033ee08208d5549ccc2776311ab5bb4a6c5575f59ab55bbe399ff369",
+    "memory_preflight": {
+      "available_bytes": 20672499712,
+      "device_free_bytes": 20672499712,
+      "device_total_bytes": 130663165952,
+      "host_available_bytes": 110337077248,
+      "meminfo_path": "meminfo",
+      "source": "cuda:mem_get_info"
+    },
+    "plan": {
+      "aot": {
+        "architecture": "runtime-device",
+        "cache": "sha256-pinned",
+        "compile": "first-use-or-explicit",
+        "producer": "smash kernels build --tier qtip --bpw 1.00"
+      },
+      "architecture": "sm_121-NVIDIA-GB10",
+      "bpw": "1.00",
+      "cache_key_sha256": "4e25e2ce033ee08208d5549ccc2776311ab5bb4a6c5575f59ab55bbe399ff369",
+      "codebook": {
+        "decode_mode": "quantlut_sym",
+        "family": "bitshift",
+        "pack_contract": {
+          "dtype": "uint16",
+          "input_tile": [
+            16,
+            16
+          ],
+          "output_rows": "input_tile_grid",
+          "packed_words_per_tile_per_k": 16
+        },
+        "td_x": 16,
+        "td_y": 16,
+        "tlut_binding": "run-manifest",
+        "tlut_bits": 9
+      },
+      "recipes": [
+        {
+          "backend": "persistent-prefix-generic-aot-v1",
+          "compile_constants": {
+            "branch_bits": 2,
+            "states": 65536,
+            "steps": 128
+          },
+          "compile_variants": [
+            {
+              "has_overlap": false
+            },
+            {
+              "has_overlap": true
+            }
+          ],
+          "execution_contract": {
+            "exact_identity": "discrete-trellis",
+            "host_launches_per_call": 1,
+            "target_seconds_per_unit": 2.2,
+            "transition_loop": "device-resident"
+          },
+          "geometry": {
+            "K": 1,
+            "L": 16,
+            "V": 2
+          }
+        }
+      ],
+      "schema": "banana-smasher-qtip-kernel-build-plan-v1",
+      "source_sha256": {
+        "qtip_kernel_cache.py": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+        "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+        "qtip_rings.py": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+        "qtip_viterbi.py": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7",
+        "trellis_v2/__init__.py": "da9134ea55ca03963baf598a3b3568850cc6be35bdcc1e3d2490253521ab9cb4",
+        "trellis_v2/csrc/binding_exact.cpp": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+        "trellis_v2/csrc/trellis_v2_exact.cu": "07d49a0f9ecbb29607668b72bd1065a76f61f33cc8578205a68836c893b7da09",
+        "trellis_v2/exact.py": "7c4a98d74d7f68db8166df541424e76c0118fe4901605a7cb3b080b7fe8f5a40",
+        "trellis_v2/setup.py": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2"
+      },
+      "tier": "qtip@1.00"
+    },
+    "receipt": "QTIP_KERNEL_RECEIPT.json",
+    "schema": "banana-smasher-qtip-kernel-cache-v1",
+    "status": "PASS"
+  },
+  "layer": 3,
+  "peak_cuda_allocated_bytes": 2377943552,
+  "peak_cuda_reserved_bytes": 2426404864,
+  "phase_seconds": {
+    "artifact_fsync": 0.0010203920028288849,
+    "kernel_prepare": 1.2654711409995798,
+    "packed_decode_conformance": 0.5524188760027755,
+    "progress_receipt_fsync": 0.0,
+    "receipt_fsync": 0.0004915230019832961,
+    "remainder": 0.0,
+    "solve": 8.743122747997404,
+    "solve_core_excluding_packed_decode_conformance": 8.190703871994629,
+    "staging": 0.46107110099546844
+  },
+  "projection": "down",
+  "public_command_config": "CONFIG.json",
+  "rht_seed": 5413548984517567745,
+  "rht_seed_policy": "qtip-rht-manifest-v1",
+  "schema": "banana-smasher-qtip-solve-v1",
+  "solve_seconds": 8.743122747997404,
+  "solver": {
+    "K": 1,
+    "L": 16,
+    "V": 2,
+    "best_state_dtype": "int32",
+    "branch_sampling": "full",
+    "branches_per_prefix": 4,
+    "full_states": 65536,
+    "implementation": "persistent-prefix-generic-aot-v1",
+    "min_exact_quality": 1.0,
+    "ordering": "one persistent launch per independent sequence batch",
+    "production_default": false,
+    "retained_prefix_costs": 16384,
+    "steps": 128,
+    "viterbi_branch_unroll": 4,
+    "viterbi_num_warps": 8
+  },
+  "source_weight": {
+    "config_sha256": "bb8f01c42cb92a52ca72e65afb4d5bd8d11aef083cd210e8de25dfb904f23e9f",
+    "index_path": "model.safetensors.index.json",
+    "index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "schema": "banana-smasher.glm-fp8-source.v1",
+    "selected_source": {
+      "coverage": "selected-tensors-only",
+      "descriptor_sha256": "bd17f1dc279430d09e49d56d8591e4181f2bb91d2f05b058f76650bdcc3a3c86",
+      "index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "manifest_sha256": "e84b1d8fe257d741f0eeb02f30f7e16fee4404ef9f18b2f35ed28b38d7ad54a9",
+      "schema": "banana-smasher.selected-tensor-source.v1"
+    },
+    "shards": [
+      {
+        "dtype": "F8_E4M3",
+        "header_sha256": "6c623c52b77a448ee4687936f609360106ff1a94ea425353d865708f3799aa94",
+        "offset": 2218613544,
+        "parent_bytes": 5364341544,
+        "parent_path": "model-00031-of-00062.safetensors",
+        "payload_bytes": 8388608,
+        "payload_path": "model.language_model.layers.3.mlp.experts.145.down_proj.weight.bin",
+        "payload_sha256": "739759ad7bc915245781ec7b296361f6b54064008e5721c039ccce1a96c967ad",
+        "scale_source": {
+          "dtype": "F32",
+          "header_sha256": "6c623c52b77a448ee4687936f609360106ff1a94ea425353d865708f3799aa94",
+          "offset": 680488,
+          "parent_bytes": 5364341544,
+          "parent_path": "model-00031-of-00062.safetensors",
+          "payload_bytes": 2048,
+          "payload_path": "model.language_model.layers.3.mlp.experts.145.down_proj.weight_scale_inv.bin",
+          "payload_sha256": "b62ecc5a93cc788fff06d2bb939727800625239ef3ba47db533072d479c2c523",
+          "shape": [
+            32,
+            16
+          ],
+          "storage": "selected-tensor-payload",
+          "weight_key": "model.language_model.layers.3.mlp.experts.145.down_proj.weight_scale_inv"
+        },
+        "shape": [
+          4096,
+          2048
+        ],
+        "storage": "selected-tensor-payload",
+        "transform": {
+          "block_shape": [
+            128,
+            128
+          ],
+          "kind": "float8_e4m3_blockwise_scale_inv",
+          "output_quantity": "descaled_weight",
+          "scale_name": "model.language_model.layers.3.mlp.experts.145.down_proj.weight_scale_inv",
+          "scale_shape": [
+            32,
+            16
+          ]
+        },
+        "weight_key": "model.language_model.layers.3.mlp.experts.145.down_proj.weight"
+      }
+    ]
+  },
+  "staging_seconds": 0.46107110099546844,
+  "status": "PASS",
+  "total_wall_seconds": 10.47343370699673,
+  "transition_decisions": 33292288,
+  "viterbi_launches": 256,
+  "viterbi_sequences": 65536
+}

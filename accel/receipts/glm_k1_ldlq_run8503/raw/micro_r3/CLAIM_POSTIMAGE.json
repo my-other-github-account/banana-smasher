@@ -1,0 +1,26 @@
+{
+  "claim": {
+    "task_id": "t_ebcba52e",
+    "pid": 1192805,
+    "pgid": 1192805,
+    "start_ticks": 6015866,
+    "argv": [
+      "/dev/shm/t_ebcba52e_ldlq_run8503/supervisor_run8503.py",
+      "micro_r3",
+      "micro_r3_run8503.py",
+      "c7c6461b76728be452fff767942a5e33e803235c4ce6dd57affc76d0572a3c4d"
+    ],
+    "receipt": "/dev/shm/t_ebcba52e_ldlq_run8503/micro_r3/IDENTITY.json",
+    "script_sha256": "016906117b91bf8f87e2b48f168c6eda67370782fff3e52f60b1e5d8a4bb6209",
+    "owner": "t_ebcba52e",
+    "state": "CLAIMED",
+    "status": "CLAIMED",
+    "host": "spark-6",
+    "stage": "micro_r3",
+    "mission": "/dev/shm/t_ebcba52e_ldlq_run8503/micro_r3",
+    "expiry_unix": 1788902302.1106548,
+    "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "exact_cas_from_sha256": "c7c6461b76728be452fff767942a5e33e803235c4ce6dd57affc76d0572a3c4d"
+  },
+  "sha256": "18d74f5da4acebd8989e18ffb6b3d10f39adf6249166178452b8e6ff37d44828"
+}

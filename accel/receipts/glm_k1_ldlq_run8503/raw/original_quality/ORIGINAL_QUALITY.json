@@ -1,0 +1,1654 @@
+{
+  "rows": [
+    {
+      "arm": "old1",
+      "phase": "cold",
+      "artifact_sha256": "87cc72a5e794467aad7aeceadfdd5e3c1038e0ecb9e2373bd71cbc7ba6472cbb",
+      "original_artifact_sha256": "a202fc9d67cd75e7db8d1f5db95d2de502ef0e67f9bf0a69c6ddd1a6e753ee0a",
+      "max_abs_vs_original": 0.0,
+      "same_decoded": true,
+      "metrics": {
+        "rows": 65,
+        "route_mass": 17.0009765625,
+        "windows": [
+          {
+            "window": 0,
+            "rows": 4,
+            "mass": 0.560546875,
+            "ref": 19.884445190429688,
+            "base": 0.3097146153450012,
+            "qtip": 0.3097146153450012,
+            "ref_unweighted": 141.92221069335938,
+            "base_unweighted": 2.2083892822265625,
+            "qtip_unweighted": 2.2083892822265625
+          },
+          {
+            "window": 1,
+            "rows": 5,
+            "mass": 1.048828125,
+            "ref": 211.5533447265625,
+            "base": 0.9722330570220947,
+            "qtip": 0.9722330570220947,
+            "ref_unweighted": 596.321044921875,
+            "base_unweighted": 3.6632843017578125,
+            "qtip_unweighted": 3.6632843017578125
+          },
+          {
+            "window": 2,
+            "rows": 1,
+            "mass": 0.2236328125,
+            "ref": 5.118083477020264,
+            "base": 0.09684793651103973,
+            "qtip": 0.09684793651103973,
+            "ref_unweighted": 22.8861026763916,
+            "base_unweighted": 0.43306678533554077,
+            "qtip_unweighted": 0.43306678533554077
+          },
+          {
+            "window": 3,
+            "rows": 2,
+            "mass": 0.232421875,
+            "ref": 19.78913116455078,
+            "base": 0.2180209755897522,
+            "qtip": 0.2180209755897522,
+            "ref_unweighted": 181.1916046142578,
+            "base_unweighted": 1.9617571830749512,
+            "qtip_unweighted": 1.9617571830749512
+          },
+          {
+            "window": 4,
+            "rows": 3,
+            "mass": 0.49169921875,
+            "ref": 7.7256388664245605,
+            "base": 0.17126312851905823,
+            "qtip": 0.17126312851905823,
+            "ref_unweighted": 52.857765197753906,
+            "base_unweighted": 1.155301570892334,
+            "qtip_unweighted": 1.155301570892334
+          },
+          {
+            "window": 5,
+            "rows": 8,
+            "mass": 2.73828125,
+            "ref": 3300.28271484375,
+            "base": 10.527372360229492,
+            "qtip": 10.527372360229492,
+            "ref_unweighted": 2621.69873046875,
+            "base_unweighted": 11.207334518432617,
+            "qtip_unweighted": 11.207334518432617
+          },
+          {
+            "window": 6,
+            "rows": 1,
+            "mass": 0.169921875,
+            "ref": 4.668635368347168,
+            "base": 0.08105207234621048,
+            "qtip": 0.08105207234621048,
+            "ref_unweighted": 27.475189208984375,
+            "base_unweighted": 0.4769960641860962,
+            "qtip_unweighted": 0.4769960641860962
+          },
+          {
+            "window": 7,
+            "rows": 2,
+            "mass": 0.5712890625,
+            "ref": 89.39094543457031,
+            "base": 0.6478756070137024,
+            "qtip": 0.6478756070137024,
+            "ref_unweighted": 233.759521484375,
+            "base_unweighted": 1.8382494449615479,
+            "qtip_unweighted": 1.8382494449615479
+          },
+          {
+            "window": 8,
+            "rows": 3,
+            "mass": 0.7548828125,
+            "ref": 119.27864074707031,
+            "base": 0.8571528196334839,
+            "qtip": 0.8571528196334839,
+            "ref_unweighted": 320.87249755859375,
+            "base_unweighted": 2.690822124481201,
+            "qtip_unweighted": 2.690822124481201
+          },
+          {
+            "window": 9,
+            "rows": 8,
+            "mass": 2.9873046875,
+            "ref": 1638.132568359375,
+            "base": 9.408289909362793,
+            "qtip": 9.408289909362793,
+            "ref_unweighted": 1261.714111328125,
+            "base_unweighted": 8.540611267089844,
+            "qtip_unweighted": 8.540611267089844
+          },
+          {
+            "window": 10,
+            "rows": 5,
+            "mass": 0.8095703125,
+            "ref": 37.6462287902832,
+            "base": 0.44291090965270996,
+            "qtip": 0.44291090965270996,
+            "ref_unweighted": 228.38104248046875,
+            "base_unweighted": 2.7239856719970703,
+            "qtip_unweighted": 2.7239856719970703
+          },
+          {
+            "window": 11,
+            "rows": 2,
+            "mass": 0.3251953125,
+            "ref": 6.214036464691162,
+            "base": 0.13037525117397308,
+            "qtip": 0.13037525117397308,
+            "ref_unweighted": 37.986595153808594,
+            "base_unweighted": 0.8012170791625977,
+            "qtip_unweighted": 0.8012170791625977
+          },
+          {
+            "window": 12,
+            "rows": 7,
+            "mass": 1.05810546875,
+            "ref": 92.11460876464844,
+            "base": 0.9586504101753235,
+            "qtip": 0.9586504101753235,
+            "ref_unweighted": 617.83154296875,
+            "base_unweighted": 6.436327934265137,
+            "qtip_unweighted": 6.436327934265137
+          },
+          {
+            "window": 13,
+            "rows": 4,
+            "mass": 0.98046875,
+            "ref": 340.0777587890625,
+            "base": 1.8913171291351318,
+            "qtip": 1.8913171291351318,
+            "ref_unweighted": 669.8973388671875,
+            "base_unweighted": 4.488350868225098,
+            "qtip_unweighted": 4.488350868225098
+          },
+          {
+            "window": 14,
+            "rows": 5,
+            "mass": 2.935546875,
+            "ref": 5442.8076171875,
+            "base": 23.245927810668945,
+            "qtip": 23.245927810668945,
+            "ref_unweighted": 4386.69140625,
+            "base_unweighted": 19.8780460357666,
+            "qtip_unweighted": 19.8780460357666
+          },
+          {
+            "window": 15,
+            "rows": 5,
+            "mass": 1.11328125,
+            "ref": 211.77281188964844,
+            "base": 1.1782933473587036,
+            "qtip": 1.1782933473587036,
+            "ref_unweighted": 612.1997680664062,
+            "base_unweighted": 3.999211072921753,
+            "qtip_unweighted": 3.999211072921753
+          }
+        ],
+        "true_vq_current": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362
+        },
+        "qtip_hyb": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362,
+          "sse_ratio_vs_true_vq": 1.0,
+          "sse_improvement_fraction": 0.0
+        }
+      },
+      "nmse": 0.3226495367066126,
+      "original_nmse": 0.3226495367066126
+    },
+    {
+      "arm": "old1",
+      "phase": "warm",
+      "artifact_sha256": "fe0cd6573607acae935a5974dcdd409ca0d9861c4a2891fe10dc5ad1fa0275d5",
+      "original_artifact_sha256": "a202fc9d67cd75e7db8d1f5db95d2de502ef0e67f9bf0a69c6ddd1a6e753ee0a",
+      "max_abs_vs_original": 0.0,
+      "same_decoded": true,
+      "metrics": {
+        "rows": 65,
+        "route_mass": 17.0009765625,
+        "windows": [
+          {
+            "window": 0,
+            "rows": 4,
+            "mass": 0.560546875,
+            "ref": 19.884445190429688,
+            "base": 0.3097146153450012,
+            "qtip": 0.3097146153450012,
+            "ref_unweighted": 141.92221069335938,
+            "base_unweighted": 2.2083892822265625,
+            "qtip_unweighted": 2.2083892822265625
+          },
+          {
+            "window": 1,
+            "rows": 5,
+            "mass": 1.048828125,
+            "ref": 211.5533447265625,
+            "base": 0.9722330570220947,
+            "qtip": 0.9722330570220947,
+            "ref_unweighted": 596.321044921875,
+            "base_unweighted": 3.6632843017578125,
+            "qtip_unweighted": 3.6632843017578125
+          },
+          {
+            "window": 2,
+            "rows": 1,
+            "mass": 0.2236328125,
+            "ref": 5.118083477020264,
+            "base": 0.09684793651103973,
+            "qtip": 0.09684793651103973,
+            "ref_unweighted": 22.8861026763916,
+            "base_unweighted": 0.43306678533554077,
+            "qtip_unweighted": 0.43306678533554077
+          },
+          {
+            "window": 3,
+            "rows": 2,
+            "mass": 0.232421875,
+            "ref": 19.78913116455078,
+            "base": 0.2180209755897522,
+            "qtip": 0.2180209755897522,
+            "ref_unweighted": 181.1916046142578,
+            "base_unweighted": 1.9617571830749512,
+            "qtip_unweighted": 1.9617571830749512
+          },
+          {
+            "window": 4,
+            "rows": 3,
+            "mass": 0.49169921875,
+            "ref": 7.7256388664245605,
+            "base": 0.17126312851905823,
+            "qtip": 0.17126312851905823,
+            "ref_unweighted": 52.857765197753906,
+            "base_unweighted": 1.155301570892334,
+            "qtip_unweighted": 1.155301570892334
+          },
+          {
+            "window": 5,
+            "rows": 8,
+            "mass": 2.73828125,
+            "ref": 3300.28271484375,
+            "base": 10.527372360229492,
+            "qtip": 10.527372360229492,
+            "ref_unweighted": 2621.69873046875,
+            "base_unweighted": 11.207334518432617,
+            "qtip_unweighted": 11.207334518432617
+          },
+          {
+            "window": 6,
+            "rows": 1,
+            "mass": 0.169921875,
+            "ref": 4.668635368347168,
+            "base": 0.08105207234621048,
+            "qtip": 0.08105207234621048,
+            "ref_unweighted": 27.475189208984375,
+            "base_unweighted": 0.4769960641860962,
+            "qtip_unweighted": 0.4769960641860962
+          },
+          {
+            "window": 7,
+            "rows": 2,
+            "mass": 0.5712890625,
+            "ref": 89.39094543457031,
+            "base": 0.6478756070137024,
+            "qtip": 0.6478756070137024,
+            "ref_unweighted": 233.759521484375,
+            "base_unweighted": 1.8382494449615479,
+            "qtip_unweighted": 1.8382494449615479
+          },
+          {
+            "window": 8,
+            "rows": 3,
+            "mass": 0.7548828125,
+            "ref": 119.27864074707031,
+            "base": 0.8571528196334839,
+            "qtip": 0.8571528196334839,
+            "ref_unweighted": 320.87249755859375,
+            "base_unweighted": 2.690822124481201,
+            "qtip_unweighted": 2.690822124481201
+          },
+          {
+            "window": 9,
+            "rows": 8,
+            "mass": 2.9873046875,
+            "ref": 1638.132568359375,
+            "base": 9.408289909362793,
+            "qtip": 9.408289909362793,
+            "ref_unweighted": 1261.714111328125,
+            "base_unweighted": 8.540611267089844,
+            "qtip_unweighted": 8.540611267089844
+          },
+          {
+            "window": 10,
+            "rows": 5,
+            "mass": 0.8095703125,
+            "ref": 37.6462287902832,
+            "base": 0.44291090965270996,
+            "qtip": 0.44291090965270996,
+            "ref_unweighted": 228.38104248046875,
+            "base_unweighted": 2.7239856719970703,
+            "qtip_unweighted": 2.7239856719970703
+          },
+          {
+            "window": 11,
+            "rows": 2,
+            "mass": 0.3251953125,
+            "ref": 6.214036464691162,
+            "base": 0.13037525117397308,
+            "qtip": 0.13037525117397308,
+            "ref_unweighted": 37.986595153808594,
+            "base_unweighted": 0.8012170791625977,
+            "qtip_unweighted": 0.8012170791625977
+          },
+          {
+            "window": 12,
+            "rows": 7,
+            "mass": 1.05810546875,
+            "ref": 92.11460876464844,
+            "base": 0.9586504101753235,
+            "qtip": 0.9586504101753235,
+            "ref_unweighted": 617.83154296875,
+            "base_unweighted": 6.436327934265137,
+            "qtip_unweighted": 6.436327934265137
+          },
+          {
+            "window": 13,
+            "rows": 4,
+            "mass": 0.98046875,
+            "ref": 340.0777587890625,
+            "base": 1.8913171291351318,
+            "qtip": 1.8913171291351318,
+            "ref_unweighted": 669.8973388671875,
+            "base_unweighted": 4.488350868225098,
+            "qtip_unweighted": 4.488350868225098
+          },
+          {
+            "window": 14,
+            "rows": 5,
+            "mass": 2.935546875,
+            "ref": 5442.8076171875,
+            "base": 23.245927810668945,
+            "qtip": 23.245927810668945,
+            "ref_unweighted": 4386.69140625,
+            "base_unweighted": 19.8780460357666,
+            "qtip_unweighted": 19.8780460357666
+          },
+          {
+            "window": 15,
+            "rows": 5,
+            "mass": 1.11328125,
+            "ref": 211.77281188964844,
+            "base": 1.1782933473587036,
+            "qtip": 1.1782933473587036,
+            "ref_unweighted": 612.1997680664062,
+            "base_unweighted": 3.999211072921753,
+            "qtip_unweighted": 3.999211072921753
+          }
+        ],
+        "true_vq_current": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362
+        },
+        "qtip_hyb": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362,
+          "sse_ratio_vs_true_vq": 1.0,
+          "sse_improvement_fraction": 0.0
+        }
+      },
+      "nmse": 0.3226495367066126,
+      "original_nmse": 0.3226495367066126
+    },
+    {
+      "arm": "new1",
+      "phase": "cold",
+      "artifact_sha256": "9fcd6da9a12bc6314d2906d4bfd38e02ab8e77e89aab8045970156771ef9e91c",
+      "original_artifact_sha256": "a202fc9d67cd75e7db8d1f5db95d2de502ef0e67f9bf0a69c6ddd1a6e753ee0a",
+      "max_abs_vs_original": 0.0,
+      "same_decoded": true,
+      "metrics": {
+        "rows": 65,
+        "route_mass": 17.0009765625,
+        "windows": [
+          {
+            "window": 0,
+            "rows": 4,
+            "mass": 0.560546875,
+            "ref": 19.884445190429688,
+            "base": 0.3097146153450012,
+            "qtip": 0.3097146153450012,
+            "ref_unweighted": 141.92221069335938,
+            "base_unweighted": 2.2083892822265625,
+            "qtip_unweighted": 2.2083892822265625
+          },
+          {
+            "window": 1,
+            "rows": 5,
+            "mass": 1.048828125,
+            "ref": 211.5533447265625,
+            "base": 0.9722330570220947,
+            "qtip": 0.9722330570220947,
+            "ref_unweighted": 596.321044921875,
+            "base_unweighted": 3.6632843017578125,
+            "qtip_unweighted": 3.6632843017578125
+          },
+          {
+            "window": 2,
+            "rows": 1,
+            "mass": 0.2236328125,
+            "ref": 5.118083477020264,
+            "base": 0.09684793651103973,
+            "qtip": 0.09684793651103973,
+            "ref_unweighted": 22.8861026763916,
+            "base_unweighted": 0.43306678533554077,
+            "qtip_unweighted": 0.43306678533554077
+          },
+          {
+            "window": 3,
+            "rows": 2,
+            "mass": 0.232421875,
+            "ref": 19.78913116455078,
+            "base": 0.2180209755897522,
+            "qtip": 0.2180209755897522,
+            "ref_unweighted": 181.1916046142578,
+            "base_unweighted": 1.9617571830749512,
+            "qtip_unweighted": 1.9617571830749512
+          },
+          {
+            "window": 4,
+            "rows": 3,
+            "mass": 0.49169921875,
+            "ref": 7.7256388664245605,
+            "base": 0.17126312851905823,
+            "qtip": 0.17126312851905823,
+            "ref_unweighted": 52.857765197753906,
+            "base_unweighted": 1.155301570892334,
+            "qtip_unweighted": 1.155301570892334
+          },
+          {
+            "window": 5,
+            "rows": 8,
+            "mass": 2.73828125,
+            "ref": 3300.28271484375,
+            "base": 10.527372360229492,
+            "qtip": 10.527372360229492,
+            "ref_unweighted": 2621.69873046875,
+            "base_unweighted": 11.207334518432617,
+            "qtip_unweighted": 11.207334518432617
+          },
+          {
+            "window": 6,
+            "rows": 1,
+            "mass": 0.169921875,
+            "ref": 4.668635368347168,
+            "base": 0.08105207234621048,
+            "qtip": 0.08105207234621048,
+            "ref_unweighted": 27.475189208984375,
+            "base_unweighted": 0.4769960641860962,
+            "qtip_unweighted": 0.4769960641860962
+          },
+          {
+            "window": 7,
+            "rows": 2,
+            "mass": 0.5712890625,
+            "ref": 89.39094543457031,
+            "base": 0.6478756070137024,
+            "qtip": 0.6478756070137024,
+            "ref_unweighted": 233.759521484375,
+            "base_unweighted": 1.8382494449615479,
+            "qtip_unweighted": 1.8382494449615479
+          },
+          {
+            "window": 8,
+            "rows": 3,
+            "mass": 0.7548828125,
+            "ref": 119.27864074707031,
+            "base": 0.8571528196334839,
+            "qtip": 0.8571528196334839,
+            "ref_unweighted": 320.87249755859375,
+            "base_unweighted": 2.690822124481201,
+            "qtip_unweighted": 2.690822124481201
+          },
+          {
+            "window": 9,
+            "rows": 8,
+            "mass": 2.9873046875,
+            "ref": 1638.132568359375,
+            "base": 9.408289909362793,
+            "qtip": 9.408289909362793,
+            "ref_unweighted": 1261.714111328125,
+            "base_unweighted": 8.540611267089844,
+            "qtip_unweighted": 8.540611267089844
+          },
+          {
+            "window": 10,
+            "rows": 5,
+            "mass": 0.8095703125,
+            "ref": 37.6462287902832,
+            "base": 0.44291090965270996,
+            "qtip": 0.44291090965270996,
+            "ref_unweighted": 228.38104248046875,
+            "base_unweighted": 2.7239856719970703,
+            "qtip_unweighted": 2.7239856719970703
+          },
+          {
+            "window": 11,
+            "rows": 2,
+            "mass": 0.3251953125,
+            "ref": 6.214036464691162,
+            "base": 0.13037525117397308,
+            "qtip": 0.13037525117397308,
+            "ref_unweighted": 37.986595153808594,
+            "base_unweighted": 0.8012170791625977,
+            "qtip_unweighted": 0.8012170791625977
+          },
+          {
+            "window": 12,
+            "rows": 7,
+            "mass": 1.05810546875,
+            "ref": 92.11460876464844,
+            "base": 0.9586504101753235,
+            "qtip": 0.9586504101753235,
+            "ref_unweighted": 617.83154296875,
+            "base_unweighted": 6.436327934265137,
+            "qtip_unweighted": 6.436327934265137
+          },
+          {
+            "window": 13,
+            "rows": 4,
+            "mass": 0.98046875,
+            "ref": 340.0777587890625,
+            "base": 1.8913171291351318,
+            "qtip": 1.8913171291351318,
+            "ref_unweighted": 669.8973388671875,
+            "base_unweighted": 4.488350868225098,
+            "qtip_unweighted": 4.488350868225098
+          },
+          {
+            "window": 14,
+            "rows": 5,
+            "mass": 2.935546875,
+            "ref": 5442.8076171875,
+            "base": 23.245927810668945,
+            "qtip": 23.245927810668945,
+            "ref_unweighted": 4386.69140625,
+            "base_unweighted": 19.8780460357666,
+            "qtip_unweighted": 19.8780460357666
+          },
+          {
+            "window": 15,
+            "rows": 5,
+            "mass": 1.11328125,
+            "ref": 211.77281188964844,
+            "base": 1.1782933473587036,
+            "qtip": 1.1782933473587036,
+            "ref_unweighted": 612.1997680664062,
+            "base_unweighted": 3.999211072921753,
+            "qtip_unweighted": 3.999211072921753
+          }
+        ],
+        "true_vq_current": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362
+        },
+        "qtip_hyb": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362,
+          "sse_ratio_vs_true_vq": 1.0,
+          "sse_improvement_fraction": 0.0
+        }
+      },
+      "nmse": 0.3226495367066126,
+      "original_nmse": 0.3226495367066126
+    },
+    {
+      "arm": "new1",
+      "phase": "warm",
+      "artifact_sha256": "e9400fb7df8cf1a5338749c86d3b4f34172999171a8ccf418190d6f171839715",
+      "original_artifact_sha256": "a202fc9d67cd75e7db8d1f5db95d2de502ef0e67f9bf0a69c6ddd1a6e753ee0a",
+      "max_abs_vs_original": 0.0,
+      "same_decoded": true,
+      "metrics": {
+        "rows": 65,
+        "route_mass": 17.0009765625,
+        "windows": [
+          {
+            "window": 0,
+            "rows": 4,
+            "mass": 0.560546875,
+            "ref": 19.884445190429688,
+            "base": 0.3097146153450012,
+            "qtip": 0.3097146153450012,
+            "ref_unweighted": 141.92221069335938,
+            "base_unweighted": 2.2083892822265625,
+            "qtip_unweighted": 2.2083892822265625
+          },
+          {
+            "window": 1,
+            "rows": 5,
+            "mass": 1.048828125,
+            "ref": 211.5533447265625,
+            "base": 0.9722330570220947,
+            "qtip": 0.9722330570220947,
+            "ref_unweighted": 596.321044921875,
+            "base_unweighted": 3.6632843017578125,
+            "qtip_unweighted": 3.6632843017578125
+          },
+          {
+            "window": 2,
+            "rows": 1,
+            "mass": 0.2236328125,
+            "ref": 5.118083477020264,
+            "base": 0.09684793651103973,
+            "qtip": 0.09684793651103973,
+            "ref_unweighted": 22.8861026763916,
+            "base_unweighted": 0.43306678533554077,
+            "qtip_unweighted": 0.43306678533554077
+          },
+          {
+            "window": 3,
+            "rows": 2,
+            "mass": 0.232421875,
+            "ref": 19.78913116455078,
+            "base": 0.2180209755897522,
+            "qtip": 0.2180209755897522,
+            "ref_unweighted": 181.1916046142578,
+            "base_unweighted": 1.9617571830749512,
+            "qtip_unweighted": 1.9617571830749512
+          },
+          {
+            "window": 4,
+            "rows": 3,
+            "mass": 0.49169921875,
+            "ref": 7.7256388664245605,
+            "base": 0.17126312851905823,
+            "qtip": 0.17126312851905823,
+            "ref_unweighted": 52.857765197753906,
+            "base_unweighted": 1.155301570892334,
+            "qtip_unweighted": 1.155301570892334
+          },
+          {
+            "window": 5,
+            "rows": 8,
+            "mass": 2.73828125,
+            "ref": 3300.28271484375,
+            "base": 10.527372360229492,
+            "qtip": 10.527372360229492,
+            "ref_unweighted": 2621.69873046875,
+            "base_unweighted": 11.207334518432617,
+            "qtip_unweighted": 11.207334518432617
+          },
+          {
+            "window": 6,
+            "rows": 1,
+            "mass": 0.169921875,
+            "ref": 4.668635368347168,
+            "base": 0.08105207234621048,
+            "qtip": 0.08105207234621048,
+            "ref_unweighted": 27.475189208984375,
+            "base_unweighted": 0.4769960641860962,
+            "qtip_unweighted": 0.4769960641860962
+          },
+          {
+            "window": 7,
+            "rows": 2,
+            "mass": 0.5712890625,
+            "ref": 89.39094543457031,
+            "base": 0.6478756070137024,
+            "qtip": 0.6478756070137024,
+            "ref_unweighted": 233.759521484375,
+            "base_unweighted": 1.8382494449615479,
+            "qtip_unweighted": 1.8382494449615479
+          },
+          {
+            "window": 8,
+            "rows": 3,
+            "mass": 0.7548828125,
+            "ref": 119.27864074707031,
+            "base": 0.8571528196334839,
+            "qtip": 0.8571528196334839,
+            "ref_unweighted": 320.87249755859375,
+            "base_unweighted": 2.690822124481201,
+            "qtip_unweighted": 2.690822124481201
+          },
+          {
+            "window": 9,
+            "rows": 8,
+            "mass": 2.9873046875,
+            "ref": 1638.132568359375,
+            "base": 9.408289909362793,
+            "qtip": 9.408289909362793,
+            "ref_unweighted": 1261.714111328125,
+            "base_unweighted": 8.540611267089844,
+            "qtip_unweighted": 8.540611267089844
+          },
+          {
+            "window": 10,
+            "rows": 5,
+            "mass": 0.8095703125,
+            "ref": 37.6462287902832,
+            "base": 0.44291090965270996,
+            "qtip": 0.44291090965270996,
+            "ref_unweighted": 228.38104248046875,
+            "base_unweighted": 2.7239856719970703,
+            "qtip_unweighted": 2.7239856719970703
+          },
+          {
+            "window": 11,
+            "rows": 2,
+            "mass": 0.3251953125,
+            "ref": 6.214036464691162,
+            "base": 0.13037525117397308,
+            "qtip": 0.13037525117397308,
+            "ref_unweighted": 37.986595153808594,
+            "base_unweighted": 0.8012170791625977,
+            "qtip_unweighted": 0.8012170791625977
+          },
+          {
+            "window": 12,
+            "rows": 7,
+            "mass": 1.05810546875,
+            "ref": 92.11460876464844,
+            "base": 0.9586504101753235,
+            "qtip": 0.9586504101753235,
+            "ref_unweighted": 617.83154296875,
+            "base_unweighted": 6.436327934265137,
+            "qtip_unweighted": 6.436327934265137
+          },
+          {
+            "window": 13,
+            "rows": 4,
+            "mass": 0.98046875,
+            "ref": 340.0777587890625,
+            "base": 1.8913171291351318,
+            "qtip": 1.8913171291351318,
+            "ref_unweighted": 669.8973388671875,
+            "base_unweighted": 4.488350868225098,
+            "qtip_unweighted": 4.488350868225098
+          },
+          {
+            "window": 14,
+            "rows": 5,
+            "mass": 2.935546875,
+            "ref": 5442.8076171875,
+            "base": 23.245927810668945,
+            "qtip": 23.245927810668945,
+            "ref_unweighted": 4386.69140625,
+            "base_unweighted": 19.8780460357666,
+            "qtip_unweighted": 19.8780460357666
+          },
+          {
+            "window": 15,
+            "rows": 5,
+            "mass": 1.11328125,
+            "ref": 211.77281188964844,
+            "base": 1.1782933473587036,
+            "qtip": 1.1782933473587036,
+            "ref_unweighted": 612.1997680664062,
+            "base_unweighted": 3.999211072921753,
+            "qtip_unweighted": 3.999211072921753
+          }
+        ],
+        "true_vq_current": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362
+        },
+        "qtip_hyb": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362,
+          "sse_ratio_vs_true_vq": 1.0,
+          "sse_improvement_fraction": 0.0
+        }
+      },
+      "nmse": 0.3226495367066126,
+      "original_nmse": 0.3226495367066126
+    },
+    {
+      "arm": "new2",
+      "phase": "cold",
+      "artifact_sha256": "16444cd779d98d28f916026e5984256e8c721af278dc9a5f321e1ad0669edfed",
+      "original_artifact_sha256": "a202fc9d67cd75e7db8d1f5db95d2de502ef0e67f9bf0a69c6ddd1a6e753ee0a",
+      "max_abs_vs_original": 0.0,
+      "same_decoded": true,
+      "metrics": {
+        "rows": 65,
+        "route_mass": 17.0009765625,
+        "windows": [
+          {
+            "window": 0,
+            "rows": 4,
+            "mass": 0.560546875,
+            "ref": 19.884445190429688,
+            "base": 0.3097146153450012,
+            "qtip": 0.3097146153450012,
+            "ref_unweighted": 141.92221069335938,
+            "base_unweighted": 2.2083892822265625,
+            "qtip_unweighted": 2.2083892822265625
+          },
+          {
+            "window": 1,
+            "rows": 5,
+            "mass": 1.048828125,
+            "ref": 211.5533447265625,
+            "base": 0.9722330570220947,
+            "qtip": 0.9722330570220947,
+            "ref_unweighted": 596.321044921875,
+            "base_unweighted": 3.6632843017578125,
+            "qtip_unweighted": 3.6632843017578125
+          },
+          {
+            "window": 2,
+            "rows": 1,
+            "mass": 0.2236328125,
+            "ref": 5.118083477020264,
+            "base": 0.09684793651103973,
+            "qtip": 0.09684793651103973,
+            "ref_unweighted": 22.8861026763916,
+            "base_unweighted": 0.43306678533554077,
+            "qtip_unweighted": 0.43306678533554077
+          },
+          {
+            "window": 3,
+            "rows": 2,
+            "mass": 0.232421875,
+            "ref": 19.78913116455078,
+            "base": 0.2180209755897522,
+            "qtip": 0.2180209755897522,
+            "ref_unweighted": 181.1916046142578,
+            "base_unweighted": 1.9617571830749512,
+            "qtip_unweighted": 1.9617571830749512
+          },
+          {
+            "window": 4,
+            "rows": 3,
+            "mass": 0.49169921875,
+            "ref": 7.7256388664245605,
+            "base": 0.17126312851905823,
+            "qtip": 0.17126312851905823,
+            "ref_unweighted": 52.857765197753906,
+            "base_unweighted": 1.155301570892334,
+            "qtip_unweighted": 1.155301570892334
+          },
+          {
+            "window": 5,
+            "rows": 8,
+            "mass": 2.73828125,
+            "ref": 3300.28271484375,
+            "base": 10.527372360229492,
+            "qtip": 10.527372360229492,
+            "ref_unweighted": 2621.69873046875,
+            "base_unweighted": 11.207334518432617,
+            "qtip_unweighted": 11.207334518432617
+          },
+          {
+            "window": 6,
+            "rows": 1,
+            "mass": 0.169921875,
+            "ref": 4.668635368347168,
+            "base": 0.08105207234621048,
+            "qtip": 0.08105207234621048,
+            "ref_unweighted": 27.475189208984375,
+            "base_unweighted": 0.4769960641860962,
+            "qtip_unweighted": 0.4769960641860962
+          },
+          {
+            "window": 7,
+            "rows": 2,
+            "mass": 0.5712890625,
+            "ref": 89.39094543457031,
+            "base": 0.6478756070137024,
+            "qtip": 0.6478756070137024,
+            "ref_unweighted": 233.759521484375,
+            "base_unweighted": 1.8382494449615479,
+            "qtip_unweighted": 1.8382494449615479
+          },
+          {
+            "window": 8,
+            "rows": 3,
+            "mass": 0.7548828125,
+            "ref": 119.27864074707031,
+            "base": 0.8571528196334839,
+            "qtip": 0.8571528196334839,
+            "ref_unweighted": 320.87249755859375,
+            "base_unweighted": 2.690822124481201,
+            "qtip_unweighted": 2.690822124481201
+          },
+          {
+            "window": 9,
+            "rows": 8,
+            "mass": 2.9873046875,
+            "ref": 1638.132568359375,
+            "base": 9.408289909362793,
+            "qtip": 9.408289909362793,
+            "ref_unweighted": 1261.714111328125,
+            "base_unweighted": 8.540611267089844,
+            "qtip_unweighted": 8.540611267089844
+          },
+          {
+            "window": 10,
+            "rows": 5,
+            "mass": 0.8095703125,
+            "ref": 37.6462287902832,
+            "base": 0.44291090965270996,
+            "qtip": 0.44291090965270996,
+            "ref_unweighted": 228.38104248046875,
+            "base_unweighted": 2.7239856719970703,
+            "qtip_unweighted": 2.7239856719970703
+          },
+          {
+            "window": 11,
+            "rows": 2,
+            "mass": 0.3251953125,
+            "ref": 6.214036464691162,
+            "base": 0.13037525117397308,
+            "qtip": 0.13037525117397308,
+            "ref_unweighted": 37.986595153808594,
+            "base_unweighted": 0.8012170791625977,
+            "qtip_unweighted": 0.8012170791625977
+          },
+          {
+            "window": 12,
+            "rows": 7,
+            "mass": 1.05810546875,
+            "ref": 92.11460876464844,
+            "base": 0.9586504101753235,
+            "qtip": 0.9586504101753235,
+            "ref_unweighted": 617.83154296875,
+            "base_unweighted": 6.436327934265137,
+            "qtip_unweighted": 6.436327934265137
+          },
+          {
+            "window": 13,
+            "rows": 4,
+            "mass": 0.98046875,
+            "ref": 340.0777587890625,
+            "base": 1.8913171291351318,
+            "qtip": 1.8913171291351318,
+            "ref_unweighted": 669.8973388671875,
+            "base_unweighted": 4.488350868225098,
+            "qtip_unweighted": 4.488350868225098
+          },
+          {
+            "window": 14,
+            "rows": 5,
+            "mass": 2.935546875,
+            "ref": 5442.8076171875,
+            "base": 23.245927810668945,
+            "qtip": 23.245927810668945,
+            "ref_unweighted": 4386.69140625,
+            "base_unweighted": 19.8780460357666,
+            "qtip_unweighted": 19.8780460357666
+          },
+          {
+            "window": 15,
+            "rows": 5,
+            "mass": 1.11328125,
+            "ref": 211.77281188964844,
+            "base": 1.1782933473587036,
+            "qtip": 1.1782933473587036,
+            "ref_unweighted": 612.1997680664062,
+            "base_unweighted": 3.999211072921753,
+            "qtip_unweighted": 3.999211072921753
+          }
+        ],
+        "true_vq_current": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362
+        },
+        "qtip_hyb": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362,
+          "sse_ratio_vs_true_vq": 1.0,
+          "sse_improvement_fraction": 0.0
+        }
+      },
+      "nmse": 0.3226495367066126,
+      "original_nmse": 0.3226495367066126
+    },
+    {
+      "arm": "new2",
+      "phase": "warm",
+      "artifact_sha256": "4593383c7b8421ad8be5c5e2bbcb0f019aac62a30daa33e0231c0671dc5976e2",
+      "original_artifact_sha256": "a202fc9d67cd75e7db8d1f5db95d2de502ef0e67f9bf0a69c6ddd1a6e753ee0a",
+      "max_abs_vs_original": 0.0,
+      "same_decoded": true,
+      "metrics": {
+        "rows": 65,
+        "route_mass": 17.0009765625,
+        "windows": [
+          {
+            "window": 0,
+            "rows": 4,
+            "mass": 0.560546875,
+            "ref": 19.884445190429688,
+            "base": 0.3097146153450012,
+            "qtip": 0.3097146153450012,
+            "ref_unweighted": 141.92221069335938,
+            "base_unweighted": 2.2083892822265625,
+            "qtip_unweighted": 2.2083892822265625
+          },
+          {
+            "window": 1,
+            "rows": 5,
+            "mass": 1.048828125,
+            "ref": 211.5533447265625,
+            "base": 0.9722330570220947,
+            "qtip": 0.9722330570220947,
+            "ref_unweighted": 596.321044921875,
+            "base_unweighted": 3.6632843017578125,
+            "qtip_unweighted": 3.6632843017578125
+          },
+          {
+            "window": 2,
+            "rows": 1,
+            "mass": 0.2236328125,
+            "ref": 5.118083477020264,
+            "base": 0.09684793651103973,
+            "qtip": 0.09684793651103973,
+            "ref_unweighted": 22.8861026763916,
+            "base_unweighted": 0.43306678533554077,
+            "qtip_unweighted": 0.43306678533554077
+          },
+          {
+            "window": 3,
+            "rows": 2,
+            "mass": 0.232421875,
+            "ref": 19.78913116455078,
+            "base": 0.2180209755897522,
+            "qtip": 0.2180209755897522,
+            "ref_unweighted": 181.1916046142578,
+            "base_unweighted": 1.9617571830749512,
+            "qtip_unweighted": 1.9617571830749512
+          },
+          {
+            "window": 4,
+            "rows": 3,
+            "mass": 0.49169921875,
+            "ref": 7.7256388664245605,
+            "base": 0.17126312851905823,
+            "qtip": 0.17126312851905823,
+            "ref_unweighted": 52.857765197753906,
+            "base_unweighted": 1.155301570892334,
+            "qtip_unweighted": 1.155301570892334
+          },
+          {
+            "window": 5,
+            "rows": 8,
+            "mass": 2.73828125,
+            "ref": 3300.28271484375,
+            "base": 10.527372360229492,
+            "qtip": 10.527372360229492,
+            "ref_unweighted": 2621.69873046875,
+            "base_unweighted": 11.207334518432617,
+            "qtip_unweighted": 11.207334518432617
+          },
+          {
+            "window": 6,
+            "rows": 1,
+            "mass": 0.169921875,
+            "ref": 4.668635368347168,
+            "base": 0.08105207234621048,
+            "qtip": 0.08105207234621048,
+            "ref_unweighted": 27.475189208984375,
+            "base_unweighted": 0.4769960641860962,
+            "qtip_unweighted": 0.4769960641860962
+          },
+          {
+            "window": 7,
+            "rows": 2,
+            "mass": 0.5712890625,
+            "ref": 89.39094543457031,
+            "base": 0.6478756070137024,
+            "qtip": 0.6478756070137024,
+            "ref_unweighted": 233.759521484375,
+            "base_unweighted": 1.8382494449615479,
+            "qtip_unweighted": 1.8382494449615479
+          },
+          {
+            "window": 8,
+            "rows": 3,
+            "mass": 0.7548828125,
+            "ref": 119.27864074707031,
+            "base": 0.8571528196334839,
+            "qtip": 0.8571528196334839,
+            "ref_unweighted": 320.87249755859375,
+            "base_unweighted": 2.690822124481201,
+            "qtip_unweighted": 2.690822124481201
+          },
+          {
+            "window": 9,
+            "rows": 8,
+            "mass": 2.9873046875,
+            "ref": 1638.132568359375,
+            "base": 9.408289909362793,
+            "qtip": 9.408289909362793,
+            "ref_unweighted": 1261.714111328125,
+            "base_unweighted": 8.540611267089844,
+            "qtip_unweighted": 8.540611267089844
+          },
+          {
+            "window": 10,
+            "rows": 5,
+            "mass": 0.8095703125,
+            "ref": 37.6462287902832,
+            "base": 0.44291090965270996,
+            "qtip": 0.44291090965270996,
+            "ref_unweighted": 228.38104248046875,
+            "base_unweighted": 2.7239856719970703,
+            "qtip_unweighted": 2.7239856719970703
+          },
+          {
+            "window": 11,
+            "rows": 2,
+            "mass": 0.3251953125,
+            "ref": 6.214036464691162,
+            "base": 0.13037525117397308,
+            "qtip": 0.13037525117397308,
+            "ref_unweighted": 37.986595153808594,
+            "base_unweighted": 0.8012170791625977,
+            "qtip_unweighted": 0.8012170791625977
+          },
+          {
+            "window": 12,
+            "rows": 7,
+            "mass": 1.05810546875,
+            "ref": 92.11460876464844,
+            "base": 0.9586504101753235,
+            "qtip": 0.9586504101753235,
+            "ref_unweighted": 617.83154296875,
+            "base_unweighted": 6.436327934265137,
+            "qtip_unweighted": 6.436327934265137
+          },
+          {
+            "window": 13,
+            "rows": 4,
+            "mass": 0.98046875,
+            "ref": 340.0777587890625,
+            "base": 1.8913171291351318,
+            "qtip": 1.8913171291351318,
+            "ref_unweighted": 669.8973388671875,
+            "base_unweighted": 4.488350868225098,
+            "qtip_unweighted": 4.488350868225098
+          },
+          {
+            "window": 14,
+            "rows": 5,
+            "mass": 2.935546875,
+            "ref": 5442.8076171875,
+            "base": 23.245927810668945,
+            "qtip": 23.245927810668945,
+            "ref_unweighted": 4386.69140625,
+            "base_unweighted": 19.8780460357666,
+            "qtip_unweighted": 19.8780460357666
+          },
+          {
+            "window": 15,
+            "rows": 5,
+            "mass": 1.11328125,
+            "ref": 211.77281188964844,
+            "base": 1.1782933473587036,
+            "qtip": 1.1782933473587036,
+            "ref_unweighted": 612.1997680664062,
+            "base_unweighted": 3.999211072921753,
+            "qtip_unweighted": 3.999211072921753
+          }
+        ],
+        "true_vq_current": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362
+        },
+        "qtip_hyb": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362,
+          "sse_ratio_vs_true_vq": 1.0,
+          "sse_improvement_fraction": 0.0
+        }
+      },
+      "nmse": 0.3226495367066126,
+      "original_nmse": 0.3226495367066126
+    },
+    {
+      "arm": "old2",
+      "phase": "cold",
+      "artifact_sha256": "0a120e0312c41cd1c0b6291e66a568c68855917611b42de17ae606e45fac8906",
+      "original_artifact_sha256": "a202fc9d67cd75e7db8d1f5db95d2de502ef0e67f9bf0a69c6ddd1a6e753ee0a",
+      "max_abs_vs_original": 0.0,
+      "same_decoded": true,
+      "metrics": {
+        "rows": 65,
+        "route_mass": 17.0009765625,
+        "windows": [
+          {
+            "window": 0,
+            "rows": 4,
+            "mass": 0.560546875,
+            "ref": 19.884445190429688,
+            "base": 0.3097146153450012,
+            "qtip": 0.3097146153450012,
+            "ref_unweighted": 141.92221069335938,
+            "base_unweighted": 2.2083892822265625,
+            "qtip_unweighted": 2.2083892822265625
+          },
+          {
+            "window": 1,
+            "rows": 5,
+            "mass": 1.048828125,
+            "ref": 211.5533447265625,
+            "base": 0.9722330570220947,
+            "qtip": 0.9722330570220947,
+            "ref_unweighted": 596.321044921875,
+            "base_unweighted": 3.6632843017578125,
+            "qtip_unweighted": 3.6632843017578125
+          },
+          {
+            "window": 2,
+            "rows": 1,
+            "mass": 0.2236328125,
+            "ref": 5.118083477020264,
+            "base": 0.09684793651103973,
+            "qtip": 0.09684793651103973,
+            "ref_unweighted": 22.8861026763916,
+            "base_unweighted": 0.43306678533554077,
+            "qtip_unweighted": 0.43306678533554077
+          },
+          {
+            "window": 3,
+            "rows": 2,
+            "mass": 0.232421875,
+            "ref": 19.78913116455078,
+            "base": 0.2180209755897522,
+            "qtip": 0.2180209755897522,
+            "ref_unweighted": 181.1916046142578,
+            "base_unweighted": 1.9617571830749512,
+            "qtip_unweighted": 1.9617571830749512
+          },
+          {
+            "window": 4,
+            "rows": 3,
+            "mass": 0.49169921875,
+            "ref": 7.7256388664245605,
+            "base": 0.17126312851905823,
+            "qtip": 0.17126312851905823,
+            "ref_unweighted": 52.857765197753906,
+            "base_unweighted": 1.155301570892334,
+            "qtip_unweighted": 1.155301570892334
+          },
+          {
+            "window": 5,
+            "rows": 8,
+            "mass": 2.73828125,
+            "ref": 3300.28271484375,
+            "base": 10.527372360229492,
+            "qtip": 10.527372360229492,
+            "ref_unweighted": 2621.69873046875,
+            "base_unweighted": 11.207334518432617,
+            "qtip_unweighted": 11.207334518432617
+          },
+          {
+            "window": 6,
+            "rows": 1,
+            "mass": 0.169921875,
+            "ref": 4.668635368347168,
+            "base": 0.08105207234621048,
+            "qtip": 0.08105207234621048,
+            "ref_unweighted": 27.475189208984375,
+            "base_unweighted": 0.4769960641860962,
+            "qtip_unweighted": 0.4769960641860962
+          },
+          {
+            "window": 7,
+            "rows": 2,
+            "mass": 0.5712890625,
+            "ref": 89.39094543457031,
+            "base": 0.6478756070137024,
+            "qtip": 0.6478756070137024,
+            "ref_unweighted": 233.759521484375,
+            "base_unweighted": 1.8382494449615479,
+            "qtip_unweighted": 1.8382494449615479
+          },
+          {
+            "window": 8,
+            "rows": 3,
+            "mass": 0.7548828125,
+            "ref": 119.27864074707031,
+            "base": 0.8571528196334839,
+            "qtip": 0.8571528196334839,
+            "ref_unweighted": 320.87249755859375,
+            "base_unweighted": 2.690822124481201,
+            "qtip_unweighted": 2.690822124481201
+          },
+          {
+            "window": 9,
+            "rows": 8,
+            "mass": 2.9873046875,
+            "ref": 1638.132568359375,
+            "base": 9.408289909362793,
+            "qtip": 9.408289909362793,
+            "ref_unweighted": 1261.714111328125,
+            "base_unweighted": 8.540611267089844,
+            "qtip_unweighted": 8.540611267089844
+          },
+          {
+            "window": 10,
+            "rows": 5,
+            "mass": 0.8095703125,
+            "ref": 37.6462287902832,
+            "base": 0.44291090965270996,
+            "qtip": 0.44291090965270996,
+            "ref_unweighted": 228.38104248046875,
+            "base_unweighted": 2.7239856719970703,
+            "qtip_unweighted": 2.7239856719970703
+          },
+          {
+            "window": 11,
+            "rows": 2,
+            "mass": 0.3251953125,
+            "ref": 6.214036464691162,
+            "base": 0.13037525117397308,
+            "qtip": 0.13037525117397308,
+            "ref_unweighted": 37.986595153808594,
+            "base_unweighted": 0.8012170791625977,
+            "qtip_unweighted": 0.8012170791625977
+          },
+          {
+            "window": 12,
+            "rows": 7,
+            "mass": 1.05810546875,
+            "ref": 92.11460876464844,
+            "base": 0.9586504101753235,
+            "qtip": 0.9586504101753235,
+            "ref_unweighted": 617.83154296875,
+            "base_unweighted": 6.436327934265137,
+            "qtip_unweighted": 6.436327934265137
+          },
+          {
+            "window": 13,
+            "rows": 4,
+            "mass": 0.98046875,
+            "ref": 340.0777587890625,
+            "base": 1.8913171291351318,
+            "qtip": 1.8913171291351318,
+            "ref_unweighted": 669.8973388671875,
+            "base_unweighted": 4.488350868225098,
+            "qtip_unweighted": 4.488350868225098
+          },
+          {
+            "window": 14,
+            "rows": 5,
+            "mass": 2.935546875,
+            "ref": 5442.8076171875,
+            "base": 23.245927810668945,
+            "qtip": 23.245927810668945,
+            "ref_unweighted": 4386.69140625,
+            "base_unweighted": 19.8780460357666,
+            "qtip_unweighted": 19.8780460357666
+          },
+          {
+            "window": 15,
+            "rows": 5,
+            "mass": 1.11328125,
+            "ref": 211.77281188964844,
+            "base": 1.1782933473587036,
+            "qtip": 1.1782933473587036,
+            "ref_unweighted": 612.1997680664062,
+            "base_unweighted": 3.999211072921753,
+            "qtip_unweighted": 3.999211072921753
+          }
+        ],
+        "true_vq_current": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362
+        },
+        "qtip_hyb": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362,
+          "sse_ratio_vs_true_vq": 1.0,
+          "sse_improvement_fraction": 0.0
+        }
+      },
+      "nmse": 0.3226495367066126,
+      "original_nmse": 0.3226495367066126
+    },
+    {
+      "arm": "old2",
+      "phase": "warm",
+      "artifact_sha256": "2acffe8e7dd14c0d2e0083de2b0bbcf9ac42718edb8e6c55a0d73c17c78f47a0",
+      "original_artifact_sha256": "a202fc9d67cd75e7db8d1f5db95d2de502ef0e67f9bf0a69c6ddd1a6e753ee0a",
+      "max_abs_vs_original": 0.0,
+      "same_decoded": true,
+      "metrics": {
+        "rows": 65,
+        "route_mass": 17.0009765625,
+        "windows": [
+          {
+            "window": 0,
+            "rows": 4,
+            "mass": 0.560546875,
+            "ref": 19.884445190429688,
+            "base": 0.3097146153450012,
+            "qtip": 0.3097146153450012,
+            "ref_unweighted": 141.92221069335938,
+            "base_unweighted": 2.2083892822265625,
+            "qtip_unweighted": 2.2083892822265625
+          },
+          {
+            "window": 1,
+            "rows": 5,
+            "mass": 1.048828125,
+            "ref": 211.5533447265625,
+            "base": 0.9722330570220947,
+            "qtip": 0.9722330570220947,
+            "ref_unweighted": 596.321044921875,
+            "base_unweighted": 3.6632843017578125,
+            "qtip_unweighted": 3.6632843017578125
+          },
+          {
+            "window": 2,
+            "rows": 1,
+            "mass": 0.2236328125,
+            "ref": 5.118083477020264,
+            "base": 0.09684793651103973,
+            "qtip": 0.09684793651103973,
+            "ref_unweighted": 22.8861026763916,
+            "base_unweighted": 0.43306678533554077,
+            "qtip_unweighted": 0.43306678533554077
+          },
+          {
+            "window": 3,
+            "rows": 2,
+            "mass": 0.232421875,
+            "ref": 19.78913116455078,
+            "base": 0.2180209755897522,
+            "qtip": 0.2180209755897522,
+            "ref_unweighted": 181.1916046142578,
+            "base_unweighted": 1.9617571830749512,
+            "qtip_unweighted": 1.9617571830749512
+          },
+          {
+            "window": 4,
+            "rows": 3,
+            "mass": 0.49169921875,
+            "ref": 7.7256388664245605,
+            "base": 0.17126312851905823,
+            "qtip": 0.17126312851905823,
+            "ref_unweighted": 52.857765197753906,
+            "base_unweighted": 1.155301570892334,
+            "qtip_unweighted": 1.155301570892334
+          },
+          {
+            "window": 5,
+            "rows": 8,
+            "mass": 2.73828125,
+            "ref": 3300.28271484375,
+            "base": 10.527372360229492,
+            "qtip": 10.527372360229492,
+            "ref_unweighted": 2621.69873046875,
+            "base_unweighted": 11.207334518432617,
+            "qtip_unweighted": 11.207334518432617
+          },
+          {
+            "window": 6,
+            "rows": 1,
+            "mass": 0.169921875,
+            "ref": 4.668635368347168,
+            "base": 0.08105207234621048,
+            "qtip": 0.08105207234621048,
+            "ref_unweighted": 27.475189208984375,
+            "base_unweighted": 0.4769960641860962,
+            "qtip_unweighted": 0.4769960641860962
+          },
+          {
+            "window": 7,
+            "rows": 2,
+            "mass": 0.5712890625,
+            "ref": 89.39094543457031,
+            "base": 0.6478756070137024,
+            "qtip": 0.6478756070137024,
+            "ref_unweighted": 233.759521484375,
+            "base_unweighted": 1.8382494449615479,
+            "qtip_unweighted": 1.8382494449615479
+          },
+          {
+            "window": 8,
+            "rows": 3,
+            "mass": 0.7548828125,
+            "ref": 119.27864074707031,
+            "base": 0.8571528196334839,
+            "qtip": 0.8571528196334839,
+            "ref_unweighted": 320.87249755859375,
+            "base_unweighted": 2.690822124481201,
+            "qtip_unweighted": 2.690822124481201
+          },
+          {
+            "window": 9,
+            "rows": 8,
+            "mass": 2.9873046875,
+            "ref": 1638.132568359375,
+            "base": 9.408289909362793,
+            "qtip": 9.408289909362793,
+            "ref_unweighted": 1261.714111328125,
+            "base_unweighted": 8.540611267089844,
+            "qtip_unweighted": 8.540611267089844
+          },
+          {
+            "window": 10,
+            "rows": 5,
+            "mass": 0.8095703125,
+            "ref": 37.6462287902832,
+            "base": 0.44291090965270996,
+            "qtip": 0.44291090965270996,
+            "ref_unweighted": 228.38104248046875,
+            "base_unweighted": 2.7239856719970703,
+            "qtip_unweighted": 2.7239856719970703
+          },
+          {
+            "window": 11,
+            "rows": 2,
+            "mass": 0.3251953125,
+            "ref": 6.214036464691162,
+            "base": 0.13037525117397308,
+            "qtip": 0.13037525117397308,
+            "ref_unweighted": 37.986595153808594,
+            "base_unweighted": 0.8012170791625977,
+            "qtip_unweighted": 0.8012170791625977
+          },
+          {
+            "window": 12,
+            "rows": 7,
+            "mass": 1.05810546875,
+            "ref": 92.11460876464844,
+            "base": 0.9586504101753235,
+            "qtip": 0.9586504101753235,
+            "ref_unweighted": 617.83154296875,
+            "base_unweighted": 6.436327934265137,
+            "qtip_unweighted": 6.436327934265137
+          },
+          {
+            "window": 13,
+            "rows": 4,
+            "mass": 0.98046875,
+            "ref": 340.0777587890625,
+            "base": 1.8913171291351318,
+            "qtip": 1.8913171291351318,
+            "ref_unweighted": 669.8973388671875,
+            "base_unweighted": 4.488350868225098,
+            "qtip_unweighted": 4.488350868225098
+          },
+          {
+            "window": 14,
+            "rows": 5,
+            "mass": 2.935546875,
+            "ref": 5442.8076171875,
+            "base": 23.245927810668945,
+            "qtip": 23.245927810668945,
+            "ref_unweighted": 4386.69140625,
+            "base_unweighted": 19.8780460357666,
+            "qtip_unweighted": 19.8780460357666
+          },
+          {
+            "window": 15,
+            "rows": 5,
+            "mass": 1.11328125,
+            "ref": 211.77281188964844,
+            "base": 1.1782933473587036,
+            "qtip": 1.1782933473587036,
+            "ref_unweighted": 612.1997680664062,
+            "base_unweighted": 3.999211072921753,
+            "qtip_unweighted": 3.999211072921753
+          }
+        ],
+        "true_vq_current": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362
+        },
+        "qtip_hyb": {
+          "weighted_output_sse": 51.137297339737415,
+          "activation_mse": 0.000734351446661747,
+          "relative_output_rms": 0.06654945611056888,
+          "unweighted_proxy_rms": 0.07768545173973362,
+          "sse_ratio_vs_true_vq": 1.0,
+          "sse_improvement_fraction": 0.0
+        }
+      },
+      "nmse": 0.3226495367066126,
+      "original_nmse": 0.3226495367066126
+    }
+  ],
+  "scope": "original owner artifact vs diagnostic arms on authentic original clean-fit windows; not heldout or full-model evaluation",
+  "frozen_evaluation_touched": false
+}

@@ -1,0 +1,37 @@
+{
+  "candidate": {
+    "task_id": "t_ebcba52e",
+    "pid": 1190656,
+    "pgid": 1190656,
+    "start_ticks": 6001788,
+    "argv": [
+      "/dev/shm/t_ebcba52e_ldlq_run8503/controller_run8503.py"
+    ],
+    "receipt": "/dev/shm/t_ebcba52e_ldlq_run8503/IDENTITY.json",
+    "script_sha256": "1706fb46a0d3f138326faf41f8de05ea192ab03aec7bbdb7237e84ccc4c7a3a4",
+    "owner": "t_ebcba52e",
+    "state": "CLAIMED",
+    "status": "CLAIMED",
+    "host": "spark-6",
+    "stage": "t_ebcba52e_ldlq_run8503",
+    "mission": "/dev/shm/t_ebcba52e_ldlq_run8503",
+    "expiry_unix": 1788902161.9495485,
+    "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "exact_cas_from_sha256": "21ecb4e7ca12802e2f5f0828ac54f534f27f33ff0cce6ca9c9e03d55c24b85ca"
+  },
+  "changed": [
+    "argv",
+    "exact_cas_from_sha256",
+    "expiry_unix",
+    "mission",
+    "pgid",
+    "pid",
+    "receipt",
+    "script_sha256",
+    "source_model_index_sha256",
+    "stage",
+    "start_ticks",
+    "terminal_at"
+  ],
+  "preimage_sha256": "21ecb4e7ca12802e2f5f0828ac54f534f27f33ff0cce6ca9c9e03d55c24b85ca"
+}

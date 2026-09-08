@@ -1,0 +1,4 @@
+{
+  "viterbi_num_warps": 8,
+  "viterbi_branch_unroll": true
+}

@@ -1,0 +1,319 @@
+{
+  "rows": [
+    {
+      "arm": "new2",
+      "phase": "cold",
+      "build_wall": 6.340519500001392,
+      "whole_iteration_seconds": 6.352342186000897,
+      "build": {
+        "rht_seed": 5413548984517567745,
+        "quant_seconds": 5.73871772599523,
+        "fit_rows": 65,
+        "fit_route_mass": 17.0009765625,
+        "canonical_pack": {
+          "tile_states_shape": [
+            32768,
+            128
+          ],
+          "canonical_packed_shape": [
+            32768,
+            16
+          ],
+          "canonical_packed_dtype": "torch.uint16",
+          "canonical_packed_sha256": "27bc9caa6436c086c53acb38260562c03942bcdde5099ffa973a35f1286c7cc1",
+          "canonical_unpack_state_sha256": "14b709eb09d7c13c84a55171468a8e5fa2fcc61c6db9530cf21992382618a334",
+          "input_state_sha256": "14b709eb09d7c13c84a55171468a8e5fa2fcc61c6db9530cf21992382618a334",
+          "canonical_pack_roundtrip_fraction": 1.0,
+          "canonical_pack_roundtrip_exact": true,
+          "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+          "kernel_packed_shape": [
+            32768,
+            16
+          ],
+          "kernel_packed_sha256": "4567dab977cb66a26e96879685229b0f2ba4774fd40d37c3d693c7fef72b763a",
+          "kernel_packed_bytes": 1048576
+        },
+        "packed_decode": {
+          "path": "canonical QTIP Python/CUDA tensor decompressor",
+          "source_sha256": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df",
+          "shape": [
+            4096,
+            2048
+          ],
+          "geometry": {
+            "L": 16,
+            "K": 1,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "fp16_bit_equal_fraction": 1.0,
+          "fp16_bit_exact": true,
+          "max_abs_fp32_vs_stored_fp16": 0.00010561943054199219,
+          "decoded_fp16_sha256": "b8c1a5406253e27ed263c301da5ad22c25f9250e3ee442a5afc38e4aaae36ced",
+          "stored_fp16_sha256": "b8c1a5406253e27ed263c301da5ad22c25f9250e3ee442a5afc38e4aaae36ced",
+          "packed_sha256": "4567dab977cb66a26e96879685229b0f2ba4774fd40d37c3d693c7fef72b763a",
+          "runtime_check_performed": true
+        },
+        "phase_seconds": {
+          "hessian_fwht_accumulation": 0.02293973400082905,
+          "hessian_regularization": 0.00751049099926604,
+          "forward_fwht": 0.015329256995755713,
+          "block_ldl": 0.04585181999573251,
+          "ldlq": 5.73871772599523,
+          "canonical_pack": 0.06780530499963788,
+          "inverse_fwht_reconstruction": 0.028305455998633988,
+          "packed_decode_conformance": 0.3067838360002497
+        },
+        "matrix_lifetime": {
+          "schema": "banana-smasher-qtip-matrix-lifetime-v1",
+          "matrix_shape": [
+            4096,
+            2048
+          ],
+          "max_live_fp32_matrix_equivalents": 1,
+          "released_before_pack": [
+            "lower",
+            "transformed"
+          ],
+          "reconstructed_weight_device": "cpu",
+          "events": [
+            {
+              "phase": "hessian_ready",
+              "live_fp32_matrices": [],
+              "unique_storage_count": 0
+            },
+            {
+              "phase": "hessian_regularized",
+              "live_fp32_matrices": [],
+              "unique_storage_count": 0
+            },
+            {
+              "phase": "forward_transform_ready",
+              "live_fp32_matrices": [
+                "transformed"
+              ],
+              "unique_storage_count": 1
+            },
+            {
+              "phase": "ldl_ready",
+              "live_fp32_matrices": [
+                "transformed"
+              ],
+              "unique_storage_count": 1
+            },
+            {
+              "phase": "ldlq_ready",
+              "live_fp32_matrices": [
+                "quantized"
+              ],
+              "unique_storage_count": 1
+            },
+            {
+              "phase": "packed",
+              "live_fp32_matrices": [
+                "quantized"
+              ],
+              "unique_storage_count": 1
+            },
+            {
+              "phase": "reconstruction_sealed",
+              "live_fp32_matrices": [],
+              "unique_storage_count": 0
+            },
+            {
+              "phase": "packed_decode_verified",
+              "live_fp32_matrices": [
+                "decoded"
+              ],
+              "unique_storage_count": 1
+            }
+          ]
+        }
+      },
+      "solver": {
+        "implementation": "persistent-prefix-generic-aot-v1",
+        "L": 16,
+        "K": 1,
+        "V": 2,
+        "full_states": 65536,
+        "retained_prefix_costs": 16384,
+        "branches_per_prefix": 4,
+        "branch_sampling": "full",
+        "steps": 128,
+        "min_exact_quality": 1.0,
+        "ordering": "one persistent launch per independent sequence batch",
+        "best_state_dtype": "int32",
+        "production_default": false,
+        "viterbi_num_warps": 8,
+        "viterbi_branch_unroll": 4
+      },
+      "calls": 256,
+      "sequences": 65536,
+      "peak_allocated": 2360899584,
+      "peak_reserved": 2376073216,
+      "artifact_sha256": "16444cd779d98d28f916026e5984256e8c721af278dc9a5f321e1ad0669edfed",
+      "bytes": 17845357
+    },
+    {
+      "arm": "new2",
+      "phase": "warm",
+      "build_wall": 5.338362795999274,
+      "whole_iteration_seconds": 5.349631957004021,
+      "build": {
+        "rht_seed": 5413548984517567745,
+        "quant_seconds": 5.177453042997513,
+        "fit_rows": 65,
+        "fit_route_mass": 17.0009765625,
+        "canonical_pack": {
+          "tile_states_shape": [
+            32768,
+            128
+          ],
+          "canonical_packed_shape": [
+            32768,
+            16
+          ],
+          "canonical_packed_dtype": "torch.uint16",
+          "canonical_packed_sha256": "27bc9caa6436c086c53acb38260562c03942bcdde5099ffa973a35f1286c7cc1",
+          "canonical_unpack_state_sha256": "14b709eb09d7c13c84a55171468a8e5fa2fcc61c6db9530cf21992382618a334",
+          "input_state_sha256": "14b709eb09d7c13c84a55171468a8e5fa2fcc61c6db9530cf21992382618a334",
+          "canonical_pack_roundtrip_fraction": 1.0,
+          "canonical_pack_roundtrip_exact": true,
+          "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+          "kernel_packed_shape": [
+            32768,
+            16
+          ],
+          "kernel_packed_sha256": "4567dab977cb66a26e96879685229b0f2ba4774fd40d37c3d693c7fef72b763a",
+          "kernel_packed_bytes": 1048576
+        },
+        "packed_decode": {
+          "path": "canonical QTIP Python/CUDA tensor decompressor",
+          "source_sha256": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df",
+          "shape": [
+            4096,
+            2048
+          ],
+          "geometry": {
+            "L": 16,
+            "K": 1,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "fp16_bit_equal_fraction": 1.0,
+          "fp16_bit_exact": true,
+          "max_abs_fp32_vs_stored_fp16": 0.00010561943054199219,
+          "decoded_fp16_sha256": "b8c1a5406253e27ed263c301da5ad22c25f9250e3ee442a5afc38e4aaae36ced",
+          "stored_fp16_sha256": "b8c1a5406253e27ed263c301da5ad22c25f9250e3ee442a5afc38e4aaae36ced",
+          "packed_sha256": "4567dab977cb66a26e96879685229b0f2ba4774fd40d37c3d693c7fef72b763a",
+          "runtime_check_performed": true
+        },
+        "phase_seconds": {
+          "hessian_fwht_accumulation": 0.006844885996542871,
+          "hessian_regularization": 0.00014795300376135856,
+          "forward_fwht": 0.015273128999979235,
+          "block_ldl": 0.015400329997646622,
+          "ldlq": 5.177453042997513,
+          "canonical_pack": 0.037127094001334626,
+          "inverse_fwht_reconstruction": 0.028412289000698365,
+          "packed_decode_conformance": 0.053304982000554446
+        },
+        "matrix_lifetime": {
+          "schema": "banana-smasher-qtip-matrix-lifetime-v1",
+          "matrix_shape": [
+            4096,
+            2048
+          ],
+          "max_live_fp32_matrix_equivalents": 1,
+          "released_before_pack": [
+            "lower",
+            "transformed"
+          ],
+          "reconstructed_weight_device": "cpu",
+          "events": [
+            {
+              "phase": "hessian_ready",
+              "live_fp32_matrices": [],
+              "unique_storage_count": 0
+            },
+            {
+              "phase": "hessian_regularized",
+              "live_fp32_matrices": [],
+              "unique_storage_count": 0
+            },
+            {
+              "phase": "forward_transform_ready",
+              "live_fp32_matrices": [
+                "transformed"
+              ],
+              "unique_storage_count": 1
+            },
+            {
+              "phase": "ldl_ready",
+              "live_fp32_matrices": [
+                "transformed"
+              ],
+              "unique_storage_count": 1
+            },
+            {
+              "phase": "ldlq_ready",
+              "live_fp32_matrices": [
+                "quantized"
+              ],
+              "unique_storage_count": 1
+            },
+            {
+              "phase": "packed",
+              "live_fp32_matrices": [
+                "quantized"
+              ],
+              "unique_storage_count": 1
+            },
+            {
+              "phase": "reconstruction_sealed",
+              "live_fp32_matrices": [],
+              "unique_storage_count": 0
+            },
+            {
+              "phase": "packed_decode_verified",
+              "live_fp32_matrices": [
+                "decoded"
+              ],
+              "unique_storage_count": 1
+            }
+          ]
+        }
+      },
+      "solver": {
+        "implementation": "persistent-prefix-generic-aot-v1",
+        "L": 16,
+        "K": 1,
+        "V": 2,
+        "full_states": 65536,
+        "retained_prefix_costs": 16384,
+        "branches_per_prefix": 4,
+        "branch_sampling": "full",
+        "steps": 128,
+        "min_exact_quality": 1.0,
+        "ordering": "one persistent launch per independent sequence batch",
+        "best_state_dtype": "int32",
+        "production_default": false,
+        "viterbi_num_warps": 8,
+        "viterbi_branch_unroll": 4
+      },
+      "calls": 256,
+      "sequences": 65536,
+      "peak_allocated": 2363001344,
+      "peak_reserved": 2378170368,
+      "artifact_sha256": "4593383c7b8421ad8be5c5e2bbcb0f019aac62a30daa33e0231c0671dc5976e2",
+      "bytes": 17845357
+    }
+  ],
+  "child_whole_seconds": 14.108162479002203
+}

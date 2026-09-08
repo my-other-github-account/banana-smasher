@@ -1,0 +1,17 @@
+{
+  "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "rows": [
+    {
+      "owner": "t_ebcba52e",
+      "layer": 3,
+      "experts": [
+        145
+      ],
+      "projections": [
+        "down"
+      ],
+      "K": 1,
+      "operation": "representative_acceleration_diagnostic_not_production"
+    }
+  ]
+}

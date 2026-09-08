@@ -1,0 +1,133 @@
+{
+  "status": "REPRESENTATIVE_SPEED_QUALITY_PASS_OWNER_ROLLOUT_PENDING",
+  "tested_code_pin": "eb3b97314416440bd835fb8327d60b52b0826bdb",
+  "candidate_config_patch": {
+    "viterbi_num_warps": 8,
+    "viterbi_branch_unroll": true
+  },
+  "whole_process": {
+    "baseline_mean_seconds": 20.191051763998985,
+    "candidate_mean_seconds": 16.679772654497356,
+    "speedup": 1.2105112091293933,
+    "scope": "fresh process including setup, cold+warm full-build pair, outputs and shutdown; shared compiler cache with compile costs retained; ABBA"
+  },
+  "warm": {
+    "old": {
+      "ldlq_seconds": 7.158609784000873,
+      "build_seconds": 7.3239646929978335,
+      "whole_iteration_seconds": 7.335224998500053
+    },
+    "new": {
+      "ldlq_seconds": 5.246590130500408,
+      "build_seconds": 5.406486813499214,
+      "whole_iteration_seconds": 5.418031249002524
+    }
+  },
+  "dominant_phase_speedup": 1.3644309172132913,
+  "warm_whole_build_speedup": 1.3546624537603524,
+  "quality": {
+    "verified_rows": 8,
+    "original_nmse": 0.3226495367066126,
+    "max_nmse": 0.3226495367066126,
+    "max_output_sse_ratio": 1.0,
+    "all_decoded_equal_original": true,
+    "scope": "original owner packed artifact, authentic clean-fit 16 windows/65 routed rows, not heldout/frozen/full-model"
+  },
+  "scientific_outputs_newly_accepted": 0,
+  "production_adoption": false,
+  "frozen_evaluation_touched": false,
+  "original_d1_cells_per_hour": 322.56732008115506,
+  "production_504_cells_per_hour_demonstrated": false,
+  "baseline_caveat": "Canonical bounded builder shared across both arms to isolate original-owner Viterbi vs current-main scheduling. Baseline output independently equals retained original owner artifact; original s7 throughput is not compared to s6 timing.",
+  "wall_records": [
+    {
+      "arm": "old1",
+      "returncode": 0,
+      "whole_seconds": 20.981717087997822
+    },
+    {
+      "arm": "new1",
+      "returncode": 0,
+      "whole_seconds": 18.063474555994617
+    },
+    {
+      "arm": "new2",
+      "returncode": 0,
+      "whole_seconds": 15.296070753000095
+    },
+    {
+      "arm": "old2",
+      "returncode": 0,
+      "whole_seconds": 19.400386440000148
+    },
+    {
+      "arm": "validate",
+      "returncode": 0,
+      "whole_seconds": 3.401335189002566
+    }
+  ],
+  "artifact_seals": [
+    {
+      "arm": "old1",
+      "phase": "cold",
+      "sha256": "87cc72a5e794467aad7aeceadfdd5e3c1038e0ecb9e2373bd71cbc7ba6472cbb",
+      "bytes": 17845357
+    },
+    {
+      "arm": "old1",
+      "phase": "warm",
+      "sha256": "fe0cd6573607acae935a5974dcdd409ca0d9861c4a2891fe10dc5ad1fa0275d5",
+      "bytes": 17845357
+    },
+    {
+      "arm": "new1",
+      "phase": "cold",
+      "sha256": "9fcd6da9a12bc6314d2906d4bfd38e02ab8e77e89aab8045970156771ef9e91c",
+      "bytes": 17845357
+    },
+    {
+      "arm": "new1",
+      "phase": "warm",
+      "sha256": "e9400fb7df8cf1a5338749c86d3b4f34172999171a8ccf418190d6f171839715",
+      "bytes": 17845357
+    },
+    {
+      "arm": "new2",
+      "phase": "cold",
+      "sha256": "16444cd779d98d28f916026e5984256e8c721af278dc9a5f321e1ad0669edfed",
+      "bytes": 17845357
+    },
+    {
+      "arm": "new2",
+      "phase": "warm",
+      "sha256": "4593383c7b8421ad8be5c5e2bbcb0f019aac62a30daa33e0231c0671dc5976e2",
+      "bytes": 17845357
+    },
+    {
+      "arm": "old2",
+      "phase": "cold",
+      "sha256": "0a120e0312c41cd1c0b6291e66a568c68855917611b42de17ae606e45fac8906",
+      "bytes": 17845357
+    },
+    {
+      "arm": "old2",
+      "phase": "warm",
+      "sha256": "2acffe8e7dd14c0d2e0083de2b0bbcf9ac42718edb8e6c55a0d73c17c78f47a0",
+      "bytes": 17845357
+    }
+  ],
+  "public_api": {
+    "entrypoint": "banana_smasher.solver_qtip_profile.main",
+    "profile_mode": false,
+    "resident_equivalent": "main_many(batch_size=1)",
+    "whole_worker_seconds": 11.39090912300162,
+    "public_main_seconds": 6.683354366999993,
+    "artifact_sha256": "a202fc9d67cd75e7db8d1f5db95d2de502ef0e67f9bf0a69c6ddd1a6e753ee0a",
+    "config_sha256": "74faea22d1ab254517f247a34f9378de739206f0778e574eba3ecf402399908a",
+    "import_closure_sha256": "76a224a63557464e29c9fc0caf98353aef283c84a3823e417a1c8e8f8be99429",
+    "same_decoded_original": true,
+    "output_sse_ratio": 1.0
+  },
+  "s6_retained_claim_sha256": "dafd4fc042247db1952792070d2b10ba5d9b0d2f60dc908c17ddafd13c58b600",
+  "rejected_public_path": "main_batch cross-unit dispatch performs different numerical work; its successful smoke is NOT a qualified rollout or equivalent output claim"
+}

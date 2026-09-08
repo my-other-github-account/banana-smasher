@@ -1,0 +1,22 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 1130497,
+  "pgid": 1130497,
+  "start_ticks": 5639476,
+  "argv": [
+    "/dev/shm/t_ebcba52e_bridge_stage_run8482/owner_bridge_run8482.py",
+    "39585dd95e120a00d971ab9f4360b8ee7d2c3ed32d5c53cbe5d93fd554f8d534"
+  ],
+  "receipt": "/dev/shm/t_ebcba52e_owner_bridge_run8482/IDENTITY.json",
+  "script_sha256": "d5796e5c6936a074ad70510930834378a9ce334f6fd461312430dd3c57986d3b",
+  "owner": "t_ebcba52e",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "host": "spark-6",
+  "stage": "t_ebcba52e_owner_bridge_run8482_terminal_retained",
+  "mission": "/dev/shm/t_ebcba52e_owner_bridge_run8482",
+  "expiry_unix": 1788898538.229966,
+  "source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "exact_cas_from_sha256": "39585dd95e120a00d971ab9f4360b8ee7d2c3ed32d5c53cbe5d93fd554f8d534",
+  "terminal_at": 1788891684.3441548
+}

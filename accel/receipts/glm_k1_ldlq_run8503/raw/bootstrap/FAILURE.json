@@ -1,0 +1,4 @@
+{
+  "error": "AssertionError()",
+  "traceback": "Traceback (most recent call last):\n  File \"/dev/shm/t_ebcba52e_ldlq_run8503/controller_run8503.py\", line 40, in main\n    put(R/'TERMINAL.json',dict(returncode=rc,whole_seconds=time.perf_counter()-t));assert rc==0\n                                                                                          ^^^^^\nAssertionError\n"
+}

@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/dev/shm/t_ebcba52e_ldlq_run8503/controller_run8503.py", line 46, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/dev/shm/t_ebcba52e_ldlq_run8503/controller_run8503.py", line 40, in main
+    put(R/'TERMINAL.json',dict(returncode=rc,whole_seconds=time.perf_counter()-t));assert rc==0
+                                                                                          ^^^^^
+AssertionError

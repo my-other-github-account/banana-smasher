@@ -1,0 +1,9 @@
+test_rejects_artifact_digest_mismatch (test_evidence_run8503.EvidenceTests.test_rejects_artifact_digest_mismatch) ... ok
+test_rejects_duplicate_phase (test_evidence_run8503.EvidenceTests.test_rejects_duplicate_phase) ... ok
+test_rejects_quality_regression (test_evidence_run8503.EvidenceTests.test_rejects_quality_regression) ... ok
+test_verified_receipts (test_evidence_run8503.EvidenceTests.test_verified_receipts) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.201s
+
+OK

@@ -1,0 +1,20 @@
+{
+  "order": [
+    "old1",
+    "new1",
+    "new2",
+    "old2"
+  ],
+  "phases": [
+    "cold",
+    "warm"
+  ],
+  "candidate": {
+    "viterbi_num_warps": 8,
+    "viterbi_branch_unroll": true
+  },
+  "quality_relative_bound": 1.0001,
+  "absolute_slack": 1e-12,
+  "scope": "same-work full authentic 4096x2048 cell; canonical builder and selected source shared; owner Viterbi prior-art versus current canonical schedule; no historical bridge/sparse replay",
+  "timing": "same shared prewarmed micro compiler cache; per-process setup and complete two-build wall separately recorded; cache effects counterbalanced"
+}

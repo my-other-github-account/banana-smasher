@@ -1,0 +1,41 @@
+{
+  "candidate": {
+    "task_id": "t_ebcba52e",
+    "pid": 1192047,
+    "pgid": 1192047,
+    "start_ticks": 6012082,
+    "argv": [
+      "/dev/shm/t_ebcba52e_ldlq_run8503/supervisor_run8503.py",
+      "micro_r2",
+      "micro_r2_run8503.py",
+      "5ffdd7dffd1951e2fa1b30c32ea8e469763ee59c4c86d425b262d152698acb6c"
+    ],
+    "receipt": "/dev/shm/t_ebcba52e_ldlq_run8503/micro_r2/IDENTITY.json",
+    "script_sha256": "016906117b91bf8f87e2b48f168c6eda67370782fff3e52f60b1e5d8a4bb6209",
+    "owner": "t_ebcba52e",
+    "state": "CLAIMED",
+    "status": "CLAIMED",
+    "host": "spark-6",
+    "stage": "micro_r2",
+    "mission": "/dev/shm/t_ebcba52e_ldlq_run8503/micro_r2",
+    "expiry_unix": 1788902264.2637665,
+    "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "exact_cas_from_sha256": "5ffdd7dffd1951e2fa1b30c32ea8e469763ee59c4c86d425b262d152698acb6c"
+  },
+  "changed": [
+    "argv",
+    "exact_cas_from_sha256",
+    "expiry_unix",
+    "mission",
+    "pgid",
+    "pid",
+    "receipt",
+    "script_sha256",
+    "stage",
+    "start_ticks",
+    "terminal_at"
+  ],
+  "previous_terminal_sha256": "8217356e2cee14cc21418bc3da5ccaa662248c51f935a1366ff9fc3513485023",
+  "previous_shards_sha256": "31ef8a1205420651627c01f12eb19066fe9ff488690c6447188aa5a8217aaca5",
+  "worker_sha256": "8acf6893a33207ecb6da8c543ced3ddb7122cb236e54088fb486840001a9aa15"
+}

@@ -1,0 +1,236 @@
+{
+  "capture_inventory_seal_sha256": "e59dad6cc3fb9b13b89cbe4972a654f737e3676d8b88f6f81b07d069ddf55cd8",
+  "capture_root": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures",
+  "clean_fit_admission": true,
+  "layer": 3,
+  "meaning": "authenticated training-only capture inventory; not scientific clean admission",
+  "members": [
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0000.pt",
+        "sha256": "8c9c71939a9c558c535cbe82fecbb02bfe4a77d7a502e4ae05ac5634856b8a0d"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0000.pt.DONE.json",
+        "sha256": "2b808ecefd08023f6cd8116c8eef0f752dfc6341ead73a575eeaa5c1741874dc"
+      },
+      "item_id": "gutenberg:1342:body-window:0",
+      "window": 0
+    },
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0001.pt",
+        "sha256": "6850520dab4592363b6c003ddf1bfa9741baf8cf2d5205f5061e3a5852d413dd"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0001.pt.DONE.json",
+        "sha256": "00d7695b0b764e6256d308c8060f4fd36a2ad7c66997bef5f92ab1ba451ee638"
+      },
+      "item_id": "gutenberg:1342:body-window:1",
+      "window": 1
+    },
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0002.pt",
+        "sha256": "b514112dfe27ea8a4ceb1c9db45da8e3192593aab30121ae093995b29f5ca630"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0002.pt.DONE.json",
+        "sha256": "0e642ee0435a2fb5b803f24c55cf7fe458a47dcdaa916fc99b774431ba4640be"
+      },
+      "item_id": "gutenberg:1342:body-window:2",
+      "window": 2
+    },
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0003.pt",
+        "sha256": "b1fff53185c4acf23e0f5a04b7dd8775c97ff22631f9a8659567fbb83ad33a1c"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0003.pt.DONE.json",
+        "sha256": "f57323fa5e9badecba4745d057a630b68bab3c43d68fbb6c7469a5950980742f"
+      },
+      "item_id": "gutenberg:1342:body-window:3",
+      "window": 3
+    },
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0004.pt",
+        "sha256": "d73ac78c66a98265bea4c007d8ff9707561a1f73291c4b498113ddfd92852523"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0004.pt.DONE.json",
+        "sha256": "29e035b8e95835929822de6f398d9cbefa4ad1313ad3df9662f05bf18b9d22ab"
+      },
+      "item_id": "gutenberg:1342:body-window:4",
+      "window": 4
+    },
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0005.pt",
+        "sha256": "e98e4ba7b72b05a92b14832b9d62d01ddf51d08fb9d58f06759430c8a6d80eb1"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0005.pt.DONE.json",
+        "sha256": "fa27270d8611ace94e868deb3bb7ad0cc9be475388b74e9905f05197d9455a3d"
+      },
+      "item_id": "gutenberg:1342:body-window:5",
+      "window": 5
+    },
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0006.pt",
+        "sha256": "307a221bede981529b26d62bff707245e1667457868808cc58888081f63b09bc"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0006.pt.DONE.json",
+        "sha256": "a7e38b715c63cf85a4053ed46661e11406cdb883c6caaed227f634f7775d125f"
+      },
+      "item_id": "gutenberg:1342:body-window:6",
+      "window": 6
+    },
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0007.pt",
+        "sha256": "99f0f58ec296e6fdee4913eba9b86293fd99a27b00c1b9ea5dd50f687ba01340"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0007.pt.DONE.json",
+        "sha256": "6e8275a077471b0544c2eefa93c0a9998defd075e7651d48411ee6b6da87c4a2"
+      },
+      "item_id": "gutenberg:1342:body-window:7",
+      "window": 7
+    },
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0008.pt",
+        "sha256": "f90c8d719da4760424b86a642696e89d0db502b1897ef0d08d95cc4e75813810"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0008.pt.DONE.json",
+        "sha256": "89e9ae4f50799d37186e78ef9d8c557d860f86dee9599a516a7a235d1ee37772"
+      },
+      "item_id": "gutenberg:1342:body-window:8",
+      "window": 8
+    },
+    {
+      "capture": {
+        "bytes": 8423585,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0009.pt",
+        "sha256": "b7e66726e920adefbd4ea2372f2ada65c9daa65b9942d2ab95e41979b421dd0b"
+      },
+      "capture_done": {
+        "bytes": 415,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0009.pt.DONE.json",
+        "sha256": "13abcacd83e84b4465b87bf399151c0904068459599773fa0cca9caac64ecc9c"
+      },
+      "item_id": "gutenberg:1342:body-window:9",
+      "window": 9
+    },
+    {
+      "capture": {
+        "bytes": 8423649,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0010.pt",
+        "sha256": "47ec85f3ba024515eb2fee38116ab2f66e3e6a255ded470ab67a6741b8341dff"
+      },
+      "capture_done": {
+        "bytes": 417,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0010.pt.DONE.json",
+        "sha256": "8540d64af6c5216e2b2cd4fbbc2e33669dabb02f2aff998306945fd549920bc2"
+      },
+      "item_id": "gutenberg:1342:body-window:10",
+      "window": 10
+    },
+    {
+      "capture": {
+        "bytes": 8423649,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0011.pt",
+        "sha256": "084c1943e743de574ed96f133c1d2cccf138eb4d4c9f11b8ac67c830b45a0dfe"
+      },
+      "capture_done": {
+        "bytes": 417,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0011.pt.DONE.json",
+        "sha256": "ea1fe65de758faaf4de0973ccf571454302c5a3fba4881075e4e3a6c814c21cb"
+      },
+      "item_id": "gutenberg:1342:body-window:11",
+      "window": 11
+    },
+    {
+      "capture": {
+        "bytes": 8423649,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0012.pt",
+        "sha256": "99b2eca50b792d79d7d419b4742ef0af384d0eda46b5fb0756bf249315b1cd21"
+      },
+      "capture_done": {
+        "bytes": 417,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0012.pt.DONE.json",
+        "sha256": "da0f4052c605e4aa6b96b2848198044d396717bd8835a92af66cc1e41891f911"
+      },
+      "item_id": "gutenberg:1342:body-window:12",
+      "window": 12
+    },
+    {
+      "capture": {
+        "bytes": 8423649,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0013.pt",
+        "sha256": "8e45a5eafaa146d7c0ecf3ea58542032344775af95f8542f9ff435bd100fb17c"
+      },
+      "capture_done": {
+        "bytes": 417,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0013.pt.DONE.json",
+        "sha256": "a9d09cceb413b886316650ac70fe1b8bc9808f99d782d34549594313abee157c"
+      },
+      "item_id": "gutenberg:1342:body-window:13",
+      "window": 13
+    },
+    {
+      "capture": {
+        "bytes": 8423649,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0014.pt",
+        "sha256": "27657fe7c1f80185e423e1f8bf003162d7739cb5dd327fe2e536d82e0eab6063"
+      },
+      "capture_done": {
+        "bytes": 417,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0014.pt.DONE.json",
+        "sha256": "ddcb934ec3edbb4a75dedbe30186b509fb26858b7e567ae025dab64dc93d9997"
+      },
+      "item_id": "gutenberg:1342:body-window:14",
+      "window": 14
+    },
+    {
+      "capture": {
+        "bytes": 8423649,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0015.pt",
+        "sha256": "9b74cc7e8970904167b7204f0933f1d7868345326cf39d80c08fbe2df0d2932d"
+      },
+      "capture_done": {
+        "bytes": 417,
+        "path": "/dev/shm/t_ebcba52e_ldlq_run8503/closure/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_s7_a1/home/dnola/missions/CLEAN_t_bd7914e6/q2_cell/fitcaptures/xmoe_L003_win0015.pt.DONE.json",
+        "sha256": "9d362c018fc1084899eaf783f0e7e505018a263a263c49081316bb1843a710a9"
+      },
+      "item_id": "gutenberg:1342:body-window:15",
+      "window": 15
+    }
+  ],
+  "schema": "banana-smasher-hessian-layer-manifest-v1",
+  "status": "PASS",
+  "windows": 16
+}

@@ -1,0 +1,23 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 1208198,
+  "pgid": 1208198,
+  "start_ticks": 6049705,
+  "argv": [
+    "/dev/shm/t_ebcba52e_ldlq_run8503/supervisor_run8503.py",
+    "public_singleton",
+    "public_singleton_run8503.py",
+    "c875343d2ed1b4fafe9a18245cc7131d7d0812b363696682977b0fe50ae7d716"
+  ],
+  "receipt": "/dev/shm/t_ebcba52e_ldlq_run8503/public_singleton/IDENTITY.json",
+  "script_sha256": "016906117b91bf8f87e2b48f168c6eda67370782fff3e52f60b1e5d8a4bb6209",
+  "owner": "t_ebcba52e",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "host": "spark-6",
+  "stage": "public_singleton",
+  "mission": "/dev/shm/t_ebcba52e_ldlq_run8503/public_singleton",
+  "expiry_unix": 1788902640.5088642,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "c875343d2ed1b4fafe9a18245cc7131d7d0812b363696682977b0fe50ae7d716"
+}

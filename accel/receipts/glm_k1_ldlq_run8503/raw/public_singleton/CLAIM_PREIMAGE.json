@@ -1,0 +1,24 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 1202942,
+  "pgid": 1202942,
+  "start_ticks": 6039083,
+  "argv": [
+    "/dev/shm/t_ebcba52e_ldlq_run8503/supervisor_run8503.py",
+    "public_api",
+    "public_api_run8503.py",
+    "9c5c3228a22ab88ccd9ba33b26e3455a2b74669f5fabb22425cb2957fd08056d"
+  ],
+  "receipt": "/dev/shm/t_ebcba52e_ldlq_run8503/public_api/IDENTITY.json",
+  "script_sha256": "016906117b91bf8f87e2b48f168c6eda67370782fff3e52f60b1e5d8a4bb6209",
+  "owner": "t_ebcba52e",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "host": "spark-6",
+  "stage": "public_api_terminal_retained",
+  "mission": "/dev/shm/t_ebcba52e_ldlq_run8503/public_api",
+  "expiry_unix": 1788902534.2854538,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "9c5c3228a22ab88ccd9ba33b26e3455a2b74669f5fabb22425cb2957fd08056d",
+  "terminal_at": 1788895349.3038592
+}
