@@ -1,5 +1,34 @@
 # Runtime accelerations
 
+## Fresh ordered consumer expansion: ordinal2 (run8411)
+
+The next driver-authorized bounded cohort was selected before readout: fresh
+ordinal2/window68 prose, then ordinal3/window71 reasoning. Ordinal0/1 were not
+replayed. Frozen API `cb460bb16b63aa567c5e44f3c5e81c1cb12d7f04` resumed the
+owner-authenticated ordinal2 L004 frontier with identical K2 wire and fixed
+1024 positions / 8192 teacher-selected support. All three arms (CPU control,
+CPU repeat, rounded CUDA) had conditional-support mean KL 0.5307037282072324.
+Candidate delta was zero versus the predeclared repeat-derived 1e-7 limit;
+paired support-logit max difference was zero and full-vocabulary top1 agreed
+1024/1024. Teacher top1 matches were 724 in every arm. After producer death,
+an independent verifier authenticated 18/18 frontier/readout bindings and
+120 unique arm/layer timing records.
+
+Forty-layer materialization was CPU 5163.612175 s versus CUDA 1485.084203 s
+(3.476983x). Forward cost was 16.906256 s versus 15.855320 s, with peak CUDA
+allocation 21,612,405,760 bytes in both. The repeat reused CPU materialization
+and is charged zero, not another speed sample. Full three-arm experiment wall
+was 6944.809709 s; transfer, hashing, readout and startup are outside the
+materialization ratio. This is consumer acceleration, NOT producer-build speed,
+process-cold speed, full-model equivalence or production adoption. Document
+ancestry remains qualification-open. Ordinal0 RED is preserved; no defaults
+or production settings changed. Ordinal3 remains the predefined next gate.
+
+Spark-6 receipt:
+`/home/dnola/missions/t_ebcba52e_ordinal2_run8411_a2/INDEPENDENT.json`
+SHA256 `26b17209cd6facd62011a8b0d41efbaa55eb8cd7f3be8630618cf3bfa5a55f65`;
+RESULT SHA256 `8958837215e5efe9b2ba9d6df0c69f7620f836d29f38f3f751c75c3668f339b5`.
+
 ## Corrected consumer: one independently verified output row (run8407)
 
 Frozen API `cb460bb16b63aa567c5e44f3c5e81c1cb12d7f04` completed the explicitly
