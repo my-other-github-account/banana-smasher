@@ -1,0 +1,14 @@
+{
+  "K": 3,
+  "accepted_artifact_bytes": 9494475,
+  "completed_cells": 3,
+  "last_cell": [
+    11,
+    2,
+    "down"
+  ],
+  "main_batch_wall_seconds": 26.694259881973267,
+  "observed": 1788892654.805137,
+  "started": 1788892628.04913,
+  "target_cells": 3
+}

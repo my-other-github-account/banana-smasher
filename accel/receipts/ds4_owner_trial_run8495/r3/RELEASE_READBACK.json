@@ -1,0 +1,15 @@
+{
+  "controller_pid": 739853,
+  "controller_startticks": 5768491,
+  "expires_unix": 1788979025.498398,
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495r3",
+  "owner_task_id": "t_68e5892b",
+  "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495r3/CLAIM_READBACK.json",
+  "released": true,
+  "state": "RELEASED",
+  "status": "RELEASED",
+  "task_id": "t_68e5892b",
+  "terminal_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495r3/TERMINAL.json",
+  "terminal_sha256": "ea75aeba91afc052e3db6362f0d7261dc27e592d6e5cdef4b1a21101760edbc2"
+}

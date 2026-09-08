@@ -1,0 +1,78 @@
+{
+  "aot": {
+    "architecture": "runtime-device",
+    "cache": "sha256-pinned",
+    "compile": "first-use-or-explicit",
+    "producer": "smash kernels build --tier qtip --bpw 3.00"
+  },
+  "backend": "persistent-soa-exact-prefix-dp-v32",
+  "block_ldl_unitwise": true,
+  "bpw": "3.00",
+  "codebook": {
+    "decode_mode": "quantlut_sym",
+    "family": "bitshift",
+    "pack_contract": {
+      "dtype": "uint16",
+      "input_tile": [
+        16,
+        16
+      ],
+      "output_rows": "input_tile_grid",
+      "packed_words_per_tile_per_k": 16
+    },
+    "td_x": 16,
+    "td_y": 16,
+    "tlut_binding": "run-manifest",
+    "tlut_bits": 9
+  },
+  "exact_solver": "banana_smasher.qtip_viterbi@39da421e75b84c975f6a8c11f508c297c3f73cb5",
+  "expert": 0,
+  "fit_capture_root": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-L011-derived-run8217s8/captures",
+  "fit_population_manifest": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+    "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+  },
+  "fit_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+  "fit_windows": 22,
+  "geometry": {
+    "K": 3,
+    "L": 16,
+    "V": 2
+  },
+  "hessian_layer_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-L011-derived-run8217s8/L011.CAPTURE_BINDING.json",
+  "hessian_layer_manifest_sha256": "b09eaf1c855ae9542b6dd57081a4bb9cddaf2f155c3f19608fe7ebd12fc1ef1e",
+  "input_identity": {
+    "model_index": {
+      "path": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731/model.safetensors.index.json",
+      "sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+    }
+  },
+  "layer": 11,
+  "layer_census": {
+    "d4": 0,
+    "qtip2": 512,
+    "qtip3": 0
+  },
+  "materialization": {
+    "qtip_ring_bpw": "3.00",
+    "run_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495r3/L011_E000_down.MANIFEST.json",
+    "run_manifest_sha256": "059d5635de290e5a2d0748c8470298b7f046ac8bec541f090ed1b45e6f1263ad",
+    "schema": "banana-smasher-qtip-config-materialization-v1",
+    "source_config_sha256": "b2fed88481201b00628938ece343abf677cdc22cb51c78092c346e4cd6ef4062"
+  },
+  "model_root": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+  "pack_counts": {
+    "d4": 4173,
+    "qtip2": 2266,
+    "qtip3": 14979
+  },
+  "projection": "down",
+  "qtip_root": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical",
+  "qtip_runner": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_runner.py",
+  "reference_unit": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-L011-stage-run8217s8/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/reference/L016_E001_fused13_L16_K2_V2.pt",
+  "rht_seed": 4532798381794495512,
+  "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+  "schema": "banana-smasher-qtip-profile-config-v1",
+  "tier": "qtip@3.00",
+  "tlut_source": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-L011-stage-run8217s8/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/qtip_runtime/inputs/P817_TLUT_SOURCE.pt"
+}

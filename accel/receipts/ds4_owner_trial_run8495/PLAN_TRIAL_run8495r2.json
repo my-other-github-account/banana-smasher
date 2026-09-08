@@ -1,0 +1,446 @@
+{
+  "task": "t_68e5892b",
+  "run": 8495,
+  "pin": "39da421e75b84c975f6a8c11f508c297c3f73cb5",
+  "basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "cells": [
+    [
+      11,
+      0,
+      "down"
+    ],
+    [
+      11,
+      1,
+      "down"
+    ],
+    [
+      11,
+      2,
+      "down"
+    ]
+  ],
+  "prior_claim": {
+    "controller_pid": 737089,
+    "controller_startticks": 5756431,
+    "expires_unix": 1788978904.878123,
+    "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495",
+    "owner_task_id": "t_68e5892b",
+    "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/CLAIM_READBACK.json",
+    "released": true,
+    "state": "RELEASED",
+    "status": "RELEASED",
+    "task_id": "t_68e5892b",
+    "terminal_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/TERMINAL.json",
+    "terminal_sha256": "514544fb60f123a17f121311ef59642901219f5e9c3e3f70f23fe578e02759fd"
+  },
+  "prior_shards": {
+    "K": 3,
+    "cells": [
+      [
+        11,
+        0,
+        "down"
+      ],
+      [
+        11,
+        1,
+        "down"
+      ],
+      [
+        11,
+        2,
+        "down"
+      ]
+    ],
+    "controller_pid": 737089,
+    "controller_startticks": 5756431,
+    "execution_owner": "macmini.local",
+    "expires_unix": 1788978904.878123,
+    "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "logical_owner": "bs09",
+    "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495",
+    "operation": "bounded-missing-main_batch-trial",
+    "owner_task_id": "t_68e5892b",
+    "plan_sha256": "8c249ca6c2f1a28111df7b24f1c509bf4418841458226ec5e632cba19489cc18",
+    "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/CLAIM_READBACK.json",
+    "released": true,
+    "state": "RELEASED",
+    "status": "RELEASED",
+    "task_id": "t_68e5892b"
+  },
+  "source_rows": [
+    {
+      "K": 2,
+      "cell": [
+        11,
+        0,
+        "down"
+      ],
+      "artifact": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/solve/L011/E000_down/QTIP_UNIT.pt",
+        "sha256": "900c60df0206b52d419909db1f5f2767e0191d1ae1c21e3c1e179427d559ef21",
+        "bytes": 2116249
+      },
+      "receipt": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/solve/L011/E000_down/QTIP_SOLVE_RECEIPT.json",
+        "sha256": "723d216c4f7fba33e1e04a207973faa7db3584499c71cfca4fbc41a9365fa1c7",
+        "bytes": 10703
+      },
+      "config": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/L011_E000_down.json",
+        "sha256": "b2fed88481201b00628938ece343abf677cdc22cb51c78092c346e4cd6ef4062",
+        "bytes": 3251
+      },
+      "imports": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/L011_E000_down.IMPORTS.json",
+        "sha256": "a85e0bec1f0fcfecc238f95cb228bbc865134ae830fe519d7bf7ae5b99bb90f2",
+        "bytes": 15300
+      },
+      "source_input": {
+        "cell": [
+          11,
+          0,
+          "down"
+        ],
+        "reusable_input_config": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-resident-L011-run8217s8/L011_E000_down.json",
+          "bytes": 3231,
+          "sha256": "5d19ccf2711371694488d42a36583700182bf6554c932a0e1ca80932b32f2367"
+        },
+        "reusable_capture_binding": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-L011-derived-run8217s8/L011.CAPTURE_BINDING.json",
+          "bytes": 14080,
+          "sha256": "b09eaf1c855ae9542b6dd57081a4bb9cddaf2f155c3f19608fe7ebd12fc1ef1e"
+        },
+        "reusable_population": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+          "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+        },
+        "input_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+      },
+      "started": 1788837768.387206,
+      "accepted": 1788837773.0292792,
+      "qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+    },
+    {
+      "K": 2,
+      "cell": [
+        11,
+        1,
+        "down"
+      ],
+      "artifact": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/solve/L011/E001_down/QTIP_UNIT.pt",
+        "sha256": "ad81bdccc83130826a7ceeb776c87efad1133f4118946462f3e478d569610cf8",
+        "bytes": 2116249
+      },
+      "receipt": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/solve/L011/E001_down/QTIP_SOLVE_RECEIPT.json",
+        "sha256": "64efc23d423521618f3b346c82721e68e2b1de00402ce87423218eb00785c0e7",
+        "bytes": 10719
+      },
+      "config": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/L011_E001_down.json",
+        "sha256": "075dc4d19e03e7f71dc06a1a3ea7dcdfdc049a4cba07a57896571e0db989fab3",
+        "bytes": 3251
+      },
+      "imports": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/L011_E001_down.IMPORTS.json",
+        "sha256": "a85e0bec1f0fcfecc238f95cb228bbc865134ae830fe519d7bf7ae5b99bb90f2",
+        "bytes": 15300
+      },
+      "source_input": {
+        "cell": [
+          11,
+          1,
+          "down"
+        ],
+        "reusable_input_config": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-resident-L011-run8217s8/L011_E001_down.json",
+          "bytes": 3231,
+          "sha256": "77623677373a72178f8516625f8914802a6b620feb73017775edd1e80b0ab465"
+        },
+        "reusable_capture_binding": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-L011-derived-run8217s8/L011.CAPTURE_BINDING.json",
+          "bytes": 14080,
+          "sha256": "b09eaf1c855ae9542b6dd57081a4bb9cddaf2f155c3f19608fe7ebd12fc1ef1e"
+        },
+        "reusable_population": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+          "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+        },
+        "input_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+      },
+      "started": 1788837780.0748742,
+      "accepted": 1788837782.7327154,
+      "qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+    },
+    {
+      "K": 2,
+      "cell": [
+        11,
+        2,
+        "down"
+      ],
+      "artifact": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/solve/L011/E002_down/QTIP_UNIT.pt",
+        "sha256": "286396f996635734afcc35b8e479f1486a9817065908d590595d8f997340fb57",
+        "bytes": 2116249
+      },
+      "receipt": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/solve/L011/E002_down/QTIP_SOLVE_RECEIPT.json",
+        "sha256": "a58715b9918a4fac4edb8220ebbbe710bf852d78992e717ae6d800b6dfee065a",
+        "bytes": 10714
+      },
+      "config": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/L011_E002_down.json",
+        "sha256": "fc82c0582e3ef4a02afc7a5cb843586ec0c35a5afb8f846d6edef08ff89427f6",
+        "bytes": 3251
+      },
+      "imports": {
+        "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K2-L011491-run8344/L011_E002_down.IMPORTS.json",
+        "sha256": "a85e0bec1f0fcfecc238f95cb228bbc865134ae830fe519d7bf7ae5b99bb90f2",
+        "bytes": 15300
+      },
+      "source_input": {
+        "cell": [
+          11,
+          2,
+          "down"
+        ],
+        "reusable_input_config": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-resident-L011-run8217s8/L011_E002_down.json",
+          "bytes": 3231,
+          "sha256": "9047c59748dee4a30f3dc2cbffc4ccbdf82a1e08391a4ae70123ab8416ab7ff0"
+        },
+        "reusable_capture_binding": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-L011-derived-run8217s8/L011.CAPTURE_BINDING.json",
+          "bytes": 14080,
+          "sha256": "b09eaf1c855ae9542b6dd57081a4bb9cddaf2f155c3f19608fe7ebd12fc1ef1e"
+        },
+        "reusable_population": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+          "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+        },
+        "input_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+      },
+      "started": 1788837787.812448,
+      "accepted": 1788837790.4679258,
+      "qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+    }
+  ],
+  "global_boundary_refs": [
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_46b61159/t_68e5892b_evidence/BOUNDARY_s1_run8495.json",
+      "sha256": "d4e76fed4c9dac7553e0f6211c9d53fd21f35e6157a896acff2c2c25291bd1dc"
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_46b61159/t_68e5892b_evidence/BOUNDARY_s2_run8495.json",
+      "sha256": "bd03a5a64b840e6dc1b4ba35142bab9a51e6777cdaf19625b4134eb49aaa55c2"
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_46b61159/t_68e5892b_evidence/BOUNDARY_s4_run8495.json",
+      "sha256": "b7572324a6cdf3eae0c7ea4ab5fd9e0a7e0b1f430f9aea7cebbfceb8656fac54"
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_46b61159/t_68e5892b_evidence/BOUNDARY_s8_run8495.json",
+      "sha256": "5a6e096ef51c089dc4bfa698e6f7f334fdfa44ac5a29e492f6df79557efcf4f1"
+    }
+  ],
+  "canonical": {
+    "banana-smasher/src/banana_smasher/__init__.py": "5c42cdd7f49757ec5f333389b59e7aebeaa646e0b18fa6d18797ed8f973995d3",
+    "banana-smasher/src/banana_smasher/accumulation.py": "1f93d6a91049a59dfba0e2f2804e15f1a3e8c25da0cad4661169d08647cf43d4",
+    "banana-smasher/src/banana_smasher/activation_cache.py": "27bd68c551befceb1fbeee54d6d6cb99dfb66b980f637e5925ee0947f18589a1",
+    "banana-smasher/src/banana_smasher/anchor.py": "154025d5f83cc6ed0ce50d002f445438c2521f66ce1caeb4c6206ca47ae93da5",
+    "banana-smasher/src/banana_smasher/anchor_sidecars.py": "dac5ec3da6f12617166901149694854d9684ae54e9fe99bdbf17986d753d5430",
+    "banana-smasher/src/banana_smasher/artifact_identity.py": "e0daa309687cf8f0116419cced6907b71408b6dfb66e7a5026844febbb884754",
+    "banana-smasher/src/banana_smasher/backpack.py": "4050a2b8689f21e903028203fce78ed16f4bcf4ef08b8f56b39984bb7ebffe0e",
+    "banana-smasher/src/banana_smasher/backpack_contextual.py": "5ff9fa34108b084bf18f206d169cf3a2b41b0a300ea03bf6c58e4171c453a6b4",
+    "banana-smasher/src/banana_smasher/backpack_contextual_candidate.py": "537b822093220c6637a9695d5b38d8c6f448a7200372a123fafa395d6d4d31f9",
+    "banana-smasher/src/banana_smasher/backpack_contextual_measure.py": "4e0d1a5cfb86200fd13c15eb563e637c7116008b280b3e7f8a46b673cbbbd874",
+    "banana-smasher/src/banana_smasher/backpack_contextual_prepare.py": "5315113bbc28749f43820818817b6d630dd98943acdcc84753b0a38f1eaec496",
+    "banana-smasher/src/banana_smasher/backpack_dimensions.py": "09c73d71913b67fcf41e00abdeb367609461497968403c7e6477a9094e5a2e8b",
+    "banana-smasher/src/banana_smasher/backpack_exact64.py": "56d5139dcd3ceb1f5d99594b3ab6ff2ba1cfb32724304f5e0b8a4384acc99778",
+    "banana-smasher/src/banana_smasher/backpack_own_base.py": "8ef60665c02a9049bc29b1c9592baac16de4ecf244945ed84bef2f4199b36e25",
+    "banana-smasher/src/banana_smasher/backpack_providers.py": "a8cee7aa1d58d0824ecb9eb01f8c4f3f4965e19dd267cab8c2bc9adebe5fb9d7",
+    "banana-smasher/src/banana_smasher/backpack_runtime_exact64.py": "2781ced281bc433afdf02e3fa0448cad292a942303234137da46bf66f7ee101e",
+    "banana-smasher/src/banana_smasher/backpack_selection.py": "92bf963d461d4e59582917e3f00b38fe8b9c58260992a06d29a34e2179eaba29",
+    "banana-smasher/src/banana_smasher/backpack_virtual.py": "a801c2e57f6b81e27bea33113a38f59cd053da54b79c99466616a46c91429ea4",
+    "banana-smasher/src/banana_smasher/banana_v1.py": "3e5f913d9ba628e599452f205f4179d409c6296146c01c85202ac973b3960cb7",
+    "banana-smasher/src/banana_smasher/banana_v1_runtime_adapter.py": "f23e72ce3b0f454432b8b29eea8ae33bed5fe5c160004b34b3acdb1818cabdf5",
+    "banana-smasher/src/banana_smasher/bank.py": "58e1becf1001272086520af091eddac36e28c4606bb8ba4464bc583830b21dec",
+    "banana-smasher/src/banana_smasher/bpw.py": "dc1770908e71427166ca48c6b30abc364812276f99eaf4278473308df9a6f90d",
+    "banana-smasher/src/banana_smasher/calibrated_layer_install.py": "4eee8521bd5d269215f9929c9b422be3c2b881b4e831faf82c568e4f799ec5cf",
+    "banana-smasher/src/banana_smasher/calibration_separation.py": "9946fdf89a2d1cd8f917647a5ff529fc3a9efaed3ad9177e31ca136ef42d9d11",
+    "banana-smasher/src/banana_smasher/cli.py": "2d3ab63ae827d84144b314f2acc1eb6dffdce144db563a55715668a1db1d0c78",
+    "banana-smasher/src/banana_smasher/contract.py": "1c33f70f0c139672504aa179301ef885327fb66f0f22d86d958a1699d62961e3",
+    "banana-smasher/src/banana_smasher/d4_wire.py": "1e6a023049055c606f31290628ca37dcd397252a51a6c6654fa25a7c094bc357",
+    "banana-smasher/src/banana_smasher/durability.py": "8a863bf6d318e6cd68b135d7208765a526314a17b0a89eb9de616c894e3797e8",
+    "banana-smasher/src/banana_smasher/evaluate.py": "11f195aeb4c40aa3264d96b559cd50d4441cd697e72de3cc565ecbcf6358cdf1",
+    "banana-smasher/src/banana_smasher/exact_codebook.py": "49f60525dd8d35af6182dbb1c25de5a761148cf73dd15a630d90b0200411d34f",
+    "banana-smasher/src/banana_smasher/exl3_loader.py": "466608206cccd2d0e37e3dcb8433a85c9a8ea5e577e308024072a10d3e7263da",
+    "banana-smasher/src/banana_smasher/fast_k2_grouped.cpp": "de5e3f522fe3ef02d1b82edebd85569f5f1fe6d2b7c17261e010e40883063dee",
+    "banana-smasher/src/banana_smasher/fast_k2_grouped_kernel.cu": "bdc9114044e9da38398a649d698a6c3ea8dfd0dbdf72d73396fbd8174351f1f1",
+    "banana-smasher/src/banana_smasher/file_backed.py": "d3e692c1090c04e98f279b271e33ab338ddce9c62e9e48c400b6915c6893b66f",
+    "banana-smasher/src/banana_smasher/fixed_d4.py": "e7d92e8fa4e4e5a956e5fa90602f6da31bd4935e1c3bb8a5e2a4f66b0f2205fc",
+    "banana-smasher/src/banana_smasher/fixed_qtip_export.py": "eb6401dda017b65c608582a295cef83516aac1da2279be1d9b438ecc7d9b6e9f",
+    "banana-smasher/src/banana_smasher/frozen_score.py": "6e50a7677600e90c913fd6c225619a93b667e6a2403e4c40155f645dea4ffe5c",
+    "banana-smasher/src/banana_smasher/fwht.py": "16eea326db3a40fffa579e7b75c5ac1a7719d4dfed912ba04c98932249115f50",
+    "banana-smasher/src/banana_smasher/glm_qtip_producers.py": "52178ff06017aa7cacade228ef83172bdf0a742682ed47999b368c6679e894f4",
+    "banana-smasher/src/banana_smasher/glm_qtip_source_adapter.py": "bdd830c5db5c403496c8100a33c2d4991de5e2d30bf87c63cdfb784e3a7f5ac5",
+    "banana-smasher/src/banana_smasher/grouped_k2.py": "72fc8004e4616ab9118f4e81358c49e59613feb94cde84af15952c2f857a133c",
+    "banana-smasher/src/banana_smasher/hf_balanced64.py": "d9b0612e799bbf0efd514339fc29e91b46b864ba7574a485434e0330eb7c47c4",
+    "banana-smasher/src/banana_smasher/hf_deepseek_v4_backpack_adapter.py": "125ec7c6993cc8e63d7a4b317f262533bea4a6e8b53e6d775486816e05b15deb",
+    "banana-smasher/src/banana_smasher/hf_deepseek_v4_d4_adapter.py": "6ad2b2ab43d00abb3c668d54393b835166f183292cc40760124181adc5e58209",
+    "banana-smasher/src/banana_smasher/hf_moe.py": "8546957dcb2b31d2868cc0bbfc6fa1a3e8519a38b70ffcf9ad34f8f31136ecc5",
+    "banana-smasher/src/banana_smasher/hf_sharded_balanced64_executor.py": "8ee1085682a34e85431199971fb7efc2ef4c6c93dc80d7fdcd5fe1f21bfa3378",
+    "banana-smasher/src/banana_smasher/hf_sharded_balanced64_runtime.py": "e0f326240502a020c6ffff733c5656f119c44c179925cbb761c9e952528bc560",
+    "banana-smasher/src/banana_smasher/improve.py": "f489935373ab1054abe72b87c519d99abce70c12596b105da0e944c026985e98",
+    "banana-smasher/src/banana_smasher/kmajor_batch.py": "feb2d3188381680f11e01ec8bc9c6f134ceccea212c0f7012ba6207ad8aff5df",
+    "banana-smasher/src/banana_smasher/kmajor_fused.py": "899ad248c3529366b048f3dd2edd0d2acc5582b1d26c43771dfeaf6e3a1cbfc0",
+    "banana-smasher/src/banana_smasher/kmajor_graph.py": "5a7873cd73c43b4b4c0be78a8226bbf2adc41855a0cf59ead63d8e1b6a7d0d2d",
+    "banana-smasher/src/banana_smasher/knapsack.py": "2ee56719da461a820a9355645013a3afb2992f4516908200dda2f3bfebd374ce",
+    "banana-smasher/src/banana_smasher/loader.py": "12baf18011db0386bd40ea4bf8d9201d8448131a927580b4a998e85ad5f7c386",
+    "banana-smasher/src/banana_smasher/locality.py": "e66aae88668b20cfb6ba7ba68fd9385ee8b303159840b7e65f32228ed8dcd443",
+    "banana-smasher/src/banana_smasher/measured_backpack_spsa.py": "7bba8580ed8852503fa3a15b7dcbc65c071603419c120d38cfb00c55d94a68d0",
+    "banana-smasher/src/banana_smasher/metrics.py": "4375d1a96dfa2fd9d900e2b26bf47f877f1465df5dab88a12bef32c00200a406",
+    "banana-smasher/src/banana_smasher/mixed_physical_provider.py": "e624ea6ed0690db5988825f10c4eebbad7afabb386cf7169f4964a3e5e1e97d4",
+    "banana-smasher/src/banana_smasher/mixed_transaction.py": "d7dfb0f1864459a161719d3c8995777fec86a966b752bdf971fd39be7c5c9454",
+    "banana-smasher/src/banana_smasher/official_k2_resident.py": "f4c5d37429f0a08be75fa81be7832fcbb7855966c6f9d15fc4c8a6c7036c31e2",
+    "banana-smasher/src/banana_smasher/offline_layerwise.py": "b2bad4054a6e37b6325cbd17f863708e57e97811c1fbcebdbda8cc1aa4f5f047",
+    "banana-smasher/src/banana_smasher/persistent.py": "53e81e29c92fb80ba1cb4f8208bbd71c7468bca4e1287189617ac4c8f7f8fd3e",
+    "banana-smasher/src/banana_smasher/production_rails.py": "84803f75bb1de16bf7212a498c472699a44b0c80ace45ed93752a00845bccc8b",
+    "banana-smasher/src/banana_smasher/production_update.py": "26ece9b7f147c06927ca0c5e7938f724db7f9449dd9d34292204f0a9b0592874",
+    "banana-smasher/src/banana_smasher/profiles/real-axis-v1.json": "984b8ea4f3c5447c2dca1bf153a2f45812856b51c0a232d69e7bdc4599df9a21",
+    "banana-smasher/src/banana_smasher/provenance_wire.py": "06656a48400258c57f03681a268bb1b0c6feab72f36203adf603f6c2a96f8061",
+    "banana-smasher/src/banana_smasher/q1_pre_source.py": "ea5ab7aefbd2735ac37ca5af19f4cc1290eb6f9d7b5c1baa6c4da1b7ade7281e",
+    "banana-smasher/src/banana_smasher/q2_codec.py": "274830efb9c3595408a294f5d939a22197d29087fa131d499b0d8a581865e5f9",
+    "banana-smasher/src/banana_smasher/q4_pre_balanced64.py": "6745215f54ee7cd7c5ec294575b1b4365c68ecca22ef412b2cfc2762af1830d7",
+    "banana-smasher/src/banana_smasher/q4_pre_forward.py": "59837b2b33f44eb7c6316adcdb2efa42f4f5065ff7a6f3afaf53768ca18c6e16",
+    "banana-smasher/src/banana_smasher/qtip1.py": "0ef6e1f65ca96db9cc24783b599d0c0894fb8a8956f12a44deef37453ba92110",
+    "banana-smasher/src/banana_smasher/qtip25_native_v4.py": "b91529991d10e2047045108d5539f230b178b7f057818882db2dd7621ed26ea9",
+    "banana-smasher/src/banana_smasher/qtip_batch.py": "060e59a32eba7f8a777d00c5b3a12fdbf8785e452ea372f928fc773784646578",
+    "banana-smasher/src/banana_smasher/qtip_batch_controller.py": "b1552426a7da67ebacf0fdcdba9f8b4808d03793512e2b979d6556fafe43355e",
+    "banana-smasher/src/banana_smasher/qtip_k2.py": "9934246b97ea20ba100e684d86dfa1716d9f52b2b1e8dff3f69980642f472b8e",
+    "banana-smasher/src/banana_smasher/qtip_k2_kernel.cu": "17f1241c5fdf866da3cc7f4029ce0a73760b19e4a4fdb1cbdcc6682e0547d59f",
+    "banana-smasher/src/banana_smasher/qtip_kernel_cache.py": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+    "banana-smasher/src/banana_smasher/qtip_kernel_decompress.py": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df",
+    "banana-smasher/src/banana_smasher/qtip_materialize.py": "0df3e4f1048c5197d49923bbde879e96bb0ca68efa07c43e3d336544df151a67",
+    "banana-smasher/src/banana_smasher/qtip_matrix_lifetime.py": "25faa7d4e01d1327ca1c3a8d2d87854a1b2a02b17c9135933a95f32cd4520325",
+    "banana-smasher/src/banana_smasher/qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+    "banana-smasher/src/banana_smasher/qtip_rings.py": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+    "banana-smasher/src/banana_smasher/qtip_rounded_normalization.py": "e5c9537be04152a22912c4307d6b030f7c95427221fe8c988a8e126e91366bcc",
+    "banana-smasher/src/banana_smasher/qtip_runner.py": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c",
+    "banana-smasher/src/banana_smasher/qtip_v7_batch.py": "04db35a640f237c1af9a4dccbf01172bd42c1fdcfa99899fb07d4f711a9ea378",
+    "banana-smasher/src/banana_smasher/qtip_v7_joint_workflow.py": "da66c2d16f6daf7900b403de43f5e0916edfab34d4e5abd14db0fad07ecc4acf",
+    "banana-smasher/src/banana_smasher/qtip_v7_repair.py": "ff3dce54092c830037048533c2055c66a8161dc439c6430e302c922727987b7e",
+    "banana-smasher/src/banana_smasher/qtip_v7_residency.py": "35980e56e88ab6ee10405eeabfc2c53e4aceb6d40382c7577999368be59dfd3a",
+    "banana-smasher/src/banana_smasher/qtip_v7_routes.py": "533c841fbdea999cc6ad68f7fb4dcdda6e14514de6565157ce3d21ada26d4a1e",
+    "banana-smasher/src/banana_smasher/qtip_v7_wire.py": "d5bc2e0064afc220f5569ed965756de36bf364e61570c6c5333bfb7990d1131e",
+    "banana-smasher/src/banana_smasher/qtip_viterbi.py": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7",
+    "banana-smasher/src/banana_smasher/real_axis.py": "247be94d6a431c6de0cb4d08503bd6f4404fdab4b0278f270b61c62a15cece40",
+    "banana-smasher/src/banana_smasher/repack.py": "c32fe8fd437c9a762948d1cf9c8e45942fa7bc35c61d2f2d524dcc4dfe3fb067",
+    "banana-smasher/src/banana_smasher/repair.py": "ca803242c980917f262484026d6f76a66c92d347d926753b4778d14c622c0c4c",
+    "banana-smasher/src/banana_smasher/resident_admission.py": "9b908bd4f28f1a43b21f4f604356e31bdcb4c7a24ce2caa927b73ce70ebaaf96",
+    "banana-smasher/src/banana_smasher/resident_balanced64.py": "e75d5065c23bc9fe1c2f6139afcf665b05aa252a225b52a64a5830a4f0ef37dc",
+    "banana-smasher/src/banana_smasher/resident_continuation.py": "c311524e2bfd06e89015462e1eaa98dd26f975edbdbd91cc2d26c9dc2346c9f7",
+    "banana-smasher/src/banana_smasher/resident_core.py": "b7c5903dd371ab9dbb579ac3d804da2bb4c9bb05808f55a271de57f10154b847",
+    "banana-smasher/src/banana_smasher/resident_mixed_experts.py": "accedbc890e67bd5323f914ef56654654828b0933ba5a516afc1f8fb484b7066",
+    "banana-smasher/src/banana_smasher/resident_proven_api.py": "8ee2cd7438c41040393178c9aa52b68ece947793190320bac985952209062318",
+    "banana-smasher/src/banana_smasher/resident_repair_api.py": "9a85593f6db81da0fe2c2cd6e91feee4c4323ba4081ca49160f80f76d639268c",
+    "banana-smasher/src/banana_smasher/resident_training.py": "6301a431dad74f64c461e708aabcfb0094fb261818066a9fe3bbd5c985b04033",
+    "banana-smasher/src/banana_smasher/resident_v7_experts.py": "78e981f5a931b76eab523bb3c65fae40f8dab86b299eaa3861cc83c49b82a5ac",
+    "banana-smasher/src/banana_smasher/sealed_builder_resident.py": "9f464f7669a478b11e41f86cc59bbd032c7e9869d97ee43e6e1b0dbdec3ae02b",
+    "banana-smasher/src/banana_smasher/sealed_qtip_unit.py": "0077558aa3f842056c25fbb651a307713073acae203054790c7469837b661b25",
+    "banana-smasher/src/banana_smasher/selected_tensor_source.py": "ba3dee71decbf862ea5200944df1e8b1061163dda0a038c7e2a896bc40136cc6",
+    "banana-smasher/src/banana_smasher/sensitivity_probe.py": "87e22ceab979181b2feced13135780aba0e603c6d8408db07460cd90d57bc605",
+    "banana-smasher/src/banana_smasher/sensitivity_probe_v2.py": "cc214fe1f22032bc9515cfd326a47e7dd73e6f72d51fb016caab435f390eb374",
+    "banana-smasher/src/banana_smasher/solve.py": "71c5efd12fd6b45dff82b6df988e815acb96fd9b45d2b3a5a158c4cb7c7d71d0",
+    "banana-smasher/src/banana_smasher/solver_qtip_profile.py": "57f969da7dc718996d8e366110a895c8a332ef50f219f84c02f0e5ec7577f252",
+    "banana-smasher/src/banana_smasher/staging.py": "b500e495d454004516ba865ef0067742620ee1fbbde2eaca738afd8a04736015",
+    "banana-smasher/src/banana_smasher/token_sizing.py": "56d47fbf604a3ab789d2c18c881e57dd5b3f17e2f1f72de4e90ba554628b791f",
+    "banana-smasher/src/banana_smasher/trellis_v2/__init__.py": "da9134ea55ca03963baf598a3b3568850cc6be35bdcc1e3d2490253521ab9cb4",
+    "banana-smasher/src/banana_smasher/trellis_v2/csrc/binding_exact.cpp": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+    "banana-smasher/src/banana_smasher/trellis_v2/csrc/trellis_v2_exact.cu": "07d49a0f9ecbb29607668b72bd1065a76f61f33cc8578205a68836c893b7da09",
+    "banana-smasher/src/banana_smasher/trellis_v2/exact.py": "7c4a98d74d7f68db8166df541424e76c0118fe4901605a7cb3b080b7fe8f5a40",
+    "banana-smasher/src/banana_smasher/trellis_v2/setup.py": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2",
+    "banana-smasher/src/banana_smasher/update.py": "ef3a52e2421f7d798f1ffc1579870879d301593a3ae25f38e0479463015ca7e1",
+    "banana-smasher/src/banana_smasher/update_backends/__init__.py": "bedad1bd4d4c77db840953d14d968d8ca08a2e6b66aa9b4b4e5819cf1e035697",
+    "banana-smasher/src/banana_smasher/update_backends/physical_bundle.py": "c8484e03879de32648e821037c979e5e6d199d18bfcb81c2ab707645d4810b00",
+    "banana-smasher/src/banana_smasher/update_backends/physical_repair.py": "6463d6bb93c22d8cb6e6c7a85b6c1ce87eddcc37031d97714591fb2c8e50cee3",
+    "banana-smasher/src/banana_smasher/update_checkpoint.py": "dc6172bdd0a68bc9945c4467bd2093124ae43625edd7eecd8894b7b9c46a5d1a",
+    "banana-smasher/src/banana_smasher/update_engine.py": "142e3430ca3e40428a334eaabd9447261dbc3cf618545e4910d474868896c13a",
+    "banana-smasher/src/banana_smasher/update_service.py": "a73ed6d005c4f6942caee84cffd4922faf3826aa911fc12fd121abbc08e4d4d4",
+    "banana-smasher/src/banana_smasher/validation.py": "d9eabb861cd6623152caffdbc74404a46886f831f7d5263c269fc0f2ddbebcb0"
+  },
+  "publication": "eb3b97314416440bd835fb8327d60b52b0826bdb",
+  "retry_reason": "ZERO_OUTPUT_KERNEL_CACHE_PERMISSION_RECOVERY_NO_SCIENCE_REPLAY",
+  "prior_zero_output_failure": {
+    "claim": {
+      "controller_pid": 737089,
+      "controller_startticks": 5756431,
+      "expires_unix": 1788978904.878123,
+      "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495",
+      "owner_task_id": "t_68e5892b",
+      "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/CLAIM_READBACK.json",
+      "released": true,
+      "state": "RELEASED",
+      "status": "RELEASED",
+      "task_id": "t_68e5892b",
+      "terminal_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/TERMINAL.json",
+      "terminal_sha256": "514544fb60f123a17f121311ef59642901219f5e9c3e3f70f23fe578e02759fd"
+    },
+    "shards": {
+      "K": 3,
+      "cells": [
+        [
+          11,
+          0,
+          "down"
+        ],
+        [
+          11,
+          1,
+          "down"
+        ],
+        [
+          11,
+          2,
+          "down"
+        ]
+      ],
+      "controller_pid": 737089,
+      "controller_startticks": 5756431,
+      "execution_owner": "macmini.local",
+      "expires_unix": 1788978904.878123,
+      "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "logical_owner": "bs09",
+      "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495",
+      "operation": "bounded-missing-main_batch-trial",
+      "owner_task_id": "t_68e5892b",
+      "plan_sha256": "8c249ca6c2f1a28111df7b24f1c509bf4418841458226ec5e632cba19489cc18",
+      "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/CLAIM_READBACK.json",
+      "released": true,
+      "state": "RELEASED",
+      "status": "RELEASED",
+      "task_id": "t_68e5892b"
+    },
+    "terminal": {
+      "child_dead": true,
+      "error": "Traceback (most recent call last):\n  File \"/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/trial_run8495.py\", line 61, in supervisor\n    code=child.wait();assert code==0,('WORKER_FAILED',code,str(R/'SOLVE.log'))\n                             ^^^^^^^\nAssertionError: ('WORKER_FAILED', 1, '/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/SOLVE.log')\n",
+      "exit_code": 1,
+      "observed": 1788892508.2878973,
+      "progress": null,
+      "qualification": "production trial only; no speedup claim, no full row qualification; cold only, no warm replay",
+      "status": "FAIL",
+      "whole_wall_seconds": 3.417027711868286
+    },
+    "controller_alive": false,
+    "child_alive": false,
+    "admissions": false,
+    "solve_exists": false
+  }
+}

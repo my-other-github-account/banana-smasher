@@ -1,0 +1,90 @@
+{
+  "task": "t_68e5892b",
+  "run": 8495,
+  "status": "BOUNDED_TRIAL_PASS",
+  "pin": "39da421e75b84c975f6a8c11f508c297c3f73cb5",
+  "publication_bridge": "eb3b97314416440bd835fb8327d60b52b0826bdb",
+  "entrypoint": "banana_smasher.qtip_batch_controller.main_batch",
+  "cells": [
+    [
+      11,
+      0,
+      "down"
+    ],
+    [
+      11,
+      1,
+      "down"
+    ],
+    [
+      11,
+      2,
+      "down"
+    ]
+  ],
+  "accepted_cells": 3,
+  "accepted_artifact_bytes": 9494475,
+  "main_batch_cold_wall_seconds": 26.694259881973267,
+  "whole_child_supervisor_wall_seconds": 30.478939294815063,
+  "warm_wall_seconds": null,
+  "warm_not_measured_reason": "No replay of newly accepted production cells",
+  "speedup_claim": false,
+  "full_model_equivalence_claim": false,
+  "quality_qualification": "Default packed decode and canonical pack conformance PASS for all3; not full uniform model/frozen64 output qualification",
+  "readback_ref": {
+    "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_46b61159/t_68e5892b_evidence/TRIAL_READBACK_run8495r3.json",
+    "sha256": "db7ca529213bd30926cc49edbef8cea24b06171d34563aa0e865ad8690b4afcc"
+  },
+  "prior_failures": [
+    {
+      "attempt": "run8495",
+      "wall_seconds": 3.417027711868286,
+      "error": "kernel-cache PermissionError",
+      "outputs": 0
+    },
+    {
+      "attempt": "run8495r2",
+      "wall_seconds": 27.57407808303833,
+      "error": "Inductor-cache PermissionError",
+      "outputs": 0
+    }
+  ],
+  "adoption": "Bounded continuation of source-backed L011down242 only; preserve original science, public reserve and default conformance; no blanket model or speedup adoption",
+  "measured_cuda_peaks": [
+    {
+      "cell": [
+        11,
+        0,
+        "down"
+      ],
+      "allocated_bytes": 948000256,
+      "reserved_bytes": 1256194048
+    },
+    {
+      "cell": [
+        11,
+        2,
+        "down"
+      ],
+      "allocated_bytes": 948000256,
+      "reserved_bytes": 1256194048
+    },
+    {
+      "cell": [
+        11,
+        1,
+        "down"
+      ],
+      "allocated_bytes": 948000256,
+      "reserved_bytes": 1256194048
+    }
+  ],
+  "preflight": {
+    "conservative_batch_estimate_bytes": 8589934592,
+    "free_bytes": 17489952768,
+    "reserve_bytes": 4294967296,
+    "total_bytes": 130663165952
+  },
+  "accepted_cells_per_supervisor_hour": 354.3430398129782,
+  "all_attempt_supervisor_wall_seconds": 61.47004508972168
+}

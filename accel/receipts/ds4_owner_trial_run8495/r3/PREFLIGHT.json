@@ -1,0 +1,29 @@
+{
+  "disk_free_bytes": 153913298944,
+  "mem_available_bytes": 125830496256,
+  "no_replay": true,
+  "peak_estimate_bytes": 103079215104,
+  "plan": {
+    "bytes": 29084,
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/PLAN_TRIAL_run8495r3.json",
+    "sha256": "990abe47355521ce1842472f0cb3cd534f6aac5ed3753336214134a2053fd1fc"
+  },
+  "prior_claim": {
+    "controller_pid": 738347,
+    "controller_startticks": 5761313,
+    "expires_unix": 1788978953.7043195,
+    "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495r2",
+    "owner_task_id": "t_68e5892b",
+    "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495r2/CLAIM_READBACK.json",
+    "released": true,
+    "state": "RELEASED",
+    "status": "RELEASED",
+    "task_id": "t_68e5892b",
+    "terminal_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495r2/TERMINAL.json",
+    "terminal_sha256": "4eb796b870ef49e9622e34652cf41df8fec18034d269f947c2933d8ef23b501d"
+  },
+  "reserve_bytes": 4294967296,
+  "started": 1788892625.4879425,
+  "storage_estimate_bytes": 2147483648
+}

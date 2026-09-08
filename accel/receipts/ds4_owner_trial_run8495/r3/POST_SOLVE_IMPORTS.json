@@ -1,0 +1,234 @@
+{
+  "banana_smasher": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/__init__.py",
+    "sha256": "5c42cdd7f49757ec5f333389b59e7aebeaa646e0b18fa6d18797ed8f973995d3"
+  },
+  "banana_smasher.anchor": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/anchor.py",
+    "sha256": "154025d5f83cc6ed0ce50d002f445438c2521f66ce1caeb4c6206ca47ae93da5"
+  },
+  "banana_smasher.artifact_identity": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/artifact_identity.py",
+    "sha256": "e0daa309687cf8f0116419cced6907b71408b6dfb66e7a5026844febbb884754"
+  },
+  "banana_smasher.backpack": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack.py",
+    "sha256": "4050a2b8689f21e903028203fce78ed16f4bcf4ef08b8f56b39984bb7ebffe0e"
+  },
+  "banana_smasher.backpack_contextual": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack_contextual.py",
+    "sha256": "5ff9fa34108b084bf18f206d169cf3a2b41b0a300ea03bf6c58e4171c453a6b4"
+  },
+  "banana_smasher.backpack_contextual_candidate": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack_contextual_candidate.py",
+    "sha256": "537b822093220c6637a9695d5b38d8c6f448a7200372a123fafa395d6d4d31f9"
+  },
+  "banana_smasher.backpack_contextual_measure": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack_contextual_measure.py",
+    "sha256": "4e0d1a5cfb86200fd13c15eb563e637c7116008b280b3e7f8a46b673cbbbd874"
+  },
+  "banana_smasher.backpack_contextual_prepare": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack_contextual_prepare.py",
+    "sha256": "5315113bbc28749f43820818817b6d630dd98943acdcc84753b0a38f1eaec496"
+  },
+  "banana_smasher.backpack_dimensions": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack_dimensions.py",
+    "sha256": "09c73d71913b67fcf41e00abdeb367609461497968403c7e6477a9094e5a2e8b"
+  },
+  "banana_smasher.backpack_exact64": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack_exact64.py",
+    "sha256": "56d5139dcd3ceb1f5d99594b3ab6ff2ba1cfb32724304f5e0b8a4384acc99778"
+  },
+  "banana_smasher.backpack_providers": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack_providers.py",
+    "sha256": "a8cee7aa1d58d0824ecb9eb01f8c4f3f4965e19dd267cab8c2bc9adebe5fb9d7"
+  },
+  "banana_smasher.backpack_selection": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack_selection.py",
+    "sha256": "92bf963d461d4e59582917e3f00b38fe8b9c58260992a06d29a34e2179eaba29"
+  },
+  "banana_smasher.backpack_virtual": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/backpack_virtual.py",
+    "sha256": "a801c2e57f6b81e27bea33113a38f59cd053da54b79c99466616a46c91429ea4"
+  },
+  "banana_smasher.banana_v1": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/banana_v1.py",
+    "sha256": "3e5f913d9ba628e599452f205f4179d409c6296146c01c85202ac973b3960cb7"
+  },
+  "banana_smasher.banana_v1_runtime_adapter": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/banana_v1_runtime_adapter.py",
+    "sha256": "f23e72ce3b0f454432b8b29eea8ae33bed5fe5c160004b34b3acdb1818cabdf5"
+  },
+  "banana_smasher.bank": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/bank.py",
+    "sha256": "58e1becf1001272086520af091eddac36e28c4606bb8ba4464bc583830b21dec"
+  },
+  "banana_smasher.bpw": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/bpw.py",
+    "sha256": "dc1770908e71427166ca48c6b30abc364812276f99eaf4278473308df9a6f90d"
+  },
+  "banana_smasher.contract": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/contract.py",
+    "sha256": "1c33f70f0c139672504aa179301ef885327fb66f0f22d86d958a1699d62961e3"
+  },
+  "banana_smasher.durability": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/durability.py",
+    "sha256": "8a863bf6d318e6cd68b135d7208765a526314a17b0a89eb9de616c894e3797e8"
+  },
+  "banana_smasher.evaluate": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/evaluate.py",
+    "sha256": "11f195aeb4c40aa3264d96b559cd50d4441cd697e72de3cc565ecbcf6358cdf1"
+  },
+  "banana_smasher.exl3_loader": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/exl3_loader.py",
+    "sha256": "466608206cccd2d0e37e3dcb8433a85c9a8ea5e577e308024072a10d3e7263da"
+  },
+  "banana_smasher.fixed_d4": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/fixed_d4.py",
+    "sha256": "e7d92e8fa4e4e5a956e5fa90602f6da31bd4935e1c3bb8a5e2a4f66b0f2205fc"
+  },
+  "banana_smasher.glm_qtip_source_adapter": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/glm_qtip_source_adapter.py",
+    "sha256": "bdd830c5db5c403496c8100a33c2d4991de5e2d30bf87c63cdfb784e3a7f5ac5"
+  },
+  "banana_smasher.hf_balanced64": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/hf_balanced64.py",
+    "sha256": "d9b0612e799bbf0efd514339fc29e91b46b864ba7574a485434e0330eb7c47c4"
+  },
+  "banana_smasher.hf_moe": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/hf_moe.py",
+    "sha256": "8546957dcb2b31d2868cc0bbfc6fa1a3e8519a38b70ffcf9ad34f8f31136ecc5"
+  },
+  "banana_smasher.knapsack": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/knapsack.py",
+    "sha256": "2ee56719da461a820a9355645013a3afb2992f4516908200dda2f3bfebd374ce"
+  },
+  "banana_smasher.locality": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/locality.py",
+    "sha256": "e66aae88668b20cfb6ba7ba68fd9385ee8b303159840b7e65f32228ed8dcd443"
+  },
+  "banana_smasher.measured_backpack_spsa": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/measured_backpack_spsa.py",
+    "sha256": "7bba8580ed8852503fa3a15b7dcbc65c071603419c120d38cfb00c55d94a68d0"
+  },
+  "banana_smasher.metrics": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/metrics.py",
+    "sha256": "4375d1a96dfa2fd9d900e2b26bf47f877f1465df5dab88a12bef32c00200a406"
+  },
+  "banana_smasher.mixed_transaction": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/mixed_transaction.py",
+    "sha256": "d7dfb0f1864459a161719d3c8995777fec86a966b752bdf971fd39be7c5c9454"
+  },
+  "banana_smasher.persistent": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/persistent.py",
+    "sha256": "53e81e29c92fb80ba1cb4f8208bbd71c7468bca4e1287189617ac4c8f7f8fd3e"
+  },
+  "banana_smasher.production_rails": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/production_rails.py",
+    "sha256": "84803f75bb1de16bf7212a498c472699a44b0c80ace45ed93752a00845bccc8b"
+  },
+  "banana_smasher.provenance_wire": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/provenance_wire.py",
+    "sha256": "06656a48400258c57f03681a268bb1b0c6feab72f36203adf603f6c2a96f8061"
+  },
+  "banana_smasher.q2_codec": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/q2_codec.py",
+    "sha256": "274830efb9c3595408a294f5d939a22197d29087fa131d499b0d8a581865e5f9"
+  },
+  "banana_smasher.qtip1": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip1.py",
+    "sha256": "0ef6e1f65ca96db9cc24783b599d0c0894fb8a8956f12a44deef37453ba92110"
+  },
+  "banana_smasher.qtip_batch": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_batch.py",
+    "sha256": "060e59a32eba7f8a777d00c5b3a12fdbf8785e452ea372f928fc773784646578"
+  },
+  "banana_smasher.qtip_batch_controller": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_batch_controller.py",
+    "sha256": "b1552426a7da67ebacf0fdcdba9f8b4808d03793512e2b979d6556fafe43355e"
+  },
+  "banana_smasher.qtip_kernel_cache": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_kernel_cache.py",
+    "sha256": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066"
+  },
+  "banana_smasher.qtip_kernel_decompress": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_kernel_decompress.py",
+    "sha256": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df"
+  },
+  "banana_smasher.qtip_materialize": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_materialize.py",
+    "sha256": "0df3e4f1048c5197d49923bbde879e96bb0ca68efa07c43e3d336544df151a67"
+  },
+  "banana_smasher.qtip_matrix_lifetime": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_matrix_lifetime.py",
+    "sha256": "25faa7d4e01d1327ca1c3a8d2d87854a1b2a02b17c9135933a95f32cd4520325"
+  },
+  "banana_smasher.qtip_rings": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_rings.py",
+    "sha256": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1"
+  },
+  "banana_smasher.qtip_v7_batch": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_v7_batch.py",
+    "sha256": "04db35a640f237c1af9a4dccbf01172bd42c1fdcfa99899fb07d4f711a9ea378"
+  },
+  "banana_smasher.qtip_v7_joint_workflow": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_v7_joint_workflow.py",
+    "sha256": "da66c2d16f6daf7900b403de43f5e0916edfab34d4e5abd14db0fad07ecc4acf"
+  },
+  "banana_smasher.qtip_v7_repair": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_v7_repair.py",
+    "sha256": "ff3dce54092c830037048533c2055c66a8161dc439c6430e302c922727987b7e"
+  },
+  "banana_smasher.qtip_viterbi": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_viterbi.py",
+    "sha256": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7"
+  },
+  "banana_smasher.real_axis": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/real_axis.py",
+    "sha256": "247be94d6a431c6de0cb4d08503bd6f4404fdab4b0278f270b61c62a15cece40"
+  },
+  "banana_smasher.repair": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/repair.py",
+    "sha256": "ca803242c980917f262484026d6f76a66c92d347d926753b4778d14c622c0c4c"
+  },
+  "banana_smasher.resident_balanced64": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/resident_balanced64.py",
+    "sha256": "e75d5065c23bc9fe1c2f6139afcf665b05aa252a225b52a64a5830a4f0ef37dc"
+  },
+  "banana_smasher.resident_core": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/resident_core.py",
+    "sha256": "b7c5903dd371ab9dbb579ac3d804da2bb4c9bb05808f55a271de57f10154b847"
+  },
+  "banana_smasher.resident_proven_api": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/resident_proven_api.py",
+    "sha256": "8ee2cd7438c41040393178c9aa52b68ece947793190320bac985952209062318"
+  },
+  "banana_smasher.resident_repair_api": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/resident_repair_api.py",
+    "sha256": "9a85593f6db81da0fe2c2cd6e91feee4c4323ba4081ca49160f80f76d639268c"
+  },
+  "banana_smasher.solver_qtip_profile": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/solver_qtip_profile.py",
+    "sha256": "57f969da7dc718996d8e366110a895c8a332ef50f219f84c02f0e5ec7577f252"
+  },
+  "banana_smasher.staging": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/staging.py",
+    "sha256": "b500e495d454004516ba865ef0067742620ee1fbbde2eaca738afd8a04736015"
+  },
+  "banana_smasher.update_service": {
+    "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/update_service.py",
+    "sha256": "a73ed6d005c4f6942caee84cffd4922faf3826aa911fc12fd121abbc08e4d4d4"
+  },
+  "qtip_validation_bitshift": {
+    "path": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical/lib/codebook/bitshift.py",
+    "sha256": "af170eabb6cd8e47409b236a2570c1c2c195f82ab298f5da49b3e3c86b11f8b2"
+  },
+  "qtip_validation_ldlq": {
+    "path": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical/lib/algo/ldlq.py",
+    "sha256": "793e364fbe91e5b28740d0fc81a6e8618daa6a6a8ce5adbf9b877ba2e46e5bbe"
+  },
+  "qtip_validation_math_utils": {
+    "path": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical/lib/utils/math_utils.py",
+    "sha256": "65d50936e87b2c266806de201dea89b2d74a2ed38e33ef462bd8c3aafb333844"
+  }
+}
