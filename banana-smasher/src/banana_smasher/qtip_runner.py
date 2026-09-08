@@ -141,7 +141,9 @@ def require_host() -> None:
         )
 
 
-def fwht(x: torch.Tensor) -> torch.Tensor:
+def fwht(x: torch.Tensor, *, normalization: str = "default") -> torch.Tensor:
+    if normalization not in ("default", "rounded"):
+        raise ValueError("normalization must be default or rounded")
     n = x.shape[-1]
     if n <= 0 or n & (n - 1):
         raise ValueError(f"FWHT requires power-of-two last dimension, got {n}")
@@ -152,6 +154,9 @@ def fwht(x: torch.Tensor) -> torch.Tensor:
         a, b = z[..., 0, :], z[..., 1, :]
         y = torch.cat((a + b, a - b), dim=-1).reshape(*y.shape[:-1], n)
         width *= 2
+    if normalization == "rounded" and y.is_cuda:
+        from .qtip_rounded_normalization import rounded_divide_cuda
+        return rounded_divide_cuda(y, math.sqrt(n))
     return y / math.sqrt(n)
 
 
@@ -732,7 +737,7 @@ def pack_kernel_layout(
 
 
 def decode_packed_weight(
-    candidate: dict[str, Any], kernel_decode, device: torch.device
+    candidate: dict[str, Any], kernel_decode, device: torch.device, *, normalization: str = "default"
 ) -> torch.Tensor:
     """Decode sealed wire without a source/reference tensor or conformance replay."""
     geometry = candidate["geometry"]
@@ -760,8 +765,8 @@ def decode_packed_weight(
         expanded,
     )
     q = raw * candidate["Wscale"].to(device)
-    q = fwht(q.T).T * candidate["SV"].float().to(device)[:, None]
-    q = fwht(q) * candidate["SU"].float().to(device)
+    q = fwht(q.T, normalization=normalization).T * candidate["SV"].float().to(device)[:, None]
+    q = fwht(q, normalization=normalization) * candidate["SU"].float().to(device)
     return q
 
 

@@ -42,7 +42,8 @@ def test_artifact_threads_explicit_device_without_retry(tmp_path, monkeypatch):
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="physical CUDA placement requires claimed accelerator")
 @pytest.mark.parametrize("bits", [1, 2, 3, 4])
-def test_real_cuda_unit_decode_preserves_values(tmp_path, bits):
+@pytest.mark.parametrize("normalization", ["default", "rounded"])
+def test_real_cuda_unit_decode_preserves_values(tmp_path, bits, normalization):
     import hashlib
     unit, row = unit_row(tmp_path)
     unit["geometry"]["K"] = bits
@@ -53,7 +54,9 @@ def test_real_cuda_unit_decode_preserves_values(tmp_path, bits):
     torch.save(unit, p)
     row["wire"]["unit"].update(bytes=p.stat().st_size, sha256=hashlib.sha256(p.read_bytes()).hexdigest())
     cpu = sealed_qtip_unit.decode_sealed_unit(tmp_path, row, execution="eager", device="cpu")
-    gpu = sealed_qtip_unit.decode_sealed_unit(tmp_path, row, execution="eager", device="cuda:0")
+    gpu = sealed_qtip_unit.decode_sealed_unit(tmp_path, row, execution="eager", device="cuda:0", normalization=normalization)
+    if normalization == "rounded":
+        assert torch.equal(gpu.cpu(), cpu)
     assert gpu.device.type == "cuda"
     torch.testing.assert_close(gpu.cpu(), cpu, atol=1e-6, rtol=1e-5)
     p.write_bytes(b"corrupt")

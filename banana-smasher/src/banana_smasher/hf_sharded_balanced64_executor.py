@@ -178,6 +178,9 @@ class ArtifactTensorStore:
     """Exact routed-Q2/native-rest tensor loader for one admitted artifact."""
 
     def __init__(self, artifact: Mapping[str, Any]) -> None:
+        self.packed_decode_normalization = artifact.get("packed_decode_normalization", "default")
+        if self.packed_decode_normalization not in ("default", "rounded"):
+            raise ValueError("normalization must be default or rounded")
         self.packed_decode_execution = artifact.get("packed_decode_execution", "compiled")
         if self.packed_decode_execution not in ("compiled", "eager"):
             raise ValueError("decoder execution must be compiled or eager")
@@ -236,9 +239,12 @@ class ArtifactTensorStore:
             if row["wire"].get("format") == "banana-smasher-qtip-unit-v1":
                 from .sealed_qtip_unit import decode_sealed_unit
 
+                options = {} if self.packed_decode_normalization == "default" else {
+                    "normalization": self.packed_decode_normalization
+                }
                 value = decode_sealed_unit(
                     self.root, row, execution=self.packed_decode_execution,
-                    device=self.packed_decode_device,
+                    device=self.packed_decode_device, **options,
                 )
                 self.payload_reads += 1
                 return value

@@ -1,5 +1,44 @@
 # Runtime accelerations
 
+## Device canary closure and normalization isolation (2026-09-07, run8379)
+
+At `373f7d2677551a6cb1eca62d7259847ff3c161c7`, eight authentic same-wire
+GLM rows (K2 L044 E000/001 gate/down and K3 L005 E001--004 fused13) passed
+predeclared decoded-relative-squared-error limits. Summed warm CPU eager decode
+was 1.266493 s versus CUDA eager 0.378261 s (3.3482x); CUDA peak was
+516,428,288 bytes. These are decode costs with context warmed by physical tests,
+not process-cold costs or build-speed evidence. Eight physical tests passed.
+
+The paired frozen ordinal0/window28 diagnostic then reused the sealed K2
+control L034 frontier and independently verified CPU readout, forwarding only
+L035--044 with unchanged packed product on CUDA eager. Materialization summed
+1336.661200 s CPU versus 369.985808 s CUDA (3.6127x); candidate consumer wall
+was 439.196128 s. No full native-model reads occurred. Output gate **RED**:
+conditional teacher-support KL 0.2728915764209244 versus
+0.2726494667965614, delta +0.0002421096243629961 exceeds frozen 1e-7.
+Teacher Top1 was 802 versus 804; paired full-vocabulary Top1 was 1009/1024.
+This is not acceptable consumer promotion, despite tiny panel errors.
+The earlier changed-tier K2 versus sparse K3 diagnostic also failed (+0.00694885);
+it does not adjudicate a fixed-bit build optimization.
+
+Non-heldout phase instrumentation localized K2 down differences to the final
+FWHT division by sqrt(2048), not trellis decode or butterfly inputs. CPU
+compiled/eager agreed; CUDA default changed 45/63 BF16 weights in the two real
+down rows. A correctly rounded FP64-intermediate division probe restored both
+without changing any assignments, but its instrumentation wall is not speed
+evidence. The research-only `normalization="rounded"` public decoder option
+(`packed_decode_normalization` on artifacts) uses FP32 Triton `div_rn` instead,
+leaving every existing default unchanged. CPU retains native division; explicit
+CUDA rounded mode requires contiguous FP32 and fails rather than falling back.
+Physical kernel, representative same-wire, and independent output gates remain
+required before promotion; no full-model equivalence, ancestry qualification,
+or producer adoption follows from these diagnostics.
+
+Remote scientific roots on the dedicated seat:
+`t_ebcba52e_decode_device_run8362`, `t_ebcba52e_cuda_suffix_run8379`, and
+`t_ebcba52e_decode_normalization_run8379`. Independently verified CUDA suffix
+RESULT SHA256: `9646fa4871ae91d24fe066be8b805dcb0f493d8c5d34b12ee3fea81af4b36103`.
+
 ## Explicit packed-consumer device selection (2026-09-07, run8362)
 
 `decode_sealed_unit(..., device="cpu" | "cuda:0")` and the artifact's

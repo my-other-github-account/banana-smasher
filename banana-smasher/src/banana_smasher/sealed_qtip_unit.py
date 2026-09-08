@@ -53,11 +53,14 @@ def load_sealed_unit(root: Path, row: Mapping[str, Any]):
 
 
 def decode_sealed_unit(
-    root: Path, row: Mapping[str, Any], *, execution: str = "compiled", device: str = "cpu"
+    root: Path, row: Mapping[str, Any], *, execution: str = "compiled", device: str = "cpu",
+    normalization: str = "default"
 ):
     import torch
     from . import qtip_kernel_decompress, qtip_runner
 
+    if normalization not in ("default", "rounded"):
+        raise ValueError("normalization must be default or rounded")
     target = torch.device(device)
     if target.type not in ("cpu", "cuda"):
         raise ValueError("decode device must be cpu or cuda")
@@ -65,5 +68,5 @@ def decode_sealed_unit(
     unit = load_sealed_unit(root, row)
     start, stop = row["wire"]["row_range"]
     # Explicit selection of the same decoder, never exception-based fallback.
-    decoded = qtip_runner.decode_packed_weight(unit, decoder, target)
+    decoded = qtip_runner.decode_packed_weight(unit, decoder, target, normalization=normalization)
     return decoded[start:stop]
