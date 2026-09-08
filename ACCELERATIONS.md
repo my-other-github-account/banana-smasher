@@ -36,6 +36,13 @@ full-model, or production-throughput claim follows from this three-down-cell gat
 Next: owner-bound fused representative and independent heldout seam, without
 restarting any production scorer or recapturing calibration.
 
+A candidate-only composition adding `ldlq_update_unsolved_only=true` on the same
+three cells reached 1.405366x versus sealed singleton controls, but only 1.013565x
+versus the unitwise incumbent. It passes the unchanged numerical bounds; this is
+a near-neutral incremental rung, not dramatic acceleration, and has no matched
+cold or heldout gate. Retain the cold-verified unitwise configuration as incumbent;
+see `UNSOLVED_SUMMARY.json` and its authenticated producer receipts.
+
 Evidence: `accel/receipts/ds4_current_k3_distinct_run8471/SUMMARY.json`, raw
 producer/independent verifier receipts and exact experiment scripts beside it.
 

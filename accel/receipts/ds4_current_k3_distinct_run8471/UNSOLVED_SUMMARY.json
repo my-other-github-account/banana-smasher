@@ -1,0 +1,10 @@
+{
+  "warm_speedup_vs_original_singleton": 1.4053658938927232,
+  "warm_speedup_vs_unitwise_incumbent": 1.013565499425836,
+  "all_numerical_pass": true,
+  "cold_speedup": null,
+  "heldout_kld": null,
+  "production_adoption": false,
+  "decision": "Near-neutral incremental rung; retain cold-verified unitwise incumbent until representative gate. Not dramatic acceleration.",
+  "result_sha256": "54c9f34261abf22ddad9243d7dec731fd91fbdc0c2b2a92c5b0a3fed35c1d892"
+}
