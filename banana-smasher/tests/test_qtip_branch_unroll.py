@@ -20,7 +20,11 @@ def test_k1_unroll(value, expected):
 def test_refuse_non_boolean(value):
     with pytest.raises(ValueError): resolver()((16,1,2),value)
 
-@pytest.mark.parametrize('geometry', [(16,2,2),(16,3,2),(16,4,2),(17,1,2)])
+@pytest.mark.parametrize('value,expected', [(None,1),(False,1),(True,4)])
+def test_k3_unroll(value, expected):
+    assert resolver()((16,3,2), value) == expected
+
+@pytest.mark.parametrize('geometry', [(16,2,2),(16,4,2),(17,1,2)])
 def test_refuse_unmeasured_geometry(geometry):
     with pytest.raises(ValueError): resolver()(geometry,True)
 
@@ -44,9 +48,10 @@ def test_public_installer_binds_unroll(monkeypatch):
     assert getattr(cb,'_banana_smasher_branch_unroll',None) is True
     assert identity['viterbi_branch_unroll']==4 and identity['production_default'] is False
 
-def test_kernel_uses_bounded_full_branch_unroll():
+@pytest.mark.parametrize('kernel_name', ['_persistent_prefix_viterbi_generic', '_persistent_prefix_viterbi'])
+def test_kernel_uses_bounded_full_branch_unroll(kernel_name):
     tree=ast.parse(SOURCE.read_text())
-    kernel=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_persistent_prefix_viterbi_generic')
+    kernel=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name==kernel_name)
     loops=[n for n in ast.walk(kernel) if isinstance(n,ast.For) and ast.unparse(n.target)=='q']
     assert len(loops)==2
     for loop in loops:

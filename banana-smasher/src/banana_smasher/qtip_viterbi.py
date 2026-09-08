@@ -85,6 +85,7 @@ def _persistent_prefix_viterbi(
     states_ptr,
     B,
     HAS_OVERLAP: tl.constexpr,
+    BRANCH_UNROLL: tl.constexpr = 1,
 ):
     """Solve one independent sequence per CTA with all timesteps resident.
 
@@ -111,7 +112,7 @@ def _persistent_prefix_viterbi(
         best = tl.where(valid, candidate, best)
         chosen = state
     else:
-        for q in range(64):
+        for q in tl.range(0, 64, loop_unroll_factor=BRANCH_UNROLL):
             state = q * 1024 + j
             lut0 = tl.load(lut_ptr + state).to(tl.float32)
             lut1 = tl.load(lut_ptr + 65536 + state).to(tl.float32)
@@ -133,7 +134,7 @@ def _persistent_prefix_viterbi(
         x1 = tl.load(x_ptr + (step * 2 + 1) * B + seq).to(tl.float32)
         best = tl.full((1024,), float("inf"), tl.float32)
         chosen = tl.zeros((1024,), tl.int32)
-        for q in range(64):
+        for q in tl.range(0, 64, loop_unroll_factor=BRANCH_UNROLL):
             predecessor_prefix = q * 16 + residue4
             predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
             state = q * 1024 + j
@@ -344,8 +345,8 @@ def resolve_branch_unroll(geometry: tuple[int, int, int], requested: bool | None
     """Opt-in constant-branch scheduling; no branch removal or arithmetic change."""
     if requested is None or requested is False:
         return 1
-    if requested is not True or geometry != (16, 1, 2):
-        raise ValueError("viterbi_branch_unroll requires boolean and L16/K1/V2")
+    if requested is not True or geometry not in {(16, 1, 2), (16, 3, 2)}:
+        raise ValueError("viterbi_branch_unroll requires boolean and L16/K1-or-K3/V2")
     return 4
 
 
@@ -562,6 +563,7 @@ def exact_prefix_viterbi(
             states,
             B=batch,
             HAS_OVERLAP=overlap is not None,
+            BRANCH_UNROLL=branch_unroll,
             num_warps=launch_warps,
             num_stages=1,
         )
