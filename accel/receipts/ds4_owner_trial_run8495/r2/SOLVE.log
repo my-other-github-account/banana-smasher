@@ -1,0 +1,49 @@
+Traceback (most recent call last):
+  File "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/trial_run8495r2.py", line 68, in <module>
+    if len(sys.argv)>1:worker()
+                       ^^^^^^^^
+  File "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/trial_run8495r2.py", line 34, in worker
+    gate();begin=time.time();results=main_batch(cps,R,11,kernel_cache_root=R/'kernel-cache');end=time.time();coord.verify_imports(mods(),closure);save(R/'POST_SOLVE_IMPORTS.json',mods());accepted=[]
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_batch_controller.py", line 280, in main_batch
+    candidates, batch_build = build_qtip_batch(
+                              ^^^^^^^^^^^^^^^^^
+  File "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_batch.py", line 437, in build_qtip_batch
+    raw = kernel_decode.decode_compressed(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1038, in compile_wrapper
+    raise e.remove_dynamo_frames() from None  # see TORCHDYNAMO_VERBOSE=1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1053, in _compile_fx_inner
+    raise InductorError(e, currentframe()).with_traceback(
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1037, in _compile_fx_inner
+    mb_compiled_graph = fx_codegen_and_compile(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1798, in fx_codegen_and_compile
+    return scheme.codegen_and_compile(gm, example_inputs, inputs_to_check, graph_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/compile_fx.py", line 1570, in codegen_and_compile
+    compiled_module = graph.compile_to_module()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2499, in compile_to_module
+    return self._compile_to_module()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2509, in _compile_to_module
+    mod = self._compile_to_module_lines(wrapper_code)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/graph.py", line 2562, in _compile_to_module_lines
+    key, path = PyCodeCache.write(wrapper_code.value)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/codecache.py", line 3741, in write
+    return write(source_code, "py", extra=extra)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/codecache.py", line 416, in write
+    write_atomic(path, content, make_dirs=True)
+  File "/home/dnola/humming_env/lib/python3.12/site-packages/torch/_inductor/codecache.py", line 440, in write_atomic
+    path.parent.mkdir(parents=True, exist_ok=True)
+  File "/usr/lib/python3.12/pathlib.py", line 1313, in mkdir
+    os.mkdir(self, mode)
+torch._inductor.exc.InductorError: PermissionError: [Errno 13] Permission denied: '/tmp/torchinductor_dnola/35'
+
+Set TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you're reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS="+dynamo"
+

@@ -1,0 +1,13 @@
+{
+  "controller_pid": 737089,
+  "controller_startticks": 5756431,
+  "expires_unix": 1788978904.878123,
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495",
+  "owner_task_id": "t_68e5892b",
+  "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/CLAIM_READBACK.json",
+  "released": false,
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "task_id": "t_68e5892b"
+}

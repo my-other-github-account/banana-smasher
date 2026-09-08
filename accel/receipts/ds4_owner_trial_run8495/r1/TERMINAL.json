@@ -1,0 +1,10 @@
+{
+  "child_dead": true,
+  "error": "Traceback (most recent call last):\n  File \"/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/trial_run8495.py\", line 61, in supervisor\n    code=child.wait();assert code==0,('WORKER_FAILED',code,str(R/'SOLVE.log'))\n                             ^^^^^^^\nAssertionError: ('WORKER_FAILED', 1, '/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/SOLVE.log')\n",
+  "exit_code": 1,
+  "observed": 1788892508.2878973,
+  "progress": null,
+  "qualification": "production trial only; no speedup claim, no full row qualification; cold only, no warm replay",
+  "status": "FAIL",
+  "whole_wall_seconds": 3.417027711868286
+}

@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/trial_run8495.py", line 68, in <module>
+    if len(sys.argv)>1:worker()
+                       ^^^^^^^^
+  File "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/trial_run8495.py", line 34, in worker
+    gate();begin=time.time();results=main_batch(cps,R,11,kernel_cache_root=B/'s8-K3-kernel-cache');end=time.time();coord.verify_imports(mods(),closure);save(R/'POST_SOLVE_IMPORTS.json',mods());accepted=[]
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_batch_controller.py", line 204, in main_batch
+    kernel_cache = build_qtip_kernels(kernel_bpw, cache_root=kernel_cache_root)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-39da421e-run8495/banana-smasher/src/banana_smasher/qtip_kernel_cache.py", line 554, in build_qtip_kernels
+    cache_dir.mkdir(parents=True, exist_ok=True)
+  File "/usr/lib/python3.12/pathlib.py", line 1313, in mkdir
+    os.mkdir(self, mode)
+PermissionError: [Errno 13] Permission denied: '/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-kernel-cache/sm_121-NVIDIA-GB10/166b7491b271f76a9417e2ddafb5ea2886b139e28f41ae786cf162a57bbce2ec'

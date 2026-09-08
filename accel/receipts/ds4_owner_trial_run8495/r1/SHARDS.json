@@ -1,0 +1,35 @@
+{
+  "K": 3,
+  "cells": [
+    [
+      11,
+      0,
+      "down"
+    ],
+    [
+      11,
+      1,
+      "down"
+    ],
+    [
+      11,
+      2,
+      "down"
+    ]
+  ],
+  "controller_pid": 737089,
+  "controller_startticks": 5756431,
+  "execution_owner": "macmini.local",
+  "expires_unix": 1788978904.878123,
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "logical_owner": "bs09",
+  "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495",
+  "operation": "bounded-missing-main_batch-trial",
+  "owner_task_id": "t_68e5892b",
+  "plan_sha256": "8c249ca6c2f1a28111df7b24f1c509bf4418841458226ec5e632cba19489cc18",
+  "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L011DOWN3-run8495/CLAIM_READBACK.json",
+  "released": true,
+  "state": "RELEASED",
+  "status": "RELEASED",
+  "task_id": "t_68e5892b"
+}
