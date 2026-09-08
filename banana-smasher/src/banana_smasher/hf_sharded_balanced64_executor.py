@@ -178,6 +178,9 @@ class ArtifactTensorStore:
     """Exact routed-Q2/native-rest tensor loader for one admitted artifact."""
 
     def __init__(self, artifact: Mapping[str, Any]) -> None:
+        self.packed_decode_execution = artifact.get("packed_decode_execution", "compiled")
+        if self.packed_decode_execution not in ("compiled", "eager"):
+            raise ValueError("decoder execution must be compiled or eager")
         self.root = Path(artifact["artifact_root"]).expanduser().resolve()
         self.routed = {row["name"]: row for row in artifact["routed_tensors"]}
         self.native = ({row["name"]: row for row in artifact.get("native_tensors", [])}
@@ -229,7 +232,7 @@ class ArtifactTensorStore:
             if row["wire"].get("format") == "banana-smasher-qtip-unit-v1":
                 from .sealed_qtip_unit import decode_sealed_unit
 
-                value = decode_sealed_unit(self.root, row)
+                value = decode_sealed_unit(self.root, row, execution=self.packed_decode_execution)
                 self.payload_reads += 1
                 return value
             geometry = QtipGeometry.from_mapping(row["wire"]["geometry"])

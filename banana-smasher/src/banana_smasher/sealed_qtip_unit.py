@@ -52,12 +52,13 @@ def load_sealed_unit(root: Path, row: Mapping[str, Any]):
     return unit
 
 
-def decode_sealed_unit(root: Path, row: Mapping[str, Any]):
+def decode_sealed_unit(root: Path, row: Mapping[str, Any], *, execution: str = "compiled"):
     import torch
     from . import qtip_kernel_decompress, qtip_runner
 
+    decoder = qtip_kernel_decompress.select_decoder(execution)
     unit = load_sealed_unit(root, row)
     start, stop = row["wire"]["row_range"]
-    # Same exact producer decoder, including stored TLUT, kernel swizzle and RHT.
-    decoded = qtip_runner.decode_packed_weight(unit, qtip_kernel_decompress, torch.device("cpu"))
+    # Explicit selection of the same decoder, never exception-based fallback.
+    decoded = qtip_runner.decode_packed_weight(unit, decoder, torch.device("cpu"))
     return decoded[start:stop]
