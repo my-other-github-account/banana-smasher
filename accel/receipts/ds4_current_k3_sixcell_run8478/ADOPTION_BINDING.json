@@ -1,0 +1,270 @@
+{
+  "schema": "banana-smasher-bounded-adoption-binding-v1",
+  "task": "t_ebcba52e",
+  "proposed_pin": "39da421e75b84c975f6a8c11f508c297c3f73cb5",
+  "entrypoint": "banana_smasher.qtip_batch_controller.main_batch",
+  "invocation": "main_batch([Path(config1), Path(config2), Path(config3)], fresh_out_root, layer); default conformance retained; no private kwargs",
+  "candidate_delta": "group exactly three distinct same-layer same-projection owner configs; block_ldl_unitwise=true; all other owner schedule defaults unchanged",
+  "rows": [
+    {
+      "cell": [
+        9,
+        90,
+        "down"
+      ],
+      "config": "candidate_L009_E090.json",
+      "remote_config": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471/candidate1/configs/E90.json",
+      "config_sha256": "f2eac330d5a6a47174bbb2606687acde324ad2c0fad91f2614e235d0ad393845",
+      "artifact": {
+        "layer": 9,
+        "expert": 90,
+        "projection": "down",
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471/candidate1/warm/solve/L009/E090_down/QTIP_UNIT.pt",
+        "sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2"
+      },
+      "seed": 1676926059938878510,
+      "fit_population": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_input_run8465/source/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s1-L000-stage-run8192s1/runtime/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+        "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+      },
+      "fit_capture_manifest": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_benchmark_run8465/L009_CAPTURE_BINDING.json",
+        "sha256": "dcd5bec46285e665c24795ea425b6748dc8c35c88e7a766cfc97188020ecb78b"
+      },
+      "geometry": {
+        "K": 3,
+        "L": 16,
+        "V": 2
+      }
+    },
+    {
+      "cell": [
+        9,
+        91,
+        "down"
+      ],
+      "config": "candidate_L009_E091.json",
+      "remote_config": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471/candidate1/configs/E91.json",
+      "config_sha256": "9057bab8b95a9ce64388de632ddf7d628b312ef4efb7b5ca821ac6ac8051843b",
+      "artifact": {
+        "layer": 9,
+        "expert": 91,
+        "projection": "down",
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471/candidate1/warm/solve/L009/E091_down/QTIP_UNIT.pt",
+        "sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926"
+      },
+      "seed": 2815731255491775770,
+      "fit_population": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_input_run8465/source/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s1-L000-stage-run8192s1/runtime/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+        "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+      },
+      "fit_capture_manifest": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_benchmark_run8465/L009_CAPTURE_BINDING.json",
+        "sha256": "dcd5bec46285e665c24795ea425b6748dc8c35c88e7a766cfc97188020ecb78b"
+      },
+      "geometry": {
+        "K": 3,
+        "L": 16,
+        "V": 2
+      }
+    },
+    {
+      "cell": [
+        9,
+        92,
+        "down"
+      ],
+      "config": "candidate_L009_E092.json",
+      "remote_config": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471/candidate1/configs/E92.json",
+      "config_sha256": "981885cc28ea5d8a19e97706e48dce70b16b9b050c1b7dd41ec37aabce2718ab",
+      "artifact": {
+        "layer": 9,
+        "expert": 92,
+        "projection": "down",
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471/candidate1/warm/solve/L009/E092_down/QTIP_UNIT.pt",
+        "sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6"
+      },
+      "seed": 3551062593326583864,
+      "fit_population": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_input_run8465/source/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s1-L000-stage-run8192s1/runtime/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+        "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+      },
+      "fit_capture_manifest": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_benchmark_run8465/L009_CAPTURE_BINDING.json",
+        "sha256": "dcd5bec46285e665c24795ea425b6748dc8c35c88e7a766cfc97188020ecb78b"
+      },
+      "geometry": {
+        "K": 3,
+        "L": 16,
+        "V": 2
+      }
+    },
+    {
+      "cell": [
+        26,
+        78,
+        "fused13"
+      ],
+      "config": "candidate_L026_E078.json",
+      "remote_config": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474/candidate1/configs/E78.json",
+      "config_sha256": "83398d6a7e6c82679ce56a8349f6b111289a69f1141b5af7c480ded00eddd6cf",
+      "artifact": {
+        "layer": 26,
+        "expert": 78,
+        "projection": "fused13",
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474/candidate1/warm/solve/L026/E078_fused13/QTIP_UNIT.pt",
+        "sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe"
+      },
+      "seed": 5233233301856166259,
+      "fit_population": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_fused_deps_run8474/source/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+        "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+      },
+      "fit_capture_manifest": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474/CAPTURE_E78.json",
+        "sha256": "c276f90a9140a685feae3e9915bfb0b1f8c0e23f0515a7a266830a939f919c00"
+      },
+      "geometry": {
+        "K": 3,
+        "L": 16,
+        "V": 2
+      }
+    },
+    {
+      "cell": [
+        26,
+        79,
+        "fused13"
+      ],
+      "config": "candidate_L026_E079.json",
+      "remote_config": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474/candidate1/configs/E79.json",
+      "config_sha256": "e4fe34968ad91e0eb033ab00ebb74c19b417d65e92651fcfe5bdef7a29f69207",
+      "artifact": {
+        "layer": 26,
+        "expert": 79,
+        "projection": "fused13",
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474/candidate1/warm/solve/L026/E079_fused13/QTIP_UNIT.pt",
+        "sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7"
+      },
+      "seed": 5470691415868954549,
+      "fit_population": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_fused_deps_run8474/source/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+        "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+      },
+      "fit_capture_manifest": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474/CAPTURE_E79.json",
+        "sha256": "c276f90a9140a685feae3e9915bfb0b1f8c0e23f0515a7a266830a939f919c00"
+      },
+      "geometry": {
+        "K": 3,
+        "L": 16,
+        "V": 2
+      }
+    },
+    {
+      "cell": [
+        26,
+        80,
+        "fused13"
+      ],
+      "config": "candidate_L026_E080.json",
+      "remote_config": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474/candidate1/configs/E80.json",
+      "config_sha256": "3c4d4c30a38cb0d2e525665fd194b7493e7a94d6d2a9888395417034f4e30aa9",
+      "artifact": {
+        "layer": 26,
+        "expert": 80,
+        "projection": "fused13",
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474/candidate1/warm/solve/L026/E080_fused13/QTIP_UNIT.pt",
+        "sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785"
+      },
+      "seed": 8370373469633826827,
+      "fit_population": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_fused_deps_run8474/source/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+        "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+      },
+      "fit_capture_manifest": {
+        "path": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474/CAPTURE_E80.json",
+        "sha256": "c276f90a9140a685feae3e9915bfb0b1f8c0e23f0515a7a266830a939f919c00"
+      },
+      "geometry": {
+        "K": 3,
+        "L": 16,
+        "V": 2
+      }
+    }
+  ],
+  "producer_code": [
+    {
+      "path": "banana-smasher/src/banana_smasher/qtip_batch_controller.py",
+      "sha256": "b1552426a7da67ebacf0fdcdba9f8b4808d03793512e2b979d6556fafe43355e",
+      "pins": {
+        "eec3bfc578c2fac4678373331f779de4e2abb766": "b1552426a7da67ebacf0fdcdba9f8b4808d03793512e2b979d6556fafe43355e",
+        "7927793657c7a48e1e02f5cb9e437e1c5705002d": "b1552426a7da67ebacf0fdcdba9f8b4808d03793512e2b979d6556fafe43355e",
+        "39da421e75b84c975f6a8c11f508c297c3f73cb5": "b1552426a7da67ebacf0fdcdba9f8b4808d03793512e2b979d6556fafe43355e"
+      },
+      "deployed_path": "/dev/shm/t_ebcba52e_api_79277936/banana-smasher/src/banana_smasher/qtip_batch_controller.py"
+    },
+    {
+      "path": "banana-smasher/src/banana_smasher/qtip_batch.py",
+      "sha256": "060e59a32eba7f8a777d00c5b3a12fdbf8785e452ea372f928fc773784646578",
+      "pins": {
+        "eec3bfc578c2fac4678373331f779de4e2abb766": "060e59a32eba7f8a777d00c5b3a12fdbf8785e452ea372f928fc773784646578",
+        "7927793657c7a48e1e02f5cb9e437e1c5705002d": "060e59a32eba7f8a777d00c5b3a12fdbf8785e452ea372f928fc773784646578",
+        "39da421e75b84c975f6a8c11f508c297c3f73cb5": "060e59a32eba7f8a777d00c5b3a12fdbf8785e452ea372f928fc773784646578"
+      },
+      "deployed_path": "/dev/shm/t_ebcba52e_api_79277936/banana-smasher/src/banana_smasher/qtip_batch.py"
+    },
+    {
+      "path": "banana-smasher/src/banana_smasher/solver_qtip_profile.py",
+      "sha256": "57f969da7dc718996d8e366110a895c8a332ef50f219f84c02f0e5ec7577f252",
+      "pins": {
+        "eec3bfc578c2fac4678373331f779de4e2abb766": "57f969da7dc718996d8e366110a895c8a332ef50f219f84c02f0e5ec7577f252",
+        "7927793657c7a48e1e02f5cb9e437e1c5705002d": "57f969da7dc718996d8e366110a895c8a332ef50f219f84c02f0e5ec7577f252",
+        "39da421e75b84c975f6a8c11f508c297c3f73cb5": "57f969da7dc718996d8e366110a895c8a332ef50f219f84c02f0e5ec7577f252"
+      },
+      "deployed_path": "/dev/shm/t_ebcba52e_api_79277936/banana-smasher/src/banana_smasher/solver_qtip_profile.py"
+    },
+    {
+      "path": "banana-smasher/src/banana_smasher/qtip_runner.py",
+      "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c",
+      "pins": {
+        "eec3bfc578c2fac4678373331f779de4e2abb766": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c",
+        "7927793657c7a48e1e02f5cb9e437e1c5705002d": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c",
+        "39da421e75b84c975f6a8c11f508c297c3f73cb5": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+      },
+      "deployed_path": "/dev/shm/t_ebcba52e_api_79277936/banana-smasher/src/banana_smasher/qtip_runner.py"
+    },
+    {
+      "path": "banana-smasher/src/banana_smasher/qtip_viterbi.py",
+      "sha256": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7",
+      "pins": {
+        "eec3bfc578c2fac4678373331f779de4e2abb766": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7",
+        "7927793657c7a48e1e02f5cb9e437e1c5705002d": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7",
+        "39da421e75b84c975f6a8c11f508c297c3f73cb5": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7"
+      },
+      "deployed_path": "/dev/shm/t_ebcba52e_api_79277936/banana-smasher/src/banana_smasher/qtip_viterbi.py"
+    },
+    {
+      "path": "banana-smasher/src/banana_smasher/qtip_matrix_lifetime.py",
+      "sha256": "25faa7d4e01d1327ca1c3a8d2d87854a1b2a02b17c9135933a95f32cd4520325",
+      "pins": {
+        "eec3bfc578c2fac4678373331f779de4e2abb766": "25faa7d4e01d1327ca1c3a8d2d87854a1b2a02b17c9135933a95f32cd4520325",
+        "7927793657c7a48e1e02f5cb9e437e1c5705002d": "25faa7d4e01d1327ca1c3a8d2d87854a1b2a02b17c9135933a95f32cd4520325",
+        "39da421e75b84c975f6a8c11f508c297c3f73cb5": "25faa7d4e01d1327ca1c3a8d2d87854a1b2a02b17c9135933a95f32cd4520325"
+      },
+      "deployed_path": "/dev/shm/t_ebcba52e_api_79277936/banana-smasher/src/banana_smasher/qtip_matrix_lifetime.py"
+    }
+  ],
+  "independent_result_sha256": "ea720e1002213c13fbd4db8dc37081b9681e768ac28f933e0465026c9c0b4ee3",
+  "output_result_sha256": "d8a2cc0f7ecd77751e8fe49f76f497f5e6a1eaa1b3245d7d900a59b3b10aa663",
+  "evaluation_science_sha256": "1c25c6444fb054e861d31253c3744426845db0c7da835192cba627fc8bd4dc18",
+  "frozen_limits_sha256": "084c0439b9789b2a699d35266c56ec6c2c835fdc359fc9321fca5e397eb098c2",
+  "production_authorized": false,
+  "required_boundary": "owner clean full/PASS/both-DEAD/released; fresh exact owner CAS/nonoverlap; unchanged public MemAvailable reserve; no live producer replacement",
+  "scope": "bounded producer adoption decision only; no uniform/fullmodel rollout; unchanged source, fitting, seeds, geometry and evaluation identities",
+  "entire_package_tree_git_objects": {
+    "eec3bfc578c2fac4678373331f779de4e2abb766": "fdf482915e71c8f161cb4b2d08c7734e037dc14d",
+    "7927793657c7a48e1e02f5cb9e437e1c5705002d": "fdf482915e71c8f161cb4b2d08c7734e037dc14d",
+    "39da421e75b84c975f6a8c11f508c297c3f73cb5": "fdf482915e71c8f161cb4b2d08c7734e037dc14d"
+  }
+}
