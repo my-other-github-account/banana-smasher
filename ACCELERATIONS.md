@@ -1,5 +1,56 @@
 # Runtime accelerations
 
+## K3 operator attribution and device conformance (2026-09-07, unpromoted)
+
+A new instrumented four-cell selected-source eager panel attributed 5.186006s
+of GPU time to 512 persistent Viterbi kernels and 0.903068s to pageable DtoH.
+These are profiler attribution, not build throughput; nested operator totals
+must not be added to GPU kernel totals. The existing generic register-row
+broadcast was extended to K3 behind `viterbi_structured_gather=true` at
+`17fbf435a03bd76d10f4ecf3084ed9e5862a297c`. One real smoke and two four-cell
+cold/warm arms passed 17/17 builds, but the experiment was REJECTED FOR SPEED:
+cold 30.881981/30.961459s versus saved 12.915914/12.177085s; warm
+26.866802/26.792446s versus 7.960290/8.082386s. Independent source-NMSE and
+canonical decode passed 16/16 with decoded max-abs delta zero in 23.948502s.
+The default remains unchanged. Fewer global scratch transfers were not a win;
+compiled metadata reports 512 shared bytes, not measured occupancy.
+
+A separate public batch opt-in, `packed_conformance_on_device=true`, shipped at
+`918b59f02084b875489bde880829c4dbbe385105`, default false. It compares complete
+FP16 bit patterns on the device and retains the full FP32-versus-FP16 maximum
+error check, avoiding the redundant decoded-matrix DtoH copy. It does not skip
+validation, change packed bytes, or change stored reconstruction residency.
+Structured gathering was OFF. With the same saved selected-source baseline,
+one real smoke plus two cold/warm arms passed 17/17 builds:
+
+| Arm | Baseline wall | Device comparison wall | Baseline/candidate |
+|---|---:|---:|---:|
+| cold 1 | 12.915914s | 11.493025s | 1.123805x |
+| cold 2 | 12.177085s | 11.795556s | 1.032345x |
+| warm 1 | 7.960290s | 8.627524s | 0.922662x |
+| warm 2 | 8.082386s | 7.561282s | 1.068917x |
+
+Warm conformance alone fell from 1.000918/1.081824s to 0.407988/0.409145s,
+but whole-build warm results are inconsistent: no warm throughput win is
+claimed. Peak CUDA allocation was unchanged at 2,114,731,008 cold and
+2,116,832,768 warm bytes. Independent validation passed 16/16 with decoded
+delta zero in 23.446800s; its cost is separate from producer wall. These are
+sequential same-input continuations with shared OS/source caches, not a fresh
+interleaved performance gate or held-out/full-model acceptance. Production
+adoption and durable held-out incumbent linkage remain missing.
+
+Receipts: `GLM_OPERATORS_run8343.json`, `GLM_K3_STRUCTURED_*_run8343.json`,
+`GLM_DEVICE_CONFORMANCE_*_run8343.json`. The selected source and all sealed
+selected/structured scientific outputs are now durable at Spark-6
+`/home/dnola/missions/t_ebcba52e_preserved_run8343`; the device-comparison
+rung is at `/home/dnola/missions/t_ebcba52e_preserved_device_run8343`.
+All 32 original scientific paths were retained using four byte-identical
+unit inodes. Only 280 inventoried task-owned compiler-cache files were
+removed. Scientific bytes deleted: zero. Final free space 4,361,072,640
+bytes remained above the unchanged 4GiB reserve. Volatile originals remain;
+archived configs retain their original absolute lineage paths and need
+explicit source-root rebinding before post-reboot reuse.
+
 ## Authenticated selected-source continuation (2026-09-07, unpromoted)
 
 The follow-on canonical staging profile isolated full-shard hashing as the
