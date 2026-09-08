@@ -838,3 +838,10 @@ production adoption is claimed. Spark-6 roots:
 `/dev/shm/t_ebcba52e_glm_threads_run8441_a2` and
 `/dev/shm/t_ebcba52e_quality_threads_run8441`. Compact receipts live in
 `receipts/acceleration/threads-run8441/`.
+
+
+## Selected-source DOWN transitive fitting closure (run8449)
+
+The original down projection source is insufficient for an authentic fitting replay: public `_prepare_fit_windows` derives down activations using the original gate/up projections. A DOWN selected-source package requires six tensors (three weights and scales); FUSED13 requires four. The acknowledged two-tensor predecessor is immutable and retained. Eight L031 DOWN cells (E000, E001, E010, E100–E104) now have fresh six-tensor namespaces and independently rehashed destination ACKs plus path-only config/Hessian relocations. The original source index, full parent hashes, headers, fit16 captures and ledger identities remain bound; no recapture or solve was performed by this lane.
+
+Evidence: `accel/receipts/L031_SIX_SOURCE_CLOSURE_run8449.json`. These are source availability and relocation gates, NOT producer admission, numerical equivalence, a speed improvement, or production acceleration adoption. Prior default-off unsolved-prefix GLM results remain unchanged. The next DS4 structural experiment requires restoration of its original-byte input binding: the previous dedicated staged source and baseline roots are absent, and their owner was asked for surviving locations without recapture or full scorer restart.
