@@ -1,0 +1,28 @@
+{
+  "basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "owner_binding_sha256": "607cb23306f2106fe8a0f2bc560b86095b539c39f8b1fb968538ddb3f26c632e",
+  "canonical_pin": "eec3bfc578c2fac4678373331f779de4e2abb766",
+  "cells": [
+    [
+      9,
+      90,
+      "down"
+    ],
+    [
+      9,
+      91,
+      "down"
+    ],
+    [
+      9,
+      92,
+      "down"
+    ]
+  ],
+  "candidate": "main_batch three distinct configs, all default schedule knobs unchanged",
+  "baseline": "main_batch singleton serial three distinct configs; two new baseline repeats only",
+  "timing": "shared-cache setup and two warm repeats, not matched process-cold",
+  "quality_rule": "per-cell NMSE <= max(baseline repeats)+max(5*spread,1e-6*max); frozen before candidates",
+  "heldout_kld": null,
+  "production_adoption": false
+}

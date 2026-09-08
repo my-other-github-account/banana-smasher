@@ -1,0 +1,32 @@
+{
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "rows": [
+    {
+      "owner": "t_ebcba52e",
+      "layer": 9,
+      "expert": 90,
+      "projection": "down",
+      "K": 3,
+      "operation": "distinct_current_K3_singleton_grouped",
+      "receipt": "/dev/shm/t_ebcba52e_ds4_k3_verify_run8471_a2/IDENTITY.json"
+    },
+    {
+      "owner": "t_ebcba52e",
+      "layer": 9,
+      "expert": 91,
+      "projection": "down",
+      "K": 3,
+      "operation": "distinct_current_K3_singleton_grouped",
+      "receipt": "/dev/shm/t_ebcba52e_ds4_k3_verify_run8471_a2/IDENTITY.json"
+    },
+    {
+      "owner": "t_ebcba52e",
+      "layer": 9,
+      "expert": 92,
+      "projection": "down",
+      "K": 3,
+      "operation": "distinct_current_K3_singleton_grouped",
+      "receipt": "/dev/shm/t_ebcba52e_ds4_k3_verify_run8471_a2/IDENTITY.json"
+    }
+  ]
+}

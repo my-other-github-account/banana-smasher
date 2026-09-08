@@ -1,5 +1,44 @@
 # Runtime accelerations
 
+## Current DS4 K3 distinct-cell resident batching (run8471)
+
+The authentic owner-supplied L009 E090/E091/E092 down configs retain K3/L16/V2,
+source-index identity, Clean22 captures and each original RHT seed. On canonical
+API `eec3bfc578c2fac4678373331f779de4e2abb766`, serial `main_batch` singleton
+calls versus one three-cell call with `block_ldl_unitwise=true` measured:
+
+- Matched fresh-process/private-cache cold build: 29.524534s to 27.546527s,
+  **1.071806x** (two repeats, order B1/C1/C2/B2).
+- Their warm companions: 5.627100s to 4.081760s, **1.378596x**.
+- Earlier shared-cache singleton controls versus unitwise candidate: 1.386557x.
+- Warm CUDA allocated peak: 411,554,816 to 950,102,016 bytes. Process RSS,
+  reserved peaks, imports and per-arm timing are retained in raw receipts.
+- Separate independent canonical decode/FP64 objective verification: 33/33
+  products pass the original baseline-repeat-frozen per-cell bounds, 5.510268s.
+  Reconstructed weights match singleton controls here; equality is diagnostic,
+  not the governing acceptance criterion.
+
+Default grouped factorization was faster (1.345346x shared-cache warm) but failed
+E091's frozen NMSE bound: 0.032110311571 > 0.032082729764. The existing unitwise
+preprocessing/factorization option restores the numerical gate while retaining
+shared staging. Warm staging falls from approximately 2.25s to 0.89s; solve stays
+approximately 3.31s to 3.13s. Included packed conformance remains separately
+reported, not subtracted from whole build wall. Per-member `phase_seconds` here
+are prorated; sum those rows, do not confuse them with repeated aggregate batch
+phase dictionaries.
+
+Cold caches are private canonical/Triton/Inductor/CUDA/XDG; source files, prebuilt
+assets and OS page cache remain shared. This is not a cold-disk measurement.
+The owner still imports `4921456b`; no production adoption is established.
+E091/E092 current-main singleton artifacts also differ from owner artifacts, so
+owner-pin equivalence must not be inferred. No current-K3 output-KLD, fused-cell,
+full-model, or production-throughput claim follows from this three-down-cell gate.
+Next: owner-bound fused representative and independent heldout seam, without
+restarting any production scorer or recapturing calibration.
+
+Evidence: `accel/receipts/ds4_current_k3_distinct_run8471/SUMMARY.json`, raw
+producer/independent verifier receipts and exact experiment scripts beside it.
+
 ## Current DS4 K3 rejects the K1 schedule (run8465)
 
 Owner-bound current K3 L009/E089 down was localized from sealed original

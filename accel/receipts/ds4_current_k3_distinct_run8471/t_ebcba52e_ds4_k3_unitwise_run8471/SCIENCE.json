@@ -1,0 +1,13 @@
+{
+  "basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "baseline_result_sha256": "551a3f6ea0837fd0c5f84fd92e303bffc44a930e9403db59a94a4ca9bbc20b28",
+  "frozen_limits_sha256": "fb2d06a33163119acba545f420d9fb4d3ab985f65e2dc0b66bd67b1b14443108",
+  "baseline_replayed": false,
+  "candidate_not_executed": true,
+  "sole_config_delta": {
+    "block_ldl_unitwise": true
+  },
+  "timing": "different-process shared-cache warm against sealed singleton controls; not matched cold",
+  "heldout_kld": null,
+  "production_adoption": false
+}

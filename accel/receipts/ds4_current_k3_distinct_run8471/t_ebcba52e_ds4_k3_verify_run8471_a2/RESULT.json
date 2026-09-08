@@ -1,0 +1,391 @@
+{
+  "state": "SEALED_INDEPENDENT_NUMERICAL_COLD_GATE",
+  "identity": {
+    "task_id": "t_ebcba52e",
+    "pid": 1047377,
+    "pgid": 1047377,
+    "start_ticks": 5312061,
+    "argv": [
+      "/dev/shm/ds4_k3_verify_run8471_a2.py",
+      "a70330dcc47d466d1b01ef6dc5705115a8bf26eb7b1b443d29e42f88cad0896a"
+    ],
+    "receipt": "/dev/shm/t_ebcba52e_ds4_k3_verify_run8471_a2/IDENTITY.json",
+    "script_sha256": "a21185132836cbed40570263e3a726d44cdaa5c5b49a88e15008cb33335f8521",
+    "canonical_git_pin": "eec3bfc578c2fac4678373331f779de4e2abb766"
+  },
+  "rows": [
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_unitwise_run8471",
+      "arm": "candidate_setup",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_unitwise_run8471",
+      "arm": "candidate_warm1",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_unitwise_run8471",
+      "arm": "candidate_warm2",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline1/cold",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline1/warm",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate1/cold",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate1/warm",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate2/cold",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate2/warm",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline2/cold",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline2/warm",
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "nmse": 0.0451082363911783,
+      "limit": 0.0451082814994147,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_unitwise_run8471",
+      "arm": "candidate_setup",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_unitwise_run8471",
+      "arm": "candidate_warm1",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_unitwise_run8471",
+      "arm": "candidate_warm2",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline1/cold",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline1/warm",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate1/cold",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate1/warm",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate2/cold",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate2/warm",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline2/cold",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline2/warm",
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "nmse": 0.03208269768093065,
+      "limit": 0.032082729763628325,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_unitwise_run8471",
+      "arm": "candidate_setup",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_unitwise_run8471",
+      "arm": "candidate_warm1",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_unitwise_run8471",
+      "arm": "candidate_warm2",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline1/cold",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline1/warm",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate1/cold",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate1/warm",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate2/cold",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "candidate2/warm",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline2/cold",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471",
+      "arm": "baseline2/warm",
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "nmse": 0.03886251577944886,
+      "limit": 0.03886255464196464,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    }
+  ],
+  "count": 33,
+  "all_pass": true,
+  "speedups": {
+    "cold": 1.071806041180439,
+    "warm": 1.378596373953042
+  },
+  "validation_wall": 5.510268457997881,
+  "heldout_kld": null,
+  "production_adoption": false,
+  "quality_scope": "three down cells independent numerical/decode; no fused or currentK3 heldout frontier"
+}

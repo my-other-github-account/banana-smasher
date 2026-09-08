@@ -1,0 +1,13 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 1042694,
+  "pgid": 1042694,
+  "start_ticks": 5293111,
+  "argv": [
+    "/dev/shm/ds4_k3_cold_run8471.py",
+    "8f4f743a7f27db87481832f0f1db18279c4ca12367a1bc6949d31a7e5425981b"
+  ],
+  "canonical_git_pin": "eec3bfc578c2fac4678373331f779de4e2abb766",
+  "receipt": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471/IDENTITY.json",
+  "script_sha256": "e74dec221cba030542d708671f0511d415ad1e3b0782926588ef37c5185e31ef"
+}

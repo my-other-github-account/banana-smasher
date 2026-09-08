@@ -1,0 +1,20 @@
+{
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "rows": [
+    {
+      "owner": "t_ebcba52e",
+      "layer": 9,
+      "experts": [
+        90,
+        91,
+        92
+      ],
+      "projections": [
+        "down"
+      ],
+      "K": 3,
+      "operation": "new_private_cache_cold_comparison",
+      "receipt": "/dev/shm/t_ebcba52e_ds4_k3_cold_run8471/IDENTITY.json"
+    }
+  ]
+}

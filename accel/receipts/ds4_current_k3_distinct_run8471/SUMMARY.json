@@ -1,0 +1,179 @@
+{
+  "state": "BOUNDED_CURRENT_K3_NUMERICAL_PASS_NOT_OUTPUT_OR_ADOPTION",
+  "canonical_pin": "eec3bfc578c2fac4678373331f779de4e2abb766",
+  "api": "banana_smasher.qtip_batch_controller.main_batch",
+  "cells": [
+    [
+      9,
+      90,
+      "down"
+    ],
+    [
+      9,
+      91,
+      "down"
+    ],
+    [
+      9,
+      92,
+      "down"
+    ]
+  ],
+  "geometry": {
+    "K": 3,
+    "L": 16,
+    "V": 2
+  },
+  "source_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "candidate": "group three authentic configs; block_ldl_unitwise=true; all other owner schedule defaults unchanged",
+  "baseline": "three serial main_batch singleton calls; block_ldl_unitwise false/default",
+  "raw_grouped": {
+    "warm_speedup": 1.3453459812482946,
+    "numerical_pass": false,
+    "failed_expert": 91
+  },
+  "unitwise_shared_cache_speedup": 1.386556561651747,
+  "matched_private_cache": {
+    "cold": {
+      "baseline_seconds": 29.524533654501283,
+      "candidate_seconds": 27.546526629001164,
+      "speedup": 1.071806041180439,
+      "peak_allocated_baseline": 405249536,
+      "peak_allocated_candidate": 948000256,
+      "arms": {
+        "baseline1": {
+          "phase": "cold",
+          "wall": 29.26859003500431,
+          "peak_allocated": 405249536,
+          "peak_reserved": 689963008,
+          "process_maxrss_kib": 2070372,
+          "mem_available": 114733953024
+        },
+        "candidate1": {
+          "phase": "cold",
+          "wall": 27.55680120100442,
+          "peak_allocated": 948000256,
+          "peak_reserved": 1256194048,
+          "process_maxrss_kib": 2017124,
+          "mem_available": 113970016256
+        },
+        "candidate2": {
+          "phase": "cold",
+          "wall": 27.53625205699791,
+          "peak_allocated": 948000256,
+          "peak_reserved": 1256194048,
+          "process_maxrss_kib": 2018300,
+          "mem_available": 113800007680
+        },
+        "baseline2": {
+          "phase": "cold",
+          "wall": 29.780477273998258,
+          "peak_allocated": 405249536,
+          "peak_reserved": 689963008,
+          "process_maxrss_kib": 2068596,
+          "mem_available": 114271293440
+        }
+      }
+    },
+    "warm": {
+      "baseline_seconds": 5.627100195000821,
+      "candidate_seconds": 4.081760478497017,
+      "speedup": 1.378596373953042,
+      "peak_allocated_baseline": 411554816,
+      "peak_allocated_candidate": 950102016,
+      "arms": {
+        "baseline1": {
+          "phase": "warm",
+          "wall": 5.610687590997259,
+          "peak_allocated": 411554816,
+          "peak_reserved": 696254464,
+          "process_maxrss_kib": 2097208,
+          "mem_available": 114698645504
+        },
+        "candidate1": {
+          "phase": "warm",
+          "wall": 4.084892751998268,
+          "peak_allocated": 950102016,
+          "peak_reserved": 1258291200,
+          "process_maxrss_kib": 2114976,
+          "mem_available": 113938231296
+        },
+        "candidate2": {
+          "phase": "warm",
+          "wall": 4.078628204995766,
+          "peak_allocated": 950102016,
+          "peak_reserved": 1258291200,
+          "process_maxrss_kib": 2117048,
+          "mem_available": 113758150656
+        },
+        "baseline2": {
+          "phase": "warm",
+          "wall": 5.643512799004384,
+          "peak_allocated": 411554816,
+          "peak_reserved": 696254464,
+          "process_maxrss_kib": 2093504,
+          "mem_available": 114235031552
+        }
+      }
+    }
+  },
+  "phase_totals": {
+    "baseline_setup": {
+      "staging": 3.2939204709909973,
+      "solve": 3.6389869449994876,
+      "packed_decode_conformance": 0.26205620700784493
+    },
+    "baseline_warm1": {
+      "staging": 2.2463713720062515,
+      "solve": 3.3296103600077913,
+      "packed_decode_conformance": 0.17235472499305615
+    },
+    "baseline_warm2": {
+      "staging": 2.252147368999431,
+      "solve": 3.291730163997272,
+      "packed_decode_conformance": 0.17470213700289605
+    },
+    "candidate_setup": {
+      "staging": 0.8978455860051326,
+      "solve": 3.1169822129959357,
+      "packed_decode_conformance": 0.15707039599510608
+    },
+    "candidate_warm1": {
+      "staging": 0.9287348660072894,
+      "solve": 3.189693283995439,
+      "packed_decode_conformance": 0.16091052700357977
+    },
+    "candidate_warm2": {
+      "staging": 0.997227389998443,
+      "solve": 3.160040825998294,
+      "packed_decode_conformance": 0.17746206399897346
+    },
+    "unitwise_candidate_setup": {
+      "staging": 2.5560167919975356,
+      "solve": 4.590847124003631,
+      "packed_decode_conformance": 0.4872956109975348
+    },
+    "unitwise_candidate_warm1": {
+      "staging": 0.889137906007818,
+      "solve": 3.133292293001432,
+      "packed_decode_conformance": 0.17114122200291604
+    },
+    "unitwise_candidate_warm2": {
+      "staging": 0.8844975620013429,
+      "solve": 3.1238719989996753,
+      "packed_decode_conformance": 0.16507977499713888
+    }
+  },
+  "independent_numerical": {
+    "count": 33,
+    "all_pass": true,
+    "max_abs_vs_singleton": 0,
+    "validation_seconds": 5.510268457997881
+  },
+  "cold_cache_scope": "private canonical/Triton/Inductor/CUDA/XDG; shared source/prebuilt/OS page cache; import/config separate",
+  "owner_pin": "4921456bba5ebc032fb96030ee11e58f3ea2826a",
+  "owner_adoption": false,
+  "heldout_kld": null,
+  "full_model_equivalence": false,
+  "next": "Authentic currentK3 fused representative plus independent owner-authorized heldout seam; no baseline/scorer recapture or production restart"
+}

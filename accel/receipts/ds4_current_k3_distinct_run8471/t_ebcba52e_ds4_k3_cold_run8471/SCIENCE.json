@@ -1,0 +1,16 @@
+{
+  "basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "panel": "authentic currentK3 L009 E090/E091/E092 down",
+  "purpose": "new matched private-cache cold condition; not replay of shared-cache baseline",
+  "order": [
+    "baseline1",
+    "candidate1",
+    "candidate2",
+    "baseline2"
+  ],
+  "quality": "frozen limits from sealed distinct baseline; independent decode validation required, no heldout claim",
+  "baseline_limits_sha256": "fb2d06a33163119acba545f420d9fb4d3ab985f65e2dc0b66bd67b1b14443108",
+  "incumbent_result_sha256": "3f26753c77894ffe10b46a59f8337fb6349d84b7dfdb1ad92b2b1c9d319b8cba",
+  "cache_scope": "private canonical/Triton/Inductor/CUDA/XDG per child; source/prebuilt assets and OS page cache SHARED",
+  "production_promotion": false
+}

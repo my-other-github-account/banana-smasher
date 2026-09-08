@@ -1,0 +1,13 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 1047377,
+  "pgid": 1047377,
+  "start_ticks": 5312061,
+  "argv": [
+    "/dev/shm/ds4_k3_verify_run8471_a2.py",
+    "a70330dcc47d466d1b01ef6dc5705115a8bf26eb7b1b443d29e42f88cad0896a"
+  ],
+  "receipt": "/dev/shm/t_ebcba52e_ds4_k3_verify_run8471_a2/IDENTITY.json",
+  "script_sha256": "a21185132836cbed40570263e3a726d44cdaa5c5b49a88e15008cb33335f8521",
+  "canonical_git_pin": "eec3bfc578c2fac4678373331f779de4e2abb766"
+}
