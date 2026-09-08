@@ -1,0 +1,165 @@
+{
+  "state": "SEALED_CURRENT_K3_SINGLE_CELL_SCHEDULE_DIAGNOSTIC",
+  "identity": {
+    "task_id": "t_ebcba52e",
+    "pid": 1023908,
+    "pgid": 1023908,
+    "start_ticks": 5120419,
+    "argv": [
+      "/dev/shm/ds4_k3_benchmark_run8465.py",
+      "2d3e5608f6358b0fbbcb1204ff293ac2f37401fbf624bf56dcb3203b4d51a818"
+    ],
+    "receipt": "/dev/shm/t_ebcba52e_ds4_k3_benchmark_run8465/IDENTITY.json",
+    "script_sha256": "76fcd3e049ab226ef0f895df600cc43e427bae58a68537f1a2f0b377cbf0b7ee",
+    "canonical_git_pin": "240e063388f43093ca552ead7ee0ed22fa1905b3"
+  },
+  "warm_speedup": 0.3312074992037101,
+  "reconstruction_pass": true,
+  "nmse_limit": 0.03377899400811885,
+  "heldout_kld": null,
+  "production_adoption": false,
+  "owner_pin": "4921456bba5ebc032fb96030ee11e58f3ea2826a",
+  "owner_cell_consumed": true,
+  "scope": "one currentK3 down cell; no fused/currentK3 heldout frontier or production throughput claim",
+  "rows": [
+    {
+      "arm": "baseline_setup",
+      "wall_seconds": 21.60773160900135,
+      "peak_allocated": 401046016,
+      "mem_available": 117167419392,
+      "nmse": 0.033778960229158626,
+      "max_abs_diagnostic": 0.0,
+      "decode_pass": true,
+      "artifact_sha256": "b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e",
+      "validation_seconds": 0.11578379399725236
+    },
+    {
+      "arm": "baseline_warm1",
+      "wall_seconds": 2.157093027999508,
+      "peak_allocated": 403147776,
+      "mem_available": 114866606080,
+      "nmse": 0.033778960229158626,
+      "max_abs_diagnostic": 0.0,
+      "decode_pass": true,
+      "artifact_sha256": "b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e",
+      "validation_seconds": 0.12171862900140695
+    },
+    {
+      "arm": "baseline_warm2",
+      "wall_seconds": 1.8502655799966305,
+      "peak_allocated": 405249536,
+      "mem_available": 114781704192,
+      "nmse": 0.033778960229158626,
+      "max_abs_diagnostic": 0.0,
+      "decode_pass": true,
+      "artifact_sha256": "b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e",
+      "validation_seconds": 0.12030971499916632
+    },
+    {
+      "arm": "candidate_setup",
+      "wall_seconds": 7.22033754199947,
+      "peak_allocated": 407351296,
+      "mem_available": 114801811456,
+      "nmse": 0.033778960229158626,
+      "max_abs_diagnostic": 0.0,
+      "decode_pass": true,
+      "artifact_sha256": "b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e",
+      "validation_seconds": 0.11886484500428196,
+      "reconstruction_pass": true
+    },
+    {
+      "arm": "candidate_warm1",
+      "wall_seconds": 6.047871685004793,
+      "peak_allocated": 409453056,
+      "mem_available": 114829717504,
+      "nmse": 0.033778960229158626,
+      "max_abs_diagnostic": 0.0,
+      "decode_pass": true,
+      "artifact_sha256": "b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e",
+      "validation_seconds": 0.11158672600140562,
+      "reconstruction_pass": true
+    },
+    {
+      "arm": "candidate_warm2",
+      "wall_seconds": 6.0513670630025445,
+      "peak_allocated": 411554816,
+      "mem_available": 114891960320,
+      "nmse": 0.033778960229158626,
+      "max_abs_diagnostic": 0.0,
+      "decode_pass": true,
+      "artifact_sha256": "b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e",
+      "validation_seconds": 0.11812055699556367,
+      "reconstruction_pass": true
+    }
+  ],
+  "phase_seconds": {
+    "baseline_setup": {
+      "staging": 1.7723425950025558,
+      "kernel_prepare": 1.000220690999413,
+      "progress_receipt_fsync": 0.0,
+      "solve": 18.82748629800335,
+      "solve_core_excluding_packed_decode_conformance": 2.2198384770017583,
+      "packed_decode_conformance": 16.607647821001592,
+      "artifact_fsync": 0.002004694993956946,
+      "receipt_fsync": 0.000341220002155751,
+      "remainder": 0.0
+    },
+    "baseline_warm1": {
+      "staging": 0.7085555919984472,
+      "kernel_prepare": 0.0035406000024522655,
+      "progress_receipt_fsync": 0.0,
+      "solve": 1.4367305179985124,
+      "solve_core_excluding_packed_decode_conformance": 1.0811006789954263,
+      "packed_decode_conformance": 0.3556298390030861,
+      "artifact_fsync": 0.002569790005509276,
+      "receipt_fsync": 0.0003497639991110191,
+      "remainder": 0.0
+    },
+    "baseline_warm2": {
+      "staging": 0.7252797249966534,
+      "kernel_prepare": 0.003967518001445569,
+      "progress_receipt_fsync": 0.0,
+      "solve": 1.1122839819945511,
+      "solve_core_excluding_packed_decode_conformance": 1.0524540159894968,
+      "packed_decode_conformance": 0.0598299660050543,
+      "artifact_fsync": 0.0025780769938137382,
+      "receipt_fsync": 0.00031720300466986373,
+      "remainder": 0.0
+    },
+    "candidate_setup": {
+      "staging": 0.7208573780080769,
+      "kernel_prepare": 0.003937212997698225,
+      "progress_receipt_fsync": 0.0,
+      "solve": 6.48641550100001,
+      "solve_core_excluding_packed_decode_conformance": 6.4286875780017,
+      "packed_decode_conformance": 0.05772792299831053,
+      "artifact_fsync": 0.0026413420055177994,
+      "receipt_fsync": 0.0007620090036652982,
+      "remainder": 0.0
+    },
+    "candidate_warm1": {
+      "staging": 0.7248546439950587,
+      "kernel_prepare": 0.0038169550025486387,
+      "progress_receipt_fsync": 0.0,
+      "solve": 5.311682303996349,
+      "solve_core_excluding_packed_decode_conformance": 5.25562649800122,
+      "packed_decode_conformance": 0.05605580599512905,
+      "artifact_fsync": 0.0026657269991119392,
+      "receipt_fsync": 0.000351139999111183,
+      "remainder": 0.0
+    },
+    "candidate_warm2": {
+      "staging": 0.7204367789963726,
+      "kernel_prepare": 0.00395914899854688,
+      "progress_receipt_fsync": 0.0,
+      "solve": 5.31943545100512,
+      "solve_core_excluding_packed_decode_conformance": 5.263263277003716,
+      "packed_decode_conformance": 0.05617217400140362,
+      "artifact_fsync": 0.0026636619950295426,
+      "receipt_fsync": 0.0003665959957288578,
+      "remainder": 0.0
+    }
+  },
+  "decision": "REJECT_K1_SCHEDULE_FOR_CURRENT_K3_SPEED_REGRESSION",
+  "next": "Retain owner baseline; isolate a single schedule knob or representative distinct-cell resident batching using owner-bound same-tier original configs. No baseline/heldout replay."
+}

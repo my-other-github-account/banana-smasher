@@ -1,5 +1,29 @@
 # Runtime accelerations
 
+## Current DS4 K3 rejects the K1 schedule (run8465)
+
+Owner-bound current K3 L009/E089 down was localized from sealed original
+config/captures/artifact over QSFP, without recapture or touching production.
+The owner actually imports `4921456bba5ebc032fb96030ee11e58f3ea2826a`;
+this bounded experiment used current API `240e063388f43093ca552ead7ee0ed22fa1905b3`.
+The unchanged owner config (path/pin relocation only) rebuilt the exact owner
+artifact hash `b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e`.
+
+Two baseline warm walls averaged 2.003679 s versus 6.049619 s for the K1
+structured/unrolled sixteen-warp preset: **0.331207x, rejected for speed**.
+All six builds decoded, NMSE was 0.033778960229158626, and candidate checks
+passed the baseline-repeat-frozen 0.03377899400811885 bound. Matching bytes
+were diagnostic, not the acceptance rule. This does not establish heldout
+quality or full-model equivalence. The final warm core-solve cost increased
+from 1.052454 to 5.263263 s while staging stayed about 0.72 s; do not transplant
+this K1 preset into K3. Candidate setup 7.220338 s versus baseline setup
+21.607732 s is NOT a cold speedup: shared process/JIT cache and order differ.
+
+Preserve the owner baseline and the sealed negative evidence. No production
+adoption. Next causal rung isolates one scheduling option or batches distinct
+owner-bound current-tier cells; do not replay this baseline or heldout output.
+Receipt: `accel/receipts/DS4_CURRENT_K3_SCHEDULE_run8465.json`.
+
 ## DS4 K1 producer-to-output gate closed (run8465)
 
 The matched real L013 E084/E085 down (4096x2048) and fused13 (4096x4096)
