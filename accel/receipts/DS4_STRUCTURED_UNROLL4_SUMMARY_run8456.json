@@ -1,0 +1,47 @@
+{
+  "task_id": "t_ebcba52e",
+  "canonical_git_pin": "6e059cd3a0d59597ae9822890db8109d34aad2e6",
+  "change": "structured gather + full four-branch unroll,4warps instead of incumbent16",
+  "times": {
+    "candidate_setup": 79.86366625300434,
+    "candidate_warm1": 71.24244304699823,
+    "candidate_warm2": 71.25028007500077
+  },
+  "numerical_pass": 8,
+  "numerical_count": 8,
+  "max_abs": 0.0,
+  "validation_wall": 3.937935665999248,
+  "speed_verdict": "RED",
+  "heldout_kld": null,
+  "production_promotion": false,
+  "raw_roots": [
+    "t_ebcba52e_ds4_structured_unroll4_run8456",
+    "t_ebcba52e_quality_ds4_structured_unroll4_run8456"
+  ],
+  "speedup_vs_unroll16": 0.314803566232631,
+  "peak_allocated": 5196188160,
+  "same_work": "L013 E084/E085 down4096x2048 and fused134096x4096, historical K1 clean22; not current K3 production",
+  "source_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "raw_sha256": {
+    "t_ebcba52e_ds4_structured_unroll4_run8456/BASELINE_BINDING.json": "64dcabe681e6ec44f614b581589efc1f6fec3613dae033bf3843fcd158fb1867",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/CLAIM.json": "0844c937cbff55ef2dfeae95d0c009e76aa1d16990fe7d72d5e318c90b3774ec",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/CLAIM_PREIMAGE.json": "dd30e3c3992433ea5c06ca1926da99099a6058d67f6b0fa22c28a1817cb35c8e",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/IDENTITY.json": "ea730405c32f763a8ad17fc705b9279818da4528f85d802c944fceb554c9f386",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/IMPORT.json": "f07c4998488e18cb5ea1f4bda15d5815359dfab83a79322df145002cf3ecf887",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/PROGRESS.json": "ad810f6181a3cf46d902b417523804b661ed43714a00855ca85d9ecff613ee26",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/QUALITY_PREDECLARATION.json": "c775dfc2baa2cc8cfc1599ed15d7e9e176c991fca54ccc93b946c01009d184a9",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/RESULT.json": "a2509588e6a4b4d3b1e4d177547aa61c5ca51ce3cd32bd843bf98a61c1cb57e5",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/SHARDS.json": "5aee291378b77315d0913a7a330a8990a963597d8debe7028d546c28feb08842",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/candidate_setup.json": "8d0cec76cc78799705143a979e4750e11bbb09b7e8b546352bcf4e0f4632f706",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/candidate_warm1.json": "c355aa7c0dfb998120d8d5faa7c7aa1065fbc2cede1785086ecc6bc5b0190d42",
+    "t_ebcba52e_ds4_structured_unroll4_run8456/candidate_warm2.json": "d68c920bc087b2cdd351c10932faf7955d945f187e30132854173b9f0660aaeb",
+    "t_ebcba52e_quality_ds4_structured_unroll4_run8456/BASELINE_BINDING.json": "b5c799b7f094e07bf01f60833f609ca0f0ce1ad8e0e4bbfee0df45a1490df312",
+    "t_ebcba52e_quality_ds4_structured_unroll4_run8456/CLAIM.json": "eb1cb5562c4d2c6fd16e8f48b9a720c2b1ee27abd11f37f75ad5ec728e9b84b0",
+    "t_ebcba52e_quality_ds4_structured_unroll4_run8456/CLAIM_PREIMAGE.json": "acb35f313746ab42bf1fc2964a5df0ece2781e92cf84de3d1e5bf0846fa49ab4",
+    "t_ebcba52e_quality_ds4_structured_unroll4_run8456/IDENTITY.json": "b54aef1e0334e0889391f14ef0f052b3c7bd7d27445a040901c6cd1b1c5a0cad",
+    "t_ebcba52e_quality_ds4_structured_unroll4_run8456/PROGRESS.json": "81bbc7e786614a3ddf18d49b41c7afdfa2c63331c6053f1dac9d5266018c2ae5",
+    "t_ebcba52e_quality_ds4_structured_unroll4_run8456/RESULT.json": "f79f8a896a27f8faadcaf499173f73ffebe9de3bc1d71cc19eb63144e6537112",
+    "t_ebcba52e_quality_ds4_structured_unroll4_run8456/SHARDS.json": "02956a373e173786d07d9903c6e036d1a31e95f01ad9e2a10ba19bcf6064d5a0"
+  },
+  "incumbent_summary_sha256": "cf44c950dee38104629114aa97cc5c9a5064fdfe4f8816fae6342ae4a75ae606"
+}

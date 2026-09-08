@@ -942,3 +942,30 @@ copying:1,884,545,024B free versus the existing4GiB reserve plus11,059,200B
 planned new allocation. Its FAILURE is retained; all volatile originals and
 local receipt copies survive. No durable candidate archive is claimed, no
 scientific bytes were deleted and no storage reserve was weakened.
+
+## DS4 matched private-cache condition and lower scheduling bound (run8456)
+
+On the same historical K1 L013 E084/E085 down/fused13 panel, the structured
+full-four-branch-unroll incumbent at16warps retained its warm improvement under
+fresh private-cache B1/C1/C2/B2 process ordering. Baseline cold public builds
+were43.718454/44.638403s versus38.746016/39.388508s candidate (1.130830x).
+Warm companions were28.165102/28.923832s versus22.399828/22.456375s
+(1.272710x). Parent wall including import, cold and warm was1.177470x.
+Canonical/Triton/Inductor/CUDA/XDG caches were isolated per child; source,
+prebuilt assets and OS page cache remained shared. These are not cold-storage
+measurements. Candidate peak allocated5,191,984,640B and reserved9,219,080,192B.
+All32 fresh packed units independently passed canonical decode/source-NMSE
+gates frozen from original reproducibility, with zero maximum reconstruction
+difference; independent validation cost11.346804s outside producer wall.
+
+The additional4warp schedule under this changed structured/unrolled layout
+lost badly:71.242443/71.250280s warm,0.314804x versus retained16warps. Its8
+independent numerical checks passed with zero reconstruction delta; validation
+3.937936s. Keep16warps, not the lower-warp or byte-backpointer candidates.
+Both experiments used public API pin6e059cd3a0d59597ae9822890db8109d34aad2e6.
+Raw bindings and included producer/conformance phases are in
+`accel/receipts/DS4_COLD_SUMMARY_run8456.json` and
+`accel/receipts/DS4_STRUCTURED_UNROLL4_SUMMARY_run8456.json`.
+No current K3, full-model output equivalence or production adoption is implied.
+Next gate is the controller-authorized DS4 ordinal0 paired frozen output,
+using owner-bound original artifact/runtime and no full64 replay.
