@@ -1,5 +1,45 @@
 # Runtime accelerations
 
+## Fused K3 eager conformance: matched cold-process panel (2026-09-07)
+
+The public `packed_decode_execution='eager'` opt-in was extended to four
+real L005 E001--E004 fused13 K3 cells on dedicated Spark-6, pinned to
+`b2d30432e5de596261cb6d58ae80d33ee496ce4c`. Both arms retain unitwise
+factorization and eight Viterbi warps; only conformance execution differs.
+Four reversed fresh-process arms each use private canonical/Triton/Inductor/
+CUDA/XDG caches and cold/warm companions. Source files and OS caches are shared,
+not globally cold. All 32 new builds passed canonical conformance.
+
+Paired four-cell build wall was 48.407624 / 44.520410 seconds compiled versus
+29.445928 / 26.748347 seconds eager: 1.643950x / 1.664417x cold-process gain.
+Warm wall was 8.183567 / 8.230978 versus 8.298362 / 8.114429 seconds:
+0.986167x / 1.014363x, with no demonstrated warm throughput improvement.
+Import/config costs were 2.540661 / 1.766471 seconds compiled versus
+1.741986 / 1.702689 seconds eager, outside the build denominator.
+Peak GPU allocation was identical in both arms: 2,114,731,008 bytes cold and
+2,116,832,768 bytes warm. Reserved peaks were 3,321,888,768 / 3,323,985,920 bytes.
+The unchanged 32-GiB estimate plus 4-GiB MemAvailable reserve passed.
+
+A separate canonical source/decode validator took 120.697850 seconds and passed
+16/16 candidate reconstruction checks. Limits were frozen from two baseline
+repeats before candidate adjudication: worse baseline NMSE plus the maximum of
+five times repeat variation and 1e-6 times worse baseline NMSE. Baseline repeats
+were identical; all candidate decoded max-absolute differences to the matched
+compiled baseline were zero. This is not a new held-out/full-model equivalence
+claim. The older sparse held-out receipts survive locally, but their volatile
+incumbent payloads disappeared after a host reboot; consumer-qualified durable
+reference linkage and production owner adoption remain pending.
+
+No sealed build or calibration was replayed during recovery. Four missing K3
+configs were restored using the existing authenticated binder from durable
+source configs, codebook references and Hessian manifests (zero solves/captures).
+New durable host roots are
+`/home/dnola/missions/t_ebcba52e_glm_fused_eager_run8341` and
+`/home/dnola/missions/t_ebcba52e_quality_fused_eager_run8341`.
+Task-local `GLM_FUSED_EAGER_{TERMINAL,SUMMARY,QUALITY}_run8341.json` contains
+full timings and the independent checks. No production promotion is implied.
+
+
 ## Exact sparse consumer staging (2026-09-07, unpromoted)
 
 `ArtifactTensorStore` accepts an explicit `native_payload_reads: true` on the
