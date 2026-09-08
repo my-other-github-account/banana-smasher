@@ -1,0 +1,107 @@
+{
+  "schema": "banana-smasher.instrumentation-only.v1",
+  "canonical_pin": "dd4b91cacfb3c338f57e78f174b543672aca8cc4",
+  "identity": {
+    "task_id": "t_ebcba52e",
+    "pid": 920018,
+    "start_ticks": 4673502,
+    "pgid": 920018,
+    "argv": [
+      "profile_ds4_unroll16_run8454.py",
+      "1ca448eb934717dbf0f12e8c8b675186152770186c224b694f90bd939513dc54",
+      "dd4b91cacfb3c338f57e78f174b543672aca8cc4"
+    ],
+    "canonical_git_pin": "dd4b91cacfb3c338f57e78f174b543672aca8cc4",
+    "receipt": "/dev/shm/t_ebcba52e_profile_ds4_unroll16_run8454/IDENTITY.json",
+    "schema": "banana-smasher.host-claim.v1",
+    "host": "spark-6",
+    "owner": "t_ebcba52e",
+    "workload_pid": 920018,
+    "state": "CLAIMED",
+    "status": "CLAIMED",
+    "stage": "profile_ds4_unroll16_run8454_terminal_retained",
+    "claimed_at": 1788881678.4912183,
+    "expiry_unix": 1788888878.4912188,
+    "mission": "/dev/shm/t_ebcba52e_profile_ds4_unroll16_run8454",
+    "purpose": "Persistent acceleration seat: bounded authentic baseline repeats; no production promotion",
+    "source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "claim_preimage_sha256": "1ca448eb934717dbf0f12e8c8b675186152770186c224b694f90bd939513dc54",
+    "terminal_at": 1788881709.5810168,
+    "next_action": "consume terminal once; exact-CAS next quality/causal rung"
+  },
+  "top_device": [
+    {
+      "key": "_persistent_prefix_viterbi_generic",
+      "count": 768,
+      "cpu_self_us": 0,
+      "device_self_us": 19207066.422,
+      "device_total_us": 19207066.422
+    },
+    {
+      "key": "aten::copy_",
+      "count": 6730,
+      "cpu_self_us": 127833.01599992899,
+      "device_self_us": 695321.6500000734,
+      "device_total_us": 1280047.8440000569
+    },
+    {
+      "key": "Memcpy DtoH (Device -> Pageable)",
+      "count": 102,
+      "cpu_self_us": 0,
+      "device_self_us": 614837.7849999997,
+      "device_total_us": 614837.7849999997
+    },
+    {
+      "key": "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<float> >(at::TensorIteratorBase&, at::native::CUDAFunctor_add<float> const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<float> >(at::TensorIteratorBase&, at::native::CUDAFunctor_add<float> const&)::{lambda(int)#1})",
+      "count": 3586,
+      "cpu_self_us": 0,
+      "device_self_us": 207321.7400000142,
+      "device_total_us": 207321.7400000142
+    },
+    {
+      "key": "aten::cat",
+      "count": 1279,
+      "cpu_self_us": 40490.423999963095,
+      "device_self_us": 166610.2529999856,
+      "device_total_us": 166993.26399998693
+    },
+    {
+      "key": "void at::native::(anonymous namespace)::CatArrayBatchedCopy_vectorized<at::native::(anonymous namespace)::OpaqueType<4u>, unsigned int, 3, 128, 1, 16, 4>(char*, at::native::(anonymous namespace)::CatArrInputTensorMetadata<at::native::(anonymous namespace)::OpaqueType<4u>, unsigned int, 128, 1>, at::native::(anonymous namespace)::TensorSizeStride<unsigned int, 4u>, int, unsigned int)",
+      "count": 1013,
+      "cpu_self_us": 0,
+      "device_self_us": 120328.94099997543,
+      "device_total_us": 120328.94099997543
+    },
+    {
+      "key": "aten::sub",
+      "count": 1675,
+      "cpu_self_us": 9861.80299998424,
+      "device_self_us": 108775.14699998184,
+      "device_total_us": 108780.07499998179
+    },
+    {
+      "key": "aten::add",
+      "count": 2515,
+      "cpu_self_us": 15571.79200004437,
+      "device_self_us": 102858.24500003422,
+      "device_total_us": 102881.06100003258
+    },
+    {
+      "key": "void at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctor_add<float>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<float>, std::array<char*, 3ul>)",
+      "count": 68,
+      "cpu_self_us": 0,
+      "device_self_us": 70593.33199999481,
+      "device_total_us": 70593.33199999481
+    },
+    {
+      "key": "aten::add_",
+      "count": 52,
+      "cpu_self_us": 235.98400000715628,
+      "device_self_us": 67957.0899999952,
+      "device_total_us": 67959.52199999522
+    }
+  ],
+  "timing_denominator": false,
+  "profile_sha256": "c5999aaf764da8be9047a26ed061c4bc946caceb67feae9f1c9cf4e083fa519c",
+  "source_root": "/dev/shm/t_ebcba52e_profile_ds4_unroll16_run8454"
+}
