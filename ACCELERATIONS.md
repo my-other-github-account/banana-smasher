@@ -764,3 +764,31 @@ Exact receipts: `t_ebcba52e_k1warps_a1`, `t_ebcba52e_quality_k1warps_a1`,
 Development includes both package sources, all package/plugin tests, JSON schemas, repair/repack/materialized-wire handling, and every AOT asset consumed by the image. Image build compiles both local wheels, source-builds pinned FlashInfer and DeepGEMM revisions, verifies package imports, links real `libcudart`, writes package provenance, and preserves the exact stock-vLLM `CMD`. Serving mounts only a verified pack at `/model`; plugin registration activates fail-closed runtime hooks before model load.
 
 `runtime/KERNEL_PRODUCERS.json` and `archive/KERNEL_DEVELOPMENT.md` distinguish shipped/hash-gated cubins from exact-source-rebuild seals. The SM120 set remains unsealed because cubit short identity `5912400` is unresolved. The E43 recipe has a sealed independent 6/6 byte-identical rebuild receipt.
+
+## Producer admission recovery and host-thread experiment (2026-09-08)
+
+Refreshing the consumer-tested main pin exposed a real producer admission error:
+`qtip_runner.py` changed in cb460bb1 but the independent trusted runner anchor
+remained stale. Canonical 1e35a502 repairs the digest without weakening admission.
+The shipped-anchor regression first failed; anchor plus solve-resume tests then
+passed69/69. The failed attempt sealed zero cells and was not used for timing.
+
+At 1e35a5022d3cb43ce2baa34de0c586695f6260a4, four authentic GLM L005
+E001--004 fused-K3 cells compared8 CPU threads against1, keeping selected source,
+eager conformance, unitwise preprocessing, warp8 and the existing full recurrence
+fixed. Fresh-private-cache order was baseline/candidate/candidate/baseline, each
+with a cold and warm call; OS/source assets remained shared. All32 builds passed.
+Cold four-cell walls were12.661063/11.952383s baseline versus12.522379/13.108021s
+candidate (mean ratio0.960322x). Warm walls9.234433/8.124412s versus
+8.409387/8.501477s give mean1.026491x, but paired1.098110x/0.955647x.
+This is NOT a repeatable substantial scheduling win;8 threads remains incumbent.
+Maximum CUDA allocated/reserved bytes across arms:2,116,832,768/3,323,985,920.
+
+The independent canonical decode/source-NMSE gate passed16/16 comparisons under
+the predeclared baseline-repeat formula. Maximum decoded tensor difference was0,
+a diagnostic rather than a byte-equality requirement. Validation9.308261s is
+separate from build wall. No new held-out output KLD, full-model equivalence or
+production adoption is claimed. Spark-6 roots:
+`/dev/shm/t_ebcba52e_glm_threads_run8441_a2` and
+`/dev/shm/t_ebcba52e_quality_threads_run8441`. Compact receipts live in
+`receipts/acceleration/threads-run8441/`.

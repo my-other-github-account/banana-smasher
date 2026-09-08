@@ -1,0 +1,37 @@
+{
+  "cold": {
+    "walls": {
+      "baseline1": 12.66106271699391,
+      "candidate1": 12.522379447997082,
+      "candidate2": 13.108020904001023,
+      "baseline2": 11.952383333999023
+    },
+    "mean_ratio": 0.9603223403833452,
+    "paired_ratios": [
+      1.0110748336266884,
+      0.9118373720590224
+    ]
+  },
+  "warm": {
+    "walls": {
+      "baseline1": 9.234433129997342,
+      "candidate1": 8.409387329003948,
+      "candidate2": 8.501477320001868,
+      "baseline2": 8.124411580000015
+    },
+    "mean_ratio": 1.02649066563358,
+    "paired_ratios": [
+      1.0981100963381498,
+      0.9556470333556367
+    ]
+  },
+  "builds": 32,
+  "quality_rows": 16,
+  "quality_pass": true,
+  "max_decoded_delta": 0.0,
+  "validation_wall": 9.308260842000891,
+  "peak_allocated": 2116832768,
+  "peak_reserved": 3323985920,
+  "decision": "No substantial repeatable scheduling win; retain8 threads, no promotion",
+  "pin": "1e35a5022d3cb43ce2baa34de0c586695f6260a4"
+}

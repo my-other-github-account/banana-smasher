@@ -1,0 +1,1821 @@
+{
+  "state": "RECONSTRUCTION_DIAGNOSTIC_ONLY",
+  "baseline": [
+    {
+      "expert": 1,
+      "projection": "fused13",
+      "values": [
+        0.030457263251633,
+        0.030457263251633,
+        0.030457263251633,
+        0.030457263251633
+      ],
+      "nmse_limit": 0.030457293708896254,
+      "wires": [
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline1/cold/solve/L005/E001_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline1/warm/solve/L005/E001_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline2/cold/solve/L005/E001_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline2/warm/solve/L005/E001_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "expert": 2,
+      "projection": "fused13",
+      "values": [
+        0.027909455865946686,
+        0.027909455865946686,
+        0.027909455865946686,
+        0.027909455865946686
+      ],
+      "nmse_limit": 0.02790948377540255,
+      "wires": [
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline1/cold/solve/L005/E002_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline1/warm/solve/L005/E002_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline2/cold/solve/L005/E002_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline2/warm/solve/L005/E002_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "expert": 3,
+      "projection": "fused13",
+      "values": [
+        0.02193977757977993,
+        0.02193977757977993,
+        0.02193977757977993,
+        0.02193977757977993
+      ],
+      "nmse_limit": 0.02193979951955751,
+      "wires": [
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline1/cold/solve/L005/E003_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline1/warm/solve/L005/E003_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline2/cold/solve/L005/E003_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline2/warm/solve/L005/E003_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "expert": 4,
+      "projection": "fused13",
+      "values": [
+        0.02793978924385085,
+        0.02793978924385085,
+        0.02793978924385085,
+        0.02793978924385085
+      ],
+      "nmse_limit": 0.02793981718364009,
+      "wires": [
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline1/cold/solve/L005/E004_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline1/warm/solve/L005/E004_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline2/cold/solve/L005/E004_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        },
+        {
+          "shape": [
+            4096,
+            4096
+          ],
+          "source_transform": {
+            "output_quantity": "descaled_weight"
+          },
+          "wire": {
+            "unit": {
+              "path": "baseline2/warm/solve/L005/E004_fused13/QTIP_UNIT.pt",
+              "bytes": 6314649,
+              "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+            },
+            "geometry": {
+              "L": 16,
+              "K": 3,
+              "V": 2,
+              "tlut_bits": 9,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16
+            },
+            "unit_shape": [
+              4096,
+              4096
+            ],
+            "row_range": [
+              0,
+              4096
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "expert": 1,
+      "projection": "fused13",
+      "arm": "candidate1/cold",
+      "nmse": 0.030457263251633,
+      "nmse_limit": 0.030457293708896254,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate1/cold/solve/L005/E001_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E001_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 1,
+      "projection": "fused13",
+      "arm": "candidate1/warm",
+      "nmse": 0.030457263251633,
+      "nmse_limit": 0.030457293708896254,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate1/warm/solve/L005/E001_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E001_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 1,
+      "projection": "fused13",
+      "arm": "candidate2/cold",
+      "nmse": 0.030457263251633,
+      "nmse_limit": 0.030457293708896254,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate2/cold/solve/L005/E001_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E001_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 1,
+      "projection": "fused13",
+      "arm": "candidate2/warm",
+      "nmse": 0.030457263251633,
+      "nmse_limit": 0.030457293708896254,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate2/warm/solve/L005/E001_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E001_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ad4eb0b624892fdc68ff3622a6e43d55c961bac8b85d674891e04a987744ab20"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 2,
+      "projection": "fused13",
+      "arm": "candidate1/cold",
+      "nmse": 0.027909455865946686,
+      "nmse_limit": 0.02790948377540255,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate1/cold/solve/L005/E002_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E002_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 2,
+      "projection": "fused13",
+      "arm": "candidate1/warm",
+      "nmse": 0.027909455865946686,
+      "nmse_limit": 0.02790948377540255,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate1/warm/solve/L005/E002_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E002_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 2,
+      "projection": "fused13",
+      "arm": "candidate2/cold",
+      "nmse": 0.027909455865946686,
+      "nmse_limit": 0.02790948377540255,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate2/cold/solve/L005/E002_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E002_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 2,
+      "projection": "fused13",
+      "arm": "candidate2/warm",
+      "nmse": 0.027909455865946686,
+      "nmse_limit": 0.02790948377540255,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate2/warm/solve/L005/E002_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E002_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "ababf6de0fa23df234324aba98673ce28d819e13f51c8db9c98b96fdeb74f2d8"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 3,
+      "projection": "fused13",
+      "arm": "candidate1/cold",
+      "nmse": 0.02193977757977993,
+      "nmse_limit": 0.02193979951955751,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate1/cold/solve/L005/E003_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E003_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 3,
+      "projection": "fused13",
+      "arm": "candidate1/warm",
+      "nmse": 0.02193977757977993,
+      "nmse_limit": 0.02193979951955751,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate1/warm/solve/L005/E003_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E003_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 3,
+      "projection": "fused13",
+      "arm": "candidate2/cold",
+      "nmse": 0.02193977757977993,
+      "nmse_limit": 0.02193979951955751,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate2/cold/solve/L005/E003_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E003_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 3,
+      "projection": "fused13",
+      "arm": "candidate2/warm",
+      "nmse": 0.02193977757977993,
+      "nmse_limit": 0.02193979951955751,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate2/warm/solve/L005/E003_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E003_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "a8fa2928f6602b2111d91c10bc9460ed0d39f46b4d68cab267c27c7e299b58f6"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 4,
+      "projection": "fused13",
+      "arm": "candidate1/cold",
+      "nmse": 0.02793978924385085,
+      "nmse_limit": 0.02793981718364009,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate1/cold/solve/L005/E004_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E004_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 4,
+      "projection": "fused13",
+      "arm": "candidate1/warm",
+      "nmse": 0.02793978924385085,
+      "nmse_limit": 0.02793981718364009,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate1/warm/solve/L005/E004_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E004_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 4,
+      "projection": "fused13",
+      "arm": "candidate2/cold",
+      "nmse": 0.02793978924385085,
+      "nmse_limit": 0.02793981718364009,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate2/cold/solve/L005/E004_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E004_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    },
+    {
+      "expert": 4,
+      "projection": "fused13",
+      "arm": "candidate2/warm",
+      "nmse": 0.02793978924385085,
+      "nmse_limit": 0.02793981718364009,
+      "reconstruction_gate": true,
+      "consumer_decode": "PASS",
+      "wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "candidate2/warm/solve/L005/E004_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      },
+      "incumbent_max_abs": 0.0,
+      "incumbent_wire": {
+        "shape": [
+          4096,
+          4096
+        ],
+        "source_transform": {
+          "output_quantity": "descaled_weight"
+        },
+        "wire": {
+          "unit": {
+            "path": "baseline1/cold/solve/L005/E004_fused13/QTIP_UNIT.pt",
+            "bytes": 6314649,
+            "sha256": "b2f10d79a6790137354b0427c3e52fdb0b0ca4f799a3f589ccd3dfb22e234b30"
+          },
+          "geometry": {
+            "L": 16,
+            "K": 3,
+            "V": 2,
+            "tlut_bits": 9,
+            "decode_mode": "quantlut_sym",
+            "td_x": 16,
+            "td_y": 16
+          },
+          "unit_shape": [
+            4096,
+            4096
+          ],
+          "row_range": [
+            0,
+            4096
+          ]
+        }
+      }
+    }
+  ],
+  "all_reconstruction_pass": true,
+  "heldout_kld": null,
+  "quality_equivalent_full_model": false,
+  "production_promotion": false,
+  "validation_wall": 9.308260842000891,
+  "identity": {
+    "task_id": "t_ebcba52e",
+    "pid": 828920,
+    "start_ticks": 4188901,
+    "pgid": 828920,
+    "argv": [
+      "/home/dnola/missions/quality_threads_run8441.py",
+      "2851c1cc0ce29f9f9ca70b7be52f37125da7b83ca49e14b80b06d495bc88dd45",
+      "1e35a5022d3cb43ce2baa34de0c586695f6260a4"
+    ],
+    "canonical_git_pin": "1e35a5022d3cb43ce2baa34de0c586695f6260a4",
+    "receipt": "/dev/shm/t_ebcba52e_quality_threads_run8441/IDENTITY.json"
+  }
+}
