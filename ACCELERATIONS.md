@@ -1,5 +1,41 @@
 # Runtime accelerations
 
+## Authenticated selected-source continuation (2026-09-07, unpromoted)
+
+The follow-on canonical staging profile isolated full-shard hashing as the
+remaining first-process cost: E001 and E004 source reads took 7.28875 and
+7.40763 seconds, of which SHA paths took 7.1701 and 7.2601 seconds.
+The existing `SelectedTensorSource` path was reused, not a new encoder or a
+cross-process trust cache. Sixteen original FP8-weight/F32-scale ranges
+(67,125,248 bytes) were locally materialized and authenticated in 0.167743
+seconds. All four canonical dequantized source matrices matched exactly.
+Original model index/config, header/range descriptors, payload hashes,
+calibration, RHT seeds and bit geometry remain bound.
+
+Two new private-cache selected-source eager arms, using code pin
+`96510e966680afe7cc5ac186fa1099e0bac6999e`, sealed 16/16 builds without
+replaying prior baselines. Their cold four-cell wall was 12.915914 / 12.177085
+seconds, versus the preceding eager-only 29.445928 / 26.748347 seconds:
+2.279818x / 2.196613x incremental improvement. Against the original compiled
+full-source arms this is 3.747905x / 3.656081x; charging the entire selected
+materialization to each cold arm gives 3.699854x / 3.606402x. This is a
+sequential continuation against saved same-input baselines, not a newly
+interleaved randomized experiment. Source/OS caches remain shared.
+Warm walls were 7.960290 / 8.082386 seconds; no dramatic warm gain is claimed.
+
+Independent validation took 28.100709 seconds and passed 16/16 source-NMSE
+checks with decoded maximum absolute difference zero versus the preceding
+eager-only artifacts. Held-out incumbent linkage and production adoption
+remain unestablished, as confirmed by the production owner. No full-model
+quality or automatic promotion is implied. Receipts are task-local
+`GLM_SELECTED_EAGER_{TERMINAL,SUMMARY,QUALITY}_run8341.json`,
+`GLM_SELECTED_SOURCE_PARITY_run8341.json` and `GLM_STAGING_PROFILE_run8341.json`.
+The new selected payloads are under `/dev/shm/t_ebcba52e_selected_fused_run8341`
+and `/dev/shm/t_ebcba52e_glm_selected_eager_run8341`: volatile storage is explicit.
+Disk admission refused the four-GiB reserve; scratch relocation preserved the
+same reserve rather than deleting source or sealed output. Durable payload
+archival needs space before another reboot; local receipts are not payload bytes.
+
 ## Fused K3 eager conformance: matched cold-process panel (2026-09-07)
 
 The public `packed_decode_execution='eager'` opt-in was extended to four
