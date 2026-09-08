@@ -1170,8 +1170,12 @@ def _bind_builder_memory_contract(
     # sequence cap (K=1 exposes 9,216) route wide calls through the canonical
     # bitshift chunker, which runs a roll pre-pass plus the overlap-conditioned
     # final pass: two exact solves per element.
-    if int(getattr(cb, "K", 2)) == 1:
-        state_elements *= 2
+    passes = getattr(cb, "_banana_smasher_exact_passes", None)
+    if passes is None:
+        passes = 2 if int(getattr(cb, "K", 2)) == 1 else 1
+    if isinstance(passes, bool) or passes not in (1, 2):
+        raise ValueError("invalid exact QTIP pass contract")
+    state_elements *= passes
     state_storage_bytes = state_elements * torch.empty(
         (), dtype=index_dtype
     ).element_size()
@@ -1259,6 +1263,9 @@ def _install_profiled_exact_viterbi(
 
     cb.viterbi = types.MethodType(solve, cb)
     cb.quantize_seq = types.MethodType(quantize_seq, cb)
+    # Native bitshift.quantize makes rolled and overlap-conditioned passes
+    # for every geometry, even when neither call needs width chunking.
+    cb._banana_smasher_exact_passes = 2
     metadata = dict(exact.geometry(cb))
     return {
         **metadata,
