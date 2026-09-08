@@ -239,9 +239,9 @@ def _persistent_prefix_viterbi_generic(
             predecessor_prefix = q * Q_FACTOR + residue
             if REGISTER_COSTS:
                 if STRUCTURED_GATHER:
-                    # K1 predecessor map is four contiguous cost rows followed
-                    # by fourfold broadcast. Select one row without an arbitrary
-                    # 16384-wide gather; nonnegative costs add only exact zeros.
+                    # Select one contiguous predecessor row, then broadcast its
+                    # entries BRANCHES times (K1: 4x4096; K3: 64x16).
+                    # Nonnegative costs add only exact zeros, including +inf.
                     cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
                     selected = tl.sum(tl.where(
                         tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
@@ -332,11 +332,11 @@ def resolve_viterbi_num_warps(geometry: tuple[int, int, int], requested: int | N
 
 
 def resolve_structured_gather(geometry: tuple[int, int, int], requested: bool | None) -> bool:
-    """Experimental K1 structured predecessor row selection/broadcast."""
+    """Experimental K1/K3 structured predecessor row selection/broadcast."""
     if requested is None or requested is False:
         return False
-    if requested is not True or geometry != (16, 1, 2):
-        raise ValueError("viterbi_structured_gather requires boolean and L16/K1/V2")
+    if requested is not True or geometry not in {(16, 1, 2), (16, 3, 2)}:
+        raise ValueError("viterbi_structured_gather requires boolean and L16/K1-or-K3/V2")
     return True
 
 
@@ -551,7 +551,7 @@ def exact_prefix_viterbi(
         if overlap is not None
         else torch.empty((1,), device=x.device, dtype=torch.int32)
     )
-    if backend_for_geometry((L, K, V)) == PERSISTENT_V32_BACKEND and steps == 128:
+    if backend_for_geometry((L, K, V)) == PERSISTENT_V32_BACKEND and steps == 128 and not structured_gather:
         # Default stays at 16; smaller schedules are explicit unpromoted experiments.
         _persistent_prefix_viterbi[(batch,)](
             x,
@@ -568,7 +568,7 @@ def exact_prefix_viterbi(
     else:
         # 512 threads for a 256-wide (K=4) or 4096-wide (K=1) prefix vector is
         # wrong either way; size warps to the vector.  Scheduling only.
-        generic_warps = launch_warps if K == 1 else max(4, min(16, prefixes // 64))
+        generic_warps = launch_warps if K == 1 or structured_gather else max(4, min(16, prefixes // 64))
         _persistent_prefix_viterbi_generic[(batch,)](
             x,
             lut,
@@ -585,7 +585,7 @@ def exact_prefix_viterbi(
             V=V,
             STEPS=steps,
             HAS_OVERLAP=overlap is not None,
-            REGISTER_COSTS=K == 1,
+            REGISTER_COSTS=K == 1 or structured_gather,
             BRANCH_UNROLL=branch_unroll,
             STRUCTURED_GATHER=structured_gather,
             BRANCH_POINTERS=backpointer_dtype == "uint8",

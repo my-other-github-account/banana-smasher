@@ -13,14 +13,15 @@ def resolver():
     return env['resolve_structured_gather']
 
 @pytest.mark.parametrize('value,expected', [(None,False),(False,False),(True,True)])
-def test_k1_gather(value, expected):
-    assert resolver()((16,1,2), value) == expected
+@pytest.mark.parametrize('geometry', [(16,1,2),(16,3,2)])
+def test_supported_gather(geometry, value, expected):
+    assert resolver()(geometry, value) == expected
 
 @pytest.mark.parametrize('value', [1,4,'true',[],{}])
 def test_refuse_non_boolean(value):
     with pytest.raises(ValueError): resolver()((16,1,2),value)
 
-@pytest.mark.parametrize('geometry', [(16,2,2),(16,3,2),(16,4,2),(17,1,2)])
+@pytest.mark.parametrize('geometry', [(16,2,2),(16,4,2),(17,1,2)])
 def test_refuse_unmeasured_geometry(geometry):
     with pytest.raises(ValueError): resolver()(geometry,True)
 
@@ -64,7 +65,8 @@ def test_batch_refuses_mixed_branch_schedules():
 
 
 @pytest.mark.parametrize('with_infinity',[False,True])
-def test_execute_actual_structured_branch(with_infinity):
+@pytest.mark.parametrize('branches,q_factor,shift', [(4,4096,2),(64,16,6)])
+def test_execute_actual_structured_branch(with_infinity, branches, q_factor, shift):
     import numpy as np
     import types
     tree=ast.parse(SOURCE.read_text())
@@ -72,11 +74,27 @@ def test_execute_actual_structured_branch(with_infinity):
     branch=next(n for n in ast.walk(kernel) if isinstance(n,ast.If) and ast.unparse(n.test)=='STRUCTURED_GATHER')
     module=ast.Module(body=branch.body,type_ignores=[])
     code=compile(module,str(SOURCE),'exec')
-    costs=np.linspace(0,1000,16384,dtype=np.float32)
+    prefixes=branches*q_factor
+    costs=np.linspace(0,1000,prefixes,dtype=np.float32)
     if with_infinity: costs[::7]=np.inf
     tl=types.SimpleNamespace(reshape=np.reshape,sum=np.sum,where=np.where,arange=np.arange,broadcast_to=np.broadcast_to)
-    for q in range(4):
-        env=dict(tl=tl,previous_costs=costs,BRANCHES=4,Q_FACTOR=4096,PREFIXES=16384,q=q)
+    for q in range(branches):
+        env=dict(tl=tl,previous_costs=costs,BRANCHES=branches,Q_FACTOR=q_factor,PREFIXES=prefixes,q=q)
         exec(code,env)
-        expected=costs[q*4096+(np.arange(16384)>>2)]
+        expected=costs[q*q_factor+(np.arange(prefixes)>>shift)]
         np.testing.assert_array_equal(env['predecessor_cost'],expected)
+
+
+def test_k3_structured_dispatch_uses_registers_and_requested_warps():
+    tree=ast.parse(SOURCE.read_text())
+    body=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='exact_prefix_viterbi')
+    dispatch=next(n for n in ast.walk(body) if isinstance(n,ast.If) and 'PERSISTENT_V32_BACKEND' in ast.unparse(n.test))
+    env=dict(L=16,K=3,V=2,steps=128,structured_gather=True,backend_for_geometry=lambda _: 'v32',PERSISTENT_V32_BACKEND='v32')
+    assert not eval(compile(ast.Expression(dispatch.test),str(SOURCE),'eval'),env)
+    env['structured_gather']=False
+    assert eval(compile(ast.Expression(dispatch.test),str(SOURCE),'eval'),env)
+    call=next(n for n in ast.walk(body) if isinstance(n,ast.Call) and '_persistent_prefix_viterbi_generic[' in ast.unparse(n.func))
+    reg=next(k.value for k in call.keywords if k.arg=='REGISTER_COSTS')
+    assert eval(compile(ast.Expression(reg),str(SOURCE),'eval'),dict(K=3,structured_gather=True))
+    warp=next(n.value for n in ast.walk(body) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='generic_warps' for t in n.targets))
+    assert eval(compile(ast.Expression(warp),str(SOURCE),'eval'),dict(K=3,structured_gather=True,launch_warps=8,prefixes=1024))==8
