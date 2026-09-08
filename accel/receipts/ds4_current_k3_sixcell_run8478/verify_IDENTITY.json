@@ -1,0 +1,12 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 1107075,
+  "pgid": 1107075,
+  "start_ticks": 5550581,
+  "argv": [
+    "/dev/shm/verify_ds4_k3_sixcell_run8474.py",
+    "b9436f0c5c4202f012dae725bc52c854e5997886c6ac0f981de4b1d87321201a"
+  ],
+  "receipt": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_verify_run8474/IDENTITY.json",
+  "script_sha256": "be3bcb93b58135e6102b56ee91e05fab6460e390f1fb21914d487c34eb157dbb"
+}

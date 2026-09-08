@@ -1127,3 +1127,18 @@ No rollout is authorized by numerical parity alone.
 Receipts: `accel/receipts/ds4_current_k3_fused_run8474/` (manifest hashes,
 raw producer/cold/independent results, scripts and explicit legacy-label
 corrections). Retain unitwise incumbent; do not multiply component ratios.
+
+## Current-K3 six-cell sparse output gate (run8478)
+
+The retained suffix completed without replay. Independent verification of
+102 frontier hashes and six replacement bindings per arm passes. B1/B2/C
+all yield teacher-support KLD1.7578433325743197 and548/1024 top1 matches;
+delta0 satisfies frozen1e-8 tolerance. This is ordinal0/window28, currentK3
+L009 down90/91/92 plus L026 fused78/79/80 on historical-K1/native-rest,
+NOT uniform-currentK3/full-model equivalence or production adoption.
+Consumer validation cost1545.451635s (excluding reused prefix), peak allocated
+22,932,329,984B; shared materialization and repeat arms are not producer
+speed replicates. Prior down/fused cold/warm results stand independently.
+Production owner adoption decision is requested, not presumed.
+
+Receipts and scope: `accel/receipts/ds4_current_k3_sixcell_run8478/`.

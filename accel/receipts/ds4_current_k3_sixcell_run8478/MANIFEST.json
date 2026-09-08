@@ -1,0 +1,42 @@
+{
+  "output_RESULT.json": {
+    "remote": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_output_run8474/RESULT.json",
+    "sha256": "d8a2cc0f7ecd77751e8fe49f76f497f5e6a1eaa1b3245d7d900a59b3b10aa663",
+    "bytes": 2383
+  },
+  "output_SCIENCE.json": {
+    "remote": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_output_run8474/SCIENCE.json",
+    "sha256": "1c25c6444fb054e861d31253c3744426845db0c7da835192cba627fc8bd4dc18",
+    "bytes": 11012
+  },
+  "output_FROZEN_LIMITS.json": {
+    "remote": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_output_run8474/FROZEN_LIMITS.json",
+    "sha256": "084c0439b9789b2a699d35266c56ec6c2c835fdc359fc9321fca5e397eb098c2",
+    "bytes": 303
+  },
+  "output_PREFIX_BINDING.json": {
+    "remote": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_output_run8474/PREFIX_BINDING.json",
+    "sha256": "201a8caf40d2ff9cf93a7636c6daace08cf28f2872ca13e257d650255ce7a270",
+    "bytes": 342
+  },
+  "output_REPLACEMENTS.json": {
+    "remote": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_output_run8474/REPLACEMENTS.json",
+    "sha256": "e6b0fa3f8aaa02975fd0dd2bff5609683688550f1d37bf7b049755340dc2c974",
+    "bytes": 5578
+  },
+  "output_IDENTITY.json": {
+    "remote": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_output_run8474/IDENTITY.json",
+    "sha256": "f42af19200759df417818ee2ce7dc1195e8f514eba2496f40cfef2964c24cf52",
+    "bytes": 463
+  },
+  "verify_RESULT.json": {
+    "remote": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_verify_run8474/RESULT.json",
+    "sha256": "ea720e1002213c13fbd4db8dc37081b9681e768ac28f933e0465026c9c0b4ee3",
+    "bytes": 11232
+  },
+  "verify_IDENTITY.json": {
+    "remote": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_verify_run8474/IDENTITY.json",
+    "sha256": "fd47a0b3d37e50f18df32227b19b0d5c6662f675c46dfe34ec0efb892ab68ab6",
+    "bytes": 396
+  }
+}

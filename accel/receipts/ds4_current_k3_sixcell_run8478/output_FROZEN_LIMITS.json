@@ -1,0 +1,10 @@
+{
+  "baseline_repeat_delta": 0.0,
+  "tolerance": 1e-08,
+  "max_tolerance": 1e-05,
+  "baseline_readout_sha256": [
+    "d37455fd63aecb5f5d0bfbbd33a74a3578482fa62878c6692c805c5504792c7c",
+    "97ff9a3a334b2924b7d4769436822f7762067995ad2d3a330a7387b924dce9f8"
+  ],
+  "candidate_readout_not_executed": true
+}

@@ -1,0 +1,13 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 1068698,
+  "pgid": 1068698,
+  "start_ticks": 5395040,
+  "argv": [
+    "/dev/shm/ds4_k3_sixcell_output_run8474.py",
+    "dab79b484cd46011899ecc261b3bf1aa1c313980fd98745fb0cbbb4205c409cc"
+  ],
+  "receipt": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_output_run8474/IDENTITY.json",
+  "script_sha256": "08b4838666214ec600c5434d38e7cc9ccdeb889d656a601e6502f72d336384bd",
+  "canonical_git_pin": "7927793657c7a48e1e02f5cb9e437e1c5705002d"
+}
