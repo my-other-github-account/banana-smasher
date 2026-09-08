@@ -76,6 +76,15 @@ def _validate_overlap_prefixes(
 
 
 @triton.jit
+def _strict_branch_group_min(candidate, state):
+    """Parallel branch reduction with first-state ties and strict-< NaN semantics."""
+    finite_or_inf = tl.where(candidate == candidate, candidate, float("inf"))
+    best = tl.min(finite_or_inf, axis=0)
+    chosen = tl.min(tl.where(finite_or_inf == best[None, :], state, 2147483647), axis=0)
+    return best, chosen
+
+
+@triton.jit
 def _persistent_prefix_viterbi(
     x_ptr,
     lut_ptr,
@@ -86,6 +95,7 @@ def _persistent_prefix_viterbi(
     B,
     HAS_OVERLAP: tl.constexpr,
     BRANCH_UNROLL: tl.constexpr = 1,
+    GROUP_BRANCHES: tl.constexpr = False,
 ):
     """Solve one independent sequence per CTA with all timesteps resident.
 
@@ -111,6 +121,17 @@ def _persistent_prefix_viterbi(
         valid = residue4 == (overlap & 15)
         best = tl.where(valid, candidate, best)
         chosen = state
+    elif GROUP_BRANCHES:
+        for group in range(16):
+            q = group * 4 + tl.arange(0, 4)[:, None]
+            state = q * 1024 + j[None, :]
+            lut0 = tl.load(lut_ptr + state).to(tl.float32)
+            lut1 = tl.load(lut_ptr + 65536 + state).to(tl.float32)
+            candidate = (lut0 - x0) * (lut0 - x0) + (lut1 - x1) * (lut1 - x1)
+            group_best, group_chosen = _strict_branch_group_min(candidate, state)
+            take = group_best < best
+            best = tl.where(take, group_best, best)
+            chosen = tl.where(take, group_chosen, chosen)
     else:
         for q in tl.range(0, 64, loop_unroll_factor=BRANCH_UNROLL):
             state = q * 1024 + j
@@ -134,16 +155,30 @@ def _persistent_prefix_viterbi(
         x1 = tl.load(x_ptr + (step * 2 + 1) * B + seq).to(tl.float32)
         best = tl.full((1024,), float("inf"), tl.float32)
         chosen = tl.zeros((1024,), tl.int32)
-        for q in tl.range(0, 64, loop_unroll_factor=BRANCH_UNROLL):
-            predecessor_prefix = q * 16 + residue4
-            predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
-            state = q * 1024 + j
-            lut0 = tl.load(lut_ptr + state).to(tl.float32)
-            lut1 = tl.load(lut_ptr + 65536 + state).to(tl.float32)
-            candidate = predecessor_cost + (lut0 - x0) * (lut0 - x0) + (lut1 - x1) * (lut1 - x1)
-            take = candidate < best
-            best = tl.where(take, candidate, best)
-            chosen = tl.where(take, state, chosen)
+        if GROUP_BRANCHES:
+            for group in range(16):
+                q = group * 4 + tl.arange(0, 4)[:, None]
+                predecessor_prefix = q * 16 + residue4[None, :]
+                predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
+                state = q * 1024 + j[None, :]
+                lut0 = tl.load(lut_ptr + state).to(tl.float32)
+                lut1 = tl.load(lut_ptr + 65536 + state).to(tl.float32)
+                candidate = predecessor_cost + (lut0 - x0) * (lut0 - x0) + (lut1 - x1) * (lut1 - x1)
+                group_best, group_chosen = _strict_branch_group_min(candidate, state)
+                take = group_best < best
+                best = tl.where(take, group_best, best)
+                chosen = tl.where(take, group_chosen, chosen)
+        else:
+            for q in tl.range(0, 64, loop_unroll_factor=BRANCH_UNROLL):
+                predecessor_prefix = q * 16 + residue4
+                predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
+                state = q * 1024 + j
+                lut0 = tl.load(lut_ptr + state).to(tl.float32)
+                lut1 = tl.load(lut_ptr + 65536 + state).to(tl.float32)
+                candidate = predecessor_cost + (lut0 - x0) * (lut0 - x0) + (lut1 - x1) * (lut1 - x1)
+                take = candidate < best
+                best = tl.where(take, candidate, best)
+                chosen = tl.where(take, state, chosen)
         tl.store(scratch_ptr + current_base + j, best)
         tl.store(best_state_ptr + step * B * 1024 + base + j, chosen)
         tl.debug_barrier()
@@ -381,6 +416,11 @@ def exact_prefix_viterbi(
     branch_unroll = resolve_branch_unroll(
         (L, K, V), getattr(cb, "_banana_smasher_branch_unroll", None)
     )
+    group_branches = getattr(cb, "_banana_smasher_branch_grouped", False)
+    if type(group_branches) is not bool or (group_branches and (
+        (L, K, V) != (16, 3, 2) or x.shape[0] != 256 or structured_gather or branch_unroll != 1
+    )):
+        raise ValueError("viterbi_branch_grouped requires K3/128 steps, no structured gather or unroll")
     if x.shape[0] % V:
         raise ValueError(f"input rows {x.shape[0]} not divisible by V={V}")
     batch = int(x.shape[1])
@@ -564,6 +604,7 @@ def exact_prefix_viterbi(
             B=batch,
             HAS_OVERLAP=overlap is not None,
             BRANCH_UNROLL=branch_unroll,
+            GROUP_BRANCHES=group_branches,
             num_warps=launch_warps,
             num_stages=1,
         )

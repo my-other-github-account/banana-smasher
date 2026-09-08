@@ -1300,6 +1300,12 @@ def _install_configured_viterbi(
     cb._banana_smasher_branch_unroll = config.get("viterbi_branch_unroll")
     structured_gather = resolve_structured_gather(sealed, config.get("viterbi_structured_gather"))
     cb._banana_smasher_structured_gather = structured_gather
+    group_branches = config.get("viterbi_branch_grouped", False)
+    if type(group_branches) is not bool or (group_branches and (
+        sealed != (16, 3, 2) or structured_gather or branch_unroll != 1
+    )):
+        raise ValueError("viterbi_branch_grouped requires boolean K3, no structured gather or unroll")
+    cb._banana_smasher_branch_grouped = group_branches
     expected_backend = backend_for_geometry(sealed)
     backend = config.get("backend", expected_backend)
     if backend != expected_backend:
@@ -1318,6 +1324,8 @@ def _install_configured_viterbi(
             identity.update(viterbi_structured_gather=True, production_default=False)
         if branch_unroll != 1:
             identity.update(viterbi_branch_unroll=branch_unroll, production_default=False)
+        if group_branches:
+            identity.update(viterbi_branch_grouped=4, production_default=False)
         if storage_dtype != "int32":
             identity.update(best_state_dtype=storage_dtype, production_default=False,
                             best_state_encoding="branch-index" if storage_dtype == "uint8" else "full-state",
