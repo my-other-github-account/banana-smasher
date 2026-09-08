@@ -6,7 +6,7 @@ import pytest
 from banana_smasher import sealed_qtip_unit, qtip_runner, qtip_kernel_decompress
 
 
-def unit_row(tmp_path):
+def unit_row(tmp_path) -> tuple[dict, dict]:
     torch.manual_seed(19)
     unit=dict(schema=sealed_qtip_unit.FORMAT, geometry=dict(L=16,K=2,V=2,tlut_bits=9),
               shape=[32,32], tlut=torch.randn(512,2),

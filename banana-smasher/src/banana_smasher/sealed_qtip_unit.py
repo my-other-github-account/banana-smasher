@@ -52,13 +52,18 @@ def load_sealed_unit(root: Path, row: Mapping[str, Any]):
     return unit
 
 
-def decode_sealed_unit(root: Path, row: Mapping[str, Any], *, execution: str = "compiled"):
+def decode_sealed_unit(
+    root: Path, row: Mapping[str, Any], *, execution: str = "compiled", device: str = "cpu"
+):
     import torch
     from . import qtip_kernel_decompress, qtip_runner
 
+    target = torch.device(device)
+    if target.type not in ("cpu", "cuda"):
+        raise ValueError("decode device must be cpu or cuda")
     decoder = qtip_kernel_decompress.select_decoder(execution)
     unit = load_sealed_unit(root, row)
     start, stop = row["wire"]["row_range"]
     # Explicit selection of the same decoder, never exception-based fallback.
-    decoded = qtip_runner.decode_packed_weight(unit, decoder, torch.device("cpu"))
+    decoded = qtip_runner.decode_packed_weight(unit, decoder, target)
     return decoded[start:stop]

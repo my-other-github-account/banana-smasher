@@ -181,6 +181,10 @@ class ArtifactTensorStore:
         self.packed_decode_execution = artifact.get("packed_decode_execution", "compiled")
         if self.packed_decode_execution not in ("compiled", "eager"):
             raise ValueError("decoder execution must be compiled or eager")
+        target = _require_torch().device(artifact.get("packed_decode_device", "cpu"))
+        if target.type not in ("cpu", "cuda"):
+            raise ValueError("decode device must be cpu or cuda")
+        self.packed_decode_device = str(target)
         self.root = Path(artifact["artifact_root"]).expanduser().resolve()
         self.routed = {row["name"]: row for row in artifact["routed_tensors"]}
         self.native = ({row["name"]: row for row in artifact.get("native_tensors", [])}
@@ -232,7 +236,10 @@ class ArtifactTensorStore:
             if row["wire"].get("format") == "banana-smasher-qtip-unit-v1":
                 from .sealed_qtip_unit import decode_sealed_unit
 
-                value = decode_sealed_unit(self.root, row, execution=self.packed_decode_execution)
+                value = decode_sealed_unit(
+                    self.root, row, execution=self.packed_decode_execution,
+                    device=self.packed_decode_device,
+                )
                 self.payload_reads += 1
                 return value
             geometry = QtipGeometry.from_mapping(row["wire"]["geometry"])

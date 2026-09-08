@@ -1,5 +1,24 @@
 # Runtime accelerations
 
+## Explicit packed-consumer device selection (2026-09-07, run8362)
+
+`decode_sealed_unit(..., device="cpu" | "cuda:0")` and the artifact's
+`packed_decode_device` field select where the existing sealed-wire decoder and
+inverse transforms run. CPU remains the default; decoder execution selection,
+wire validation, and source-fallback refusal are unchanged. This is a research
+opt-in, not a promoted numerical or performance result. A missing CUDA device
+fails rather than falling back to CPU. Native and legacy non-unit payloads retain
+their existing placement semantics; the option concerns sealed packed units.
+
+Motivation: the bounded ordinal0 sparse diagnostic at `6fe1f5fa` measured L005
+and L006 materialization at 140.129809 and 133.562836 seconds, versus sub-second
+warm forwards. A physical stack sample identified CPU FWHT work, not a persistent
+compiler failure. Those are consumer costs, not producer build timings. The
+running diagnostic remains immutable on CPU; CUDA K1--K4 tests and authentic
+same-wire CPU/CUDA numerical, memory, cold/warm and output gates are required
+before any consumer cutover. Local tests alone do not establish device parity.
+
+
 ## K3 inner-axis scheduling closure (2026-09-07, run8359)
 
 Two additional candidate-only public-API panels at
