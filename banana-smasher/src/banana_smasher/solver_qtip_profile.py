@@ -1310,7 +1310,7 @@ def _install_configured_viterbi(
     actual = (int(cb.L), int(cb.K), int(cb.V))
     if actual != sealed:
         raise ValueError(f"QTIP codebook geometry mismatch: {actual} != {sealed}")
-    from .qtip_viterbi import resolve_viterbi_num_warps, resolve_backpointer_dtype, resolve_branch_unroll, resolve_structured_gather
+    from .qtip_viterbi import resolve_viterbi_num_warps, resolve_backpointer_dtype, resolve_branch_unroll, resolve_structured_gather, resolve_lut_l1_retention
 
     requested_warps = config.get("viterbi_num_warps")
     launch_warps = resolve_viterbi_num_warps(sealed, requested_warps)
@@ -1321,6 +1321,8 @@ def _install_configured_viterbi(
     cb._banana_smasher_branch_unroll = config.get("viterbi_branch_unroll")
     structured_gather = resolve_structured_gather(sealed, config.get("viterbi_structured_gather"))
     cb._banana_smasher_structured_gather = structured_gather
+    lut_l1_retention = resolve_lut_l1_retention(sealed, config.get("viterbi_lut_l1_retention"))
+    cb._banana_smasher_lut_l1_retention = lut_l1_retention
     group_branches = config.get("viterbi_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
         sealed != (16, 3, 2) or structured_gather or branch_unroll != 1
@@ -1341,6 +1343,8 @@ def _install_configured_viterbi(
         if requested_warps is not None:
             identity.update(viterbi_num_warps=launch_warps,
                             production_default=launch_warps == 16)
+        if lut_l1_retention:
+            identity.update(viterbi_lut_l1_retention=True, production_default=False)
         if structured_gather:
             identity.update(viterbi_structured_gather=True, production_default=False)
         if branch_unroll != 1:

@@ -215,6 +215,7 @@ def _persistent_prefix_viterbi_generic(
     BRANCH_UNROLL: tl.constexpr,
     STRUCTURED_GATHER: tl.constexpr,
     BRANCH_POINTERS: tl.constexpr = False,
+    LUT_EVICTION: tl.constexpr = "",
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -230,7 +231,7 @@ def _persistent_prefix_viterbi_generic(
         candidate = tl.zeros((PREFIXES,), tl.float32)
         for lane in tl.static_range(0, V):
             xv = tl.load(x_ptr + lane * B + seq).to(tl.float32)
-            lv = tl.load(lut_ptr + lane * STATES + state).to(tl.float32)
+            lv = tl.load(lut_ptr + lane * STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
             candidate += (lv - xv) * (lv - xv)
         valid = residue == (overlap & (Q_FACTOR - 1))
         best = tl.where(valid, candidate, best)
@@ -244,8 +245,8 @@ def _persistent_prefix_viterbi_generic(
         xb = tl.load(x_ptr + B + seq).to(tl.float32)
         for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
             state = q * PREFIXES + j
-            la = tl.load(lut_ptr + state).to(tl.float32)
-            lb = tl.load(lut_ptr + STATES + state).to(tl.float32)
+            la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+            lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
             candidate = (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
@@ -290,8 +291,8 @@ def _persistent_prefix_viterbi_generic(
             else:
                 predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
             state = q * PREFIXES + j
-            la = tl.load(lut_ptr + state).to(tl.float32)
-            lb = tl.load(lut_ptr + STATES + state).to(tl.float32)
+            la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+            lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
             candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
@@ -376,6 +377,15 @@ def resolve_structured_gather(geometry: tuple[int, int, int], requested: bool | 
     return True
 
 
+def resolve_lut_l1_retention(geometry: tuple[int, int, int], requested: bool | None) -> bool:
+    """Opt-in immutable LUT retention; only qualified L16/K1/V2 geometry."""
+    if requested is None or requested is False:
+        return False
+    if requested is not True or geometry != (16, 1, 2):
+        raise ValueError("viterbi_lut_l1_retention requires boolean and L16/K1/V2")
+    return True
+
+
 def resolve_branch_unroll(geometry: tuple[int, int, int], requested: bool | None) -> int:
     """Opt-in constant-branch scheduling; no branch removal or arithmetic change."""
     if requested is None or requested is False:
@@ -415,6 +425,9 @@ def exact_prefix_viterbi(
     )
     branch_unroll = resolve_branch_unroll(
         (L, K, V), getattr(cb, "_banana_smasher_branch_unroll", None)
+    )
+    lut_l1_retention = resolve_lut_l1_retention(
+        (L, K, V), getattr(cb, "_banana_smasher_lut_l1_retention", None)
     )
     group_branches = getattr(cb, "_banana_smasher_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
@@ -632,6 +645,7 @@ def exact_prefix_viterbi(
             BRANCH_UNROLL=branch_unroll,
             STRUCTURED_GATHER=structured_gather,
             BRANCH_POINTERS=backpointer_dtype == "uint8",
+            LUT_EVICTION="evict_last" if lut_l1_retention else "",
             num_warps=generic_warps,
             num_stages=1,
         )
