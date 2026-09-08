@@ -24,6 +24,14 @@ adoption. Next causal rung isolates one scheduling option or batches distinct
 owner-bound current-tier cells; do not replay this baseline or heldout output.
 Receipt: `accel/receipts/DS4_CURRENT_K3_SCHEDULE_run8465.json`.
 
+The next causal rung changed only `viterbi_num_warps=16` from the owner
+baseline, reusing sealed controls and frozen limits. Three new candidate builds
+passed decode/NMSE, but warm walls 2.177766/1.893593 s gave 0.984280x versus
+those controls: no repeatable speed win. This was a new process with shared
+caches, not matched cold. The baseline is retained; neither negative rung
+justifies production adoption or another output replay. Receipt:
+`accel/receipts/DS4_CURRENT_K3_WARPS16_run8465.json`.
+
 ## DS4 K1 producer-to-output gate closed (run8465)
 
 The matched real L013 E084/E085 down (4096x2048) and fused13 (4096x4096)

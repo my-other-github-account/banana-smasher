@@ -1,0 +1,94 @@
+{
+  "state": "SEALED_CURRENT_K3_WARPS_ONLY_DIAGNOSTIC",
+  "identity": {
+    "task_id": "t_ebcba52e",
+    "pid": 1028893,
+    "pgid": 1028893,
+    "start_ticks": 5150943,
+    "argv": [
+      "/dev/shm/ds4_k3_warps16_run8465.py",
+      "5edbc5166dec56e27355ac6cceaadfd781847c45e60c12e79e74251a60885cbf"
+    ],
+    "receipt": "/dev/shm/t_ebcba52e_ds4_k3_warps16_run8465/IDENTITY.json",
+    "script_sha256": "2201b423560431b2028e651a1687ea158aca27457f96b51518ea1cf7e7610d8f",
+    "canonical_git_pin": "9fb98dc719e280429e4f2f31f019dd1b2dd54cd2"
+  },
+  "warm_speedup": 0.9842803455610555,
+  "reconstruction_pass": true,
+  "baseline_result_sha256": "1e43daee96def267fb002d5de10f6b7f39bdc7414af6cc2780215f78889069ba",
+  "heldout_kld": null,
+  "production_adoption": false,
+  "baseline_replayed": false,
+  "scope": "one currentK3 down cell; different-process shared-cache warm comparison, not current-tier fullmodel quality",
+  "rows": [
+    {
+      "arm": "candidate_setup",
+      "wall_seconds": 4.052364208000654,
+      "peak_allocated": 401046016,
+      "nmse": 0.033778960229158626,
+      "nmse_limit": 0.03377899400811885,
+      "reconstruction_pass": true,
+      "artifact_sha256": "b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e",
+      "decode_pass": true,
+      "validation_seconds": 0.3003425210044952
+    },
+    {
+      "arm": "candidate_warm1",
+      "wall_seconds": 2.177766024004086,
+      "peak_allocated": 403147776,
+      "nmse": 0.033778960229158626,
+      "nmse_limit": 0.03377899400811885,
+      "reconstruction_pass": true,
+      "artifact_sha256": "b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e",
+      "decode_pass": true,
+      "validation_seconds": 0.11814208699797746
+    },
+    {
+      "arm": "candidate_warm2",
+      "wall_seconds": 1.8935929400031455,
+      "peak_allocated": 405249536,
+      "nmse": 0.033778960229158626,
+      "nmse_limit": 0.03377899400811885,
+      "reconstruction_pass": true,
+      "artifact_sha256": "b493d049e5475ce48b360bec12a2086cbf2b042e49cc1d179fa0c08a7aa07c3e",
+      "decode_pass": true,
+      "validation_seconds": 0.11868374000187032
+    }
+  ],
+  "phase_seconds": {
+    "candidate_setup": {
+      "staging": 2.337926243992115,
+      "kernel_prepare": 0.006579382003110368,
+      "progress_receipt_fsync": 0.0,
+      "solve": 1.7001556039977004,
+      "solve_core_excluding_packed_decode_conformance": 1.3801750659986283,
+      "packed_decode_conformance": 0.3199805379990721,
+      "artifact_fsync": 0.0020345180018921383,
+      "receipt_fsync": 0.0003249950023018755,
+      "remainder": 0.0
+    },
+    "candidate_warm1": {
+      "staging": 0.7237370529983309,
+      "kernel_prepare": 0.003553237998858094,
+      "progress_receipt_fsync": 0.0,
+      "solve": 1.4422671490028733,
+      "solve_core_excluding_packed_decode_conformance": 1.091882993998297,
+      "packed_decode_conformance": 0.3503841550045763,
+      "artifact_fsync": 0.002005013004236389,
+      "receipt_fsync": 0.0006356070007313974,
+      "remainder": 0.0
+    },
+    "candidate_warm2": {
+      "staging": 0.7254590490047121,
+      "kernel_prepare": 0.0034916049989988096,
+      "progress_receipt_fsync": 0.0,
+      "solve": 1.157117326001753,
+      "solve_core_excluding_packed_decode_conformance": 1.0979394660025719,
+      "packed_decode_conformance": 0.05917785999918124,
+      "artifact_fsync": 0.0027205730002606288,
+      "receipt_fsync": 0.00031301199487643316,
+      "remainder": 0.0
+    }
+  },
+  "decision": "NO_REPEATABLE_SPEED_WIN_FROM_WARPS_ONLY"
+}
