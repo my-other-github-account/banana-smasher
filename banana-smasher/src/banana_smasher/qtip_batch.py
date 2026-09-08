@@ -114,8 +114,11 @@ def ldlq_batch(
     *,
     buf_cols: int = 128,
     for_kernel: bool = True,
+    update_unsolved_only: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Run exact LDLQ while preserving independent state on the unit axis."""
+    if type(update_unsolved_only) is not bool:
+        raise ValueError("update_unsolved_only must be boolean")
     if weights.ndim != 3 or lower.ndim != 3:
         raise ValueError("batched LDLQ expects weights [units,m,n] and lower [units,n,n]")
     units, rows, width = weights.shape
@@ -182,12 +185,17 @@ def ldlq_batch(
             state_lo = lo // args.V + index_rows * index
             state_hi = state_lo + index_rows
             indices_t[:, state_lo:state_hi] = state_indices.transpose(1, 2)
-        product.add_(
-            torch.bmm(
-                buffered_lower.transpose(1, 2),
-                buffered_weight - buffered_hat,
+        # The descending sweep never reads product[lo:] again. Retain the
+        # historical full update by default; narrowed BMM can select different
+        # device kernels and therefore needs the measured output-quality gate.
+        update_end = lo if update_unsolved_only else width
+        if update_end:
+            product[:, :update_end].add_(
+                torch.bmm(
+                    buffered_lower[:, :, :update_end].transpose(1, 2),
+                    buffered_weight - buffered_hat,
+                )
             )
-        )
         hat_t[:, lo:hi] = buffered_hat
 
     return (
@@ -276,8 +284,11 @@ def build_qtip_batch(
     *,
     block_ldl_unitwise: bool = False,
     packed_conformance_on_device: bool = False,
+    ldlq_update_unsolved_only: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Build same-shape independent L16/V2 units (K=1..4) in one exact GPU batch."""
+    """Build same-shape independent L16/V2 units (K=1..4) in one GPU batch."""
+    if type(ldlq_update_unsolved_only) is not bool:
+        raise ValueError("ldlq_update_unsolved_only must be boolean")
     units = len(source_weights)
     if not units or len(fit_windows_batch) != units or len(rht_seeds) != units:
         raise ValueError("QTIP batch requires aligned non-empty inputs")
@@ -355,6 +366,7 @@ def build_qtip_batch(
         types.SimpleNamespace(td_x=16, td_y=16, V=int(codebook.V)),
         buf_cols=128,
         for_kernel=True,
+        update_unsolved_only=ldlq_update_unsolved_only,
     )
     lifetime.observe(
         "batched_ldlq_ready",
@@ -454,6 +466,7 @@ def build_qtip_batch(
         "implementation": f"current-k{int(codebook.K)}-full16-cross-unit-batched-ldlq-v1",
         "batch_units": units,
         "batch_wall_seconds": batch_wall_seconds,
+        "ldlq_update_unsolved_only": ldlq_update_unsolved_only,
         "mean_build_wall_seconds": batch_wall_seconds / units,
         "phase_seconds": phase_seconds,
         "mean_phase_seconds": {

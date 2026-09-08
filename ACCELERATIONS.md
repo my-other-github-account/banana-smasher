@@ -1,5 +1,29 @@
 # Runtime accelerations
 
+## Bounded batch partition and unsolved-prefix experiment (run8445)
+
+Two resident batches of two authentic L005 E001--004 K3 fused13 cells were
+compared with the sealed run8441 batch-of-four baselines (no baseline replay).
+All sixteen new builds and sixteen independent reconstruction checks passed,
+with zero decoded maximum difference. Cold walls were 12.830212/12.785283 s
+versus 12.661063/11.952383 s (0.960881x aggregate); warm walls were
+8.508531/7.979239 s versus 9.234433/8.124412 s (1.052832x aggregate).
+Private process/compiler caches were fresh; shared source/OS caches were not.
+Peak allocated memory was 1,102,538,240 bytes. Independent validation cost
+6.307325 s is separate. This is a small warm tradeoff, not a substantial
+repeatable build win; retain the batch-four incumbent. No heldout or adoption
+claim. Receipts: t_ebcba52e_group2_run8445 and t_ebcba52e_quality_group2_run8445
+under /dev/shm on the dedicated seat; compact summaries in the task workspace.
+
+The next structural research opt-in is `ldlq_update_unsolved_only=true` in the
+public batch config. It omits outer-buffer product updates to already-solved
+columns, including the unused final update, while keeping all predecessor
+terms for the remaining prefix. Default false preserves historical behavior.
+Changing BMM output geometry can change device kernel rounding; CPU nonzero
+residual regression is not accelerator or heldout equivalence. Decode,
+reconstruction/objective and independent output gates remain mandatory before
+production adoption. No encoder, native fallback, or relaxed validation added.
+
 ## Fresh consumer cohort closure: ordinal3 (run8421)
 
 The predeclared ordinal3/window71 reasoning gate completed without replaying

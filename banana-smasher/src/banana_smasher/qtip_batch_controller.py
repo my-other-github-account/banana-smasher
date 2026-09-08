@@ -43,6 +43,13 @@ def _block_ldl_unitwise(configs: Sequence[Mapping[str, Any]]) -> bool:
     return _common("block LDL unitwise mode", values)
 
 
+def _ldlq_update_unsolved_only(configs: Sequence[Mapping[str, Any]]) -> bool:
+    values = [config.get("ldlq_update_unsolved_only", False) for config in configs]
+    if any(type(value) is not bool for value in values):
+        raise ValueError("ldlq_update_unsolved_only must be boolean")
+    return _common("LDLQ unsolved-prefix update mode", values)
+
+
 def _packed_conformance_on_device(configs: Sequence[Mapping[str, Any]]) -> bool:
     values = [config.get("packed_conformance_on_device", False) for config in configs]
     if any(type(value) is not bool for value in values):
@@ -78,6 +85,7 @@ def main_batch(
         raise ValueError("QTIP cross-unit batch contains duplicate configs")
     configs = [solver_module._read_qtip_config(path) for path in paths]
     block_ldl_unitwise = _block_ldl_unitwise(configs)
+    ldlq_update_unsolved_only = _ldlq_update_unsolved_only(configs)
     packed_decode_execution = _packed_decode_execution(configs)
     packed_conformance_on_device = _packed_conformance_on_device(configs)
     if any(int(config["layer"]) != layer for config in configs):
@@ -279,6 +287,7 @@ def main_batch(
         rht_seeds,
         block_ldl_unitwise=block_ldl_unitwise,
         packed_conformance_on_device=packed_conformance_on_device,
+        ldlq_update_unsolved_only=ldlq_update_unsolved_only,
     )
     torch.cuda.synchronize()
     build_wall_seconds = time.perf_counter() - build_started
