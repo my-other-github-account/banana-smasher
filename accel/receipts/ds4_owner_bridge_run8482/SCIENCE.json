@@ -1,0 +1,17 @@
+{
+  "scope": "Historical owner compatibility diagnostic only; six existing cells never recounted. No forward.",
+  "old_pin": "4921456bba5ebc032fb96030ee11e58f3ea2826a",
+  "new_pin": "39da421e75b84c975f6a8c11f508c297c3f73cb5",
+  "order": [
+    "old1",
+    "old2",
+    "freeze",
+    "singleton",
+    "batch",
+    "validate"
+  ],
+  "cold": "private process/compiler caches; OS/prebuilt assets shared",
+  "tolerance": "per-cell max(owner warm NMSE)+max(5*repeat delta,1e-6*max NMSE); abort relative repeat spread>1e-4; frozen before proposed arms",
+  "production_adoption": false,
+  "mem_available_floor_bytes": 38654705664
+}

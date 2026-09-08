@@ -1,0 +1,164 @@
+{
+  "state": "PASS_HISTORICAL_OWNER_COMPATIBILITY",
+  "scope": "Three historical L009 down cells; old4921456b to new39da421e singleton and batch; no new production admissions, no forward replay, no fullmodel equivalence",
+  "numerical_rows": 12,
+  "producer_seals": 24,
+  "phases": {
+    "cold": {
+      "owner_mean_seconds": 31.199697817002743,
+      "proposed_singleton_seconds": 29.68416362300195,
+      "proposed_batch_seconds": 28.10673294300068,
+      "owner_to_proposed_singleton": 1.051055310611023,
+      "owner_to_batch": 1.1100435571887517,
+      "proposed_singleton_to_batch": 1.056122875725195,
+      "peak_allocated": {
+        "old1": 405249536,
+        "old2": 405249536,
+        "singleton": 405249536,
+        "batch": 948000256
+      },
+      "maxrss_kib": {
+        "old1": 2066004,
+        "old2": 2067980,
+        "singleton": 2065964,
+        "batch": 2015204
+      }
+    },
+    "warm": {
+      "owner_mean_seconds": 5.58631125750253,
+      "proposed_singleton_seconds": 5.663087305001682,
+      "proposed_batch_seconds": 4.149140086999978,
+      "owner_to_proposed_singleton": 0.9864427222530469,
+      "owner_to_batch": 1.346378078437379,
+      "proposed_singleton_to_batch": 1.3648821650406984,
+      "peak_allocated": {
+        "old1": 411554816,
+        "old2": 411554816,
+        "singleton": 411554816,
+        "batch": 950102016
+      },
+      "maxrss_kib": {
+        "old1": 2092336,
+        "old2": 2093900,
+        "singleton": 2093232,
+        "batch": 2113816
+      }
+    }
+  },
+  "baseline_validation_seconds": 97.5157812940015,
+  "candidate_validation_seconds": 96.57702780600084,
+  "quality_rows": [
+    {
+      "expert": 90,
+      "arm": "singleton",
+      "phase": "cold",
+      "nmse": 0.0451082363911783,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 90,
+      "arm": "singleton",
+      "phase": "warm",
+      "nmse": 0.0451082363911783,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 90,
+      "arm": "batch",
+      "phase": "cold",
+      "nmse": 0.0451082363911783,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 90,
+      "arm": "batch",
+      "phase": "warm",
+      "nmse": 0.0451082363911783,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 91,
+      "arm": "singleton",
+      "phase": "cold",
+      "nmse": 0.03208269768093065,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 91,
+      "arm": "singleton",
+      "phase": "warm",
+      "nmse": 0.03208269768093065,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 91,
+      "arm": "batch",
+      "phase": "cold",
+      "nmse": 0.03208269768093065,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 91,
+      "arm": "batch",
+      "phase": "warm",
+      "nmse": 0.03208269768093065,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 92,
+      "arm": "singleton",
+      "phase": "cold",
+      "nmse": 0.03886251577944886,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 92,
+      "arm": "singleton",
+      "phase": "warm",
+      "nmse": 0.03886251577944886,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 92,
+      "arm": "batch",
+      "phase": "cold",
+      "nmse": 0.03886251577944886,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    },
+    {
+      "expert": 92,
+      "arm": "batch",
+      "phase": "warm",
+      "nmse": 0.03886251577944886,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": true
+    }
+  ],
+  "production_adoption": false,
+  "source_result_sha256": "4a245dd2700883e320bc4c8abfa54e85baae4783793afa94e3a0c512879074d9",
+  "collection_sha256": "fab2e8ba7149cf718008b5cf1f90dca09e37f6aef25105fda9140169af42e36b",
+  "repeat_scope": "Two old-owner process repeats; one new-singleton and one new-batch process, each cold+warm; prior current-main repeated speed gate remains separately sealed"
+}

@@ -1,5 +1,42 @@
 # Runtime accelerations
 
+## DS4 historical-owner compatibility bridge (run8482)
+
+The production owner requested one missing version bridge, not a repeat of the
+sealed six-cell forward. On dedicated Spark-6, historical L009 E090/E091/E092
+down inputs were rebuilt through exact owner `4921456bba5ebc032fb96030ee11e58f3ea2826a`
+singletons, proposed `39da421e75b84c975f6a8c11f508c297c3f73cb5` singletons, then
+three-cell `main_batch` with `block_ldl_unitwise=true`. All other scientific
+config fields, source, fitting, seeds, K3/L16/V2 and default packed conformance
+were retained; runtime/runner manifests were explicitly rebound and hashed.
+
+- Owner-to-batch cold: 31.199698 -> 28.106733 seconds, 1.110044x.
+- Owner-to-batch warm: 5.586311 -> 4.149140 seconds, 1.346378x.
+- Proposed singleton: cold 29.684164 seconds, warm 5.663087 seconds.
+- Warm allocated peak: owner 411,554,816 -> batch 950,102,016 bytes.
+  Public admission retained a 36 GiB MemAvailable floor; raw RSS/reserved peaks
+  and measured admission values are included, not inferred from CUDA free memory.
+- All 24 build artifacts passed default conformance. All 12 proposed-arm
+  independent canonical-decode/FP64 NMSE rows passed per-cell bounds frozen from
+  two owner repeats before either proposed arm. Maximum reconstructed difference
+  was zero; byte/assignment equality remains diagnostic, not the criterion.
+- Independent baseline and candidate validation cost 97.515781 and 96.577028
+  seconds respectively. These costs are separate and not subtracted from build
+  wall. Imports/config binding and parent wall are separately recorded.
+
+This bridge used two owner processes and one process for each proposed arm,
+each with cold/warm builds and private compiler caches. OS/prebuilt caches were
+shared. Previously published current-main repeat gates remain separate evidence.
+This is historical-owner compatibility on three down cells, NOT newly missing
+production admissions, accepted-clean production throughput, or full-model
+quality. No forward was replayed, no existing cell recounted, and no production
+adoption is claimed. Next: production owner independently reads these receipts
+and executes a globally missing three-cell trial only at its clean authorized
+boundary with exact CAS and unchanged memory reserve.
+
+Evidence: `accel/receipts/ds4_owner_bridge_run8482/SUMMARY.json`, authenticated
+raw receipts, runtime inventories, config rebinding test and experiment sources.
+
 ## Current DS4 K3 distinct-cell resident batching (run8471)
 
 The authentic owner-supplied L009 E090/E091/E092 down configs retain K3/L16/V2,

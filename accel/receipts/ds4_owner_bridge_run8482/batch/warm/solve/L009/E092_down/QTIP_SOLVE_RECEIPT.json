@@ -1,0 +1,415 @@
+{
+  "artifact": "QTIP_UNIT.pt",
+  "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+  "assignment_sha256": "72d6db65e9345ff39a0d45c1444cb3897786ca21d887bc2704a6808632486e42",
+  "basis_gate": {
+    "index_path": "model.safetensors.index.json",
+    "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "schema": "banana-smasher-qtip-basis-gate-v1",
+    "shards_manifest": "SHARDS.json",
+    "shards_manifest_sha256": "9145a3b466012c698f46a8b918b2e0dfdcee740f78f009b55491ae92c5189217",
+    "status": "PASS"
+  },
+  "build": {
+    "batch": {
+      "batch_id": "dc53cd196c120a08",
+      "batch_units": 3,
+      "batch_wall_seconds": 3.166507850000926,
+      "implementation": "current-k3-full16-cross-unit-batched-ldlq-v1",
+      "independent_unit_state": true,
+      "matrix_lifetime": {
+        "batch_units": 3,
+        "events": [
+          {
+            "live_fp32_matrices": [
+              "hessian",
+              "lower",
+              "transformed"
+            ],
+            "live_fp32_matrix_equivalents": 6.0,
+            "phase": "batched_ldl_ready",
+            "unique_storage_count": 3
+          },
+          {
+            "live_fp32_matrices": [
+              "lower",
+              "quantized",
+              "transformed"
+            ],
+            "live_fp32_matrix_equivalents": 7.5,
+            "phase": "batched_ldlq_ready",
+            "unique_storage_count": 3
+          },
+          {
+            "live_fp32_matrices": [],
+            "live_fp32_matrix_equivalents": 0.0,
+            "phase": "quantized_released_before_pack",
+            "unique_storage_count": 0
+          }
+        ],
+        "max_live_fp32_matrix_equivalents": 7.5,
+        "reconstruction_source": "canonical-packed-bytes",
+        "released_after_ldlq": [
+          "lower",
+          "transformed"
+        ],
+        "released_before_pack": [
+          "lower",
+          "transformed",
+          "quantized"
+        ],
+        "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+        "unit_matrix_shape": [
+          4096,
+          2048
+        ]
+      },
+      "mean_build_wall_seconds": 1.0555026166669752,
+      "member_index": 2,
+      "phase_seconds": {
+        "batched_block_ldl": 0.015018995996797457,
+        "batched_ldlq": 2.7684526619996177,
+        "canonical_per_unit_pack": 0.11020399400149472,
+        "hessian_forward_fwht": 0.10092102299677208,
+        "packed_decode_conformance": 0.17141885100136278
+      },
+      "schema": "banana-smasher-qtip-cross-unit-build-v1",
+      "solver_geometry": {
+        "K": 3,
+        "L": 16,
+        "V": 2,
+        "branch_sampling": "full",
+        "branches_per_prefix": 64,
+        "retained_prefix_costs": 1024
+      }
+    },
+    "canonical_pack": {
+      "canonical_pack_roundtrip_exact": true,
+      "canonical_pack_roundtrip_fraction": 1.0,
+      "canonical_packed_dtype": "torch.uint16",
+      "canonical_packed_sha256": "71b51d0c0739b8dcad90c48330930e3e6ffea7401d1550cffb6a1470ce9e39d8",
+      "canonical_packed_shape": [
+        32768,
+        48
+      ],
+      "canonical_unpack_state_sha256": "06f334cede7b09f537c0b05986598c66f9466f09253e0f7bf11fba1ce4ba5d57",
+      "input_state_sha256": "06f334cede7b09f537c0b05986598c66f9466f09253e0f7bf11fba1ce4ba5d57",
+      "kernel_packed_bytes": 3145728,
+      "kernel_packed_sha256": "72d6db65e9345ff39a0d45c1444cb3897786ca21d887bc2704a6808632486e42",
+      "kernel_packed_shape": [
+        32768,
+        48
+      ],
+      "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+      "tile_states_shape": [
+        32768,
+        128
+      ]
+    },
+    "fit_route_mass": 117.5107421875,
+    "fit_rows": 552,
+    "packed_decode": {
+      "conformance_comparison": "cpu",
+      "fp16_bit_equal_fraction": 1.0,
+      "fp16_bit_exact": true,
+      "geometry": {
+        "K": 3,
+        "L": 16,
+        "V": 2,
+        "decode_mode": "quantlut_sym",
+        "td_x": 16,
+        "td_y": 16,
+        "tlut_bits": 9
+      },
+      "max_abs_fp32_vs_stored_fp16": 5.777180194854736e-05,
+      "path": "existing geometry-bound canonical packed-wire consumer",
+      "runtime_check_performed": true,
+      "shape": [
+        4096,
+        2048
+      ]
+    },
+    "phase_seconds": {
+      "batched_block_ldl": 0.0050063319989324855,
+      "batched_ldlq": 0.9228175539998725,
+      "canonical_per_unit_pack": 0.03673466466716491,
+      "hessian_forward_fwht": 0.033640340998924025,
+      "packed_decode_conformance": 0.05713961700045426
+    },
+    "quant_seconds": 0.9228175539998725,
+    "rht_seed": 3551062593326583864,
+    "schema": "banana-smasher-qtip-cross-unit-build-member-v1",
+    "status": "PASS"
+  },
+  "config_sha256": "a4194cb6717b47c9fa225883291441910754cf3eba04796ca175ae079c30d830",
+  "cross_unit_batch": {
+    "batch_id": "dc53cd196c120a08",
+    "batch_units": 3,
+    "config_names": [
+      "E90.json",
+      "E91.json",
+      "E92.json"
+    ],
+    "member_index": 2,
+    "process": {
+      "pid": 1135401,
+      "startticks": 5660922
+    }
+  },
+  "epoch_ended": 1788891585.8582363,
+  "epoch_started": 1788891581.7118406,
+  "expert": 92,
+  "fit_source": {
+    "mode": "source-fused13",
+    "source_weight": {
+      "index_path": "model.safetensors.index.json",
+      "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "shards": [
+        {
+          "bytes": 3568768976,
+          "path": "model-00011-of-00048.safetensors",
+          "weight_key": "layers.9.ffn.experts.92.w1.weight"
+        },
+        {
+          "bytes": 3568768976,
+          "path": "model-00011-of-00048.safetensors",
+          "weight_key": "layers.9.ffn.experts.92.w3.weight"
+        }
+      ]
+    }
+  },
+  "fit_windows": 22,
+  "fresh_no_warm_start": true,
+  "glm_source_closure": null,
+  "hessian_layer_manifest": {
+    "bytes": 16193,
+    "capture_root": "captures",
+    "manifest_capture_root": "captures",
+    "path": "L009_CAPTURE_BINDING.json",
+    "relocated_capture_root": false,
+    "sha256": "dcd5bec46285e665c24795ea425b6748dc8c35c88e7a766cfc97188020ecb78b",
+    "windows": 22
+  },
+  "kernel_cache": {
+    "artifacts": [
+      {
+        "bytes": 2032,
+        "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/__grp___persistent_prefix_viterbi.json",
+        "sha256": "0c790e4e00059a30134c18731c66daa5169ba24a462765ff3959b803567c20ad"
+      },
+      {
+        "bytes": 77664,
+        "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.cubin",
+        "sha256": "534c8efff5a4231fbfc287555784e54351f8e9298299b233635ff23397fd3b66"
+      },
+      {
+        "bytes": 1124,
+        "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.json",
+        "sha256": "fb81903b98a979876a7332bc6b18ccdead4f09738e919bf4094f157691243385"
+      },
+      {
+        "bytes": 104903,
+        "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.llir",
+        "sha256": "af373200c78a295c7de224ffd3ac13692371447973c508e0dccffceabc8cc8b9"
+      },
+      {
+        "bytes": 95301,
+        "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ptx",
+        "sha256": "0c6c995321ccd36add4580c905a6f18d5d6f4e962dd694891cbdc4652db4178e"
+      },
+      {
+        "bytes": 157714,
+        "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.source",
+        "sha256": "862f50bcb274c9719f8b0c6db4c52e0a33dba3883ab431800dadf36c644f8359"
+      },
+      {
+        "bytes": 119166,
+        "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttgir",
+        "sha256": "d209e4cac03fbbd2b91ab07d88a783018e12a5ac386ee930d235c10f865c012e"
+      },
+      {
+        "bytes": 117160,
+        "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttir",
+        "sha256": "c4ab8670ca88bbb9d2818eaf3c1c2b672221cf8ac39c46d4ed67ba43b4c3b92b"
+      },
+      {
+        "bytes": 71776,
+        "path": "artifacts/triton/FOG6ORNBZGSDIUGXOAHJXDHFVR34NLDUZ2GRJPWVG6DSDRGE3NTA/__triton_launcher.cpython-312-aarch64-linux-gnu.so",
+        "sha256": "e9da583659e854fb4bb4ce196d618ab7fc1d5ccf53021853ce55b4dd22670186"
+      },
+      {
+        "bytes": 2032,
+        "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/__grp___persistent_prefix_viterbi.json",
+        "sha256": "68a13b094967f7c52ebe867d7fae8b6171d148fd7abba4bdeaea5c6142ae8a2d"
+      },
+      {
+        "bytes": 93632,
+        "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.cubin",
+        "sha256": "ea92b150766dc582470042c341f12f31cee6cd710a0594589ca720219efc95e8"
+      },
+      {
+        "bytes": 1126,
+        "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.json",
+        "sha256": "f985aa8d9fbb0b5705d4779ad0e56e4edb914a60841eb17dfe959b2f786721eb"
+      },
+      {
+        "bytes": 115341,
+        "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.llir",
+        "sha256": "6745cf788bd45fb5925db37f63665e555604ece3fd6e4f594e330b57dabba649"
+      },
+      {
+        "bytes": 118572,
+        "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ptx",
+        "sha256": "62bc74a52c5e1230262bd5a3380ed7bbb89899ada7c2acf9fb6be011d6471768"
+      },
+      {
+        "bytes": 162421,
+        "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.source",
+        "sha256": "b6a5e9043d0f4205d64dca735dff8fbdc943a6294a6648ff51ee09915e1a7cbf"
+      },
+      {
+        "bytes": 119999,
+        "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttgir",
+        "sha256": "447127828935131fff615fd28eb895a056c5f5e64fcbe2f6e329f180b5011bcf"
+      },
+      {
+        "bytes": 119024,
+        "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttir",
+        "sha256": "6c8e20826516b3f5db262493c3e4622b15aaaa269ddc7726c3b58a938cfd6191"
+      },
+      {
+        "bytes": 73880,
+        "path": "artifacts/triton/YK4VZ2BI4GMJSPC3BQ2UKVAY3EVEJ2V5Y3JAVA4MQ4AUGAW7YFUA/cuda_utils.cpython-312-aarch64-linux-gnu.so",
+        "sha256": "6b0757a1cd8475c59d86c62f65874a94cecb4f822dcec320c0be24117bc7f457"
+      }
+    ],
+    "cache_hit": true,
+    "cache_key_sha256": "166b7491b271f76a9417e2ddafb5ea2886b139e28f41ae786cf162a57bbce2ec",
+    "plan": {
+      "aot": {
+        "architecture": "runtime-device",
+        "cache": "sha256-pinned",
+        "compile": "first-use-or-explicit",
+        "producer": "smash kernels build --tier qtip --bpw 3.00"
+      },
+      "architecture": "sm_121-NVIDIA-GB10",
+      "bpw": "3.00",
+      "cache_key_sha256": "166b7491b271f76a9417e2ddafb5ea2886b139e28f41ae786cf162a57bbce2ec",
+      "codebook": {
+        "decode_mode": "quantlut_sym",
+        "family": "bitshift",
+        "pack_contract": {
+          "dtype": "uint16",
+          "input_tile": [
+            16,
+            16
+          ],
+          "output_rows": "input_tile_grid",
+          "packed_words_per_tile_per_k": 16
+        },
+        "td_x": 16,
+        "td_y": 16,
+        "tlut_binding": "run-manifest",
+        "tlut_bits": 9
+      },
+      "recipes": [
+        {
+          "backend": "persistent-soa-exact-prefix-dp-v32",
+          "compile_constants": {
+            "branch_bits": 6,
+            "states": 65536,
+            "steps": 128
+          },
+          "compile_variants": [
+            {
+              "has_overlap": false
+            },
+            {
+              "has_overlap": true
+            }
+          ],
+          "execution_contract": {
+            "exact_identity": "discrete-trellis",
+            "host_launches_per_call": 1,
+            "target_seconds_per_unit": 2.2,
+            "transition_loop": "device-resident"
+          },
+          "geometry": {
+            "K": 3,
+            "L": 16,
+            "V": 2
+          }
+        }
+      ],
+      "schema": "banana-smasher-qtip-kernel-build-plan-v1",
+      "source_sha256": {
+        "qtip_kernel_cache.py": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+        "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+        "qtip_rings.py": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+        "qtip_viterbi.py": "8fdc11388900b82f6d189e09d239d9796040bf955b2d26732091e21513e20fe7",
+        "trellis_v2/__init__.py": "da9134ea55ca03963baf598a3b3568850cc6be35bdcc1e3d2490253521ab9cb4",
+        "trellis_v2/csrc/binding_exact.cpp": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+        "trellis_v2/csrc/trellis_v2_exact.cu": "07d49a0f9ecbb29607668b72bd1065a76f61f33cc8578205a68836c893b7da09",
+        "trellis_v2/exact.py": "7c4a98d74d7f68db8166df541424e76c0118fe4901605a7cb3b080b7fe8f5a40",
+        "trellis_v2/setup.py": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2"
+      },
+      "tier": "qtip@3.00"
+    },
+    "receipt": "QTIP_KERNEL_RECEIPT.json",
+    "schema": "banana-smasher-qtip-kernel-cache-v1",
+    "status": "PASS"
+  },
+  "layer": 9,
+  "peak_cuda_allocated_bytes": 950102016,
+  "peak_cuda_reserved_bytes": 1258291200,
+  "phase_seconds": {
+    "artifact_fsync": 0.001798129997041542,
+    "kernel_prepare": 0.0015416416669419657,
+    "packed_decode_conformance": 0.05713961700045426,
+    "progress_receipt_fsync": 0.0,
+    "receipt_fsync": 0.00025153900060104206,
+    "remainder": 0.0,
+    "solve": 1.0555463823329774,
+    "solve_core_excluding_packed_decode_conformance": 0.9984067653325231,
+    "staging": 0.3192847983348959
+  },
+  "projection": "down",
+  "public_command_config": "E92.json",
+  "rht_seed": 3551062593326583864,
+  "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+  "schema": "banana-smasher-qtip-solve-v1",
+  "solve_seconds": 1.0555463823329774,
+  "solver": {
+    "K": 3,
+    "L": 16,
+    "V": 2,
+    "best_state_dtype": "int32",
+    "branch_sampling": "full",
+    "branches_per_prefix": 64,
+    "full_states": 65536,
+    "implementation": "persistent-soa-exact-prefix-dp-v32",
+    "min_exact_quality": 1.0,
+    "ordering": "one persistent launch per independent sequence batch",
+    "production_default": true,
+    "retained_prefix_costs": 1024,
+    "steps": 128
+  },
+  "source_weight": {
+    "index_path": "model.safetensors.index.json",
+    "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "shards": [
+      {
+        "bytes": 3568768976,
+        "path": "model-00011-of-00048.safetensors",
+        "weight_key": "layers.9.ffn.experts.92.w2.weight"
+      }
+    ]
+  },
+  "staging_seconds": 0.3192847983348959,
+  "status": "PASS",
+  "total_wall_seconds": 1.3819783333334879,
+  "transition_decisions": 532676608,
+  "viterbi_launches": 256,
+  "viterbi_sequences": 65536
+}

@@ -1,0 +1,58 @@
+{
+  "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "canonical_git_pin": "39da421e75b84c975f6a8c11f508c297c3f73cb5",
+  "schema": "banana-smasher-qtip-run-manifest-v1",
+  "status": "PASS",
+  "tiers": [
+    {
+      "bindings": {
+        "qtip_runner": {
+          "path": "/dev/shm/t_ebcba52e_bridge_stage_run8482/39da421e75b84c975f6a8c11f508c297c3f73cb5/banana-smasher/src/banana_smasher/qtip_runner.py",
+          "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c",
+          "bytes": 68246
+        }
+      },
+      "name": "qtip@3.00",
+      "ring": {
+        "aot": {
+          "architecture": "runtime-device",
+          "cache": "sha256-pinned",
+          "compile": "first-use-or-explicit",
+          "producer": "smash kernels build --tier qtip --bpw 3.00"
+        },
+        "bpw": "3.00",
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "components": [
+          {
+            "backend": "persistent-soa-exact-prefix-dp-v32",
+            "geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2
+            },
+            "quarters": 4
+          }
+        ],
+        "producer": "smash kernels build --tier qtip --bpw 3.00",
+        "schema": "banana-smasher-qtip-ring-identity-v1",
+        "tier": "qtip@3.00"
+      }
+    }
+  ]
+}

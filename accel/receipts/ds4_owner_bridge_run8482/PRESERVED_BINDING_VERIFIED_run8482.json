@@ -1,0 +1,65 @@
+{
+  "status": "PASS_PRESERVED_BINDING",
+  "pin": "7f189e8910276a4860d735f80feb2ce02b4e4941",
+  "binding_sha256": "f7162686ab395e6b0986faf0e9f084a25e020b0387ec2908900fdf6a7fb4f5f4",
+  "result_sha256": "ea720e1002213c13fbd4db8dc37081b9681e768ac28f933e0465026c9c0b4ee3",
+  "configs": [
+    {
+      "cell": [
+        9,
+        90,
+        "down"
+      ],
+      "config_sha256": "f2eac330d5a6a47174bbb2606687acde324ad2c0fad91f2614e235d0ad393845"
+    },
+    {
+      "cell": [
+        9,
+        91,
+        "down"
+      ],
+      "config_sha256": "9057bab8b95a9ce64388de632ddf7d628b312ef4efb7b5ca821ac6ac8051843b"
+    },
+    {
+      "cell": [
+        9,
+        92,
+        "down"
+      ],
+      "config_sha256": "981885cc28ea5d8a19e97706e48dce70b16b9b050c1b7dd41ec37aabce2718ab"
+    },
+    {
+      "cell": [
+        26,
+        78,
+        "fused13"
+      ],
+      "config_sha256": "83398d6a7e6c82679ce56a8349f6b111289a69f1141b5af7c480ded00eddd6cf"
+    },
+    {
+      "cell": [
+        26,
+        79,
+        "fused13"
+      ],
+      "config_sha256": "e4fe34968ad91e0eb033ab00ebb74c19b417d65e92651fcfe5bdef7a29f69207"
+    },
+    {
+      "cell": [
+        26,
+        80,
+        "fused13"
+      ],
+      "config_sha256": "3c4d4c30a38cb0d2e525665fd194b7493e7a94d6d2a9888395417034f4e30aa9"
+    }
+  ],
+  "producer_files": 6,
+  "source_pins": [
+    "eec3bfc578c2fac4678373331f779de4e2abb766",
+    "7927793657c7a48e1e02f5cb9e437e1c5705002d",
+    "39da421e75b84c975f6a8c11f508c297c3f73cb5"
+  ],
+  "physical_receipt_sha256": "ac24b841e6bcec9413ba104640bd622c81bcfb512beb2ba8663978dc7a14f0e0",
+  "production_adoption": false,
+  "scope": "Read-only git-object and retained-claim verification; no science replay, no host mutation, no authorization inferred"
+}

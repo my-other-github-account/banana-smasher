@@ -1,0 +1,127 @@
+{
+  "limits": {
+    "90": 0.04510828149941469,
+    "91": 0.03208272976362833,
+    "92": 0.03886255464196464
+  },
+  "rows": [
+    {
+      "expert": 90,
+      "arm": "old1",
+      "phase": "cold",
+      "nmse": 0.0451082363911783,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 90,
+      "arm": "old1",
+      "phase": "warm",
+      "nmse": 0.0451082363911783,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 90,
+      "arm": "old2",
+      "phase": "cold",
+      "nmse": 0.0451082363911783,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 90,
+      "arm": "old2",
+      "phase": "warm",
+      "nmse": 0.0451082363911783,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 91,
+      "arm": "old1",
+      "phase": "cold",
+      "nmse": 0.03208269768093065,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 91,
+      "arm": "old1",
+      "phase": "warm",
+      "nmse": 0.03208269768093065,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 91,
+      "arm": "old2",
+      "phase": "cold",
+      "nmse": 0.03208269768093065,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 91,
+      "arm": "old2",
+      "phase": "warm",
+      "nmse": 0.03208269768093065,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 92,
+      "arm": "old1",
+      "phase": "cold",
+      "nmse": 0.03886251577944886,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 92,
+      "arm": "old1",
+      "phase": "warm",
+      "nmse": 0.03886251577944886,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 92,
+      "arm": "old2",
+      "phase": "cold",
+      "nmse": 0.03886251577944886,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    },
+    {
+      "expert": 92,
+      "arm": "old2",
+      "phase": "warm",
+      "nmse": 0.03886251577944886,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "max_abs_vs_owner": 0.0,
+      "pass_numerical": null
+    }
+  ],
+  "all_pass": true,
+  "candidate_not_executed": true,
+  "validation_seconds": 97.5157812940015,
+  "imported": {
+    "pin": "39da421e75b84c975f6a8c11f508c297c3f73cb5",
+    "module": "/dev/shm/t_ebcba52e_bridge_stage_run8482/39da421e75b84c975f6a8c11f508c297c3f73cb5/banana-smasher/src/banana_smasher/__init__.py",
+    "inventory_sha256": "9fd8a7dc778834eed55e386e8880c65e2ee7ca570bb2c5c28eeab7e8e8d0e8d8"
+  },
+  "heldout_replayed": false,
+  "production_adoption": false
+}

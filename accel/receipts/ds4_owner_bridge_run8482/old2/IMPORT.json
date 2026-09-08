@@ -1,0 +1,20 @@
+{
+  "pin": "4921456bba5ebc032fb96030ee11e58f3ea2826a",
+  "module": "/dev/shm/t_ebcba52e_bridge_stage_run8482/4921456bba5ebc032fb96030ee11e58f3ea2826a/banana-smasher/src/banana_smasher/__init__.py",
+  "inventory_sha256": "ad2d93dc8ce53c54bb0c7ef518bd87847f9db1ada46ef7502a14c47e88971881",
+  "runner_sha256": "9149b5885a7135a9e479417f04a3003f6ba5e26e684f52d343590adcbaac44f9",
+  "setup_seconds": 0.7391253719979431,
+  "identity": {
+    "task_id": "t_ebcba52e",
+    "pid": 1131157,
+    "pgid": 1130497,
+    "start_ticks": 5643602,
+    "argv": [
+      "/dev/shm/t_ebcba52e_bridge_stage_run8482/owner_bridge_run8482.py",
+      "--child",
+      "old2"
+    ],
+    "receipt": "/dev/shm/t_ebcba52e_owner_bridge_run8482/IDENTITY.json",
+    "script_sha256": "d5796e5c6936a074ad70510930834378a9ce334f6fd461312430dd3c57986d3b"
+  }
+}

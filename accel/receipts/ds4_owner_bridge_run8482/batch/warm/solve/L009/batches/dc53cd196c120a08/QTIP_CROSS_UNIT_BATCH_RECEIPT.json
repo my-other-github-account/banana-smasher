@@ -1,0 +1,145 @@
+{
+  "accelerations": {
+    "active": [
+      "persistent-prefix-full16",
+      "kernel-cache",
+      "shared-capture/single-process-staging",
+      "singleton-block-LDL",
+      "cross-unit-LDLQ",
+      "FWHT",
+      "bounded-batch-matrix-lifetime",
+      "canonical-pack-from-states",
+      "packed-byte-reconstruction"
+    ],
+    "historical_k3_alternating_branch_pruning": false,
+    "schema": "banana-smasher-qtip-active-build-accelerations-v1"
+  },
+  "artifact_sha256": [
+    "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+    "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+    "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6"
+  ],
+  "assignment_sha256": [
+    "09d3caa0441e8c717e2dda6da4a93fb8ea408801799d37db643a283076eb3443",
+    "a0c44d3dcb84c3b832e28376051d99c51aa0c074a7e34ab07f979fde8d5643f7",
+    "72d6db65e9345ff39a0d45c1444cb3897786ca21d887bc2704a6808632486e42"
+  ],
+  "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "batch_id": "dc53cd196c120a08",
+  "batch_units": 3,
+  "build_phase_seconds": {
+    "batched_block_ldl": 0.015018995996797457,
+    "batched_ldlq": 2.7684526619996177,
+    "canonical_per_unit_pack": 0.11020399400149472,
+    "hessian_forward_fwht": 0.10092102299677208,
+    "packed_decode_conformance": 0.17141885100136278
+  },
+  "build_wall_seconds": 3.166639146998932,
+  "canonical_pack_roundtrip_exact": [
+    true,
+    true,
+    true
+  ],
+  "config_names": [
+    "E90.json",
+    "E91.json",
+    "E92.json"
+  ],
+  "epoch_ended": 1788891585.8584533,
+  "epoch_started": 1788891581.7118406,
+  "kernel_prepare_seconds": 0.004624925000825897,
+  "layer": 9,
+  "matrix_lifetime": {
+    "batch_units": 3,
+    "events": [
+      {
+        "live_fp32_matrices": [
+          "hessian",
+          "lower",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 6.0,
+        "phase": "batched_ldl_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [
+          "lower",
+          "quantized",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 7.5,
+        "phase": "batched_ldlq_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [],
+        "live_fp32_matrix_equivalents": 0.0,
+        "phase": "quantized_released_before_pack",
+        "unique_storage_count": 0
+      }
+    ],
+    "max_live_fp32_matrix_equivalents": 7.5,
+    "reconstruction_source": "canonical-packed-bytes",
+    "released_after_ldlq": [
+      "lower",
+      "transformed"
+    ],
+    "released_before_pack": [
+      "lower",
+      "transformed",
+      "quantized"
+    ],
+    "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+    "unit_matrix_shape": [
+      4096,
+      2048
+    ]
+  },
+  "mean_build_phase_seconds": {
+    "batched_block_ldl": 0.0050063319989324855,
+    "batched_ldlq": 0.9228175539998725,
+    "canonical_per_unit_pack": 0.03673466466716491,
+    "hessian_forward_fwht": 0.033640340998924025,
+    "packed_decode_conformance": 0.05713961700045426
+  },
+  "mean_build_wall_seconds": 1.0555463823329774,
+  "mean_staging_seconds": 0.3192847983348959,
+  "mean_total_wall_seconds": 1.3819783333334879,
+  "packed_decode_execution": "compiled",
+  "packed_decode_fp16_bit_exact": [
+    true,
+    true,
+    true
+  ],
+  "peak_cuda_allocated_bytes": 950102016,
+  "peak_cuda_reserved_bytes": 1258291200,
+  "process": {
+    "pid": 1135401,
+    "startticks": 5660922
+  },
+  "receipt_names": [
+    "QTIP_SOLVE_RECEIPT.json",
+    "QTIP_SOLVE_RECEIPT.json",
+    "QTIP_SOLVE_RECEIPT.json"
+  ],
+  "schema": "banana-smasher-qtip-cross-unit-controller-v1",
+  "solver": {
+    "K": 3,
+    "L": 16,
+    "V": 2,
+    "best_state_dtype": "int32",
+    "branch_sampling": "full",
+    "branches_per_prefix": 64,
+    "full_states": 65536,
+    "implementation": "persistent-soa-exact-prefix-dp-v32",
+    "min_exact_quality": 1.0,
+    "ordering": "one persistent launch per independent sequence batch",
+    "production_default": true,
+    "retained_prefix_costs": 1024,
+    "steps": 128
+  },
+  "staging_seconds": 0.9578543950046878,
+  "status": "PASS",
+  "total_wall_seconds": 4.145935000000463
+}

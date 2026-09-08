@@ -1,0 +1,45 @@
+{
+  "task": "t_68e5892b",
+  "run": 8479,
+  "logical_owner": "bs09",
+  "execution_controller": "macmini.local",
+  "observed": 1788891055.1311638,
+  "published_binding_commit": "7f189e8910276a4860d735f80feb2ce02b4e4941",
+  "binding_sha256": "f7162686ab395e6b0986faf0e9f084a25e020b0387ec2908900fdf6a7fb4f5f4",
+  "proposed_pin": "39da421e75b84c975f6a8c11f508c297c3f73cb5",
+  "verification": {
+    "configs": [
+      "candidate_L009_E090.json",
+      "candidate_L009_E091.json",
+      "candidate_L009_E092.json",
+      "candidate_L026_E078.json",
+      "candidate_L026_E079.json",
+      "candidate_L026_E080.json"
+    ],
+    "producer_files": 6,
+    "package_trees": {
+      "eec3bfc578c2fac4678373331f779de4e2abb766": "fdf482915e71c8f161cb4b2d08c7734e037dc14d",
+      "7927793657c7a48e1e02f5cb9e437e1c5705002d": "fdf482915e71c8f161cb4b2d08c7734e037dc14d",
+      "39da421e75b84c975f6a8c11f508c297c3f73cb5": "fdf482915e71c8f161cb4b2d08c7734e037dc14d"
+    },
+    "independent_result_sha256": "ea720e1002213c13fbd4db8dc37081b9681e768ac28f933e0465026c9c0b4ee3",
+    "output_result_sha256": "d8a2cc0f7ecd77751e8fe49f76f497f5e6a1eaa1b3245d7d900a59b3b10aa663",
+    "status": "PUBLISHED_BYTES_IDENTITY_PASS_NO_SCIENCE_REPLAY"
+  },
+  "decision": "APPROVE_BOUNDED_THREE_CELL_CLEAN_BOUNDARY_TRIAL_ONLY",
+  "entrypoint": "banana_smasher.qtip_batch_controller.main_batch",
+  "conditions": [
+    "Only macmini.local owner controller on allocated s1/s2/s4/s8; no s6 or macmini3 execution",
+    "First full/PASS/both-DEAD/released boundary; fresh exact-CAS and globally missing nonoverlap",
+    "Exactly three distinct same-layer same-projection currentK3 configs; block_ldl_unitwise=true only; immutable original source fit seed basis geometry preserved",
+    "Fresh package/runner import closure must match tested publication; default conformance and public reserve unchanged; preflight measured valid working set",
+    "Individually hash-readback artifacts and admissions; report actual cold/warm wall and accepted-clean throughput; no blanket adoption from this approval"
+  ],
+  "production_executed": false,
+  "live_incumbent_preserved": {
+    "collector_pid": 6600,
+    "producer_pid": 696772,
+    "startticks": 5501275
+  },
+  "scope": "One frozen window sparse6 equivalence evidence only; not complete uniformK3, full64 or row acceptance"
+}

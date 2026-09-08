@@ -1,0 +1,132 @@
+{
+  "accelerations": {
+    "active": [
+      "persistent-prefix-full16",
+      "kernel-cache",
+      "shared-capture/single-process-staging",
+      "batched-block-LDL",
+      "cross-unit-LDLQ",
+      "FWHT",
+      "bounded-batch-matrix-lifetime",
+      "canonical-pack-from-states",
+      "packed-byte-reconstruction"
+    ],
+    "historical_k3_alternating_branch_pruning": false,
+    "schema": "banana-smasher-qtip-active-build-accelerations-v1"
+  },
+  "artifact_sha256": [
+    "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2"
+  ],
+  "assignment_sha256": [
+    "09d3caa0441e8c717e2dda6da4a93fb8ea408801799d37db643a283076eb3443"
+  ],
+  "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "batch_id": "77b44ce1cf3dc3b7",
+  "batch_units": 1,
+  "build_phase_seconds": {
+    "batched_block_ldl": 0.0024065669931587763,
+    "batched_ldlq": 0.944050680998771,
+    "canonical_per_unit_pack": 0.048436059994855896,
+    "hessian_forward_fwht": 0.038496474000567105,
+    "packed_decode_conformance": 0.05966485800308874
+  },
+  "build_wall_seconds": 1.0936374299999443,
+  "canonical_pack_roundtrip_exact": [
+    true
+  ],
+  "config_names": [
+    "E90.json"
+  ],
+  "epoch_ended": 1788891374.5397959,
+  "epoch_started": 1788891372.665667,
+  "kernel_prepare_seconds": 0.003945302996726241,
+  "layer": 9,
+  "matrix_lifetime": {
+    "batch_units": 1,
+    "events": [
+      {
+        "live_fp32_matrices": [
+          "hessian",
+          "lower",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 2.0,
+        "phase": "batched_ldl_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [
+          "lower",
+          "quantized",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 2.5,
+        "phase": "batched_ldlq_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [],
+        "live_fp32_matrix_equivalents": 0.0,
+        "phase": "quantized_released_before_pack",
+        "unique_storage_count": 0
+      }
+    ],
+    "max_live_fp32_matrix_equivalents": 2.5,
+    "reconstruction_source": "canonical-packed-bytes",
+    "released_after_ldlq": [
+      "lower",
+      "transformed"
+    ],
+    "released_before_pack": [
+      "lower",
+      "transformed",
+      "quantized"
+    ],
+    "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+    "unit_matrix_shape": [
+      4096,
+      2048
+    ]
+  },
+  "mean_build_phase_seconds": {
+    "batched_block_ldl": 0.0024065669931587763,
+    "batched_ldlq": 0.944050680998771,
+    "canonical_per_unit_pack": 0.048436059994855896,
+    "hessian_forward_fwht": 0.038496474000567105,
+    "packed_decode_conformance": 0.05966485800308874
+  },
+  "mean_build_wall_seconds": 1.0936374299999443,
+  "mean_staging_seconds": 0.7700436110026203,
+  "mean_total_wall_seconds": 1.8738718289969256,
+  "packed_decode_fp16_bit_exact": [
+    true
+  ],
+  "peak_cuda_allocated_bytes": 407351296,
+  "peak_cuda_reserved_bytes": 692060160,
+  "process": {
+    "pid": 1130500,
+    "startticks": 5639483
+  },
+  "receipt_names": [
+    "QTIP_SOLVE_RECEIPT.json"
+  ],
+  "schema": "banana-smasher-qtip-cross-unit-controller-v1",
+  "solver": {
+    "K": 3,
+    "L": 16,
+    "V": 2,
+    "best_state_dtype": "int32",
+    "branch_sampling": "full",
+    "branches_per_prefix": 64,
+    "full_states": 65536,
+    "implementation": "persistent-soa-exact-prefix-dp-v32",
+    "min_exact_quality": 1.0,
+    "ordering": "one persistent launch per independent sequence batch",
+    "production_default": true,
+    "retained_prefix_costs": 1024,
+    "steps": 128
+  },
+  "staging_seconds": 0.7700436110026203,
+  "status": "PASS",
+  "total_wall_seconds": 1.8738718289969256
+}

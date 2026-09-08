@@ -1,0 +1,78 @@
+{
+  "aot": {
+    "architecture": "runtime-device",
+    "cache": "sha256-pinned",
+    "compile": "first-use-or-explicit",
+    "producer": "smash kernels build --tier qtip --bpw 3.00"
+  },
+  "backend": "persistent-soa-exact-prefix-dp-v32",
+  "bpw": "3.00",
+  "codebook": {
+    "decode_mode": "quantlut_sym",
+    "family": "bitshift",
+    "pack_contract": {
+      "dtype": "uint16",
+      "input_tile": [
+        16,
+        16
+      ],
+      "output_rows": "input_tile_grid",
+      "packed_words_per_tile_per_k": 16
+    },
+    "td_x": 16,
+    "td_y": 16,
+    "tlut_binding": "run-manifest",
+    "tlut_bits": 9
+  },
+  "exact_solver": "banana_smasher.qtip_viterbi@4921456bba5ebc032fb96030ee11e58f3ea2826a",
+  "expert": 92,
+  "fit_capture_root": "/dev/shm/t_ebcba52e_ds4_k3_input_run8465/source/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s1-L009-derived-run8214s1/captures",
+  "fit_population_manifest": {
+    "path": "/dev/shm/t_ebcba52e_ds4_k3_input_run8465/source/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s1-L000-stage-run8192s1/runtime/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+    "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+  },
+  "fit_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+  "fit_windows": 22,
+  "geometry": {
+    "K": 3,
+    "L": 16,
+    "V": 2
+  },
+  "hessian_layer_manifest": "/dev/shm/t_ebcba52e_ds4_k3_benchmark_run8465/L009_CAPTURE_BINDING.json",
+  "hessian_layer_manifest_sha256": "dcd5bec46285e665c24795ea425b6748dc8c35c88e7a766cfc97188020ecb78b",
+  "input_identity": {
+    "model_index": {
+      "path": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731/model.safetensors.index.json",
+      "sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+    }
+  },
+  "layer": 9,
+  "layer_census": {
+    "d4": 0,
+    "qtip2": 512,
+    "qtip3": 0
+  },
+  "materialization": {
+    "qtip_ring_bpw": "3.00",
+    "run_manifest": "/dev/shm/t_ebcba52e_owner_bridge_run8482/old1/MANIFEST_E92.json",
+    "run_manifest_sha256": "40cc0d779b5da8a54348d8eb976fc52c8eb404a4405d233cdc0b06bce2cd190f",
+    "schema": "banana-smasher-qtip-config-materialization-v1",
+    "source_config_sha256": "67239b4084989af993a9155023dff645fc5655cd4f44a62b428607850f0af9ea"
+  },
+  "model_root": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+  "pack_counts": {
+    "d4": 4173,
+    "qtip2": 2266,
+    "qtip3": 14979
+  },
+  "projection": "down",
+  "qtip_root": "/dev/shm/t_ebcba52e_ds4_k3_benchmark_run8465/runtime/qtip_root",
+  "qtip_runner": "/dev/shm/t_ebcba52e_bridge_stage_run8482/4921456bba5ebc032fb96030ee11e58f3ea2826a/banana-smasher/src/banana_smasher/qtip_runner.py",
+  "reference_unit": "/dev/shm/t_ebcba52e_ds4_k3_benchmark_run8465/runtime/reference_unit",
+  "rht_seed": 3551062593326583864,
+  "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+  "schema": "banana-smasher-qtip-profile-config-v1",
+  "tier": "qtip@3.00",
+  "tlut_source": "/dev/shm/t_ebcba52e_ds4_k3_benchmark_run8465/runtime/tlut_source",
+  "block_ldl_unitwise": false
+}

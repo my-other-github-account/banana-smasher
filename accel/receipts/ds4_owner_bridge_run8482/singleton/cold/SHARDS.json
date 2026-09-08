@@ -1,0 +1,20 @@
+{
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "rows": [
+    {
+      "owner": "t_ebcba52e",
+      "layer": 9,
+      "experts": [
+        90,
+        91,
+        92
+      ],
+      "projections": [
+        "down"
+      ],
+      "K": 3,
+      "operation": "historical_owner_compatibility_diagnostic_not_production",
+      "receipt": "/dev/shm/t_ebcba52e_owner_bridge_run8482/IDENTITY.json"
+    }
+  ]
+}

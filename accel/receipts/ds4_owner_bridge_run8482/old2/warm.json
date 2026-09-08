@@ -1,0 +1,29 @@
+{
+  "phase": "warm",
+  "wall": 5.60771809599828,
+  "peak_allocated": 411554816,
+  "peak_reserved": 696254464,
+  "maxrss_kib": 2093900,
+  "mem_available_before": 109468844032,
+  "mem_available_after": 109460283392,
+  "seals": [
+    {
+      "expert": 90,
+      "artifact_sha256": "c2a28edd4b824e7e6db6d2c1550b5c494a89d5006f8e4f3033d9bcbefb68fed2",
+      "receipt_sha256": "3af8c17acc3e2d66edd75c428fca18d341fcfe63f646ad8ecbe7b1bc337bf954",
+      "config_sha256": "01a038627ab0d326a6eee77dcbe461916d93ff4f5a8328c65192e3d2a5448283"
+    },
+    {
+      "expert": 91,
+      "artifact_sha256": "b70b3424b711a053732b3cb55106fe08d92b055cd6076d3f8431f91b32cfb926",
+      "receipt_sha256": "73e27fbbcde4442b725282784b54d88a79c761c6b1a9eecf0fe2cfd0c08590f2",
+      "config_sha256": "b0b20cee9869af5f24215b57a0ac652995fc2c08b19d28b1d4f05884626e621d"
+    },
+    {
+      "expert": 92,
+      "artifact_sha256": "93bd5ee3e07084fb6b38e426594f5edcdc4cf00234b47fc5e9b172abe7e2f9f6",
+      "receipt_sha256": "6d9af00aa3314a77d4cd095e202a79cfcf34bbe95389be36f21880e61a641733",
+      "config_sha256": "c54687d6e309521b8c5f0d62ee703c45512eaa262bc29771b85b23a8e52748a8"
+    }
+  ]
+}

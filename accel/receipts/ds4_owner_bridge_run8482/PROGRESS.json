@@ -1,0 +1,12 @@
+{
+  "arm": "validate",
+  "pid": 1136568,
+  "start_ticks": 5664359,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_ebcba52e_bridge_stage_run8482/owner_bridge_run8482.py",
+    "--child",
+    "validate"
+  ]
+}

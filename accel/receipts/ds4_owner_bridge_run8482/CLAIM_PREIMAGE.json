@@ -1,0 +1,21 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 1107075,
+  "pgid": 1107075,
+  "start_ticks": 5550581,
+  "argv": [
+    "/dev/shm/verify_ds4_k3_sixcell_run8474.py",
+    "b9436f0c5c4202f012dae725bc52c854e5997886c6ac0f981de4b1d87321201a"
+  ],
+  "receipt": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_verify_run8474/IDENTITY.json",
+  "script_sha256": "be3bcb93b58135e6102b56ee91e05fab6460e390f1fb21914d487c34eb157dbb",
+  "owner": "t_ebcba52e",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "host": "spark-6",
+  "stage": "t_ebcba52e_ds4_k3_sixcell_verify_run8474_terminal_retained",
+  "mission": "/dev/shm/t_ebcba52e_ds4_k3_sixcell_verify_run8474",
+  "expiry_unix": 1788897649.2620728,
+  "source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "terminal_at": 1788890454.4946265
+}
