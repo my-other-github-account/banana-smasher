@@ -1,0 +1,29 @@
+{
+  "files": {
+    "PROGRESS.json": "b2577199fba85ecf59dd8be1db41f1da3b561f2b91819063b49afcb7f04e4f82",
+    "TERMINAL.json": "e3d4d8a40787f76ef39d26e5f05ea0db1c0070678e64331abf35ae419de539ec",
+    "SUMMARY.json": "dec3545beddc386accb8b9ec6a75186a1f1f5d9e92c765771122314a6f963ff9",
+    "B1_0_RESULT.json": "d1c1b06ef4e4ab1b64c9e5ce64b41f8fc691d66e79d297fd04902ecff3d13a78",
+    "B1_1_RESULT.json": "0d57632ab3c3ded36abc7dcfb6691c065af60c931901153d104e2c32157ab2b5",
+    "C1_0_RESULT.json": "45c0b3635864b8207c042bff8941ea11edc77da4e2adbf158d0ed6868994c3cb",
+    "C1_1_RESULT.json": "d5f46725d1e47d9679e8c2195d5d68c44eed6356c7fede80ce4f3847537b8186",
+    "C2_0_RESULT.json": "d6c7bdc945fff89f9a3c62ee7c6f9c3de24b741e8609dfaac46bad59ce222d49",
+    "C2_1_RESULT.json": "0288ce395072b58e5d7745fcb55e9b9780d28c5fb4fdae0d4586a9ed3ab6b439",
+    "B2_0_RESULT.json": "d2bd75285ecd8512b55d1c5a9dd882ecc008764487db87c16575d547e661eb2a",
+    "B2_1_RESULT.json": "6d1e95f3e1dd4b2c7452fbc7fc6ee0ca78b9e43551334f49af5302c753f70c9a",
+    "QUALITY_RESULT.json": "ad605ef0b283a389161cfe8bfd494ccc9cd0439aff166a15f88f69943f0cc9d2",
+    "QUALITY_SCIENCE.json": "a9469314c6c74737bf345c60f9dd47842f72e35ed48e966f630853b46ac57711",
+    "QUALITY_TESTS.json": "ae50231145cedf1cd28308f902b04ed4167832bc6dfa0e0ca9c1a9619ba4405f",
+    "QUALITY_TESTS.log": "51588d6e2b7a0866288bf84fe4214a9f4a499c9375a9edd175bd8cafd00a65e2",
+    "ds4_resident_r2_run8528.py": "17885065f87a62d695be079860a94f9e3b5ff24524bb9ede059bd6e386716036",
+    "ds4_quality_run8528.py": "eb108ff19e831e827ef4c9e44d0539ad92059d0ac50a2f271a95c8744afd0997",
+    "direct_row_run8528_SUMMARY.json": "d41d084e289551565c130425cc408ddb029597818f9b87137aa840925653c301",
+    "split_row_run8528_SUMMARY.json": "beee2015ba2a2f14a9c75cd1db76af71abcb99beb1e9aebff9c3a62fe78ba123"
+  },
+  "runtime_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+  "scope": "finite process-lifetime integration, unchanged public API; production adoption not yet authenticated",
+  "rejected_kernel_pins": [
+    "7391e41b2e7dad4cd0ebeda7dc6e95e05cae92e0",
+    "63944a1defdb5fac8604cda17690a281bbe8c1b5"
+  ]
+}

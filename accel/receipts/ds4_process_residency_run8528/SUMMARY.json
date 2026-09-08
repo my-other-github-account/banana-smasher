@@ -1,0 +1,48 @@
+{
+  "pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+  "rows": [
+    {
+      "arm": "B1",
+      "process_inclusive_seconds": 32.87396650100709,
+      "main_batch_seconds": 27.84975023000152,
+      "outside_main_seconds": 5.024216271005571,
+      "peak_allocated": 1605481984,
+      "peak_reserved": 2703228928
+    },
+    {
+      "arm": "C1",
+      "process_inclusive_seconds": 21.34683611401124,
+      "main_batch_seconds": 19.289340005998383,
+      "outside_main_seconds": 2.057496108012856,
+      "peak_allocated": 1607583744,
+      "peak_reserved": 2705326080
+    },
+    {
+      "arm": "C2",
+      "process_inclusive_seconds": 21.312996869004564,
+      "main_batch_seconds": 19.214163272990845,
+      "outside_main_seconds": 2.098833596013719,
+      "peak_allocated": 1607583744,
+      "peak_reserved": 2705326080
+    },
+    {
+      "arm": "B2",
+      "process_inclusive_seconds": 28.00498241400055,
+      "main_batch_seconds": 22.768066852993798,
+      "outside_main_seconds": 5.236915561006754,
+      "peak_allocated": 1605481984,
+      "peak_reserved": 2703228928
+    }
+  ],
+  "speedup_abba": 1.4270789325229059,
+  "late_baseline_vs_candidate_mean": 1.3129438375977796,
+  "quality_count": 24,
+  "all_quality_pass": true,
+  "all_decoded_equal": true,
+  "max_abs": 0.0,
+  "validation_seconds": 6.924783273003413,
+  "tests": "93 passed in 7.99s on physical s6 exact main",
+  "scope": "Two repeated authentic L026 E078/079/080 fused K3 triples per arm, B1/C1/C2/B2: each B uses two Python processes; each C uses one resident process. Full main_batch boundaries retained; shared source/JIT/OS caches. Repeated-cell panel may reuse more in-process data than distinct-cell production. Not matched production speed, not cold-cache isolation, not full-model quality.",
+  "heldout": "no new scorer; independent source NMSE under frozen8474 limits; decoded equality to retained qualified3-cell units is diagnostic",
+  "production_adoption": false
+}

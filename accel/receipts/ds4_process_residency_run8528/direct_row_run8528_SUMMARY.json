@@ -1,0 +1,39 @@
+{
+  "arms": {
+    "B1": {
+      "warm_seconds": 15.19017853900732,
+      "setup_seconds": 17.35718151999754,
+      "peak_allocated": 1499001344
+    },
+    "C1": {
+      "warm_seconds": 24.728970930009382,
+      "setup_seconds": 29.59913694500574,
+      "peak_allocated": 1499001344
+    },
+    "C2": {
+      "warm_seconds": 25.245775693983887,
+      "setup_seconds": 27.12365400599083,
+      "peak_allocated": 1499001344
+    },
+    "B2": {
+      "warm_seconds": 14.953360505998717,
+      "setup_seconds": 17.695932078000624,
+      "peak_allocated": 1499001344
+    }
+  },
+  "quality_count": 24,
+  "decoded_all_equal": true,
+  "quality_seconds": 5.002556884006481,
+  "max_abs": 0.0,
+  "scope": "ABBA shared source/JIT warm three-cell panel; clean-fit separate, not heldout",
+  "raw_sha256": {
+    "QUALITY.json": "65738a10462a5896400f6aecaa23f279eba53ab702a84b50dde89d9fa9daba6e",
+    "TERMINAL.json": "c5e2eab29fc4194b4c11a09c811968e49efabc2b7df4c751cc2715d1588a3f53",
+    "B1/RESULT.json": "ba66c64041bc21dbc83682e868a225fe1b27a443e84dfa754e32188c151990ed",
+    "C1/RESULT.json": "223f018f5ea471d9577030f4e966e0026fe4fc75293829a9fcd6fb4a9fd72035",
+    "C2/RESULT.json": "cedc14af1fb5bd6cb6e35513c6f8d7add1b00c68b9cbd28238d16688c0b3633a",
+    "B2/RESULT.json": "d9ca73a5b3499dc8ca6ba8216f3f873b8b3adcbaa761b37f007c36a10af3c4fb"
+  },
+  "speedup": 0.6031754252163409,
+  "decision": "reject_performance"
+}

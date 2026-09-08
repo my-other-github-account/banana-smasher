@@ -1,0 +1,41 @@
+{
+  "arms": {
+    "C1": {
+      "warm_seconds": 15.247693372992217,
+      "setup_seconds": 20.91240292400471
+    },
+    "C2": {
+      "warm_seconds": 15.254327087997808,
+      "setup_seconds": 17.391807684995
+    }
+  },
+  "controls": {
+    "B1": {
+      "warm_seconds": 15.19017853900732,
+      "setup_seconds": 17.35718151999754,
+      "peak_allocated": 1499001344
+    },
+    "C1": {
+      "warm_seconds": 24.728970930009382,
+      "setup_seconds": 29.59913694500574,
+      "peak_allocated": 1499001344
+    },
+    "C2": {
+      "warm_seconds": 25.245775693983887,
+      "setup_seconds": 27.12365400599083,
+      "peak_allocated": 1499001344
+    },
+    "B2": {
+      "warm_seconds": 14.953360505998717,
+      "setup_seconds": 17.695932078000624,
+      "peak_allocated": 1499001344
+    }
+  },
+  "quality_count": 12,
+  "quality_seconds": 3.751671014004387,
+  "max_abs": 0.0,
+  "decoded_all_equal": true,
+  "scope": "candidate-only shared-cache compare to sealed B1/B2; no matched cold process or heldout claim",
+  "speedup": 0.9882472895052162,
+  "decision": "no_useful_improvement"
+}

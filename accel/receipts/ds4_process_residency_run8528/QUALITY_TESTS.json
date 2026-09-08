@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/dnola/humming_env/bin/python",
+    "-m",
+    "pytest",
+    "/dev/shm/t_182fbc9d/main_run8524/banana-smasher/tests/test_qtip_solve_resume.py",
+    "/dev/shm/t_182fbc9d/main_run8524/banana-smasher/tests/test_qtip_public_api.py",
+    "/dev/shm/t_182fbc9d/main_run8524/banana-smasher/tests/test_qtip_resident_ring_dispatch.py",
+    "/dev/shm/t_182fbc9d/main_run8524/banana-smasher/tests/test_qtip_batch.py",
+    "-q",
+    "--tb=short"
+  ],
+  "returncode": 0,
+  "pin": "6a40f916a6def348cb6a65bcd648006ab3242211"
+}

@@ -1,0 +1,21 @@
+{
+  "returncode": 0,
+  "rows": [
+    {
+      "arm": "B1",
+      "process_inclusive_seconds": 32.87396650100709
+    },
+    {
+      "arm": "C1",
+      "process_inclusive_seconds": 21.34683611401124
+    },
+    {
+      "arm": "C2",
+      "process_inclusive_seconds": 21.312996869004564
+    },
+    {
+      "arm": "B2",
+      "process_inclusive_seconds": 28.00498241400055
+    }
+  ]
+}

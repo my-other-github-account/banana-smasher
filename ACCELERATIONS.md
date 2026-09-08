@@ -1225,3 +1225,41 @@ Evidence and original config/manifest/solve/quality receipts:
 `accel/receipts/k1_lut_l1_run8524/`. Production-owner clean-boundary adoption and
 independent real-output acknowledgement remain separate, not implied by this
 publication. Keep incumbent work independent and retain honest memory reserve.
+
+
+## Finite DS4 process residency (run8528)
+
+Existing public `main_many` (not `main_layer`) dispatches bounded `main_batch`
+chunks in one process. No new daemon or numerical kernel is required. The
+unchanged runtime at main `6a40f916a6def348cb6a65bcd648006ab3242211` measured
+two identical authentic L026 E078/E079/E080 fused K3 triples per arm, comparing
+two fresh Python processes against one process retaining both calls. All
+per-call basis/clean22/seed/full-branch/packed-conformance gates remain enabled.
+
+Shared source/JIT/OS-cache ABBA enclosing walls: B1/B2 32.873967/28.004982s,
+C1/C2 21.346836/21.312997s, aggregate 1.427079x. Late B2 versus candidate mean
+is 1.312944x. Outside-main aggregates fall 5.024216/5.236916s to
+2.057496/2.098834s; main calls also improve through process-local setup/cache
+retention. This is not all spawn overhead or a kernel speedup. Repeated-cell
+benchmark reuse can exceed distinct-cell production reuse; no production ratio
+or cold-cache isolation is asserted. Candidate peak allocated/reserved bytes
+1,607,583,744/2,705,326,080. Initial artificial 32GiB peak guard refused before
+any build; the corrected 12GiB estimate plus unchanged 4GiB reserve exceeds
+retained same-panel peaks, while canonical dynamic admission remains active.
+
+Independent canonical decode/original-source FP64 NMSE passes 24/24 under
+frozen run8474 limits. All decoded tensors equal the retained qualified
+three-cell reference (max_abs0, diagnostic not acceptance requirement).
+Validation 6.924783s is separate; no new heldout score or full-model equivalence
+is inferred. Physical exact-main resident API/resume/batch tests pass93/93.
+
+Production owner adoption and independent new-output readback are separate
+pending gates. A disk-backed owner seat should trial a bounded distinct-cell
+range; do not bypass s1 per-unit durable QSFP readback before admissions.
+The GLM owner already runs persistently, so no GLM spawn-removal gain is claimed.
+
+Two K1 row-selection compiler trials are retained but NOT promoted: direct
+2D gather 0.603175x (24/24 numerical PASS), split-register selection 0.988247x
+(12/12 PASS) versus same-main controls. Neither justifies a runtime change.
+Evidence, enclosing boundaries, original phase receipts, tests and runnable
+finite experiment scripts: `accel/receipts/ds4_process_residency_run8528/`.
