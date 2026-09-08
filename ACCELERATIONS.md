@@ -242,6 +242,38 @@ Independent validation6.306971s is outside build wall. Spark-6 roots:
 `/dev/shm/t_ebcba52e_glm_k3_cold_a1` and
 `/dev/shm/t_ebcba52e_quality_glm_k3_cold_a1`. No production adoption yet.
 
+## GLM K3 down opt-in eager conformance (2026-09-07, unpromoted)
+
+Public API pin `a32e63428a6461570fe6c30befb29172c1f37fc9` exposes
+`packed_decode_execution="eager"` for the existing canonical decoder; compiled
+remains the default. No decoder fork, skipped conformance, changed quantization,
+or fallback is involved. Focused decoder-execution tests: 2 passed.
+
+Four authentic L030 E000--003 K3 down cells, unitwise preprocessing and warp8
+fixed in both arms, were built in fresh processes with private canonical,
+Triton, Inductor, CUDA and XDG caches, baseline/candidate/candidate/baseline order.
+Source assets and OS filesystem cache remained shared. Cold build walls
+27.759437/28.058089 s versus8.252979/8.518711 s yield3.363566x/3.293701x.
+Warm walls5.262888/5.238376 s versus5.179128/4.974959 s yield only
+1.016173x/1.052949x; do not present the cold compilation saving as a warm gain.
+Cold-plus-warm child totals including import/config are34.931091/35.194530 s
+versus15.291786/15.370143 s. CUDA peak allocated/reserved bytes agree between
+arms: cold1,254,865,920/1,593,835,520 and warm1,256,967,680/1,595,932,672.
+Process RSS is separately recorded, not total unified-memory peak.
+
+All32 cell builds sealed. Independent canonical consumer/source NMSE checks
+pass16/16 under baseline-repeat-derived limits; decoded max_abs versus the
+already sparse-K3-down-heldout-passed incumbent is0 in every check. Independent
+validation6.494484 s is outside producer timing. No new output KLD was computed
+for this decoder-only rung; equality of decoded weights connects these four
+cells to the existing sparse heldout result, not to full-model equivalence.
+Raw Spark-6 roots: `/dev/shm/t_ebcba52e_glm_k3_eager_a1` and
+`/dev/shm/t_ebcba52e_quality_glm_k3_eager_a1`. Task-local receipts:
+`GLM_K3_EAGER_A1_{TERMINAL,SUMMARY,QUALITY}_run8328.json`.
+Next representative gate extends this exact public opt-in to authentic fused
+geometry. Production adoption requires owner clean-boundary readback;
+no default or live producer was changed by this experiment.
+
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
 These are bounded same-input diagnostics, not production quality acceptance.
