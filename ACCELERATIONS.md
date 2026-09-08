@@ -24,6 +24,28 @@ residual regression is not accelerator or heldout equivalence. Decode,
 reconstruction/objective and independent output gates remain mandatory before
 production adoption. No encoder, native fallback, or relaxed validation added.
 
+At canonical pin `34bad2607dd9e88c8ee810d7345758e92ca589f5`, one real smoke
+and sixteen four-cell cold/warm candidate builds passed. Unsolved-prefix cold
+walls were 12.249842/12.791585 s (0.982909x aggregate versus the same sealed
+batch-four baselines); warm walls were 7.912666/8.030731 s (1.088780x).
+The two paired cold ratios disagree in sign. All sixteen independent
+reconstruction checks passed with zero decoded delta; validation cost
+6.049619 s and peak allocated memory 2,116,832,768 bytes. This does not establish
+a substantial repeatable end-to-end win, and the opt-in remains default-off.
+No new heldout gate was run. Dedicated-seat roots:
+`/dev/shm/t_ebcba52e_unsolved_run8445` and
+`/dev/shm/t_ebcba52e_quality_unsolved_run8445` (volatile, sealed).
+
+The production owner separately read back physical selected-source integration:
+original L005/E000 and L014/E000 fused13 fitting sources produced two fresh K3
+products using three selected-source modules from `1e35a502`, retaining its
+previous producer runtime. Owner receipt `JS1_ACCEPTED_run8446.json` binds
+destination ACK `b0364fc1022e3c1f054e8df56cc7ede44556289fc6a1005f6ad5097b3d007f61`.
+This is selected-source loader integration/admission, not adoption of the
+unsolved-prefix candidate or full-model heldout equivalence. Adjacent original
+`qtip_rings` runtime assets were necessary for source closure; the failed
+zero-solve predecessor is preserved rather than silently replacing its receipt.
+
 ## Fresh consumer cohort closure: ordinal3 (run8421)
 
 The predeclared ordinal3/window71 reasoning gate completed without replaying
