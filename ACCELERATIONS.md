@@ -1090,3 +1090,40 @@ Raw bindings and included producer/conformance phases are in
 No current K3, full-model output equivalence or production adoption is implied.
 Next gate is the controller-authorized DS4 ordinal0 paired frozen output,
 using owner-bound original artifact/runtime and no full64 replay.
+
+
+## Current-K3 distinct fused representative (run8474)
+
+Recovered the owner's original L026 E078/E079/E080 fused13 configs, seeds,
+clean22 fit captures and units by direct fabric transfer; no down control,
+calibration or scorer restart. Public `main_batch` on `79277936` compares
+three serial singleton calls with one grouped call using only
+`block_ldl_unitwise=true`. Source-tree diff against prior down pin `eec3bfc5`
+is empty; the owner's older `4921456b` is not silently treated as identical.
+
+Matched private-cache B1/C1/C2/B2 measured cold 34.192152s -> 32.909438s
+(1.038977x) and warm 8.868182s -> 7.914626s (1.120480x). Earlier shared-cache
+warm measured 1.186405x. Private canonical/Triton/Inductor/CUDA/XDG caches do
+not isolate shared source/prebuilt assets or OS pages. Warm peak CUDA
+allocated increased 835,515,392 -> 1,607,583,744 bytes; reserved/RSS and
+per-arm memory are retained in SUMMARY/COLD receipts.
+
+Independent FP64 reconstruction plus canonical packed decoding passed all
+42 new products under limits frozen from baseline reproducibility before
+candidates. Maximum reconstructed difference from same-main singleton was
+zero (diagnostic, not acceptance rule). Independent validation cost13.818562s
+is outside producer wall. Public solve phase includes packed conformance;
+do not add its nested conformance phase again. Shared-cache staging fell
+about2.03s ->0.78s while solve stayed about6.5s: most gain is shared staging,
+not a dramatic encoder improvement.
+
+Together with the sealed L009 down gate (cold1.071806x/warm1.378596x), this
+closes representative down/fused numerical evidence, not current-K3
+held-out or production acceptance. A separate paired six-cell output
+continuation consumes the retained L008 ordinal0/window28 prefix; its
+historical-K1/native-rest background must never be called uniform-currentK3.
+No rollout is authorized by numerical parity alone.
+
+Receipts: `accel/receipts/ds4_current_k3_fused_run8474/` (manifest hashes,
+raw producer/cold/independent results, scripts and explicit legacy-label
+corrections). Retain unitwise incumbent; do not multiply component ratios.

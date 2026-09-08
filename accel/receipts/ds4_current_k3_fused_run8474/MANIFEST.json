@@ -1,0 +1,52 @@
+[
+  {
+    "path": "BUILD.json",
+    "sha256": "c9acd08676e333c2ad175b974e1d225eaa45dede944713e7de0fd44143e4d815",
+    "bytes": 327805
+  },
+  {
+    "path": "COLD.json",
+    "sha256": "a53023ca4cb60477dd69e105182a25b1d5eb01dd0fb2735a6e3881e0c064c059",
+    "bytes": 480966
+  },
+  {
+    "path": "FROZEN_LIMITS.json",
+    "sha256": "5978a9134a94bf308e8bda1514691a8e0b686b7e820933b6a1d2df37a1d86102",
+    "bytes": 148
+  },
+  {
+    "path": "SUMMARY.json",
+    "sha256": "704fbe4652d7c2678cb0de79baeca7de37896fb92485f6267963f128c718eea9",
+    "bytes": 4875
+  },
+  {
+    "path": "VERIFY_COLD.json",
+    "sha256": "92d0659c4439f05a7156994ffe11d87d9f8139f043dbaa5f15f3bb31e15211a7",
+    "bytes": 10090
+  },
+  {
+    "path": "VERIFY_SHARED.json",
+    "sha256": "a5b2c2d16a22118d43ba66bddb3d72077ffc5265963458bac6d0aa30e028f4f4",
+    "bytes": 7659
+  },
+  {
+    "path": "ds4_k3_fused_cold_run8474.py",
+    "sha256": "61f617ab17e1daa1edb0a334b1e5b166a2a5548eae72382996d60d99589f8905",
+    "bytes": 6898
+  },
+  {
+    "path": "ds4_k3_fused_cold_verify_run8474.py",
+    "sha256": "9f4d42e35d8f9ff4fd86df53760d7a250e4cd08b798782a8ed78cb9b0333df60",
+    "bytes": 5794
+  },
+  {
+    "path": "ds4_k3_fused_run8474.py",
+    "sha256": "ca6558e23dcca8ad1a47dcda898551d55f72fbafdad45bb895c937bab57f4fb7",
+    "bytes": 9661
+  },
+  {
+    "path": "ds4_k3_fused_verify_run8474.py",
+    "sha256": "f6aa759ededf09d11d0a7327ca6ac1bb6bcf5cf2f47d713bccc4e43adc408400",
+    "bytes": 5585
+  }
+]

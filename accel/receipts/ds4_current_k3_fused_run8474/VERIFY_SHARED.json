@@ -1,0 +1,225 @@
+{
+  "state": "SEALED_INDEPENDENT_NUMERICAL_COLD_GATE",
+  "identity": {
+    "task_id": "t_ebcba52e",
+    "pid": 1060833,
+    "pgid": 1060833,
+    "start_ticks": 5370745,
+    "argv": [
+      "/dev/shm/ds4_k3_fused_verify_run8474.py",
+      "6beaa631fcf8bf5baf09ae26f9b1549bb327141d6931b8e2236ecaed65fb1d5b"
+    ],
+    "receipt": "/dev/shm/t_ebcba52e_ds4_k3_fused_verify_run8474/IDENTITY.json",
+    "script_sha256": "f6aa759ededf09d11d0a7327ca6ac1bb6bcf5cf2f47d713bccc4e43adc408400",
+    "canonical_git_pin": "7927793657c7a48e1e02f5cb9e437e1c5705002d"
+  },
+  "rows": [
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "baseline_setup",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "baseline_warm1",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "baseline_warm2",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "candidate_setup",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "candidate_warm1",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "candidate_warm2",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "baseline_setup",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "baseline_warm1",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "baseline_warm2",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "candidate_setup",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "candidate_warm1",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "candidate_warm2",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "baseline_setup",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "baseline_warm1",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "baseline_warm2",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "candidate_setup",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "candidate_warm1",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474",
+      "arm": "candidate_warm2",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    }
+  ],
+  "count": 18,
+  "all_pass": true,
+  "speedups": {
+    "warm": 1.1864047702046687
+  },
+  "validation_wall": 6.155532442004187,
+  "heldout_kld": null,
+  "production_adoption": false,
+  "quality_scope": "three fused cells independent numerical/decode; no currentK3 heldout frontier"
+}

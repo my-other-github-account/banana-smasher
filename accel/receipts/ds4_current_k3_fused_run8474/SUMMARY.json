@@ -1,0 +1,157 @@
+{
+  "state": "BOUNDED_FUSED_CURRENT_K3_NUMERICAL_PASS_NOT_HELDOUT_OR_ADOPTION",
+  "canonical_pin": "7927793657c7a48e1e02f5cb9e437e1c5705002d",
+  "owner_binding_sha256": "a801cf609f3ca68f142ac4298a135c44bd848381b6f57a4eabfcb0a13b01df80",
+  "basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "cells": [
+    [
+      26,
+      78,
+      "fused13"
+    ],
+    [
+      26,
+      79,
+      "fused13"
+    ],
+    [
+      26,
+      80,
+      "fused13"
+    ]
+  ],
+  "geometry": {
+    "K": 3,
+    "L": 16,
+    "V": 2
+  },
+  "candidate": "three distinct grouped configs; block_ldl_unitwise=true only; unchanged source/seed/fit/schedule",
+  "shared_warm_speedup": 1.1864047702046687,
+  "matched_private_cache": {
+    "cold": {
+      "baseline_seconds": 34.19215233999785,
+      "candidate_seconds": 32.90943819349923,
+      "speedup": 1.0389770903701419,
+      "peak_allocated_baseline": 829210112,
+      "peak_allocated_candidate": 1605481984,
+      "arms": {
+        "baseline1": {
+          "phase": "cold",
+          "wall": 34.33188752899878,
+          "peak_allocated": 829210112,
+          "peak_reserved": 1465909248,
+          "process_maxrss_kib": 2068448,
+          "mem_available": 112859062272
+        },
+        "candidate1": {
+          "phase": "cold",
+          "wall": 32.70028322500002,
+          "peak_allocated": 1605481984,
+          "peak_reserved": 2703228928,
+          "process_maxrss_kib": 2221764,
+          "mem_available": 111405371392
+        },
+        "candidate2": {
+          "phase": "cold",
+          "wall": 33.11859316199843,
+          "peak_allocated": 1605481984,
+          "peak_reserved": 2703228928,
+          "process_maxrss_kib": 2222344,
+          "mem_available": 111308488704
+        },
+        "baseline2": {
+          "phase": "cold",
+          "wall": 34.05241715099692,
+          "peak_allocated": 829210112,
+          "peak_reserved": 1465909248,
+          "process_maxrss_kib": 2066224,
+          "mem_available": 112445120512
+        }
+      }
+    },
+    "warm": {
+      "baseline_seconds": 8.868181664500298,
+      "candidate_seconds": 7.914626125002542,
+      "speedup": 1.1204801748607487,
+      "peak_allocated_baseline": 835515392,
+      "peak_allocated_candidate": 1607583744,
+      "arms": {
+        "baseline1": {
+          "phase": "warm",
+          "wall": 8.828249730002426,
+          "peak_allocated": 835515392,
+          "peak_reserved": 1472200704,
+          "process_maxrss_kib": 2068448,
+          "mem_available": 112924618752
+        },
+        "candidate1": {
+          "phase": "warm",
+          "wall": 7.9225422170056845,
+          "peak_allocated": 1607583744,
+          "peak_reserved": 2705326080,
+          "process_maxrss_kib": 2254920,
+          "mem_available": 111301812224
+        },
+        "candidate2": {
+          "phase": "warm",
+          "wall": 7.906710032999399,
+          "peak_allocated": 1607583744,
+          "peak_reserved": 2705326080,
+          "process_maxrss_kib": 2255152,
+          "mem_available": 111192678400
+        },
+        "baseline2": {
+          "phase": "warm",
+          "wall": 8.90811359899817,
+          "peak_allocated": 835515392,
+          "peak_reserved": 1472200704,
+          "process_maxrss_kib": 2066224,
+          "mem_available": 112454823936
+        }
+      }
+    }
+  },
+  "numerical": {
+    "count": 42,
+    "all_pass": true,
+    "max_abs_vs_singleton": 0.0,
+    "validation_seconds": 13.818561772008252
+  },
+  "owner_pin": "4921456bba5ebc032fb96030ee11e58f3ea2826a",
+  "heldout_kld": null,
+  "production_adoption": false,
+  "cache_scope": "private canonical/Triton/Inductor/CUDA/XDG; source/prebuilt/OS caches shared",
+  "scope_correction": "BUILD.json legacy scope tail says no fused; actual cells and configs unambiguously L026 fused. VERIFY_SHARED legacy state mentions COLD though only18 shared-cache products; phase data and this summary authoritative.",
+  "phase_totals": {
+    "baseline_setup": {
+      "staging": 3.5794543150041136,
+      "solve": 26.119355777998862,
+      "packed_decode_conformance": 19.607970575001673
+    },
+    "baseline_warm1": {
+      "staging": 2.026751504999993,
+      "solve": 6.531834317007451,
+      "packed_decode_conformance": 0.31803570800548187
+    },
+    "baseline_warm2": {
+      "staging": 2.031908877004753,
+      "solve": 6.6008195460017305,
+      "packed_decode_conformance": 0.3182796069959295
+    },
+    "candidate_setup": {
+      "staging": 0.7599591510006576,
+      "solve": 6.522288323001703,
+      "packed_decode_conformance": 0.39283649400022114
+    },
+    "candidate_warm1": {
+      "staging": 0.773043780005537,
+      "solve": 6.446788048000599,
+      "packed_decode_conformance": 0.4018618280024384
+    },
+    "candidate_warm2": {
+      "staging": 0.7778092860025936,
+      "solve": 6.498096829003771,
+      "packed_decode_conformance": 0.38160204899759265
+    }
+  }
+}

@@ -1,0 +1,292 @@
+{
+  "state": "SEALED_INDEPENDENT_NUMERICAL_COLD_GATE",
+  "identity": {
+    "task_id": "t_ebcba52e",
+    "pid": 1067984,
+    "pgid": 1067984,
+    "start_ticks": 5391880,
+    "argv": [
+      "/dev/shm/ds4_k3_fused_cold_verify_run8474.py",
+      "d3d53e863f9fd261963a8979bb4c250ef0c37ad30cb6de9f771a7cbe89a231c1"
+    ],
+    "receipt": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_verify_run8474/IDENTITY.json",
+    "script_sha256": "9f4d42e35d8f9ff4fd86df53760d7a250e4cd08b798782a8ed78cb9b0333df60",
+    "canonical_git_pin": "7927793657c7a48e1e02f5cb9e437e1c5705002d"
+  },
+  "rows": [
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline1/cold",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline1/warm",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate1/cold",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate1/warm",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate2/cold",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate2/warm",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline2/cold",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline2/warm",
+      "expert": 78,
+      "artifact_sha256": "66f1d74182f64746ccff6878f5efd66113ab4d6f263055f38f59e9944e0c41fe",
+      "nmse": 0.030535817474751085,
+      "limit": 0.030535848010568557,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline1/cold",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline1/warm",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate1/cold",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate1/warm",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate2/cold",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate2/warm",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline2/cold",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline2/warm",
+      "expert": 79,
+      "artifact_sha256": "4cd9983d8131e3856015632009cd59e44dc98c710107068e3def7f094123fdc7",
+      "nmse": 0.03397406341140366,
+      "limit": 0.03397409738546708,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline1/cold",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline1/warm",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate1/cold",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate1/warm",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate2/cold",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "candidate2/warm",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline2/cold",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    },
+    {
+      "root": "/dev/shm/t_ebcba52e_ds4_k3_fused_cold_run8474",
+      "arm": "baseline2/warm",
+      "expert": 80,
+      "artifact_sha256": "01e35e2b092c90ea53803a8e69083ff1033fb4d8d3adc0a7a09dce89f5984785",
+      "nmse": 0.03558237583552018,
+      "limit": 0.03558241141789602,
+      "pass_numerical": true,
+      "max_abs_vs_singleton": 0.0,
+      "decode_pass": true
+    }
+  ],
+  "count": 24,
+  "all_pass": true,
+  "speedups": {
+    "cold": 1.0389770903701419,
+    "warm": 1.1204801748607487
+  },
+  "validation_wall": 7.663029330004065,
+  "heldout_kld": null,
+  "production_adoption": false,
+  "quality_scope": "three fused cells independent numerical/decode; no currentK3 heldout frontier"
+}
