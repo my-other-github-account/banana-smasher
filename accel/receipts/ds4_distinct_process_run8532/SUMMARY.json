@@ -1,0 +1,53 @@
+{
+  "schema": "banana-smasher.distinct-process-panel.v1",
+  "runtime_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+  "source_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "task": "t_1269dc5f",
+  "rows": [
+    {
+      "arm": "B1",
+      "whole_seconds": 20.338901233000797,
+      "main_seconds": 14.868670940995798,
+      "outside_main_seconds": 5.470230292004999,
+      "peak_allocated": 1097281536,
+      "peak_reserved": 2199912448
+    },
+    {
+      "arm": "C1",
+      "whole_seconds": 14.47788714399212,
+      "main_seconds": 12.324098694007262,
+      "outside_main_seconds": 2.1537884499848587,
+      "peak_allocated": 1098334720,
+      "peak_reserved": 1732247552
+    },
+    {
+      "arm": "C2",
+      "whole_seconds": 14.214042926992988,
+      "main_seconds": 12.117552184994565,
+      "outside_main_seconds": 2.096490741998423,
+      "peak_allocated": 1098334720,
+      "peak_reserved": 1732247552
+    },
+    {
+      "arm": "B2",
+      "whole_seconds": 20.20446903599077,
+      "main_seconds": 15.016256647009868,
+      "outside_main_seconds": 5.188212388980901,
+      "peak_allocated": 1097281536,
+      "peak_reserved": 2199912448
+    }
+  ],
+  "baseline_mean_seconds": 20.271685134495783,
+  "candidate_mean_seconds": 14.345965035492554,
+  "same_work_speedup": 1.413058311820971,
+  "quality": {
+    "rows": 12,
+    "all_pass": true,
+    "all_decoded_equal": true,
+    "max_abs": 0.0,
+    "validation_seconds": 4.7671509140054695
+  },
+  "scope": "Same distinct K3 L026 fused E078 then E079/E080 in both schedules; shared OS/source/JIT caches; no repeat cell within arm; no cold-JIT, production throughput or heldout/full-model inference",
+  "focused_tests": "Retained exact-runtime physical93/93 in ../ds4_process_residency_run8528/QUALITY_TESTS.json; source unchanged",
+  "production_adoption": "pending owner boundary and independent actual output readback"
+}

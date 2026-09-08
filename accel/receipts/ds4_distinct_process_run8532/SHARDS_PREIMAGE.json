@@ -1,0 +1,18 @@
+{
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "rows": [
+    {
+      "owner": "t_1269dc5f",
+      "layer": 26,
+      "experts": [
+        78,
+        79,
+        80
+      ],
+      "projections": [
+        "fused13"
+      ],
+      "operation": "resident_process_amortization_not_production"
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "SUMMARY.json": {
+    "bytes": 1913,
+    "sha256": "224b3abbc4d4703733f6e8d0898d0032e78e279fc0cbbdcf899f69da8b7a917d"
+  },
+  "QUALITY_RESULT.json": {
+    "bytes": 5063,
+    "sha256": "008e1e67d101ed8070375b04111bdce1424942b55a7ba232c6794b5d0e753084"
+  },
+  "QUALITY_IDENTITY.json": {
+    "bytes": 691,
+    "sha256": "67199c40aae85b6cb965caee7980e50aae6c1919b95bd0e372605c3d637a3e96"
+  },
+  "ds4_distinct_quality_run8528.py": {
+    "bytes": 5748,
+    "sha256": "29a01f09fe8533b3a184c6c054df062c692b47e708c07e58539a8f0532323466"
+  },
+  "QUALITY_TERMINAL.json": {
+    "bytes": 21,
+    "sha256": "a02d222e1be4a3d356cac5372aa177b9048c9baaa90b42f86d8cfae4569f1286"
+  },
+  "B2_1_RESULT.json": {
+    "bytes": 33683,
+    "sha256": "1438f66cbe934fd5087c2127b5e5230e43935afa8160753e59edd09487f1f873"
+  },
+  "C1_1_RESULT.json": {
+    "bytes": 33681,
+    "sha256": "3cef89478f67166f4bad64143dee61d4462c94a1cdf7d9eb64a48d912aea4ffa"
+  },
+  "B1_1_RESULT.json": {
+    "bytes": 33667,
+    "sha256": "2de1367faaf870c040131f4abe1e3cade9981b0e9de23304ea0f5f8d9602579b"
+  },
+  "C2_1_RESULT.json": {
+    "bytes": 33674,
+    "sha256": "8b23259e2153d96c8e8b59afc3e0451402b6adaa116e59875ce0ba66d4934b8e"
+  },
+  "ds4_distinct_run8528.py": {
+    "bytes": 6056,
+    "sha256": "a2440812e3e239f75ea4f8bf4f4e3364808d107fa774d6696d1696590b025eb0"
+  },
+  "SHARDS_PREIMAGE.json": {
+    "bytes": 346,
+    "sha256": "05a057249404b559f5fd198878dc1d8b2f1b5fa3e05e1e1f85068cfeb02c07c3"
+  },
+  "IDENTITY.json": {
+    "bytes": 673,
+    "sha256": "e0220d66e944f26c4388e014aa33f2e08dfb240575c03243274f383615e07d7e"
+  },
+  "QUALITY_SCIENCE.json": {
+    "bytes": 438,
+    "sha256": "a9469314c6c74737bf345c60f9dd47842f72e35ed48e966f630853b46ac57711"
+  },
+  "PROGRESS.json": {
+    "bytes": 312,
+    "sha256": "66a618638513375e30f24091ae027fd42eaa3108765c0c812b4c50ccaad4cd4b"
+  },
+  "TERMINAL.json": {
+    "bytes": 379,
+    "sha256": "f2e6b1f35e3799164812cb5e93354395f2fdfe731c167be8b7f22ed11cf50b16"
+  },
+  "C2_0_RESULT.json": {
+    "bytes": 17025,
+    "sha256": "0e523d0142d07f3cecca0ffcee523415b7b0511658a4c470fe5f23f601af0fca"
+  },
+  "B1_0_RESULT.json": {
+    "bytes": 17028,
+    "sha256": "81d06fcff74bf304b517ad3666b8ebe7c10e379e166922d193178899c53bc802"
+  },
+  "C1_0_RESULT.json": {
+    "bytes": 17029,
+    "sha256": "a19a00f01497c9641da5ac65dbac0b88a083f09fd040fecdf86d4f356c887e51"
+  },
+  "B2_0_RESULT.json": {
+    "bytes": 17025,
+    "sha256": "63603bbf17228835f96f8260e93ad06e1be9492455a432c4ebd8b57c1182ee4b"
+  }
+}

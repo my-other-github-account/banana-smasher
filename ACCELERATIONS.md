@@ -1263,3 +1263,25 @@ Two K1 row-selection compiler trials are retained but NOT promoted: direct
 (12/12 PASS) versus same-main controls. Neither justifies a runtime change.
 Evidence, enclosing boundaries, original phase receipts, tests and runnable
 finite experiment scripts: `accel/receipts/ds4_process_residency_run8528/`.
+
+### Distinct-cell process-residency confirmation (run8532)
+
+The follow-up removes repeated-cell reuse: each arm builds E078 alone, then
+E079/E080 together, exactly once each, using the same original L026 fused K3
+inputs and unchanged runtime6a40f916. B1/C1/C2/B2 whole-process walls are
+20.338901/14.477887/14.214043/20.204469s. Mean fresh-process20.271685s versus
+resident14.345965s gives **1.413058x** on this bounded same-work panel.
+Outside-main aggregates are5.470230/5.188212s baseline and2.153788/2.096491s
+resident; included main calls also improve, so this is not solely spawn removal
+and is not a kernel speedup. OS/source/JIT caches remain shared, not cold-JIT.
+
+Resident peak allocated/reserved is1,098,334,720/1,732,247,552 bytes. Independent
+canonical decode plus original-source FP64 NMSE passes12/12 frozen-limit checks;
+all decoded tensors equal the qualified reference (max_abs0, diagnostic only).
+Validation4.767151s remains separate. No new heldout/full-model quality or
+production-throughput claim follows. The existing exact-runtime93/93 physical
+API/resume/batch test receipt is reused; no numerical source changed.
+
+Production-owner boundary adoption and independent actual new-output readback
+remain pending. Raw phase results, hash manifest, numerical rows and executable
+harnesses: `accel/receipts/ds4_distinct_process_run8532/`.

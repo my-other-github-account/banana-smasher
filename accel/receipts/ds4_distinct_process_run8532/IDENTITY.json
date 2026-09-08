@@ -1,0 +1,21 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/ds4_distinct_run8528",
+  "receipt": "/dev/shm/t_1269dc5f/ds4_distinct_run8528/IDENTITY.json",
+  "expiry_unix": 1788917148.5769217,
+  "source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "exact_cas_from_sha256": "afa91dcfe43549a04b04f20a9b3cb7524d58cd21a7ca56e3349c95c72d113ff8",
+  "stage": "ds4_resident_abba",
+  "pid": 1725741,
+  "pgid": 1725741,
+  "start_ticks": 7500511,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "ds4_distinct_run8528.py"
+  ]
+}

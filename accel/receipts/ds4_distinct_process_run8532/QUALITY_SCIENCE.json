@@ -1,0 +1,7 @@
+{
+  "limits_sha256": "5978a9134a94bf308e8bda1514691a8e0b686b7e820933b6a1d2df37a1d86102",
+  "prior_limits_path": "/dev/shm/t_ebcba52e_ds4_k3_fused_run8474/FROZEN_LIMITS.json",
+  "basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+  "quality_scope": "independent canonical decoded weight and original-source NMSE; frozen prior baseline limits, not new heldout"
+}
