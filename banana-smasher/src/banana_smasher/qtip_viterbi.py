@@ -200,7 +200,9 @@ def _store_prefix_backpointers(ptr, chosen, j, seq, step, B,
                               BRANCH_POINTERS: tl.constexpr,
                               PACK_BRANCH_PAIRS: tl.constexpr):
     if PACK_BRANCH_PAIRS:
-        branches = chosen // PREFIXES
+        # An unreachable prefix retains the strict-< initializer state zero,
+        # whose low bits need not equal the table column. Preserve that sentinel.
+        branches = tl.where(chosen == 0, 255, chosen // PREFIXES)
         even, odd = tl.split(tl.reshape(branches, (PREFIXES // 2, 2)))
         packed = even | (odd << 8)
         offset = (step * B + seq) * (PREFIXES // 2) + tl.arange(0, PREFIXES // 2)
@@ -331,7 +333,7 @@ def _persistent_prefix_viterbi_generic(
         if PACK_BRANCH_PAIRS:
             packed = tl.load(best_state_ptr + (back_step * B + seq) * (PREFIXES // 2) + prefix // 2).to(tl.int32)
             branch = (packed >> ((prefix & 1) * 8)) & 255
-            state = branch * PREFIXES + prefix
+            state = tl.where(branch == 255, 0, branch * PREFIXES + prefix)
         else:
             state = tl.load(
                 best_state_ptr + back_step * B * PREFIXES + base + prefix
