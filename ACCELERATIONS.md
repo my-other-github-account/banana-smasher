@@ -224,6 +224,24 @@ suffix, not uniform-K3 or full-vocabulary/full-model equivalence. Production
 owner readback and matched clean-boundary rollout remain required; defaults
 and live production are unchanged.
 
+A subsequent matched fresh-process/cache experiment at `32a13a73` isolated
+canonical/Triton/Inductor/CUDA/XDG caches per arm, in baseline/candidate/candidate/
+baseline order. Source assets and OS filesystem cache remained shared. Cold
+four-cell baseline29.034211/28.991158s versus candidate27.709112/28.005384s gives
+only1.047822x/1.035199x. Warm companion6.999757/6.759336s versus4.933405/4.882107s
+is1.418849x/1.384512x. These replace no earlier measurement and do not justify
+calling the warm gain a cold-start gain. The first baseline cell alone spent
+19.631835s in packed-decode conformance versus2.301603s solver core, identifying
+cold consumer compilation as the next causal target. No conformance was skipped.
+Candidate warm peak allocated/reserved bytes1,256,967,680/1,595,932,672;
+baseline415,758,336/700,448,768. Process RSS is recorded separately in raw receipts,
+not mislabeled as total unified-memory peak. All32 builds sealed; independent
+source-NMSE checks pass16/16 and each decoded candidate is identical to the already
+sparse-heldout-passed incumbent (diagnostic, not a byte-equality acceptance rule).
+Independent validation6.306971s is outside build wall. Spark-6 roots:
+`/dev/shm/t_ebcba52e_glm_k3_cold_a1` and
+`/dev/shm/t_ebcba52e_quality_glm_k3_cold_a1`. No production adoption yet.
+
 ## Unpromoted single-Spark QTIP build experiments (2026-09-07)
 
 These are bounded same-input diagnostics, not production quality acceptance.
