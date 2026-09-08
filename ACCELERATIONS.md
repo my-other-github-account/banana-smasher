@@ -1,5 +1,33 @@
 # Runtime accelerations
 
+## Corrected consumer: one independently verified output row (run8407)
+
+Frozen API `cb460bb16b63aa567c5e44f3c5e81c1cb12d7f04` completed the explicitly
+authorized ordinal1/window56 same-wire K2 control/repeat/corrected-CUDA diagnostic.
+It resumed the owner's authenticated L004 frontier, not the original prefix.
+All three arms' conditional teacher-support mean KL was 0.30121949575380447
+on 1024 positions and fixed 8192 support. Candidate delta was zero against the
+pre-readout frozen 1e-7 limit. Paired support logits had zero maximum difference;
+full-vocabulary top1 agreed on 1024/1024 positions. Teacher top1 matches were
+841/1024 in each arm. The independent raw-logit reducer verified all 18 persisted
+frontier/readout bindings and all 120 arm/layer timing rows after producer death.
+
+Forty-layer materialization: CPU 5223.142911 s; corrected CUDA 1486.547205 s
+(3.513607x). Forward costs: 16.471606 s and 15.455129 s, respectively; both
+peaked at 21,612,405,760 CUDA bytes. Control-repeat shared CPU materialization
+and was charged zero materialization, not presented as another speed replicate.
+Transfer, hashes, readout, and startup are excluded from this materialization
+ratio. This is consumer materialization evidence, NOT producer build speed,
+process-cold speed, full-model equivalence, or production adoption. The failed
+ordinal0 diagnostic remains RED and was not replayed. Primary Gutenberg-fit
+versus frozen-evaluation document ancestry remains qualification-open.
+
+Spark-6 receipt: `/home/dnola/missions/t_ebcba52e_ordinal1_run8387_a2/INDEPENDENT.json`
+SHA256 `f59e7872c0f6c88977a1d5f54eb9ab0cbd2a6178dd77ab03e76e62ba85fd34d0`;
+producer RESULT SHA256 `13a0f044b862ae8a2fce0d1c3480761eedd75c5b561ee194b3fbca7ce73fb8ac`.
+No defaults or production settings changed. Next output expansion requires an
+explicit owner/driver-bounded gate, with frozen code and no heldout tuning.
+
 ## Device canary closure and normalization isolation (2026-09-07, run8379)
 
 At `373f7d2677551a6cb1eca62d7259847ff3c161c7`, eight authentic same-wire
