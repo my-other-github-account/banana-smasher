@@ -277,11 +277,13 @@ def _persistent_prefix_viterbi_generic(
                 if STRUCTURED_GATHER:
                     # Select one contiguous predecessor row, then broadcast its
                     # entries BRANCHES times (K1: 4x4096; K3: 64x16).
-                    # Nonnegative costs add only exact zeros, including +inf.
+                    # Gather the single row directly: no masked full-vector
+                    # reduction or floating-point arithmetic for data movement.
                     cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
-                    selected = tl.sum(tl.where(
-                        tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
-                    ), axis=0)
+                    row_indices = tl.full((1, Q_FACTOR), q, tl.int32)
+                    selected = tl.reshape(tl.gather(
+                        cost_rows, row_indices, axis=0
+                    ), (Q_FACTOR,))
                     predecessor_cost = tl.reshape(tl.broadcast_to(
                         selected[:, None], (Q_FACTOR, BRANCHES)
                     ), (PREFIXES,))
