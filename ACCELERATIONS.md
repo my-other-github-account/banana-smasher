@@ -1,5 +1,36 @@
 # Runtime accelerations
 
+## Fresh consumer cohort closure: ordinal3 (run8421)
+
+The predeclared ordinal3/window71 reasoning gate completed without replaying
+ordinal0/1/2. Frozen API `cb460bb16b63aa567c5e44f3c5e81c1cb12d7f04`
+resumed the owner's authenticated L004 frontier with identical K2 wire, 1024
+positions and fixed teacher-selected 8192-token support. After producer death,
+the prepared independent verifier authenticated 18/18 frontier/readout bindings
+and all 120 unique arm/layer timing records. CPU control, repeat and rounded
+CUDA each measured conditional-support mean KL 0.08681243092070783. Candidate
+delta was zero against the frozen repeat-derived 1e-7 limit. Paired support
+logits had zero maximum difference; full-vocabulary top1 agreed 1024/1024,
+with teacher top1 matches 930/1024 in every arm.
+
+Forty-layer materialization: CPU 5199.927947 s versus CUDA 1481.353961 s
+(3.510254x); forwards 16.578090 s versus 15.565842 s. Peak CUDA allocation was
+21,612,405,760 bytes in both. Repeat shared CPU materialization and is charged
+zero, not another speed replicate. Full three-arm diagnostic wall was
+6976.389502 s. Transfer, hashing, readout and startup are excluded from the
+materialization ratio. This closes the predefined fresh ordinal2/3 consumer
+cohort, NOT producer-build throughput, process-cold speed, full-model equivalence
+or production adoption. Primary Gutenberg-fit versus evaluation document ancestry
+remains qualification-open; ordinal0 RED is preserved, with no tolerance tuning,
+automatic full64 expansion or production/default changes.
+
+Spark-6 receipt:
+`/home/dnola/missions/t_ebcba52e_ordinal3_run8411_a2/INDEPENDENT.json`
+SHA256 `97b29a25d33aa4678c6bddf0d748ac8edddb0b63d7a5a0ab5dc9e367c292f34a`;
+RESULT SHA256 `04ab946a5517bf2b61397ffa3a698bc3c5e65fa43f0d09a54b92ba0d070195cc`.
+Next work is production-owner adoption coordination and a separate bounded
+producer acceleration experiment, not another replay of this consumer cohort.
+
 ## Fresh ordered consumer expansion: ordinal2 (run8411)
 
 The next driver-authorized bounded cohort was selected before readout: fresh
