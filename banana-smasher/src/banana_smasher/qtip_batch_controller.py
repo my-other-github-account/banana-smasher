@@ -43,6 +43,13 @@ def _block_ldl_unitwise(configs: Sequence[Mapping[str, Any]]) -> bool:
     return _common("block LDL unitwise mode", values)
 
 
+def _packed_decode_execution(configs: Sequence[Mapping[str, Any]]) -> str:
+    values = [config.get("packed_decode_execution", "compiled") for config in configs]
+    if any(type(value) is not str or value not in ("compiled", "eager") for value in values):
+        raise ValueError("packed decoder execution must be compiled or eager")
+    return _common("packed decoder execution", values)
+
+
 def main_batch(
     config_paths: Sequence[Path],
     root: Path,
@@ -64,6 +71,7 @@ def main_batch(
         raise ValueError("QTIP cross-unit batch contains duplicate configs")
     configs = [solver_module._read_qtip_config(path) for path in paths]
     block_ldl_unitwise = _block_ldl_unitwise(configs)
+    packed_decode_execution = _packed_decode_execution(configs)
     if any(int(config["layer"]) != layer for config in configs):
         raise ValueError("QTIP batch config layer differs from selected layer")
     if not torch.cuda.is_available():
@@ -124,6 +132,8 @@ def main_batch(
         "bitshift": bitshift, "ldlq": _ldlq, "math_utils": _math_utils,
         "kernel_decompress": kernel_decode,
     })
+    if packed_decode_execution == "eager":
+        kernel_decode = kernel_decode.select_decoder(packed_decode_execution)
     from . import qtip_viterbi as exact
 
     references = [
@@ -473,6 +483,7 @@ def main_batch(
         "build_phase_seconds": batch_build["phase_seconds"],
         "mean_build_phase_seconds": mean_build_phases,
         "matrix_lifetime": batch_build["matrix_lifetime"],
+        "packed_decode_execution": packed_decode_execution,
         "accelerations": {
             "schema": "banana-smasher-qtip-active-build-accelerations-v1",
             "active": [

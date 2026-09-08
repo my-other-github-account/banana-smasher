@@ -47,3 +47,19 @@ def decode_compressed(L, S, R, V, m, k, compressed, expanded_lut):
     return mma_swizzled.reshape(m // 16, k // 16, 16, 16).reshape(
         m // 16, k // 16, 8, 4, 2, 2, 2
     ).permute(0, -2, 2, 1, -3, 3, -1).reshape(m, k)
+
+
+# Explicit opt-in runs exactly the same integer decoder without compilation.
+# This is never an exception fallback and does not bypass conformance.
+decode_compressed_eager = decode_compressed._torchdynamo_orig_callable
+
+
+def select_decoder(mode="compiled"):
+    from types import SimpleNamespace
+
+    if mode not in ("compiled", "eager"):
+        raise ValueError("decoder execution must be compiled or eager")
+    return SimpleNamespace(
+        decode_compressed=(decode_compressed if mode == "compiled" else decode_compressed_eager),
+        execution_mode=mode,
+    )
