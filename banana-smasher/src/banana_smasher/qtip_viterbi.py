@@ -277,13 +277,19 @@ def _persistent_prefix_viterbi_generic(
                 if STRUCTURED_GATHER:
                     # Select one contiguous predecessor row, then broadcast its
                     # entries BRANCHES times (K1: 4x4096; K3: 64x16).
-                    # Gather the single row directly: no masked full-vector
-                    # reduction or floating-point arithmetic for data movement.
-                    cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
-                    row_indices = tl.full((1, Q_FACTOR), q, tl.int32)
-                    selected = tl.reshape(tl.gather(
-                        cost_rows, row_indices, axis=0
-                    ), (Q_FACTOR,))
+                    if BRANCHES == 4:
+                        # K1: split four fixed rows, avoiding a cross-row
+                        # reduction and the large shared gather layout.
+                        halves = tl.trans(tl.reshape(previous_costs, (2, PREFIXES // 2)))
+                        lo, hi = tl.split(halves)
+                        r0, r1 = tl.split(tl.trans(tl.reshape(lo, (2, Q_FACTOR))))
+                        r2, r3 = tl.split(tl.trans(tl.reshape(hi, (2, Q_FACTOR))))
+                        selected = tl.where(q == 0, r0, tl.where(q == 1, r1, tl.where(q == 2, r2, r3)))
+                    else:
+                        cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
+                        selected = tl.sum(tl.where(
+                            tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
+                        ), axis=0)
                     predecessor_cost = tl.reshape(tl.broadcast_to(
                         selected[:, None], (Q_FACTOR, BRANCHES)
                     ), (PREFIXES,))
