@@ -1,0 +1,41 @@
+{
+  "canonical_pin": "ffa38284d57664206ac1f0540d51d7199ebc66dc",
+  "basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "candidate_change": "viterbi_num_warps 16 vs8, unsolved-prefix OFF in both",
+  "baseline_binding_sha256": "64dcabe681e6ec44f614b581589efc1f6fec3613dae033bf3843fcd158fb1867",
+  "candidate": [
+    {
+      "arm": "candidate_setup",
+      "wall": 33.077884387996164,
+      "peak_allocated": 5187781120,
+      "peak_reserved": 9214885888,
+      "sha256": "0896d87bd4b913a2a2539aa56713fc7fe19b4035405de7ccfac00fc21b991637"
+    },
+    {
+      "arm": "candidate_warm1",
+      "wall": 28.884976240995456,
+      "peak_allocated": 5191984640,
+      "peak_reserved": 9219080192,
+      "sha256": "84bdd16616cf7028df613b5b831b4f47770f45a8fe9199db01833161d9ed7434"
+    },
+    {
+      "arm": "candidate_warm2",
+      "wall": 29.01116685099987,
+      "peak_allocated": 5196188160,
+      "peak_reserved": 9223274496,
+      "sha256": "d9fcdf6a1d6059d62b9b196d22149aa38ca35520987e2ae23a51584be489238b"
+    }
+  ],
+  "builds": 12,
+  "quality_count": 8,
+  "quality_pass": true,
+  "max_decoded_delta": 0.0,
+  "warm_speedup": 0.9824023732050868,
+  "validation_wall": 4.132855591997213,
+  "quality_sha256": "e4a04e1d090b44063a1b37236e177391ff182730c0bef3c5745ebfc20c8baa72",
+  "producer_root": "spark-6:/dev/shm/t_ebcba52e_ds4_warp16_run8451",
+  "quality_root": "spark-6:/dev/shm/t_ebcba52e_quality_ds4_warp16_run8451",
+  "heldout_kld": null,
+  "production_promotion": false,
+  "decision": "Performance RED;8-warps remains incumbent. No byte-equality rejection."
+}

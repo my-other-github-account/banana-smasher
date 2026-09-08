@@ -845,3 +845,56 @@ production adoption is claimed. Spark-6 roots:
 The original down projection source is insufficient for an authentic fitting replay: public `_prepare_fit_windows` derives down activations using the original gate/up projections. A DOWN selected-source package requires six tensors (three weights and scales); FUSED13 requires four. The acknowledged two-tensor predecessor is immutable and retained. Eight L031 DOWN cells (E000, E001, E010, E100–E104) now have fresh six-tensor namespaces and independently rehashed destination ACKs plus path-only config/Hessian relocations. The original source index, full parent hashes, headers, fit16 captures and ledger identities remain bound; no recapture or solve was performed by this lane.
 
 Evidence: `accel/receipts/L031_SIX_SOURCE_CLOSURE_run8449.json`. These are source availability and relocation gates, NOT producer admission, numerical equivalence, a speed improvement, or production acceleration adoption. Prior default-off unsolved-prefix GLM results remain unchanged. The next DS4 structural experiment requires restoration of its original-byte input binding: the previous dedicated staged source and baseline roots are absent, and their owner was asked for surviving locations without recapture or full scorer restart.
+
+## DS4 restored-input unsolved-prefix and 16-warp gates (run8451)
+
+The original four L013/E084,E085 down/fused13 K1 configs and all22 original
+clean-fit capture bindings survived on the source owner. They were restored
+by bounded QSFP transfer and destination hashes, not recapture. The resident
+0731 source index physically matched98efab45. Both experiments imported
+canonical mainffa38284d57664206ac1f0540d51d7199ebc66dc. Historical K1 remains
+distinct from current K3 production.
+
+Unsolved-prefix BMM versus the current grouped/unitwise/structured8-warp
+incumbent completed24 builds. Warm four-cell baseline28.355848/28.521460s
+versus candidate27.927281/28.157272s gives aggregate1.014135x, not a substantial
+build win. LDLQ remains dominant: baseline25.930913/26.105558s versus
+candidate25.490609/25.703773s, counting each batch once. Setup43.797747s versus
+27.909833s is order/shared-JIT-confounded; baseline included11.726618s packed
+conformance, so these setup walls are NOT cold-JIT speedup evidence. Maximum
+allocated/reserved bytes were5,206,696,960/9,233,760,256. Independent canonical
+decode/source-NMSE validation passed8/8 under baseline-repeat-derived limits;
+maximum decoded and source-NMSE deltas were0. Validation81.191607s is separate.
+
+A candidate-only16-warp scheduling rung reused that sealed8-warp baseline by
+digest, with unsolved-prefix OFF in both arms. All12 builds passed. Warm walls
+28.884976/29.011167s give0.982402x; reject on performance, not assignment bytes.
+Independent8/8 decode/NMSE checks passed with zero decoded delta in4.132856s.
+Eight warps remains incumbent. Neither gate changes defaults, establishes
+full-model output equivalence, or authorizes production promotion.
+
+Compact measured evidence: `accel/receipts/DS4_UNSOLVED_SUMMARY_run8451.json`
+and `accel/receipts/DS4_WARP16_SUMMARY_run8451.json`. Producer/validator roots
+and raw receipt hashes are bound there. A frozen DS4 teacher/support/corpus
+seam was relayed, but no hidden-state frontier was located in the named prior
+owner forward root; no full-forward/scorer replay was authorized or performed.
+
+Separately, the GLM owner reports physical K3 admission of all8 six-tensor
+L031 packages from run8449. This is authentic source/producer integration,
+not acceleration adoption. A next L032/E000 six-tensor package plus path-only
+relocation was sealed for the owner's missing-only request; no duplicate
+product solve or calibration capture was performed.
+
+The current-incumbent operator profile (four authentic cells, instrumentation
+only) recorded768 `_persistent_prefix_viterbi_generic` calls with25.062639s
+self-device time. CPU operator/device-child totals overlap and are not summed
+as independent costs. Root: `/dev/shm/t_ebcba52e_profile_ds4_incumbent_run8451`.
+It motivates targeting the persistent recurrence rather than another BMM sweep.
+
+Receipt correction: `qtip_batch` had hardcoded K2 prefix4096/branch16 metadata
+for every ring. This run's top-level K1 solver receipt correctly reports
+prefix16384/branch4; its nested batch metadata is historical and preserved,
+not a changed execution geometry. The public batch receipt now derives both
+counts from L/K/V. A direct execution test of the receipt expression failed
+for K1/K3/K4 before the two-field correction and all10 focused batch tests
+pass afterward. This changes metadata only, not arithmetic or assignments.

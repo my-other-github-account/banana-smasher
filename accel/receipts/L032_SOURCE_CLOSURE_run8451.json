@@ -1,0 +1,57 @@
+{
+  "mirror": {
+    "state": "SEALED_ONE_CELL_SOURCE_MIRROR",
+    "identity": {
+      "task_id": "t_ebcba52e",
+      "pid": 897762,
+      "pgid": 897762,
+      "start_ticks": 4562773,
+      "argv": [
+        "mirror_l032e000six_run8451.py",
+        "9d2e92cefe970fd50f1bc32b96400ca0af14d1d56fd8bbf0d18315c71c754a18"
+      ],
+      "receipt": "/dev/shm/t_ebcba52e_mirror_l032e000six_run8451/IDENTITY.json",
+      "script_sha256": "33711c2c53ea182967506fbf6658c280fb00439aa725d8107f4733edc05e28de"
+    },
+    "cell": "L032/E000_down",
+    "destination": "spark-5-work:/dev/shm/CLEAN_t_bd7914e6_SOURCE375_run8440_a1/L032_E000_down_six_run8451",
+    "bytes": 221085211,
+    "files": 53,
+    "selected_tensors": 6,
+    "ack_sha256": "6fe0f62b1e5e32cb04f7e80f451a8e340eab0a6c90ac5db3637db8a8948bd41a",
+    "source_mapping_sha256": "070a23ec85b002992f0d5e0d6f92b18d68d97f3093c6aaa517b0cb662d76ed05",
+    "recapture": 0,
+    "replayed": 0,
+    "correction": "DOWN transitive fit source closure; existing two-tensor mirror preserved",
+    "product_durability": false
+  },
+  "relocation": {
+    "state": "SEALED_PATH_RELOCATION_NOT_RUNTIME_ADOPTION",
+    "identity": {
+      "task_id": "t_ebcba52e",
+      "pid": 898635,
+      "pgid": 898635,
+      "start_ticks": 4566299,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "relocate_l032e000six_run8451.py",
+        "40188ed2bcbe01ecf28ea478d766c8247da2d3fff968b9b73f6e5e747c909946"
+      ],
+      "receipt": "/home/dnola/missions/t_ebcba52e_relocate_l032e000six_run8451/RESULT.json"
+    },
+    "rows": [
+      {
+        "cell": "L032/E000_down",
+        "destination": "/dev/shm/CLEAN_t_bd7914e6_SOURCE375_run8440_a1/L032_E000_down_six_run8451/relocation_run8451",
+        "hashes": {
+          "RELOCATION.json": "12b6c82e6ef5de2563d7c2223eded3c79733c3bec3f0f61f59bb77b0c6706d54",
+          "HESSIAN_RELOCATED.json": "5bbc463c20eddeca3ff1f54dcb7fbf24306d2d357e0e852824e63744f268c5c1",
+          "CONFIG_RELOCATED.json": "d39b9e7483ea29c8e02284ff77f891c3e44ec22af5ba2df826979c4ad3de41f5"
+        },
+        "original_config": "/dev/shm/CLEAN_t_bd7914e6_SOURCE375_run8440_a1/L032_E000_down_six_run8451/original/home/dnola/missions/CLEAN_t_bd7914e6/solve_l032_selected_down_s6_run8194_a2/batch_L032_E000_down.json"
+      }
+    ]
+  },
+  "owner_request": "SOURCE_OWNER_REMAINING357_run8450.json",
+  "owner_admission": false
+}

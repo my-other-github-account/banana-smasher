@@ -1,0 +1,121 @@
+{
+  "schema": "banana-smasher.accel.ds4-unsolved.v1",
+  "canonical_pin": "ffa38284d57664206ac1f0540d51d7199ebc66dc",
+  "basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "producer_root": "spark-6:/dev/shm/t_ebcba52e_ds4_unsolved_run8451",
+  "quality_root": "spark-6:/dev/shm/t_ebcba52e_quality_ds4_unsolved_run8451",
+  "rows": [
+    {
+      "arm": "baseline_setup",
+      "wall": 43.79774734900275,
+      "peak_allocated": 5187781120,
+      "peak_reserved": 9214885888,
+      "units": 4,
+      "batch_count": 2,
+      "phase_seconds": {
+        "hessian_forward_fwht": 0.2444252939967555,
+        "batched_block_ldl": 0.054861712000274565,
+        "batched_ldlq": 27.021519645000808,
+        "canonical_per_unit_pack": 0.24702545799664222,
+        "packed_decode_conformance": 11.726617898995755
+      },
+      "receipt_sha256": "22740287bd0e128f0ee3b8ea60a834ad4485a1a6eadbf763ea29c3236a65fa25"
+    },
+    {
+      "arm": "baseline_warm1",
+      "wall": 28.355848047998734,
+      "peak_allocated": 5189882880,
+      "peak_reserved": 9216983040,
+      "units": 4,
+      "batch_count": 2,
+      "phase_seconds": {
+        "hessian_forward_fwht": 0.21520153199526248,
+        "batched_block_ldl": 0.02630862699879799,
+        "batched_ldlq": 25.930913495001732,
+        "canonical_per_unit_pack": 0.20990673000051174,
+        "packed_decode_conformance": 0.3339263540037791
+      },
+      "receipt_sha256": "405b577521f3d43b75d20ca68387ce33af92610c96d8efd36d06ec2b3a4afc87"
+    },
+    {
+      "arm": "baseline_warm2",
+      "wall": 28.52146032499877,
+      "peak_allocated": 5194086400,
+      "peak_reserved": 9221177344,
+      "units": 4,
+      "batch_count": 2,
+      "phase_seconds": {
+        "hessian_forward_fwht": 0.2164558809963637,
+        "batched_block_ldl": 0.02662808899913216,
+        "batched_ldlq": 26.1055581620094,
+        "canonical_per_unit_pack": 0.20489595900289714,
+        "packed_decode_conformance": 0.3312181919973227
+      },
+      "receipt_sha256": "f89e0e1cd8b43170b0a8c723bb2ce8c78e627aec72863c9244ee35ed6c4dd898"
+    },
+    {
+      "arm": "candidate_setup",
+      "wall": 27.90983346799476,
+      "peak_allocated": 5198289920,
+      "peak_reserved": 9225371648,
+      "units": 4,
+      "batch_count": 2,
+      "phase_seconds": {
+        "hessian_forward_fwht": 0.22940020299574826,
+        "batched_block_ldl": 0.026138618995901197,
+        "batched_ldlq": 25.466995835995476,
+        "canonical_per_unit_pack": 0.21979985699726967,
+        "packed_decode_conformance": 0.3308894770016195
+      },
+      "receipt_sha256": "7b8d95949bf4a422a2306609021bd988f33c2ca1d7cbfff18e523881594d538b"
+    },
+    {
+      "arm": "candidate_warm1",
+      "wall": 27.927281013005995,
+      "peak_allocated": 5202493440,
+      "peak_reserved": 9229565952,
+      "units": 4,
+      "batch_count": 2,
+      "phase_seconds": {
+        "hessian_forward_fwht": 0.21702582800935488,
+        "batched_block_ldl": 0.026056063004944008,
+        "batched_ldlq": 25.490609198997845,
+        "canonical_per_unit_pack": 0.21970688300643815,
+        "packed_decode_conformance": 0.3347549229947617
+      },
+      "receipt_sha256": "93b57b0586ef640c353a059b8debfb48f095b4929aeffd6d9d7f20dd7fd87294"
+    },
+    {
+      "arm": "candidate_warm2",
+      "wall": 28.157272272997943,
+      "peak_allocated": 5206696960,
+      "peak_reserved": 9233760256,
+      "units": 4,
+      "batch_count": 2,
+      "phase_seconds": {
+        "hessian_forward_fwht": 0.22115738499269355,
+        "batched_block_ldl": 0.026666389996535145,
+        "batched_ldlq": 25.703772918997856,
+        "canonical_per_unit_pack": 0.21835402899887413,
+        "packed_decode_conformance": 0.33483519699802855
+      },
+      "receipt_sha256": "6475c439a274a9742c573ad876b38a436aa46f6cca793f5f51ebd6970b050e97"
+    }
+  ],
+  "build_count": 24,
+  "warm_speedup": 1.0141349986858397,
+  "paired_warm_speedups": [
+    1.0153458202677572,
+    1.0129340672089915
+  ],
+  "quality_count": 8,
+  "quality_pass": true,
+  "max_decoded_delta": 0.0,
+  "max_source_nmse_delta": 0.0,
+  "validation_wall": 81.19160744700639,
+  "quality_receipt_sha256": "f0f8f121bf92a0fabafffb6af46ef8bbfba474d045ebc8666a37f3922ce06886",
+  "cold_note": "Setup arms share global JIT/source caches and fixed ordering; not a matched cold-JIT result.",
+  "heldout_kld": null,
+  "production_promotion": false,
+  "decision": "No substantial repeatable end-to-end gain; default-off remains. Continue causal mechanism research."
+}

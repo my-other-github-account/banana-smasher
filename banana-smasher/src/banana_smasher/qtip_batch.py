@@ -486,8 +486,8 @@ def build_qtip_batch(
             "L": int(codebook.L),
             "K": int(codebook.K),
             "V": int(codebook.V),
-            "retained_prefix_costs": 4096,
-            "branches_per_prefix": 16,
+            "retained_prefix_costs": 1 << (int(codebook.L) - int(codebook.K) * int(codebook.V)),
+            "branches_per_prefix": 1 << (int(codebook.K) * int(codebook.V)),
             "branch_sampling": "full",
         },
     }
