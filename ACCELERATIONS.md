@@ -1,5 +1,56 @@
 # Runtime accelerations
 
+## K3 branch scheduling and reduction layouts (2026-09-07, run8354)
+
+Three new candidate-only rungs reused the sealed selected-source four-cell
+L005 E001--004 fused13 K3 incumbent; no baseline build or calibration replay.
+All keep eager conformance, unitwise preprocessing, eight warps, identical
+source/calibration/geometry and private per-process compilation caches.
+Shared OS/source caches remain disclosed. The paired incumbent walls are
+cold 12.915914/12.177085 s and warm 7.960290/8.082386 s.
+
+| Opt-in / deployed pin | Cold walls (s) | Warm walls (s) | Decision versus incumbent |
+| --- | --- | --- | --- |
+| Four-way branch unroll, `4417a0a0d9f54f5de60db0bd4ac70d11497b7962` | 13.731646 / 13.897338 | 7.596536 / 7.657551 | 0.8762--0.9406x cold; only 1.0479--1.0555x warm, not substantial end-to-end |
+| Four-branch outer-axis reduction, `5ed85c10c7f7e765d6bbb69fcadda4e8ce4af4b5` | 26.514541 / 27.257612 | 22.348673 / 22.852550 | Rejected for speed |
+| Four-branch inner-axis reduction, `a196fe2cca9f0b4040309603d1a0fb4fcbf4ccd7` | 13.788614 / 14.109511 | 9.496375 / 9.424644 | Better than failed outer-axis, still slower than incumbent; rejected |
+
+Each rung passed 17/17 actual public-API builds (one smoke then two cold/warm
+four-cell arms) and 16/16 independent source-NMSE/decode checks. Maximum decoded
+change versus incumbent was zero. Separate validation walls were 26.754476,
+24.846130 and 23.684414 s respectively. Peak allocated bytes were 2,114,731,008
+cold and 2,116,832,768 warm; peak reserved 3,321,888,768 / 3,323,985,920 bytes.
+No new held-out output KLD or full-model equivalence is claimed.
+
+`viterbi_branch_unroll=true` now admits K3 as an opt-in. Independent
+`viterbi_branch_grouped=true` changes the existing specialized kernel's
+branch-reduction layout, not its encoder, wire, source or bit tier; it rejects
+mixed batch schedules, incompatible tiers, structured gather and simultaneous
+unroll. Defaults remain OFF. The reduction explicitly ignores NaNs and retains
+the lowest state on finite ties; all 64 branches are evaluated. A first smoke
+at `3e7d44bd` failed before any unit sealed because Triton treated a scalar
+`q` from overlap initialization as loop-carried into a rank-2 grouped tensor.
+The recovered namespace used distinct grouped-variable names; no fallback,
+failed output overwrite or scientific timing credit. Focused suite: 97 passed.
+
+The outer-axis eight-warp compiled entries allocate 16,384 shared bytes;
+inner-axis entries allocate 0/64. Default AOT sixteen-warp entries are distinct
+and must not be counted as executed candidate variants. This metadata does not
+measure occupancy. The inner-axis improvement against a failed experiment is
+not an improvement against the incumbent.
+
+Receipts: task-local `GLM_K3_{UNROLL,GROUPED_A2,INNER}_{TERMINAL,QUALITY,SUMMARY}_run8354.json`
+and `GLM_K3_GROUP_LAYOUT_METADATA_run8354.json`. Durable Spark-6 archives retain
+all new scientific bytes under `/home/dnola/missions/t_ebcba52e_preserved_{unroll,grouped,inner}_run8354`;
+byte-identical unit files are hardlinked without losing any original path.
+The producer owner explicitly has no surviving hash-closed independent held-out
+incumbent/frontier/support seam to authorize adoption. Producer fitting support
+is NOT held-out support. No scorer restart, down-canary adoption or production
+promotion is authorized. Best incumbent remains selected+eager+unitwise+8warps,
+rolled global predecessor costs. Next work should target another measured
+mechanism rather than replay these rejected branch layouts.
+
+
 ## K3 operator attribution and device conformance (2026-09-07, unpromoted)
 
 A new instrumented four-cell selected-source eager panel attributed 5.186006s
