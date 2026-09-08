@@ -898,3 +898,47 @@ not a changed execution geometry. The public batch receipt now derives both
 counts from L/K/V. A direct execution test of the receipt expression failed
 for K1/K3/K4 before the two-field correction and all10 focused batch tests
 pass afterward. This changes metadata only, not arithmetic or assignments.
+
+## DS4 structured movement plus branch unrolling (run8454)
+
+Current public API pin `af328fa2dc00b57eeb091109a2543a679d431ad5` measured
+three candidate-only rungs on the same authentic historical K1 L013 E084/E085
+DOWN (4096x2048) and FUSED13 (4096x4096) panel. The independently sealed
+run8451 baseline was reused by digest, never rebuilt: warm four-cell walls
+28.355848/28.521460s, structured8 with singleton-preserving preprocessing.
+The intervening pin change corrects receipt geometry only.
+
+| Candidate | Warm four-cell seconds | Speedup vs baseline | Independent checks |
+|---|---|---|---|
+| Structured8 + four-branch unroll | 24.364632 / 23.833416 | 1.180075x | 8/8 PASS |
+| Structured16 + four-branch unroll | 22.617537 / 22.239680 | 1.267963x | 8/8 PASS |
+| Above + uint8 branch-index table | 46.814866 / 46.876607 | 0.607070x | 8/8 PASS |
+
+The new build-side incumbent is structured16/unroll/int32, 1.074477x beyond
+unrolled8. This does not overturn the earlier non-unrolled16 loss: unrolling
+changes the compiler/resource layout. The byte table is rejected for speed:
+0.478776x versus the new incumbent, despite lower peak allocation
+1,974,962,688B. Ratios are measured, not multiplied historical component gains.
+
+All24 independent warm-cell source-NMSE/decode checks pass the previously
+frozen baseline-repeat limits; decoded max_abs and NMSE deltas are zero.
+Byte equality remains diagnostic only. Independent validation cost is
+3.928813s / 3.532998s / 3.783728s, outside producer wall. Included staging,
+producer/conformance phases, CUDA allocated/reserved peaks and raw hashes
+are in `accel/receipts/DS4_*SUMMARY_run8454.json`. Each candidate has one setup
+and two warm panels, totaling36 new builds across these three rungs.
+Setup walls28.996448/27.458529/51.734589s share existing source/JIT caches;
+there is no matched cold-JIT speedup claim.
+
+No new held-out output KLD, full-model equivalence, current K3 production
+coverage or acceleration adoption is claimed. The source owner supplied frozen
+teacher/support/corpus bytes but no bound hidden-state frontier in the named
+prior root. A bounded prefix-restoration scope was requested; no full scorer
+restart is authorized or performed. Defaults remain unchanged. Next kernel
+research must compare against the retained int32 unroll16 incumbent, not the
+slower byte-table attempt. Durable preservation attempted at
+`/home/dnola/missions/t_ebcba52e_preserved_ds4_unroll_run8454` failed before
+copying:1,884,545,024B free versus the existing4GiB reserve plus11,059,200B
+planned new allocation. Its FAILURE is retained; all volatile originals and
+local receipt copies survive. No durable candidate archive is claimed, no
+scientific bytes were deleted and no storage reserve was weakened.
