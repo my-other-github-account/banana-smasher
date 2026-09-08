@@ -1,0 +1,17 @@
+{
+  "whole_means": {
+    "serial": 16.069004357999802,
+    "parallel": 15.834732662497117
+  },
+  "stage_means": {
+    "serial": 1.67974163100007,
+    "parallel": 1.3678369029985333
+  },
+  "whole_speedup": 1.0147947995394664,
+  "staging_speedup": 1.2280277183031016,
+  "separate_pair_seconds": 22.283152017000248,
+  "resident_amortization_speedup": 1.3867164088425175,
+  "quality_checks": 10,
+  "all_decoded_equal": true,
+  "max_sse_ratio": 1.0
+}

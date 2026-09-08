@@ -773,21 +773,35 @@ def _load_captures(
     root: Path,
     layer: int,
     windows: int,
+    *,
+    hash_workers: int = 1,
 ) -> list[dict[str, Any]]:
+    if type(hash_workers) is not int or hash_workers not in (1, 2, 4):
+        raise ValueError("capture hash workers must be 1, 2, or 4")
     root = root.resolve()
     cache_key = (root, layer, windows)
     cached = _CAPTURE_CACHE.get(cache_key)
     if cached is not None:
         return cached
     rows = []
-    for window in range(windows):
-        path = root / f"xmoe_L{layer:03d}_win{window:04d}.pt"
+    paths = [root / f"xmoe_L{layer:03d}_win{window:04d}.pt" for window in range(windows)]
+    digests = None
+    if hash_workers > 1 and paths:
+        # Hash only host files concurrently. Tensor loading and routed-row work
+        # remain ordered and unit-local; every byte is still verified each load.
+        from concurrent.futures import ThreadPoolExecutor
+        for path in paths:
+            if not path.is_file() or not path.with_suffix(path.suffix + ".DONE.json").is_file():
+                raise FileNotFoundError(f"missing fit capture or receipt: {path}")
+        with ThreadPoolExecutor(max_workers=hash_workers) as pool:
+            digests = list(pool.map(_md5, paths))
+    for window, path in enumerate(paths):
         done_path = path.with_suffix(path.suffix + ".DONE.json")
         if not path.is_file() or not done_path.is_file():
             raise FileNotFoundError(f"missing fit capture or receipt: {path}")
         done = json.loads(done_path.read_text())
         expected_md5 = done.get("md5") if isinstance(done, dict) else None
-        actual_md5 = _md5(path)
+        actual_md5 = _md5(path) if digests is None else digests[window]
         if (
             not isinstance(expected_md5, str)
             or len(expected_md5) != 32
@@ -1487,7 +1501,13 @@ def main(
         config,
         layer=layer,
     )
-    captures = _load_captures(capture_root, layer, fit_window_count)
+    if "capture_hash_workers" in config:
+        captures = _load_captures(
+            capture_root, layer, fit_window_count,
+            hash_workers=config["capture_hash_workers"],
+        )
+    else:
+        captures = _load_captures(capture_root, layer, fit_window_count)
     fit_windows, fit_source = _prepare_fit_windows(
         qv,
         captures,
