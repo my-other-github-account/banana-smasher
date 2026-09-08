@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "task": "t_1269dc5f",
+  "runtime_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+  "panel_publication_pin": "a893e5b377d0424d5ad7bcb9b55c946d6fb5b744",
+  "production_root": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2",
+  "production_cells": 6,
+  "artifact_bytes": 18988950,
+  "canonical_import_modules": 55,
+  "additional_manifest_runner_bindings": {
+    "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py": {
+      "bytes": 68246,
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+      "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+    }
+  },
+  "producer_packed_conformance_pass": 6,
+  "independent_production_decode_executed": false,
+  "production_speed_comparison": null,
+  "scope_label_correction": "ADMISSIONS scope label says L000fused; actual structured cells/configs/receipt geometry are L012 E081..086 down. Original immutable receipts preserved.",
+  "quality_scope": "Prior distinct-panel12/12 independent canonical decode/original-source FP64 NMSE frozen limits PASS; production6/6 producer conformance authenticated, not full-model or heldout quality.",
+  "s6_allocation": "Retained unchanged per operator; terminal task-owned predecessor PID1730480 absent.",
+  "next_action": "Existing production owner continues independent production; dedicated s6 remains reserved pending operator next bounded objective."
+}

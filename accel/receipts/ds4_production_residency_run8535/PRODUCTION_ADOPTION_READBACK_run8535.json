@@ -1,0 +1,3991 @@
+{
+  "observed": 1788911242.8721697,
+  "root": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2",
+  "files": {
+    "CLAIM_READBACK.json": {
+      "controller_pid": 1007061,
+      "controller_startticks": 7610727,
+      "expires_unix": 1788997447.916577,
+      "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2",
+      "owner_task_id": "t_68e5892b",
+      "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/CLAIM_READBACK.json",
+      "released": false,
+      "state": "CLAIMED",
+      "status": "CLAIMED",
+      "task_id": "t_68e5892b"
+    },
+    "SHARDS.json": {
+      "K": 3,
+      "cells": [
+        [
+          12,
+          81,
+          "down"
+        ],
+        [
+          12,
+          82,
+          "down"
+        ],
+        [
+          12,
+          83,
+          "down"
+        ],
+        [
+          12,
+          84,
+          "down"
+        ],
+        [
+          12,
+          85,
+          "down"
+        ],
+        [
+          12,
+          86,
+          "down"
+        ]
+      ],
+      "controller_pid": 1007061,
+      "controller_startticks": 7610727,
+      "execution_owner": "macmini.local",
+      "expires_unix": 1788997447.916577,
+      "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "logical_owner": "bs09",
+      "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2",
+      "operation": "bounded-missing-main_batch-trial",
+      "owner_task_id": "t_68e5892b",
+      "plan_sha256": "10ad13535931a5c615a9a32c4a0ff73b2e3f281fe38f3d92b7e56ce2edca72c6",
+      "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/CLAIM_READBACK.json",
+      "released": true,
+      "state": "RELEASED",
+      "status": "RELEASED",
+      "task_id": "t_68e5892b"
+    },
+    "PROGRESS.json": {
+      "K": 3,
+      "accepted_artifact_bytes": 18988950,
+      "completed_cells": 6,
+      "last_cell": [
+        12,
+        86,
+        "down"
+      ],
+      "main_batch_wall_seconds": 3.135206460952759,
+      "observed": 1788911161.5705726,
+      "started": 1788911047.9004586,
+      "target_cells": 6
+    },
+    "TERMINAL.json": {
+      "child_dead": true,
+      "error": null,
+      "exit_code": 0,
+      "observed": 1788911162.9003928,
+      "progress": {
+        "K": 3,
+        "accepted_artifact_bytes": 18988950,
+        "completed_cells": 6,
+        "last_cell": [
+          12,
+          86,
+          "down"
+        ],
+        "main_batch_wall_seconds": 3.135206460952759,
+        "observed": 1788911161.5705726,
+        "started": 1788911047.9004586,
+        "target_cells": 6
+      },
+      "qualification": "production trial only; no speedup claim, no full row qualification; cold only, no warm replay",
+      "status": "PASS",
+      "whole_wall_seconds": 114.99993419647217
+    },
+    "RESIDENT_WHOLE_WORK.json": {
+      "batches": 3,
+      "cells": [
+        [
+          12,
+          81,
+          "down"
+        ],
+        [
+          12,
+          82,
+          "down"
+        ],
+        [
+          12,
+          83,
+          "down"
+        ],
+        [
+          12,
+          84,
+          "down"
+        ],
+        [
+          12,
+          85,
+          "down"
+        ],
+        [
+          12,
+          86,
+          "down"
+        ]
+      ],
+      "finished": 1788911161.5839658,
+      "pid": 1008441,
+      "pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+      "scope": "distinct new cells only; no replay or production speedup claim",
+      "started": 1788911124.7402227,
+      "startticks": 7618424,
+      "whole_child_wall_seconds": 36.843743324279785
+    },
+    "RELEASE_READBACK.json": {
+      "controller_pid": 1007061,
+      "controller_startticks": 7610727,
+      "expires_unix": 1788997447.916577,
+      "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "mission": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2",
+      "owner_task_id": "t_68e5892b",
+      "receipt_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/CLAIM_READBACK.json",
+      "released": true,
+      "state": "RELEASED",
+      "status": "RELEASED",
+      "task_id": "t_68e5892b",
+      "terminal_path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/TERMINAL.json",
+      "terminal_sha256": "5478cd1967f673f89b90fb2921bba8099baa9ac98b1e3f514eba7fae8123dcca"
+    },
+    "CUDA_PREFLIGHT_0000.json": {
+      "conservative_batch_estimate_bytes": 12884901888,
+      "free_bytes": 47756271616,
+      "reserve_bytes": 4294967296,
+      "total_bytes": 130663165952
+    }
+  },
+  "rows": [
+    {
+      "admission": {
+        "K": 3,
+        "cell": [
+          12,
+          81,
+          "down"
+        ],
+        "artifact": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E081_down/QTIP_UNIT.pt",
+          "sha256": "188383700220e2b22131e051210c81797b2693defa5f12b38f9fab3437fb6ea7",
+          "bytes": 3164825
+        },
+        "receipt": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E081_down/QTIP_SOLVE_RECEIPT.json",
+          "sha256": "066ccd9ad37731ce9cf3092dfa59e57d0b28838a2fa07fa29e85678c6a3e901e",
+          "bytes": 15568
+        },
+        "config": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E081_down.json",
+          "sha256": "0761b916496b307403ea6688795b309d327ba10ada91bee389c9c05e5786dad3",
+          "bytes": 3369
+        },
+        "imports": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0000.json",
+          "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291",
+          "bytes": 15686
+        },
+        "source_input": {
+          "cell": [
+            12,
+            81,
+            "down"
+          ],
+          "reusable_input_config": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-resident-clean16-run8169/L012_E081_down.json",
+            "bytes": 3316,
+            "sha256": "e322d0a5e5025f30d782156859fe13f4dbdb99823feb39bb9d0827dc871a7381"
+          },
+          "reusable_capture_binding": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+            "bytes": 14129,
+            "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6"
+          },
+          "reusable_population": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+            "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+          },
+          "input_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+        },
+        "started": 1788911127.498013,
+        "accepted": 1788911155.484797,
+        "qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "producer_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+        "producer_identity": {
+          "pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+          "publication": "4cca9cfad911e8eac3d50dfdeb330ef132422032"
+        },
+        "scope": "bounded-L000fused-missing-continuation"
+      },
+      "config": {
+        "aot": {
+          "architecture": "runtime-device",
+          "cache": "sha256-pinned",
+          "compile": "first-use-or-explicit",
+          "producer": "smash kernels build --tier qtip --bpw 3.00"
+        },
+        "backend": "persistent-soa-exact-prefix-dp-v32",
+        "block_ldl_unitwise": true,
+        "bpw": "3.00",
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "exact_solver": "banana_smasher.qtip_viterbi@6a40f916a6def348cb6a65bcd648006ab3242211",
+        "expert": 81,
+        "fit_capture_root": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/captures",
+        "fit_population_manifest": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+          "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+        },
+        "fit_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "fit_windows": 22,
+        "geometry": {
+          "K": 3,
+          "L": 16,
+          "V": 2
+        },
+        "hessian_layer_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+        "hessian_layer_manifest_sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731/model.safetensors.index.json",
+            "sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+          }
+        },
+        "layer": 12,
+        "layer_census": {
+          "d4": 0,
+          "qtip2": 512,
+          "qtip3": 0
+        },
+        "materialization": {
+          "qtip_ring_bpw": "3.00",
+          "run_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E081_down.MANIFEST.json",
+          "run_manifest_sha256": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+          "schema": "banana-smasher-qtip-config-materialization-v1",
+          "source_config_sha256": "28ea43e08f356652da4056822f2ed15af5505335c1f4796cadbb05cd13741b5d"
+        },
+        "model_root": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+        "pack_counts": {
+          "d4": 4173,
+          "qtip2": 2266,
+          "qtip3": 14979
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-stage-run8169/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/reference/L016_E001_fused13_L16_K2_V2.pt",
+        "rht_seed": 8783381724634720455,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@3.00",
+        "tlut_source": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-stage-run8169/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/qtip_runtime/inputs/P817_TLUT_SOURCE.pt"
+      },
+      "receipt": {
+        "artifact": "QTIP_UNIT.pt",
+        "artifact_sha256": "188383700220e2b22131e051210c81797b2693defa5f12b38f9fab3437fb6ea7",
+        "assignment_sha256": "d1a7dd35694822f3ad4d4c12526c30f6ab682b5282f200f44653d9839926fbbb",
+        "basis_gate": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "schema": "banana-smasher-qtip-basis-gate-v1",
+          "shards_manifest": "SHARDS.json",
+          "shards_manifest_sha256": "d1cf4ce169bf58126fc7e3ac478ed86a1aad5b03c7b73dd2fcb661a82bc53aa3",
+          "status": "PASS"
+        },
+        "build": {
+          "batch": {
+            "batch_id": "a0fd8b24bae1e266",
+            "batch_units": 3,
+            "batch_wall_seconds": 24.618215485999826,
+            "implementation": "current-k3-full16-cross-unit-batched-ldlq-v1",
+            "independent_unit_state": true,
+            "matrix_lifetime": {
+              "batch_units": 3,
+              "events": [
+                {
+                  "live_fp32_matrices": [
+                    "hessian",
+                    "lower",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 6.0,
+                  "phase": "batched_ldl_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [
+                    "lower",
+                    "quantized",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 7.5,
+                  "phase": "batched_ldlq_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [],
+                  "live_fp32_matrix_equivalents": 0.0,
+                  "phase": "quantized_released_before_pack",
+                  "unique_storage_count": 0
+                }
+              ],
+              "max_live_fp32_matrix_equivalents": 7.5,
+              "reconstruction_source": "canonical-packed-bytes",
+              "released_after_ldlq": [
+                "lower",
+                "transformed"
+              ],
+              "released_before_pack": [
+                "lower",
+                "transformed",
+                "quantized"
+              ],
+              "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+              "unit_matrix_shape": [
+                4096,
+                2048
+              ]
+            },
+            "mean_build_wall_seconds": 8.206071828666609,
+            "member_index": 0,
+            "phase_seconds": {
+              "batched_block_ldl": 0.046509741005138494,
+              "batched_ldlq": 3.868266418008716,
+              "canonical_per_unit_pack": 0.14578417499433272,
+              "hessian_forward_fwht": 0.125560147993383,
+              "packed_decode_conformance": 20.38508853998792
+            },
+            "schema": "banana-smasher-qtip-cross-unit-build-v1",
+            "solver_geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "branch_sampling": "full",
+              "branches_per_prefix": 64,
+              "retained_prefix_costs": 1024
+            }
+          },
+          "canonical_pack": {
+            "canonical_pack_roundtrip_exact": true,
+            "canonical_pack_roundtrip_fraction": 1.0,
+            "canonical_packed_dtype": "torch.uint16",
+            "canonical_packed_sha256": "ea46124cdf818441b0accf485e22f6bd65fd89e573d4a7302c91a631de7e0b75",
+            "canonical_packed_shape": [
+              32768,
+              48
+            ],
+            "canonical_unpack_state_sha256": "91271e7436f014afc2ebc1eaa9b0f83d5ccea3ddaad5c11e36dbd031f6f3293d",
+            "input_state_sha256": "91271e7436f014afc2ebc1eaa9b0f83d5ccea3ddaad5c11e36dbd031f6f3293d",
+            "kernel_packed_bytes": 3145728,
+            "kernel_packed_sha256": "d1a7dd35694822f3ad4d4c12526c30f6ab682b5282f200f44653d9839926fbbb",
+            "kernel_packed_shape": [
+              32768,
+              48
+            ],
+            "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+            "tile_states_shape": [
+              32768,
+              128
+            ]
+          },
+          "fit_route_mass": 163.98046875,
+          "fit_rows": 693,
+          "packed_decode": {
+            "conformance_comparison": "cpu",
+            "fp16_bit_equal_fraction": 1.0,
+            "fp16_bit_exact": true,
+            "geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_bits": 9
+            },
+            "max_abs_fp32_vs_stored_fp16": 5.988776683807373e-05,
+            "path": "existing geometry-bound canonical packed-wire consumer",
+            "runtime_check_performed": true,
+            "shape": [
+              4096,
+              2048
+            ]
+          },
+          "phase_seconds": {
+            "batched_block_ldl": 0.01550324700171283,
+            "batched_ldlq": 1.2894221393362386,
+            "canonical_per_unit_pack": 0.048594724998110905,
+            "hessian_forward_fwht": 0.041853382664461,
+            "packed_decode_conformance": 6.795029513329307
+          },
+          "quant_seconds": 1.2894221393362386,
+          "rht_seed": 8783381724634720455,
+          "schema": "banana-smasher-qtip-cross-unit-build-member-v1",
+          "status": "PASS"
+        },
+        "config_sha256": "0761b916496b307403ea6688795b309d327ba10ada91bee389c9c05e5786dad3",
+        "cross_unit_batch": {
+          "batch_id": "a0fd8b24bae1e266",
+          "batch_units": 3,
+          "config_names": [
+            "L012_E081_down.json",
+            "L012_E082_down.json",
+            "L012_E083_down.json"
+          ],
+          "member_index": 0,
+          "process": {
+            "pid": 1008441,
+            "startticks": 7618424
+          }
+        },
+        "epoch_ended": 1788911155.4071803,
+        "epoch_started": 1788911127.4986527,
+        "expert": 81,
+        "fit_source": {
+          "mode": "source-fused13",
+          "source_weight": {
+            "index_path": "model.safetensors.index.json",
+            "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+            "shards": [
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.81.w1.weight"
+              },
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.81.w3.weight"
+              }
+            ]
+          }
+        },
+        "fit_windows": 22,
+        "fresh_no_warm_start": true,
+        "glm_source_closure": null,
+        "hessian_layer_manifest": {
+          "bytes": 14129,
+          "capture_root": "captures",
+          "manifest_capture_root": "captures",
+          "path": "L012.CAPTURE_BINDING.json",
+          "relocated_capture_root": false,
+          "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+          "windows": 22
+        },
+        "kernel_cache": {
+          "artifacts": [
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "2a062e4eaa1554ffe3041fcf832c4c9dd9dab4a0c1be76deba607ff5e0992575"
+            },
+            {
+              "bytes": 77664,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.cubin",
+              "sha256": "b3a51c59616b3dfef6d5ec1eb20d11fe67e18150796b1f8ed5386fb32464d33e"
+            },
+            {
+              "bytes": 1124,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.json",
+              "sha256": "fb81903b98a979876a7332bc6b18ccdead4f09738e919bf4094f157691243385"
+            },
+            {
+              "bytes": 104903,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.llir",
+              "sha256": "ebcc67dca84fe5c885a41ac9c55001fc0663d60811a1ff83f08568da155d4e0a"
+            },
+            {
+              "bytes": 95310,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ptx",
+              "sha256": "7237839979759099e8c443cac24f0e838b7b244ff6edf01220a7f4219e985b5b"
+            },
+            {
+              "bytes": 157714,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.source",
+              "sha256": "9f109e63b14305d0ae19aa60ec48446e9e9abb980194f53ab96d9cdbf9c30835"
+            },
+            {
+              "bytes": 119166,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "f0ecdedde8cacf6e8a8df272fefcd3246f155ce95d85aa50d7d8e172116a63a9"
+            },
+            {
+              "bytes": 117160,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttir",
+              "sha256": "09c3965bde714119a5e4e199d13b3f70fc2a352ba8a8d3e2b27f0c471edf6d7c"
+            },
+            {
+              "bytes": 71776,
+              "path": "artifacts/triton/FOG6ORNBZGSDIUGXOAHJXDHFVR34NLDUZ2GRJPWVG6DSDRGE3NTA/__triton_launcher.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "e9da583659e854fb4bb4ce196d618ab7fc1d5ccf53021853ce55b4dd22670186"
+            },
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "f6a2b412557bd189f4b636c8d6332b68e084f73ac33bde207307d7a57e8b74f2"
+            },
+            {
+              "bytes": 93632,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.cubin",
+              "sha256": "e48bb6db385c909e1fdbb8fb956e155f7c710e79db6328fb3a191c7d1454220f"
+            },
+            {
+              "bytes": 1126,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.json",
+              "sha256": "f985aa8d9fbb0b5705d4779ad0e56e4edb914a60841eb17dfe959b2f786721eb"
+            },
+            {
+              "bytes": 115341,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.llir",
+              "sha256": "cb83d07789597641a0eef3ceeed3d06d6a5076de5c76ef2a911ed9ac96bf8cc8"
+            },
+            {
+              "bytes": 118581,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ptx",
+              "sha256": "0f03609ce820ae2d58a4c855f0d80d136bf3ea8fc85f0cc8aec68c9a7c110616"
+            },
+            {
+              "bytes": 162421,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.source",
+              "sha256": "1df478bd0ccd58274c3f0878e64e46b82c2ffb1fbeaec6839279c4d7f27d83b4"
+            },
+            {
+              "bytes": 119999,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "43d5b51404693276562e99d764a7ad98de5e07c6320f1e930e742f4f73c3688a"
+            },
+            {
+              "bytes": 119024,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttir",
+              "sha256": "7c1120f765aec363960cb608174bea7bf78b2327ae12a60755c0d11367fc84ea"
+            },
+            {
+              "bytes": 73880,
+              "path": "artifacts/triton/YK4VZ2BI4GMJSPC3BQ2UKVAY3EVEJ2V5Y3JAVA4MQ4AUGAW7YFUA/cuda_utils.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "a69957d0e0cca9a1dc068b5ddd447adf909e92f8f3602232b8ae2187588848a0"
+            }
+          ],
+          "cache_hit": false,
+          "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+          "memory_preflight": {
+            "available_bytes": 47568060416,
+            "device_free_bytes": 47568060416,
+            "device_total_bytes": 130663165952,
+            "host_available_bytes": 124831780864,
+            "meminfo_path": "meminfo",
+            "source": "cuda:mem_get_info"
+          },
+          "plan": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "architecture": "sm_121-NVIDIA-GB10",
+            "bpw": "3.00",
+            "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "recipes": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "compile_constants": {
+                  "branch_bits": 6,
+                  "states": 65536,
+                  "steps": 128
+                },
+                "compile_variants": [
+                  {
+                    "has_overlap": false
+                  },
+                  {
+                    "has_overlap": true
+                  }
+                ],
+                "execution_contract": {
+                  "exact_identity": "discrete-trellis",
+                  "host_launches_per_call": 1,
+                  "target_seconds_per_unit": 2.2,
+                  "transition_loop": "device-resident"
+                },
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                }
+              }
+            ],
+            "schema": "banana-smasher-qtip-kernel-build-plan-v1",
+            "source_sha256": {
+              "qtip_kernel_cache.py": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+              "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+              "qtip_rings.py": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+              "qtip_viterbi.py": "533a96bd81d56351192ab7dce3f4c49c3c3e3cc8cbbccbec063ca02666dd0d93",
+              "trellis_v2/__init__.py": "da9134ea55ca03963baf598a3b3568850cc6be35bdcc1e3d2490253521ab9cb4",
+              "trellis_v2/csrc/binding_exact.cpp": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+              "trellis_v2/csrc/trellis_v2_exact.cu": "07d49a0f9ecbb29607668b72bd1065a76f61f33cc8578205a68836c893b7da09",
+              "trellis_v2/exact.py": "7c4a98d74d7f68db8166df541424e76c0118fe4901605a7cb3b080b7fe8f5a40",
+              "trellis_v2/setup.py": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2"
+            },
+            "tier": "qtip@3.00"
+          },
+          "receipt": "QTIP_KERNEL_RECEIPT.json",
+          "schema": "banana-smasher-qtip-kernel-cache-v1",
+          "status": "PASS"
+        },
+        "layer": 12,
+        "peak_cuda_allocated_bytes": 948000256,
+        "peak_cuda_reserved_bytes": 1256194048,
+        "phase_seconds": {
+          "artifact_fsync": 0.021109806999447756,
+          "kernel_prepare": 0.3932286139994782,
+          "packed_decode_conformance": 6.795029513329307,
+          "progress_receipt_fsync": 0.0,
+          "receipt_fsync": 0.006767945000319742,
+          "remainder": 0.0,
+          "solve": 8.206114927335875,
+          "solve_core_excluding_packed_decode_conformance": 1.4110854140065685,
+          "staging": 0.6806301860051462
+        },
+        "projection": "down",
+        "public_command_config": "L012_E081_down.json",
+        "rht_seed": 8783381724634720455,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-solve-v1",
+        "solve_seconds": 8.206114927335875,
+        "solver": {
+          "K": 3,
+          "L": 16,
+          "V": 2,
+          "best_state_dtype": "int32",
+          "branch_sampling": "full",
+          "branches_per_prefix": 64,
+          "full_states": 65536,
+          "implementation": "persistent-soa-exact-prefix-dp-v32",
+          "min_exact_quality": 1.0,
+          "ordering": "one persistent launch per independent sequence batch",
+          "production_default": true,
+          "retained_prefix_costs": 1024,
+          "steps": 128
+        },
+        "source_weight": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "shards": [
+            {
+              "bytes": 3590026352,
+              "path": "model-00014-of-00048.safetensors",
+              "weight_key": "layers.12.ffn.experts.81.w2.weight"
+            }
+          ]
+        },
+        "staging_seconds": 0.6806301860051462,
+        "status": "PASS",
+        "total_wall_seconds": 9.30284172167012,
+        "transition_decisions": 532676608,
+        "viterbi_launches": 256,
+        "viterbi_sequences": 65536
+      }
+    },
+    {
+      "admission": {
+        "K": 3,
+        "cell": [
+          12,
+          82,
+          "down"
+        ],
+        "artifact": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E082_down/QTIP_UNIT.pt",
+          "sha256": "6d07115d7b8c3de1dc21a36d429a9ea6739699df545da9a7729a73302fcfebd9",
+          "bytes": 3164825
+        },
+        "receipt": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E082_down/QTIP_SOLVE_RECEIPT.json",
+          "sha256": "daac69799921880d2eea8b7b5f6c61870afa22d3a8030ff0efade3d422cf4e6f",
+          "bytes": 15573
+        },
+        "config": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E082_down.json",
+          "sha256": "3e02c727999fbd2f56c7f55c67c274eda7dbc93d9d10e79a7e0e12ef9d96c9da",
+          "bytes": 3369
+        },
+        "imports": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0000.json",
+          "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291",
+          "bytes": 15686
+        },
+        "source_input": {
+          "cell": [
+            12,
+            82,
+            "down"
+          ],
+          "reusable_input_config": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-resident-clean16-run8169/L012_E082_down.json",
+            "bytes": 3316,
+            "sha256": "58e6cac34a27c1241bd92040d57af9026af2e5b675d5ca2c75cfa7d20b4c13df"
+          },
+          "reusable_capture_binding": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+            "bytes": 14129,
+            "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6"
+          },
+          "reusable_population": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+            "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+          },
+          "input_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+        },
+        "started": 1788911127.498013,
+        "accepted": 1788911155.4876878,
+        "qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "producer_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+        "producer_identity": {
+          "pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+          "publication": "4cca9cfad911e8eac3d50dfdeb330ef132422032"
+        },
+        "scope": "bounded-L000fused-missing-continuation"
+      },
+      "config": {
+        "aot": {
+          "architecture": "runtime-device",
+          "cache": "sha256-pinned",
+          "compile": "first-use-or-explicit",
+          "producer": "smash kernels build --tier qtip --bpw 3.00"
+        },
+        "backend": "persistent-soa-exact-prefix-dp-v32",
+        "block_ldl_unitwise": true,
+        "bpw": "3.00",
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "exact_solver": "banana_smasher.qtip_viterbi@6a40f916a6def348cb6a65bcd648006ab3242211",
+        "expert": 82,
+        "fit_capture_root": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/captures",
+        "fit_population_manifest": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+          "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+        },
+        "fit_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "fit_windows": 22,
+        "geometry": {
+          "K": 3,
+          "L": 16,
+          "V": 2
+        },
+        "hessian_layer_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+        "hessian_layer_manifest_sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731/model.safetensors.index.json",
+            "sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+          }
+        },
+        "layer": 12,
+        "layer_census": {
+          "d4": 0,
+          "qtip2": 512,
+          "qtip3": 0
+        },
+        "materialization": {
+          "qtip_ring_bpw": "3.00",
+          "run_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E082_down.MANIFEST.json",
+          "run_manifest_sha256": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+          "schema": "banana-smasher-qtip-config-materialization-v1",
+          "source_config_sha256": "f1c3b73783023af10f2fce87e76426c41db2a5f06e2b605d779dabc76e4a9c97"
+        },
+        "model_root": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+        "pack_counts": {
+          "d4": 4173,
+          "qtip2": 2266,
+          "qtip3": 14979
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-stage-run8169/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/reference/L016_E001_fused13_L16_K2_V2.pt",
+        "rht_seed": 4982158300140476621,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@3.00",
+        "tlut_source": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-stage-run8169/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/qtip_runtime/inputs/P817_TLUT_SOURCE.pt"
+      },
+      "receipt": {
+        "artifact": "QTIP_UNIT.pt",
+        "artifact_sha256": "6d07115d7b8c3de1dc21a36d429a9ea6739699df545da9a7729a73302fcfebd9",
+        "assignment_sha256": "fbe35fda8d4af6c164361dd5bed639c3ea8f72ff4321b2bbee64f1d711f7ba0e",
+        "basis_gate": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "schema": "banana-smasher-qtip-basis-gate-v1",
+          "shards_manifest": "SHARDS.json",
+          "shards_manifest_sha256": "d1cf4ce169bf58126fc7e3ac478ed86a1aad5b03c7b73dd2fcb661a82bc53aa3",
+          "status": "PASS"
+        },
+        "build": {
+          "batch": {
+            "batch_id": "a0fd8b24bae1e266",
+            "batch_units": 3,
+            "batch_wall_seconds": 24.618215485999826,
+            "implementation": "current-k3-full16-cross-unit-batched-ldlq-v1",
+            "independent_unit_state": true,
+            "matrix_lifetime": {
+              "batch_units": 3,
+              "events": [
+                {
+                  "live_fp32_matrices": [
+                    "hessian",
+                    "lower",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 6.0,
+                  "phase": "batched_ldl_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [
+                    "lower",
+                    "quantized",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 7.5,
+                  "phase": "batched_ldlq_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [],
+                  "live_fp32_matrix_equivalents": 0.0,
+                  "phase": "quantized_released_before_pack",
+                  "unique_storage_count": 0
+                }
+              ],
+              "max_live_fp32_matrix_equivalents": 7.5,
+              "reconstruction_source": "canonical-packed-bytes",
+              "released_after_ldlq": [
+                "lower",
+                "transformed"
+              ],
+              "released_before_pack": [
+                "lower",
+                "transformed",
+                "quantized"
+              ],
+              "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+              "unit_matrix_shape": [
+                4096,
+                2048
+              ]
+            },
+            "mean_build_wall_seconds": 8.206071828666609,
+            "member_index": 1,
+            "phase_seconds": {
+              "batched_block_ldl": 0.046509741005138494,
+              "batched_ldlq": 3.868266418008716,
+              "canonical_per_unit_pack": 0.14578417499433272,
+              "hessian_forward_fwht": 0.125560147993383,
+              "packed_decode_conformance": 20.38508853998792
+            },
+            "schema": "banana-smasher-qtip-cross-unit-build-v1",
+            "solver_geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "branch_sampling": "full",
+              "branches_per_prefix": 64,
+              "retained_prefix_costs": 1024
+            }
+          },
+          "canonical_pack": {
+            "canonical_pack_roundtrip_exact": true,
+            "canonical_pack_roundtrip_fraction": 1.0,
+            "canonical_packed_dtype": "torch.uint16",
+            "canonical_packed_sha256": "2dc94649c23af3049f1b497dde79065ca29de79e68319ece6be4babfe67e7f09",
+            "canonical_packed_shape": [
+              32768,
+              48
+            ],
+            "canonical_unpack_state_sha256": "8ac1d5e95b5592fc52e423ce13393d690940b4db21b66d12fb67970f128249ed",
+            "input_state_sha256": "8ac1d5e95b5592fc52e423ce13393d690940b4db21b66d12fb67970f128249ed",
+            "kernel_packed_bytes": 3145728,
+            "kernel_packed_sha256": "fbe35fda8d4af6c164361dd5bed639c3ea8f72ff4321b2bbee64f1d711f7ba0e",
+            "kernel_packed_shape": [
+              32768,
+              48
+            ],
+            "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+            "tile_states_shape": [
+              32768,
+              128
+            ]
+          },
+          "fit_route_mass": 677.281982421875,
+          "fit_rows": 3072,
+          "packed_decode": {
+            "conformance_comparison": "cpu",
+            "fp16_bit_equal_fraction": 1.0,
+            "fp16_bit_exact": true,
+            "geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_bits": 9
+            },
+            "max_abs_fp32_vs_stored_fp16": 6.0811638832092285e-05,
+            "path": "existing geometry-bound canonical packed-wire consumer",
+            "runtime_check_performed": true,
+            "shape": [
+              4096,
+              2048
+            ]
+          },
+          "phase_seconds": {
+            "batched_block_ldl": 0.01550324700171283,
+            "batched_ldlq": 1.2894221393362386,
+            "canonical_per_unit_pack": 0.048594724998110905,
+            "hessian_forward_fwht": 0.041853382664461,
+            "packed_decode_conformance": 6.795029513329307
+          },
+          "quant_seconds": 1.2894221393362386,
+          "rht_seed": 4982158300140476621,
+          "schema": "banana-smasher-qtip-cross-unit-build-member-v1",
+          "status": "PASS"
+        },
+        "config_sha256": "3e02c727999fbd2f56c7f55c67c274eda7dbc93d9d10e79a7e0e12ef9d96c9da",
+        "cross_unit_batch": {
+          "batch_id": "a0fd8b24bae1e266",
+          "batch_units": 3,
+          "config_names": [
+            "L012_E081_down.json",
+            "L012_E082_down.json",
+            "L012_E083_down.json"
+          ],
+          "member_index": 1,
+          "process": {
+            "pid": 1008441,
+            "startticks": 7618424
+          }
+        },
+        "epoch_ended": 1788911155.4138834,
+        "epoch_started": 1788911127.4986527,
+        "expert": 82,
+        "fit_source": {
+          "mode": "source-fused13",
+          "source_weight": {
+            "index_path": "model.safetensors.index.json",
+            "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+            "shards": [
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.82.w1.weight"
+              },
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.82.w3.weight"
+              }
+            ]
+          }
+        },
+        "fit_windows": 22,
+        "fresh_no_warm_start": true,
+        "glm_source_closure": null,
+        "hessian_layer_manifest": {
+          "bytes": 14129,
+          "capture_root": "captures",
+          "manifest_capture_root": "captures",
+          "path": "L012.CAPTURE_BINDING.json",
+          "relocated_capture_root": false,
+          "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+          "windows": 22
+        },
+        "kernel_cache": {
+          "artifacts": [
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "2a062e4eaa1554ffe3041fcf832c4c9dd9dab4a0c1be76deba607ff5e0992575"
+            },
+            {
+              "bytes": 77664,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.cubin",
+              "sha256": "b3a51c59616b3dfef6d5ec1eb20d11fe67e18150796b1f8ed5386fb32464d33e"
+            },
+            {
+              "bytes": 1124,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.json",
+              "sha256": "fb81903b98a979876a7332bc6b18ccdead4f09738e919bf4094f157691243385"
+            },
+            {
+              "bytes": 104903,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.llir",
+              "sha256": "ebcc67dca84fe5c885a41ac9c55001fc0663d60811a1ff83f08568da155d4e0a"
+            },
+            {
+              "bytes": 95310,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ptx",
+              "sha256": "7237839979759099e8c443cac24f0e838b7b244ff6edf01220a7f4219e985b5b"
+            },
+            {
+              "bytes": 157714,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.source",
+              "sha256": "9f109e63b14305d0ae19aa60ec48446e9e9abb980194f53ab96d9cdbf9c30835"
+            },
+            {
+              "bytes": 119166,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "f0ecdedde8cacf6e8a8df272fefcd3246f155ce95d85aa50d7d8e172116a63a9"
+            },
+            {
+              "bytes": 117160,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttir",
+              "sha256": "09c3965bde714119a5e4e199d13b3f70fc2a352ba8a8d3e2b27f0c471edf6d7c"
+            },
+            {
+              "bytes": 71776,
+              "path": "artifacts/triton/FOG6ORNBZGSDIUGXOAHJXDHFVR34NLDUZ2GRJPWVG6DSDRGE3NTA/__triton_launcher.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "e9da583659e854fb4bb4ce196d618ab7fc1d5ccf53021853ce55b4dd22670186"
+            },
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "f6a2b412557bd189f4b636c8d6332b68e084f73ac33bde207307d7a57e8b74f2"
+            },
+            {
+              "bytes": 93632,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.cubin",
+              "sha256": "e48bb6db385c909e1fdbb8fb956e155f7c710e79db6328fb3a191c7d1454220f"
+            },
+            {
+              "bytes": 1126,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.json",
+              "sha256": "f985aa8d9fbb0b5705d4779ad0e56e4edb914a60841eb17dfe959b2f786721eb"
+            },
+            {
+              "bytes": 115341,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.llir",
+              "sha256": "cb83d07789597641a0eef3ceeed3d06d6a5076de5c76ef2a911ed9ac96bf8cc8"
+            },
+            {
+              "bytes": 118581,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ptx",
+              "sha256": "0f03609ce820ae2d58a4c855f0d80d136bf3ea8fc85f0cc8aec68c9a7c110616"
+            },
+            {
+              "bytes": 162421,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.source",
+              "sha256": "1df478bd0ccd58274c3f0878e64e46b82c2ffb1fbeaec6839279c4d7f27d83b4"
+            },
+            {
+              "bytes": 119999,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "43d5b51404693276562e99d764a7ad98de5e07c6320f1e930e742f4f73c3688a"
+            },
+            {
+              "bytes": 119024,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttir",
+              "sha256": "7c1120f765aec363960cb608174bea7bf78b2327ae12a60755c0d11367fc84ea"
+            },
+            {
+              "bytes": 73880,
+              "path": "artifacts/triton/YK4VZ2BI4GMJSPC3BQ2UKVAY3EVEJ2V5Y3JAVA4MQ4AUGAW7YFUA/cuda_utils.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "a69957d0e0cca9a1dc068b5ddd447adf909e92f8f3602232b8ae2187588848a0"
+            }
+          ],
+          "cache_hit": false,
+          "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+          "memory_preflight": {
+            "available_bytes": 47568060416,
+            "device_free_bytes": 47568060416,
+            "device_total_bytes": 130663165952,
+            "host_available_bytes": 124831780864,
+            "meminfo_path": "meminfo",
+            "source": "cuda:mem_get_info"
+          },
+          "plan": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "architecture": "sm_121-NVIDIA-GB10",
+            "bpw": "3.00",
+            "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "recipes": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "compile_constants": {
+                  "branch_bits": 6,
+                  "states": 65536,
+                  "steps": 128
+                },
+                "compile_variants": [
+                  {
+                    "has_overlap": false
+                  },
+                  {
+                    "has_overlap": true
+                  }
+                ],
+                "execution_contract": {
+                  "exact_identity": "discrete-trellis",
+                  "host_launches_per_call": 1,
+                  "target_seconds_per_unit": 2.2,
+                  "transition_loop": "device-resident"
+                },
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                }
+              }
+            ],
+            "schema": "banana-smasher-qtip-kernel-build-plan-v1",
+            "source_sha256": {
+              "qtip_kernel_cache.py": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+              "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+              "qtip_rings.py": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+              "qtip_viterbi.py": "533a96bd81d56351192ab7dce3f4c49c3c3e3cc8cbbccbec063ca02666dd0d93",
+              "trellis_v2/__init__.py": "da9134ea55ca03963baf598a3b3568850cc6be35bdcc1e3d2490253521ab9cb4",
+              "trellis_v2/csrc/binding_exact.cpp": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+              "trellis_v2/csrc/trellis_v2_exact.cu": "07d49a0f9ecbb29607668b72bd1065a76f61f33cc8578205a68836c893b7da09",
+              "trellis_v2/exact.py": "7c4a98d74d7f68db8166df541424e76c0118fe4901605a7cb3b080b7fe8f5a40",
+              "trellis_v2/setup.py": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2"
+            },
+            "tier": "qtip@3.00"
+          },
+          "receipt": "QTIP_KERNEL_RECEIPT.json",
+          "schema": "banana-smasher-qtip-kernel-cache-v1",
+          "status": "PASS"
+        },
+        "layer": 12,
+        "peak_cuda_allocated_bytes": 948000256,
+        "peak_cuda_reserved_bytes": 1256194048,
+        "phase_seconds": {
+          "artifact_fsync": 0.00813423799991142,
+          "kernel_prepare": 0.3932286139994782,
+          "packed_decode_conformance": 6.795029513329307,
+          "progress_receipt_fsync": 0.0,
+          "receipt_fsync": 0.006778793002013117,
+          "remainder": 0.0,
+          "solve": 8.206114927335875,
+          "solve_core_excluding_packed_decode_conformance": 1.4110854140065685,
+          "staging": 0.6806301860051462
+        },
+        "projection": "down",
+        "public_command_config": "L012_E082_down.json",
+        "rht_seed": 4982158300140476621,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-solve-v1",
+        "solve_seconds": 8.206114927335875,
+        "solver": {
+          "K": 3,
+          "L": 16,
+          "V": 2,
+          "best_state_dtype": "int32",
+          "branch_sampling": "full",
+          "branches_per_prefix": 64,
+          "full_states": 65536,
+          "implementation": "persistent-soa-exact-prefix-dp-v32",
+          "min_exact_quality": 1.0,
+          "ordering": "one persistent launch per independent sequence batch",
+          "production_default": true,
+          "retained_prefix_costs": 1024,
+          "steps": 128
+        },
+        "source_weight": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "shards": [
+            {
+              "bytes": 3590026352,
+              "path": "model-00014-of-00048.safetensors",
+              "weight_key": "layers.12.ffn.experts.82.w2.weight"
+            }
+          ]
+        },
+        "staging_seconds": 0.6806301860051462,
+        "status": "PASS",
+        "total_wall_seconds": 9.30284172167012,
+        "transition_decisions": 532676608,
+        "viterbi_launches": 256,
+        "viterbi_sequences": 65536
+      }
+    },
+    {
+      "admission": {
+        "K": 3,
+        "cell": [
+          12,
+          83,
+          "down"
+        ],
+        "artifact": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E083_down/QTIP_UNIT.pt",
+          "sha256": "dde579e0b4e2fa53ed8ecc15c804fba0b98046534172fc0dbfed9689977c801e",
+          "bytes": 3164825
+        },
+        "receipt": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E083_down/QTIP_SOLVE_RECEIPT.json",
+          "sha256": "d9a3fe3561d53852f59dda2bdb2b60207ab0798d0515caae12fbf8220bc44013",
+          "bytes": 15570
+        },
+        "config": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E083_down.json",
+          "sha256": "f42e2a7fa3182d7db74715cd828609e838c1f6a524888cfcb9477bebb6f8fe01",
+          "bytes": 3369
+        },
+        "imports": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0000.json",
+          "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291",
+          "bytes": 15686
+        },
+        "source_input": {
+          "cell": [
+            12,
+            83,
+            "down"
+          ],
+          "reusable_input_config": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-resident-clean16-run8169/L012_E083_down.json",
+            "bytes": 3316,
+            "sha256": "a2850dfa03fcba32b059f3b7362e843f179dc26dc63c7bd042955d88da821e77"
+          },
+          "reusable_capture_binding": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+            "bytes": 14129,
+            "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6"
+          },
+          "reusable_population": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+            "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+          },
+          "input_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+        },
+        "started": 1788911127.498013,
+        "accepted": 1788911155.4905465,
+        "qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "producer_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+        "producer_identity": {
+          "pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+          "publication": "4cca9cfad911e8eac3d50dfdeb330ef132422032"
+        },
+        "scope": "bounded-L000fused-missing-continuation"
+      },
+      "config": {
+        "aot": {
+          "architecture": "runtime-device",
+          "cache": "sha256-pinned",
+          "compile": "first-use-or-explicit",
+          "producer": "smash kernels build --tier qtip --bpw 3.00"
+        },
+        "backend": "persistent-soa-exact-prefix-dp-v32",
+        "block_ldl_unitwise": true,
+        "bpw": "3.00",
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "exact_solver": "banana_smasher.qtip_viterbi@6a40f916a6def348cb6a65bcd648006ab3242211",
+        "expert": 83,
+        "fit_capture_root": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/captures",
+        "fit_population_manifest": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+          "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+        },
+        "fit_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "fit_windows": 22,
+        "geometry": {
+          "K": 3,
+          "L": 16,
+          "V": 2
+        },
+        "hessian_layer_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+        "hessian_layer_manifest_sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731/model.safetensors.index.json",
+            "sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+          }
+        },
+        "layer": 12,
+        "layer_census": {
+          "d4": 0,
+          "qtip2": 512,
+          "qtip3": 0
+        },
+        "materialization": {
+          "qtip_ring_bpw": "3.00",
+          "run_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E083_down.MANIFEST.json",
+          "run_manifest_sha256": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+          "schema": "banana-smasher-qtip-config-materialization-v1",
+          "source_config_sha256": "e779d665f34104f0d2b7119637529b5d028e16c5e075d7f04856e91eff4c47aa"
+        },
+        "model_root": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+        "pack_counts": {
+          "d4": 4173,
+          "qtip2": 2266,
+          "qtip3": 14979
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-stage-run8169/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/reference/L016_E001_fused13_L16_K2_V2.pt",
+        "rht_seed": 5207235383004994959,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@3.00",
+        "tlut_source": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-stage-run8169/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/qtip_runtime/inputs/P817_TLUT_SOURCE.pt"
+      },
+      "receipt": {
+        "artifact": "QTIP_UNIT.pt",
+        "artifact_sha256": "dde579e0b4e2fa53ed8ecc15c804fba0b98046534172fc0dbfed9689977c801e",
+        "assignment_sha256": "9403630afc81701c4ca2e051a398012d1afb924cb87ce1dc0619601a05deb7f9",
+        "basis_gate": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "schema": "banana-smasher-qtip-basis-gate-v1",
+          "shards_manifest": "SHARDS.json",
+          "shards_manifest_sha256": "d1cf4ce169bf58126fc7e3ac478ed86a1aad5b03c7b73dd2fcb661a82bc53aa3",
+          "status": "PASS"
+        },
+        "build": {
+          "batch": {
+            "batch_id": "a0fd8b24bae1e266",
+            "batch_units": 3,
+            "batch_wall_seconds": 24.618215485999826,
+            "implementation": "current-k3-full16-cross-unit-batched-ldlq-v1",
+            "independent_unit_state": true,
+            "matrix_lifetime": {
+              "batch_units": 3,
+              "events": [
+                {
+                  "live_fp32_matrices": [
+                    "hessian",
+                    "lower",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 6.0,
+                  "phase": "batched_ldl_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [
+                    "lower",
+                    "quantized",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 7.5,
+                  "phase": "batched_ldlq_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [],
+                  "live_fp32_matrix_equivalents": 0.0,
+                  "phase": "quantized_released_before_pack",
+                  "unique_storage_count": 0
+                }
+              ],
+              "max_live_fp32_matrix_equivalents": 7.5,
+              "reconstruction_source": "canonical-packed-bytes",
+              "released_after_ldlq": [
+                "lower",
+                "transformed"
+              ],
+              "released_before_pack": [
+                "lower",
+                "transformed",
+                "quantized"
+              ],
+              "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+              "unit_matrix_shape": [
+                4096,
+                2048
+              ]
+            },
+            "mean_build_wall_seconds": 8.206071828666609,
+            "member_index": 2,
+            "phase_seconds": {
+              "batched_block_ldl": 0.046509741005138494,
+              "batched_ldlq": 3.868266418008716,
+              "canonical_per_unit_pack": 0.14578417499433272,
+              "hessian_forward_fwht": 0.125560147993383,
+              "packed_decode_conformance": 20.38508853998792
+            },
+            "schema": "banana-smasher-qtip-cross-unit-build-v1",
+            "solver_geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "branch_sampling": "full",
+              "branches_per_prefix": 64,
+              "retained_prefix_costs": 1024
+            }
+          },
+          "canonical_pack": {
+            "canonical_pack_roundtrip_exact": true,
+            "canonical_pack_roundtrip_fraction": 1.0,
+            "canonical_packed_dtype": "torch.uint16",
+            "canonical_packed_sha256": "bca1cb1e5ebe9750a5033b9219c796d68852bf14981370b98a96bf6f8c2b5293",
+            "canonical_packed_shape": [
+              32768,
+              48
+            ],
+            "canonical_unpack_state_sha256": "9a845a4984f0822634da472c97188595962de1b8aede9365949f3f3bb52114b5",
+            "input_state_sha256": "9a845a4984f0822634da472c97188595962de1b8aede9365949f3f3bb52114b5",
+            "kernel_packed_bytes": 3145728,
+            "kernel_packed_sha256": "9403630afc81701c4ca2e051a398012d1afb924cb87ce1dc0619601a05deb7f9",
+            "kernel_packed_shape": [
+              32768,
+              48
+            ],
+            "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+            "tile_states_shape": [
+              32768,
+              128
+            ]
+          },
+          "fit_route_mass": 99.35009765625,
+          "fit_rows": 408,
+          "packed_decode": {
+            "conformance_comparison": "cpu",
+            "fp16_bit_equal_fraction": 1.0,
+            "fp16_bit_exact": true,
+            "geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_bits": 9
+            },
+            "max_abs_fp32_vs_stored_fp16": 5.967915058135986e-05,
+            "path": "existing geometry-bound canonical packed-wire consumer",
+            "runtime_check_performed": true,
+            "shape": [
+              4096,
+              2048
+            ]
+          },
+          "phase_seconds": {
+            "batched_block_ldl": 0.01550324700171283,
+            "batched_ldlq": 1.2894221393362386,
+            "canonical_per_unit_pack": 0.048594724998110905,
+            "hessian_forward_fwht": 0.041853382664461,
+            "packed_decode_conformance": 6.795029513329307
+          },
+          "quant_seconds": 1.2894221393362386,
+          "rht_seed": 5207235383004994959,
+          "schema": "banana-smasher-qtip-cross-unit-build-member-v1",
+          "status": "PASS"
+        },
+        "config_sha256": "f42e2a7fa3182d7db74715cd828609e838c1f6a524888cfcb9477bebb6f8fe01",
+        "cross_unit_batch": {
+          "batch_id": "a0fd8b24bae1e266",
+          "batch_units": 3,
+          "config_names": [
+            "L012_E081_down.json",
+            "L012_E082_down.json",
+            "L012_E083_down.json"
+          ],
+          "member_index": 2,
+          "process": {
+            "pid": 1008441,
+            "startticks": 7618424
+          }
+        },
+        "epoch_ended": 1788911155.4208825,
+        "epoch_started": 1788911127.4986527,
+        "expert": 83,
+        "fit_source": {
+          "mode": "source-fused13",
+          "source_weight": {
+            "index_path": "model.safetensors.index.json",
+            "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+            "shards": [
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.83.w1.weight"
+              },
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.83.w3.weight"
+              }
+            ]
+          }
+        },
+        "fit_windows": 22,
+        "fresh_no_warm_start": true,
+        "glm_source_closure": null,
+        "hessian_layer_manifest": {
+          "bytes": 14129,
+          "capture_root": "captures",
+          "manifest_capture_root": "captures",
+          "path": "L012.CAPTURE_BINDING.json",
+          "relocated_capture_root": false,
+          "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+          "windows": 22
+        },
+        "kernel_cache": {
+          "artifacts": [
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "2a062e4eaa1554ffe3041fcf832c4c9dd9dab4a0c1be76deba607ff5e0992575"
+            },
+            {
+              "bytes": 77664,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.cubin",
+              "sha256": "b3a51c59616b3dfef6d5ec1eb20d11fe67e18150796b1f8ed5386fb32464d33e"
+            },
+            {
+              "bytes": 1124,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.json",
+              "sha256": "fb81903b98a979876a7332bc6b18ccdead4f09738e919bf4094f157691243385"
+            },
+            {
+              "bytes": 104903,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.llir",
+              "sha256": "ebcc67dca84fe5c885a41ac9c55001fc0663d60811a1ff83f08568da155d4e0a"
+            },
+            {
+              "bytes": 95310,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ptx",
+              "sha256": "7237839979759099e8c443cac24f0e838b7b244ff6edf01220a7f4219e985b5b"
+            },
+            {
+              "bytes": 157714,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.source",
+              "sha256": "9f109e63b14305d0ae19aa60ec48446e9e9abb980194f53ab96d9cdbf9c30835"
+            },
+            {
+              "bytes": 119166,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "f0ecdedde8cacf6e8a8df272fefcd3246f155ce95d85aa50d7d8e172116a63a9"
+            },
+            {
+              "bytes": 117160,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttir",
+              "sha256": "09c3965bde714119a5e4e199d13b3f70fc2a352ba8a8d3e2b27f0c471edf6d7c"
+            },
+            {
+              "bytes": 71776,
+              "path": "artifacts/triton/FOG6ORNBZGSDIUGXOAHJXDHFVR34NLDUZ2GRJPWVG6DSDRGE3NTA/__triton_launcher.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "e9da583659e854fb4bb4ce196d618ab7fc1d5ccf53021853ce55b4dd22670186"
+            },
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "f6a2b412557bd189f4b636c8d6332b68e084f73ac33bde207307d7a57e8b74f2"
+            },
+            {
+              "bytes": 93632,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.cubin",
+              "sha256": "e48bb6db385c909e1fdbb8fb956e155f7c710e79db6328fb3a191c7d1454220f"
+            },
+            {
+              "bytes": 1126,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.json",
+              "sha256": "f985aa8d9fbb0b5705d4779ad0e56e4edb914a60841eb17dfe959b2f786721eb"
+            },
+            {
+              "bytes": 115341,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.llir",
+              "sha256": "cb83d07789597641a0eef3ceeed3d06d6a5076de5c76ef2a911ed9ac96bf8cc8"
+            },
+            {
+              "bytes": 118581,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ptx",
+              "sha256": "0f03609ce820ae2d58a4c855f0d80d136bf3ea8fc85f0cc8aec68c9a7c110616"
+            },
+            {
+              "bytes": 162421,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.source",
+              "sha256": "1df478bd0ccd58274c3f0878e64e46b82c2ffb1fbeaec6839279c4d7f27d83b4"
+            },
+            {
+              "bytes": 119999,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "43d5b51404693276562e99d764a7ad98de5e07c6320f1e930e742f4f73c3688a"
+            },
+            {
+              "bytes": 119024,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttir",
+              "sha256": "7c1120f765aec363960cb608174bea7bf78b2327ae12a60755c0d11367fc84ea"
+            },
+            {
+              "bytes": 73880,
+              "path": "artifacts/triton/YK4VZ2BI4GMJSPC3BQ2UKVAY3EVEJ2V5Y3JAVA4MQ4AUGAW7YFUA/cuda_utils.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "a69957d0e0cca9a1dc068b5ddd447adf909e92f8f3602232b8ae2187588848a0"
+            }
+          ],
+          "cache_hit": false,
+          "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+          "memory_preflight": {
+            "available_bytes": 47568060416,
+            "device_free_bytes": 47568060416,
+            "device_total_bytes": 130663165952,
+            "host_available_bytes": 124831780864,
+            "meminfo_path": "meminfo",
+            "source": "cuda:mem_get_info"
+          },
+          "plan": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "architecture": "sm_121-NVIDIA-GB10",
+            "bpw": "3.00",
+            "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "recipes": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "compile_constants": {
+                  "branch_bits": 6,
+                  "states": 65536,
+                  "steps": 128
+                },
+                "compile_variants": [
+                  {
+                    "has_overlap": false
+                  },
+                  {
+                    "has_overlap": true
+                  }
+                ],
+                "execution_contract": {
+                  "exact_identity": "discrete-trellis",
+                  "host_launches_per_call": 1,
+                  "target_seconds_per_unit": 2.2,
+                  "transition_loop": "device-resident"
+                },
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                }
+              }
+            ],
+            "schema": "banana-smasher-qtip-kernel-build-plan-v1",
+            "source_sha256": {
+              "qtip_kernel_cache.py": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+              "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+              "qtip_rings.py": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+              "qtip_viterbi.py": "533a96bd81d56351192ab7dce3f4c49c3c3e3cc8cbbccbec063ca02666dd0d93",
+              "trellis_v2/__init__.py": "da9134ea55ca03963baf598a3b3568850cc6be35bdcc1e3d2490253521ab9cb4",
+              "trellis_v2/csrc/binding_exact.cpp": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+              "trellis_v2/csrc/trellis_v2_exact.cu": "07d49a0f9ecbb29607668b72bd1065a76f61f33cc8578205a68836c893b7da09",
+              "trellis_v2/exact.py": "7c4a98d74d7f68db8166df541424e76c0118fe4901605a7cb3b080b7fe8f5a40",
+              "trellis_v2/setup.py": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2"
+            },
+            "tier": "qtip@3.00"
+          },
+          "receipt": "QTIP_KERNEL_RECEIPT.json",
+          "schema": "banana-smasher-qtip-kernel-cache-v1",
+          "status": "PASS"
+        },
+        "layer": 12,
+        "peak_cuda_allocated_bytes": 948000256,
+        "peak_cuda_reserved_bytes": 1256194048,
+        "phase_seconds": {
+          "artifact_fsync": 0.008205791004002094,
+          "kernel_prepare": 0.3932286139994782,
+          "packed_decode_conformance": 6.795029513329307,
+          "progress_receipt_fsync": 0.0,
+          "receipt_fsync": 0.006719928991515189,
+          "remainder": 0.0,
+          "solve": 8.206114927335875,
+          "solve_core_excluding_packed_decode_conformance": 1.4110854140065685,
+          "staging": 0.6806301860051462
+        },
+        "projection": "down",
+        "public_command_config": "L012_E083_down.json",
+        "rht_seed": 5207235383004994959,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-solve-v1",
+        "solve_seconds": 8.206114927335875,
+        "solver": {
+          "K": 3,
+          "L": 16,
+          "V": 2,
+          "best_state_dtype": "int32",
+          "branch_sampling": "full",
+          "branches_per_prefix": 64,
+          "full_states": 65536,
+          "implementation": "persistent-soa-exact-prefix-dp-v32",
+          "min_exact_quality": 1.0,
+          "ordering": "one persistent launch per independent sequence batch",
+          "production_default": true,
+          "retained_prefix_costs": 1024,
+          "steps": 128
+        },
+        "source_weight": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "shards": [
+            {
+              "bytes": 3590026352,
+              "path": "model-00014-of-00048.safetensors",
+              "weight_key": "layers.12.ffn.experts.83.w2.weight"
+            }
+          ]
+        },
+        "staging_seconds": 0.6806301860051462,
+        "status": "PASS",
+        "total_wall_seconds": 9.30284172167012,
+        "transition_decisions": 532676608,
+        "viterbi_launches": 256,
+        "viterbi_sequences": 65536
+      }
+    },
+    {
+      "admission": {
+        "K": 3,
+        "cell": [
+          12,
+          84,
+          "down"
+        ],
+        "artifact": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E084_down/QTIP_UNIT.pt",
+          "sha256": "9e907ac8b9e0564271de740bc2a267dfce34050413bef692e82d8280b1d6b466",
+          "bytes": 3164825
+        },
+        "receipt": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E084_down/QTIP_SOLVE_RECEIPT.json",
+          "sha256": "39c6389cbdb9bef974727c15e2722e466a7210d9b0b99f2b4ad287389009336d",
+          "bytes": 15257
+        },
+        "config": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E084_down.json",
+          "sha256": "c74561add01366f9151670967afe058b6c7e1a4e31fd611c5c204a6eec53f3cb",
+          "bytes": 3369
+        },
+        "imports": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0003.json",
+          "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291",
+          "bytes": 15686
+        },
+        "source_input": {
+          "cell": [
+            12,
+            84,
+            "down"
+          ],
+          "reusable_input_config": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-resident-clean16-run8169/L012_E084_down.json",
+            "bytes": 3316,
+            "sha256": "b2a977f0b1a1fb22e8895249a79689a5294674ebfefe4a5c0a2f6b502cb07147"
+          },
+          "reusable_capture_binding": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+            "bytes": 14129,
+            "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6"
+          },
+          "reusable_population": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+            "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+          },
+          "input_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+        },
+        "started": 1788911155.7615678,
+        "accepted": 1788911157.9182239,
+        "qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "producer_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+        "producer_identity": {
+          "pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+          "publication": "4cca9cfad911e8eac3d50dfdeb330ef132422032"
+        },
+        "scope": "bounded-L000fused-missing-continuation"
+      },
+      "config": {
+        "aot": {
+          "architecture": "runtime-device",
+          "cache": "sha256-pinned",
+          "compile": "first-use-or-explicit",
+          "producer": "smash kernels build --tier qtip --bpw 3.00"
+        },
+        "backend": "persistent-soa-exact-prefix-dp-v32",
+        "block_ldl_unitwise": true,
+        "bpw": "3.00",
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "exact_solver": "banana_smasher.qtip_viterbi@6a40f916a6def348cb6a65bcd648006ab3242211",
+        "expert": 84,
+        "fit_capture_root": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/captures",
+        "fit_population_manifest": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+          "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+        },
+        "fit_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "fit_windows": 22,
+        "geometry": {
+          "K": 3,
+          "L": 16,
+          "V": 2
+        },
+        "hessian_layer_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+        "hessian_layer_manifest_sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731/model.safetensors.index.json",
+            "sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+          }
+        },
+        "layer": 12,
+        "layer_census": {
+          "d4": 0,
+          "qtip2": 512,
+          "qtip3": 0
+        },
+        "materialization": {
+          "qtip_ring_bpw": "3.00",
+          "run_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E084_down.MANIFEST.json",
+          "run_manifest_sha256": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+          "schema": "banana-smasher-qtip-config-materialization-v1",
+          "source_config_sha256": "8a279649b462b24ca1f7e489db43fb58526e6268d85fdbed39841986274516fa"
+        },
+        "model_root": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+        "pack_counts": {
+          "d4": 4173,
+          "qtip2": 2266,
+          "qtip3": 14979
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-stage-run8169/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/reference/L016_E001_fused13_L16_K2_V2.pt",
+        "rht_seed": 5660392901923457486,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@3.00",
+        "tlut_source": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-stage-run8169/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/qtip_runtime/inputs/P817_TLUT_SOURCE.pt"
+      },
+      "receipt": {
+        "artifact": "QTIP_UNIT.pt",
+        "artifact_sha256": "9e907ac8b9e0564271de740bc2a267dfce34050413bef692e82d8280b1d6b466",
+        "assignment_sha256": "cbc4139b6d8eb21bb48fdb9cc5dfca49b8b62f297629c96037c5666c2ffe99af",
+        "basis_gate": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "schema": "banana-smasher-qtip-basis-gate-v1",
+          "shards_manifest": "SHARDS.json",
+          "shards_manifest_sha256": "d1cf4ce169bf58126fc7e3ac478ed86a1aad5b03c7b73dd2fcb661a82bc53aa3",
+          "status": "PASS"
+        },
+        "build": {
+          "batch": {
+            "batch_id": "2488bcdcb44defaf",
+            "batch_units": 1,
+            "batch_wall_seconds": 1.2945602430118015,
+            "implementation": "current-k3-full16-cross-unit-batched-ldlq-v1",
+            "independent_unit_state": true,
+            "matrix_lifetime": {
+              "batch_units": 1,
+              "events": [
+                {
+                  "live_fp32_matrices": [
+                    "hessian",
+                    "lower",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 2.0,
+                  "phase": "batched_ldl_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [
+                    "lower",
+                    "quantized",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 2.5,
+                  "phase": "batched_ldlq_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [],
+                  "live_fp32_matrix_equivalents": 0.0,
+                  "phase": "quantized_released_before_pack",
+                  "unique_storage_count": 0
+                }
+              ],
+              "max_live_fp32_matrix_equivalents": 2.5,
+              "reconstruction_source": "canonical-packed-bytes",
+              "released_after_ldlq": [
+                "lower",
+                "transformed"
+              ],
+              "released_before_pack": [
+                "lower",
+                "transformed",
+                "quantized"
+              ],
+              "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+              "unit_matrix_shape": [
+                4096,
+                2048
+              ]
+            },
+            "mean_build_wall_seconds": 1.2945602430118015,
+            "member_index": 0,
+            "phase_seconds": {
+              "batched_block_ldl": 0.0023219760041683912,
+              "batched_ldlq": 1.027547332996619,
+              "canonical_per_unit_pack": 0.1465530869900249,
+              "hessian_forward_fwht": 0.03524957099580206,
+              "packed_decode_conformance": 0.08239065798989031
+            },
+            "schema": "banana-smasher-qtip-cross-unit-build-v1",
+            "solver_geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "branch_sampling": "full",
+              "branches_per_prefix": 64,
+              "retained_prefix_costs": 1024
+            }
+          },
+          "canonical_pack": {
+            "canonical_pack_roundtrip_exact": true,
+            "canonical_pack_roundtrip_fraction": 1.0,
+            "canonical_packed_dtype": "torch.uint16",
+            "canonical_packed_sha256": "91054610a2f449c6a6029d7564b69fe92dd93ee55660b6a75a39490e7efae58e",
+            "canonical_packed_shape": [
+              32768,
+              48
+            ],
+            "canonical_unpack_state_sha256": "1fe3a82daa0b87c11e36144baae46af505014a368613d8fa46061438481c92ba",
+            "input_state_sha256": "1fe3a82daa0b87c11e36144baae46af505014a368613d8fa46061438481c92ba",
+            "kernel_packed_bytes": 3145728,
+            "kernel_packed_sha256": "cbc4139b6d8eb21bb48fdb9cc5dfca49b8b62f297629c96037c5666c2ffe99af",
+            "kernel_packed_shape": [
+              32768,
+              48
+            ],
+            "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+            "tile_states_shape": [
+              32768,
+              128
+            ]
+          },
+          "fit_route_mass": 74.572265625,
+          "fit_rows": 270,
+          "packed_decode": {
+            "conformance_comparison": "cpu",
+            "fp16_bit_equal_fraction": 1.0,
+            "fp16_bit_exact": true,
+            "geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_bits": 9
+            },
+            "max_abs_fp32_vs_stored_fp16": 6.0692429542541504e-05,
+            "path": "existing geometry-bound canonical packed-wire consumer",
+            "runtime_check_performed": true,
+            "shape": [
+              4096,
+              2048
+            ]
+          },
+          "phase_seconds": {
+            "batched_block_ldl": 0.0023219760041683912,
+            "batched_ldlq": 1.027547332996619,
+            "canonical_per_unit_pack": 0.1465530869900249,
+            "hessian_forward_fwht": 0.03524957099580206,
+            "packed_decode_conformance": 0.08239065798989031
+          },
+          "quant_seconds": 1.027547332996619,
+          "rht_seed": 5660392901923457486,
+          "schema": "banana-smasher-qtip-cross-unit-build-member-v1",
+          "status": "PASS"
+        },
+        "config_sha256": "c74561add01366f9151670967afe058b6c7e1a4e31fd611c5c204a6eec53f3cb",
+        "cross_unit_batch": {
+          "batch_id": "2488bcdcb44defaf",
+          "batch_units": 1,
+          "config_names": [
+            "L012_E084_down.json"
+          ],
+          "member_index": 0,
+          "process": {
+            "pid": 1008441,
+            "startticks": 7618424
+          }
+        },
+        "epoch_ended": 1788911157.8568807,
+        "epoch_started": 1788911155.7618654,
+        "expert": 84,
+        "fit_source": {
+          "mode": "source-fused13",
+          "source_weight": {
+            "index_path": "model.safetensors.index.json",
+            "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+            "shards": [
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.84.w1.weight"
+              },
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.84.w3.weight"
+              }
+            ]
+          }
+        },
+        "fit_windows": 22,
+        "fresh_no_warm_start": true,
+        "glm_source_closure": null,
+        "hessian_layer_manifest": {
+          "bytes": 14129,
+          "capture_root": "captures",
+          "manifest_capture_root": "captures",
+          "path": "L012.CAPTURE_BINDING.json",
+          "relocated_capture_root": false,
+          "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+          "windows": 22
+        },
+        "kernel_cache": {
+          "artifacts": [
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "2a062e4eaa1554ffe3041fcf832c4c9dd9dab4a0c1be76deba607ff5e0992575"
+            },
+            {
+              "bytes": 77664,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.cubin",
+              "sha256": "b3a51c59616b3dfef6d5ec1eb20d11fe67e18150796b1f8ed5386fb32464d33e"
+            },
+            {
+              "bytes": 1124,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.json",
+              "sha256": "fb81903b98a979876a7332bc6b18ccdead4f09738e919bf4094f157691243385"
+            },
+            {
+              "bytes": 104903,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.llir",
+              "sha256": "ebcc67dca84fe5c885a41ac9c55001fc0663d60811a1ff83f08568da155d4e0a"
+            },
+            {
+              "bytes": 95310,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ptx",
+              "sha256": "7237839979759099e8c443cac24f0e838b7b244ff6edf01220a7f4219e985b5b"
+            },
+            {
+              "bytes": 157714,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.source",
+              "sha256": "9f109e63b14305d0ae19aa60ec48446e9e9abb980194f53ab96d9cdbf9c30835"
+            },
+            {
+              "bytes": 119166,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "f0ecdedde8cacf6e8a8df272fefcd3246f155ce95d85aa50d7d8e172116a63a9"
+            },
+            {
+              "bytes": 117160,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttir",
+              "sha256": "09c3965bde714119a5e4e199d13b3f70fc2a352ba8a8d3e2b27f0c471edf6d7c"
+            },
+            {
+              "bytes": 71776,
+              "path": "artifacts/triton/FOG6ORNBZGSDIUGXOAHJXDHFVR34NLDUZ2GRJPWVG6DSDRGE3NTA/__triton_launcher.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "e9da583659e854fb4bb4ce196d618ab7fc1d5ccf53021853ce55b4dd22670186"
+            },
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "f6a2b412557bd189f4b636c8d6332b68e084f73ac33bde207307d7a57e8b74f2"
+            },
+            {
+              "bytes": 93632,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.cubin",
+              "sha256": "e48bb6db385c909e1fdbb8fb956e155f7c710e79db6328fb3a191c7d1454220f"
+            },
+            {
+              "bytes": 1126,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.json",
+              "sha256": "f985aa8d9fbb0b5705d4779ad0e56e4edb914a60841eb17dfe959b2f786721eb"
+            },
+            {
+              "bytes": 115341,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.llir",
+              "sha256": "cb83d07789597641a0eef3ceeed3d06d6a5076de5c76ef2a911ed9ac96bf8cc8"
+            },
+            {
+              "bytes": 118581,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ptx",
+              "sha256": "0f03609ce820ae2d58a4c855f0d80d136bf3ea8fc85f0cc8aec68c9a7c110616"
+            },
+            {
+              "bytes": 162421,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.source",
+              "sha256": "1df478bd0ccd58274c3f0878e64e46b82c2ffb1fbeaec6839279c4d7f27d83b4"
+            },
+            {
+              "bytes": 119999,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "43d5b51404693276562e99d764a7ad98de5e07c6320f1e930e742f4f73c3688a"
+            },
+            {
+              "bytes": 119024,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttir",
+              "sha256": "7c1120f765aec363960cb608174bea7bf78b2327ae12a60755c0d11367fc84ea"
+            },
+            {
+              "bytes": 73880,
+              "path": "artifacts/triton/YK4VZ2BI4GMJSPC3BQ2UKVAY3EVEJ2V5Y3JAVA4MQ4AUGAW7YFUA/cuda_utils.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "a69957d0e0cca9a1dc068b5ddd447adf909e92f8f3602232b8ae2187588848a0"
+            }
+          ],
+          "cache_hit": true,
+          "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+          "plan": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "architecture": "sm_121-NVIDIA-GB10",
+            "bpw": "3.00",
+            "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "recipes": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "compile_constants": {
+                  "branch_bits": 6,
+                  "states": 65536,
+                  "steps": 128
+                },
+                "compile_variants": [
+                  {
+                    "has_overlap": false
+                  },
+                  {
+                    "has_overlap": true
+                  }
+                ],
+                "execution_contract": {
+                  "exact_identity": "discrete-trellis",
+                  "host_launches_per_call": 1,
+                  "target_seconds_per_unit": 2.2,
+                  "transition_loop": "device-resident"
+                },
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                }
+              }
+            ],
+            "schema": "banana-smasher-qtip-kernel-build-plan-v1",
+            "source_sha256": {
+              "qtip_kernel_cache.py": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+              "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+              "qtip_rings.py": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+              "qtip_viterbi.py": "533a96bd81d56351192ab7dce3f4c49c3c3e3cc8cbbccbec063ca02666dd0d93",
+              "trellis_v2/__init__.py": "da9134ea55ca03963baf598a3b3568850cc6be35bdcc1e3d2490253521ab9cb4",
+              "trellis_v2/csrc/binding_exact.cpp": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+              "trellis_v2/csrc/trellis_v2_exact.cu": "07d49a0f9ecbb29607668b72bd1065a76f61f33cc8578205a68836c893b7da09",
+              "trellis_v2/exact.py": "7c4a98d74d7f68db8166df541424e76c0118fe4901605a7cb3b080b7fe8f5a40",
+              "trellis_v2/setup.py": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2"
+            },
+            "tier": "qtip@3.00"
+          },
+          "receipt": "QTIP_KERNEL_RECEIPT.json",
+          "schema": "banana-smasher-qtip-kernel-cache-v1",
+          "status": "PASS"
+        },
+        "layer": 12,
+        "peak_cuda_allocated_bytes": 403147776,
+        "peak_cuda_reserved_bytes": 685768704,
+        "phase_seconds": {
+          "artifact_fsync": 0.018931397993583232,
+          "kernel_prepare": 0.003929726997739635,
+          "packed_decode_conformance": 0.08239065798989031,
+          "progress_receipt_fsync": 0.0,
+          "receipt_fsync": 0.0071039790054783225,
+          "remainder": 0.0,
+          "solve": 1.2946760190097848,
+          "solve_core_excluding_packed_decode_conformance": 1.2122853610198945,
+          "staging": 0.7666396929998882
+        },
+        "projection": "down",
+        "public_command_config": "L012_E084_down.json",
+        "rht_seed": 5660392901923457486,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-solve-v1",
+        "solve_seconds": 1.2946760190097848,
+        "solver": {
+          "K": 3,
+          "L": 16,
+          "V": 2,
+          "best_state_dtype": "int32",
+          "branch_sampling": "full",
+          "branches_per_prefix": 64,
+          "full_states": 65536,
+          "implementation": "persistent-soa-exact-prefix-dp-v32",
+          "min_exact_quality": 1.0,
+          "ordering": "one persistent launch per independent sequence batch",
+          "production_default": true,
+          "retained_prefix_costs": 1024,
+          "steps": 128
+        },
+        "source_weight": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "shards": [
+            {
+              "bytes": 3590026352,
+              "path": "model-00014-of-00048.safetensors",
+              "weight_key": "layers.12.ffn.experts.84.w2.weight"
+            }
+          ]
+        },
+        "staging_seconds": 0.7666396929998882,
+        "status": "PASS",
+        "total_wall_seconds": 2.09500940599537,
+        "transition_decisions": 532676608,
+        "viterbi_launches": 256,
+        "viterbi_sequences": 65536
+      }
+    },
+    {
+      "admission": {
+        "K": 3,
+        "cell": [
+          12,
+          85,
+          "down"
+        ],
+        "artifact": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E085_down/QTIP_UNIT.pt",
+          "sha256": "45289dd911902cf9129fc4581429b44623dedff2e435d454762f190ec1a452f4",
+          "bytes": 3164825
+        },
+        "receipt": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E085_down/QTIP_SOLVE_RECEIPT.json",
+          "sha256": "dd0f41a17fe68fc5b2135da5a76a40d37b1f5a8c6731bbae20f4900709a3c5b9",
+          "bytes": 15287
+        },
+        "config": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E085_down.json",
+          "sha256": "0a9d5c1afb395653a943025e00d226b11ec13735fbc35e94634342fcbe4c90ac",
+          "bytes": 3369
+        },
+        "imports": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0004.json",
+          "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291",
+          "bytes": 15686
+        },
+        "source_input": {
+          "cell": [
+            12,
+            85,
+            "down"
+          ],
+          "reusable_input_config": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-resident-clean42-run8171/L012_E085_down.json",
+            "bytes": 3316,
+            "sha256": "f4a14f963680493fe65b5e92bcc3da1df238e585c449556a3313ab0e83428065"
+          },
+          "reusable_capture_binding": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+            "bytes": 14129,
+            "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6"
+          },
+          "reusable_population": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+            "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+          },
+          "input_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+        },
+        "started": 1788911158.376949,
+        "accepted": 1788911161.5617712,
+        "qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "producer_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+        "producer_identity": {
+          "pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+          "publication": "4cca9cfad911e8eac3d50dfdeb330ef132422032"
+        },
+        "scope": "bounded-L000fused-missing-continuation"
+      },
+      "config": {
+        "aot": {
+          "architecture": "runtime-device",
+          "cache": "sha256-pinned",
+          "compile": "first-use-or-explicit",
+          "producer": "smash kernels build --tier qtip --bpw 3.00"
+        },
+        "backend": "persistent-soa-exact-prefix-dp-v32",
+        "block_ldl_unitwise": true,
+        "bpw": "3.00",
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "exact_solver": "banana_smasher.qtip_viterbi@6a40f916a6def348cb6a65bcd648006ab3242211",
+        "expert": 85,
+        "fit_capture_root": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/captures",
+        "fit_population_manifest": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+          "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+        },
+        "fit_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "fit_windows": 22,
+        "geometry": {
+          "K": 3,
+          "L": 16,
+          "V": 2
+        },
+        "hessian_layer_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+        "hessian_layer_manifest_sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731/model.safetensors.index.json",
+            "sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+          }
+        },
+        "layer": 12,
+        "layer_census": {
+          "d4": 0,
+          "qtip2": 512,
+          "qtip3": 0
+        },
+        "materialization": {
+          "qtip_ring_bpw": "3.00",
+          "run_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E085_down.MANIFEST.json",
+          "run_manifest_sha256": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+          "schema": "banana-smasher-qtip-config-materialization-v1",
+          "source_config_sha256": "3070bce0e9124b5edee8e1bca674df06a4b30db41ffc7fa4ab690ae5313fa738"
+        },
+        "model_root": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+        "pack_counts": {
+          "d4": 4173,
+          "qtip2": 2266,
+          "qtip3": 14979
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean42-stage-run8171/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/reference/L016_E001_fused13_L16_K2_V2.pt",
+        "rht_seed": 2069564712505298611,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@3.00",
+        "tlut_source": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean42-stage-run8171/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/qtip_runtime/inputs/P817_TLUT_SOURCE.pt"
+      },
+      "receipt": {
+        "artifact": "QTIP_UNIT.pt",
+        "artifact_sha256": "45289dd911902cf9129fc4581429b44623dedff2e435d454762f190ec1a452f4",
+        "assignment_sha256": "23ca892fae091bc9dd42c76392baa813b04cd3190453342d319faa657f366651",
+        "basis_gate": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "schema": "banana-smasher-qtip-basis-gate-v1",
+          "shards_manifest": "SHARDS.json",
+          "shards_manifest_sha256": "d1cf4ce169bf58126fc7e3ac478ed86a1aad5b03c7b73dd2fcb661a82bc53aa3",
+          "status": "PASS"
+        },
+        "build": {
+          "batch": {
+            "batch_id": "ecd1190af6f39adc",
+            "batch_units": 2,
+            "batch_wall_seconds": 2.191679358991678,
+            "implementation": "current-k3-full16-cross-unit-batched-ldlq-v1",
+            "independent_unit_state": true,
+            "matrix_lifetime": {
+              "batch_units": 2,
+              "events": [
+                {
+                  "live_fp32_matrices": [
+                    "hessian",
+                    "lower",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 4.0,
+                  "phase": "batched_ldl_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [
+                    "lower",
+                    "quantized",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 5.0,
+                  "phase": "batched_ldlq_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [],
+                  "live_fp32_matrix_equivalents": 0.0,
+                  "phase": "quantized_released_before_pack",
+                  "unique_storage_count": 0
+                }
+              ],
+              "max_live_fp32_matrix_equivalents": 5.0,
+              "reconstruction_source": "canonical-packed-bytes",
+              "released_after_ldlq": [
+                "lower",
+                "transformed"
+              ],
+              "released_before_pack": [
+                "lower",
+                "transformed",
+                "quantized"
+              ],
+              "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+              "unit_matrix_shape": [
+                4096,
+                2048
+              ]
+            },
+            "mean_build_wall_seconds": 1.095839679495839,
+            "member_index": 0,
+            "phase_seconds": {
+              "batched_block_ldl": 0.008080333995167166,
+              "batched_ldlq": 1.8638441910006804,
+              "canonical_per_unit_pack": 0.08429669699398801,
+              "hessian_forward_fwht": 0.07152855300228111,
+              "packed_decode_conformance": 0.16345670199370943
+            },
+            "schema": "banana-smasher-qtip-cross-unit-build-v1",
+            "solver_geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "branch_sampling": "full",
+              "branches_per_prefix": 64,
+              "retained_prefix_costs": 1024
+            }
+          },
+          "canonical_pack": {
+            "canonical_pack_roundtrip_exact": true,
+            "canonical_pack_roundtrip_fraction": 1.0,
+            "canonical_packed_dtype": "torch.uint16",
+            "canonical_packed_sha256": "1ef0eb4208fd77f8510c80bb6f1cf46793663c35f5f38f24153fecb66b0e077b",
+            "canonical_packed_shape": [
+              32768,
+              48
+            ],
+            "canonical_unpack_state_sha256": "772ee30d5b494748e83e6a1d0def394d26a7590eeb1487ff4d49c54f7f914796",
+            "input_state_sha256": "772ee30d5b494748e83e6a1d0def394d26a7590eeb1487ff4d49c54f7f914796",
+            "kernel_packed_bytes": 3145728,
+            "kernel_packed_sha256": "23ca892fae091bc9dd42c76392baa813b04cd3190453342d319faa657f366651",
+            "kernel_packed_shape": [
+              32768,
+              48
+            ],
+            "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+            "tile_states_shape": [
+              32768,
+              128
+            ]
+          },
+          "fit_route_mass": 212.912109375,
+          "fit_rows": 921,
+          "packed_decode": {
+            "conformance_comparison": "cpu",
+            "fp16_bit_equal_fraction": 1.0,
+            "fp16_bit_exact": true,
+            "geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_bits": 9
+            },
+            "max_abs_fp32_vs_stored_fp16": 5.288422107696533e-05,
+            "path": "existing geometry-bound canonical packed-wire consumer",
+            "runtime_check_performed": true,
+            "shape": [
+              4096,
+              2048
+            ]
+          },
+          "phase_seconds": {
+            "batched_block_ldl": 0.004040166997583583,
+            "batched_ldlq": 0.9319220955003402,
+            "canonical_per_unit_pack": 0.042148348496994004,
+            "hessian_forward_fwht": 0.03576427650114056,
+            "packed_decode_conformance": 0.08172835099685472
+          },
+          "quant_seconds": 0.9319220955003402,
+          "rht_seed": 2069564712505298611,
+          "schema": "banana-smasher-qtip-cross-unit-build-member-v1",
+          "status": "PASS"
+        },
+        "config_sha256": "0a9d5c1afb395653a943025e00d226b11ec13735fbc35e94634342fcbe4c90ac",
+        "cross_unit_batch": {
+          "batch_id": "ecd1190af6f39adc",
+          "batch_units": 2,
+          "config_names": [
+            "L012_E085_down.json",
+            "L012_E086_down.json"
+          ],
+          "member_index": 0,
+          "process": {
+            "pid": 1008441,
+            "startticks": 7618424
+          }
+        },
+        "epoch_ended": 1788911161.4905167,
+        "epoch_started": 1788911158.3774326,
+        "expert": 85,
+        "fit_source": {
+          "mode": "source-fused13",
+          "source_weight": {
+            "index_path": "model.safetensors.index.json",
+            "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+            "shards": [
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.85.w1.weight"
+              },
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.85.w3.weight"
+              }
+            ]
+          }
+        },
+        "fit_windows": 22,
+        "fresh_no_warm_start": true,
+        "glm_source_closure": null,
+        "hessian_layer_manifest": {
+          "bytes": 14129,
+          "capture_root": "captures",
+          "manifest_capture_root": "captures",
+          "path": "L012.CAPTURE_BINDING.json",
+          "relocated_capture_root": false,
+          "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+          "windows": 22
+        },
+        "kernel_cache": {
+          "artifacts": [
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "2a062e4eaa1554ffe3041fcf832c4c9dd9dab4a0c1be76deba607ff5e0992575"
+            },
+            {
+              "bytes": 77664,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.cubin",
+              "sha256": "b3a51c59616b3dfef6d5ec1eb20d11fe67e18150796b1f8ed5386fb32464d33e"
+            },
+            {
+              "bytes": 1124,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.json",
+              "sha256": "fb81903b98a979876a7332bc6b18ccdead4f09738e919bf4094f157691243385"
+            },
+            {
+              "bytes": 104903,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.llir",
+              "sha256": "ebcc67dca84fe5c885a41ac9c55001fc0663d60811a1ff83f08568da155d4e0a"
+            },
+            {
+              "bytes": 95310,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ptx",
+              "sha256": "7237839979759099e8c443cac24f0e838b7b244ff6edf01220a7f4219e985b5b"
+            },
+            {
+              "bytes": 157714,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.source",
+              "sha256": "9f109e63b14305d0ae19aa60ec48446e9e9abb980194f53ab96d9cdbf9c30835"
+            },
+            {
+              "bytes": 119166,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "f0ecdedde8cacf6e8a8df272fefcd3246f155ce95d85aa50d7d8e172116a63a9"
+            },
+            {
+              "bytes": 117160,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttir",
+              "sha256": "09c3965bde714119a5e4e199d13b3f70fc2a352ba8a8d3e2b27f0c471edf6d7c"
+            },
+            {
+              "bytes": 71776,
+              "path": "artifacts/triton/FOG6ORNBZGSDIUGXOAHJXDHFVR34NLDUZ2GRJPWVG6DSDRGE3NTA/__triton_launcher.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "e9da583659e854fb4bb4ce196d618ab7fc1d5ccf53021853ce55b4dd22670186"
+            },
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "f6a2b412557bd189f4b636c8d6332b68e084f73ac33bde207307d7a57e8b74f2"
+            },
+            {
+              "bytes": 93632,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.cubin",
+              "sha256": "e48bb6db385c909e1fdbb8fb956e155f7c710e79db6328fb3a191c7d1454220f"
+            },
+            {
+              "bytes": 1126,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.json",
+              "sha256": "f985aa8d9fbb0b5705d4779ad0e56e4edb914a60841eb17dfe959b2f786721eb"
+            },
+            {
+              "bytes": 115341,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.llir",
+              "sha256": "cb83d07789597641a0eef3ceeed3d06d6a5076de5c76ef2a911ed9ac96bf8cc8"
+            },
+            {
+              "bytes": 118581,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ptx",
+              "sha256": "0f03609ce820ae2d58a4c855f0d80d136bf3ea8fc85f0cc8aec68c9a7c110616"
+            },
+            {
+              "bytes": 162421,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.source",
+              "sha256": "1df478bd0ccd58274c3f0878e64e46b82c2ffb1fbeaec6839279c4d7f27d83b4"
+            },
+            {
+              "bytes": 119999,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "43d5b51404693276562e99d764a7ad98de5e07c6320f1e930e742f4f73c3688a"
+            },
+            {
+              "bytes": 119024,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttir",
+              "sha256": "7c1120f765aec363960cb608174bea7bf78b2327ae12a60755c0d11367fc84ea"
+            },
+            {
+              "bytes": 73880,
+              "path": "artifacts/triton/YK4VZ2BI4GMJSPC3BQ2UKVAY3EVEJ2V5Y3JAVA4MQ4AUGAW7YFUA/cuda_utils.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "a69957d0e0cca9a1dc068b5ddd447adf909e92f8f3602232b8ae2187588848a0"
+            }
+          ],
+          "cache_hit": true,
+          "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+          "plan": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "architecture": "sm_121-NVIDIA-GB10",
+            "bpw": "3.00",
+            "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "recipes": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "compile_constants": {
+                  "branch_bits": 6,
+                  "states": 65536,
+                  "steps": 128
+                },
+                "compile_variants": [
+                  {
+                    "has_overlap": false
+                  },
+                  {
+                    "has_overlap": true
+                  }
+                ],
+                "execution_contract": {
+                  "exact_identity": "discrete-trellis",
+                  "host_launches_per_call": 1,
+                  "target_seconds_per_unit": 2.2,
+                  "transition_loop": "device-resident"
+                },
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                }
+              }
+            ],
+            "schema": "banana-smasher-qtip-kernel-build-plan-v1",
+            "source_sha256": {
+              "qtip_kernel_cache.py": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+              "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+              "qtip_rings.py": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+              "qtip_viterbi.py": "533a96bd81d56351192ab7dce3f4c49c3c3e3cc8cbbccbec063ca02666dd0d93",
+              "trellis_v2/__init__.py": "da9134ea55ca03963baf598a3b3568850cc6be35bdcc1e3d2490253521ab9cb4",
+              "trellis_v2/csrc/binding_exact.cpp": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+              "trellis_v2/csrc/trellis_v2_exact.cu": "07d49a0f9ecbb29607668b72bd1065a76f61f33cc8578205a68836c893b7da09",
+              "trellis_v2/exact.py": "7c4a98d74d7f68db8166df541424e76c0118fe4901605a7cb3b080b7fe8f5a40",
+              "trellis_v2/setup.py": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2"
+            },
+            "tier": "qtip@3.00"
+          },
+          "receipt": "QTIP_KERNEL_RECEIPT.json",
+          "schema": "banana-smasher-qtip-kernel-cache-v1",
+          "status": "PASS"
+        },
+        "layer": 12,
+        "peak_cuda_allocated_bytes": 645338112,
+        "peak_cuda_reserved_bytes": 1025507328,
+        "phase_seconds": {
+          "artifact_fsync": 0.01945736800553277,
+          "kernel_prepare": 0.002099759498378262,
+          "packed_decode_conformance": 0.08172835099685472,
+          "progress_receipt_fsync": 0.0,
+          "receipt_fsync": 0.00710578600410372,
+          "remainder": 0.0,
+          "solve": 1.0958958154951688,
+          "solve_core_excluding_packed_decode_conformance": 1.014167464498314,
+          "staging": 0.4345004679998965
+        },
+        "projection": "down",
+        "public_command_config": "L012_E085_down.json",
+        "rht_seed": 2069564712505298611,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-solve-v1",
+        "solve_seconds": 1.0958958154951688,
+        "solver": {
+          "K": 3,
+          "L": 16,
+          "V": 2,
+          "best_state_dtype": "int32",
+          "branch_sampling": "full",
+          "branches_per_prefix": 64,
+          "full_states": 65536,
+          "implementation": "persistent-soa-exact-prefix-dp-v32",
+          "min_exact_quality": 1.0,
+          "ordering": "one persistent launch per independent sequence batch",
+          "production_default": true,
+          "retained_prefix_costs": 1024,
+          "steps": 128
+        },
+        "source_weight": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "shards": [
+            {
+              "bytes": 3590026352,
+              "path": "model-00014-of-00048.safetensors",
+              "weight_key": "layers.12.ffn.experts.85.w2.weight"
+            }
+          ]
+        },
+        "staging_seconds": 0.4345004679998965,
+        "status": "PASS",
+        "total_wall_seconds": 1.5565410279959906,
+        "transition_decisions": 532676608,
+        "viterbi_launches": 256,
+        "viterbi_sequences": 65536
+      }
+    },
+    {
+      "admission": {
+        "K": 3,
+        "cell": [
+          12,
+          86,
+          "down"
+        ],
+        "artifact": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E086_down/QTIP_UNIT.pt",
+          "sha256": "8ff227a994792f8033f94bc90b37feff594541b64fa97efb9e501f430082e26a",
+          "bytes": 3164825
+        },
+        "receipt": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E086_down/QTIP_SOLVE_RECEIPT.json",
+          "sha256": "93fa390d7c9dad8f3a9b24a6d8f5f5e19019bcd476362cf7b7ea03c71391efd0",
+          "bytes": 15294
+        },
+        "config": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E086_down.json",
+          "sha256": "81cd2cd93e921c6a86ad7fca37d45b57344fa5d82eac05ce8b84b6b455e9d2d4",
+          "bytes": 3369
+        },
+        "imports": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0004.json",
+          "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291",
+          "bytes": 15686
+        },
+        "source_input": {
+          "cell": [
+            12,
+            86,
+            "down"
+          ],
+          "reusable_input_config": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-resident-clean42-run8171/L012_E086_down.json",
+            "bytes": 3316,
+            "sha256": "89aa7479d9dadb961e3c1f9c65e212c33a6db6a4d628db929a2ade4c2dc53148"
+          },
+          "reusable_capture_binding": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+            "bytes": 14129,
+            "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6"
+          },
+          "reusable_population": {
+            "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+            "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+          },
+          "input_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score."
+        },
+        "started": 1788911158.376949,
+        "accepted": 1788911161.564628,
+        "qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "producer_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+        "producer_identity": {
+          "pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+          "publication": "4cca9cfad911e8eac3d50dfdeb330ef132422032"
+        },
+        "scope": "bounded-L000fused-missing-continuation"
+      },
+      "config": {
+        "aot": {
+          "architecture": "runtime-device",
+          "cache": "sha256-pinned",
+          "compile": "first-use-or-explicit",
+          "producer": "smash kernels build --tier qtip --bpw 3.00"
+        },
+        "backend": "persistent-soa-exact-prefix-dp-v32",
+        "block_ldl_unitwise": true,
+        "bpw": "3.00",
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "exact_solver": "banana_smasher.qtip_viterbi@6a40f916a6def348cb6a65bcd648006ab3242211",
+        "expert": 86,
+        "fit_capture_root": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/captures",
+        "fit_population_manifest": {
+          "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json",
+          "sha256": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd"
+        },
+        "fit_qualification": "Clean22 whole-window exclusion; ordinary nonzero routed-weight fit; no original Hessian reuse; not complete uniform artifact or score.",
+        "fit_windows": 22,
+        "geometry": {
+          "K": 3,
+          "L": 16,
+          "V": 2
+        },
+        "hessian_layer_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json",
+        "hessian_layer_manifest_sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731/model.safetensors.index.json",
+            "sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b"
+          }
+        },
+        "layer": 12,
+        "layer_census": {
+          "d4": 0,
+          "qtip2": 512,
+          "qtip3": 0
+        },
+        "materialization": {
+          "qtip_ring_bpw": "3.00",
+          "run_manifest": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E086_down.MANIFEST.json",
+          "run_manifest_sha256": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+          "schema": "banana-smasher-qtip-config-materialization-v1",
+          "source_config_sha256": "06180ad63e3775d2b8fa016b919652cbbd7a5a6ecff9b8b2603e5a399d4ae562"
+        },
+        "model_root": "/home/dnola/models/hf/DeepSeek-V4-Flash-0731",
+        "pack_counts": {
+          "d4": 4173,
+          "qtip2": 2266,
+          "qtip3": 14979
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean42-stage-run8171/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/reference/L016_E001_fused13_L16_K2_V2.pt",
+        "rht_seed": 8989534502519112428,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@3.00",
+        "tlut_source": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean42-stage-run8171/spark-1/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_1/inputs/qtip_runtime/inputs/P817_TLUT_SOURCE.pt"
+      },
+      "receipt": {
+        "artifact": "QTIP_UNIT.pt",
+        "artifact_sha256": "8ff227a994792f8033f94bc90b37feff594541b64fa97efb9e501f430082e26a",
+        "assignment_sha256": "10d795093f3359979b51132dbd4ae10c222b21efbf81a3abc19063ebd473afbc",
+        "basis_gate": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "schema": "banana-smasher-qtip-basis-gate-v1",
+          "shards_manifest": "SHARDS.json",
+          "shards_manifest_sha256": "d1cf4ce169bf58126fc7e3ac478ed86a1aad5b03c7b73dd2fcb661a82bc53aa3",
+          "status": "PASS"
+        },
+        "build": {
+          "batch": {
+            "batch_id": "ecd1190af6f39adc",
+            "batch_units": 2,
+            "batch_wall_seconds": 2.191679358991678,
+            "implementation": "current-k3-full16-cross-unit-batched-ldlq-v1",
+            "independent_unit_state": true,
+            "matrix_lifetime": {
+              "batch_units": 2,
+              "events": [
+                {
+                  "live_fp32_matrices": [
+                    "hessian",
+                    "lower",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 4.0,
+                  "phase": "batched_ldl_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [
+                    "lower",
+                    "quantized",
+                    "transformed"
+                  ],
+                  "live_fp32_matrix_equivalents": 5.0,
+                  "phase": "batched_ldlq_ready",
+                  "unique_storage_count": 3
+                },
+                {
+                  "live_fp32_matrices": [],
+                  "live_fp32_matrix_equivalents": 0.0,
+                  "phase": "quantized_released_before_pack",
+                  "unique_storage_count": 0
+                }
+              ],
+              "max_live_fp32_matrix_equivalents": 5.0,
+              "reconstruction_source": "canonical-packed-bytes",
+              "released_after_ldlq": [
+                "lower",
+                "transformed"
+              ],
+              "released_before_pack": [
+                "lower",
+                "transformed",
+                "quantized"
+              ],
+              "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+              "unit_matrix_shape": [
+                4096,
+                2048
+              ]
+            },
+            "mean_build_wall_seconds": 1.095839679495839,
+            "member_index": 1,
+            "phase_seconds": {
+              "batched_block_ldl": 0.008080333995167166,
+              "batched_ldlq": 1.8638441910006804,
+              "canonical_per_unit_pack": 0.08429669699398801,
+              "hessian_forward_fwht": 0.07152855300228111,
+              "packed_decode_conformance": 0.16345670199370943
+            },
+            "schema": "banana-smasher-qtip-cross-unit-build-v1",
+            "solver_geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "branch_sampling": "full",
+              "branches_per_prefix": 64,
+              "retained_prefix_costs": 1024
+            }
+          },
+          "canonical_pack": {
+            "canonical_pack_roundtrip_exact": true,
+            "canonical_pack_roundtrip_fraction": 1.0,
+            "canonical_packed_dtype": "torch.uint16",
+            "canonical_packed_sha256": "d5a11389374c7ed2cfab9d66deb7e22d714d45b3567b44994969d15cbf764043",
+            "canonical_packed_shape": [
+              32768,
+              48
+            ],
+            "canonical_unpack_state_sha256": "2563b3161a7fc71411868f60eae416469204f00f896a854f1a9bb8740fefc4f6",
+            "input_state_sha256": "2563b3161a7fc71411868f60eae416469204f00f896a854f1a9bb8740fefc4f6",
+            "kernel_packed_bytes": 3145728,
+            "kernel_packed_sha256": "10d795093f3359979b51132dbd4ae10c222b21efbf81a3abc19063ebd473afbc",
+            "kernel_packed_shape": [
+              32768,
+              48
+            ],
+            "kernel_swizzle": "reshape(m//32,2,k//32,2,32,K).permute(0,2,4,3,1,5)",
+            "tile_states_shape": [
+              32768,
+              128
+            ]
+          },
+          "fit_route_mass": 191.419189453125,
+          "fit_rows": 793,
+          "packed_decode": {
+            "conformance_comparison": "cpu",
+            "fp16_bit_equal_fraction": 1.0,
+            "fp16_bit_exact": true,
+            "geometry": {
+              "K": 3,
+              "L": 16,
+              "V": 2,
+              "decode_mode": "quantlut_sym",
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_bits": 9
+            },
+            "max_abs_fp32_vs_stored_fp16": 6.0677528381347656e-05,
+            "path": "existing geometry-bound canonical packed-wire consumer",
+            "runtime_check_performed": true,
+            "shape": [
+              4096,
+              2048
+            ]
+          },
+          "phase_seconds": {
+            "batched_block_ldl": 0.004040166997583583,
+            "batched_ldlq": 0.9319220955003402,
+            "canonical_per_unit_pack": 0.042148348496994004,
+            "hessian_forward_fwht": 0.03576427650114056,
+            "packed_decode_conformance": 0.08172835099685472
+          },
+          "quant_seconds": 0.9319220955003402,
+          "rht_seed": 8989534502519112428,
+          "schema": "banana-smasher-qtip-cross-unit-build-member-v1",
+          "status": "PASS"
+        },
+        "config_sha256": "81cd2cd93e921c6a86ad7fca37d45b57344fa5d82eac05ce8b84b6b455e9d2d4",
+        "cross_unit_batch": {
+          "batch_id": "ecd1190af6f39adc",
+          "batch_units": 2,
+          "config_names": [
+            "L012_E085_down.json",
+            "L012_E086_down.json"
+          ],
+          "member_index": 1,
+          "process": {
+            "pid": 1008441,
+            "startticks": 7618424
+          }
+        },
+        "epoch_ended": 1788911161.4970212,
+        "epoch_started": 1788911158.3774326,
+        "expert": 86,
+        "fit_source": {
+          "mode": "source-fused13",
+          "source_weight": {
+            "index_path": "model.safetensors.index.json",
+            "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+            "shards": [
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.86.w1.weight"
+              },
+              {
+                "bytes": 3590026352,
+                "path": "model-00014-of-00048.safetensors",
+                "weight_key": "layers.12.ffn.experts.86.w3.weight"
+              }
+            ]
+          }
+        },
+        "fit_windows": 22,
+        "fresh_no_warm_start": true,
+        "glm_source_closure": null,
+        "hessian_layer_manifest": {
+          "bytes": 14129,
+          "capture_root": "captures",
+          "manifest_capture_root": "captures",
+          "path": "L012.CAPTURE_BINDING.json",
+          "relocated_capture_root": false,
+          "sha256": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+          "windows": 22
+        },
+        "kernel_cache": {
+          "artifacts": [
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "2a062e4eaa1554ffe3041fcf832c4c9dd9dab4a0c1be76deba607ff5e0992575"
+            },
+            {
+              "bytes": 77664,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.cubin",
+              "sha256": "b3a51c59616b3dfef6d5ec1eb20d11fe67e18150796b1f8ed5386fb32464d33e"
+            },
+            {
+              "bytes": 1124,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.json",
+              "sha256": "fb81903b98a979876a7332bc6b18ccdead4f09738e919bf4094f157691243385"
+            },
+            {
+              "bytes": 104903,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.llir",
+              "sha256": "ebcc67dca84fe5c885a41ac9c55001fc0663d60811a1ff83f08568da155d4e0a"
+            },
+            {
+              "bytes": 95310,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ptx",
+              "sha256": "7237839979759099e8c443cac24f0e838b7b244ff6edf01220a7f4219e985b5b"
+            },
+            {
+              "bytes": 157714,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.source",
+              "sha256": "9f109e63b14305d0ae19aa60ec48446e9e9abb980194f53ab96d9cdbf9c30835"
+            },
+            {
+              "bytes": 119166,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "f0ecdedde8cacf6e8a8df272fefcd3246f155ce95d85aa50d7d8e172116a63a9"
+            },
+            {
+              "bytes": 117160,
+              "path": "artifacts/triton/76FHLZCMH7GHQSS3KGQARVOCBTBJGRPUYDOTCIQIHKPGRBS5HDRA/_persistent_prefix_viterbi.ttir",
+              "sha256": "09c3965bde714119a5e4e199d13b3f70fc2a352ba8a8d3e2b27f0c471edf6d7c"
+            },
+            {
+              "bytes": 71776,
+              "path": "artifacts/triton/FOG6ORNBZGSDIUGXOAHJXDHFVR34NLDUZ2GRJPWVG6DSDRGE3NTA/__triton_launcher.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "e9da583659e854fb4bb4ce196d618ab7fc1d5ccf53021853ce55b4dd22670186"
+            },
+            {
+              "bytes": 2249,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/__grp___persistent_prefix_viterbi.json",
+              "sha256": "f6a2b412557bd189f4b636c8d6332b68e084f73ac33bde207307d7a57e8b74f2"
+            },
+            {
+              "bytes": 93632,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.cubin",
+              "sha256": "e48bb6db385c909e1fdbb8fb956e155f7c710e79db6328fb3a191c7d1454220f"
+            },
+            {
+              "bytes": 1126,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.json",
+              "sha256": "f985aa8d9fbb0b5705d4779ad0e56e4edb914a60841eb17dfe959b2f786721eb"
+            },
+            {
+              "bytes": 115341,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.llir",
+              "sha256": "cb83d07789597641a0eef3ceeed3d06d6a5076de5c76ef2a911ed9ac96bf8cc8"
+            },
+            {
+              "bytes": 118581,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ptx",
+              "sha256": "0f03609ce820ae2d58a4c855f0d80d136bf3ea8fc85f0cc8aec68c9a7c110616"
+            },
+            {
+              "bytes": 162421,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.source",
+              "sha256": "1df478bd0ccd58274c3f0878e64e46b82c2ffb1fbeaec6839279c4d7f27d83b4"
+            },
+            {
+              "bytes": 119999,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttgir",
+              "sha256": "43d5b51404693276562e99d764a7ad98de5e07c6320f1e930e742f4f73c3688a"
+            },
+            {
+              "bytes": 119024,
+              "path": "artifacts/triton/H7PB56DBXMWCIUEQT3RJCCN7HX2GFAZRVNCRNHUIGD4P74X4DSEA/_persistent_prefix_viterbi.ttir",
+              "sha256": "7c1120f765aec363960cb608174bea7bf78b2327ae12a60755c0d11367fc84ea"
+            },
+            {
+              "bytes": 73880,
+              "path": "artifacts/triton/YK4VZ2BI4GMJSPC3BQ2UKVAY3EVEJ2V5Y3JAVA4MQ4AUGAW7YFUA/cuda_utils.cpython-312-aarch64-linux-gnu.so",
+              "sha256": "a69957d0e0cca9a1dc068b5ddd447adf909e92f8f3602232b8ae2187588848a0"
+            }
+          ],
+          "cache_hit": true,
+          "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+          "plan": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "architecture": "sm_121-NVIDIA-GB10",
+            "bpw": "3.00",
+            "cache_key_sha256": "106d4766d4d3e9dad98e5cc4ba6405451a82fa42dbd9dca07955edb609a53cce",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "recipes": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "compile_constants": {
+                  "branch_bits": 6,
+                  "states": 65536,
+                  "steps": 128
+                },
+                "compile_variants": [
+                  {
+                    "has_overlap": false
+                  },
+                  {
+                    "has_overlap": true
+                  }
+                ],
+                "execution_contract": {
+                  "exact_identity": "discrete-trellis",
+                  "host_launches_per_call": 1,
+                  "target_seconds_per_unit": 2.2,
+                  "transition_loop": "device-resident"
+                },
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                }
+              }
+            ],
+            "schema": "banana-smasher-qtip-kernel-build-plan-v1",
+            "source_sha256": {
+              "qtip_kernel_cache.py": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+              "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+              "qtip_rings.py": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+              "qtip_viterbi.py": "533a96bd81d56351192ab7dce3f4c49c3c3e3cc8cbbccbec063ca02666dd0d93",
+              "trellis_v2/__init__.py": "da9134ea55ca03963baf598a3b3568850cc6be35bdcc1e3d2490253521ab9cb4",
+              "trellis_v2/csrc/binding_exact.cpp": "b4335c52673ff197f8a7157030065ad9b078ff801cafa5e661951c961e6eed18",
+              "trellis_v2/csrc/trellis_v2_exact.cu": "07d49a0f9ecbb29607668b72bd1065a76f61f33cc8578205a68836c893b7da09",
+              "trellis_v2/exact.py": "7c4a98d74d7f68db8166df541424e76c0118fe4901605a7cb3b080b7fe8f5a40",
+              "trellis_v2/setup.py": "5aaae1a44b4def50abcc1457683590b46b779024f1a0c372acb88004c690a0b2"
+            },
+            "tier": "qtip@3.00"
+          },
+          "receipt": "QTIP_KERNEL_RECEIPT.json",
+          "schema": "banana-smasher-qtip-kernel-cache-v1",
+          "status": "PASS"
+        },
+        "layer": 12,
+        "peak_cuda_allocated_bytes": 645338112,
+        "peak_cuda_reserved_bytes": 1025507328,
+        "phase_seconds": {
+          "artifact_fsync": 0.008209646010072902,
+          "kernel_prepare": 0.002099759498378262,
+          "packed_decode_conformance": 0.08172835099685472,
+          "progress_receipt_fsync": 0.0,
+          "receipt_fsync": 0.0065009519894374534,
+          "remainder": 0.0,
+          "solve": 1.0958958154951688,
+          "solve_core_excluding_packed_decode_conformance": 1.014167464498314,
+          "staging": 0.4345004679998965
+        },
+        "projection": "down",
+        "public_command_config": "L012_E086_down.json",
+        "rht_seed": 8989534502519112428,
+        "rht_seed_policy": "qtip-rht-explicit-seed-v1",
+        "schema": "banana-smasher-qtip-solve-v1",
+        "solve_seconds": 1.0958958154951688,
+        "solver": {
+          "K": 3,
+          "L": 16,
+          "V": 2,
+          "best_state_dtype": "int32",
+          "branch_sampling": "full",
+          "branches_per_prefix": 64,
+          "full_states": 65536,
+          "implementation": "persistent-soa-exact-prefix-dp-v32",
+          "min_exact_quality": 1.0,
+          "ordering": "one persistent launch per independent sequence batch",
+          "production_default": true,
+          "retained_prefix_costs": 1024,
+          "steps": 128
+        },
+        "source_weight": {
+          "index_path": "model.safetensors.index.json",
+          "index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+          "shards": [
+            {
+              "bytes": 3590026352,
+              "path": "model-00014-of-00048.safetensors",
+              "weight_key": "layers.12.ffn.experts.86.w2.weight"
+            }
+          ]
+        },
+        "staging_seconds": 0.4345004679998965,
+        "status": "PASS",
+        "total_wall_seconds": 1.5565410279959906,
+        "transition_decisions": 532676608,
+        "viterbi_launches": 256,
+        "viterbi_sequences": 65536
+      }
+    }
+  ],
+  "checks": [
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E081_down/QTIP_UNIT.pt",
+      "bytes": 3164825,
+      "sha256": "188383700220e2b22131e051210c81797b2693defa5f12b38f9fab3437fb6ea7"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E081_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 15568,
+      "sha256": "066ccd9ad37731ce9cf3092dfa59e57d0b28838a2fa07fa29e85678c6a3e901e"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E081_down.json",
+      "bytes": 3369,
+      "sha256": "0761b916496b307403ea6688795b309d327ba10ada91bee389c9c05e5786dad3"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0000.json",
+      "bytes": 15686,
+      "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E082_down/QTIP_UNIT.pt",
+      "bytes": 3164825,
+      "sha256": "6d07115d7b8c3de1dc21a36d429a9ea6739699df545da9a7729a73302fcfebd9"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E082_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 15573,
+      "sha256": "daac69799921880d2eea8b7b5f6c61870afa22d3a8030ff0efade3d422cf4e6f"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E082_down.json",
+      "bytes": 3369,
+      "sha256": "3e02c727999fbd2f56c7f55c67c274eda7dbc93d9d10e79a7e0e12ef9d96c9da"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0000.json",
+      "bytes": 15686,
+      "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E083_down/QTIP_UNIT.pt",
+      "bytes": 3164825,
+      "sha256": "dde579e0b4e2fa53ed8ecc15c804fba0b98046534172fc0dbfed9689977c801e"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E083_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 15570,
+      "sha256": "d9a3fe3561d53852f59dda2bdb2b60207ab0798d0515caae12fbf8220bc44013"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E083_down.json",
+      "bytes": 3369,
+      "sha256": "f42e2a7fa3182d7db74715cd828609e838c1f6a524888cfcb9477bebb6f8fe01"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0000.json",
+      "bytes": 15686,
+      "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E084_down/QTIP_UNIT.pt",
+      "bytes": 3164825,
+      "sha256": "9e907ac8b9e0564271de740bc2a267dfce34050413bef692e82d8280b1d6b466"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E084_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 15257,
+      "sha256": "39c6389cbdb9bef974727c15e2722e466a7210d9b0b99f2b4ad287389009336d"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E084_down.json",
+      "bytes": 3369,
+      "sha256": "c74561add01366f9151670967afe058b6c7e1a4e31fd611c5c204a6eec53f3cb"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0003.json",
+      "bytes": 15686,
+      "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E085_down/QTIP_UNIT.pt",
+      "bytes": 3164825,
+      "sha256": "45289dd911902cf9129fc4581429b44623dedff2e435d454762f190ec1a452f4"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E085_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 15287,
+      "sha256": "dd0f41a17fe68fc5b2135da5a76a40d37b1f5a8c6731bbae20f4900709a3c5b9"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E085_down.json",
+      "bytes": 3369,
+      "sha256": "0a9d5c1afb395653a943025e00d226b11ec13735fbc35e94634342fcbe4c90ac"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0004.json",
+      "bytes": 15686,
+      "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E086_down/QTIP_UNIT.pt",
+      "bytes": 3164825,
+      "sha256": "8ff227a994792f8033f94bc90b37feff594541b64fa97efb9e501f430082e26a"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/solve/L012/E086_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 15294,
+      "sha256": "93fa390d7c9dad8f3a9b24a6d8f5f5e19019bcd476362cf7b7ea03c71391efd0"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E086_down.json",
+      "bytes": 3369,
+      "sha256": "81cd2cd93e921c6a86ad7fca37d45b57344fa5d82eac05ce8b84b6b455e9d2d4"
+    },
+    {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/POST_SOLVE_IMPORTS_0004.json",
+      "bytes": 15686,
+      "sha256": "3d0309c4bcbfe68e1e367b49c88f2621dec38db701799e27165223d67db64291"
+    }
+  ],
+  "imports": {
+    "banana_smasher": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/__init__.py",
+      "bytes": 11923,
+      "sha256": "5c42cdd7f49757ec5f333389b59e7aebeaa646e0b18fa6d18797ed8f973995d3"
+    },
+    "banana_smasher.anchor": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/anchor.py",
+      "bytes": 66331,
+      "sha256": "154025d5f83cc6ed0ce50d002f445438c2521f66ce1caeb4c6206ca47ae93da5"
+    },
+    "banana_smasher.artifact_identity": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/artifact_identity.py",
+      "bytes": 8457,
+      "sha256": "e0daa309687cf8f0116419cced6907b71408b6dfb66e7a5026844febbb884754"
+    },
+    "banana_smasher.backpack": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack.py",
+      "bytes": 194393,
+      "sha256": "4050a2b8689f21e903028203fce78ed16f4bcf4ef08b8f56b39984bb7ebffe0e"
+    },
+    "banana_smasher.backpack_contextual": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack_contextual.py",
+      "bytes": 26184,
+      "sha256": "5ff9fa34108b084bf18f206d169cf3a2b41b0a300ea03bf6c58e4171c453a6b4"
+    },
+    "banana_smasher.backpack_contextual_candidate": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack_contextual_candidate.py",
+      "bytes": 16722,
+      "sha256": "537b822093220c6637a9695d5b38d8c6f448a7200372a123fafa395d6d4d31f9"
+    },
+    "banana_smasher.backpack_contextual_measure": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack_contextual_measure.py",
+      "bytes": 10807,
+      "sha256": "4e0d1a5cfb86200fd13c15eb563e637c7116008b280b3e7f8a46b673cbbbd874"
+    },
+    "banana_smasher.backpack_contextual_prepare": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack_contextual_prepare.py",
+      "bytes": 18329,
+      "sha256": "5315113bbc28749f43820818817b6d630dd98943acdcc84753b0a38f1eaec496"
+    },
+    "banana_smasher.backpack_dimensions": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack_dimensions.py",
+      "bytes": 68864,
+      "sha256": "09c73d71913b67fcf41e00abdeb367609461497968403c7e6477a9094e5a2e8b"
+    },
+    "banana_smasher.backpack_exact64": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack_exact64.py",
+      "bytes": 9446,
+      "sha256": "56d5139dcd3ceb1f5d99594b3ab6ff2ba1cfb32724304f5e0b8a4384acc99778"
+    },
+    "banana_smasher.backpack_providers": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack_providers.py",
+      "bytes": 22462,
+      "sha256": "a8cee7aa1d58d0824ecb9eb01f8c4f3f4965e19dd267cab8c2bc9adebe5fb9d7"
+    },
+    "banana_smasher.backpack_selection": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack_selection.py",
+      "bytes": 8058,
+      "sha256": "92bf963d461d4e59582917e3f00b38fe8b9c58260992a06d29a34e2179eaba29"
+    },
+    "banana_smasher.backpack_virtual": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/backpack_virtual.py",
+      "bytes": 62511,
+      "sha256": "a801c2e57f6b81e27bea33113a38f59cd053da54b79c99466616a46c91429ea4"
+    },
+    "banana_smasher.banana_v1": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/banana_v1.py",
+      "bytes": 34479,
+      "sha256": "3e5f913d9ba628e599452f205f4179d409c6296146c01c85202ac973b3960cb7"
+    },
+    "banana_smasher.banana_v1_runtime_adapter": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/banana_v1_runtime_adapter.py",
+      "bytes": 13580,
+      "sha256": "f23e72ce3b0f454432b8b29eea8ae33bed5fe5c160004b34b3acdb1818cabdf5"
+    },
+    "banana_smasher.bank": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/bank.py",
+      "bytes": 26294,
+      "sha256": "58e1becf1001272086520af091eddac36e28c4606bb8ba4464bc583830b21dec"
+    },
+    "banana_smasher.bpw": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/bpw.py",
+      "bytes": 6998,
+      "sha256": "dc1770908e71427166ca48c6b30abc364812276f99eaf4278473308df9a6f90d"
+    },
+    "banana_smasher.contract": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/contract.py",
+      "bytes": 110858,
+      "sha256": "1c33f70f0c139672504aa179301ef885327fb66f0f22d86d958a1699d62961e3"
+    },
+    "banana_smasher.durability": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/durability.py",
+      "bytes": 16656,
+      "sha256": "8a863bf6d318e6cd68b135d7208765a526314a17b0a89eb9de616c894e3797e8"
+    },
+    "banana_smasher.evaluate": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/evaluate.py",
+      "bytes": 45935,
+      "sha256": "11f195aeb4c40aa3264d96b559cd50d4441cd697e72de3cc565ecbcf6358cdf1"
+    },
+    "banana_smasher.exl3_loader": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/exl3_loader.py",
+      "bytes": 2621,
+      "sha256": "466608206cccd2d0e37e3dcb8433a85c9a8ea5e577e308024072a10d3e7263da"
+    },
+    "banana_smasher.fixed_d4": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/fixed_d4.py",
+      "bytes": 47426,
+      "sha256": "e7d92e8fa4e4e5a956e5fa90602f6da31bd4935e1c3bb8a5e2a4f66b0f2205fc"
+    },
+    "banana_smasher.glm_qtip_source_adapter": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/glm_qtip_source_adapter.py",
+      "bytes": 9570,
+      "sha256": "bdd830c5db5c403496c8100a33c2d4991de5e2d30bf87c63cdfb784e3a7f5ac5"
+    },
+    "banana_smasher.hf_balanced64": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/hf_balanced64.py",
+      "bytes": 39872,
+      "sha256": "d9b0612e799bbf0efd514339fc29e91b46b864ba7574a485434e0330eb7c47c4"
+    },
+    "banana_smasher.hf_moe": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/hf_moe.py",
+      "bytes": 65048,
+      "sha256": "8546957dcb2b31d2868cc0bbfc6fa1a3e8519a38b70ffcf9ad34f8f31136ecc5"
+    },
+    "banana_smasher.knapsack": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/knapsack.py",
+      "bytes": 80128,
+      "sha256": "2ee56719da461a820a9355645013a3afb2992f4516908200dda2f3bfebd374ce"
+    },
+    "banana_smasher.locality": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/locality.py",
+      "bytes": 6622,
+      "sha256": "e66aae88668b20cfb6ba7ba68fd9385ee8b303159840b7e65f32228ed8dcd443"
+    },
+    "banana_smasher.measured_backpack_spsa": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/measured_backpack_spsa.py",
+      "bytes": 35199,
+      "sha256": "7bba8580ed8852503fa3a15b7dcbc65c071603419c120d38cfb00c55d94a68d0"
+    },
+    "banana_smasher.metrics": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/metrics.py",
+      "bytes": 9186,
+      "sha256": "4375d1a96dfa2fd9d900e2b26bf47f877f1465df5dab88a12bef32c00200a406"
+    },
+    "banana_smasher.mixed_transaction": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/mixed_transaction.py",
+      "bytes": 20842,
+      "sha256": "d7dfb0f1864459a161719d3c8995777fec86a966b752bdf971fd39be7c5c9454"
+    },
+    "banana_smasher.persistent": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/persistent.py",
+      "bytes": 35358,
+      "sha256": "53e81e29c92fb80ba1cb4f8208bbd71c7468bca4e1287189617ac4c8f7f8fd3e"
+    },
+    "banana_smasher.production_rails": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/production_rails.py",
+      "bytes": 65180,
+      "sha256": "84803f75bb1de16bf7212a498c472699a44b0c80ace45ed93752a00845bccc8b"
+    },
+    "banana_smasher.provenance_wire": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/provenance_wire.py",
+      "bytes": 22667,
+      "sha256": "06656a48400258c57f03681a268bb1b0c6feab72f36203adf603f6c2a96f8061"
+    },
+    "banana_smasher.q2_codec": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/q2_codec.py",
+      "bytes": 6809,
+      "sha256": "274830efb9c3595408a294f5d939a22197d29087fa131d499b0d8a581865e5f9"
+    },
+    "banana_smasher.qtip1": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip1.py",
+      "bytes": 45982,
+      "sha256": "0ef6e1f65ca96db9cc24783b599d0c0894fb8a8956f12a44deef37453ba92110"
+    },
+    "banana_smasher.qtip_batch": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_batch.py",
+      "bytes": 19577,
+      "sha256": "060e59a32eba7f8a777d00c5b3a12fdbf8785e452ea372f928fc773784646578"
+    },
+    "banana_smasher.qtip_batch_controller": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_batch_controller.py",
+      "bytes": 22320,
+      "sha256": "faca6879f21d71269e7ecb1466bd09173bc2c370043b5ebe9407484387cc6239"
+    },
+    "banana_smasher.qtip_kernel_cache": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_kernel_cache.py",
+      "bytes": 21023,
+      "sha256": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066"
+    },
+    "banana_smasher.qtip_kernel_decompress": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_kernel_decompress.py",
+      "bytes": 2736,
+      "sha256": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df"
+    },
+    "banana_smasher.qtip_materialize": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_materialize.py",
+      "bytes": 47770,
+      "sha256": "0df3e4f1048c5197d49923bbde879e96bb0ca68efa07c43e3d336544df151a67"
+    },
+    "banana_smasher.qtip_matrix_lifetime": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_matrix_lifetime.py",
+      "bytes": 10889,
+      "sha256": "25faa7d4e01d1327ca1c3a8d2d87854a1b2a02b17c9135933a95f32cd4520325"
+    },
+    "banana_smasher.qtip_rings": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_rings.py",
+      "bytes": 26409,
+      "sha256": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1"
+    },
+    "banana_smasher.qtip_v7_batch": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_v7_batch.py",
+      "bytes": 27493,
+      "sha256": "04db35a640f237c1af9a4dccbf01172bd42c1fdcfa99899fb07d4f711a9ea378"
+    },
+    "banana_smasher.qtip_v7_joint_workflow": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_v7_joint_workflow.py",
+      "bytes": 47989,
+      "sha256": "da66c2d16f6daf7900b403de43f5e0916edfab34d4e5abd14db0fad07ecc4acf"
+    },
+    "banana_smasher.qtip_v7_repair": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_v7_repair.py",
+      "bytes": 20311,
+      "sha256": "ff3dce54092c830037048533c2055c66a8161dc439c6430e302c922727987b7e"
+    },
+    "banana_smasher.qtip_viterbi": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_viterbi.py",
+      "bytes": 27093,
+      "sha256": "533a96bd81d56351192ab7dce3f4c49c3c3e3cc8cbbccbec063ca02666dd0d93"
+    },
+    "banana_smasher.real_axis": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/real_axis.py",
+      "bytes": 17489,
+      "sha256": "247be94d6a431c6de0cb4d08503bd6f4404fdab4b0278f270b61c62a15cece40"
+    },
+    "banana_smasher.repair": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/repair.py",
+      "bytes": 26875,
+      "sha256": "ca803242c980917f262484026d6f76a66c92d347d926753b4778d14c622c0c4c"
+    },
+    "banana_smasher.resident_balanced64": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/resident_balanced64.py",
+      "bytes": 23092,
+      "sha256": "e75d5065c23bc9fe1c2f6139afcf665b05aa252a225b52a64a5830a4f0ef37dc"
+    },
+    "banana_smasher.resident_core": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/resident_core.py",
+      "bytes": 4727,
+      "sha256": "b7c5903dd371ab9dbb579ac3d804da2bb4c9bb05808f55a271de57f10154b847"
+    },
+    "banana_smasher.resident_proven_api": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/resident_proven_api.py",
+      "bytes": 122640,
+      "sha256": "8ee2cd7438c41040393178c9aa52b68ece947793190320bac985952209062318"
+    },
+    "banana_smasher.resident_repair_api": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/resident_repair_api.py",
+      "bytes": 37649,
+      "sha256": "9a85593f6db81da0fe2c2cd6e91feee4c4323ba4081ca49160f80f76d639268c"
+    },
+    "banana_smasher.solver_qtip_profile": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/solver_qtip_profile.py",
+      "bytes": 95792,
+      "sha256": "29dd323e33ee49668f980b89114ee743cb958aeaf7b3b15a16d48360adac70d3"
+    },
+    "banana_smasher.staging": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/staging.py",
+      "bytes": 12808,
+      "sha256": "b500e495d454004516ba865ef0067742620ee1fbbde2eaca738afd8a04736015"
+    },
+    "banana_smasher.update_service": {
+      "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/update_service.py",
+      "bytes": 3364,
+      "sha256": "a73ed6d005c4f6942caee84cffd4922faf3826aa911fc12fd121abbc08e4d4d4"
+    },
+    "qtip_validation_bitshift": {
+      "path": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical/lib/codebook/bitshift.py",
+      "bytes": 19623,
+      "sha256": "af170eabb6cd8e47409b236a2570c1c2c195f82ab298f5da49b3e3c86b11f8b2"
+    },
+    "qtip_validation_ldlq": {
+      "path": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical/lib/algo/ldlq.py",
+      "bytes": 3331,
+      "sha256": "793e364fbe91e5b28740d0fc81a6e8618daa6a6a8ce5adbf9b877ba2e46e5bbe"
+    },
+    "qtip_validation_math_utils": {
+      "path": "/home/dnola/missions/QTIP1_CHAMPION_t_ds4q1_spark_8/inputs/qtip_runtime/qtip-canonical/lib/utils/math_utils.py",
+      "bytes": 1161,
+      "sha256": "65d50936e87b2c266806de201dea89b2d74a2ed38e33ef462bd8c3aafb333844"
+    }
+  },
+  "pids": {
+    "1007061": false,
+    "1008441": false
+  },
+  "canonical_modules_verified": [
+    "banana-smasher/src/banana_smasher/__init__.py",
+    "banana-smasher/src/banana_smasher/anchor.py",
+    "banana-smasher/src/banana_smasher/artifact_identity.py",
+    "banana-smasher/src/banana_smasher/backpack.py",
+    "banana-smasher/src/banana_smasher/backpack_contextual.py",
+    "banana-smasher/src/banana_smasher/backpack_contextual_candidate.py",
+    "banana-smasher/src/banana_smasher/backpack_contextual_measure.py",
+    "banana-smasher/src/banana_smasher/backpack_contextual_prepare.py",
+    "banana-smasher/src/banana_smasher/backpack_dimensions.py",
+    "banana-smasher/src/banana_smasher/backpack_exact64.py",
+    "banana-smasher/src/banana_smasher/backpack_providers.py",
+    "banana-smasher/src/banana_smasher/backpack_selection.py",
+    "banana-smasher/src/banana_smasher/backpack_virtual.py",
+    "banana-smasher/src/banana_smasher/banana_v1.py",
+    "banana-smasher/src/banana_smasher/banana_v1_runtime_adapter.py",
+    "banana-smasher/src/banana_smasher/bank.py",
+    "banana-smasher/src/banana_smasher/bpw.py",
+    "banana-smasher/src/banana_smasher/contract.py",
+    "banana-smasher/src/banana_smasher/durability.py",
+    "banana-smasher/src/banana_smasher/evaluate.py",
+    "banana-smasher/src/banana_smasher/exl3_loader.py",
+    "banana-smasher/src/banana_smasher/fixed_d4.py",
+    "banana-smasher/src/banana_smasher/glm_qtip_source_adapter.py",
+    "banana-smasher/src/banana_smasher/hf_balanced64.py",
+    "banana-smasher/src/banana_smasher/hf_moe.py",
+    "banana-smasher/src/banana_smasher/knapsack.py",
+    "banana-smasher/src/banana_smasher/locality.py",
+    "banana-smasher/src/banana_smasher/measured_backpack_spsa.py",
+    "banana-smasher/src/banana_smasher/metrics.py",
+    "banana-smasher/src/banana_smasher/mixed_transaction.py",
+    "banana-smasher/src/banana_smasher/persistent.py",
+    "banana-smasher/src/banana_smasher/production_rails.py",
+    "banana-smasher/src/banana_smasher/provenance_wire.py",
+    "banana-smasher/src/banana_smasher/q2_codec.py",
+    "banana-smasher/src/banana_smasher/qtip1.py",
+    "banana-smasher/src/banana_smasher/qtip_batch.py",
+    "banana-smasher/src/banana_smasher/qtip_batch_controller.py",
+    "banana-smasher/src/banana_smasher/qtip_kernel_cache.py",
+    "banana-smasher/src/banana_smasher/qtip_kernel_decompress.py",
+    "banana-smasher/src/banana_smasher/qtip_materialize.py",
+    "banana-smasher/src/banana_smasher/qtip_matrix_lifetime.py",
+    "banana-smasher/src/banana_smasher/qtip_rings.py",
+    "banana-smasher/src/banana_smasher/qtip_v7_batch.py",
+    "banana-smasher/src/banana_smasher/qtip_v7_joint_workflow.py",
+    "banana-smasher/src/banana_smasher/qtip_v7_repair.py",
+    "banana-smasher/src/banana_smasher/qtip_viterbi.py",
+    "banana-smasher/src/banana_smasher/real_axis.py",
+    "banana-smasher/src/banana_smasher/repair.py",
+    "banana-smasher/src/banana_smasher/resident_balanced64.py",
+    "banana-smasher/src/banana_smasher/resident_core.py",
+    "banana-smasher/src/banana_smasher/resident_proven_api.py",
+    "banana-smasher/src/banana_smasher/resident_repair_api.py",
+    "banana-smasher/src/banana_smasher/solver_qtip_profile.py",
+    "banana-smasher/src/banana_smasher/staging.py",
+    "banana-smasher/src/banana_smasher/update_service.py"
+  ],
+  "verification_scope": "Independent physical hashes, admission/config/receipt/import readback and canonical git binding; not independent production decoder execution or production speed comparison."
+}

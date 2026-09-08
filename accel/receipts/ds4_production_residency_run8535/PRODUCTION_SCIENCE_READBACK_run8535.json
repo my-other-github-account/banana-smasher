@@ -1,0 +1,363 @@
+{
+  "checks": {
+    "/home/dnola/models/hf/DeepSeek-V4-Flash-0731/model.safetensors.index.json": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+    "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-replacements-stage-run8149/input-tree/home/dnola/missions/DS4_EMPTY_FIT_t_46b61159/run8047-clean/CLEAN_FIT_MANIFEST.json": "b8e512c966acd58db2e3bbdda477a2520ed35dc5086dd8309878c420174fbcbd",
+    "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s4-clean16-derived-run8169/L012.CAPTURE_BINDING.json": "a7c3d04c35b3ce915f304c10cc9c3a4d58f9579197fb31cf4d611361c9c138e6",
+    "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E081_down.MANIFEST.json": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+    "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E082_down.MANIFEST.json": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+    "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E083_down.MANIFEST.json": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+    "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E084_down.MANIFEST.json": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+    "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E085_down.MANIFEST.json": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84",
+    "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/s8-K3-L012DOWN6-resident-run8531r2/L012_E086_down.MANIFEST.json": "202ee826a33a0e95b0fcaa1c89a39e5966bcba75d3f4798e171f3c789105be84"
+  },
+  "manifests": [
+    {
+      "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "canonical_git_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+      "schema": "banana-smasher-qtip-run-manifest-v1",
+      "status": "PASS",
+      "tiers": [
+        {
+          "bindings": {
+            "qtip_runner": {
+              "bytes": 68246,
+              "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+              "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+            }
+          },
+          "name": "qtip@3.00",
+          "ring": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "bpw": "3.00",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "components": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                },
+                "quarters": 4
+              }
+            ],
+            "producer": "smash kernels build --tier qtip --bpw 3.00",
+            "schema": "banana-smasher-qtip-ring-identity-v1",
+            "tier": "qtip@3.00"
+          }
+        }
+      ]
+    },
+    {
+      "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "canonical_git_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+      "schema": "banana-smasher-qtip-run-manifest-v1",
+      "status": "PASS",
+      "tiers": [
+        {
+          "bindings": {
+            "qtip_runner": {
+              "bytes": 68246,
+              "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+              "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+            }
+          },
+          "name": "qtip@3.00",
+          "ring": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "bpw": "3.00",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "components": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                },
+                "quarters": 4
+              }
+            ],
+            "producer": "smash kernels build --tier qtip --bpw 3.00",
+            "schema": "banana-smasher-qtip-ring-identity-v1",
+            "tier": "qtip@3.00"
+          }
+        }
+      ]
+    },
+    {
+      "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "canonical_git_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+      "schema": "banana-smasher-qtip-run-manifest-v1",
+      "status": "PASS",
+      "tiers": [
+        {
+          "bindings": {
+            "qtip_runner": {
+              "bytes": 68246,
+              "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+              "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+            }
+          },
+          "name": "qtip@3.00",
+          "ring": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "bpw": "3.00",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "components": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                },
+                "quarters": 4
+              }
+            ],
+            "producer": "smash kernels build --tier qtip --bpw 3.00",
+            "schema": "banana-smasher-qtip-ring-identity-v1",
+            "tier": "qtip@3.00"
+          }
+        }
+      ]
+    },
+    {
+      "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "canonical_git_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+      "schema": "banana-smasher-qtip-run-manifest-v1",
+      "status": "PASS",
+      "tiers": [
+        {
+          "bindings": {
+            "qtip_runner": {
+              "bytes": 68246,
+              "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+              "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+            }
+          },
+          "name": "qtip@3.00",
+          "ring": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "bpw": "3.00",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "components": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                },
+                "quarters": 4
+              }
+            ],
+            "producer": "smash kernels build --tier qtip --bpw 3.00",
+            "schema": "banana-smasher-qtip-ring-identity-v1",
+            "tier": "qtip@3.00"
+          }
+        }
+      ]
+    },
+    {
+      "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "canonical_git_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+      "schema": "banana-smasher-qtip-run-manifest-v1",
+      "status": "PASS",
+      "tiers": [
+        {
+          "bindings": {
+            "qtip_runner": {
+              "bytes": 68246,
+              "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+              "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+            }
+          },
+          "name": "qtip@3.00",
+          "ring": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "bpw": "3.00",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "components": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                },
+                "quarters": 4
+              }
+            ],
+            "producer": "smash kernels build --tier qtip --bpw 3.00",
+            "schema": "banana-smasher-qtip-ring-identity-v1",
+            "tier": "qtip@3.00"
+          }
+        }
+      ]
+    },
+    {
+      "basis_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+      "canonical_git_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+      "schema": "banana-smasher-qtip-run-manifest-v1",
+      "status": "PASS",
+      "tiers": [
+        {
+          "bindings": {
+            "qtip_runner": {
+              "bytes": 68246,
+              "path": "/home/dnola/missions/DS4_EMPTY_FIT_t_68e5892b/canonical-6a40f916-resident-run8531/banana-smasher/src/banana_smasher/qtip_runner.py",
+              "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+            }
+          },
+          "name": "qtip@3.00",
+          "ring": {
+            "aot": {
+              "architecture": "runtime-device",
+              "cache": "sha256-pinned",
+              "compile": "first-use-or-explicit",
+              "producer": "smash kernels build --tier qtip --bpw 3.00"
+            },
+            "bpw": "3.00",
+            "codebook": {
+              "decode_mode": "quantlut_sym",
+              "family": "bitshift",
+              "pack_contract": {
+                "dtype": "uint16",
+                "input_tile": [
+                  16,
+                  16
+                ],
+                "output_rows": "input_tile_grid",
+                "packed_words_per_tile_per_k": 16
+              },
+              "td_x": 16,
+              "td_y": 16,
+              "tlut_binding": "run-manifest",
+              "tlut_bits": 9
+            },
+            "components": [
+              {
+                "backend": "persistent-soa-exact-prefix-dp-v32",
+                "geometry": {
+                  "K": 3,
+                  "L": 16,
+                  "V": 2
+                },
+                "quarters": 4
+              }
+            ],
+            "producer": "smash kernels build --tier qtip --bpw 3.00",
+            "schema": "banana-smasher-qtip-ring-identity-v1",
+            "tier": "qtip@3.00"
+          }
+        }
+      ]
+    }
+  ]
+}

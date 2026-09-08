@@ -1285,3 +1285,34 @@ API/resume/batch test receipt is reused; no numerical source changed.
 Production-owner boundary adoption and independent actual new-output readback
 remain pending. Raw phase results, hash manifest, numerical rows and executable
 harnesses: `accel/receipts/ds4_distinct_process_run8532/`.
+
+
+### Authenticated production adoption (run8535)
+
+The pending adoption gate above is now closed by the existing DS4 production
+owner's disk-backed s8 trial `s8-K3-L012DOWN6-resident-run8531r2`.
+All six genuinely new L012/E081..086 down K3 cells completed in one finite
+child using the unchanged6a40f916 public API and original3+1+2 source-key
+boundaries. Independent readback verified24/24 artifact/config/receipt/import
+SHA+size bindings (18,988,950 artifact bytes),55 physical canonical import
+modules plus the manifest-bound runner against git, the original source index,
+Clean22 population, Hessian binding and all six run manifests. Config seeds,
+source basis, artifact identity and producer packed-conformance PASS were
+checked for each cell. This authenticates production conformance receipts;
+it does not independently rerun the production decoder or establish heldout KL.
+
+The successful child wall was36.843743s; enclosing controller114.999934s includes
+capacity advice/setup. There is no matched production denominator: neither
+number is a production speedup. Producer peak allocated/reserved was
+948,000,256/1,256,194,048 bytes. The earlier run8531 capacity refusal is preserved;
+owner recovery retained the12GiB estimate+4GiB reserve, with no fitting change.
+Supervisor1007061/start7610727 and child1008441/start7618424 finished naturally,
+were independently absent, and owner SHARDS/release receipts are terminal.
+
+Correction: an inherited admission scope string says L000fused; the actual
+structured cells, configs and output receipts are L012 down. No immutable
+owner receipt was rewritten. Same-work speed evidence remains the separate
+1.413058x fused panel above, with its12/12 independent numerical checks; neither
+panel nor adoption implies global quality or an extrapolated full-model ETA.
+Evidence: `accel/receipts/ds4_production_residency_run8535/`. Dedicated s6 remains
+retained unchanged per operator instruction, not released at milestone closure.
