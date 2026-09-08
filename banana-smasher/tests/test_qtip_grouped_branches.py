@@ -76,3 +76,13 @@ def test_actual_public_installer_admission(monkeypatch,value,k,structured,unroll
         result=env['_install_configured_viterbi'](cb,None,None,cfg,profile_mode=False)
         assert cb._banana_smasher_branch_grouped is value
         if value:assert result['viterbi_branch_grouped']==4 and result['production_default'] is False
+
+
+def test_grouped_variables_do_not_change_overlap_loop_carried_ranks():
+    tree=ast.parse(SOURCE.read_text())
+    kernel=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_persistent_prefix_viterbi')
+    groups=[n for n in ast.walk(kernel) if isinstance(n,ast.If) and ast.unparse(n.test)=='GROUP_BRANCHES']
+    assert len(groups)==2
+    for node in groups:
+        assigned={n.id for stmt in node.body for n in ast.walk(stmt) if isinstance(n,ast.Name) and isinstance(n.ctx,ast.Store)}
+        assert not assigned.intersection({'q','state','lut0','lut1','candidate','predecessor_prefix','predecessor_cost'})

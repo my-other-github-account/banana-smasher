@@ -123,12 +123,12 @@ def _persistent_prefix_viterbi(
         chosen = state
     elif GROUP_BRANCHES:
         for group in range(16):
-            q = group * 4 + tl.arange(0, 4)[:, None]
-            state = q * 1024 + j[None, :]
-            lut0 = tl.load(lut_ptr + state).to(tl.float32)
-            lut1 = tl.load(lut_ptr + 65536 + state).to(tl.float32)
-            candidate = (lut0 - x0) * (lut0 - x0) + (lut1 - x1) * (lut1 - x1)
-            group_best, group_chosen = _strict_branch_group_min(candidate, state)
+            group_q = group * 4 + tl.arange(0, 4)[:, None]
+            group_state = group_q * 1024 + j[None, :]
+            group_lut0 = tl.load(lut_ptr + group_state).to(tl.float32)
+            group_lut1 = tl.load(lut_ptr + 65536 + group_state).to(tl.float32)
+            group_candidate = (group_lut0 - x0) * (group_lut0 - x0) + (group_lut1 - x1) * (group_lut1 - x1)
+            group_best, group_chosen = _strict_branch_group_min(group_candidate, group_state)
             take = group_best < best
             best = tl.where(take, group_best, best)
             chosen = tl.where(take, group_chosen, chosen)
@@ -157,14 +157,14 @@ def _persistent_prefix_viterbi(
         chosen = tl.zeros((1024,), tl.int32)
         if GROUP_BRANCHES:
             for group in range(16):
-                q = group * 4 + tl.arange(0, 4)[:, None]
-                predecessor_prefix = q * 16 + residue4[None, :]
-                predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
-                state = q * 1024 + j[None, :]
-                lut0 = tl.load(lut_ptr + state).to(tl.float32)
-                lut1 = tl.load(lut_ptr + 65536 + state).to(tl.float32)
-                candidate = predecessor_cost + (lut0 - x0) * (lut0 - x0) + (lut1 - x1) * (lut1 - x1)
-                group_best, group_chosen = _strict_branch_group_min(candidate, state)
+                group_q = group * 4 + tl.arange(0, 4)[:, None]
+                group_predecessor_prefix = group_q * 16 + residue4[None, :]
+                group_predecessor_cost = tl.load(scratch_ptr + previous_base + group_predecessor_prefix)
+                group_state = group_q * 1024 + j[None, :]
+                group_lut0 = tl.load(lut_ptr + group_state).to(tl.float32)
+                group_lut1 = tl.load(lut_ptr + 65536 + group_state).to(tl.float32)
+                group_candidate = group_predecessor_cost + (group_lut0 - x0) * (group_lut0 - x0) + (group_lut1 - x1) * (group_lut1 - x1)
+                group_best, group_chosen = _strict_branch_group_min(group_candidate, group_state)
                 take = group_best < best
                 best = tl.where(take, group_best, best)
                 chosen = tl.where(take, group_chosen, chosen)
