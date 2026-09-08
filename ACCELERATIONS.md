@@ -1,5 +1,47 @@
 # Runtime accelerations
 
+## K3 inner-axis scheduling closure (2026-09-07, run8359)
+
+Two additional candidate-only public-API panels at
+`54be49f02ea95ec1eaf5ee4df459b66e16e11660` reused the same sealed four-cell
+L005 E001--004 fused13 K3 incumbent and unchanged numerical limits. No baseline
+or calibration was replayed. Eager conformance, selected source, unitwise
+preprocessing and the new inner-axis four-branch reduction were fixed; only
+warp count changed. Private process/compiler caches do not imply cold OS/source
+caches. The incumbent remains cold 12.915914/12.177085 s and warm
+7.960290/8.082386 s.
+
+| Inner-axis schedule | Cold walls (s) | Warm walls (s) | Decision |
+| --- | --- | --- | --- |
+| 16 warps | 37.096614 / 37.786794 | 33.243002 / 33.320512 | RED, 0.3223--0.3482x cold and 0.2395--0.2426x warm |
+| 4 warps | 14.374929 / 14.107082 | 10.217348 / 10.225253 | RED, 0.8632--0.8985x cold and 0.7791--0.7904x warm |
+
+Both panels passed 17/17 actual builds and 16/16 independent reconstruction/decode
+checks; maximum decoded delta against the incumbent was zero. Validation cost
+was separately 23.156630 and 23.051268 s. Each four-cell panel peaked at
+2,114,731,008 allocated bytes cold / 2,116,832,768 warm and
+3,321,888,768 reserved bytes cold / 3,323,985,920 warm. Including the previous
+8-warp result, all tested schedules of this changed layout lose to the true
+incumbent. Close this grouping/layout family rather than compare against its
+slower rejected members or infer occupancy from shared-memory metadata.
+
+Receipts: task-local `GLM_K3_{INNER16,INNER4}_{TERMINAL,QUALITY,SUMMARY}_run8359.json`.
+The two durable Spark-6 archives are
+`/home/dnola/missions/t_ebcba52e_preserved_inner16_run8354` and
+`/home/dnola/missions/t_ebcba52e_preserved_inner4_run8359`; each preserves 99 new
+scientific paths, with byte-identical units hardlinked and no scientific deletion.
+No new speed winner or production promotion is claimed.
+
+The production owner subsequently supplied a predetermined ordinal0/window28
+teacher row, token ledger, suite and CAPTURE. All four files (51,389,480 bytes)
+were localized directly over the Spark fabric and authenticated, including
+ordered int32[1024,8192] teacher support and float32 logits. This is input closure,
+not model-output quality evidence. The separately authorized next step restores
+only the K2 routed/native-rest EMBED--L004 prefix with per-layer durable
+activation/topk checkpoints; it is not a native prefix, uniform-K3 evaluation,
+64-window scorer restart or adoption authorization. Document-ancestry
+qualification and a paired downstream output gate remain outstanding.
+
 ## K3 branch scheduling and reduction layouts (2026-09-07, run8354)
 
 Three new candidate-only rungs reused the sealed selected-source four-cell
