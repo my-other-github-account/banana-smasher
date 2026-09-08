@@ -12,6 +12,10 @@ were retained; runtime/runner manifests were explicitly rebound and hashed.
 
 - Owner-to-batch cold: 31.199698 -> 28.106733 seconds, 1.110044x.
 - Owner-to-batch warm: 5.586311 -> 4.149140 seconds, 1.346378x.
+- Whole child process (one cold+warm pair, including imports/configuration and
+  teardown): mean owner 39.305216 -> batch 34.372500 seconds, 1.143508x.
+  Separate validation child processes totalled 195.477505 seconds; this is
+  experimental validation cost, not hidden in or removed from producer timing.
 - Proposed singleton: cold 29.684164 seconds, warm 5.663087 seconds.
 - Warm allocated peak: owner 411,554,816 -> batch 950,102,016 bytes.
   Public admission retained a 36 GiB MemAvailable floor; raw RSS/reserved peaks

@@ -1,0 +1,26 @@
+{
+  "scope": "Per-process cold+warm pair including import/configuration and child teardown; historical diagnostic only",
+  "arms": {
+    "old1": {
+      "returncode": 0,
+      "seconds": 41.1900069359981
+    },
+    "old2": {
+      "returncode": 0,
+      "seconds": 37.42042431799928
+    },
+    "singleton": {
+      "returncode": 0,
+      "seconds": 37.642868215996714
+    },
+    "batch": {
+      "returncode": 0,
+      "seconds": 34.37250043100357
+    }
+  },
+  "owner_mean_seconds": 39.30521562699869,
+  "batch_seconds": 34.37250043100357,
+  "owner_to_batch_ratio": 1.143507604455388,
+  "separate_validation_parent_seconds": 195.4775049960008,
+  "production_adoption": false
+}
