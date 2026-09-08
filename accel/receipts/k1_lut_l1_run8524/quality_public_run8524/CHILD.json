@@ -1,0 +1,9 @@
+{
+  "pid": 1611494,
+  "startticks": 7211555,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_182fbc9d/quality_public_run8524.py"
+  ]
+}

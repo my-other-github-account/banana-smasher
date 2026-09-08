@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "rows": [
+    {
+      "arm": "baseline1",
+      "kld": 0.03156185908364724,
+      "top1_matches": 961,
+      "row_sha256": "4fe9e4d1ee682a3e7ec6e21861ad6e09b9f5011083f49d8c3dbfcc167e01f7a6"
+    },
+    {
+      "arm": "baseline2",
+      "kld": 0.03156185908364724,
+      "top1_matches": 961,
+      "row_sha256": "4fe9e4d1ee682a3e7ec6e21861ad6e09b9f5011083f49d8c3dbfcc167e01f7a6"
+    },
+    {
+      "arm": "candidate",
+      "kld": 0.03156185908364724,
+      "top1_matches": 961,
+      "row_sha256": "4fe9e4d1ee682a3e7ec6e21861ad6e09b9f5011083f49d8c3dbfcc167e01f7a6"
+    }
+  ],
+  "delta_limit": 1e-08,
+  "staging_seconds": 19.371500108012697,
+  "forward_seconds": 0.0,
+  "readout_seconds": 1.7248040539998328,
+  "whole_seconds": 24.643031120998785,
+  "resumed_from": "/dev/shm/t_182fbc9d/heldout_l1_fabric",
+  "scope": "sparse L004 K1 on native prefix/rest, window28 teacher8192 conditional KL; not uniform-model proof"
+}

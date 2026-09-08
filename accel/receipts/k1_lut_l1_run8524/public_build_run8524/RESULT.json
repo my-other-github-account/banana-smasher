@@ -1,0 +1,11 @@
+{
+  "pin": "53f05876cb02a95e2accdce8a0bc23efc7edd5f6",
+  "scope": "candidate-only actual down242/down243/distinct fused242, retained controls, historical noninterleaved comparison; shared JIT/source caches",
+  "rows": [
+    {
+      "arm": "public",
+      "returncode": 0,
+      "process_seconds": 23.722566336000455
+    }
+  ]
+}

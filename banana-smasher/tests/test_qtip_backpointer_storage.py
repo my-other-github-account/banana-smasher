@@ -1,4 +1,5 @@
 """CPU admission tests; physical paired canary remains mandatory."""
+from __future__ import annotations
 import ast
 from pathlib import Path
 import pytest
@@ -37,6 +38,7 @@ def test_configured_installer_binds_storage_and_reports_workspace(monkeypatch, d
     module.resolve_viterbi_num_warps=lambda *a:16
     module.resolve_backpointer_dtype=resolver()
     module.resolve_branch_unroll = lambda *a: 1
+    module.resolve_lut_l1_retention = lambda *a: False
     module.resolve_structured_gather = lambda *a: False
     monkeypatch.setitem(sys.modules,'banana_smasher',package)
     monkeypatch.setitem(sys.modules,'banana_smasher.qtip_viterbi',module)

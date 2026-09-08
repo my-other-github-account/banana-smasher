@@ -1,0 +1,9 @@
+{
+  "pid": 1606488,
+  "startticks": 7202814,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_182fbc9d/test_public_run8524.py"
+  ]
+}

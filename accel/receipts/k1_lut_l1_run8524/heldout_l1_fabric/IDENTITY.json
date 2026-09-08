@@ -1,0 +1,23 @@
+{
+  "task_id": "t_182fbc9d",
+  "pid": 1569264,
+  "pgid": 1569264,
+  "start_ticks": 7031994,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "/dev/shm/t_182fbc9d/supervisor_heldout_fabric.py",
+    "heldout_l1_fabric",
+    "heldout_l1_fabric.py"
+  ],
+  "receipt": "/dev/shm/t_182fbc9d/heldout_l1_fabric/IDENTITY.json",
+  "script_sha256": "dd03977125a3aca4f6245b0cb1acdcf70b9ae73faa424a292525e1d6c9446946",
+  "owner": "t_182fbc9d",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "host": "spark-6",
+  "stage": "heldout_l1_fabric",
+  "mission": "/dev/shm/t_182fbc9d/heldout_l1_fabric",
+  "expiry_unix": 1788912463.3943875,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "1a1a2ea7b589ca78b71a57c569594621a2e7b3b6f1939e2af7e2efa356b1914e"
+}

@@ -1,4 +1,5 @@
 """CPU admission for opt-in full-branch gathering; not GPU acceptance."""
+from __future__ import annotations
 import ast
 from pathlib import Path
 import pytest
@@ -34,6 +35,7 @@ def test_public_installer_binds_gather(monkeypatch):
     module=types.ModuleType('banana_smasher.qtip_viterbi')
     module.resolve_viterbi_num_warps=lambda *a:16
     module.resolve_backpointer_dtype=lambda *a:'int32'
+    module.resolve_lut_l1_retention = lambda *a: False
     module.resolve_structured_gather=resolver()
     module.resolve_branch_unroll=lambda *a:1
     monkeypatch.setitem(sys.modules,'banana_smasher',package)

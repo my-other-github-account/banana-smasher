@@ -1183,3 +1183,45 @@ speed replicates. Prior down/fused cold/warm results stand independently.
 Production owner adoption decision is requested, not presumed.
 
 Receipts and scope: `accel/receipts/ds4_current_k3_sixcell_run8478/`.
+
+## K1 immutable-LUT L1 retention (run8520/run8524)
+
+Public `solver_qtip_profile.main` configs may opt into
+`"viterbi_lut_l1_retention": true` for L16/K1/V2 only. Default false preserves
+incumbent policy; non-boolean and other enabled geometries fail admission.
+Batch configs must agree. The kernel retains only immutable LUT loads with
+`evict_last`; arithmetic, source, full-branch trellis, encoder and consumer stay
+unchanged. This is additive to the previously adopted structured-gather recipe.
+
+Measured historical/noninterleaved authentic GLM L004 panel (E242/E243 down and
+E242 fused13), shared source/JIT caches, retained controls: public wall
+18.586862 -> 18.009367s = 1.032066x. Staging 1.639446 -> 1.488555s; solve
+16.921218 -> 16.495552s. Not all observed gain is kernel. The micro result is
+1.023850x and is not whole-path speed. No matched cold-process or production
+speed ratio is claimed. K3 micro was neutral; this opt-in does not enable K3.
+
+All nine experimental outputs passed independent canonical decode/clean-fit
+SSE ratio <=1.0001 (validation 3.764534s). The independent frozen native window28,
+1024 positions/8192 teacher support gate verified 123 frontiers and nine sparse
+replacement bindings. All three arms KL=0.031561859083647274, top1=961/1024;
+paired delta=0 <= frozen 1e-8. Scope is native prefix/rest with three sparse L004
+K1 replacements, NOT uniform/full-model or historical disputed-product proof.
+There was no prefix replay or heldout tuning. The readout-only continuation
+reused all sealed layers after a parameter-free hc_head ingress admission bug;
+zero additional layer forwards, 19.371500s staging, 1.724804s scoring,
+34.272285s process. Independent verification 4.041985s. Original suffix staging
+1366.808226s and forwards 37.073611s are separate from producer-build throughput.
+
+Public integration pin `53f05876cb02a95e2accdce8a0bc23efc7edd5f6` then built the
+same three cells through the actual public runner in 23.722566s process wall
+(including first specialization, not a speed replicate). All three packed
+outputs match the frozen gate's candidate and pass canonical decoded/clean-fit
+checks, 3.182440s separate validation. Dedicated s6 device suite: 12 passed,
+including four actual CUDA comparisons with overlap/ties. Expanded CPU
+admission/installer/batch tests: 108 passed, four CUDA skips not counted as
+GPU evidence. No scientific source changes follow this tested package pin.
+
+Evidence and original config/manifest/solve/quality receipts:
+`accel/receipts/k1_lut_l1_run8524/`. Production-owner clean-boundary adoption and
+independent real-output acknowledgement remain separate, not implied by this
+publication. Keep incumbent work independent and retain honest memory reserve.

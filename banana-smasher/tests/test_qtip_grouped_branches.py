@@ -1,4 +1,5 @@
 """Actual grouped reduction algebra; physical panel still required."""
+from __future__ import annotations
 import ast
 from pathlib import Path
 import types
@@ -60,6 +61,7 @@ def test_actual_public_installer_admission(monkeypatch,value,k,structured,unroll
     module.resolve_viterbi_num_warps=lambda *a:8
     module.resolve_backpointer_dtype=lambda *a:'int32'
     module.resolve_branch_unroll=lambda *a:unroll
+    module.resolve_lut_l1_retention = lambda *a: False
     module.resolve_structured_gather=lambda *a:structured
     monkeypatch.setitem(sys.modules,'banana_smasher',package)
     monkeypatch.setitem(sys.modules,'banana_smasher.qtip_viterbi',module)

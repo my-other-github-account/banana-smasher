@@ -1,4 +1,5 @@
 """CPU admission for opt-in full-branch unrolling; not GPU acceptance."""
+from __future__ import annotations
 import ast
 from pathlib import Path
 import pytest
@@ -38,6 +39,7 @@ def test_public_installer_binds_unroll(monkeypatch):
     module.resolve_viterbi_num_warps=lambda *a:16
     module.resolve_backpointer_dtype=lambda *a:'int32'
     module.resolve_branch_unroll=resolver()
+    module.resolve_lut_l1_retention = lambda *a: False
     module.resolve_structured_gather = lambda *a: False
     monkeypatch.setitem(sys.modules,'banana_smasher',package)
     monkeypatch.setitem(sys.modules,'banana_smasher.qtip_viterbi',module)

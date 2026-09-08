@@ -45,3 +45,30 @@ def test_device_optin_matches_incumbent(batch,steps,zero):
         cb._banana_smasher_lut_l1_retention=False;ref=exact_prefix_viterbi(cb,x,overlap)
         cb._banana_smasher_lut_l1_retention=True;got=exact_prefix_viterbi(cb,x,overlap)
         torch.cuda.synchronize();assert torch.equal(ref,got)
+
+@pytest.mark.parametrize('enabled',[False,True])
+def test_public_installer_binds_retention(monkeypatch,enabled):
+    import sys,types
+    source=SOURCE.with_name('solver_qtip_profile.py')
+    node=next(n for n in ast.parse(source.read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='_install_configured_viterbi')
+    package=types.ModuleType('banana_smasher');package.__path__=[]
+    module=types.ModuleType('banana_smasher.qtip_viterbi')
+    module.resolve_viterbi_num_warps=lambda *a:16
+    module.resolve_backpointer_dtype=lambda *a:'int32'
+    module.resolve_structured_gather=lambda *a:False
+    module.resolve_branch_unroll=lambda *a:1
+    module.resolve_lut_l1_retention=resolver()
+    monkeypatch.setitem(sys.modules,'banana_smasher',package)
+    monkeypatch.setitem(sys.modules,'banana_smasher.qtip_viterbi',module)
+    env=dict(__name__='banana_smasher.solver_qtip_profile',_ExactTimers=object,Any=object,known_qtip_geometries=lambda:{(16,1,2)},backend_for_geometry=lambda g:'persistent',PERSISTENT_BACKENDS={'persistent'},_install_profiled_exact_viterbi=lambda *a,**k:{})
+    exec(compile(ast.Module(body=[node],type_ignores=[]),str(source),'exec'),env)
+    cb=types.SimpleNamespace(L=16,K=1,V=2)
+    identity=env['_install_configured_viterbi'](cb,None,None,{'geometry':{'L':16,'K':1,'V':2},'viterbi_lut_l1_retention':enabled},profile_mode=False)
+    assert cb._banana_smasher_lut_l1_retention is enabled
+    assert identity.get('viterbi_lut_l1_retention',False) is enabled
+    if enabled:assert identity['production_default'] is False
+
+def test_batch_checks_retention_homogeneity():
+    tree=ast.parse(SOURCE.with_name('qtip_batch_controller.py').read_text())
+    calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and ast.unparse(n.func)=='_common' and 'viterbi_lut_l1_retention' in ast.unparse(n)]
+    assert len(calls)==1

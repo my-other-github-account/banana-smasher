@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "frontiers_verified": 123,
+  "all_paired_frontiers_equal": true,
+  "replacement_bindings_verified": 9,
+  "rows": [
+    {
+      "arm": "baseline1",
+      "kld": 0.031561859083647274,
+      "top1_matches": 961,
+      "row_sha256": "4fe9e4d1ee682a3e7ec6e21861ad6e09b9f5011083f49d8c3dbfcc167e01f7a6"
+    },
+    {
+      "arm": "baseline2",
+      "kld": 0.031561859083647274,
+      "top1_matches": 961,
+      "row_sha256": "4fe9e4d1ee682a3e7ec6e21861ad6e09b9f5011083f49d8c3dbfcc167e01f7a6"
+    },
+    {
+      "arm": "candidate",
+      "kld": 0.031561859083647274,
+      "top1_matches": 961,
+      "row_sha256": "4fe9e4d1ee682a3e7ec6e21861ad6e09b9f5011083f49d8c3dbfcc167e01f7a6"
+    }
+  ],
+  "delta": 0.0,
+  "tolerance": 1e-08,
+  "verification_seconds": 4.041985497999121,
+  "scope": "window28 native-prefix/native-rest sparse L004 K1 panel, not uniform full-model",
+  "teacher_sha256": "24df41273a423a9fe0fa34d4663f1095201ff6fae22a814d60c8763435c13a50",
+  "input_prefix_sha256": "1a83c137ffa963c8884b00912efa008e44fb4d7c3e22a495983dfea3962038a7",
+  "producer_result_sha256": "32a261d1d3aacb90b7e72e6342a949ff6260b748a54fee2f67ff0dd6434899a7",
+  "no_forward_replay": true
+}

@@ -1,0 +1,9 @@
+{
+  "pid": 1569267,
+  "startticks": 7032000,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_182fbc9d/heldout_l1_fabric.py"
+  ]
+}

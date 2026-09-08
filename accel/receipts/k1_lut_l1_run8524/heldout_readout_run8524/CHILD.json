@@ -1,0 +1,9 @@
+{
+  "pid": 1601042,
+  "startticks": 7185065,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_182fbc9d/heldout_readout_run8524.py"
+  ]
+}

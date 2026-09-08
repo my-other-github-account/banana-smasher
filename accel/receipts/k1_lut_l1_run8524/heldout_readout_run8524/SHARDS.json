@@ -1,0 +1,61 @@
+{
+  "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "rows": [
+    {
+      "owner": "t_182fbc9d",
+      "layers": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44
+      ],
+      "ordinals": [
+        0
+      ],
+      "arms": [
+        "baseline1",
+        "baseline2",
+        "candidate"
+      ],
+      "operation": "frozen_native_rest_sparse_output_gate",
+      "basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05"
+    }
+  ]
+}

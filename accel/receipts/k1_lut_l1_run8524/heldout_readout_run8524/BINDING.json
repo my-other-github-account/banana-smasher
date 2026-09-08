@@ -1,0 +1,65 @@
+{
+  "source_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "prefix_sha256": "1a83c137ffa963c8884b00912efa008e44fb4d7c3e22a495983dfea3962038a7",
+  "teacher_sha256": "24df41273a423a9fe0fa34d4663f1095201ff6fae22a814d60c8763435c13a50",
+  "ledger_sha256": "ca0e794a6296075f140c01ff4a2539b66002493d01b56e71c83645c79b5ae505",
+  "replacements": [
+    {
+      "arm": "baseline1",
+      "cell": "E242_down",
+      "path": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_warm_run8512/parallel1/solve/L004/E242_down/QTIP_UNIT.pt",
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1"
+    },
+    {
+      "arm": "baseline1",
+      "cell": "E243_down",
+      "path": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_warm_run8512/parallel1/solve/L004/E243_down/QTIP_UNIT.pt",
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12"
+    },
+    {
+      "arm": "baseline1",
+      "cell": "E242_fused13",
+      "path": "/dev/shm/t_182fbc9d/fused_r2/control1/warm/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "arm": "baseline2",
+      "cell": "E242_down",
+      "path": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_warm_run8512/parallel1/solve/L004/E242_down/QTIP_UNIT.pt",
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1"
+    },
+    {
+      "arm": "baseline2",
+      "cell": "E243_down",
+      "path": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_warm_run8512/parallel1/solve/L004/E243_down/QTIP_UNIT.pt",
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12"
+    },
+    {
+      "arm": "baseline2",
+      "cell": "E242_fused13",
+      "path": "/dev/shm/t_182fbc9d/fused_r2/control1/warm/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "arm": "candidate",
+      "cell": "E242_down",
+      "path": "/dev/shm/t_182fbc9d/whole_l1/warm1/E242_down/build/solve/L004/E242_down/QTIP_UNIT.pt",
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1"
+    },
+    {
+      "arm": "candidate",
+      "cell": "E243_down",
+      "path": "/dev/shm/t_182fbc9d/whole_l1/warm1/E243_down/build/solve/L004/E243_down/QTIP_UNIT.pt",
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12"
+    },
+    {
+      "arm": "candidate",
+      "cell": "E242_fused13",
+      "path": "/dev/shm/t_182fbc9d/whole_l1/warm1/E242_fused13/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    }
+  ],
+  "delta_limit": 1e-08,
+  "scope": "window28 native-prefix/native-rest sparse L004 K1 panel, not uniform full-model",
+  "runtime_transformers": "5.16.0.dev0"
+}

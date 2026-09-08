@@ -1,0 +1,23 @@
+{
+  "task_id": "t_182fbc9d",
+  "pid": 1608693,
+  "pgid": 1608693,
+  "start_ticks": 7207189,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "supervisor_readout_run8524.py",
+    "public_build_run8524",
+    "public_build_run8524.py"
+  ],
+  "receipt": "/dev/shm/t_182fbc9d/public_build_run8524/IDENTITY.json",
+  "script_sha256": "daeb5e938736d5474706a9ccf565bcdc1b1a6c751b6b9ac05166e15d064a5822",
+  "owner": "t_182fbc9d",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "host": "spark-6",
+  "stage": "public_build_run8524",
+  "mission": "/dev/shm/t_182fbc9d/public_build_run8524",
+  "expiry_unix": 1788914215.3558693,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "c063c62b18a129b92e4922de4319b3f52687594775d6937666b6f98378c76288"
+}

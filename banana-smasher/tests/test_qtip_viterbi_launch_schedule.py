@@ -1,4 +1,5 @@
 """GPU-free validation of opt-in launch scheduling, not output quality."""
+from __future__ import annotations
 import ast
 from pathlib import Path
 import pytest
@@ -38,6 +39,7 @@ def test_configured_installer_binds_opt_in_and_reports_nondefault(monkeypatch):
     module.resolve_viterbi_num_warps = resolver()
     module.resolve_backpointer_dtype = lambda *args: "int32"
     module.resolve_branch_unroll = lambda *a: 1
+    module.resolve_lut_l1_retention = lambda *a: False
     module.resolve_structured_gather = lambda *a: False
     monkeypatch.setitem(sys.modules, 'banana_smasher', package)
     monkeypatch.setitem(sys.modules, 'banana_smasher.qtip_viterbi', module)
