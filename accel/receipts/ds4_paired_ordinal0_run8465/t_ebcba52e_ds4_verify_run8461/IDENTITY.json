@@ -1,0 +1,12 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 1012485,
+  "pgid": 1012485,
+  "start_ticks": 5070542,
+  "argv": [
+    "/dev/shm/verify_ds4_suffix_run8461.py",
+    "f04d043a4a2a66dfd8aed1d5108fc39a2c11456a8f97376c32b485b2abb706cc"
+  ],
+  "receipt": "/dev/shm/t_ebcba52e_ds4_verify_run8461/IDENTITY.json",
+  "script_sha256": "589653858f30229e769f7335e4af22c839f338d02ea1ee4a8ae56ce1543f979c"
+}

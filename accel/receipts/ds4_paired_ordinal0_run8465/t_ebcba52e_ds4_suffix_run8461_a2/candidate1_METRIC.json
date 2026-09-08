@@ -1,0 +1,9 @@
+{
+  "kl": 1.7691193656636528,
+  "top1_matches": 541,
+  "top1_denominator": 1024,
+  "path": "/dev/shm/t_ebcba52e_ds4_suffix_run8461_a2/candidate1_READOUT.pt",
+  "sha256": "97506d9b147083fa20b180e0dc4cacfa82316fc0062d6ffd29b807350d834478",
+  "positions": 1024,
+  "support": 8192
+}

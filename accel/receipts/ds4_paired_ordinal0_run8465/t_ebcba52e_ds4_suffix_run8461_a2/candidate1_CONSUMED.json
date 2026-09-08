@@ -1,0 +1,26 @@
+[
+  {
+    "expert": 84,
+    "projection": "down",
+    "artifact_sha256": "62374bca3fe5d11abb523af51ad44b0270d13e9b636497622b8f44c9d247bc2d",
+    "injected_bf16_sha256": "f9d21fd2d78247a85c00aea6ba2484075b6881bf3ed7e6d6f69a5dfec0fe489c"
+  },
+  {
+    "expert": 85,
+    "projection": "down",
+    "artifact_sha256": "db2d0e6330cb9761078dc64edce5040f8bc055800b88c266c52b4a3ffb16a625",
+    "injected_bf16_sha256": "72edf2106a12cc9d6aca8aba51d147a3f82e0ebcba79d4951ec4ff501d0b668f"
+  },
+  {
+    "expert": 84,
+    "projection": "fused13",
+    "artifact_sha256": "bbf44842ee6b3ad3266a0fa941e24ba2bed1df708f2d6dc3948907f110daae10",
+    "injected_bf16_sha256": "faba326e1a32259fd91cee3d3fed83fbffea9e9c852abcbb51e418aefdf94fd7"
+  },
+  {
+    "expert": 85,
+    "projection": "fused13",
+    "artifact_sha256": "366994d9b28eb0b925980b52071b17da3f27619b5ae4fb5add38bcd65c397e0b",
+    "injected_bf16_sha256": "10d2afb6e8637611ec0da1da1f7bd0250cc781a17ccd022e947f8c2e95594a82"
+  }
+]

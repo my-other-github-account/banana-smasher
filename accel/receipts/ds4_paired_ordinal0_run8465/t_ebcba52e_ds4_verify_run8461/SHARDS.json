@@ -1,0 +1,12 @@
+{
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "rows": [
+    {
+      "owner": "t_ebcba52e",
+      "ordinal": 0,
+      "positions": 1024,
+      "operation": "independent_output_verification",
+      "receipt": "/dev/shm/t_ebcba52e_ds4_verify_run8461/IDENTITY.json"
+    }
+  ]
+}

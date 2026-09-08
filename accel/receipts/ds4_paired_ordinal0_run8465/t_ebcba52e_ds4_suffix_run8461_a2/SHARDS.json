@@ -1,0 +1,19 @@
+{
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "state": "CLAIMED",
+  "rows": [
+    {
+      "owner": "t_ebcba52e",
+      "ordinal": 0,
+      "window": 28,
+      "positions": 1024,
+      "layers": [
+        13,
+        42
+      ],
+      "embedding": false,
+      "operation": "paired_B1_B2_C_sparse_L013E084E085_K1_fourcell_ordinal0_output",
+      "receipt": "/dev/shm/t_ebcba52e_ds4_suffix_run8461_a2/IDENTITY.json"
+    }
+  ]
+}

@@ -1,5 +1,48 @@
 # Runtime accelerations
 
+## DS4 K1 producer-to-output gate closed (run8465)
+
+The matched real L013 E084/E085 down (4096x2048) and fused13 (4096x4096)
+panel now has an independent output gate tied to its actual producer artifacts.
+At producer pin `6e059cd3a0d59597ae9822890db8109d34aad2e6`, mean four-cell
+cold wall was 44.178429 -> 39.067262 s (1.130830x); warm wall was
+28.544467 -> 22.428101 s (1.272710x). Parent-process aggregate was 1.177470x.
+These include packed decode conformance, artifact and receipt writes; private
+compiler caches were fresh for cold, but source/prebuilt assets and OS cache
+were shared. Producer peak allocated memory was 5,191,984,640 bytes.
+Independent reconstruction validation passed 32/32 checks, maximum decoded
+absolute difference zero, at a separate cost of 11.346804 s.
+
+The public API remains `banana_smasher.qtip_batch_controller.main_batch`.
+The candidate uses `block_ldl_unitwise=true`, `viterbi_structured_gather=true`,
+`viterbi_branch_unroll=true`, `viterbi_num_warps=16`,
+`viterbi_backpointer_dtype="int32"`, and `ldlq_update_unsolved_only=false`.
+The paired baseline has branch unroll false and eight warps. No defaults change.
+
+The bounded consumer used frozen ordinal0/window28/1024 positions, exact8192
+teacher support, four producer-bound K1 replacements, and the same sealed L012
+prefix. Independent NumPy/binary64/fSum verification authenticated all 90
+suffix frontiers and reproduced KL 1.7691193656636528 and full-vocabulary
+student Top1 agreement 541/1024 in all three arms. Candidate KL delta was zero,
+within the baseline-repeat-derived frozen 1e-8 tolerance. Readout wire format
+was owner FP16 selected log probabilities; both distributions were renormalized
+on the exact teacher support. This is not full-vocabulary KL.
+
+The shared prefix cost 600.058484 s; three-arm suffix validation cost
+1408.839702 s with peak allocated 22,932,329,984 bytes. Neither cost is producer
+throughput or a consumer materialization speedup. This closes this bounded
+same-bit historical K1 decision, not full-model/current-K3/GLM equivalence.
+Production adoption and realized production throughput are unestablished.
+Owner clean-boundary pin/config readback and a current-tier representative gate
+remain required before production rollout; no scorer or calibration restart.
+
+Small authentic receipts, executor/verifier source, and the producer-boundary
+bundle are in `accel/receipts/ds4_paired_ordinal0_run8465/`. All original Spark
+frontiers/readouts are retained. The earlier builder-only durable archive is
+540 source paths / 346 unique blobs / 13,547,117 bytes; this does not imply
+activation-frontier archival. The recovered prearm launch did not replay any
+prefix or output generation.
+
 ## Bounded batch partition and unsolved-prefix experiment (run8445)
 
 Two resident batches of two authentic L005 E001--004 K3 fused13 cells were

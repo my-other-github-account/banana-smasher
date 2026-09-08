@@ -1,0 +1,84 @@
+{
+  "summary_sha256": "a937927b1479deaaa88d8b03bd9d47eb835f3e49e0a71e40c369f21d3a0f6211",
+  "rows": {
+    "baseline1": [
+      {
+        "expert": 84,
+        "projection": "down",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/baseline1/warm/solve/L013/E084_down/QTIP_UNIT.pt",
+        "sha256": "62374bca3fe5d11abb523af51ad44b0270d13e9b636497622b8f44c9d247bc2d"
+      },
+      {
+        "expert": 85,
+        "projection": "down",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/baseline1/warm/solve/L013/E085_down/QTIP_UNIT.pt",
+        "sha256": "db2d0e6330cb9761078dc64edce5040f8bc055800b88c266c52b4a3ffb16a625"
+      },
+      {
+        "expert": 84,
+        "projection": "fused13",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/baseline1/warm/solve/L013/E084_fused13/QTIP_UNIT.pt",
+        "sha256": "bbf44842ee6b3ad3266a0fa941e24ba2bed1df708f2d6dc3948907f110daae10"
+      },
+      {
+        "expert": 85,
+        "projection": "fused13",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/baseline1/warm/solve/L013/E085_fused13/QTIP_UNIT.pt",
+        "sha256": "366994d9b28eb0b925980b52071b17da3f27619b5ae4fb5add38bcd65c397e0b"
+      }
+    ],
+    "baseline2": [
+      {
+        "expert": 84,
+        "projection": "down",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/baseline2/warm/solve/L013/E084_down/QTIP_UNIT.pt",
+        "sha256": "62374bca3fe5d11abb523af51ad44b0270d13e9b636497622b8f44c9d247bc2d"
+      },
+      {
+        "expert": 85,
+        "projection": "down",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/baseline2/warm/solve/L013/E085_down/QTIP_UNIT.pt",
+        "sha256": "db2d0e6330cb9761078dc64edce5040f8bc055800b88c266c52b4a3ffb16a625"
+      },
+      {
+        "expert": 84,
+        "projection": "fused13",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/baseline2/warm/solve/L013/E084_fused13/QTIP_UNIT.pt",
+        "sha256": "bbf44842ee6b3ad3266a0fa941e24ba2bed1df708f2d6dc3948907f110daae10"
+      },
+      {
+        "expert": 85,
+        "projection": "fused13",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/baseline2/warm/solve/L013/E085_fused13/QTIP_UNIT.pt",
+        "sha256": "366994d9b28eb0b925980b52071b17da3f27619b5ae4fb5add38bcd65c397e0b"
+      }
+    ],
+    "candidate1": [
+      {
+        "expert": 84,
+        "projection": "down",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/candidate1/warm/solve/L013/E084_down/QTIP_UNIT.pt",
+        "sha256": "62374bca3fe5d11abb523af51ad44b0270d13e9b636497622b8f44c9d247bc2d"
+      },
+      {
+        "expert": 85,
+        "projection": "down",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/candidate1/warm/solve/L013/E085_down/QTIP_UNIT.pt",
+        "sha256": "db2d0e6330cb9761078dc64edce5040f8bc055800b88c266c52b4a3ffb16a625"
+      },
+      {
+        "expert": 84,
+        "projection": "fused13",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/candidate1/warm/solve/L013/E084_fused13/QTIP_UNIT.pt",
+        "sha256": "bbf44842ee6b3ad3266a0fa941e24ba2bed1df708f2d6dc3948907f110daae10"
+      },
+      {
+        "expert": 85,
+        "projection": "fused13",
+        "path": "/dev/shm/t_ebcba52e_ds4_cold_run8456/candidate1/warm/solve/L013/E085_fused13/QTIP_UNIT.pt",
+        "sha256": "366994d9b28eb0b925980b52071b17da3f27619b5ae4fb5add38bcd65c397e0b"
+      }
+    ]
+  },
+  "producer_timing": "already sealed matched cold/warm public builds; all suffix timing is validator cost"
+}

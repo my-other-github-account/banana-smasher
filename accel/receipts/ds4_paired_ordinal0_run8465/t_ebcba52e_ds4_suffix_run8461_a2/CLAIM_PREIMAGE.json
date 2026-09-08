@@ -1,0 +1,22 @@
+{
+  "task_id": "t_ebcba52e",
+  "pid": 963230,
+  "pgid": 963230,
+  "start_ticks": 4911280,
+  "argv": [
+    "/dev/shm/ds4_suffix_run8461.py",
+    "319d07556b39882d14fe6774835c9c9f7c41a90e72be1602cbfeb671e3515479"
+  ],
+  "receipt": "/dev/shm/t_ebcba52e_ds4_suffix_run8461/IDENTITY.json",
+  "script_sha256": "67544b4b9244f8c295b783426e3ad1725665c579b6307d8d0a9d17becf7f24f6",
+  "canonical_git_pin": "5a5d1f03f84e533f0d00dbe38302496e92842811",
+  "owner": "t_ebcba52e",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "host": "spark-6",
+  "stage": "t_ebcba52e_ds4_suffix_run8461_terminal_retained",
+  "source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "expiry_unix": 1788970456.512762,
+  "mission": "/dev/shm/t_ebcba52e_ds4_suffix_run8461",
+  "terminal_at": 1788884106.6646464
+}

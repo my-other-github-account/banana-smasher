@@ -1,0 +1,101 @@
+{
+  "task_id": "t_ebcba52e",
+  "state": "SCOPED_K1_PRODUCER_OUTPUT_GATE_PASS_NOT_PRODUCTION_ADOPTION",
+  "measured_api_pin": "6e059cd3a0d59597ae9822890db8109d34aad2e6",
+  "consumer_api_pin": "5a5d1f03f84e533f0d00dbe38302496e92842811",
+  "api": "banana_smasher.qtip_batch_controller.main_batch",
+  "same_work": "L013 E084/E085 down4096x2048 and fused134096x4096, historical K1 clean22; not current K3 production",
+  "intended_basis": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "config": {
+    "block_ldl_unitwise": true,
+    "viterbi_structured_gather": true,
+    "viterbi_branch_unroll": true,
+    "viterbi_num_warps": 16,
+    "viterbi_backpointer_dtype": "int32",
+    "ldlq_update_unsolved_only": false
+  },
+  "baseline_difference": {
+    "viterbi_branch_unroll": false,
+    "viterbi_num_warps": 8
+  },
+  "producer": {
+    "cold": {
+      "baseline_seconds": 44.178428676001204,
+      "candidate_seconds": 39.0672621220001,
+      "speedup": 1.1308299142652956
+    },
+    "warm": {
+      "baseline_seconds": 28.54446708999967,
+      "candidate_seconds": 22.42810132950035,
+      "speedup": 1.272709921836062
+    }
+  },
+  "producer_parent_speedup": 1.1774701491962223,
+  "producer_peak_allocated": 5191984640,
+  "reconstruction_validation": {
+    "checks": 32,
+    "passes": 32,
+    "max_abs": 0.0,
+    "validation_wall": 11.346803808999539
+  },
+  "output": {
+    "metrics": {
+      "baseline1": {
+        "kl": 1.7691193656636528,
+        "top1_matches": 541,
+        "positions": 1024,
+        "support": 8192,
+        "scorer_delta": 0.0,
+        "readout_sha256": "0ae3aa97e70ec8074c63feea2ed64287620462afbba99f923cfd0b81b011376c"
+      },
+      "baseline2": {
+        "kl": 1.7691193656636528,
+        "top1_matches": 541,
+        "positions": 1024,
+        "support": 8192,
+        "scorer_delta": 0.0,
+        "readout_sha256": "b01ed7d24cfc2dc7c0a2e1538c070fd224d6460fd2945e037f4a01f57e82b035"
+      },
+      "candidate1": {
+        "kl": 1.7691193656636528,
+        "top1_matches": 541,
+        "positions": 1024,
+        "support": 8192,
+        "scorer_delta": 0.0,
+        "readout_sha256": "97506d9b147083fa20b180e0dc4cacfa82316fc0062d6ffd29b807350d834478"
+      }
+    },
+    "delta": 0.0,
+    "tolerance": 1e-08,
+    "frontiers_verified": 90,
+    "scope": "one frozen ordinal0; sparse4cell K1 replacements on historical uniformK1 routed/native_rest; not uniform/currentK3/fullmodel acceptance"
+  },
+  "consumer_suffix_wall_seconds": 1408.839701742996,
+  "consumer_peak_allocated": 22932329984,
+  "consumer_materialization_speedup": null,
+  "production_adoption": false,
+  "realized_production_throughput": null,
+  "full_model_equivalence": false,
+  "next_boundary": "Owner identifies same-tier/geometry clean producer boundary and readbacks imported SHA/config before scoped deployment; current K3 or GLM needs its own authentic same-work gate, not extrapolation from K1. No production process restart.",
+  "receipt_hashes": {
+    "verify_ds4_suffix.py": "589653858f30229e769f7335e4af22c839f338d02ea1ee4a8ae56ce1543f979c",
+    "ds4_suffix.py": "29f2ba94f97bbbecc1c7ed81e2c234cee35c01be8b6652495192bfb4fda2d78e",
+    "t_ebcba52e_ds4_suffix_run8461_a2/baseline2_CONSUMED.json": "dcf95e753414461090cf4cf8bab8408ef5d0cf3ab267e5f3c47e2e1d50a785cb",
+    "t_ebcba52e_ds4_suffix_run8461_a2/CLAIM_PREIMAGE.json": "66685e952babdb51bde05c8eda8165322286e4fc47e046c92e3938d10e02481a",
+    "t_ebcba52e_ds4_suffix_run8461_a2/baseline1_METRIC.json": "dc5cab12470015f3441fa11848f008d63d3dc83d270f60ba85c16a7845140683",
+    "t_ebcba52e_ds4_suffix_run8461_a2/FROZEN_LIMITS.json": "d5346697176db4d3579693d51b82ecd88b1d8615a5b69c61b13c5a5f2dbb2d07",
+    "t_ebcba52e_ds4_suffix_run8461_a2/REPLACEMENTS.json": "be6b500212dbdaa90fcbc312fcd747f6fb504a15b59db78081c29bc73c70e367",
+    "t_ebcba52e_ds4_suffix_run8461_a2/RESULT.json": "9413821dbc51f2f5194fc34e61855a6ade251fcbb464a3984f16c674f141eb4a",
+    "t_ebcba52e_ds4_suffix_run8461_a2/baseline1_CONSUMED.json": "dcf95e753414461090cf4cf8bab8408ef5d0cf3ab267e5f3c47e2e1d50a785cb",
+    "t_ebcba52e_ds4_suffix_run8461_a2/baseline2_METRIC.json": "4937bb8aa935317fb82391bcab945fa0705db6fcbc2319a6fee2cfd3f677b62f",
+    "t_ebcba52e_ds4_suffix_run8461_a2/IDENTITY.json": "a96345ca6e202ba9f2be9ba42691e354c6db20fb9ed75ad1b3061301778ea64a",
+    "t_ebcba52e_ds4_suffix_run8461_a2/candidate1_METRIC.json": "371a13087123d26d0f1bb408456ce9e5e5c6a98524c0744c53b23ddf0fa82c8a",
+    "t_ebcba52e_ds4_suffix_run8461_a2/SHARDS.json": "26713c50892d151480196435067e4a343cd69e9a9354dc0ec86a214a5e0e00dd",
+    "t_ebcba52e_ds4_suffix_run8461_a2/candidate1_CONSUMED.json": "dcf95e753414461090cf4cf8bab8408ef5d0cf3ab267e5f3c47e2e1d50a785cb",
+    "t_ebcba52e_ds4_suffix_run8461_a2/SCIENCE.json": "c773d050d7c6178e8fab34256960ceabfa1b6219a9643b66306f49ce03a7f542",
+    "t_ebcba52e_ds4_verify_run8461/CLAIM_PREIMAGE.json": "f04d043a4a2a66dfd8aed1d5108fc39a2c11456a8f97376c32b485b2abb706cc",
+    "t_ebcba52e_ds4_verify_run8461/RESULT.json": "28300c40d5cad8f66a212f4ce67fe54eda1d1dbe1ebd8def8d979f65908ecd3b",
+    "t_ebcba52e_ds4_verify_run8461/IDENTITY.json": "a341321eb75f275b4d16466b4dace88eec4d589796e5fb3efab102c3ccbc013e",
+    "t_ebcba52e_ds4_verify_run8461/SHARDS.json": "dec6c0cbdc9ba9d670331ff90447f0bd3a8cd170007019d25c2ddfd4a432e09c"
+  }
+}
