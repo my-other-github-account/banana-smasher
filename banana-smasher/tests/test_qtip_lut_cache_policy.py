@@ -1,4 +1,4 @@
-"""Only immutable LUT loads bypass the streaming L1 working set."""
+"""Only immutable LUT loads retain L1 cache eviction priority."""
 import ast
 from pathlib import Path
 
@@ -8,6 +8,6 @@ def test_lut_load_cache_policy():
     loads=[n for n in ast.walk(f) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='load']
     lut=[n for n in loads if 'lut_ptr' in ast.unparse(n.args[0])]
     assert len(lut)==5
-    for n in lut:assert any(k.arg=='cache_modifier' and ast.literal_eval(k.value)=='.cg' for k in n.keywords)
+    for n in lut:assert any(k.arg=='eviction_policy' and ast.literal_eval(k.value)=='evict_last' for k in n.keywords)
     for n in loads:
         if n not in lut:assert not any(k.arg=='cache_modifier' for k in n.keywords)

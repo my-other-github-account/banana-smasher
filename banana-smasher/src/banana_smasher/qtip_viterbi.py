@@ -230,7 +230,7 @@ def _persistent_prefix_viterbi_generic(
         candidate = tl.zeros((PREFIXES,), tl.float32)
         for lane in tl.static_range(0, V):
             xv = tl.load(x_ptr + lane * B + seq).to(tl.float32)
-            lv = tl.load(lut_ptr + lane * STATES + state, cache_modifier=".cg").to(tl.float32)
+            lv = tl.load(lut_ptr + lane * STATES + state, eviction_policy="evict_last").to(tl.float32)
             candidate += (lv - xv) * (lv - xv)
         valid = residue == (overlap & (Q_FACTOR - 1))
         best = tl.where(valid, candidate, best)
@@ -244,8 +244,8 @@ def _persistent_prefix_viterbi_generic(
         xb = tl.load(x_ptr + B + seq).to(tl.float32)
         for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
             state = q * PREFIXES + j
-            la = tl.load(lut_ptr + state, cache_modifier=".cg").to(tl.float32)
-            lb = tl.load(lut_ptr + STATES + state, cache_modifier=".cg").to(tl.float32)
+            la = tl.load(lut_ptr + state, eviction_policy="evict_last").to(tl.float32)
+            lb = tl.load(lut_ptr + STATES + state, eviction_policy="evict_last").to(tl.float32)
             candidate = (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
@@ -290,8 +290,8 @@ def _persistent_prefix_viterbi_generic(
             else:
                 predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
             state = q * PREFIXES + j
-            la = tl.load(lut_ptr + state, cache_modifier=".cg").to(tl.float32)
-            lb = tl.load(lut_ptr + STATES + state, cache_modifier=".cg").to(tl.float32)
+            la = tl.load(lut_ptr + state, eviction_policy="evict_last").to(tl.float32)
+            lb = tl.load(lut_ptr + STATES + state, eviction_policy="evict_last").to(tl.float32)
             candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
