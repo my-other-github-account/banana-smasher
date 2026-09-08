@@ -222,6 +222,8 @@ def _decode_candidate(
     codebook: Any,
     kernel_decode: Any,
     device: torch.device,
+    *,
+    compare_on_device: bool = False,
 ) -> dict[str, Any]:
     geometry = candidate["geometry"]
     rows, width = (int(candidate["shape"][0]), int(candidate["shape"][1]))
@@ -239,8 +241,10 @@ def _decode_candidate(
     decoded = runner.fwht(decoded.T).T * candidate["SV"].float().to(device)[:, None]
     decoded = runner.fwht(decoded) * candidate["SU"].float().to(device)
     stored = candidate["reconstructed_weight"]
-    decoded_fp16 = decoded.to(device="cpu", dtype=torch.float16)
-    equal = decoded_fp16.view(torch.int16).eq(stored.view(torch.int16))
+    stored_device = stored.to(device)
+    compared = stored_device if compare_on_device else stored
+    decoded_fp16 = decoded.to(device=compared.device, dtype=torch.float16)
+    equal = decoded_fp16.view(torch.int16).eq(compared.view(torch.int16))
     receipt = {
         "path": "existing geometry-bound canonical packed-wire consumer",
         "shape": [rows, width],
@@ -248,9 +252,10 @@ def _decode_candidate(
         "fp16_bit_equal_fraction": float(equal.float().mean()),
         "fp16_bit_exact": bool(equal.all()),
         "max_abs_fp32_vs_stored_fp16": float(
-            (decoded - stored.to(device).float()).abs().max()
+            (decoded - stored_device.float()).abs().max()
         ),
         "runtime_check_performed": True,
+        "conformance_comparison": "device" if compare_on_device else "cpu",
     }
     del raw, decoded, decoded_fp16
     if receipt["fp16_bit_exact"] is not True:
@@ -270,6 +275,7 @@ def build_qtip_batch(
     rht_seeds: list[int],
     *,
     block_ldl_unitwise: bool = False,
+    packed_conformance_on_device: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Build same-shape independent L16/V2 units (K=1..4) in one exact GPU batch."""
     units = len(source_weights)
@@ -432,7 +438,10 @@ def build_qtip_batch(
         candidates.append(candidate)
         del raw, reconstructed
         packed_decode_receipts.append(
-            _decode_candidate(runner, candidate, codebook, kernel_decode, device)
+            _decode_candidate(
+                runner, candidate, codebook, kernel_decode, device,
+                compare_on_device=packed_conformance_on_device,
+            )
         )
     del packed_rows
     _synchronize(device)

@@ -43,6 +43,13 @@ def _block_ldl_unitwise(configs: Sequence[Mapping[str, Any]]) -> bool:
     return _common("block LDL unitwise mode", values)
 
 
+def _packed_conformance_on_device(configs: Sequence[Mapping[str, Any]]) -> bool:
+    values = [config.get("packed_conformance_on_device", False) for config in configs]
+    if any(type(value) is not bool for value in values):
+        raise ValueError("packed_conformance_on_device must be boolean")
+    return _common("packed conformance device", values)
+
+
 def _packed_decode_execution(configs: Sequence[Mapping[str, Any]]) -> str:
     values = [config.get("packed_decode_execution", "compiled") for config in configs]
     if any(type(value) is not str or value not in ("compiled", "eager") for value in values):
@@ -72,6 +79,7 @@ def main_batch(
     configs = [solver_module._read_qtip_config(path) for path in paths]
     block_ldl_unitwise = _block_ldl_unitwise(configs)
     packed_decode_execution = _packed_decode_execution(configs)
+    packed_conformance_on_device = _packed_conformance_on_device(configs)
     if any(int(config["layer"]) != layer for config in configs):
         raise ValueError("QTIP batch config layer differs from selected layer")
     if not torch.cuda.is_available():
@@ -269,6 +277,7 @@ def main_batch(
         device,
         rht_seeds,
         block_ldl_unitwise=block_ldl_unitwise,
+        packed_conformance_on_device=packed_conformance_on_device,
     )
     torch.cuda.synchronize()
     build_wall_seconds = time.perf_counter() - build_started
