@@ -79,8 +79,8 @@ def _validate_overlap_prefixes(
 def _strict_branch_group_min(candidate, state):
     """Parallel branch reduction with first-state ties and strict-< NaN semantics."""
     finite_or_inf = tl.where(candidate == candidate, candidate, float("inf"))
-    best = tl.min(finite_or_inf, axis=0)
-    chosen = tl.min(tl.where(finite_or_inf == best[None, :], state, 2147483647), axis=0)
+    best = tl.min(finite_or_inf, axis=1)
+    chosen = tl.min(tl.where(finite_or_inf == best[:, None], state, 2147483647), axis=1)
     return best, chosen
 
 
@@ -123,8 +123,8 @@ def _persistent_prefix_viterbi(
         chosen = state
     elif GROUP_BRANCHES:
         for group in range(16):
-            group_q = group * 4 + tl.arange(0, 4)[:, None]
-            group_state = group_q * 1024 + j[None, :]
+            group_q = group * 4 + tl.arange(0, 4)[None, :]
+            group_state = group_q * 1024 + j[:, None]
             group_lut0 = tl.load(lut_ptr + group_state).to(tl.float32)
             group_lut1 = tl.load(lut_ptr + 65536 + group_state).to(tl.float32)
             group_candidate = (group_lut0 - x0) * (group_lut0 - x0) + (group_lut1 - x1) * (group_lut1 - x1)
@@ -157,10 +157,10 @@ def _persistent_prefix_viterbi(
         chosen = tl.zeros((1024,), tl.int32)
         if GROUP_BRANCHES:
             for group in range(16):
-                group_q = group * 4 + tl.arange(0, 4)[:, None]
-                group_predecessor_prefix = group_q * 16 + residue4[None, :]
+                group_q = group * 4 + tl.arange(0, 4)[None, :]
+                group_predecessor_prefix = group_q * 16 + residue4[:, None]
                 group_predecessor_cost = tl.load(scratch_ptr + previous_base + group_predecessor_prefix)
-                group_state = group_q * 1024 + j[None, :]
+                group_state = group_q * 1024 + j[:, None]
                 group_lut0 = tl.load(lut_ptr + group_state).to(tl.float32)
                 group_lut1 = tl.load(lut_ptr + 65536 + group_state).to(tl.float32)
                 group_candidate = group_predecessor_cost + (group_lut0 - x0) * (group_lut0 - x0) + (group_lut1 - x1) * (group_lut1 - x1)

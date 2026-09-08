@@ -23,7 +23,7 @@ def test_actual_group_min_matches_ordered_strict_updates(fixture):
     if fixture=='inf':candidates[:,::3]=np.inf
     if fixture=='nan':candidates[::2,::3]=np.nan
     tl=types.SimpleNamespace(where=np.where,min=lambda x,axis:np.min(x,axis=axis))
-    best,chosen=load('_strict_branch_group_min',tl=tl)(candidates,states)
+    best,chosen=load('_strict_branch_group_min',tl=tl)(candidates.T,states.T)
     reference=np.full(1024,np.inf,dtype=np.float32);indices=np.zeros(1024,dtype=np.int32)
     for q in range(4):
         take=candidates[q]<reference
