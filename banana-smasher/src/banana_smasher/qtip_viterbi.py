@@ -195,6 +195,22 @@ def _persistent_prefix_viterbi(
 
 
 @triton.jit
+def _store_prefix_backpointers(ptr, chosen, j, seq, step, B,
+                              PREFIXES: tl.constexpr,
+                              BRANCH_POINTERS: tl.constexpr,
+                              PACK_BRANCH_PAIRS: tl.constexpr):
+    if PACK_BRANCH_PAIRS:
+        branches = chosen // PREFIXES
+        even, odd = tl.split(tl.reshape(branches, (PREFIXES // 2, 2)))
+        packed = even | (odd << 8)
+        offset = (step * B + seq) * (PREFIXES // 2) + tl.arange(0, PREFIXES // 2)
+        tl.store(ptr + offset, packed)
+    else:
+        tl.store(ptr + (step * B + seq) * PREFIXES + j,
+                 chosen // PREFIXES if BRANCH_POINTERS else chosen)
+
+
+@triton.jit
 def _persistent_prefix_viterbi_generic(
     x_ptr,
     lut_ptr,
@@ -215,6 +231,7 @@ def _persistent_prefix_viterbi_generic(
     BRANCH_UNROLL: tl.constexpr,
     STRUCTURED_GATHER: tl.constexpr,
     BRANCH_POINTERS: tl.constexpr = False,
+    PACK_BRANCH_PAIRS: tl.constexpr = False,
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -255,7 +272,8 @@ def _persistent_prefix_viterbi_generic(
     if not REGISTER_COSTS:
         tl.store(scratch_ptr + base + j, best)
     # The prefix is the table column; only the winning branch is needed.
-    tl.store(best_state_ptr + base + j, chosen // PREFIXES if BRANCH_POINTERS else chosen)
+    _store_prefix_backpointers(best_state_ptr, chosen, j, seq, 0, B,
+                              PREFIXES, BRANCH_POINTERS, PACK_BRANCH_PAIRS)
     if not REGISTER_COSTS:
         tl.debug_barrier()
 
@@ -277,19 +295,10 @@ def _persistent_prefix_viterbi_generic(
                 if STRUCTURED_GATHER:
                     # Select one contiguous predecessor row, then broadcast its
                     # entries BRANCHES times (K1: 4x4096; K3: 64x16).
-                    if BRANCHES == 4:
-                        # K1: split four fixed rows, avoiding a cross-row
-                        # reduction and the large shared gather layout.
-                        halves = tl.trans(tl.reshape(previous_costs, (2, PREFIXES // 2)))
-                        lo, hi = tl.split(halves)
-                        r0, r1 = tl.split(tl.trans(tl.reshape(lo, (2, Q_FACTOR))))
-                        r2, r3 = tl.split(tl.trans(tl.reshape(hi, (2, Q_FACTOR))))
-                        selected = tl.where(q == 0, r0, tl.where(q == 1, r1, tl.where(q == 2, r2, r3)))
-                    else:
-                        cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
-                        selected = tl.sum(tl.where(
-                            tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
-                        ), axis=0)
+                    cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
+                    selected = tl.sum(tl.where(
+                        tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
+                    ), axis=0)
                     predecessor_cost = tl.reshape(tl.broadcast_to(
                         selected[:, None], (Q_FACTOR, BRANCHES)
                     ), (PREFIXES,))
@@ -306,10 +315,8 @@ def _persistent_prefix_viterbi_generic(
             chosen = tl.where(take, state, chosen)
         if not REGISTER_COSTS:
             tl.store(scratch_ptr + current_base + j, best)
-        tl.store(
-            best_state_ptr + step * B * PREFIXES + base + j,
-            chosen // PREFIXES if BRANCH_POINTERS else chosen,
-        )
+        _store_prefix_backpointers(best_state_ptr, chosen, j, seq, step, B,
+                                  PREFIXES, BRANCH_POINTERS, PACK_BRANCH_PAIRS)
         if not REGISTER_COSTS:
             tl.debug_barrier()
         step += 1
@@ -321,11 +328,16 @@ def _persistent_prefix_viterbi_generic(
     else:
         prefix = tl.argmin(best, axis=0).to(tl.int32)
     for back_step in tl.static_range(STEPS - 1, -1, -1):
-        state = tl.load(
-            best_state_ptr + back_step * B * PREFIXES + base + prefix
-        ).to(tl.int32)
-        if BRANCH_POINTERS:
-            state = state * PREFIXES + prefix
+        if PACK_BRANCH_PAIRS:
+            packed = tl.load(best_state_ptr + (back_step * B + seq) * (PREFIXES // 2) + prefix // 2).to(tl.int32)
+            branch = (packed >> ((prefix & 1) * 8)) & 255
+            state = branch * PREFIXES + prefix
+        else:
+            state = tl.load(
+                best_state_ptr + back_step * B * PREFIXES + base + prefix
+            ).to(tl.int32)
+            if BRANCH_POINTERS:
+                state = state * PREFIXES + prefix
         tl.store(states_ptr + back_step * B + seq, state)
         prefix = state >> SHIFT
 
@@ -591,8 +603,10 @@ def exact_prefix_viterbi(
     backpointer_dtype = resolve_backpointer_dtype(
         (L, K, V), getattr(cb, "_banana_smasher_backpointer_dtype", None)
     )
+    pack_branch_pairs = K == 1 and backpointer_dtype == "uint16"
+    storage_prefixes = prefixes // 2 if pack_branch_pairs else prefixes
     best_state = torch.empty(
-        (steps, batch, prefixes), device=x.device, dtype=getattr(torch, backpointer_dtype)
+        (steps, batch, storage_prefixes), device=x.device, dtype=getattr(torch, backpointer_dtype)
     )
     states = torch.empty((steps, batch), device=x.device, dtype=torch.int32)
     overlap_arg = (
@@ -640,6 +654,7 @@ def exact_prefix_viterbi(
             BRANCH_UNROLL=branch_unroll,
             STRUCTURED_GATHER=structured_gather,
             BRANCH_POINTERS=backpointer_dtype == "uint8",
+            PACK_BRANCH_PAIRS=pack_branch_pairs,
             num_warps=generic_warps,
             num_stages=1,
         )
