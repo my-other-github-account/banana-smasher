@@ -34,6 +34,22 @@ Physical kernel, representative same-wire, and independent output gates remain
 required before promotion; no full-model equivalence, ancestry qualification,
 or producer adoption follows from these diagnostics.
 
+Physical follow-up at `cb460bb16b63aa567c5e44f3c5e81c1cb12d7f04` passed
+19 focused tests without skips on the claimed accelerator. The original eight
+rows and sixteen disjoint K2 L044 E002--009 gate/down rows all had zero measured
+FP32/BF16 decoded delta. Paired summed warm CPU/CUDA costs were
+1.343047/0.378358 s (3.5497x, eight rows) and 2.520546/0.614720 s
+(4.1003x, sixteen rows), with peaks 516,428,288 and 409,473,024 bytes.
+A subsequent twelve-process order-alternated gate (three authentic cells, two
+processes/device/cell, private compiler/CUDA caches) preserved all per-cell
+decoded hashes across first and warm calls. CUDA process-cold initialization
+was slower than CPU: the warm gain must not be advertised as a single-call
+cold-process win. Parent wall includes import, digest copies and teardown;
+source/OS caches were not cold.
+
+This closes a 24-distinct-cell numerical/decode gate, not downstream-output
+acceptance or build acceleration. No failed frozen output diagnostic was replayed.
+
 Remote scientific roots on the dedicated seat:
 `t_ebcba52e_decode_device_run8362`, `t_ebcba52e_cuda_suffix_run8379`, and
 `t_ebcba52e_decode_normalization_run8379`. Independently verified CUDA suffix
