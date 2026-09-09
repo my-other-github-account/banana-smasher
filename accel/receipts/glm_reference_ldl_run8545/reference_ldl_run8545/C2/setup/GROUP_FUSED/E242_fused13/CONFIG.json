@@ -1,0 +1,72 @@
+{
+  "backend": "persistent-prefix-generic-aot-v1",
+  "bpw": "1.00",
+  "clean_fit_admission": true,
+  "codebook": {
+    "decode_mode": "quantlut_sym",
+    "family": "bitshift",
+    "pack_contract": {
+      "dtype": "uint16",
+      "input_tile": [
+        16,
+        16
+      ],
+      "output_rows": "input_tile_grid",
+      "packed_words_per_tile_per_k": 16
+    },
+    "td_x": 16,
+    "td_y": 16,
+    "tlut_binding": "run-manifest",
+    "tlut_bits": 9
+  },
+  "expert": 242,
+  "fit_capture_root": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_run8507/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_l004_s7_run8007_a1/home/dnola/missions/CLEAN_t_bd7914e6/solve_l004_e000_run8005_a1/fitcaptures",
+  "fit_windows": 16,
+  "geometry": {
+    "K": 1,
+    "L": 16,
+    "V": 2
+  },
+  "glm_source_closure_sha256": "12b710a9ab1ee48cb701f3ec89a4e97e325723aa4d206c1870f30ddb93743c59",
+  "hessian_layer_manifest": "/dev/shm/t_182fbc9d/pair_pointers/warm1/HESSIAN.json",
+  "hessian_layer_manifest_sha256": "af41a92c5f885afd8d66d97b048e8e924d494c780948b95ffcac2537bb5d90eb",
+  "input_identity": {
+    "model_index": {
+      "path": "/dev/shm/t_ebcba52e_ldlq_run8503/selected_pair_run8507/model.safetensors.index.json",
+      "sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05"
+    }
+  },
+  "layer": 4,
+  "layer_census": {
+    "qtip1": 1
+  },
+  "materialization": {
+    "run_manifest": "/dev/shm/t_1269dc5f/reference_ldl_run8545/C2/setup/GROUP_FUSED/E242_fused13/MANIFEST.json",
+    "run_manifest_sha256": "630c12ad9bafac581a91341d8ea38d17786180f749b4d82f8aee4547b5848e45",
+    "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928"
+  },
+  "model_root": "/dev/shm/t_ebcba52e_ldlq_run8503/selected_pair_run8507",
+  "pack_counts": {
+    "qtip1": 1
+  },
+  "projection": "fused13",
+  "qtip_root": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_run8507/files/dev/shm/CLEAN_t_bd7914e6_l029_s7_run8187_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical",
+  "qtip_runner": "/dev/shm/t_1269dc5f/reference_ldl_code_run8545/banana-smasher/src/banana_smasher/qtip_runner.py",
+  "reference_unit": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_run8507/files/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s7_run8504_k1/K1_L004_E242_down_REFERENCE.pt",
+  "rht_seed": 1092181694265734964,
+  "rht_seed_material": "42df5c3b552b11879be34a3cca4ed60374a3101acce688c6a7223c94e8a6f2e8",
+  "rht_seed_policy": "qtip-rht-manifest-v1",
+  "schema": "banana-smasher-qtip-profile-config-v1",
+  "tier": "qtip@1.00",
+  "tlut_source": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_run8507/files/home/dnola/missions/CLEAN_t_bd7914e6/closure_l004_s7_run8007_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/p851/inputs/P641_QTIP_TLUT_SOURCE.pt",
+  "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a",
+  "viterbi_branch_unroll": true,
+  "viterbi_num_warps": 16,
+  "selected_source_manifest_sha256": "d3b05d256323fd45cff2cfcf2b195764a86d7a5a425622fce9f5446b18fd2e85",
+  "capture_hash_workers": 4,
+  "viterbi_backpointer_dtype": "uint16",
+  "viterbi_structured_gather": true,
+  "viterbi_lut_l1_retention": true,
+  "block_ldl_unitwise": true,
+  "block_ldl_reference": true
+}

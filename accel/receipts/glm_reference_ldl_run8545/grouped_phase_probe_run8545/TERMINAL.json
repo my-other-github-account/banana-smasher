@@ -1,0 +1,11 @@
+{
+  "returncode": 0,
+  "rows": [
+    {
+      "job": "quality",
+      "arm": null,
+      "returncode": 0,
+      "seconds": 3.4826635400095256
+    }
+  ]
+}

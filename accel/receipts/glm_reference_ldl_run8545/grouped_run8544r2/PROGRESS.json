@@ -1,0 +1,20 @@
+[
+  {
+    "job": "C1",
+    "arm": "candidate",
+    "returncode": 0,
+    "seconds": 34.2908675380022
+  },
+  {
+    "job": "C2",
+    "arm": "candidate",
+    "returncode": 0,
+    "seconds": 34.02337899399572
+  },
+  {
+    "job": "quality",
+    "arm": null,
+    "returncode": 1,
+    "seconds": 5.491253313986817
+  }
+]

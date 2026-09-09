@@ -1,0 +1,8 @@
+[
+  {
+    "job": "gpu_tests",
+    "arm": "candidate",
+    "returncode": 0,
+    "seconds": 1.1656372580036987
+  }
+]

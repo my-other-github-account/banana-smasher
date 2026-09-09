@@ -1,0 +1,6 @@
+{
+  "cuda_free": 30032793600,
+  "peak_estimate": 12884901888,
+  "reserve": 4294967296,
+  "reason": "Original24GiB estimate was an unmeasured blanket double. Retained same-cell singleton max reserved1514143744B; two-member linear batching plus conservative extra headroom below12GiB; canonical per-geometry/per-Viterbi exact reserve gates remain mandatory. No reserve weakened."
+}

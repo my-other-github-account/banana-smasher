@@ -1,5 +1,47 @@
 # Runtime accelerations
 
+## GLM runtime-reference LDL grouping boundary (run8545)
+
+The authenticated GLM runtime's singleton `math.block_LDL` normalizes each
+block with a separate matrix multiply; the generic batch implementation uses
+an einsum. On the same real L004/E243 down Hessian, regularization was identical
+but the factors differed at 867,755 entries (maximum 1.7881393e-7). Existing
+`block_ldl_unitwise=true` therefore does not promise equivalence to every
+historical runtime's singleton implementation.
+
+The new explicit `block_ldl_reference=true` public batch option invokes the
+bound runner's actual factorizer on each 2D Hessian, retains unitwise
+regularization and grouped LDLQ, and fails rather than falling back. Default
+behavior is unchanged. Canonical experiment pin:
+`2972151b8d2f64d6f0cb5730cd641fcb63ca8b1c`.
+
+Same-input, retained noninterleaved controls (no baseline replay):
+
+- L004/E242+E243 down: baseline 7.529595/7.583555s; candidate
+  7.049238/7.001356s, 1.075624x warm public-build ratio.
+- Fused E242 alone: baseline 7.781055/6.995089s; candidate
+  7.576085/7.508204s, 0.979572x. This is not a fused acceleration.
+- Combined representative panel: 1.025894x warm. Setup ratio 1.090924x
+  includes shared/prebuilt caches and must not be called cold-JIT speed.
+- Warm allocated/reserved peak: 2,587,300,864 / 2,770,337,792 bytes.
+- Independent canonical decode and clean-fit objective: 12/12 pass the
+  unchanged SSE-ratio limit 1.0001; observed reconstructed delta zero.
+  Separate numerical validation timer: 3.745396s, not part of producer wall.
+- The preceding generic unitwise candidate failed four E243 checks
+  (maximum ratio 1.0002837664); its original failed verifier and resumed
+  diagnostic remain preserved. No threshold changed and no builds replayed.
+- Focused tests were RED before implementation, then passed; the supported
+  s6 interpreter passed the 18-test reference/batch/unitwise suite. Independent
+  Astra static review passed; no production runtime was changed.
+
+Evidence: `accel/receipts/glm_reference_ldl_run8545/`. Actual 24 build units
+from rejected and corrected panels were copied and authenticated separately
+in the task workspace. These are bounded numerical and public-build results,
+NOT heldout/full-model KL, matched production throughput, or owner adoption.
+Owner review/adoption is requested only for a genuine new down-pair boundary;
+no production gain or completion may be inferred until its real outputs are
+independently read back. The dedicated s6 claim remains with the persistent task.
+
 ## DS4 historical-owner compatibility bridge (run8482)
 
 The production owner requested one missing version bridge, not a repeat of the

@@ -1,0 +1,13 @@
+{
+  "model": "gpt-6-astra",
+  "cli_version": "0.153.4",
+  "session_id": "proc_a71d8469adf6",
+  "pid": 94878,
+  "exit_code": 0,
+  "passed": true,
+  "security_concerns": [],
+  "logic_errors": [],
+  "suggestions": [],
+  "summary": "Static review of HEAD~1..HEAD restricted to three files passed. False default preserves existing numerical behavior. Opt-in requires consistent boolean config and calls bound math.block_LDL per cloned 2D Hessian. Failures raise without fallback. Tests inspected, not executed by reviewer.",
+  "prior_cli_failure": "400: The 'gpt-6-astra' model requires a newer version of Codex. Private workspace npm cache used; no global/profile edits or model substitution."
+}

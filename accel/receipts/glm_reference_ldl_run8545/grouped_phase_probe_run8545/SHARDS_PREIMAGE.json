@@ -1,0 +1,30 @@
+{
+  "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "rows": [
+    {
+      "owner": "t_1269dc5f",
+      "layer": 4,
+      "experts": [
+        242,
+        243
+      ],
+      "projections": [
+        "down"
+      ],
+      "operation": "unitwise_grouped",
+      "receipt": "/dev/shm/t_1269dc5f/grouped_quality_run8545/QUALITY.json"
+    },
+    {
+      "owner": "t_1269dc5f",
+      "layer": 4,
+      "experts": [
+        242
+      ],
+      "projections": [
+        "fused13"
+      ],
+      "operation": "unitwise_grouped",
+      "receipt": "/dev/shm/t_1269dc5f/grouped_quality_run8545/QUALITY.json"
+    }
+  ]
+}

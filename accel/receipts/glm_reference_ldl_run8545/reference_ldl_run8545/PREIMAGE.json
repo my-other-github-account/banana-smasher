@@ -1,0 +1,22 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/grouped_phase_probe_run8545",
+  "receipt": "/dev/shm/t_1269dc5f/grouped_phase_probe_run8545/IDENTITY.json",
+  "expiry_unix": 1788924146.230571,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "1af1c5b3df9a669abc7d4eb9e0919c9cb60bbf4af54d7f4786bd22a81d49ed87",
+  "stage": "unitwise_grouped_terminal_retained",
+  "pid": 1821994,
+  "pgid": 1821994,
+  "start_ticks": 8200277,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "grouped_phase_probe_run8545.py"
+  ],
+  "terminal_at": 1788916949.7550983
+}

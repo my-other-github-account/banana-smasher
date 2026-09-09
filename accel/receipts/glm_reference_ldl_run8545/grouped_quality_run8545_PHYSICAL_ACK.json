@@ -1,0 +1,72 @@
+{
+  "remote": "/dev/shm/t_1269dc5f/grouped_quality_run8545",
+  "files": [
+    {
+      "path": "TERMINAL.json",
+      "bytes": 151,
+      "sha256": "8614b07b7725d3b3e611fe71e3c7d068d168612d4fd5284f9449910413d87c68"
+    },
+    {
+      "path": "PROGRESS.json",
+      "bytes": 104,
+      "sha256": "4bb0badcb72951161b2bc3d3d5718db3349c333c83a3aea16bf699737225da87"
+    },
+    {
+      "path": "GATE.json",
+      "bytes": 139,
+      "sha256": "bfe9f19745f1bb9fefa1a2d9ce0f620c147f1cd5dee52cb420dc318cfc05ff78"
+    },
+    {
+      "path": "QUALITY.json",
+      "bytes": 84805,
+      "sha256": "708c31b158d4dafc0992233c5940d874d68c71a640a9c1d0b6d14079cb630b19"
+    },
+    {
+      "path": "quality_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "5b1546f5e6fa8ee88851c2916fa18ebbbd1faee7840a4e3708cc178180d421a6"
+    },
+    {
+      "path": "CHILD.json",
+      "bytes": 214,
+      "sha256": "7ea9566b54721d972870ebb433b63b987ecf0e9b908c660247c75021cd44e771"
+    },
+    {
+      "path": "quality.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "traceback_base_run8542_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "78dd39436ff8700cdfe50d330ee5c87f1d4c2ee998db71c2f6d5f428430431d7"
+    },
+    {
+      "path": "grouped_code_run8544_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "f6678f99e379666e94711a6ce063f4726dd06d9967f45de5a991fa8ca5af769f"
+    },
+    {
+      "path": "IDENTITY.json",
+      "bytes": 681,
+      "sha256": "85940960953ea4cd76a4c1aa3aa30e6e48498db2bf6bc21d4c583ccef8df1456"
+    },
+    {
+      "path": "PREIMAGE.json",
+      "bytes": 719,
+      "sha256": "42fcb81f843f39914256d35466968ee8fb4282e7d273ba02964efa1708f384bf"
+    },
+    {
+      "path": "SHARDS_PREIMAGE.json",
+      "bytes": 634,
+      "sha256": "32d9c2d3009ff6fff104299789f8b41b1d7f0637284e3b1c0c3f786d9dbf73d2"
+    },
+    {
+      "path": "PREFLIGHT.json",
+      "bytes": 297,
+      "sha256": "3d5e9587731df11053827bba8a7a6f7e607348f4d0b788a92b0b2c12e1476e9d"
+    }
+  ],
+  "total_bytes": 88469,
+  "verified": true
+}

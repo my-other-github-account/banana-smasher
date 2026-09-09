@@ -1,0 +1,12 @@
+{
+  "pid": 1821997,
+  "pgid": 1821994,
+  "start_ticks": 8200287,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_1269dc5f/grouped_phase_probe_run8545.py",
+    "quality",
+    "none"
+  ]
+}

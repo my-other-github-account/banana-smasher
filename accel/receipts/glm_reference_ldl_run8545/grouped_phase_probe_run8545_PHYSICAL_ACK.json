@@ -1,0 +1,67 @@
+{
+  "remote": "/dev/shm/t_1269dc5f/grouped_phase_probe_run8545",
+  "files": [
+    {
+      "path": "TERMINAL.json",
+      "bytes": 152,
+      "sha256": "8189a82fa38c5340cb9ab2df6bc40bc64bda9b4f29130300d612cdb798699893"
+    },
+    {
+      "path": "PROGRESS.json",
+      "bytes": 105,
+      "sha256": "b9322af57c9ad3508632f9a723dfcafcf97d7f94ad6ce3fc155fbd9e317b2fb5"
+    },
+    {
+      "path": "PHASE_PROBE.json",
+      "bytes": 1397,
+      "sha256": "c396072d1857cbd292a22f77f1c0eaadf4d7b92d4e357b936380ffbe244c5bb5"
+    },
+    {
+      "path": "quality_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "00aee5f465db850dc998ae2b8838f085614c0d811ec038b657654b7652d7df42"
+    },
+    {
+      "path": "CHILD.json",
+      "bytes": 218,
+      "sha256": "955f0cbac82e6dd13f3d85a2524879ee4ff6d751cb466d2dc67b773903826c92"
+    },
+    {
+      "path": "quality.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "traceback_base_run8542_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "78dd39436ff8700cdfe50d330ee5c87f1d4c2ee998db71c2f6d5f428430431d7"
+    },
+    {
+      "path": "grouped_code_run8544_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "f6678f99e379666e94711a6ce063f4726dd06d9967f45de5a991fa8ca5af769f"
+    },
+    {
+      "path": "IDENTITY.json",
+      "bytes": 692,
+      "sha256": "fcf461fdc6b10d068e6bcb1935ee6762d7f21f585034e8afca1dc968212bd5c8"
+    },
+    {
+      "path": "PREIMAGE.json",
+      "bytes": 736,
+      "sha256": "1af1c5b3df9a669abc7d4eb9e0919c9cb60bbf4af54d7f4786bd22a81d49ed87"
+    },
+    {
+      "path": "SHARDS_PREIMAGE.json",
+      "bytes": 646,
+      "sha256": "15faff8d7b9eaf726579f95b92f10334845e8d28aa16f8996bc113d8841b8896"
+    },
+    {
+      "path": "PREFLIGHT.json",
+      "bytes": 297,
+      "sha256": "92966ac9205cf705b32929c27052c5184ca1b88372931c5e3b2b61c34c6b2974"
+    }
+  ],
+  "total_bytes": 4968,
+  "verified": true
+}

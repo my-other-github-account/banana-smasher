@@ -1,0 +1,21 @@
+{
+  "cell": "E243_down",
+  "hessian": {
+    "equal": true,
+    "max_abs": 0.0,
+    "different": 0
+  },
+  "ldl_same_h": {
+    "equal": false,
+    "max_abs": 1.7881393432617188e-07,
+    "different": 867755
+  },
+  "ldl_original": {
+    "equal": false,
+    "max_abs": 1.7881393432617188e-07,
+    "different": 867755
+  },
+  "regularize_source": "def regularize_H(H, sigma_reg):\n    diagmean = torch.diag(H).mean()\n    H /= diagmean\n    idx = torch.arange(len(H))\n    H[idx, idx] += sigma_reg\n    return H * diagmean\n",
+  "ldl_source": "def block_LDL(H, b, check_nan=True):\n    n = H.shape[0]\n    assert (n % b == 0)\n    m = n // b\n\n    try:\n        L = torch.linalg.cholesky(H)\n    except:\n        return None\n\n    DL = torch.diagonal(L.reshape(m, b, m, b), dim1=0, dim2=2).permute(2, 0, 1)\n    D = (DL @ DL.permute(0, 2, 1)).cpu()\n    DL = torch.linalg.inv(DL)\n    L = L.view(n, m, b)\n    for i in range(m):\n        L[:, i, :] = L[:, i, :] @ DL[i, :, :]\n\n    if check_nan and L.isnan().any():\n        return None\n\n    L = L.reshape(n, n).contiguous()\n\n    L.view(m, b, m,\n           b).permute(0, 2, 1,\n                      3)[torch.arange(m), torch.arange(m)] = torch.stack(\n                          [torch.eye(b, device=L.device, dtype=H.dtype)] * m)\n\n    return (L, D.to(DL.device))\n",
+  "scope": "same-input preprocessing only; no encode or speed denominator"
+}

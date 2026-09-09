@@ -1,0 +1,139 @@
+{
+  "accelerations": {
+    "active": [
+      "persistent-prefix-full16",
+      "kernel-cache",
+      "shared-capture/single-process-staging",
+      "singleton-block-LDL",
+      "cross-unit-LDLQ",
+      "FWHT",
+      "bounded-batch-matrix-lifetime",
+      "canonical-pack-from-states",
+      "packed-byte-reconstruction"
+    ],
+    "historical_k3_alternating_branch_pruning": false,
+    "schema": "banana-smasher-qtip-active-build-accelerations-v1"
+  },
+  "artifact_sha256": [
+    "191f4b7e248b62a218a7eac398c1e703572a6075c66534a4ff0d7e7b792576a0"
+  ],
+  "assignment_sha256": [
+    "2ac9785cf38fd9bcefe52fdba418acd7fe5273b7696203573b82a6840c81d40b"
+  ],
+  "basis_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "batch_id": "65ec094d25f23c28",
+  "batch_units": 1,
+  "build_phase_seconds": {
+    "batched_block_ldl": 0.008980692000477575,
+    "batched_ldlq": 6.3374669890035875,
+    "canonical_per_unit_pack": 0.2557551709905965,
+    "hessian_forward_fwht": 0.06441425299271941,
+    "packed_decode_conformance": 0.6803450230072485
+  },
+  "build_wall_seconds": 7.347256723005557,
+  "canonical_pack_roundtrip_exact": [
+    true
+  ],
+  "config_names": [
+    "CONFIG.json"
+  ],
+  "epoch_ended": 1788916781.180738,
+  "epoch_started": 1788916773.418424,
+  "kernel_prepare_seconds": 0.003997470994363539,
+  "layer": 4,
+  "matrix_lifetime": {
+    "batch_units": 1,
+    "events": [
+      {
+        "live_fp32_matrices": [
+          "hessian",
+          "lower",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 3.0,
+        "phase": "batched_ldl_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [
+          "lower",
+          "quantized",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 3.0,
+        "phase": "batched_ldlq_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [],
+        "live_fp32_matrix_equivalents": 0.0,
+        "phase": "quantized_released_before_pack",
+        "unique_storage_count": 0
+      }
+    ],
+    "max_live_fp32_matrix_equivalents": 3.0,
+    "reconstruction_source": "canonical-packed-bytes",
+    "released_after_ldlq": [
+      "lower",
+      "transformed"
+    ],
+    "released_before_pack": [
+      "lower",
+      "transformed",
+      "quantized"
+    ],
+    "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+    "unit_matrix_shape": [
+      4096,
+      4096
+    ]
+  },
+  "mean_build_phase_seconds": {
+    "batched_block_ldl": 0.008980692000477575,
+    "batched_ldlq": 6.3374669890035875,
+    "canonical_per_unit_pack": 0.2557551709905965,
+    "hessian_forward_fwht": 0.06441425299271941,
+    "packed_decode_conformance": 0.6803450230072485
+  },
+  "mean_build_wall_seconds": 7.347256723005557,
+  "mean_staging_seconds": 0.4052264720085077,
+  "mean_total_wall_seconds": 7.761965907004196,
+  "packed_decode_execution": "compiled",
+  "packed_decode_fp16_bit_exact": [
+    true
+  ],
+  "peak_cuda_allocated_bytes": 1557969920,
+  "peak_cuda_reserved_bytes": 2766143488,
+  "process": {
+    "pid": 1818780,
+    "startticks": 8181921
+  },
+  "receipt_names": [
+    "QTIP_SOLVE_RECEIPT.json"
+  ],
+  "schema": "banana-smasher-qtip-cross-unit-controller-v1",
+  "solver": {
+    "K": 1,
+    "L": 16,
+    "V": 2,
+    "best_state_dtype": "uint16",
+    "best_state_encoding": "full-state",
+    "branch_sampling": "full",
+    "branches_per_prefix": 4,
+    "full_states": 65536,
+    "implementation": "persistent-prefix-generic-aot-v1",
+    "memory_admission": "conservative-int32-workspace",
+    "min_exact_quality": 1.0,
+    "ordering": "one persistent launch per independent sequence batch",
+    "production_default": false,
+    "retained_prefix_costs": 16384,
+    "steps": 128,
+    "viterbi_branch_unroll": 4,
+    "viterbi_lut_l1_retention": true,
+    "viterbi_num_warps": 16,
+    "viterbi_structured_gather": true
+  },
+  "staging_seconds": 0.4052264720085077,
+  "status": "PASS",
+  "total_wall_seconds": 7.761965907004196
+}

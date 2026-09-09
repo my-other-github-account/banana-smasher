@@ -1,0 +1,202 @@
+{
+  "grouped_run8544r2": {
+    "scope": "historical retained same-input controls, not interleaved or cold JIT; clean-fit gate not heldout/full-model",
+    "candidate_pin": "a2a7df42114ace02c39454963abe05f588eefac5",
+    "control_results": [
+      {
+        "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/traceback_run8542r3/B1/RESULT.json",
+        "sha256": "5ff5b9301cf8193978e0dac2635852ad4cdea1884bc4da55e32a5717a75dfa25"
+      },
+      {
+        "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/traceback_run8542r3/B2/RESULT.json",
+        "sha256": "cdea32b724ddfa0db013dba21a35de0db7d9a2a4d435272043d4d3bc1979d7b7"
+      }
+    ],
+    "setup": {
+      "all": {
+        "baseline_seconds": [
+          17.843172752982355,
+          17.913421113989898
+        ],
+        "candidate_seconds": [
+          16.5511178500019,
+          16.62334271000873
+        ],
+        "ratio": 1.0778349749588452
+      },
+      "down": {
+        "baseline_seconds": [
+          8.816573673990206,
+          9.089801465001074
+        ],
+        "candidate_seconds": [
+          8.788160447002156,
+          8.796846761004417
+        ],
+        "ratio": 1.018275109426079
+      },
+      "fused": {
+        "baseline_seconds": [
+          9.026599078992149,
+          8.823619648988824
+        ],
+        "candidate_seconds": [
+          7.762957402999746,
+          7.826495949004311
+        ],
+        "ratio": 1.1450188999530435
+      }
+    },
+    "warm": {
+      "all": {
+        "baseline_seconds": [
+          15.310650775994873,
+          14.57864457499818
+        ],
+        "candidate_seconds": [
+          14.530311676004203,
+          14.262605317984708
+        ],
+        "ratio": 1.038078057781816
+      },
+      "down": {
+        "baseline_seconds": [
+          7.529595287996926,
+          7.583555185003206
+        ],
+        "candidate_seconds": [
+          7.091457533999346,
+          6.943698727991432
+        ],
+        "ratio": 1.0768067124360217
+      },
+      "fused": {
+        "baseline_seconds": [
+          7.781055487997946,
+          6.995089389994973
+        ],
+        "candidate_seconds": [
+          7.438854142004857,
+          7.318906589993276
+        ],
+        "ratio": 1.0012457273382218
+      }
+    },
+    "quality": {
+      "gate": {
+        "status": "REJECT_QUALITY",
+        "passed": 8,
+        "count": 12,
+        "limit": 1.0001,
+        "prior_passed_reused": 4,
+        "no_builds_replayed": true
+      },
+      "validation_seconds": 3.736307936007506,
+      "max_decoded_delta": 0.002777099609375,
+      "max_sse_ratio": 1.000283766371573,
+      "validation_seconds_scope": "resume-only validation timer; excludes initial failed quality process",
+      "initial_failed_quality_child_seconds": 5.491253313986817
+    },
+    "warm_peak_allocated_bytes": 2587300864,
+    "warm_peak_reserved_bytes": 2770337792,
+    "physical_units": 12
+  },
+  "reference_ldl_run8545": {
+    "scope": "historical retained same-input controls, not interleaved or cold JIT; clean-fit gate not heldout/full-model",
+    "candidate_pin": "2972151b8d2f64d6f0cb5730cd641fcb63ca8b1c",
+    "control_results": [
+      {
+        "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/traceback_run8542r3/B1/RESULT.json",
+        "sha256": "5ff5b9301cf8193978e0dac2635852ad4cdea1884bc4da55e32a5717a75dfa25"
+      },
+      {
+        "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/traceback_run8542r3/B2/RESULT.json",
+        "sha256": "cdea32b724ddfa0db013dba21a35de0db7d9a2a4d435272043d4d3bc1979d7b7"
+      }
+    ],
+    "setup": {
+      "all": {
+        "baseline_seconds": [
+          17.843172752982355,
+          17.913421113989898
+        ],
+        "candidate_seconds": [
+          16.239159447010024,
+          16.53727611900831
+        ],
+        "ratio": 1.0909238069817349
+      },
+      "down": {
+        "baseline_seconds": [
+          8.816573673990206,
+          9.089801465001074
+        ],
+        "candidate_seconds": [
+          8.568294349010102,
+          8.628751071009901
+        ],
+        "ratio": 1.0412471852953011
+      },
+      "fused": {
+        "baseline_seconds": [
+          9.026599078992149,
+          8.823619648988824
+        ],
+        "candidate_seconds": [
+          7.670865097999922,
+          7.90852504799841
+        ],
+        "ratio": 1.1457585027849064
+      }
+    },
+    "warm": {
+      "all": {
+        "baseline_seconds": [
+          15.310650775994873,
+          14.57864457499818
+        ],
+        "candidate_seconds": [
+          14.625322845007759,
+          14.509560249993228
+        ],
+        "ratio": 1.0258937800962553
+      },
+      "down": {
+        "baseline_seconds": [
+          7.529595287996926,
+          7.583555185003206
+        ],
+        "candidate_seconds": [
+          7.049237804007134,
+          7.001356124994345
+        ],
+        "ratio": 1.075623603483797
+      },
+      "fused": {
+        "baseline_seconds": [
+          7.781055487997946,
+          6.995089389994973
+        ],
+        "candidate_seconds": [
+          7.576085041000624,
+          7.508204124998883
+        ],
+        "ratio": 0.9795718389765985
+      }
+    },
+    "quality": {
+      "gate": {
+        "status": "PASS",
+        "passed": 12,
+        "count": 12,
+        "limit": 1.0001
+      },
+      "validation_seconds": 3.7453956300014397,
+      "max_decoded_delta": 0.0,
+      "max_sse_ratio": 1.0
+    },
+    "warm_peak_allocated_bytes": 2587300864,
+    "warm_peak_reserved_bytes": 2770337792,
+    "physical_units": 12
+  }
+}

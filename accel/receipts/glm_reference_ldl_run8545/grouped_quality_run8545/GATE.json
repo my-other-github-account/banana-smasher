@@ -1,0 +1,8 @@
+{
+  "status": "REJECT_QUALITY",
+  "passed": 8,
+  "count": 12,
+  "limit": 1.0001,
+  "prior_passed_reused": 4,
+  "no_builds_replayed": true
+}
