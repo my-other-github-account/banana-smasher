@@ -272,8 +272,12 @@ def _persistent_prefix_viterbi_generic(
     while step < STEPS:
         # Costs belong to this CTA. Gather the preceding vector directly,
         # avoiding global scratch reloads and stores at every timestep.
-        # No arithmetic, branch order, or tie-breaking changes.
+        # Default arithmetic is unchanged. The opt-in rebases common cost
+        # offsets before applying compact summed distances, limiting FP32 growth.
         previous_costs = best
+        if DISTANCE_ALPHABET:
+            minimum_cost = tl.min(previous_costs, axis=0)
+            previous_costs = previous_costs - tl.where(minimum_cost < float("inf"), minimum_cost, 0.0)
         previous_base = (step & 1 ^ 1) * B * PREFIXES + base
         current_base = (step & 1) * B * PREFIXES + base
         best = tl.full((PREFIXES,), float("inf"), tl.float32)
