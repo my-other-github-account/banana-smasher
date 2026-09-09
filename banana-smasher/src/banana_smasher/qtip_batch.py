@@ -470,7 +470,9 @@ def build_qtip_batch(
         ) * wscales[unit]
         reconstructed = runner.fwht(raw.T).T * svs[unit][:, None]
         reconstructed = runner.fwht(reconstructed) * sus[unit]
-        candidate["reconstructed_weight"] = reconstructed.half().cpu()
+        candidate["reconstructed_weight"] = reconstructed.half()
+        if not packed_conformance_on_device:
+            candidate["reconstructed_weight"] = candidate["reconstructed_weight"].cpu()
         candidates.append(candidate)
         del raw, reconstructed
         packed_decode_receipts.append(
@@ -479,6 +481,10 @@ def build_qtip_batch(
                 compare_on_device=packed_conformance_on_device,
             )
         )
+        if packed_conformance_on_device:
+            # Keep the independent reference local through verification. Only
+            # the final accepted CPU payload crosses the device boundary.
+            candidate["reconstructed_weight"] = candidate["reconstructed_weight"].cpu()
     del packed_rows
     _synchronize(device)
     phase_seconds["packed_decode_conformance"] = time.perf_counter() - started
