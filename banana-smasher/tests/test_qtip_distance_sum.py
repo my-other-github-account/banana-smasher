@@ -24,6 +24,7 @@ def test_cuda_numerical_gate(steps,batch):
         cb._banana_smasher_distance_alphabet=False;ref=exact_prefix_viterbi(cb,x,overlap)
         cb._banana_smasher_distance_alphabet=True;got=exact_prefix_viterbi(cb,x,overlap)
         torch.cuda.synchronize()
+        if overlap is None: assert torch.equal(ref,got)
         assert got.shape==ref.shape and got.dtype==ref.dtype
         assert bool(((got>=0)&(got<65536)).all())
         a=lut[ref.long()].reshape(steps,batch,2)

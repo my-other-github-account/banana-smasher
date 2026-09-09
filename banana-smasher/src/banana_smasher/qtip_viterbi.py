@@ -275,7 +275,7 @@ def _persistent_prefix_viterbi_generic(
         # Default arithmetic is unchanged. The opt-in rebases common cost
         # offsets before applying compact summed distances, limiting FP32 growth.
         previous_costs = best
-        if DISTANCE_ALPHABET:
+        if DISTANCE_ALPHABET and HAS_OVERLAP:
             minimum_cost = tl.min(previous_costs, axis=0)
             previous_costs = previous_costs - tl.where(minimum_cost < float("inf"), minimum_cost, 0.0)
         previous_base = (step & 1 ^ 1) * B * PREFIXES + base
@@ -311,7 +311,13 @@ def _persistent_prefix_viterbi_generic(
             state = q * PREFIXES + j
             if DISTANCE_ALPHABET:
                 alphabet_key = ((state * (state + 1)) >> 6) & 1023
-                candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
+                if HAS_OVERLAP:
+                    candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
+                else:
+                    # Preserve the original full-context heuristic seed.
+                    da = tl.gather(delta_a, alphabet_key, axis=0)
+                    db = tl.gather(delta_b, alphabet_key, axis=0)
+                    candidate = predecessor_cost + da * da + db * db
             else:
                 la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
                 lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
