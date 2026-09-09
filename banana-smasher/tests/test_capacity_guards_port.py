@@ -58,7 +58,7 @@ class CapacityGuards(unittest.TestCase):
                 lutns['_distance_alphabet_lut'](cb)
         # Bind workspace wiring and unchanged full reserve to actual source AST.
         tree = ast.parse((ROOT / 'qtip_viterbi.py').read_text())
-        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'exact_prefix_viterbi')
+        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == '_exact_prefix_viterbi_impl')
         calls = [n for n in ast.walk(fn) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
         self.assertTrue(any(n.func.id == 'qtip_admission_memory' for n in calls))
         reserve = next(n.value for n in fn.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'reserve' for t in n.targets))

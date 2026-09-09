@@ -58,7 +58,7 @@ def test_kernel_uses_bounded_full_branch_unroll(kernel_name):
     assert len(loops)==2
     for loop in loops:
         assert any(k.arg=='loop_unroll_factor' and ast.unparse(k.value)=='BRANCH_UNROLL' for k in loop.iter.keywords)
-    body=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='exact_prefix_viterbi')
+    body=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_exact_prefix_viterbi_impl')
     assert 'BRANCH_UNROLL=branch_unroll' in ast.unparse(body)
 
 

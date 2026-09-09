@@ -150,6 +150,7 @@ def main_batch(
     _common("Viterbi structured gather", [config.get("viterbi_structured_gather", False) for config in configs])
     _common("Viterbi LUT L1 retention", [config.get("viterbi_lut_l1_retention", False) for config in configs])
     _common("Viterbi conditioned distance sum", [config.get("viterbi_conditioned_distance_sum", False) for config in configs])
+    _bounded_overlap(configs)
     _common("Viterbi distance alphabet", [config.get("viterbi_distance_alphabet", False) for config in configs])
 
     runner = solver_module._load_public_qtip_runner(runner_path, runner_sha256)
@@ -556,3 +557,16 @@ def main_batch(
 
 
 __all__ = ["main_batch"]
+
+
+def _bounded_overlap(configs):
+    """Resolve each member before equality: bool/int aliases are not valid."""
+    from .qtip_viterbi import resolve_bounded_overlap
+    values = []
+    for config in configs:
+        geometry = config.get("geometry", {"L": 16, "K": 3, "V": 2})
+        sealed = tuple(int(geometry[key]) for key in ("L", "K", "V"))
+        values.append(resolve_bounded_overlap(
+            sealed, config.get("viterbi_bounded_overlap"), False
+        ))
+    return _common("Viterbi bounded overlap", values)

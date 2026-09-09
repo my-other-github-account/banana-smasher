@@ -1249,6 +1249,7 @@ def _install_profiled_exact_viterbi(
     timers: _ExactTimers,
     *,
     profile_mode: bool,
+    bounded_overlap: bool = False,
 ) -> dict[str, Any]:
     """Install exact Viterbi; instrumentation is profile-only, never solve overhead."""
     base_quantize_seq = getattr(cb, "quantize_seq", None)
@@ -1277,6 +1278,24 @@ def _install_profiled_exact_viterbi(
 
     cb.viterbi = types.MethodType(solve, cb)
     cb.quantize_seq = types.MethodType(quantize_seq, cb)
+    # Public methods remain strictly checked. Retain native method so a later
+    # default reinstall cannot accidentally leave the opt-in enabled.
+    native_quantize = getattr(cb, "_banana_smasher_native_quantize", None)
+    if native_quantize is None:
+        native_quantize = getattr(cb, "quantize", None)
+        if native_quantize is not None:
+            cb._banana_smasher_native_quantize = native_quantize
+    if native_quantize is not None:
+        cb.quantize = native_quantize
+    if bounded_overlap:
+        def bounded_quantize(self: Any, X: torch.Tensor, **_: Any):
+            result = exact.quantize_from_exact_states(self, X)
+            width = int(X.shape[0])
+            chunks = (width + 255) // 256 if width > 8192 else 1
+            timers.calls += 2 * chunks
+            timers.sequences += 2 * (chunks * 256 if width > 8192 else width)
+            return result
+        cb.quantize = types.MethodType(bounded_quantize, cb)
     # Native bitshift.quantize makes rolled and overlap-conditioned passes
     # for every geometry, even when neither call needs width chunking.
     cb._banana_smasher_exact_passes = 2
@@ -1335,6 +1354,12 @@ def _install_configured_viterbi(
         )
     cb._banana_smasher_conditioned_distance_sum = conditioned_distance_sum
     cb._banana_smasher_projection = config.get("projection")
+    bounded_overlap = False
+    if "viterbi_bounded_overlap" in config:
+        from .qtip_viterbi import resolve_bounded_overlap
+        bounded_overlap = resolve_bounded_overlap(
+            sealed, config["viterbi_bounded_overlap"], profile_mode
+        )
     group_branches = config.get("viterbi_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
         sealed != (16, 3, 2) or structured_gather or branch_unroll != 1
@@ -1350,11 +1375,14 @@ def _install_configured_viterbi(
         )
     if backend in PERSISTENT_BACKENDS:
         identity = _install_profiled_exact_viterbi(
-            cb, exact, timers, profile_mode=profile_mode
+            cb, exact, timers, profile_mode=profile_mode, bounded_overlap=bounded_overlap
         )
         if requested_warps is not None:
             identity.update(viterbi_num_warps=launch_warps,
                             production_default=launch_warps == 16)
+        if bounded_overlap:
+            identity.update(viterbi_bounded_overlap=True, production_default=False,
+                            overlap_validation="internal-exact-producer-bound; public-recoverable")
         if conditioned_distance_sum:
             identity.update(viterbi_conditioned_distance_sum=True, production_default=False)
         if distance_alphabet:

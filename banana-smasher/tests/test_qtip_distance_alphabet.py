@@ -73,7 +73,7 @@ def test_batch_binds_homogeneous_alphabet_flag():
 
 def test_extra_alphabet_workspace_increases_reserve_without_changing_peak_schema():
     tree=ast.parse(SOURCE.read_text())
-    node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='exact_prefix_viterbi')
+    node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_exact_prefix_viterbi_impl')
     reserve=next(n.value for n in ast.walk(node) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='reserve' for t in n.targets))
     expression=compile(ast.Expression(reserve),str(SOURCE),'eval')
     assert eval(expression,{'distance_alphabet':False})==4<<30

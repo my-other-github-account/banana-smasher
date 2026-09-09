@@ -507,6 +507,17 @@ def exact_prefix_viterbi(
     x: torch.Tensor,
     overlap: torch.Tensor | None = None,
 ) -> torch.Tensor:
+    # Public callers always retain recoverable full value validation.
+    return _exact_prefix_viterbi_impl(cb, x, overlap, _bounded_overlap=False)
+
+
+def _exact_prefix_viterbi_impl(
+    cb: Any,
+    x: torch.Tensor,
+    overlap: torch.Tensor | None = None,
+    *,
+    _bounded_overlap: bool = False,
+) -> torch.Tensor:
     """Return exact full-branch Viterbi states for a compiled QTIP geometry."""
     _require_triton()
     if not x.is_cuda or x.ndim != 2:
@@ -548,12 +559,20 @@ def exact_prefix_viterbi(
     states_count = int(metadata["full_states"])
     prefixes = int(metadata["retained_prefix_costs"])
     if overlap is not None:
-        _validate_overlap_prefixes(
-            overlap,
-            x=x,
-            batch=batch,
-            prefixes=prefixes,
-        )
+        if _bounded_overlap:
+            # Only quantize_from_exact_states creates this internal operand.
+            # State producer bounds plus right shift establish its value range.
+            if (not overlap.is_cuda or overlap.device != x.device
+                    or overlap.ndim != 1 or overlap.numel() != batch
+                    or overlap.dtype not in {torch.int32, torch.int64}):
+                raise ValueError("invalid internal overlap metadata")
+        else:
+            _validate_overlap_prefixes(
+                overlap,
+                x=x,
+                batch=batch,
+                prefixes=prefixes,
+            )
     branches = int(metadata["branches_per_prefix"])
     shift = K * V
     q_factor = 1 << (L - 2 * shift)
@@ -672,10 +691,11 @@ def exact_prefix_viterbi(
                     None if overlap is None else overlap[start:end].contiguous()
                 )
                 outputs.append(
-                    exact_prefix_viterbi(
+                    _exact_prefix_viterbi_impl(
                         cb,
                         x[:, start:end],
                         overlap=streamed_overlap,
+                        _bounded_overlap=_bounded_overlap,
                     )
                 )
             return torch.cat(outputs, dim=1)
@@ -766,6 +786,9 @@ def install_exact_prefix_viterbi(
 ) -> dict[str, int | str | float]:
     """Install the accelerated exact methods, refusing an unavailable backend."""
     _require_triton()
+    native_quantize = getattr(cb, "_banana_smasher_native_quantize", None)
+    if native_quantize is not None:
+        cb.quantize = native_quantize
 
     def viterbi(self: Any, x: torch.Tensor, overlap: torch.Tensor | None = None):
         return exact_prefix_viterbi(self, x, overlap)
@@ -776,3 +799,58 @@ def install_exact_prefix_viterbi(
     cb.viterbi = types.MethodType(viterbi, cb)
     cb.quantize_seq = types.MethodType(quantize_seq, cb)
     return geometry(cb)
+
+def quantize_from_exact_states(cb: Any, X: torch.Tensor):
+    """Native two-pass quantize with an internal producer-bounded overlap.
+
+    No caller overlap or caller-supplied states are accepted here. The exact
+    recurrence returns int32 states in [0, 2**L); shifting by K*V therefore
+    establishes [0, 2**(L-K*V)) without a device-to-host scalar round trip.
+    Recheck geometry at entry; retain all per-solve memory and metadata gates.
+    Public exact_prefix_viterbi/quantize_seq still validate arbitrary operands.
+    """
+    if (int(cb.L), int(cb.K), int(cb.V)) != (16, 1, 2):
+        raise ValueError("producer-bounded quantize requires L16/K1/V2")
+    if X.ndim != 2 or not X.is_cuda or X.shape[1] != 256 or X.shape[0] < 1:
+        raise ValueError("producer-bounded quantize expects CUDA [B,256]")
+    geometry(cb, steps=128)
+    X = X.T.contiguous().to(torch.float16)
+    T = X.shape[0]
+
+    def sequence(x, overlap=None, *, bounded=False):
+        # Preserve native quantize_seq's exact wide chunk/pad/order, including
+        # its 256-column chunk size when the public 8192 width cap is exceeded.
+        if x.shape[1] <= 8192:
+            return _exact_prefix_viterbi_impl(cb, x, overlap, _bounded_overlap=bounded)
+        import math
+        T, NO = x.shape
+        bs = min(2**(24 - cb.L), NO)
+        pad_amt = math.ceil(NO / bs) * bs - NO
+        x = torch.nn.functional.pad(x, (0, pad_amt))
+        T, N = x.shape
+        x = x.reshape(T, N // bs, bs).transpose(0, 1).contiguous()
+        if overlap is not None:
+            overlap = torch.nn.functional.pad(overlap, (0, pad_amt))
+            overlap = overlap.reshape(N // bs, bs)
+        states = torch.zeros(N // bs, T // cb.V, bs,
+                             dtype=cb.idx_dtype, device=x.device)
+        for i in range(len(x)):
+            part = None if overlap is None else overlap[i]
+            states[i] = _exact_prefix_viterbi_impl(
+                cb, x[i], part, _bounded_overlap=bounded)
+        return states.transpose(0, 1).reshape(T // cb.V, N)[:, :NO]
+
+    roll_X = torch.roll(X, T // (2 * cb.V) * cb.V, 0)
+    state = sequence(roll_X)
+    overlap = state[T // (2 * cb.V)] >> (cb.K * cb.V)
+    state = sequence(X, overlap, bounded=True)
+    hatX = cb.recons(state).transpose(0, 1).reshape(X.shape)
+    return hatX.T.contiguous().to(X.device), state.T.contiguous().to(X.device)
+
+
+def resolve_bounded_overlap(geometry, value, profile_mode):
+    if value is None:
+        return False
+    if type(value) is not bool or (value and (tuple(geometry) != (16, 1, 2) or profile_mode)):
+        raise ValueError("viterbi_bounded_overlap requires boolean, L16/K1/V2 and non-profile mode")
+    return value

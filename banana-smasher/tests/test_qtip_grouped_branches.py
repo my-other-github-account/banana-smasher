@@ -36,7 +36,7 @@ def test_actual_group_min_matches_ordered_strict_updates(fixture):
 
 def test_public_grouped_branches_reaches_specialized_kernel():
     tree=ast.parse(SOURCE.read_text())
-    body=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='exact_prefix_viterbi')
+    body=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_exact_prefix_viterbi_impl')
     calls=[n for n in ast.walk(body) if isinstance(n,ast.Call) and '_persistent_prefix_viterbi[' in ast.unparse(n.func)]
     assert len(calls)==1
     assert any(k.arg=='GROUP_BRANCHES' and ast.unparse(k.value)=='group_branches' for k in calls[0].keywords)

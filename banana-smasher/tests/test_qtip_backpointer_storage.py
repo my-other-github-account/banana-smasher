@@ -59,7 +59,7 @@ def test_kernel_allocates_requested_storage_but_returns_int32():
     # Execute the allocation AST with a tiny fake allocator; no GPU needed.
     import types
     tree=ast.parse(SOURCE.read_text())
-    fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='exact_prefix_viterbi')
+    fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_exact_prefix_viterbi_impl')
     selected=[]
     for node in fn.body:
         if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in ('backpointer_dtype','best_state','states') for t in node.targets):
@@ -101,7 +101,7 @@ def test_actual_kernel_backpointer_roundtrip_all_k1_states(compressed):
 @pytest.mark.parametrize("dtype", ["int32", "uint16", "uint8"])
 def test_launch_binds_branch_storage_semantics(dtype):
     fn = next(n for n in ast.parse(SOURCE.read_text()).body
-              if isinstance(n, ast.FunctionDef) and n.name == 'exact_prefix_viterbi')
+              if isinstance(n, ast.FunctionDef) and n.name == '_exact_prefix_viterbi_impl')
     call = next(n for n in ast.walk(fn) if isinstance(n, ast.Call)
                 and isinstance(n.func, ast.Subscript)
                 and ast.unparse(n.func.value) == '_persistent_prefix_viterbi_generic')

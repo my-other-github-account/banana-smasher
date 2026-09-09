@@ -55,7 +55,7 @@ def test_kernel_structured_predecessor_map():
         expected=[q*4096+(j>>2) for j in range(16384)]
         structured=[x for x in range(q*4096,(q+1)*4096) for _ in range(4)]
         assert structured==expected
-    body=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='exact_prefix_viterbi')
+    body=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_exact_prefix_viterbi_impl')
     assert 'STRUCTURED_GATHER=structured_gather' in ast.unparse(body)
 
 
@@ -89,7 +89,7 @@ def test_execute_actual_structured_branch(with_infinity, branches, q_factor, shi
 
 def test_k3_structured_dispatch_uses_registers_and_requested_warps():
     tree=ast.parse(SOURCE.read_text())
-    body=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='exact_prefix_viterbi')
+    body=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_exact_prefix_viterbi_impl')
     dispatch=next(n for n in ast.walk(body) if isinstance(n,ast.If) and 'PERSISTENT_V32_BACKEND' in ast.unparse(n.test))
     env=dict(L=16,K=3,V=2,steps=128,structured_gather=True,backend_for_geometry=lambda _: 'v32',PERSISTENT_V32_BACKEND='v32')
     assert not eval(compile(ast.Expression(dispatch.test),str(SOURCE),'eval'),env)
