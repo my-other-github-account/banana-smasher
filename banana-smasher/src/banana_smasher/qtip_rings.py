@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
@@ -686,6 +687,27 @@ def effective_cuda_free_bytes(
     return driver_free + max(0, reserved - allocated)
 
 
+@lru_cache(maxsize=1)
+def _qtip_nvml(pid):
+    # Cache only process-local library initialization, never occupancy results.
+    # PID key prevents using a parent's initialization after fork.
+    import pynvml
+    pynvml.nvmlInit()
+    return pynvml
+
+
+def _qtip_compute_pids():
+    import os
+    nvml = _qtip_nvml(os.getpid())
+    count = nvml.nvmlDeviceGetCount()
+    if count < 1:
+        raise RuntimeError("NVML occupancy witness has no devices")
+    # Match nvidia-smi's all-device compute inventory on every admission.
+    return [int(process.pid) for index in range(count)
+            for process in nvml.nvmlDeviceGetComputeRunningProcesses(
+                nvml.nvmlDeviceGetHandleByIndex(index))]
+
+
 def qtip_admission_memory(torch, device=None) -> dict:
     """GB10 UMA admission; keep driver and host readings separate.
 
@@ -693,7 +715,6 @@ def qtip_admission_memory(torch, device=None) -> dict:
     The caller's owned launch must separately pass claim and basis gates.
     """
     import os
-    import subprocess
 
     free, total = torch.cuda.mem_get_info(device)
     reserved = int(torch.cuda.memory_reserved(device))
@@ -711,11 +732,7 @@ def qtip_admission_memory(torch, device=None) -> dict:
     if torch.cuda.get_device_properties(device).name != "NVIDIA GB10":
         return memory
     # Fail closed on foreign GPU occupancy or an unavailable occupancy witness.
-    processes = subprocess.check_output(
-        ["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"],
-        text=True, timeout=10,
-    )
-    if any(int(pid.strip()) != os.getpid() for pid in processes.splitlines() if pid.strip()):
+    if any(pid != os.getpid() for pid in _qtip_compute_pids()):
         raise RuntimeError("GB10 UMA admission refuses foreign GPU processes")
     fields = dict(line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines() if ":" in line)
     value = fields["MemAvailable"].split()

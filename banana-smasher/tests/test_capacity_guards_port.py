@@ -25,19 +25,19 @@ class CapacityGuards(unittest.TestCase):
                                memory_allocated=lambda d: 10,
                                get_device_properties=lambda d: SimpleNamespace(name='NVIDIA GB10'))
         torch = SimpleNamespace(cuda=cuda, int64='int64')
-        with patch('subprocess.check_output', return_value=str(os.getpid())), patch.object(Path, 'read_text', return_value='MemAvailable: 20 kB\n'):
+        with patch.dict(ns, _qtip_compute_pids=lambda: [os.getpid()]), patch.object(Path, 'read_text', return_value='MemAvailable: 20 kB\n'):
             self.assertEqual(probe(torch)['available_bytes'], 20480)  # no native-cache double count
         cuda.get_device_properties = lambda d: SimpleNamespace(name='NVIDIA H100')
         self.assertEqual(probe(torch)['available_bytes'], 130)
         cuda.get_device_properties = lambda d: SimpleNamespace(name='NVIDIA GB10')
         for text in ['MemAvailable: -1 kB', 'MemAvailable: 20 MB', 'Missing: 20 kB']:
-            with patch('subprocess.check_output', return_value=''), patch.object(Path, 'read_text', return_value=text):
+            with patch.dict(ns, _qtip_compute_pids=lambda: []), patch.object(Path, 'read_text', return_value=text):
                 with self.assertRaises((ValueError, KeyError)):
                     probe(torch)
-        with patch('subprocess.check_output', return_value=str(os.getpid() + 100000)):
+        with patch.dict(ns, _qtip_compute_pids=lambda: [os.getpid() + 100000]):
             with self.assertRaisesRegex(RuntimeError, 'foreign GPU'):
                 probe(torch)
-        with patch('subprocess.check_output', side_effect=OSError('witness unavailable')):
+        with patch.dict(ns, _qtip_compute_pids=lambda: (_ for _ in ()).throw(OSError('witness unavailable'))):
             with self.assertRaises(OSError):
                 probe(torch)
         # Execute the actual alphabet guard. A sentinel tensor call proves admission

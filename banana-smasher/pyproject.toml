@@ -19,6 +19,7 @@ dependencies = [
 test = ["pytest==8.4.2", "ruff==0.12.7", "scipy==1.16.1"]
 knapsack = ["scipy==1.16.1"]
 solve = [
+  "nvidia-ml-py==13.610.43",
   "ninja==1.13.0",
   "torch==2.8.0",
   "transformers @ git+https://github.com/huggingface/transformers.git@b6c0bfe04c823a7b2ca48f91b8b91b2a7741f309",
