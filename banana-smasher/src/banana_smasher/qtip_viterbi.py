@@ -283,6 +283,10 @@ def _persistent_prefix_viterbi_generic(
         if DISTANCE_ALPHABET:
             delta_a = alphabet_a - xa
             delta_b = alphabet_b - xb
+            # Research: expand rounded squares instead of differences. This can
+            # inhibit multiply-add contraction, so numerical adoption is gated.
+            square_a = delta_a * delta_a
+            square_b = delta_b * delta_b
         for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
             predecessor_prefix = q * Q_FACTOR + residue
             if REGISTER_COSTS:
@@ -304,9 +308,9 @@ def _persistent_prefix_viterbi_generic(
             state = q * PREFIXES + j
             if DISTANCE_ALPHABET:
                 alphabet_key = ((state * (state + 1)) >> 6) & 1023
-                da = tl.gather(delta_a, alphabet_key, axis=0)
-                db = tl.gather(delta_b, alphabet_key, axis=0)
-                candidate = predecessor_cost + da * da + db * db
+                sa = tl.gather(square_a, alphabet_key, axis=0)
+                sb = tl.gather(square_b, alphabet_key, axis=0)
+                candidate = predecessor_cost + sa + sb
             else:
                 la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
                 lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
