@@ -1,5 +1,62 @@
 # Runtime accelerations
 
+## Signed-distance-alphabet LDLQ factoring (run8555)
+
+The optional `viterbi_distance_alphabet=true` public `main_batch` configuration
+factors per-step input differences over the 1,024 signed vectors represented by
+the actual K1/L16/V2 quantlut_sym9 codebook, rather than repeating subtractions
+across all 65,536 states. It gathers those differences before the unchanged
+multiply/add recurrence; it does not use polynomial distance expansion,
+compressed backpointers or a changed cache policy. Default is false.
+
+Admission requires the actual full codebook LUT to reconstruct exactly from the
+signed alphabet. The prepared compact tensor is bound to the original tensor
+object and its version counter; changed values are revalidated and an invalid
+alphabet fails closed. Unsupported geometry/mode/bit count and nonboolean flags
+are rejected. The original peak schema remains unchanged; the opt-in adds 4MiB
+above the mandatory 4GiB reserve for bounded mapping/preparation temporaries,
+and refuses insufficient capacity instead of falling back. Packed bytes,
+source, original clean16 fitting ledger, seeds and every consumer gate remain.
+
+Research runtime `bc886ea64719f914bbe198f8bf54b7cff5ee2e1f` produced actual
+L004/E242,E243 down and E242 fused13 units on dedicated s6. Candidate-only arms
+reuse the sealed reference-LDL C1/C2 controls without replay:
+
+| Scope | Baseline seconds | Candidate seconds | Baseline/candidate |
+| --- | --- | --- | --- |
+| Warm whole panel | 14.625323 / 14.509560 | 12.232712 / 12.858231 | 1.161171x |
+| Setup whole panel | 16.239159 / 16.537276 | 17.290103 / 14.934665 | 1.017119x |
+| Warm down pair | 7.049238 / 7.001356 | 6.248495 / 6.362680 | 1.114138x |
+| Warm fused | 7.576085 / 7.508204 | 5.984217 / 6.495551 | 1.208699x |
+
+These are historical/noninterleaved same-input public-build ratios with shared
+OS/source/prebuilt/compiler assets, NOT matched production speed or cold-JIT
+claims. Setup down alone regresses (0.919060x), so do not infer a universal
+startup win. Included packed conformance is inside build wall; independent
+quality validation is outside. Peak reserved was 2,770,337,792 bytes.
+
+Quality is a separate bounded result: all 12 canonical decoded clean-fit SSE
+checks pass the predeclared 1.0001 ratio. All 12 reconstructions are equal to
+the retained comparator, a diagnostic rather than a new acceptance rule. This
+is not new heldout/full-model KL evidence. All 12 physical unit copies match
+the independent verifier SHA, totaling 17,022,764 bytes.
+
+Focused post-integration physical tests: 54 PASS at test-only descendant
+8406c6a38faf0a43cb85a374fd9ab0f0516c3f58; its canonical source tree is unchanged
+from the measured pin. Offline tests: 38 PASS, 6 CUDA skips (not GPU evidence).
+The prior split-row selector and early-static comparison both passed 12/12
+numerical gates but were not useful in whole-work; those families are closed.
+Fixture-only and strict-memory-schema failures are preserved, never speed
+samples. No heldout forward or sealed baseline was replayed.
+
+This publication makes the implementation reviewable, not adopted. Existing
+bs06 owner must choose a genuinely fresh boundary and provide actual new output
+for independent physical/config/import authentication. Its running and armed
+production stays immutable; no production-speed claim or task completion is
+made before that handoff. Evidence is under
+`accel/receipts/glm_distance_alphabet_run8555/`.
+
+
 ## Dedicated GLM LDLQ continuation: unpromoted bounds (run8553)
 
 The run8551 adoption milestone remains unchanged. A new exact-main whole-build

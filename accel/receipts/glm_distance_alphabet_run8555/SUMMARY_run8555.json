@@ -1,0 +1,274 @@
+{
+  "task_id": "t_1269dc5f",
+  "status": "IMPLEMENTED_AWAITING_ACTUAL_OWNER_ADOPTION",
+  "candidates": [
+    {
+      "name": "split_rows_run8555r2",
+      "pin": "76f2c2f3cbe5ca828e63e5f5fa8a7517a3d60900",
+      "quality": {
+        "status": "PASS",
+        "passed": 12,
+        "count": 12,
+        "limit": 1.0001
+      },
+      "decoded_equal": 12,
+      "timing": {
+        "setup": {
+          "all": {
+            "baseline_seconds": [
+              16.239159447010024,
+              16.53727611900831
+            ],
+            "candidate_seconds": [
+              18.971312211986515,
+              16.20670263899956
+            ],
+            "ratio": 0.9317306762436477
+          },
+          "GROUP_DOWN": {
+            "baseline_seconds": [
+              8.568294349010102,
+              8.628751071009901
+            ],
+            "candidate_seconds": [
+              11.253305538994027,
+              8.428106070990907
+            ],
+            "ratio": 0.8737709347684929
+          },
+          "GROUP_FUSED": {
+            "baseline_seconds": [
+              7.670865097999922,
+              7.90852504799841
+            ],
+            "candidate_seconds": [
+              7.718006672992487,
+              7.778596568008652
+            ],
+            "ratio": 1.0053422613788132
+          }
+        },
+        "warm": {
+          "all": {
+            "baseline_seconds": [
+              14.625322845007759,
+              14.509560249993228
+            ],
+            "candidate_seconds": [
+              14.456223874003626,
+              14.759789710005862
+            ],
+            "ratio": 0.9972230814866233
+          },
+          "GROUP_DOWN": {
+            "baseline_seconds": [
+              7.049237804007134,
+              7.001356124994345
+            ],
+            "candidate_seconds": [
+              7.124212430004263,
+              7.1430973050009925
+            ],
+            "ratio": 0.9848103244389474
+          },
+          "GROUP_FUSED": {
+            "baseline_seconds": [
+              7.576085041000624,
+              7.508204124998883
+            ],
+            "candidate_seconds": [
+              7.332011443999363,
+              7.616692405004869
+            ],
+            "ratio": 1.0090700383367557
+          }
+        }
+      },
+      "physical_units": 12,
+      "physical_bytes": 17022764,
+      "max_reserved": 2770337792,
+      "adoption": false
+    },
+    {
+      "name": "static_rows_run8555",
+      "pin": "bf1e4034af6a7d056fdad42893390ae81172cfc8",
+      "quality": {
+        "status": "PASS",
+        "passed": 12,
+        "count": 12,
+        "limit": 1.0001
+      },
+      "decoded_equal": 12,
+      "timing": {
+        "setup": {
+          "all": {
+            "baseline_seconds": [
+              16.239159447010024,
+              16.53727611900831
+            ],
+            "candidate_seconds": [
+              19.50575010200555,
+              16.496910799993202
+            ],
+            "ratio": 0.9103892530398688
+          },
+          "GROUP_DOWN": {
+            "baseline_seconds": [
+              8.568294349010102,
+              8.628751071009901
+            ],
+            "candidate_seconds": [
+              11.533445509005105,
+              8.442436199999065
+            ],
+            "ratio": 0.8608904312978786
+          },
+          "GROUP_FUSED": {
+            "baseline_seconds": [
+              7.670865097999922,
+              7.90852504799841
+            ],
+            "candidate_seconds": [
+              7.972304593000445,
+              8.054474599994137
+            ],
+            "ratio": 0.9720849060432675
+          }
+        },
+        "warm": {
+          "all": {
+            "baseline_seconds": [
+              14.625322845007759,
+              14.509560249993228
+            ],
+            "candidate_seconds": [
+              14.71487674000673,
+              14.640605809006956
+            ],
+            "ratio": 0.9924852383658019
+          },
+          "GROUP_DOWN": {
+            "baseline_seconds": [
+              7.049237804007134,
+              7.001356124994345
+            ],
+            "candidate_seconds": [
+              7.088118154002586,
+              7.081289801993989
+            ],
+            "ratio": 0.9916147500753683
+          },
+          "GROUP_FUSED": {
+            "baseline_seconds": [
+              7.576085041000624,
+              7.508204124998883
+            ],
+            "candidate_seconds": [
+              7.626758586004144,
+              7.559316007012967
+            ],
+            "ratio": 0.993297449818638
+          }
+        }
+      },
+      "physical_units": 12,
+      "physical_bytes": 17022764,
+      "max_reserved": 2770337792,
+      "adoption": false
+    },
+    {
+      "name": "alphabet_run8555r2",
+      "pin": "bc886ea64719f914bbe198f8bf54b7cff5ee2e1f",
+      "quality": {
+        "status": "PASS",
+        "passed": 12,
+        "count": 12,
+        "limit": 1.0001
+      },
+      "decoded_equal": 12,
+      "timing": {
+        "setup": {
+          "all": {
+            "baseline_seconds": [
+              16.239159447010024,
+              16.53727611900831
+            ],
+            "candidate_seconds": [
+              17.29010267800186,
+              14.934664554995834
+            ],
+            "ratio": 1.0171193892272943
+          },
+          "GROUP_DOWN": {
+            "baseline_seconds": [
+              8.568294349010102,
+              8.628751071009901
+            ],
+            "candidate_seconds": [
+              10.553726933998405,
+              8.157832872995641
+            ],
+            "ratio": 0.9190599606555545
+          },
+          "GROUP_FUSED": {
+            "baseline_seconds": [
+              7.670865097999922,
+              7.90852504799841
+            ],
+            "candidate_seconds": [
+              6.736375744003453,
+              6.776831682000193
+            ],
+            "ratio": 1.1529009845596467
+          }
+        },
+        "warm": {
+          "all": {
+            "baseline_seconds": [
+              14.625322845007759,
+              14.509560249993228
+            ],
+            "candidate_seconds": [
+              12.232712272001663,
+              12.85823142400477
+            ],
+            "ratio": 1.1611712755004189
+          },
+          "GROUP_DOWN": {
+            "baseline_seconds": [
+              7.049237804007134,
+              7.001356124994345
+            ],
+            "candidate_seconds": [
+              6.248494933999609,
+              6.362680448000901
+            ],
+            "ratio": 1.1141383339300317
+          },
+          "GROUP_FUSED": {
+            "baseline_seconds": [
+              7.576085041000624,
+              7.508204124998883
+            ],
+            "candidate_seconds": [
+              5.984217338002054,
+              6.495550976003869
+            ],
+            "ratio": 1.2086994555075639
+          }
+        }
+      },
+      "physical_units": 12,
+      "physical_bytes": 17022764,
+      "max_reserved": 2770337792,
+      "adoption": false
+    }
+  ],
+  "basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "timing_scope": "Historical/noninterleaved retained original same-input reference-LDL C1/C2; shared/prebuilt/compiler caches. Setup is not cold-JIT. Public build includes pack/conformance; separate quality outside timing.",
+  "quality_scope": "Canonical decode and clean-fit SSE ratio<=1.0001. No new heldout/full-model gate. Equality diagnostic.",
+  "baseline_sha256": {
+    "C1": "e1d5cc4d363dfc872cb28886e68f9d13f5bc45939d7e95cae6a29ecad2c3cdab",
+    "C2": "4400177efae639b70e65b705434a8d5d0ebab8954002503699a82478f05bec58"
+  }
+}
