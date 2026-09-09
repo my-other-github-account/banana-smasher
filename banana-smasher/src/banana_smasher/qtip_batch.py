@@ -97,7 +97,7 @@ def _column_bmm_block_ldl(hessian: torch.Tensor, block: int) -> torch.Tensor:
 
 
 def _reference_block_ldl_batch(
-    runner: Any, hessian: torch.Tensor, block: int, *, column_bmm: bool = False
+    runner: Any, hessian: torch.Tensor, block: int
 ) -> torch.Tensor:
     """Retain the authenticated singleton runtime's factorization arithmetic."""
     _, _, math_utils, _ = runner.load_official_qtip()
@@ -329,12 +329,15 @@ def build_qtip_batch(
     *,
     block_ldl_unitwise: bool = False,
     block_ldl_reference: bool = False,
+    block_ldl_column_bmm: bool = False,
     packed_conformance_on_device: bool = False,
     ldlq_update_unsolved_only: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Build same-shape independent L16/V2 units (K=1..4) in one GPU batch."""
     if type(ldlq_update_unsolved_only) is not bool:
         raise ValueError("ldlq_update_unsolved_only must be boolean")
+    if type(block_ldl_column_bmm) is not bool or (block_ldl_column_bmm and not block_ldl_reference):
+        raise ValueError("block_ldl_column_bmm requires boolean and reference mode")
     if type(block_ldl_reference) is not bool:
         raise ValueError("block_ldl_reference must be boolean")
     units = len(source_weights)
@@ -394,6 +397,8 @@ def build_qtip_batch(
     hessian_batch = torch.stack(hessians)
     _regularize_hessian_batch(hessian_batch, 1e-2, unitwise=block_ldl_unitwise or block_ldl_reference)
     lower = (
+        torch.stack([_column_bmm_block_ldl(h, 16) for h in hessian_batch])
+        if block_ldl_column_bmm else
         _reference_block_ldl_batch(runner, hessian_batch, 16)
         if block_ldl_reference else
         block_ldl_batch(hessian_batch, 16, unitwise=block_ldl_unitwise)
@@ -533,6 +538,7 @@ def build_qtip_batch(
         "independent_unit_state": True,
         "block_ldl_unitwise": block_ldl_unitwise,
         "block_ldl_reference": block_ldl_reference,
+        "block_ldl_column_bmm": block_ldl_column_bmm,
         "block_ldl_unit_axis": "reference-singleton" if block_ldl_reference else "singleton" if block_ldl_unitwise else "batched",
         "ldlq_unit_axis": "batched-and-flattened-only-at-codebook-call",
         "solver_geometry": {

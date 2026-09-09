@@ -36,6 +36,16 @@ def _common(label: str, values: Sequence[Any]) -> Any:
     return first
 
 
+def _block_ldl_column_bmm(configs: Sequence[Mapping[str, Any]]) -> bool:
+    values = [config.get("block_ldl_column_bmm", False) for config in configs]
+    if any(type(value) is not bool for value in values):
+        raise ValueError("block_ldl_column_bmm must be boolean")
+    mode = _common("block LDL column BMM mode", values)
+    if mode and any(config.get("block_ldl_reference") is not True for config in configs):
+        raise ValueError("block_ldl_column_bmm requires reference mode")
+    return mode
+
+
 def _block_ldl_reference(configs: Sequence[Mapping[str, Any]]) -> bool:
     values = [config.get("block_ldl_reference", False) for config in configs]
     if any(type(value) is not bool for value in values):
@@ -93,6 +103,7 @@ def main_batch(
     configs = [solver_module._read_qtip_config(path) for path in paths]
     block_ldl_unitwise = _block_ldl_unitwise(configs)
     block_ldl_reference = _block_ldl_reference(configs)
+    block_ldl_column_bmm = _block_ldl_column_bmm(configs)
     ldlq_update_unsolved_only = _ldlq_update_unsolved_only(configs)
     packed_decode_execution = _packed_decode_execution(configs)
     packed_conformance_on_device = _packed_conformance_on_device(configs)
@@ -297,6 +308,7 @@ def main_batch(
         rht_seeds,
         block_ldl_unitwise=block_ldl_unitwise,
         block_ldl_reference=block_ldl_reference,
+        block_ldl_column_bmm=block_ldl_column_bmm,
         packed_conformance_on_device=packed_conformance_on_device,
         ldlq_update_unsolved_only=ldlq_update_unsolved_only,
     )
@@ -517,6 +529,7 @@ def main_batch(
         "accelerations": {
             "schema": "banana-smasher-qtip-active-build-accelerations-v1",
             "active": [
+                "column-bmm-singleton-block-LDL" if block_ldl_column_bmm and name == "batched-block-LDL" else
                 "reference-singleton-block-LDL" if block_ldl_reference and name == "batched-block-LDL" else
                 "singleton-block-LDL" if block_ldl_unitwise and name == "batched-block-LDL" else name
                 for name in _ACTIVE_BUILD_ACCELERATIONS
