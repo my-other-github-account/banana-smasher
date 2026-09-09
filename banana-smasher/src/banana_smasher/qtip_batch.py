@@ -68,6 +68,23 @@ class _BatchMatrixLifetime:
         }
 
 
+def _reference_block_ldl_batch(
+    runner: Any, hessian: torch.Tensor, block: int
+) -> torch.Tensor:
+    """Retain the authenticated singleton runtime's factorization arithmetic."""
+    _, _, math_utils, _ = runner.load_official_qtip()
+    lower = torch.empty_like(hessian)
+    for unit in range(hessian.shape[0]):
+        result = math_utils.block_LDL(hessian[unit].clone(), block)
+        if result is None:
+            raise RuntimeError("reference block LDL failed")
+        factor = result[0]
+        if factor is None or factor.shape != hessian[unit].shape or not torch.isfinite(factor).all():
+            raise RuntimeError("reference block LDL returned an invalid factor")
+        lower[unit].copy_(factor)
+    return lower
+
+
 def block_ldl_batch(
     hessian: torch.Tensor, block: int, *, unitwise: bool = False
 ) -> torch.Tensor:
@@ -283,12 +300,15 @@ def build_qtip_batch(
     rht_seeds: list[int],
     *,
     block_ldl_unitwise: bool = False,
+    block_ldl_reference: bool = False,
     packed_conformance_on_device: bool = False,
     ldlq_update_unsolved_only: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Build same-shape independent L16/V2 units (K=1..4) in one GPU batch."""
     if type(ldlq_update_unsolved_only) is not bool:
         raise ValueError("ldlq_update_unsolved_only must be boolean")
+    if type(block_ldl_reference) is not bool:
+        raise ValueError("block_ldl_reference must be boolean")
     units = len(source_weights)
     if not units or len(fit_windows_batch) != units or len(rht_seeds) != units:
         raise ValueError("QTIP batch requires aligned non-empty inputs")
@@ -344,8 +364,12 @@ def build_qtip_batch(
 
     started = time.perf_counter()
     hessian_batch = torch.stack(hessians)
-    _regularize_hessian_batch(hessian_batch, 1e-2, unitwise=block_ldl_unitwise)
-    lower = block_ldl_batch(hessian_batch, 16, unitwise=block_ldl_unitwise)
+    _regularize_hessian_batch(hessian_batch, 1e-2, unitwise=block_ldl_unitwise or block_ldl_reference)
+    lower = (
+        _reference_block_ldl_batch(runner, hessian_batch, 16)
+        if block_ldl_reference else
+        block_ldl_batch(hessian_batch, 16, unitwise=block_ldl_unitwise)
+    )
     lower.diagonal(dim1=-2, dim2=-1).zero_()
     transformed = torch.stack(transformed_rows)
     lifetime.observe(
@@ -480,7 +504,8 @@ def build_qtip_batch(
         "fresh_no_warm_start": True,
         "independent_unit_state": True,
         "block_ldl_unitwise": block_ldl_unitwise,
-        "block_ldl_unit_axis": "singleton" if block_ldl_unitwise else "batched",
+        "block_ldl_reference": block_ldl_reference,
+        "block_ldl_unit_axis": "reference-singleton" if block_ldl_reference else "singleton" if block_ldl_unitwise else "batched",
         "ldlq_unit_axis": "batched-and-flattened-only-at-codebook-call",
         "solver_geometry": {
             "L": int(codebook.L),
