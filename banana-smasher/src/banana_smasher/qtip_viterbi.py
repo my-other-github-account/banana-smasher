@@ -301,11 +301,11 @@ def _persistent_prefix_viterbi_generic(
             chosen = tl.where(take, state, chosen)
         if not REGISTER_COSTS:
             tl.store(scratch_ptr + current_base + j, best)
-        if not MIDPOINT_ONLY or step >= STEPS // 2:
-            tl.store(
-                best_state_ptr + step * B * PREFIXES + base + j,
-                chosen // PREFIXES if BRANCH_POINTERS else chosen,
-            )
+        tl.store(
+            best_state_ptr + step * B * PREFIXES + base + j,
+            chosen // PREFIXES if BRANCH_POINTERS else chosen,
+            mask=(not MIDPOINT_ONLY) | (step >= STEPS // 2),
+        )
         if not REGISTER_COSTS:
             tl.debug_barrier()
         step += 1
