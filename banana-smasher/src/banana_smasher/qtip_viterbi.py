@@ -215,6 +215,7 @@ def _persistent_prefix_viterbi_generic(
     BRANCH_UNROLL: tl.constexpr,
     STRUCTURED_GATHER: tl.constexpr,
     BRANCH_POINTERS: tl.constexpr = False,
+    MIDPOINT_ONLY: tl.constexpr = False,
     LUT_EVICTION: tl.constexpr = "",
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
@@ -256,7 +257,8 @@ def _persistent_prefix_viterbi_generic(
     if not REGISTER_COSTS:
         tl.store(scratch_ptr + base + j, best)
     # The prefix is the table column; only the winning branch is needed.
-    tl.store(best_state_ptr + base + j, chosen // PREFIXES if BRANCH_POINTERS else chosen)
+    if not MIDPOINT_ONLY:
+        tl.store(best_state_ptr + base + j, chosen // PREFIXES if BRANCH_POINTERS else chosen)
     if not REGISTER_COSTS:
         tl.debug_barrier()
 
@@ -299,10 +301,11 @@ def _persistent_prefix_viterbi_generic(
             chosen = tl.where(take, state, chosen)
         if not REGISTER_COSTS:
             tl.store(scratch_ptr + current_base + j, best)
-        tl.store(
-            best_state_ptr + step * B * PREFIXES + base + j,
-            chosen // PREFIXES if BRANCH_POINTERS else chosen,
-        )
+        if not MIDPOINT_ONLY or step >= STEPS // 2:
+            tl.store(
+                best_state_ptr + step * B * PREFIXES + base + j,
+                chosen // PREFIXES if BRANCH_POINTERS else chosen,
+            )
         if not REGISTER_COSTS:
             tl.debug_barrier()
         step += 1
@@ -313,7 +316,7 @@ def _persistent_prefix_viterbi_generic(
         prefix = tl.load(overlap_ptr + seq).to(tl.int32)
     else:
         prefix = tl.argmin(best, axis=0).to(tl.int32)
-    for back_step in tl.static_range(STEPS - 1, -1, -1):
+    for back_step in tl.static_range(STEPS - 1, STEPS // 2 - 1 if MIDPOINT_ONLY else -1, -1):
         state = tl.load(
             best_state_ptr + back_step * B * PREFIXES + base + prefix
         ).to(tl.int32)
@@ -408,6 +411,8 @@ def exact_prefix_viterbi(
     cb: Any,
     x: torch.Tensor,
     overlap: torch.Tensor | None = None,
+    *,
+    midpoint_only: bool = False,
 ) -> torch.Tensor:
     """Return exact full-branch Viterbi states for a compiled QTIP geometry."""
     _require_triton()
@@ -417,6 +422,10 @@ def exact_prefix_viterbi(
         )
     metadata = geometry(cb, steps=int(x.shape[0]) // int(cb.V))
     L, K, V = int(cb.L), int(cb.K), int(cb.V)
+    if type(midpoint_only) is not bool or (midpoint_only and (
+        (L, K, V) != (16, 1, 2) or x.shape[0] != 256 or overlap is not None
+    )):
+        raise ValueError("midpoint seed requires boolean K1/128 steps without overlap")
     launch_warps = resolve_viterbi_num_warps(
         (L, K, V), getattr(cb, "_banana_smasher_viterbi_num_warps", None)
     )
@@ -575,6 +584,7 @@ def exact_prefix_viterbi(
                         cb,
                         x[:, start:end],
                         overlap=streamed_overlap,
+                        midpoint_only=midpoint_only,
                     )
                 )
             return torch.cat(outputs, dim=1)
@@ -645,6 +655,7 @@ def exact_prefix_viterbi(
             BRANCH_UNROLL=branch_unroll,
             STRUCTURED_GATHER=structured_gather,
             BRANCH_POINTERS=backpointer_dtype == "uint8",
+            MIDPOINT_ONLY=midpoint_only,
             LUT_EVICTION="evict_last" if lut_l1_retention else "",
             num_warps=generic_warps,
             num_stages=1,
@@ -653,7 +664,9 @@ def exact_prefix_viterbi(
         cb._banana_smasher_observed_state_elements = (
             observed_state_elements + state_elements
         )
-    return states
+    # Retain the full allocation and conservative physical-memory accounting;
+    # only the initialized seed row is exposed by the selected-output API.
+    return states[steps // 2 : steps // 2 + 1] if midpoint_only else states
 
 
 def install_exact_prefix_viterbi(

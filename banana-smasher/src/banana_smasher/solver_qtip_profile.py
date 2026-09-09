@@ -1277,6 +1277,20 @@ def _install_profiled_exact_viterbi(
 
     cb.viterbi = types.MethodType(solve, cb)
     cb.quantize_seq = types.MethodType(quantize_seq, cb)
+    if getattr(cb, "_banana_smasher_midpoint_seed", False):
+        def quantize_midpoint(self: Any, X: torch.Tensor, **_: Any):
+            X = X.T.contiguous().to(torch.float16)
+            if X.ndim != 2 or X.shape[0] != 256 or not 1 <= X.shape[1] <= 8192:
+                raise ValueError("midpoint quantizer requires [256,1..8192]")
+            roll_X = torch.roll(X, 128, 0)
+            seed = exact.exact_prefix_viterbi(self, roll_X, midpoint_only=True)
+            timers.calls += 1
+            timers.sequences += int(X.shape[1])
+            overlap = seed[0] >> (self.K * self.V)
+            state = self.quantize_seq(X, overlap=overlap)
+            hatX = self.recons(state).transpose(0, 1).reshape(X.shape)
+            return hatX.T.contiguous().to(X.device), state.T.contiguous().to(X.device)
+        cb.quantize = types.MethodType(quantize_midpoint, cb)
     # Native bitshift.quantize makes rolled and overlap-conditioned passes
     # for every geometry, even when neither call needs width chunking.
     cb._banana_smasher_exact_passes = 2
@@ -1323,6 +1337,10 @@ def _install_configured_viterbi(
     cb._banana_smasher_structured_gather = structured_gather
     lut_l1_retention = resolve_lut_l1_retention(sealed, config.get("viterbi_lut_l1_retention"))
     cb._banana_smasher_lut_l1_retention = lut_l1_retention
+    midpoint_seed = config.get("viterbi_midpoint_seed", False)
+    if type(midpoint_seed) is not bool or (midpoint_seed and sealed != (16, 1, 2)):
+        raise ValueError("viterbi_midpoint_seed requires boolean K1")
+    cb._banana_smasher_midpoint_seed = midpoint_seed
     group_branches = config.get("viterbi_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
         sealed != (16, 3, 2) or structured_gather or branch_unroll != 1
@@ -1345,6 +1363,9 @@ def _install_configured_viterbi(
                             production_default=launch_warps == 16)
         if lut_l1_retention:
             identity.update(viterbi_lut_l1_retention=True, production_default=False)
+        if midpoint_seed:
+            identity.update(viterbi_midpoint_seed=True, production_default=False,
+                            first_pass_output="only state64 seed; full forward; traceback127..64; physical allocations unchanged")
         if structured_gather:
             identity.update(viterbi_structured_gather=True, production_default=False)
         if branch_unroll != 1:
