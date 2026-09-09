@@ -315,13 +315,13 @@ def _persistent_prefix_viterbi_generic(
         prefix = tl.argmin(best, axis=0).to(tl.int32)
     # Serial dependency prevents parallel traceback; keep its code size bounded.
     for back_step in range(STEPS - 1, -1, -1):
-        state = tl.load(
+        traceback_state = tl.load(
             best_state_ptr + back_step * B * PREFIXES + base + prefix
         ).to(tl.int32)
         if BRANCH_POINTERS:
-            state = state * PREFIXES + prefix
-        tl.store(states_ptr + back_step * B + seq, state)
-        prefix = state >> SHIFT
+            traceback_state = traceback_state * PREFIXES + prefix
+        tl.store(states_ptr + back_step * B + seq, traceback_state)
+        prefix = traceback_state >> SHIFT
 
 
 def geometry(cb: Any, *, steps: int = 128) -> dict[str, int | str | float]:
