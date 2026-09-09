@@ -207,6 +207,15 @@ def _rematerialized_alphabet_key(state):
 
 
 @triton.jit
+def _tiled_pointer_offset(step, seq, j, B, PREFIXES: tl.constexpr, STEPS: tl.constexpr):
+    # K1 only: four temporal rows share full 128-byte uint16 cache lines.
+    # Other geometries and nonaligned lengths retain the original layout.
+    if PREFIXES == 16384 and STEPS % 4 == 0:
+        return ((((step // 4) * B + seq) * (PREFIXES // 64) + j // 64) * 4 + step % 4) * 64 + j % 64
+    return (step * B + seq) * PREFIXES + j
+
+
+@triton.jit
 def _persistent_prefix_viterbi_generic(
     x_ptr,
     lut_ptr,
@@ -271,7 +280,7 @@ def _persistent_prefix_viterbi_generic(
     if not REGISTER_COSTS:
         tl.store(scratch_ptr + base + j, best)
     # The prefix is the table column; only the winning branch is needed.
-    tl.store(best_state_ptr + base + j, chosen // PREFIXES if BRANCH_POINTERS else chosen)
+    tl.store(best_state_ptr + _tiled_pointer_offset(0, seq, j, B, PREFIXES, STEPS), chosen // PREFIXES if BRANCH_POINTERS else chosen)
     if not REGISTER_COSTS:
         tl.debug_barrier()
 
@@ -348,7 +357,7 @@ def _persistent_prefix_viterbi_generic(
         else:
             encoded_chosen = chosen // PREFIXES if BRANCH_POINTERS else chosen
         tl.store(
-            best_state_ptr + step * B * PREFIXES + base + j,
+            best_state_ptr + _tiled_pointer_offset(step, seq, j, B, PREFIXES, STEPS),
             encoded_chosen,
         )
         if not REGISTER_COSTS:
@@ -363,7 +372,7 @@ def _persistent_prefix_viterbi_generic(
         prefix = tl.argmin(best, axis=0).to(tl.int32)
     for back_step in tl.static_range(STEPS - 1, -1, -1):
         state = tl.load(
-            best_state_ptr + back_step * B * PREFIXES + base + prefix
+            best_state_ptr + _tiled_pointer_offset(back_step, seq, prefix, B, PREFIXES, STEPS)
         ).to(tl.int32)
         if BRANCH_POINTERS:
             state = state * PREFIXES + prefix
