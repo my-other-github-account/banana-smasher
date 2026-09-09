@@ -7,6 +7,7 @@ under ``tests/`` and is not shipped as a fallback.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from functools import lru_cache
 import types
 from typing import TYPE_CHECKING, Any
 
@@ -198,6 +199,7 @@ def _persistent_prefix_viterbi(
 def _persistent_prefix_viterbi_generic(
     x_ptr,
     lut_ptr,
+    alphabet_ptr,
     overlap_ptr,
     scratch_ptr,
     best_state_ptr,
@@ -216,6 +218,7 @@ def _persistent_prefix_viterbi_generic(
     STRUCTURED_GATHER: tl.constexpr,
     BRANCH_POINTERS: tl.constexpr = False,
     LUT_EVICTION: tl.constexpr = "",
+    DISTANCE_ALPHABET: tl.constexpr = False,
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -260,6 +263,11 @@ def _persistent_prefix_viterbi_generic(
     if not REGISTER_COSTS:
         tl.debug_barrier()
 
+    if DISTANCE_ALPHABET:
+        alphabet_j = tl.arange(0, 1024)
+        alphabet_a = tl.load(alphabet_ptr + alphabet_j).to(tl.float32)
+        alphabet_b = tl.load(alphabet_ptr + 1024 + alphabet_j).to(tl.float32)
+
     step = 1
     while step < STEPS:
         # Costs belong to this CTA. Gather the preceding vector directly,
@@ -272,6 +280,9 @@ def _persistent_prefix_viterbi_generic(
         chosen = tl.zeros((PREFIXES,), tl.int32)
         xa = tl.load(x_ptr + (step * V) * B + seq).to(tl.float32)
         xb = tl.load(x_ptr + (step * V + 1) * B + seq).to(tl.float32)
+        if DISTANCE_ALPHABET:
+            delta_a = alphabet_a - xa
+            delta_b = alphabet_b - xb
         for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
             predecessor_prefix = q * Q_FACTOR + residue
             if REGISTER_COSTS:
@@ -291,9 +302,15 @@ def _persistent_prefix_viterbi_generic(
             else:
                 predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
             state = q * PREFIXES + j
-            la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-            lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-            candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+            if DISTANCE_ALPHABET:
+                alphabet_key = ((state * (state + 1)) >> 6) & 1023
+                da = tl.gather(delta_a, alphabet_key, axis=0)
+                db = tl.gather(delta_b, alphabet_key, axis=0)
+                candidate = predecessor_cost + da * da + db * db
+            else:
+                la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
             chosen = tl.where(take, state, chosen)
@@ -404,6 +421,38 @@ def resolve_backpointer_dtype(geometry: tuple[int, int, int], requested: str | N
     return requested
 
 
+@lru_cache(maxsize=1)
+def _signed_alphabet_representatives():
+    reps = [-1] * 1024
+    for state in range(65536):
+        key = ((state * (state + 1)) >> 6) & 1023
+        if reps[key] < 0:
+            reps[key] = state
+    assert all(state >= 0 for state in reps)
+    return tuple(reps)
+
+
+def _distance_alphabet_lut(cb):
+    if getattr(cb, "decode_mode", None) != "quantlut_sym" or getattr(cb, "tlut_bits", None) != 9:
+        raise ValueError("distance alphabet requires quantlut_sym with 9 bits")
+    source = cb.lut
+    cached = getattr(cb, "_banana_smasher_distance_alphabet_cache", None)
+    version = source._version
+    if cached is not None and cached[0] is source and cached[1] == version:
+        return cached[2]
+    # Admission for the bounded map/reconstruction temporaries precedes allocation.
+    if torch.cuda.mem_get_info(source.device)[0] < (4 << 30) + (4 << 20):
+        raise RuntimeError("distance alphabet memory admission refused")
+    reps = torch.tensor(_signed_alphabet_representatives(), device=source.device, dtype=torch.int64)
+    compact = source[:, reps].contiguous()
+    states = torch.arange(65536, device=source.device, dtype=torch.int64)
+    keys = ((states * (states + 1)) >> 6) & 1023
+    if not torch.equal(compact[:, keys], source):
+        raise ValueError("codebook does not match signed distance alphabet")
+    cb._banana_smasher_distance_alphabet_cache = (source, version, compact)
+    return compact
+
+
 def exact_prefix_viterbi(
     cb: Any,
     x: torch.Tensor,
@@ -429,6 +478,9 @@ def exact_prefix_viterbi(
     lut_l1_retention = resolve_lut_l1_retention(
         (L, K, V), getattr(cb, "_banana_smasher_lut_l1_retention", None)
     )
+    distance_alphabet = getattr(cb, "_banana_smasher_distance_alphabet", False)
+    if type(distance_alphabet) is not bool or (distance_alphabet and (L, K, V) != (16, 1, 2)):
+        raise ValueError("viterbi_distance_alphabet requires boolean and L16/K1/V2")
     group_branches = getattr(cb, "_banana_smasher_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
         (L, K, V) != (16, 3, 2) or x.shape[0] != 256 or structured_gather or branch_unroll != 1
@@ -519,6 +571,9 @@ def exact_prefix_viterbi(
         retained_output_bytes=retained_output_bytes,
         final_concatenation_bytes=retained_state_storage_bytes,
     )
+    if distance_alphabet:
+        peak["allocations"]["distance_alphabet"] = 4 << 20
+        peak["total_bytes"] += 4 << 20
     driver_free, _total = torch.cuda.mem_get_info(x.device)
     reserved = torch.cuda.memory_reserved(x.device)
     allocated = torch.cuda.memory_allocated(x.device)
@@ -540,6 +595,8 @@ def exact_prefix_viterbi(
                 geometry=(L, K, V),
             )
         except RuntimeError as capacity_error:
+            if distance_alphabet:
+                raise
             allocations = peak["allocations"]
             assert isinstance(allocations, dict)
             fixed_kernel_bytes = sum(
@@ -582,6 +639,7 @@ def exact_prefix_viterbi(
     # Keep the canonical codebook as V contiguous state planes. Every transition
     # consumes all V planes for the same prefix tile, preserving coalesced SoA loads.
     lut = cb.lut.contiguous()
+    alphabet_lut = _distance_alphabet_lut(cb) if distance_alphabet else lut
     if overlap is not None:
         overlap = overlap.contiguous()
     if lut.numel() != V * states_count:
@@ -628,6 +686,7 @@ def exact_prefix_viterbi(
         _persistent_prefix_viterbi_generic[(batch,)](
             x,
             lut,
+            alphabet_lut,
             overlap_arg,
             scratch,
             best_state,
@@ -646,6 +705,7 @@ def exact_prefix_viterbi(
             STRUCTURED_GATHER=structured_gather,
             BRANCH_POINTERS=backpointer_dtype == "uint8",
             LUT_EVICTION="evict_last" if lut_l1_retention else "",
+            DISTANCE_ALPHABET=distance_alphabet,
             num_warps=generic_warps,
             num_stages=1,
         )

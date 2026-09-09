@@ -1323,6 +1323,10 @@ def _install_configured_viterbi(
     cb._banana_smasher_structured_gather = structured_gather
     lut_l1_retention = resolve_lut_l1_retention(sealed, config.get("viterbi_lut_l1_retention"))
     cb._banana_smasher_lut_l1_retention = lut_l1_retention
+    distance_alphabet = config.get("viterbi_distance_alphabet", False)
+    if type(distance_alphabet) is not bool or (distance_alphabet and sealed != (16, 1, 2)):
+        raise ValueError("viterbi_distance_alphabet requires boolean and L16/K1/V2")
+    cb._banana_smasher_distance_alphabet = distance_alphabet
     group_branches = config.get("viterbi_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
         sealed != (16, 3, 2) or structured_gather or branch_unroll != 1
@@ -1343,6 +1347,8 @@ def _install_configured_viterbi(
         if requested_warps is not None:
             identity.update(viterbi_num_warps=launch_warps,
                             production_default=launch_warps == 16)
+        if distance_alphabet:
+            identity.update(viterbi_distance_alphabet=True, production_default=False)
         if lut_l1_retention:
             identity.update(viterbi_lut_l1_retention=True, production_default=False)
         if structured_gather:
