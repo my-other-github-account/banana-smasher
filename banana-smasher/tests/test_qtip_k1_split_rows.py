@@ -32,7 +32,7 @@ def test_cuda_public_structured_vs_generic(steps, batch):
     if not torch.cuda.is_available(): pytest.skip('CUDA required')
     from banana_smasher.qtip_viterbi import exact_prefix_viterbi
     torch.manual_seed(1729)
-    cb = types.SimpleNamespace(L=16,K=1,V=2,tlut=torch.randn(65536,2,device='cuda',dtype=torch.float16))
+    cb = types.SimpleNamespace(L=16,K=1,V=2,lut=torch.randn(2,65536,device='cuda',dtype=torch.float16))
     x = torch.randn(steps*2,batch,device='cuda',dtype=torch.float16)
     for overlap in [None,torch.randint(0,16384,(batch,),device='cuda',dtype=torch.int32)]:
         cb._banana_smasher_structured_gather=False
