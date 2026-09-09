@@ -363,6 +363,8 @@ def resolve_viterbi_num_warps(geometry: tuple[int, int, int], requested: int | N
     """Validate the opt-in K3 launch experiment; preserve the incumbent default."""
     if requested is None:
         return 16
+    if geometry == (16, 1, 2) and type(requested) is int and requested == 32:
+        return 32
     if geometry not in ((16, 1, 2), (16, 3, 2)) or type(requested) is not int or requested not in (4, 8, 16):
         raise ValueError("viterbi_num_warps requires L16/K1-or-K3/V2 and integer 4, 8, or 16")
     return requested
