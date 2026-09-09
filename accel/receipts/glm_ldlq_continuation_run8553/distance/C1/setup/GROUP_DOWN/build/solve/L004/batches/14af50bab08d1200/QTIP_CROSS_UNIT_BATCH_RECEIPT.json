@@ -1,0 +1,147 @@
+{
+  "accelerations": {
+    "active": [
+      "persistent-prefix-full16",
+      "kernel-cache",
+      "shared-capture/single-process-staging",
+      "reference-singleton-block-LDL",
+      "cross-unit-LDLQ",
+      "FWHT",
+      "bounded-batch-matrix-lifetime",
+      "canonical-pack-from-states",
+      "packed-byte-reconstruction"
+    ],
+    "historical_k3_alternating_branch_pruning": false,
+    "schema": "banana-smasher-qtip-active-build-accelerations-v1"
+  },
+  "artifact_sha256": [
+    "c52064d2daaefe4a9162a5c4433593b261772f51f70b0121eaa64328752f2042",
+    "38986fcd03963047e8b3bfe3884401faa596ee497d2c5317cb11a2424aadea12"
+  ],
+  "assignment_sha256": [
+    "b4721be7fb2b36a72cb4d17ec4c46044f15b44bb88d1630d8661385b30d0e753",
+    "f0d940f261da5ef2d0d490600eac5c0dc9492a3e137e089a940eead60372c46c"
+  ],
+  "basis_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "batch_id": "14af50bab08d1200",
+  "batch_units": 2,
+  "build_phase_seconds": {
+    "batched_block_ldl": 0.056444467991241254,
+    "batched_ldlq": 12.61946416500723,
+    "canonical_per_unit_pack": 0.23199309600749984,
+    "hessian_forward_fwht": 0.09101283800555393,
+    "packed_decode_conformance": 0.663802522001788
+  },
+  "build_wall_seconds": 13.7045717699948,
+  "canonical_pack_roundtrip_exact": [
+    true,
+    true
+  ],
+  "config_names": [
+    "CONFIG.json",
+    "CONFIG.json"
+  ],
+  "epoch_ended": 1788921482.994445,
+  "epoch_started": 1788921466.7550957,
+  "kernel_prepare_seconds": 1.217976751999231,
+  "layer": 4,
+  "matrix_lifetime": {
+    "batch_units": 2,
+    "events": [
+      {
+        "live_fp32_matrices": [
+          "hessian",
+          "lower",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 4.0,
+        "phase": "batched_ldl_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [
+          "lower",
+          "quantized",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 5.0,
+        "phase": "batched_ldlq_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [],
+        "live_fp32_matrix_equivalents": 0.0,
+        "phase": "quantized_released_before_pack",
+        "unique_storage_count": 0
+      }
+    ],
+    "max_live_fp32_matrix_equivalents": 5.0,
+    "reconstruction_source": "canonical-packed-bytes",
+    "released_after_ldlq": [
+      "lower",
+      "transformed"
+    ],
+    "released_before_pack": [
+      "lower",
+      "transformed",
+      "quantized"
+    ],
+    "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+    "unit_matrix_shape": [
+      4096,
+      2048
+    ]
+  },
+  "mean_build_phase_seconds": {
+    "batched_block_ldl": 0.028222233995620627,
+    "batched_ldlq": 6.309732082503615,
+    "canonical_per_unit_pack": 0.11599654800374992,
+    "hessian_forward_fwht": 0.045506419002776965,
+    "packed_decode_conformance": 0.331901261000894
+  },
+  "mean_build_wall_seconds": 6.8522858849974,
+  "mean_staging_seconds": 0.6547778730018763,
+  "mean_total_wall_seconds": 8.11930525850039,
+  "packed_decode_execution": "compiled",
+  "packed_decode_fp16_bit_exact": [
+    true,
+    true
+  ],
+  "peak_cuda_allocated_bytes": 2584145920,
+  "peak_cuda_reserved_bytes": 2764046336,
+  "process": {
+    "pid": 1844410,
+    "startticks": 8652145
+  },
+  "receipt_names": [
+    "QTIP_SOLVE_RECEIPT.json",
+    "QTIP_SOLVE_RECEIPT.json"
+  ],
+  "schema": "banana-smasher-qtip-cross-unit-controller-v1",
+  "solver": {
+    "K": 1,
+    "L": 16,
+    "V": 2,
+    "best_state_dtype": "uint16",
+    "best_state_encoding": "full-state",
+    "branch_sampling": "full",
+    "branches_per_prefix": 4,
+    "distance_arithmetic": "FP32 norm-minus-dot; common input norm omitted; quality gate required",
+    "full_states": 65536,
+    "implementation": "persistent-prefix-generic-aot-v1",
+    "memory_admission": "conservative-int32-workspace",
+    "min_exact_quality": 1.0,
+    "ordering": "one persistent launch per independent sequence batch",
+    "production_default": false,
+    "retained_prefix_costs": 16384,
+    "steps": 128,
+    "viterbi_branch_unroll": 4,
+    "viterbi_distance_polynomial": true,
+    "viterbi_lut_l1_retention": true,
+    "viterbi_num_warps": 16,
+    "viterbi_structured_gather": true
+  },
+  "staging_seconds": 1.3095557460037526,
+  "status": "PASS",
+  "total_wall_seconds": 16.23861051700078
+}

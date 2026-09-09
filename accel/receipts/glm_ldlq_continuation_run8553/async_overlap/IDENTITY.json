@@ -1,0 +1,21 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/async_overlap_run8553",
+  "receipt": "/dev/shm/t_1269dc5f/async_overlap_run8553/IDENTITY.json",
+  "expiry_unix": 1788928907.0840662,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "93a582f16839b71fbb97681a357299cf5b60500e28c8e8053855e88d6302be25",
+  "stage": "unitwise_grouped",
+  "pid": 1846515,
+  "pgid": 1846515,
+  "start_ticks": 8676361,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "async_overlap_run8553.py"
+  ]
+}

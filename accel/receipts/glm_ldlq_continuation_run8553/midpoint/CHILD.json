@@ -1,0 +1,12 @@
+{
+  "pid": 1850124,
+  "pgid": 1848757,
+  "start_ticks": 8710420,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_1269dc5f/midpoint_run8553.py",
+    "quality",
+    "none"
+  ]
+}

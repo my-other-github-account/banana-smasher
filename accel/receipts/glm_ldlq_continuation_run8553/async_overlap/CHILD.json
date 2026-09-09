@@ -1,0 +1,12 @@
+{
+  "pid": 1847582,
+  "pgid": 1846515,
+  "start_ticks": 8684162,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_1269dc5f/async_overlap_run8553.py",
+    "quality",
+    "none"
+  ]
+}

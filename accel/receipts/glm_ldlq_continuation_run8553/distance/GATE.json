@@ -1,0 +1,6 @@
+{
+  "status": "REJECT_QUALITY",
+  "passed": 4,
+  "count": 12,
+  "limit": 1.0001
+}

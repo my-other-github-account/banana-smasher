@@ -1,5 +1,56 @@
 # Runtime accelerations
 
+## Dedicated GLM LDLQ continuation: unpromoted bounds (run8553)
+
+The run8551 adoption milestone remains unchanged. A new exact-main whole-build
+profile on the retained authentic L004/E242,E243 down inputs measured 256
+persistent recurrence kernels totaling 5.793680s. CPU stream waits totaled
+5.765180s and overlapped those kernels; the two totals are not additive and
+must not be described as removable CPU overhead.
+
+Four finite, exact-own-claim s6 rungs used the same original clean16 inputs,
+seeds, source basis and canonical packed consumer. All reused the sealed
+reference-LDL grouped C1/C2 controls; no baseline or heldout forward was replayed.
+
+| Candidate | Research pin | Warm whole-panel ratio | Authentic quality |
+| --- | --- | --- | --- |
+| FP32 norm-minus-dot distance | b8ca6c573ebbe00bb4b4e512df0770851eec30ed | 0.614046x | 4/12 PASS; down SSE ratios 1.000679/1.001094 exceed frozen 1.0001 |
+| Same-stream overlap assertion | c69448a7e0f58e54d0409b87a5096985c55cfd59 | 1.007764x | 12/12 PASS |
+| First-pass midpoint-only seed | 13f5fb4109ed509dd8d1d87ed7c75839ac8b6717 | 0.822155x | 12/12 PASS |
+| Predicated midpoint stores | ccf11b1c440ed3256f1b4b3fa36a34c3f0a4ab37 | 1.007996x | 12/12 PASS |
+
+None is promoted. The two sub-one-percent historical warm ratios are not
+substantive speed evidence and both regress setup wall. Setup shares source,
+OS and prebuilt/compiler assets and is not a cold-JIT denominator. Quality is
+canonical decoded clean-fit SSE, not heldout/full-model KL; equality remains
+diagnostic, not the acceptance rule. The polynomial path changed all panel
+reconstructions and is rejected on both speed and quality.
+
+The midpoint experiment follows the actual bound official consumer: the first
+rolled pass consumes only state64, then a full overlap-conditioned pass. It
+preserves all forward arithmetic and physical allocation gates, but omits
+unused first-half stores and traceback. The masked-store comparison removes
+a per-step control-flow branch; improvement over the slower variant is not a
+win over the incumbent. This layout family is closed for this panel.
+
+Physical focused tests total 65 passed. All 48 copied actual unit files
+(68,091,056 bytes) independently match the canonical verifier hashes;
+40/48 numerical checks pass. Three offline evidence regressions bind timing,
+quality decisions and the complete tracked receipt manifest. The experimental
+implementations remain on their research pins; this main change is evidence
+only and requests no runtime redeployment.
+
+Existing bs06 production continues independently: its Z55 original-fit16
+96-cell tranche is durable on aa455253, and its next Z57 boundary is fresh.
+The owner's LDLQ 96.6364% figure is a share of instrumented phase sums, not
+whole wall. No run8553 candidate is adopted. Dedicated s6 remains reserved to
+this persistent task after natural terminal exit. The acceleration objective
+is not complete; future work must target a genuinely distinct measured
+recurrence mechanism, not replay these rejected/neutral rungs.
+
+Evidence: `accel/receipts/glm_ldlq_continuation_run8553/`.
+
+
 ## GLM reference-LDL actual owner adoption (run8551)
 
 The previously sealed reference-LDL grouping candidate now has actual owner

@@ -1,0 +1,117 @@
+{
+  "schema": "banana-smasher.glm-import-closure.v1",
+  "files": {
+    "solver_qtip_profile": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/solver_qtip_profile.py",
+      "sha256": "657887a6cd53ed919f6bbb30ee98abc2c12cd3eaaa7233a3c8fdcd225224e6af"
+    },
+    "qtip_batch_controller": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/qtip_batch_controller.py",
+      "sha256": "e82234f8967171006743e3cd9e65a0bbef9fb91ab5911de6af340cd1048751a9"
+    },
+    "qtip_batch": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/qtip_batch.py",
+      "sha256": "75687550ef5692a330b5e1eab3c329bad9e0b2e57c446e7efdcecfe0497401e8"
+    },
+    "qtip_viterbi": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/qtip_viterbi.py",
+      "sha256": "c1c424aabb4fd1a786d53626858ae48bfc9446f9209994bfff7514f709087e44"
+    },
+    "qtip_kernel_cache": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/qtip_kernel_cache.py",
+      "sha256": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066"
+    },
+    "qtip_rings": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/qtip_rings.py",
+      "sha256": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1"
+    },
+    "qtip1": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/qtip1.py",
+      "sha256": "0ef6e1f65ca96db9cc24783b599d0c0894fb8a8956f12a44deef37453ba92110"
+    },
+    "hf_moe": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/hf_moe.py",
+      "sha256": "8546957dcb2b31d2868cc0bbfc6fa1a3e8519a38b70ffcf9ad34f8f31136ecc5"
+    },
+    "glm_qtip_source_adapter": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/glm_qtip_source_adapter.py",
+      "sha256": "bdd830c5db5c403496c8100a33c2d4991de5e2d30bf87c63cdfb784e3a7f5ac5"
+    },
+    "selected_tensor_source": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/selected_tensor_source.py",
+      "sha256": "ba3dee71decbf862ea5200944df1e8b1061163dda0a038c7e2a896bc40136cc6"
+    },
+    "glm_qtip_producers": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/glm_qtip_producers.py",
+      "sha256": "52178ff06017aa7cacade228ef83172bdf0a742682ed47999b368c6679e894f4"
+    },
+    "qtip_runner": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/qtip_runner.py",
+      "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+    },
+    "runtime.bitshift": {
+      "path": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_run8507/files/dev/shm/CLEAN_t_bd7914e6_l029_s7_run8187_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical/lib/codebook/bitshift.py",
+      "sha256": "af170eabb6cd8e47409b236a2570c1c2c195f82ab298f5da49b3e3c86b11f8b2"
+    },
+    "runtime.ldlq": {
+      "path": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_run8507/files/dev/shm/CLEAN_t_bd7914e6_l029_s7_run8187_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical/lib/algo/ldlq.py",
+      "sha256": "793e364fbe91e5b28740d0fc81a6e8618daa6a6a8ce5adbf9b877ba2e46e5bbe"
+    },
+    "runtime.math_utils": {
+      "path": "/dev/shm/t_ebcba52e_ldlq_run8503/pair_run8507/files/dev/shm/CLEAN_t_bd7914e6_l029_s7_run8187_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical/lib/utils/math_utils.py",
+      "sha256": "65d50936e87b2c266806de201dea89b2d74a2ed38e33ef462bd8c3aafb333844"
+    },
+    "runtime.kernel_decompress": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/qtip_kernel_decompress.py",
+      "sha256": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df"
+    },
+    "qtip_rings.json": {
+      "path": "/dev/shm/t_1269dc5f/midpoint_mask_code_run8553/banana-smasher/src/banana_smasher/qtip_rings.json",
+      "sha256": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52"
+    }
+  },
+  "interpreter": {
+    "executable": "/home/dnola/humming_env/bin/python",
+    "version": "3.12.3",
+    "sha256": "1a301bb1763139d48ae638d97b11edf56de6cd185e1b054eae6dc28c271c0c5f"
+  },
+  "dependencies": {
+    "torch": "2.11.0",
+    "triton": "3.6.0",
+    "numpy": "2.3.5",
+    "safetensors": "0.8.0"
+  },
+  "identity": {
+    "schema": "banana-smasher.glm-import-closure.v1",
+    "files": {
+      "solver_qtip_profile": "657887a6cd53ed919f6bbb30ee98abc2c12cd3eaaa7233a3c8fdcd225224e6af",
+      "qtip_batch_controller": "e82234f8967171006743e3cd9e65a0bbef9fb91ab5911de6af340cd1048751a9",
+      "qtip_batch": "75687550ef5692a330b5e1eab3c329bad9e0b2e57c446e7efdcecfe0497401e8",
+      "qtip_viterbi": "c1c424aabb4fd1a786d53626858ae48bfc9446f9209994bfff7514f709087e44",
+      "qtip_kernel_cache": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+      "qtip_rings": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+      "qtip1": "0ef6e1f65ca96db9cc24783b599d0c0894fb8a8956f12a44deef37453ba92110",
+      "hf_moe": "8546957dcb2b31d2868cc0bbfc6fa1a3e8519a38b70ffcf9ad34f8f31136ecc5",
+      "glm_qtip_source_adapter": "bdd830c5db5c403496c8100a33c2d4991de5e2d30bf87c63cdfb784e3a7f5ac5",
+      "selected_tensor_source": "ba3dee71decbf862ea5200944df1e8b1061163dda0a038c7e2a896bc40136cc6",
+      "glm_qtip_producers": "52178ff06017aa7cacade228ef83172bdf0a742682ed47999b368c6679e894f4",
+      "qtip_runner": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c",
+      "runtime.bitshift": "af170eabb6cd8e47409b236a2570c1c2c195f82ab298f5da49b3e3c86b11f8b2",
+      "runtime.ldlq": "793e364fbe91e5b28740d0fc81a6e8618daa6a6a8ce5adbf9b877ba2e46e5bbe",
+      "runtime.math_utils": "65d50936e87b2c266806de201dea89b2d74a2ed38e33ef462bd8c3aafb333844",
+      "runtime.kernel_decompress": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df",
+      "qtip_rings.json": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52"
+    },
+    "interpreter": {
+      "version": "3.12.3",
+      "sha256": "1a301bb1763139d48ae638d97b11edf56de6cd185e1b054eae6dc28c271c0c5f"
+    },
+    "dependencies": {
+      "torch": "2.11.0",
+      "triton": "3.6.0",
+      "numpy": "2.3.5",
+      "safetensors": "0.8.0"
+    }
+  },
+  "sha256": "8e0a0800a58ae81846e8151be3d49d1a4acd94aa43408d253546d17c2c1f46ef"
+}

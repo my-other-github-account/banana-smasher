@@ -1,0 +1,21 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/distance_run8553",
+  "receipt": "/dev/shm/t_1269dc5f/distance_run8553/IDENTITY.json",
+  "expiry_unix": 1788928652.271218,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "8a7003f75733d6b7da25ea72e3e0739b52dfe5dfc71cfd2d68300d2f7abe9a8d",
+  "stage": "unitwise_grouped",
+  "pid": 1844323,
+  "pgid": 1844323,
+  "start_ticks": 8650882,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "distance_run8553.py"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "canonical_commit": "b8ca6c573ebbe00bb4b4e512df0770851eec30ed",
+  "cells": [
+    "L004/E242_fused13"
+  ],
+  "clean_fit_admission": true,
+  "schema": "bounded-next-tier-clean-canary-v1",
+  "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928",
+  "tiers": [
+    {
+      "bindings": {
+        "qtip_runner": {
+          "path": "/dev/shm/t_1269dc5f/distance_code_run8553/banana-smasher/src/banana_smasher/qtip_runner.py",
+          "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+        }
+      },
+      "name": "qtip@1.00"
+    }
+  ],
+  "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a"
+}

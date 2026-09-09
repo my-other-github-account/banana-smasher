@@ -1,0 +1,184 @@
+{
+  "task_id": "t_1269dc5f",
+  "status": "CONTINUATION_NOT_COMPLETE",
+  "incumbent_main": "8b2c8543c0bb038dadca5b03478bef4e016a2147",
+  "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "candidates": [
+    {
+      "candidate": "distance",
+      "pin": "b8ca6c573ebbe00bb4b4e512df0770851eec30ed",
+      "quality_gate": {
+        "status": "REJECT_QUALITY",
+        "passed": 4,
+        "count": 12,
+        "limit": 1.0001
+      },
+      "timing": {
+        "setup": {
+          "baseline_seconds": [
+            16.239159447010024,
+            16.53727611900831
+          ],
+          "candidate_seconds": [
+            28.990759725988028,
+            25.586221989011392
+          ],
+          "ratio": 0.6005541995190689
+        },
+        "warm": {
+          "baseline_seconds": [
+            14.625322845007759,
+            14.509560249993228
+          ],
+          "candidate_seconds": [
+            23.863111219005077,
+            23.584282943003927
+          ],
+          "ratio": 0.6140460105252568
+        }
+      },
+      "decoded_equal": 0,
+      "count": 12,
+      "validation_seconds": 4.235389547000523,
+      "max_reserved": 2770337792,
+      "decision": "REJECT_SPEED_AND_QUALITY",
+      "adopted": false
+    },
+    {
+      "candidate": "async_overlap",
+      "pin": "c69448a7e0f58e54d0409b87a5096985c55cfd59",
+      "quality_gate": {
+        "status": "PASS",
+        "passed": 12,
+        "count": 12,
+        "limit": 1.0001
+      },
+      "timing": {
+        "setup": {
+          "baseline_seconds": [
+            16.239159447010024,
+            16.53727611900831
+          ],
+          "candidate_seconds": [
+            19.45962750200124,
+            16.246987969992915
+          ],
+          "ratio": 0.9179373382987236
+        },
+        "warm": {
+          "baseline_seconds": [
+            14.625322845007759,
+            14.509560249993228
+          ],
+          "candidate_seconds": [
+            14.676455926004564,
+            14.233979573982651
+          ],
+          "ratio": 1.0077635494288515
+        }
+      },
+      "decoded_equal": 12,
+      "count": 12,
+      "validation_seconds": 4.061919093990582,
+      "max_reserved": 2770337792,
+      "decision": "NO_SUBSTANTIVE_SPEED_EVIDENCE",
+      "adopted": false
+    },
+    {
+      "candidate": "midpoint",
+      "pin": "13f5fb4109ed509dd8d1d87ed7c75839ac8b6717",
+      "quality_gate": {
+        "status": "PASS",
+        "passed": 12,
+        "count": 12,
+        "limit": 1.0001
+      },
+      "timing": {
+        "setup": {
+          "baseline_seconds": [
+            16.239159447010024,
+            16.53727611900831
+          ],
+          "candidate_seconds": [
+            21.98916309600463,
+            19.379632366006263
+          ],
+          "ratio": 0.7922985235602774
+        },
+        "warm": {
+          "baseline_seconds": [
+            14.625322845007759,
+            14.509560249993228
+          ],
+          "candidate_seconds": [
+            17.741725460000453,
+            17.69547741099086
+          ],
+          "ratio": 0.8221552700156995
+        }
+      },
+      "decoded_equal": 12,
+      "count": 12,
+      "validation_seconds": 3.7631319719948806,
+      "max_reserved": 2770337792,
+      "decision": "REJECT_SPEED",
+      "adopted": false
+    },
+    {
+      "candidate": "midpoint_mask",
+      "pin": "ccf11b1c440ed3256f1b4b3fa36a34c3f0a4ab37",
+      "quality_gate": {
+        "status": "PASS",
+        "passed": 12,
+        "count": 12,
+        "limit": 1.0001
+      },
+      "timing": {
+        "setup": {
+          "baseline_seconds": [
+            16.239159447010024,
+            16.53727611900831
+          ],
+          "candidate_seconds": [
+            18.890289279996068,
+            16.33587575099955
+          ],
+          "ratio": 0.9304571058807635
+        },
+        "warm": {
+          "baseline_seconds": [
+            14.625322845007759,
+            14.509560249993228
+          ],
+          "candidate_seconds": [
+            14.324232104001567,
+            14.579531427007169
+          ],
+          "ratio": 1.0079961754373026
+        }
+      },
+      "decoded_equal": 12,
+      "count": 12,
+      "validation_seconds": 3.8819355110026663,
+      "max_reserved": 2770337792,
+      "decision": "NO_SUBSTANTIVE_SPEED_EVIDENCE",
+      "adopted": false
+    }
+  ],
+  "physical_units_authenticated": 48,
+  "physical_bytes": 68091056,
+  "quality_pass": 40,
+  "quality_count": 48,
+  "physical_tests_passed": 65,
+  "timing_scope": "Retained same-input reference_ldl_run8545 C1/C2 grouped controls; historical/noninterleaved and shared/prebuilt caches. Setup is NOT cold-JIT. Profiler rows not speed denominators.",
+  "quality_scope": "Canonical decode and clean-fit SSE ratio<=1.0001. No new heldout/full-model output gate; equality diagnostic only.",
+  "adoption": false,
+  "production_mutations": false,
+  "profile": {
+    "kernel_count": 256,
+    "kernel_seconds": 5.793680232999998,
+    "stream_wait_count": 579,
+    "stream_wait_seconds": 5.765180195999999,
+    "note": "Overlapping CPU wait and GPU work, never additive."
+  }
+}

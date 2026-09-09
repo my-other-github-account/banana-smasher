@@ -1,0 +1,22 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/ldlq_profile_run8553",
+  "receipt": "/dev/shm/t_1269dc5f/ldlq_profile_run8553/IDENTITY.json",
+  "expiry_unix": 1788928384.91334,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "a2cee554aec350320b21913985e0c6424efc05a0f8d41e9dcae554e6e7df36e3",
+  "stage": "unitwise_grouped_terminal_retained",
+  "pid": 1842484,
+  "pgid": 1842484,
+  "start_ticks": 8624144,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "ldlq_profile_run8553.py"
+  ],
+  "terminal_at": 1788921207.117689
+}

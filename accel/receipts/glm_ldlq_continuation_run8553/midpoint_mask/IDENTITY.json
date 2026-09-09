@@ -1,0 +1,21 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/midpoint_mask_run8553",
+  "receipt": "/dev/shm/t_1269dc5f/midpoint_mask_run8553/IDENTITY.json",
+  "expiry_unix": 1788929295.132441,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "54af6b5cc72b5fa8c5c3a7d68842c5395fd0b79eddce7b3004ba468e011a3b66",
+  "stage": "unitwise_grouped",
+  "pid": 1850754,
+  "pgid": 1850754,
+  "start_ticks": 8715166,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "midpoint_mask_run8553.py"
+  ]
+}

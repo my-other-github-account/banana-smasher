@@ -1,0 +1,7 @@
+{
+  "source": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_bd7914e6/receipts/K1_BATCH_DURABLE_ACK_s5_run8550_z55.json",
+  "source_exists": true,
+  "owner_handoff": "bs06 run8554: Z55 aa455253 pair2 original fit16 full96 durable; product508.240271s; batched_ldlq431.183932s, block_ldl1.077985s, pack3.492126s, Hessian FWHT3.332929s, packed_decode7.104982s. LDLQ96.6364% of instrumented phase sum, not whole wall. Z57 fresh L019/E196..287 down excluding E236/E250 (90), prep1402354/start8724836, no candidate adoption planned. Research is not a production gate.",
+  "sha256": "023a91dd22d6d8ee6028949a4350a34638b1bed9a630c18fc11806ffbcce263c",
+  "bytes": 62248
+}
