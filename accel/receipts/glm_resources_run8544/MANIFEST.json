@@ -1,0 +1,1535 @@
+{
+  "files": [
+    {
+      "path": "LICM_SUMMARY_run8544.json",
+      "bytes": 437,
+      "sha256": "51684e922da59ea408d6689d5b4f4fef9a5a0dd20e7f692d703163be20c750be"
+    },
+    {
+      "path": "LICM_PHYSICAL_ACK_run8544.json",
+      "bytes": 3674,
+      "sha256": "aa5c6b3a9a645c5758a8774c06e09e44ef2feaa59c7793efd7ac11d402eb269f"
+    },
+    {
+      "path": "REGCAP_SUMMARY_run8544.json",
+      "bytes": 442,
+      "sha256": "91213fae69b8280459198fb97c6b1c023dcc84289369d8207a8768dca0dbead3"
+    },
+    {
+      "path": "REGCAP_PHYSICAL_ACK_run8544.json",
+      "bytes": 3611,
+      "sha256": "be34329c37d3e2a70250ded777b74b79aa5b26bbdc229f006668dfe55ff8473c"
+    },
+    {
+      "path": "WARP32_SUMMARY_run8544.json",
+      "bytes": 445,
+      "sha256": "52fc8f307c33d1b5d0ccc0da762a02647586d167f0d39bdbbf7633f0d47d90a9"
+    },
+    {
+      "path": "WARP32_PHYSICAL_ACK_run8544.json",
+      "bytes": 3611,
+      "sha256": "bb7528419ce7ff0861923042336febe2dfb02c5d8319d0cf5546195090fb1206"
+    },
+    {
+      "path": "SUMMARY_run8544.json",
+      "bytes": 4247,
+      "sha256": "79e73115edad2d4dc04805440f23e9ad5d49381594d50f90c206fb083d0afc75"
+    },
+    {
+      "path": "resources_run8544.py",
+      "bytes": 3789,
+      "sha256": "ffbf8f3e70e23d934c1f156d0d393d9abb3e5e329d0a09e907c29946295d4131"
+    },
+    {
+      "path": "resource_probe_run8544.py",
+      "bytes": 1042,
+      "sha256": "e79f85ef36dcb496bf056978ce3a4ebfa78dadea53f2b1774feaba0bff506e54"
+    },
+    {
+      "path": "licm_run8544.py",
+      "bytes": 10630,
+      "sha256": "76b5d67d961d081a49583b2d279fb824aa3dc1287d800bbb95a9c7f6a33caace"
+    },
+    {
+      "path": "licm_r2_run8544.py",
+      "bytes": 10668,
+      "sha256": "35482e216f63c13ef6d10b720d3b1c12c90dc647320ef5ce2f34553cc073af5d"
+    },
+    {
+      "path": "regcap_run8544.py",
+      "bytes": 10682,
+      "sha256": "9e0ced7598ebdb70da854492b6d0bed19f52618a806c5a2d2ba79af9a8868bf3"
+    },
+    {
+      "path": "warp32_run8544.py",
+      "bytes": 11034,
+      "sha256": "18d260f0bc6ca62aad5e671c84d6f61a6b1bb420504ee49c370f16965a1b658a"
+    },
+    {
+      "path": "resources_run8544/probe.log",
+      "bytes": 578174,
+      "sha256": "283069f7de62f3172022d147cada0474dc3ffb9c88e2416710c75bbb7e03af9c"
+    },
+    {
+      "path": "resources_run8544/PREIMAGE.json",
+      "bytes": 702,
+      "sha256": "6634500242742688f99509aa1e1252afc8dca528f24c2ef9c87380d1e4602574"
+    },
+    {
+      "path": "resources_run8544/RESOURCES.json",
+      "bytes": 725049,
+      "sha256": "51ea8a3f69a8c807d2ad0cdffc0d2d5a73928c52e38c65996b3e576f72ded229"
+    },
+    {
+      "path": "resources_run8544/CUBIN_RESOURCES.json",
+      "bytes": 32830,
+      "sha256": "9ba98e906aea8b84dc454fa984fa1f42cade4f76c101a187a275354693107a9d"
+    },
+    {
+      "path": "resources_run8544/SHARDS_PREIMAGE.json",
+      "bytes": 684,
+      "sha256": "29ba0c166938ca0b0447c59965da5f5242b40b1231506691087b04dc0acb1f1f"
+    },
+    {
+      "path": "resources_run8544/IDENTITY.json",
+      "bytes": 666,
+      "sha256": "d9caa991c132031ed38047a4c97da1adc08e963b37b1d5c387e9ed07b04c97f2"
+    },
+    {
+      "path": "resources_run8544/TERMINAL.json",
+      "bytes": 21,
+      "sha256": "a02d222e1be4a3d356cac5372aa177b9048c9baaa90b42f86d8cfae4569f1286"
+    },
+    {
+      "path": "resources_run8544/CHILD.json",
+      "bytes": 186,
+      "sha256": "d40c94a70772d6a8101e32b49e4b83b0f7f4bd074463c9ced004833c12f8bbf7"
+    },
+    {
+      "path": "resources_run8544/PREFLIGHT.json",
+      "bytes": 297,
+      "sha256": "62c519104786441a066409dc72d2e52e7750a83c5f5806f9b6eb53bf8f865a18"
+    },
+    {
+      "path": "licm_failed_run8544/PREIMAGE.json",
+      "bytes": 710,
+      "sha256": "889b3b02404519dcb0d051074f4089b15d84f5776707516fa195c72746450f0a"
+    },
+    {
+      "path": "licm_failed_run8544/traceback_base_run8542_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "78dd39436ff8700cdfe50d330ee5c87f1d4c2ee998db71c2f6d5f428430431d7"
+    },
+    {
+      "path": "licm_failed_run8544/SHARDS_PREIMAGE.json",
+      "bytes": 644,
+      "sha256": "a8e2fff85ce57d1546fa306e71361071638eeacb7fe3669b0ad1e66f585095d7"
+    },
+    {
+      "path": "licm_failed_run8544/IDENTITY.json",
+      "bytes": 650,
+      "sha256": "91608623b716b42418a7339294d9554c6e844a2d089247f7a52306b0f442ed44"
+    },
+    {
+      "path": "licm_failed_run8544/PROGRESS.json",
+      "bytes": 121,
+      "sha256": "7e4b55f7926b2b20aec671c3a8374600456450381deed77c556da836a3d8a084"
+    },
+    {
+      "path": "licm_failed_run8544/TERMINAL.json",
+      "bytes": 21,
+      "sha256": "0b2eabe584457faab9ce76edc31b4090730dbb54f1deb2a88179f1794516275e"
+    },
+    {
+      "path": "licm_failed_run8544/resources_baseline.log",
+      "bytes": 1394,
+      "sha256": "4aa500e9a6db1701a9cd584ea2e2f4ee19a79da2fc5c712bd231e31c8bceb0f0"
+    },
+    {
+      "path": "licm_failed_run8544/FAILURE.json",
+      "bytes": 432,
+      "sha256": "7366ae0cbf5e37b1e79399a4b97cc87a7c545baabcd4862cad5f6b233bf12e3c"
+    },
+    {
+      "path": "licm_failed_run8544/CHILD.json",
+      "bytes": 218,
+      "sha256": "3ae5770fb3cbb09fa5e11451373cc832c950e178157abaec7db77f21842ec3d4"
+    },
+    {
+      "path": "licm_failed_run8544/licm_code_run8544_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "1ffbefb2bcf22a2e01bdb1ccefb8acad8bc23235d07677785f812543d0922374"
+    },
+    {
+      "path": "licm_failed_run8544/PREFLIGHT.json",
+      "bytes": 297,
+      "sha256": "f633b174b1d34540859dd3bd42248e74db478b952a334fb29ef4c056ca90e344"
+    },
+    {
+      "path": "licm_run8544r2/C1.log",
+      "bytes": 9755,
+      "sha256": "ca923827c151c4fe94b88813af7b5a8c4d47fe07a0d247d3f7364dccfe973453"
+    },
+    {
+      "path": "licm_run8544r2/C2.log",
+      "bytes": 9752,
+      "sha256": "d0a1ffde610658fc736cfdc16f1ea88dc26aedbae7ae7511fc5c784f1e39e633"
+    },
+    {
+      "path": "licm_run8544r2/QUALITY.json",
+      "bytes": 84025,
+      "sha256": "dad7ca0f7615053e758b1697c0c0b887b55cfef55d5d8229683395b6fa7974c1"
+    },
+    {
+      "path": "licm_run8544r2/resources_baseline.json",
+      "bytes": 4785,
+      "sha256": "5316b8ac930e2099a5b8e8d4f5742a15744b1ba05e78ccc5f0a1f5ba13b4a1c8"
+    },
+    {
+      "path": "licm_run8544r2/PREIMAGE.json",
+      "bytes": 690,
+      "sha256": "22a57fce799507217155a0177db6c1b0912675354c284bd2aaf55f0474e749a4"
+    },
+    {
+      "path": "licm_run8544r2/quality.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "licm_run8544r2/traceback_base_run8542_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "78dd39436ff8700cdfe50d330ee5c87f1d4c2ee998db71c2f6d5f428430431d7"
+    },
+    {
+      "path": "licm_run8544r2/SHARDS_PREIMAGE.json",
+      "bytes": 630,
+      "sha256": "93a1d7e821fb009077383c10771669e6bc34acbea6c24807757aff0e744788b6"
+    },
+    {
+      "path": "licm_run8544r2/IDENTITY.json",
+      "bytes": 657,
+      "sha256": "9718738da5ab9dacd4330839f17e9e3d8d7fcb3a9e78c92ccd8f7493837d345c"
+    },
+    {
+      "path": "licm_run8544r2/resources_candidate.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "licm_run8544r2/resources_candidate.json",
+      "bytes": 4844,
+      "sha256": "91e1a89b6523417598646a3374407cbbda55b95f52400e28f158b5c565e66cc5"
+    },
+    {
+      "path": "licm_run8544r2/PROGRESS.json",
+      "bytes": 659,
+      "sha256": "19ad9b246d0e5c79dc52e91c24de57fdd98475420df33962dd7de9e197a8896d"
+    },
+    {
+      "path": "licm_run8544r2/TERMINAL.json",
+      "bytes": 766,
+      "sha256": "b7cd355a6269c56ddaccbc92fd0207a9aef8975cec0e4476670f35a82aed18e3"
+    },
+    {
+      "path": "licm_run8544r2/gpu_tests.log",
+      "bytes": 100,
+      "sha256": "80b31b10a08373915b3c267fa1f4e2334229a847601361446ef2f8c8733b47cd"
+    },
+    {
+      "path": "licm_run8544r2/resources_baseline.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "licm_run8544r2/CHILD.json",
+      "bytes": 206,
+      "sha256": "f7a1a32db67ea1523beaddfc6cdc67ce76afbad96d3dfd5db04183056464f950"
+    },
+    {
+      "path": "licm_run8544r2/licm_code_run8544_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "1ffbefb2bcf22a2e01bdb1ccefb8acad8bc23235d07677785f812543d0922374"
+    },
+    {
+      "path": "licm_run8544r2/PREFLIGHT.json",
+      "bytes": 297,
+      "sha256": "6ee998e32192be30a77218dcd0c7bb6bfd092b174855ebc01b0291588341d264"
+    },
+    {
+      "path": "licm_run8544r2/C1/RESULT.json",
+      "bytes": 178216,
+      "sha256": "eac13ab29fbd9b74dbedaced5df2462f914abab9aa6be194684fff2d6d58f3d0"
+    },
+    {
+      "path": "licm_run8544r2/C2/RESULT.json",
+      "bytes": 177883,
+      "sha256": "2a777583b63637dd5f02125bc55f13a9c5a97c9912634acd6979d81fe14b2784"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E243_down/CONFIG.json",
+      "bytes": 3146,
+      "sha256": "381310ff9c32ec54155322115423c940609f2687865d23ca84311ac8cbaa4b2a"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E243_down/MANIFEST.json",
+      "bytes": 692,
+      "sha256": "b7cbf8c8fa9b92e047fe193ad6346cd61ebe3751a3c905b526d883087147feec"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_down/CONFIG.json",
+      "bytes": 3146,
+      "sha256": "8dc534aef4479c8e46ebcbc812110eee913d455a5ffa74be5da700aa30f81633"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_down/MANIFEST.json",
+      "bytes": 692,
+      "sha256": "f4b6fe313a2ac391ab50e25440bb161aace43cbd151b09d06d67523821dc8980"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_fused13/CONFIG.json",
+      "bytes": 3152,
+      "sha256": "26451c8914a3db7b144635b0e1b4c18063b8b3b329fdc13fc4271d17ac1ece42"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_fused13/MANIFEST.json",
+      "bytes": 695,
+      "sha256": "6afb0da95d193275de6ea8718d7a7e545967f80556cbb761e5021fff90c8faeb"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_fused13/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "812187a4b18e4bf2bb54181d637f891022426d89c146352697af50d17bd03068"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23854,
+      "sha256": "10315f68440cd65fb3162856148dd0022a76525d78a8cd210fe6a15594820e19"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_down/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "43da85d7720749ef14cf7b24772211ce2710bf147bd3f1fa36dcc0a16511be51"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26465,
+      "sha256": "531bc30972df177dac76ab1294dc42eee4e57805aa251e859c27541a70b32d0b"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E243_down/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "267585794f7dc652d4a5d94ce9b0b1775220440284718375138cddf55e371aad"
+    },
+    {
+      "path": "licm_run8544r2/C2/warm/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26468,
+      "sha256": "e09c6230239ac2cef6112a291405da3f065527f0f465f508f1aca076ec9cc907"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E243_down/CONFIG.json",
+      "bytes": 3147,
+      "sha256": "da28952652013f2334358a7b701f048ead472cbdfa366941131bca361bdb90fb"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E243_down/MANIFEST.json",
+      "bytes": 692,
+      "sha256": "b7cbf8c8fa9b92e047fe193ad6346cd61ebe3751a3c905b526d883087147feec"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_down/CONFIG.json",
+      "bytes": 3147,
+      "sha256": "97b521da61c43d5e5a26d4980dd002e8bdcb47ea8936ddf6464a1f9bf43e769b"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_down/MANIFEST.json",
+      "bytes": 692,
+      "sha256": "f4b6fe313a2ac391ab50e25440bb161aace43cbd151b09d06d67523821dc8980"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_fused13/CONFIG.json",
+      "bytes": 3153,
+      "sha256": "bec7ecee33fee22b15a79f3825e7ac951d32cab88a9859370f1cb4543602f75d"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_fused13/MANIFEST.json",
+      "bytes": 695,
+      "sha256": "6afb0da95d193275de6ea8718d7a7e545967f80556cbb761e5021fff90c8faeb"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_fused13/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "c4b501f058e5d0189b978d6c2511f81307c647ea1f43bed2ce2a5989c575c757"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23852,
+      "sha256": "8dda3c1352da72a19225672e16ab205937c9976f7e4083f65844f3c8587ff8bb"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_down/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "230c39dfd3232d6b38b56c3506fb8fa4521f2d7215fd1dc1949dab88fe7e1977"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26457,
+      "sha256": "89767aafdfebc31a5569017eba80c0d920e8acff8bff5acfad1582321150a586"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E243_down/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "6814d49e3c5f676d364da3806a7e24b9ffa0548ac5929c8ff49b62278f9de00c"
+    },
+    {
+      "path": "licm_run8544r2/C2/setup/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26465,
+      "sha256": "2bb73a1130ff294ec435f1cafab1e70ab066023686175665a6032fc64bf8e1bb"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E243_down/CONFIG.json",
+      "bytes": 3146,
+      "sha256": "f0badc68d93761de573d2fa56f4f56b46569a7325ea9fae4ad53601dedc81b99"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E243_down/MANIFEST.json",
+      "bytes": 692,
+      "sha256": "b7cbf8c8fa9b92e047fe193ad6346cd61ebe3751a3c905b526d883087147feec"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_down/CONFIG.json",
+      "bytes": 3146,
+      "sha256": "0b70f0d2e19fa7889fa52f0e60e5f056dfeb9fcbd5fa05f7fc84ff9a64aa6337"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_down/MANIFEST.json",
+      "bytes": 692,
+      "sha256": "f4b6fe313a2ac391ab50e25440bb161aace43cbd151b09d06d67523821dc8980"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_fused13/CONFIG.json",
+      "bytes": 3152,
+      "sha256": "178c0d67891abf849d4e33510f5a8a398224b517f05c281b4a67ee594cf3a098"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_fused13/MANIFEST.json",
+      "bytes": 695,
+      "sha256": "6afb0da95d193275de6ea8718d7a7e545967f80556cbb761e5021fff90c8faeb"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_fused13/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 268,
+      "sha256": "398e7ee44dd6df5aa7af0b1d340ce2adf2581c6cd4f9c1b86a188ac843aeb048"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23855,
+      "sha256": "191f4d7545c84db32a23c633b1f4ac04813e512fe159b7ed2869c7692c0ccee7"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_down/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 265,
+      "sha256": "02ad0bc8f37c5d056b56e676b1bd908b14cb11e5fb85ab4bfefc5895a67fd5b0"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26473,
+      "sha256": "10aa22c07e17172bdc66888acd2422f72fcd4ee0a4ac47b3611f0976b201c65b"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E243_down/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "b4f92aede2bfba568d482ab0702c511f97af49f4083834d14b9c16591ab58006"
+    },
+    {
+      "path": "licm_run8544r2/C1/warm/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26472,
+      "sha256": "22bd082acf2356a2cf5dbe48e0573f0b250798c324d67d895e5860d3e1722324"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E243_down/CONFIG.json",
+      "bytes": 3147,
+      "sha256": "24ea27d5692014c5cc11ea2dc276dc181c3a91dd42cd441fdf554b9bbe50fdae"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E243_down/MANIFEST.json",
+      "bytes": 692,
+      "sha256": "b7cbf8c8fa9b92e047fe193ad6346cd61ebe3751a3c905b526d883087147feec"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_down/CONFIG.json",
+      "bytes": 3147,
+      "sha256": "7f57ffba36e6afbc49405a744edf1de1fa4119e1addedc5e415937b704f221a5"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_down/MANIFEST.json",
+      "bytes": 692,
+      "sha256": "f4b6fe313a2ac391ab50e25440bb161aace43cbd151b09d06d67523821dc8980"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6517,
+      "sha256": "e380cb24084abde31c3aa8963599b906f6858b86b98bfd5ae502b1c2c633ff16"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_fused13/CONFIG.json",
+      "bytes": 3153,
+      "sha256": "f84798db9719a719efe2d47f3761648fe1335e611e8837b88e52bad3da3caef8"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_fused13/MANIFEST.json",
+      "bytes": 695,
+      "sha256": "6afb0da95d193275de6ea8718d7a7e545967f80556cbb761e5021fff90c8faeb"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_fused13/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 268,
+      "sha256": "f9eab31dd850fa8053a564486245f10addccd65726be7ecdfbc8621ab6696cb7"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23851,
+      "sha256": "8985fc267cd44dd843332ef4073f6f63411590f53a48908207943a1e57bfb04e"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_down/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "ec1ff162377f30455c2bee0c7f4705ee56426843917ea482ab6dcac7425e0b3e"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26725,
+      "sha256": "4739c790db569b1c6fd1a71b4d8acf7a62fdb77c3093dc90bda9cbaf285b2d74"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E243_down/build/SHARDS.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "d9c6a3a3fcd7b7def92bdfae5fb1722647d414d95357b3e13b89f3aa3d04326c"
+    },
+    {
+      "path": "licm_run8544r2/C1/setup/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26470,
+      "sha256": "ff1193d8defd7da10d148bee3c219bb064385b96991fcdb90320e5053baa3413"
+    },
+    {
+      "path": "regcap_run8544/C1.log",
+      "bytes": 9754,
+      "sha256": "08807fe0bf3eb9d8808e969bf2d5b839813cffc8f543579bbead396124a83794"
+    },
+    {
+      "path": "regcap_run8544/C2.log",
+      "bytes": 9752,
+      "sha256": "dd782d0d7a04104d4d93111bc593dfa8e9582f944103be4c048899ad503c06af"
+    },
+    {
+      "path": "regcap_run8544/regcap_code_run8544_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "2e2bfc1a1181705bbd3ce229e5e725118c40dbfea187e3255cc9a3e1f309389b"
+    },
+    {
+      "path": "regcap_run8544/QUALITY.json",
+      "bytes": 84025,
+      "sha256": "10bbecb63476a76a8c1de0a3de9d758f723d138c13a9f1759d3e7a02d5e28603"
+    },
+    {
+      "path": "regcap_run8544/PREIMAGE.json",
+      "bytes": 697,
+      "sha256": "fb4fa1cc8d6ffeb2f8c84c0bb313c1f1318ad0e3d1e352507b1b2ace734fcede"
+    },
+    {
+      "path": "regcap_run8544/quality.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "regcap_run8544/traceback_base_run8542_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "78dd39436ff8700cdfe50d330ee5c87f1d4c2ee998db71c2f6d5f428430431d7"
+    },
+    {
+      "path": "regcap_run8544/SHARDS_PREIMAGE.json",
+      "bytes": 634,
+      "sha256": "94c3f41226ab1eddd903396d249682d9310cd74017a135ba537c432e7e4ca26f"
+    },
+    {
+      "path": "regcap_run8544/IDENTITY.json",
+      "bytes": 667,
+      "sha256": "8ced26d46385952ca42c18f4a3cecf128dd220b8c61d8a247c42954ddf46fc01"
+    },
+    {
+      "path": "regcap_run8544/resources_candidate.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "regcap_run8544/resources_candidate.json",
+      "bytes": 4828,
+      "sha256": "ce48c642fee6b91ed16e0f2329ffa09b5610c8b2a4cbc3d166534e2265eee688"
+    },
+    {
+      "path": "regcap_run8544/PROGRESS.json",
+      "bytes": 540,
+      "sha256": "2640340ea09b7833a1d9e895c433dbc3debe53dd853f8272487f33e14327bc9f"
+    },
+    {
+      "path": "regcap_run8544/TERMINAL.json",
+      "bytes": 635,
+      "sha256": "9e05f8cf3de6866e4dafed2d30791ab8e680cca62e575dbd2e919466ee165c90"
+    },
+    {
+      "path": "regcap_run8544/gpu_tests.log",
+      "bytes": 100,
+      "sha256": "2159a3c57000f1aa97024dcd97aef340615181e5c229f5c51b417d53a114dc44"
+    },
+    {
+      "path": "regcap_run8544/CHILD.json",
+      "bytes": 205,
+      "sha256": "8375eda6a2701b7d4c0163ac9ca56de2000e551df9793072072c60114d2d2d80"
+    },
+    {
+      "path": "regcap_run8544/PREFLIGHT.json",
+      "bytes": 297,
+      "sha256": "12d21788c53d6cc4e27f8ab8c13b1dc3758bed630b18ecf53b47b6cc3e7f2013"
+    },
+    {
+      "path": "regcap_run8544/C1/RESULT.json",
+      "bytes": 178223,
+      "sha256": "fa9c3eb68d692122450f1c2b1d9fd80b95d170d2562f6cebb7a33f83c09fe01d"
+    },
+    {
+      "path": "regcap_run8544/C2/RESULT.json",
+      "bytes": 177912,
+      "sha256": "9981c48619ad69439931879972938e22564bf4598f90529617f7e0d142b9c8e6"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E243_down/CONFIG.json",
+      "bytes": 3148,
+      "sha256": "4396773dc4caa03ccd6fe0bc4fe783ac886ca17ca18e3c46c1fd76754bb25d5f"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "82fa484693d6255c9ece1205af39fb516e84c913719247ed66342655a744b56a"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_down/CONFIG.json",
+      "bytes": 3148,
+      "sha256": "255c3cfd545470b8687ac57e35a8f427f4175695d5839a8ff26c04a4cb018194"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "a1bc2b3814342ca33cab24350a60a4d26d5a26bb619be4bd9b8ed1e6fce91bf5"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_fused13/CONFIG.json",
+      "bytes": 3154,
+      "sha256": "fb01809a831f16f8675199c7051b532a516577d8c6ddb90c58d79376f336ffb7"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "941360343c06fbeb3fa1329232baaea51def1d038294cccfa4338bff0aab8f36"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_fused13/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 268,
+      "sha256": "fb0dedbd7d8c863bd87e9a5d6d349c1589df42694899ffb120dbe15a547e8587"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23855,
+      "sha256": "20a3389405a18052b1f8f9efa18adb2a7c9b7d248a428af026267237223f6b97"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_down/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "e6349f47be946ba3e631244eed05f276ba37638684a654994353bfb63597eaa5"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26473,
+      "sha256": "6d966e3545f92a832d2b945b19c6e5d4188f59f7743eb4e0cf2ebd2a3b84e3e6"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E243_down/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 263,
+      "sha256": "22d1bf66f16a4efea04d14e01f87b8d796e6958a5bd69fc5b0152fecafc22bfe"
+    },
+    {
+      "path": "regcap_run8544/C2/warm/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26473,
+      "sha256": "65f2b8bd850dd584655d492ec7e5df4baf1bc39d9c61a420346777a3fdec7f44"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E243_down/CONFIG.json",
+      "bytes": 3149,
+      "sha256": "0b20da65a149da1edaf976c2bcf553edf96506ffcf2ed49feabc448498f763f1"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "82fa484693d6255c9ece1205af39fb516e84c913719247ed66342655a744b56a"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_down/CONFIG.json",
+      "bytes": 3149,
+      "sha256": "7afed2adc0008c4e4e273fad792027019ee7b345d8d102af2a28fe6343f170ec"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "a1bc2b3814342ca33cab24350a60a4d26d5a26bb619be4bd9b8ed1e6fce91bf5"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_fused13/CONFIG.json",
+      "bytes": 3155,
+      "sha256": "38924edbc316d70b337fc16f4dae51dc19fc3fd12e5436efb1cc4e2129985970"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "941360343c06fbeb3fa1329232baaea51def1d038294cccfa4338bff0aab8f36"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_fused13/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "9db2294fab345987054b15b6e213ab8efb2bfbd8b270735798e52959e562d5ca"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23848,
+      "sha256": "e2cbcbc791678b17663fef6703e482cd30063a71de721ac6999993bff8153aef"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_down/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 263,
+      "sha256": "1d1ea5f21e6ffbcb6e6ddfe33c02ba928d506936a44b18752b839f0de268c54d"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26464,
+      "sha256": "b6824b12e62ac7b1c12adff3e004cd9aa33b7e8e9ac5c23106840d0723b220c1"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E243_down/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 265,
+      "sha256": "8b41b8e95c0a179076a9aa87225101039b5461b5c6bcb75f91cbec19dc0efb88"
+    },
+    {
+      "path": "regcap_run8544/C2/setup/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26472,
+      "sha256": "79ce9b561b93035b950929f5759905c3564545fb6b5184b3d3ac098fe20e03ee"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E243_down/CONFIG.json",
+      "bytes": 3148,
+      "sha256": "78ff341447b884d5b1f80177288f28cd316fbf224c896925efbb12a742611e19"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "82fa484693d6255c9ece1205af39fb516e84c913719247ed66342655a744b56a"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_down/CONFIG.json",
+      "bytes": 3148,
+      "sha256": "d604815631c4f791bebb1660c765362eb11b7eb5788898086181d277d6cca838"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "a1bc2b3814342ca33cab24350a60a4d26d5a26bb619be4bd9b8ed1e6fce91bf5"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_fused13/CONFIG.json",
+      "bytes": 3154,
+      "sha256": "c0a3c746017ffafc64123c625807ce9cb2760c49419bcb47408c72c19310d093"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "941360343c06fbeb3fa1329232baaea51def1d038294cccfa4338bff0aab8f36"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_fused13/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 268,
+      "sha256": "b0a1d37482d3a086721a40bc5d8ce2b854910910e1847c635d8a968c807d5b27"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23850,
+      "sha256": "022b603952c53be7287dc21080834dac5f2335119684f8d70c03266517423953"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_down/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 263,
+      "sha256": "75606f3121ece8015c968e9c76092ce05e1b112255d435f656950aecf864908c"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26468,
+      "sha256": "618cda0a42ee2f6e3c789bb8853e7ddde519a9199b9e4a1c2dcbbc6fcfc2555f"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E243_down/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 265,
+      "sha256": "24b1b72f523e04afaf44d5516b1c5910158f7c6240a0b15655dd4c249a53292a"
+    },
+    {
+      "path": "regcap_run8544/C1/warm/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26475,
+      "sha256": "aa9fc70509e082fa504630c8f08d07b447174a8f10392a64f13d6834fd9cc32d"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E243_down/CONFIG.json",
+      "bytes": 3149,
+      "sha256": "fdf9400fe7cbad75fdd1db497cfac5dd821e5e6709ae1db0da9a1ce9f0b50370"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "82fa484693d6255c9ece1205af39fb516e84c913719247ed66342655a744b56a"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_down/CONFIG.json",
+      "bytes": 3149,
+      "sha256": "55fc484b3c8f870e449825d46f47d79d430f06fc80b09a1000cb0ff1c06c4e28"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "a1bc2b3814342ca33cab24350a60a4d26d5a26bb619be4bd9b8ed1e6fce91bf5"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "006405f9ff4816fa3de30dd5e88d2ff38f3fa3eac9f88f8613dec31be227424b"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_fused13/CONFIG.json",
+      "bytes": 3155,
+      "sha256": "a3993518f13910d6a393c08e46b2328d1fbd4c3fb31222b77f2beee6d41791ff"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "941360343c06fbeb3fa1329232baaea51def1d038294cccfa4338bff0aab8f36"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_fused13/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "629d0705f0e515a58f58375e6867e859487b6bed74fb1e7fb67e357c89ba9fb6"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23852,
+      "sha256": "8a9f9a1146343c1dd8c4c88e7f7f7299b4128f1b9380d13df11f399c5c240858"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_down/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "5176516b49441851791985c4ae7a707e0f4b62374aa877160886b1a882a71dc0"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26730,
+      "sha256": "c87f65d3fe6fa1bed04507ef21845fb7ff1cd6e24632c2dd0eba94e5c25f1561"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E243_down/build/SHARDS.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 265,
+      "sha256": "91ee8f4d5eabbd0244b26ba20f28600a0f2c3d25b7345a3adef3a07a47802afc"
+    },
+    {
+      "path": "regcap_run8544/C1/setup/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26472,
+      "sha256": "b669d4c91ef99566cd51294516d56b3aafc4ded2c2e0172f64f41d0e30b267e4"
+    },
+    {
+      "path": "warp32_run8544/C1.log",
+      "bytes": 9753,
+      "sha256": "397f4610356e285fd2e9ebdbc2722cfd3dd39a1ec86a2707de78a7221da41975"
+    },
+    {
+      "path": "warp32_run8544/C2.log",
+      "bytes": 9754,
+      "sha256": "2bba17f2aa9cc1595c51dacd7b0684ef1eb37cff7f3fdfe2e14ec7527a536b78"
+    },
+    {
+      "path": "warp32_run8544/QUALITY.json",
+      "bytes": 84026,
+      "sha256": "df0c4e7ff06e1fcd84bcd8e0d4b19b32d17ab368168fabcbe3d18496be1a085c"
+    },
+    {
+      "path": "warp32_run8544/warp32_code_run8544_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "a0f11f09283a055f42d1c0114e75f7eb687960fb47d691697a4b7b7801b8b081"
+    },
+    {
+      "path": "warp32_run8544/PREIMAGE.json",
+      "bytes": 707,
+      "sha256": "063d5f62e41ea94731317578b6ba260b2b0a913b6b189d4b5a0910d8faf06886"
+    },
+    {
+      "path": "warp32_run8544/quality.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "warp32_run8544/traceback_base_run8542_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "78dd39436ff8700cdfe50d330ee5c87f1d4c2ee998db71c2f6d5f428430431d7"
+    },
+    {
+      "path": "warp32_run8544/SHARDS_PREIMAGE.json",
+      "bytes": 654,
+      "sha256": "6639ec411ac67fe2d28a598f81672312e89b5e66e720bd9e65b5a313c7dfb910"
+    },
+    {
+      "path": "warp32_run8544/IDENTITY.json",
+      "bytes": 659,
+      "sha256": "3b59ba9b620df8e6733b597f80e512f420b9d1f62f110740dbee6194723b52be"
+    },
+    {
+      "path": "warp32_run8544/resources_candidate.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "warp32_run8544/resources_candidate.json",
+      "bytes": 4786,
+      "sha256": "1d7e6abf2c5a939557a0de2f21d6f01fced727e117af38055bc3c7b811225daa"
+    },
+    {
+      "path": "warp32_run8544/PROGRESS.json",
+      "bytes": 538,
+      "sha256": "f99ad1effd7fb5b5d4c03799f9b5dcb96dd4a1b34ba2520255aa56f2ef0cc6e5"
+    },
+    {
+      "path": "warp32_run8544/TERMINAL.json",
+      "bytes": 633,
+      "sha256": "d7c29c8e6fe0efc88d624a5817fc3add33f9848a1f87fa8b552fd4cecffd5e24"
+    },
+    {
+      "path": "warp32_run8544/OWNERSHIP_FINAL_run8544.json",
+      "bytes": 1826,
+      "sha256": "fd63f265d05e741eb2e8aa353102117a448335ab19a02a35a9683e082fbe07de"
+    },
+    {
+      "path": "warp32_run8544/gpu_tests.log",
+      "bytes": 99,
+      "sha256": "3852e744621226795a726dfdb329df50f792f29494b5b1fb697a64210cadf15c"
+    },
+    {
+      "path": "warp32_run8544/CHILD.json",
+      "bytes": 205,
+      "sha256": "5e122f421ff00422b38860ff871408438e8fd5bd0362c44730c6c345e2ef70e2"
+    },
+    {
+      "path": "warp32_run8544/PREFLIGHT.json",
+      "bytes": 297,
+      "sha256": "05e6b39ffa38a7de0daf0304a5a7170daea38242849a76fa59ce830964b05a37"
+    },
+    {
+      "path": "warp32_run8544/C1/RESULT.json",
+      "bytes": 178216,
+      "sha256": "d8a72f4f468481b2516a244a0ce003adee40f591d0552999731950cc18c17e44"
+    },
+    {
+      "path": "warp32_run8544/C2/RESULT.json",
+      "bytes": 177892,
+      "sha256": "f8bb08f965334fe6169e597d1f69e25c4db42c68a2a8a7832ee787e4a4e7aacf"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E243_down/CONFIG.json",
+      "bytes": 3148,
+      "sha256": "c7bd72848fb29e8f5d9308b8d3ea859e0c7e9caf9cb89665cb2cf9b1cd37065e"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "f67da90f58938f29b692a7aca1f9801ba9e5f5fe264570bcc445c4c8fb7044c7"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_down/CONFIG.json",
+      "bytes": 3148,
+      "sha256": "de52af411d8a9fd6ac5bb063f6b1495e30f5489f3f03ff2b1fc61922b84a9ec1"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "aa35cb31a134cbe85a43614b24ad3d01185faaf4976adb381275036bda8f3396"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_fused13/CONFIG.json",
+      "bytes": 3154,
+      "sha256": "8321c717f6067b0e08b66fbadbd8b8d1a14e3ba37fa232d9566b352b7ea9c9e3"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "165a9516bc07cd017daa634499418a5b89b1283a29d4335e47d7d6328ae8e4f8"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_fused13/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 268,
+      "sha256": "6b6c1c169783c60781f3964b9622723bae737042878faab854a6038907fb9bc5"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23863,
+      "sha256": "2aaea82349cda0bccfa1b708cfdb908303aba5b30a73d7f9173a8e3aa3da772f"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_down/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 265,
+      "sha256": "6b92916069dc315d33dcf2f44b74b8c7899a68a6a78550cd7374d13665de8f8f"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26458,
+      "sha256": "cec94e85e724f83779d0aeef30ea3911eee788d05db225514b4ec8e5e762e453"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E243_down/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "42c318d615c3845241cc36700c0ddee801ce10bd479541ee721fb13e68b660b2"
+    },
+    {
+      "path": "warp32_run8544/C2/warm/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26463,
+      "sha256": "d8ebdfcb5009c595338b6325d37524d7856b7703fd2e0cb43a4cba1d8da2fc00"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E243_down/CONFIG.json",
+      "bytes": 3149,
+      "sha256": "05d6d29d7060b005feb05e445a8464de32210a80cefc302cb2faea74688e13e9"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "f67da90f58938f29b692a7aca1f9801ba9e5f5fe264570bcc445c4c8fb7044c7"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_down/CONFIG.json",
+      "bytes": 3149,
+      "sha256": "cd550d41fe18cbfb259be944544c4dac446bf2d62cb13a0f84c938d70a801f24"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "aa35cb31a134cbe85a43614b24ad3d01185faaf4976adb381275036bda8f3396"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_fused13/CONFIG.json",
+      "bytes": 3155,
+      "sha256": "02b1fccd4a9ba10ac7e17d89a1a77cf6640baaa6e59d0ae5c4b73407126d07e2"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "165a9516bc07cd017daa634499418a5b89b1283a29d4335e47d7d6328ae8e4f8"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_fused13/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "cafb17c2fe2bf18be81656e6905bcaedb431c591b319a92ab425c9a58bd6c605"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23851,
+      "sha256": "563c045be5674eab382a7dcb9d2404c4f834a76229f384e93e34a6a71bc63708"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_down/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "49eb5dcc2bfd1661bbdd81e40f2606912309a8488aa86c796a53b1364c8896fe"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26461,
+      "sha256": "0f534cfeabb99384fe94d3962dc7f0f7138fef45138fbd92bdf496ce41807478"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E243_down/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "0abf8e19be928fd0004af00115a1e3de9e6e1d850d70b3ba567a0ccaffc7c10c"
+    },
+    {
+      "path": "warp32_run8544/C2/setup/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26466,
+      "sha256": "db6a44a6077fe5cb90651285b28439f585b524ae6a7d423c2fb7a01a9448ed8d"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E243_down/CONFIG.json",
+      "bytes": 3148,
+      "sha256": "627df1489b6848fd1d07e034c8416d1682490a3c6162ea7465021cd5720523b3"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "f67da90f58938f29b692a7aca1f9801ba9e5f5fe264570bcc445c4c8fb7044c7"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_down/CONFIG.json",
+      "bytes": 3148,
+      "sha256": "05e9985624f16aff84d0d37c2ecd4a595a2618d0ed8b020ff1d8a2f1486772a5"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "aa35cb31a134cbe85a43614b24ad3d01185faaf4976adb381275036bda8f3396"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_fused13/CONFIG.json",
+      "bytes": 3154,
+      "sha256": "fd023dc44ef51cfe218069e38ff62731a4574183204aa604fb5d698bdd49c33f"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "165a9516bc07cd017daa634499418a5b89b1283a29d4335e47d7d6328ae8e4f8"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_fused13/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "0154b96df2c260bbbca9762c44a78fc39a51a9db97bc31849cc4c3e41f8b5e2b"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23855,
+      "sha256": "336b5aad8d387076fd407eafa6b7a7b3b1121831b8337076bb8f8172ffd5c0d6"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_down/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "32211d15ccca81a3396bf395d424a8d9012a5b0b39706db3e65c23d40b100688"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26467,
+      "sha256": "c9093c73f6bfc289b37ef7223bd98b2f245b64fcad9469de7083b28ad75657b4"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E243_down/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 265,
+      "sha256": "c9c8a511557854392e3f025340d748f9757fe182cbecbbe35a1f82a335cede33"
+    },
+    {
+      "path": "warp32_run8544/C1/warm/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26469,
+      "sha256": "0f7491d02234237a837208c5526368e50ace07e19347a502e9dfcbc6f036ba2e"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E243_down/CONFIG.json",
+      "bytes": 3149,
+      "sha256": "1a4f96a44d17988b46071b98a37d226d9224a03c71a210f4dbfddb37a2964dbe"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "f67da90f58938f29b692a7aca1f9801ba9e5f5fe264570bcc445c4c8fb7044c7"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_down/CONFIG.json",
+      "bytes": 3149,
+      "sha256": "7e7196c3ae1a5992f807d73f073c7efd3486870affe6d2e6e9405c4786011486"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "aa35cb31a134cbe85a43614b24ad3d01185faaf4976adb381275036bda8f3396"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "7714abf8f1280a7960ae958c7693695e352d51d2fbb3efd7d2a10b83c5651130"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_fused13/CONFIG.json",
+      "bytes": 3155,
+      "sha256": "05c909eb89d5cd59d5d4f13bca813a87e511ecc5cd669b0482c474592df6423a"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "165a9516bc07cd017daa634499418a5b89b1283a29d4335e47d7d6328ae8e4f8"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_fused13/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_fused13/build/solve/L004/E242_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "3e1b25f909e94b8fe29bf2eb798f811d6d1c916295b1799880af514b165bc649"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_fused13/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23855,
+      "sha256": "20317b0241daa82c60c9b1258f2d64b47ed58ee54e6ab5b8c0462333d7146fc4"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_down/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_down/build/solve/L004/E242_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "6838a1d0db6e5e0fa31f5b25daccc0cc446123f1bf97f1c6b732b32370ce25b1"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E242_down/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26728,
+      "sha256": "1621edb1a75453bcba7c0f2fdfbbf31cd9d3ca5bf5eccce9c6f531f020f347c8"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E243_down/build/SHARDS.json",
+      "bytes": 638,
+      "sha256": "906d8005742cccd9e12e468dc28eeaf882aaded6936131574a9fb1d36cb21936"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E243_down/build/solve/L004/E243_down/FIRST_GPU_PHASE.json",
+      "bytes": 264,
+      "sha256": "ff9e65bf58723541a401b522809ee4f7676b53e2c87b182ebbfead5f6d6a5e42"
+    },
+    {
+      "path": "warp32_run8544/C1/setup/E243_down/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 26464,
+      "sha256": "b9e128a698d4bb55a61921e3a477403d35c3de4b988ada295d1f85a817dc5b63"
+    }
+  ],
+  "scope": "Negative experiment evidence; no promotion; copied physical units remain in task workspace"
+}

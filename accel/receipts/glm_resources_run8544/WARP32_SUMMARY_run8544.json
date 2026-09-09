@@ -1,0 +1,17 @@
+{
+  "baseline_warm": [
+    15.310650775994873,
+    14.57864457499818
+  ],
+  "candidate_warm": [
+    41.004063904998475,
+    41.09071748401038
+  ],
+  "speedup": 0.36408276927325783,
+  "quality_rows": 12,
+  "max_abs": 0.0,
+  "validation_seconds": 3.9846673349966295,
+  "decision": "REJECT_SPEED",
+  "pin": "75919e7d60b22c97909b25a9df0c84f4dd0fb582",
+  "scope": "retained historical same-input controls; independent clean-fit/decode, not heldout"
+}

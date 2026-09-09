@@ -1,0 +1,12 @@
+{
+  "pid": 1815724,
+  "pgid": 1810837,
+  "start_ticks": 8150441,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_1269dc5f/warp32_run8544.py",
+    "quality",
+    "none"
+  ]
+}

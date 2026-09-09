@@ -1398,3 +1398,45 @@ t_1269dc5f under the persistent objective, not released or retired.
 Evidence, effective configs, code/manifest bindings, timings and failures:
 `accel/receipts/glm_dominant_phase_run8542/`. Do not replay either rejected
 mechanism or claim their smaller code/changed schedule as a speed improvement.
+
+
+## GLM runtime-resource bounds (run8544; rejected)
+
+Dedicated-s6 continuation used the retained authentic L004/E242-down,
+E243-down and E242-fused13 clean16 inputs and prior same-input B1/B2 controls.
+No baseline cell was rebuilt. New candidates each ran setup+warm twice through
+the canonical public builder, then a separate independent canonical decode and
+clean-fit verifier. Historical/shared-cache timing is not matched production,
+cold-JIT or full-model quality evidence.
+
+- Retained baseline warm panels:15.310651 and14.578645 seconds.
+- Disable recurrence LICM, researcha295e9b2:16.365210/16.608653s,0.906454x.
+  Specialized overlap spill slots12→6; registers128 and dynamic shared8192B
+  unchanged. Fewer spills did not improve wall.
+- Register cap64, research8d7fb1c3:70.400864/69.639715s,0.213433x.
+  Registers64 with130/154 spill slots and8192B dynamic shared. Theoretical
+  residency is not measured occupancy or acceleration.
+- K1 upper32-warp schedule, research75919e7d:41.004064/41.090717s,0.364083x.
+  Registers64,48/60 spill slots,32768B dynamic shared. Default16 preserved.
+
+All three are REJECT_SPEED. Each passed20 focused tests (including4 real CUDA
+cases with both overlap modes) and12 independent clean-fit/decode checks.
+All36 new decoded units matched their retained panel controls here; equality is
+diagnostic, not a reinstated acceptance rule. Independent validation wall was
+3.933543,3.819226 and3.984667s respectively, separate from producer timing.
+All36 actual copied output hashes were independently authenticated. No frozen
+heldout forward was replayed, no candidate promoted, and no production adoption
+is claimed. The first LICM namespace failed before any solve because GPUTarget
+metadata was not JSON serializable; the unique retry preserves that failure.
+
+Runtime resource receipts bind source hashes, exact dtype/geometry/overlap
+specializations and cubin hashes via compile/load-only warmup. A separate274
+entry cache census is not an executed-specialization inventory. cuobjdump static
+shared and Triton dynamic shared differ; stack bytes and spill slots differ.
+Dedicated ownership remains retained, all three finite supervisors/last children
+naturally exited. Prior adopted milestones and tested capacity helper unchanged.
+Evidence: `accel/receipts/glm_resources_run8544/MANIFEST.json` and summaries.
+Next distinct bounded direction: current-owner-compatible GLM unitwise grouped
+public build against retained singleton controls, not another rejected register,
+LICM, traceback, pointer/cache or timestep variant. It still needs authentic
+numerical/whole-work evidence before any owner adoption request.

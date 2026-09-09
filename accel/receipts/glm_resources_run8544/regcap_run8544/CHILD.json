@@ -1,0 +1,12 @@
+{
+  "pid": 1811167,
+  "pgid": 1803907,
+  "start_ticks": 8131025,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_1269dc5f/regcap_run8544.py",
+    "quality",
+    "none"
+  ]
+}

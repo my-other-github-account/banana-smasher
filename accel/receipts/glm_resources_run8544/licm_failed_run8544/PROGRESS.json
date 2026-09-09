@@ -1,0 +1,8 @@
+[
+  {
+    "job": "resources_baseline",
+    "arm": "baseline",
+    "returncode": 1,
+    "seconds": 3.374860362004256
+  }
+]

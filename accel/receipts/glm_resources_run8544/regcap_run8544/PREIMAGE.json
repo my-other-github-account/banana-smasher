@@ -1,0 +1,22 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/licm_run8544r2",
+  "receipt": "/dev/shm/t_1269dc5f/licm_run8544r2/IDENTITY.json",
+  "expiry_unix": 1788922908.723813,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "22a57fce799507217155a0177db6c1b0912675354c284bd2aaf55f0474e749a4",
+  "stage": "licm_terminal_retained",
+  "pid": 1800218,
+  "pgid": 1800218,
+  "start_ticks": 8076525,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "licm_r2_run8544.py"
+  ],
+  "terminal_at": 1788915819.8948467
+}

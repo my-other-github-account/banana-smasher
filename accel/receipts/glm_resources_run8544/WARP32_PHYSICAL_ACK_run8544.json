@@ -1,0 +1,65 @@
+{
+  "rows": [
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C1/setup/E242_down/build/solve/L004/E242_down/QTIP_UNIT.pt",
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1",
+      "bytes": 1067673
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C1/warm/E242_down/build/solve/L004/E242_down/QTIP_UNIT.pt",
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1",
+      "bytes": 1067673
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C2/setup/E242_down/build/solve/L004/E242_down/QTIP_UNIT.pt",
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1",
+      "bytes": 1067673
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C2/warm/E242_down/build/solve/L004/E242_down/QTIP_UNIT.pt",
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1",
+      "bytes": 1067673
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C1/setup/E243_down/build/solve/L004/E243_down/QTIP_UNIT.pt",
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12",
+      "bytes": 1067673
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C1/warm/E243_down/build/solve/L004/E243_down/QTIP_UNIT.pt",
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12",
+      "bytes": 1067673
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C2/setup/E243_down/build/solve/L004/E243_down/QTIP_UNIT.pt",
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12",
+      "bytes": 1067673
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C2/warm/E243_down/build/solve/L004/E243_down/QTIP_UNIT.pt",
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12",
+      "bytes": 1067673
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C1/setup/E242_fused13/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303",
+      "bytes": 2120345
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C1/warm/E242_fused13/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303",
+      "bytes": 2120345
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C2/setup/E242_fused13/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303",
+      "bytes": 2120345
+    },
+    {
+      "path": "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/receipts/warp32_run8544/C2/warm/E242_fused13/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303",
+      "bytes": 2120345
+    }
+  ],
+  "scope": "independent copied-output hashes"
+}

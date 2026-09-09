@@ -1,0 +1,70 @@
+{
+  "epoch": 1788916470.5303144,
+  "claim": {
+    "host": "spark-6",
+    "owner": "t_1269dc5f",
+    "task_id": "t_1269dc5f",
+    "state": "CLAIMED",
+    "status": "CLAIMED",
+    "mission": "/dev/shm/t_1269dc5f/warp32_run8544",
+    "receipt": "/dev/shm/t_1269dc5f/warp32_run8544/IDENTITY.json",
+    "expiry_unix": 1788923461.1451178,
+    "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "exact_cas_from_sha256": "063d5f62e41ea94731317578b6ba260b2b0a913b6b189d4b5a0910d8faf06886",
+    "stage": "warp32_terminal_retained",
+    "pid": 1810837,
+    "pgid": 1810837,
+    "start_ticks": 8129867,
+    "argv": [
+      "/home/dnola/humming_env/bin/python",
+      "-u",
+      "warp32_run8544.py"
+    ],
+    "terminal_at": 1788916454.7502182
+  },
+  "child": {
+    "pid": 1815724,
+    "pgid": 1810837,
+    "start_ticks": 8150441,
+    "argv": [
+      "/home/dnola/humming_env/bin/python",
+      "-u",
+      "/dev/shm/t_1269dc5f/warp32_run8544.py",
+      "quality",
+      "none"
+    ]
+  },
+  "supervisor_absent": true,
+  "child_absent": true,
+  "shards": {
+    "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "rows": [
+      {
+        "owner": "t_1269dc5f",
+        "layer": 4,
+        "experts": [
+          242,
+          243
+        ],
+        "projections": [
+          "down"
+        ],
+        "operation": "warp32_candidate_only",
+        "receipt": "/dev/shm/t_1269dc5f/warp32_run8544/QUALITY.json"
+      },
+      {
+        "owner": "t_1269dc5f",
+        "layer": 4,
+        "experts": [
+          242
+        ],
+        "projections": [
+          "fused13"
+        ],
+        "operation": "warp32_candidate_only",
+        "receipt": "/dev/shm/t_1269dc5f/warp32_run8544/QUALITY.json"
+      }
+    ]
+  },
+  "claim_retained_unchanged": true
+}

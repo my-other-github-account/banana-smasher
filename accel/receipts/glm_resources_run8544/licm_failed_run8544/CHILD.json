@@ -1,0 +1,12 @@
+{
+  "pid": 1799667,
+  "pgid": 1799664,
+  "start_ticks": 8073974,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_1269dc5f/licm_run8544.py",
+    "resources_baseline",
+    "baseline"
+  ]
+}

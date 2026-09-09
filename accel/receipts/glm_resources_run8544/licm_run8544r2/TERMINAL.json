@@ -1,0 +1,41 @@
+{
+  "returncode": 0,
+  "rows": [
+    {
+      "job": "resources_baseline",
+      "arm": "baseline",
+      "returncode": 0,
+      "seconds": 1.6119733239902416
+    },
+    {
+      "job": "resources_candidate",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 3.595900744010578
+    },
+    {
+      "job": "gpu_tests",
+      "arm": null,
+      "returncode": 0,
+      "seconds": 19.028325623003184
+    },
+    {
+      "job": "C1",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 41.065784391001216
+    },
+    {
+      "job": "C2",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 39.02589444599289
+    },
+    {
+      "job": "quality",
+      "arm": null,
+      "returncode": 0,
+      "seconds": 6.808521861996269
+    }
+  ]
+}

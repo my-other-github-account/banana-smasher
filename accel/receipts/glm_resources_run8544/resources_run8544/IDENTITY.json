@@ -1,0 +1,21 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/resources_run8544",
+  "receipt": "/dev/shm/t_1269dc5f/resources_run8544/IDENTITY.json",
+  "expiry_unix": 1788922708.0541837,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "6634500242742688f99509aa1e1252afc8dca528f24c2ef9c87380d1e4602574",
+  "stage": "resource_inspection",
+  "pid": 1797117,
+  "pgid": 1797117,
+  "start_ticks": 8056458,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "resources_run8544.py"
+  ]
+}

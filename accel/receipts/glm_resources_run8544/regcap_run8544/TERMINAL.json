@@ -1,0 +1,35 @@
+{
+  "returncode": 0,
+  "rows": [
+    {
+      "job": "resources_candidate",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 3.603681141001289
+    },
+    {
+      "job": "gpu_tests",
+      "arm": null,
+      "returncode": 0,
+      "seconds": 17.25163659999089
+    },
+    {
+      "job": "C1",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 149.65643622700009
+    },
+    {
+      "job": "C2",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 145.41186151400325
+    },
+    {
+      "job": "quality",
+      "arm": null,
+      "returncode": 0,
+      "seconds": 6.7458788770018145
+    }
+  ]
+}

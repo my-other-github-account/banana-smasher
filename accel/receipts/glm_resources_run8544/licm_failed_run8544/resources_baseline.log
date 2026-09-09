@@ -1,0 +1,24 @@
+Traceback (most recent call last):
+  File "/dev/shm/t_1269dc5f/licm_run8544.py", line 66, in <module>
+    put(OUT/(name+'.json'),dict(rows=rows,module_sha256=sha(Path(kernel.fn.__code__.co_filename)),scope='runtime-specialized compile/load only; no kernel executed, no cell replay'))
+  File "/dev/shm/t_1269dc5f/licm_run8544.py", line 7, in put
+    with tmp.open('w') as f:json.dump(x,f,indent=2);f.flush();os.fsync(f.fileno())
+                            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/__init__.py", line 179, in dump
+    for chunk in iterable:
+  File "/usr/lib/python3.12/json/encoder.py", line 432, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/usr/lib/python3.12/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.12/json/encoder.py", line 326, in _iterencode_list
+    yield from chunks
+  File "/usr/lib/python3.12/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.12/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.12/json/encoder.py", line 439, in _iterencode
+    o = _default(o)
+        ^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type GPUTarget is not JSON serializable
