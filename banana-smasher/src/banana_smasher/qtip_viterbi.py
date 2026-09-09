@@ -215,6 +215,7 @@ def _persistent_prefix_viterbi_generic(
     BRANCH_UNROLL: tl.constexpr,
     STRUCTURED_GATHER: tl.constexpr,
     BRANCH_POINTERS: tl.constexpr = False,
+    DISABLE_LICM: tl.constexpr = False,
     LUT_EVICTION: tl.constexpr = "",
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
@@ -260,8 +261,8 @@ def _persistent_prefix_viterbi_generic(
     if not REGISTER_COSTS:
         tl.debug_barrier()
 
-    step = 1
-    while step < STEPS:
+    # Research: keep invariant LUT vectors out of the loop-carried live set.
+    for step in tl.range(1, STEPS, disable_licm=DISABLE_LICM):
         # Costs belong to this CTA. Gather the preceding vector directly,
         # avoiding global scratch reloads and stores at every timestep.
         # No arithmetic, branch order, or tie-breaking changes.
@@ -305,8 +306,6 @@ def _persistent_prefix_viterbi_generic(
         )
         if not REGISTER_COSTS:
             tl.debug_barrier()
-        step += 1
-
     # Traceback may read another lane's last backpointer.
     tl.debug_barrier()
     if HAS_OVERLAP:
@@ -645,6 +644,7 @@ def exact_prefix_viterbi(
             BRANCH_UNROLL=branch_unroll,
             STRUCTURED_GATHER=structured_gather,
             BRANCH_POINTERS=backpointer_dtype == "uint8",
+            DISABLE_LICM=K == 1 and structured_gather,
             LUT_EVICTION="evict_last" if lut_l1_retention else "",
             num_warps=generic_warps,
             num_stages=1,
