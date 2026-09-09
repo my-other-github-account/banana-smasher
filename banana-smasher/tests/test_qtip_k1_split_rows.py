@@ -41,3 +41,10 @@ def test_cuda_public_structured_vs_generic(steps, batch):
         got=exact_prefix_viterbi(cb,x,overlap)
         torch.cuda.synchronize()
         assert torch.equal(ref,got)
+
+
+def test_k1_split_selection_has_early_static_branch_specialization():
+    tree=ast.parse(SOURCE.read_text())
+    node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_persistent_prefix_viterbi_generic')
+    loops=[n for n in ast.walk(node) if isinstance(n,ast.For) and ast.unparse(n.iter)=='tl.static_range(0, 4)']
+    assert len(loops)==1, 'K1 split row q must specialize before TTIR layout lowering'

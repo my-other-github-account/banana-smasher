@@ -282,34 +282,50 @@ def _persistent_prefix_viterbi_generic(
         chosen = tl.zeros((PREFIXES,), tl.int32)
         xa = tl.load(x_ptr + (step * V) * B + seq).to(tl.float32)
         xb = tl.load(x_ptr + (step * V + 1) * B + seq).to(tl.float32)
-        for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
-            predecessor_prefix = q * Q_FACTOR + residue
-            if REGISTER_COSTS:
-                if STRUCTURED_GATHER:
-                    # Select one contiguous predecessor row, then broadcast its
-                    # entries BRANCHES times (K1: 4x4096; K3: 64x16).
-                    # Nonnegative costs add only exact zeros, including +inf.
-                    if BRANCHES == 4:
-                        selected = _select_k1_cost_row(previous_costs, q, Q_FACTOR)
+        if STRUCTURED_GATHER and REGISTER_COSTS and BRANCHES == 4:
+            # Specialize q before TTIR layout lowering, rather than late LLVM
+            # loop unrolling: unused split rows/selects can disappear early.
+            for branch_q in tl.static_range(0, 4):
+                selected_row = _select_k1_cost_row(previous_costs, branch_q, Q_FACTOR)
+                branch_cost = tl.reshape(tl.broadcast_to(
+                    selected_row[:, None], (Q_FACTOR, 4)
+                ), (PREFIXES,))
+                branch_state = branch_q * PREFIXES + j
+                branch_la = tl.load(lut_ptr + branch_state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                branch_lb = tl.load(lut_ptr + STATES + branch_state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                branch_candidate = branch_cost + (branch_la - xa) * (branch_la - xa) + (branch_lb - xb) * (branch_lb - xb)
+                branch_take = branch_candidate < best
+                best = tl.where(branch_take, branch_candidate, best)
+                chosen = tl.where(branch_take, branch_state, chosen)
+        else:
+            for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
+                predecessor_prefix = q * Q_FACTOR + residue
+                if REGISTER_COSTS:
+                    if STRUCTURED_GATHER:
+                        # Select one contiguous predecessor row, then broadcast its
+                        # entries BRANCHES times (K1: 4x4096; K3: 64x16).
+                        # Nonnegative costs add only exact zeros, including +inf.
+                        if BRANCHES == 4:
+                            selected = _select_k1_cost_row(previous_costs, q, Q_FACTOR)
+                        else:
+                            cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
+                            selected = tl.sum(tl.where(
+                                tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
+                            ), axis=0)
+                        predecessor_cost = tl.reshape(tl.broadcast_to(
+                            selected[:, None], (Q_FACTOR, BRANCHES)
+                        ), (PREFIXES,))
                     else:
-                        cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
-                        selected = tl.sum(tl.where(
-                            tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
-                        ), axis=0)
-                    predecessor_cost = tl.reshape(tl.broadcast_to(
-                        selected[:, None], (Q_FACTOR, BRANCHES)
-                    ), (PREFIXES,))
+                        predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
                 else:
-                    predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
-            else:
-                predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
-            state = q * PREFIXES + j
-            la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-            lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-            candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
-            take = candidate < best
-            best = tl.where(take, candidate, best)
-            chosen = tl.where(take, state, chosen)
+                    predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
+                state = q * PREFIXES + j
+                la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+                take = candidate < best
+                best = tl.where(take, candidate, best)
+                chosen = tl.where(take, state, chosen)
         if not REGISTER_COSTS:
             tl.store(scratch_ptr + current_base + j, best)
         tl.store(
