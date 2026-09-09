@@ -1,0 +1,35 @@
+{
+  "returncode": 0,
+  "rows": [
+    {
+      "job": "B1",
+      "arm": "baseline",
+      "returncode": 0,
+      "seconds": 22.740311764006037
+    },
+    {
+      "job": "B2",
+      "arm": "baseline",
+      "returncode": 0,
+      "seconds": 22.96723975999339
+    },
+    {
+      "job": "C1",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 31.55205877100525
+    },
+    {
+      "job": "C2",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 32.0019610219897
+    },
+    {
+      "job": "quality",
+      "arm": null,
+      "returncode": 0,
+      "seconds": 6.579120601003524
+    }
+  ]
+}

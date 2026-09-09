@@ -1,0 +1,21 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/fused_pair_run8545",
+  "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/IDENTITY.json",
+  "expiry_unix": 1788924766.5782704,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "e23b907a59b77565fe07c96a9c6543c7976bb8f03fa2e8f82a4c6bc13f97260c",
+  "stage": "unitwise_grouped",
+  "pid": 1829105,
+  "pgid": 1829105,
+  "start_ticks": 8262312,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "fused_pair_run8545.py"
+  ]
+}

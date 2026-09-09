@@ -1,0 +1,12 @@
+{
+  "pid": 1831466,
+  "pgid": 1829105,
+  "start_ticks": 8273249,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_1269dc5f/fused_pair_run8545.py",
+    "quality",
+    "none"
+  ]
+}

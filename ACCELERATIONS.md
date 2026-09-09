@@ -1,5 +1,29 @@
 # Runtime accelerations
 
+## GLM two-fused grouping extension (sealed run8548)
+
+Completed run8545 at canonical aa455253fa0cd8944a4148112d44c537938d40c4
+also measured two authentic L004 fused cells, E242 and E243. E242's sealed
+singleton controls were retained, not replayed; only the distinct E243
+singleton controls were new. Original source, clean-fit material and canonical
+projection-specific seeds were preserved. Both batch flags
+`block_ldl_unitwise=true` and `block_ldl_reference=true` were explicit.
+
+- Warm two-cell public build: combined singleton controls
+  16.828495/16.540510s versus grouped 12.827510/13.103029s, 1.286861x.
+- Setup public build ratio: 1.237562x; shared/prebuilt caches mean this is
+  not a cold-JIT result. Historical/noninterleaved controls are not matched
+  production timing, and no full-model ETA follows from this panel.
+- Independent canonical decode/clean-fit checks: 12/12 PASS at unchanged
+  SSE-ratio limit 1.0001; observed decoded delta zero. Numerical validation
+  took 3.671078s separately. This is not heldout or full-model quality.
+- Warm peak allocated/reserved: 3,040,297,472 / 3,454,009,344 bytes.
+- Receipts and original physical-output ACK:
+  `accel/receipts/glm_fused_pair_run8545/`. Actual units remain in the task
+  workspace. This evidence-only extension does not change the runtime pin,
+  request a production replay, or establish owner adoption. The fresh
+  down-pair owner canary remains a separate acceptance gate.
+
 ## GLM runtime-reference LDL grouping boundary (run8545)
 
 The authenticated GLM runtime's singleton `math.block_LDL` normalizes each

@@ -1,0 +1,512 @@
+{
+  "remote": "/dev/shm/t_1269dc5f/fused_pair_run8545",
+  "files": [
+    {
+      "path": "TERMINAL.json",
+      "bytes": 613,
+      "sha256": "26d021b01b6fae3f9a17fb2a68ca18132804ea3977cb09c17cb4cdf2e9883622"
+    },
+    {
+      "path": "PROGRESS.json",
+      "bytes": 518,
+      "sha256": "2968b0fcd7f2a515ac12724bc855e3a37cebcb5000b3139fdee36ed08aaf9e61"
+    },
+    {
+      "path": "GATE.json",
+      "bytes": 72,
+      "sha256": "f06ecf7d5c412021257d967a889382601974e7a84ab8ea5f390f2aced1621234"
+    },
+    {
+      "path": "QUALITY.json",
+      "bytes": 83710,
+      "sha256": "dee2a81e92a0b9f87d7e1afd0d80967287c943e82cf3d0abad9d4d516384d159"
+    },
+    {
+      "path": "quality_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "eba0f35316e91d3ed46f99191c57969b07557ac931075c49aabdd27ae5021467"
+    },
+    {
+      "path": "CHILD.json",
+      "bytes": 209,
+      "sha256": "2fba9b887d3067bc0bdce305d18300c3d6927041fb3bd55afa0cede0c95f9baa"
+    },
+    {
+      "path": "quality.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "C2_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "308dec91591da7ca175c5a25a991b0c5b0e61bf687965c8b1ecf9ed019bdc064"
+    },
+    {
+      "path": "C2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "C1_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "9132ef7409bfb6d6e2a4b1e47ef6301cffd8652934dc9e2873d7b2914f6a43a3"
+    },
+    {
+      "path": "C1.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "B2_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "b21c0562c862ff9183633c0518f8e8f2d2425c4865a593c460fa905fc675af6e"
+    },
+    {
+      "path": "B2.log",
+      "bytes": 4507,
+      "sha256": "aeff869cdf1dae9a8cded9e858047175864de3f971090bc6281ef714f28c7656"
+    },
+    {
+      "path": "B1_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "6ed0f15aebadb671d21245029262a0821013b355ce08390a49e7162c1e72fe15"
+    },
+    {
+      "path": "B1.log",
+      "bytes": 4508,
+      "sha256": "c59de709f5f6084bf2cdc7b3baf5a20f71e9e14715e74cc8db664f06fc425f90"
+    },
+    {
+      "path": "traceback_base_run8542_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "78dd39436ff8700cdfe50d330ee5c87f1d4c2ee998db71c2f6d5f428430431d7"
+    },
+    {
+      "path": "fused_pair_code_run8545_DEPLOY.json",
+      "bytes": 173,
+      "sha256": "413d5331d0cbb9f7013e6f36c2c3ce2768510f032b0489e3b10b8387879c23cd"
+    },
+    {
+      "path": "IDENTITY.json",
+      "bytes": 666,
+      "sha256": "5fbac2d831cbadc9fba76445b5e252daccc53f81e413369af5248c56d5d47a8c"
+    },
+    {
+      "path": "PREIMAGE.json",
+      "bytes": 736,
+      "sha256": "e23b907a59b77565fe07c96a9c6543c7976bb8f03fa2e8f82a4c6bc13f97260c"
+    },
+    {
+      "path": "SHARDS_PREIMAGE.json",
+      "bytes": 646,
+      "sha256": "b192e80462f3e2b86628a844374dc6b0aeafbc0a69c37cefd6fbdcf7dd05f1f4"
+    },
+    {
+      "path": "PREFLIGHT.json",
+      "bytes": 297,
+      "sha256": "d022d4d8dcc787874b293688829c6b4001b7c2eb4d6f8a74758d54eeb75ca9ed"
+    },
+    {
+      "path": "C2/RESULT.json",
+      "bytes": 117466,
+      "sha256": "79ba95db5239887550d601c6bdebf276f6b0b7d8889313057503eafd662b0304"
+    },
+    {
+      "path": "C1/RESULT.json",
+      "bytes": 117463,
+      "sha256": "b8958af9c6bbdcc232a480d9a0d7d5a6a971369d1ee502433ca701cc4467caf9"
+    },
+    {
+      "path": "B2/RESULT.json",
+      "bytes": 55773,
+      "sha256": "bc2f56ed2ee67a05e056fa7a6418fc7267f7bb005791fa7236c0ad1cb7ec4bc8"
+    },
+    {
+      "path": "B1/RESULT.json",
+      "bytes": 55777,
+      "sha256": "7d222c1850719cb329f03d05ecb5b86ca8f5ae12d726a3c47512c8549e027483"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/build/SHARDS.json",
+      "bytes": 379,
+      "sha256": "b597f56baaf595cbfc35c65993cac03b4b865a652102c719985c79ba6b7d325f"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/E243_fused13/CONFIG.json",
+      "bytes": 3234,
+      "sha256": "211d652fdc9fdd3f60ae90f9c8e198bd3e552ffd3c04f7c6b90261bdea385564"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/E243_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/E243_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "94635d0c4c8c0eff9a5b5736259c5c4d08f3a64d6c00fe0d46e0f1734c3d51fb"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/E242_fused13/CONFIG.json",
+      "bytes": 3235,
+      "sha256": "f20b3c4612250d4052a6159b324ba0749e6503562d1efbe827dc73372963a494"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/E242_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "e6bcebba12822548a206d28e82141f4df799b9b79ae8859ad6628e7e87283251"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/build/solve/L004/E243_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24210,
+      "sha256": "c16caf2f7bd7c8503e024f7f896d06810f3b349a32543099cd5e082fead4a4ca"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/build/solve/L004/E243_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "02768a42d5b927640630301c2ece812276f5062ce09dcd3ef05fe87753b51b8b"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24211,
+      "sha256": "3d9dfdb3b6c8bdbc53c37de47d002df02c8bc46d8313c569dc8c3f6dba14e760"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "path": "C2/warm/GROUP_FUSED/build/solve/L004/batches/14af50bab08d1200/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4222,
+      "sha256": "0b3158bebbb74b2ca3918fd54ce6b60aaf9a446ae1364bd3f19909a936872eb9"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/build/SHARDS.json",
+      "bytes": 379,
+      "sha256": "b597f56baaf595cbfc35c65993cac03b4b865a652102c719985c79ba6b7d325f"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/E243_fused13/CONFIG.json",
+      "bytes": 3235,
+      "sha256": "ba923e5530efeb52b0d94bcaba96fb223b4680a87285eac9a2f62340e563959f"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/E243_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/E243_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "94635d0c4c8c0eff9a5b5736259c5c4d08f3a64d6c00fe0d46e0f1734c3d51fb"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/E242_fused13/CONFIG.json",
+      "bytes": 3236,
+      "sha256": "3c1e354ed32f7964db3fa358044e2f80a3d0cd5abf12e6c086edf6a5b2ea4255"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/E242_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "e6bcebba12822548a206d28e82141f4df799b9b79ae8859ad6628e7e87283251"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/build/solve/L004/E243_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24205,
+      "sha256": "bf7f72b410045e2809e8978d8f08242310a4cc058c877094644bedae9177bbfd"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/build/solve/L004/E243_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "02768a42d5b927640630301c2ece812276f5062ce09dcd3ef05fe87753b51b8b"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24208,
+      "sha256": "65263041afaab06aa30c75fa7c8365f45f251f8aa72f81e0085c58c25871a568"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "path": "C2/setup/GROUP_FUSED/build/solve/L004/batches/14af50bab08d1200/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4221,
+      "sha256": "a7413abe2eb9c2dc8e7d5abce06629db9e1986eed29e4b4a042ffe83c8a471fd"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/build/SHARDS.json",
+      "bytes": 379,
+      "sha256": "b597f56baaf595cbfc35c65993cac03b4b865a652102c719985c79ba6b7d325f"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/E243_fused13/CONFIG.json",
+      "bytes": 3234,
+      "sha256": "030822e39860c0116660f426ce0ffa7c171274ebcb6dfd092984c55f7cab0a1f"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/E243_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/E243_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "94635d0c4c8c0eff9a5b5736259c5c4d08f3a64d6c00fe0d46e0f1734c3d51fb"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/E242_fused13/CONFIG.json",
+      "bytes": 3235,
+      "sha256": "8cc80ee0f221d68bb84603b6395b9b9f379a048cd807432e0e6cd09a8336b689"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/E242_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "e6bcebba12822548a206d28e82141f4df799b9b79ae8859ad6628e7e87283251"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/build/solve/L004/E243_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24211,
+      "sha256": "fda5c6628a5479f005464b113cca973dd89649eb1573e5397a197cb003becb20"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/build/solve/L004/E243_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "02768a42d5b927640630301c2ece812276f5062ce09dcd3ef05fe87753b51b8b"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24214,
+      "sha256": "f06465abf4b9ef051cfccf8978c9a25403a8e459c7af52131c667013d81790b3"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "path": "C1/warm/GROUP_FUSED/build/solve/L004/batches/14af50bab08d1200/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4224,
+      "sha256": "3d49fd1d8511fe31c10936e4028475a62f626a4d4faa181ef4a8078f846aa5b5"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/build/SHARDS.json",
+      "bytes": 379,
+      "sha256": "b597f56baaf595cbfc35c65993cac03b4b865a652102c719985c79ba6b7d325f"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/E243_fused13/CONFIG.json",
+      "bytes": 3235,
+      "sha256": "89e91ffcd12aec38c7687f06cafff703410937a6c546cb127b6b4a207b9b45aa"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/E243_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/E243_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "94635d0c4c8c0eff9a5b5736259c5c4d08f3a64d6c00fe0d46e0f1734c3d51fb"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/E242_fused13/CONFIG.json",
+      "bytes": 3236,
+      "sha256": "27dd19347c8cd7d203c6e554a19470d4fc6bfddf929d1f3bede2e2dd0e38ef50"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/E242_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "e6bcebba12822548a206d28e82141f4df799b9b79ae8859ad6628e7e87283251"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/build/solve/L004/E243_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24203,
+      "sha256": "2d3295c0f483be9efdc976849131c3916be36b192a6e1f84c6b081736abc8a3b"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/build/solve/L004/E243_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "02768a42d5b927640630301c2ece812276f5062ce09dcd3ef05fe87753b51b8b"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24204,
+      "sha256": "f52c35980ef2068bfdf4d1a787ecb89704d85d259a725b31beff1d4cb7614921"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "path": "C1/setup/GROUP_FUSED/build/solve/L004/batches/14af50bab08d1200/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4217,
+      "sha256": "2dfae8ef3010166dcec9b3106846a2613f44f7ac53db10b69fc66026181c9b23"
+    },
+    {
+      "path": "B2/warm/NEW_FUSED/build/SHARDS.json",
+      "bytes": 379,
+      "sha256": "b597f56baaf595cbfc35c65993cac03b4b865a652102c719985c79ba6b7d325f"
+    },
+    {
+      "path": "B2/warm/NEW_FUSED/E243_fused13/CONFIG.json",
+      "bytes": 3232,
+      "sha256": "20cd3eb369a5a17cccacfc3c659b68a481211d486a973109d00996b00fd7178d"
+    },
+    {
+      "path": "B2/warm/NEW_FUSED/E243_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "B2/warm/NEW_FUSED/E243_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "94635d0c4c8c0eff9a5b5736259c5c4d08f3a64d6c00fe0d46e0f1734c3d51fb"
+    },
+    {
+      "path": "B2/warm/NEW_FUSED/build/solve/L004/E243_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23847,
+      "sha256": "51fb190caa01c6ea1998c21469934fc5006bb732164634bddeba44a57ae8970d"
+    },
+    {
+      "path": "B2/warm/NEW_FUSED/build/solve/L004/E243_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "02768a42d5b927640630301c2ece812276f5062ce09dcd3ef05fe87753b51b8b"
+    },
+    {
+      "path": "B2/warm/NEW_FUSED/build/solve/L004/E243_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 266,
+      "sha256": "ffb0c566cf86c2f30db493d35a62ae2749f953d24f1d708b24f72f53c833b6ee"
+    },
+    {
+      "path": "B2/setup/NEW_FUSED/build/SHARDS.json",
+      "bytes": 379,
+      "sha256": "b597f56baaf595cbfc35c65993cac03b4b865a652102c719985c79ba6b7d325f"
+    },
+    {
+      "path": "B2/setup/NEW_FUSED/E243_fused13/CONFIG.json",
+      "bytes": 3233,
+      "sha256": "4299e222ba79ad9f41eb14b9b97664ab001c206beedc8c09a1f28a2de61b3349"
+    },
+    {
+      "path": "B2/setup/NEW_FUSED/E243_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "B2/setup/NEW_FUSED/E243_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "94635d0c4c8c0eff9a5b5736259c5c4d08f3a64d6c00fe0d46e0f1734c3d51fb"
+    },
+    {
+      "path": "B2/setup/NEW_FUSED/build/solve/L004/E243_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23845,
+      "sha256": "3d7b8068ffdaaa68e2b8692d6da11697f17030a01814addfec796806c9050be9"
+    },
+    {
+      "path": "B2/setup/NEW_FUSED/build/solve/L004/E243_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "02768a42d5b927640630301c2ece812276f5062ce09dcd3ef05fe87753b51b8b"
+    },
+    {
+      "path": "B2/setup/NEW_FUSED/build/solve/L004/E243_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "cc4c453e0f2d190c89a156a8e48dd93f8fb9c729a0d4f3d2866f56a077b1988d"
+    },
+    {
+      "path": "B1/warm/NEW_FUSED/build/SHARDS.json",
+      "bytes": 379,
+      "sha256": "b597f56baaf595cbfc35c65993cac03b4b865a652102c719985c79ba6b7d325f"
+    },
+    {
+      "path": "B1/warm/NEW_FUSED/E243_fused13/CONFIG.json",
+      "bytes": 3232,
+      "sha256": "88e4c0e546d6cbc4b82ec14791b77b2973c33f79601f621ae4441cf9175a05ed"
+    },
+    {
+      "path": "B1/warm/NEW_FUSED/E243_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "B1/warm/NEW_FUSED/E243_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "94635d0c4c8c0eff9a5b5736259c5c4d08f3a64d6c00fe0d46e0f1734c3d51fb"
+    },
+    {
+      "path": "B1/warm/NEW_FUSED/build/solve/L004/E243_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23850,
+      "sha256": "cd2907696a15fb7f048c1ce277231919d8edf5e3b4d68383d53018f9bb010d1a"
+    },
+    {
+      "path": "B1/warm/NEW_FUSED/build/solve/L004/E243_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "02768a42d5b927640630301c2ece812276f5062ce09dcd3ef05fe87753b51b8b"
+    },
+    {
+      "path": "B1/warm/NEW_FUSED/build/solve/L004/E243_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "48edad6c5eb6f9cd50aa95c93df241bc13cd22410cb6e8f410a4576c5ab137e5"
+    },
+    {
+      "path": "B1/setup/NEW_FUSED/build/SHARDS.json",
+      "bytes": 379,
+      "sha256": "b597f56baaf595cbfc35c65993cac03b4b865a652102c719985c79ba6b7d325f"
+    },
+    {
+      "path": "B1/setup/NEW_FUSED/E243_fused13/CONFIG.json",
+      "bytes": 3233,
+      "sha256": "a331e921b6135269c2557b7efb341ce82b707ba0001d373071eedd2a5c2acdea"
+    },
+    {
+      "path": "B1/setup/NEW_FUSED/E243_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6601,
+      "sha256": "5b285d2f740002005d33afe32cbe868eaa6d69533f158bc0a80c07862e9db88e"
+    },
+    {
+      "path": "B1/setup/NEW_FUSED/E243_fused13/MANIFEST.json",
+      "bytes": 803,
+      "sha256": "94635d0c4c8c0eff9a5b5736259c5c4d08f3a64d6c00fe0d46e0f1734c3d51fb"
+    },
+    {
+      "path": "B1/setup/NEW_FUSED/build/solve/L004/E243_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23846,
+      "sha256": "7af5106e01b6e0201c8c9706f5d9204b6bd21c2c7640be2e73465bc0f82ee0c8"
+    },
+    {
+      "path": "B1/setup/NEW_FUSED/build/solve/L004/E243_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "02768a42d5b927640630301c2ece812276f5062ce09dcd3ef05fe87753b51b8b"
+    },
+    {
+      "path": "B1/setup/NEW_FUSED/build/solve/L004/E243_fused13/FIRST_GPU_PHASE.json",
+      "bytes": 267,
+      "sha256": "6ccbda46fc13aec286a4a0ab65f80f101b70e8d97f9f441f9666a6123618fb6e"
+    }
+  ],
+  "total_bytes": 26327037,
+  "verified": true
+}

@@ -1,0 +1,56 @@
+{
+  "scope": "two authentic fused cells; E242 historical controls reused, E243 new singleton controls only. No cold-JIT, interleaved matched production or full-model claims.",
+  "pin": "aa455253fa0cd8944a4148112d44c537938d40c4",
+  "recipe": "E243 fused derived from original E243 down source/clean-fit/seed material using canonical projection-specific seed; E242 original fused preserved",
+  "timings": {
+    "setup": {
+      "baseline_e242_seconds": [
+        9.026599078992149,
+        8.823619648988824
+      ],
+      "new_baseline_e243_seconds": [
+        10.446064040006604,
+        10.280886113003362
+      ],
+      "combined_baseline_seconds": [
+        19.472663118998753,
+        19.104505761992186
+      ],
+      "candidate_pair_seconds": [
+        15.497506721992977,
+        15.674403747005272
+      ],
+      "ratio": 1.2375619043098922
+    },
+    "warm": {
+      "baseline_e242_seconds": [
+        7.781055487997946,
+        6.995089389994973
+      ],
+      "new_baseline_e243_seconds": [
+        9.047439404006582,
+        9.545420260998071
+      ],
+      "combined_baseline_seconds": [
+        16.828494892004528,
+        16.540509650993044
+      ],
+      "candidate_pair_seconds": [
+        12.82751028300845,
+        13.103028687997721
+      ],
+      "ratio": 1.2868612017786674
+    }
+  },
+  "quality": {
+    "status": "PASS",
+    "passed": 12,
+    "count": 12,
+    "limit": 1.0001
+  },
+  "max_decoded_delta": 0.0,
+  "validation_seconds": 3.6710779160057427,
+  "physical_units": 12,
+  "warm_peak_allocated_bytes": 3040297472,
+  "warm_peak_reserved_bytes": 3454009344
+}
