@@ -196,6 +196,17 @@ def _persistent_prefix_viterbi(
 
 
 @triton.jit
+def _rematerialized_alphabet_key(state):
+    # Recompute the cheap integer map instead of keeping four key vectors live
+    # across all timesteps. Volatile assembly prevents loop-invariant hoisting.
+    return tl.inline_asm_elementwise(
+        "{ .reg .u32 a, b; add.u32 a, $1, 1; mul.lo.u32 b, $1, a; shr.u32 a, b, 6; and.b32 $0, a, 1023; }",
+        constraints="=r,r", args=[state], dtype=tl.int32,
+        is_pure=False, pack=1,
+    )
+
+
+@triton.jit
 def _persistent_prefix_viterbi_generic(
     x_ptr,
     lut_ptr,
@@ -311,7 +322,7 @@ def _persistent_prefix_viterbi_generic(
                 predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
             state = q * PREFIXES + j
             if DISTANCE_ALPHABET:
-                alphabet_key = ((state * (state + 1)) >> 6) & 1023
+                alphabet_key = _rematerialized_alphabet_key(state) if CONDITIONED_DISTANCE_SUM else ((state * (state + 1)) >> 6) & 1023
                 if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
                     candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
                 else:
