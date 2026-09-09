@@ -1,0 +1,590 @@
+{
+  "observed": 1788924317.4991832,
+  "files": {
+    "SHARDS.json": {
+      "sha256": "54fb2cd0ce097ddc6e06808d4f64fa4f18a3688439ab5b9e29c3d798c8585be9",
+      "bytes": 1324
+    },
+    "RESULT.json": {
+      "sha256": "940a6c41c5baf24ad7732db5422da5b23ec873e55351b0104814d874bb2e5fdc",
+      "bytes": 1873
+    },
+    "PROGRESS.json": {
+      "sha256": "02b18b579caa83c02a6a7a2f27708f64915bb7a14aec02a1f10bdc103d9d08d6",
+      "bytes": 1617
+    },
+    "PAIR_MEASUREMENT.json": {
+      "sha256": "c3726b5dcf15236536baa16e69440972a7d1217c91c4548c9294fdb1a4307518",
+      "bytes": 53040
+    },
+    "L020_E194_down_SOURCE_CLOSURE.json": {
+      "sha256": "c4436c0779af3b23198fc84ae8b03ff4f6b2dace734944847411ec43066b62fc",
+      "bytes": 6819
+    },
+    "L020_E194_down_K1.json": {
+      "sha256": "1619b226fb6afcdf3d0f3b1b44a5ccb772c658aa187dae2afd8ab808e82dbc83",
+      "bytes": 3203
+    },
+    "K1_L020_E194_down_MANIFEST.json": {
+      "sha256": "e0850a9270f66cd5537451ee649ce0cb748130b3d70f0b2e1366ba0b4f4f85a3",
+      "bytes": 720
+    },
+    "L020_E193_down_SOURCE_CLOSURE.json": {
+      "sha256": "c4436c0779af3b23198fc84ae8b03ff4f6b2dace734944847411ec43066b62fc",
+      "bytes": 6819
+    },
+    "L020_E193_down_K1.json": {
+      "sha256": "313032c5fb1ec5a47cd693b2312859f44ce7972e643b57d5c62574253676af47",
+      "bytes": 3202
+    },
+    "K1_L020_E193_down_MANIFEST.json": {
+      "sha256": "04e6da1b8b2f416270cfd145eb91fc2d2cb19eb00cfd1a60b8f97dc90952b97f",
+      "bytes": 720
+    },
+    "solve/L020/E194_down/QTIP_SOLVE_RECEIPT.json": {
+      "sha256": "eba4dc64b9a4165bdaf06336fbd61c2eb77b871e5b93a1ab4ecbee22b2ce80be",
+      "bytes": 23966
+    },
+    "solve/L020/E193_down/QTIP_SOLVE_RECEIPT.json": {
+      "sha256": "5c347bf0a3117d9cff4671a3f12d77e8fe854671638e13950dc23bb5ccb699cc",
+      "bytes": 23967
+    },
+    "solve/L020/batches/f5ecd3ead94472df/QTIP_CROSS_UNIT_BATCH_RECEIPT.json": {
+      "sha256": "df408613ecf76ad603f2b76553d2d1d06a13bd2614a26683c22ab984f47291cb",
+      "bytes": 4280
+    },
+    "solve/L020/E193_down/QTIP_UNIT.pt": {
+      "sha256": "fe6196ed33ae123e5139c32377395336ef4cfb3ccf13e14a031a0a766694c9fd",
+      "bytes": 1067673
+    },
+    "solve/L020/E194_down/QTIP_UNIT.pt": {
+      "sha256": "2f20971c686053e789c4496532396bd789572dc426e81b5f0388ac6810c8531a",
+      "bytes": 1067673
+    }
+  },
+  "claim": {
+    "task_id": "t_bd7914e6",
+    "run_id": 8556,
+    "pid": 1467715,
+    "start_ticks": 8924107,
+    "stage": "k1_batch_s5_run8556_z65",
+    "schema": "banana-smasher.host-claim.v1",
+    "host": "spark-5-work",
+    "owner": "t_bd7914e6",
+    "workload_pid": 1467715,
+    "state": "RELEASED",
+    "status": "RELEASED",
+    "claimed_at": 1788924185.1238184,
+    "expiry_unix": 1788931385.1238186,
+    "purpose": "K1_persistent_missing_batch_production; no fitting, training or capture replay",
+    "mission": "/home/dnola/missions/CLEAN_t_bd7914e6",
+    "canonical_git_pin": "aa455253fa0cd8944a4148112d44c537938d40c4",
+    "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "claim_preimage_sha256": "4e2d4133b75cf03eb56e6693ade9cda8ceef18fd449209a445acc45b846838b8",
+    "receipt": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_batch_s5_run8556_z65.identity.json",
+    "release_task": "t_bd7914e6",
+    "released_at": 1788924189.2441409
+  },
+  "processes": {
+    "1462363": {
+      "exists": false,
+      "stat": null
+    },
+    "1463356": {
+      "exists": false,
+      "stat": null
+    }
+  },
+  "model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "prepared_result": {
+    "K": 1,
+    "captures_recomputed": 0,
+    "ended": 1788923938.454689,
+    "not_uniform_pre": true,
+    "production_launch_authority": false,
+    "recomputed_cells": 0,
+    "rows": [
+      {
+        "cell": "L020/E193_down",
+        "config": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8556_z62/L020_E193_down_K1.json",
+        "config_sha256": "ceb27ea720d47248e8e3a27122f565ef4268551947951b86e1062e73a3ea8171",
+        "hessian_manifest_sha256": "612749ea1e0cfd773211001ef0d7c348fb6783cd63052c79611df531e7f7c0ca",
+        "reference": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8556_z62/K1_L020_E193_down_REFERENCE.pt",
+        "reference_sha256": "028e6a6609cfbe121ae0fb31cb4a0f7c2ec1fdf2d954740769f6abe2619a682a",
+        "source_config_sha256": "605a48fff1f7c12ee77e9f5419bd31e2585b1744333363f4b0f0a3c8425667bf"
+      },
+      {
+        "cell": "L020/E194_down",
+        "config": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8556_z62/L020_E194_down_K1.json",
+        "config_sha256": "0b7e06a2af63477657b1eb744191c7200d7cdd96015e70f1c6f75dd42f4e8a9b",
+        "hessian_manifest_sha256": "612749ea1e0cfd773211001ef0d7c348fb6783cd63052c79611df531e7f7c0ca",
+        "reference": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8556_z62/K1_L020_E194_down_REFERENCE.pt",
+        "reference_sha256": "028e6a6609cfbe121ae0fb31cb4a0f7c2ec1fdf2d954740769f6abe2619a682a",
+        "source_config_sha256": "4920d0a5417ca2498d69a2333d812cf249c11705648cd09cddef76ababb48d57"
+      }
+    ],
+    "source_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "status": "PASS_K1_MISSING_BATCH_PREPARATION"
+  },
+  "prepared_result_sha256": "361b1870eb47fd97ab2f89ae05b6d3c685d19835b2df896da2263d56a48dfaa1",
+  "originals": {
+    "L020/E193_down": {
+      "sha256": "605a48fff1f7c12ee77e9f5419bd31e2585b1744333363f4b0f0a3c8425667bf",
+      "config": {
+        "backend": "qtip-trellis-v2-graph-replay-b256-chunked-batch-exact-v46",
+        "bpw": "2.00",
+        "clean_fit_admission": true,
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "expert": 193,
+        "fit_capture_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/CLEAN_t_bd7914e6/production_l020_s3_run8148_a1/fitcaptures",
+        "fit_windows": 16,
+        "geometry": {
+          "K": 2,
+          "L": 16,
+          "V": 2
+        },
+        "glm_source_closure_sha256": "0ffdefccb460427bbb274093598b610bcf3b6857eee6e2df87b2a65e135ab07e",
+        "hessian_layer_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/solve_l020_down_s5_run8148_a1/L020_HESSIAN_MANIFEST.json",
+        "hessian_layer_manifest_sha256": "612749ea1e0cfd773211001ef0d7c348fb6783cd63052c79611df531e7f7c0ca",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm/model.safetensors.index.json",
+            "sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05"
+          }
+        },
+        "layer": 20,
+        "layer_census": {
+          "qtip2": 1
+        },
+        "materialization": {
+          "run_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/solve_l020_down_s5_run8148_a1/BATCH_RUN_MANIFEST.json",
+          "run_manifest_sha256": "222a242d803ffc9efec3fedd4457fcd32741d46affa3f907b28741b06f39d33a",
+          "source_config_sha256": "3e2bea933f1419d1a6ba87ac11778b14160ac73f1b49a9633480ffdd809d83a1"
+        },
+        "model_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm",
+        "pack_counts": {
+          "qtip2": 1
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/CLEAN_t_bd7914e6/repo_293aa1f/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/p851/receipts/PREDECESSOR_QUARANTINE_EVIDENCE/L038_E026_fused13_L16_K2_V2.pt",
+        "rht_seed": 771986554654859847,
+        "rht_seed_material": "8a176597811b2bcb709cf88a44d6e46b69f274c8bd78e3827d49a6ce866950b6",
+        "rht_seed_policy": "qtip-rht-manifest-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@2.00",
+        "tlut_source": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/p851/inputs/P641_QTIP_TLUT_SOURCE.pt",
+        "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a"
+      }
+    },
+    "L020/E194_down": {
+      "sha256": "4920d0a5417ca2498d69a2333d812cf249c11705648cd09cddef76ababb48d57",
+      "config": {
+        "backend": "qtip-trellis-v2-graph-replay-b256-chunked-batch-exact-v46",
+        "bpw": "2.00",
+        "clean_fit_admission": true,
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "expert": 194,
+        "fit_capture_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/CLEAN_t_bd7914e6/production_l020_s3_run8148_a1/fitcaptures",
+        "fit_windows": 16,
+        "geometry": {
+          "K": 2,
+          "L": 16,
+          "V": 2
+        },
+        "glm_source_closure_sha256": "0ffdefccb460427bbb274093598b610bcf3b6857eee6e2df87b2a65e135ab07e",
+        "hessian_layer_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/solve_l020_down_s5_run8148_a1/L020_HESSIAN_MANIFEST.json",
+        "hessian_layer_manifest_sha256": "612749ea1e0cfd773211001ef0d7c348fb6783cd63052c79611df531e7f7c0ca",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm/model.safetensors.index.json",
+            "sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05"
+          }
+        },
+        "layer": 20,
+        "layer_census": {
+          "qtip2": 1
+        },
+        "materialization": {
+          "run_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/solve_l020_down_s5_run8148_a1/BATCH_RUN_MANIFEST.json",
+          "run_manifest_sha256": "222a242d803ffc9efec3fedd4457fcd32741d46affa3f907b28741b06f39d33a",
+          "source_config_sha256": "3e2bea933f1419d1a6ba87ac11778b14160ac73f1b49a9633480ffdd809d83a1"
+        },
+        "model_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm",
+        "pack_counts": {
+          "qtip2": 1
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/CLEAN_t_bd7914e6/repo_293aa1f/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/p851/receipts/PREDECESSOR_QUARANTINE_EVIDENCE/L038_E026_fused13_L16_K2_V2.pt",
+        "rht_seed": 3701573066439833269,
+        "rht_seed_material": "8a176597811b2bcb709cf88a44d6e46b69f274c8bd78e3827d49a6ce866950b6",
+        "rht_seed_policy": "qtip-rht-manifest-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@2.00",
+        "tlut_source": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/p851/inputs/P641_QTIP_TLUT_SOURCE.pt",
+        "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a"
+      }
+    }
+  },
+  "prepared_configs": {
+    "L020/E193_down": {
+      "sha256": "ceb27ea720d47248e8e3a27122f565ef4268551947951b86e1062e73a3ea8171",
+      "config": {
+        "backend": "persistent-prefix-generic-aot-v1",
+        "bpw": "1.00",
+        "clean_fit_admission": true,
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "expert": 193,
+        "fit_capture_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/CLEAN_t_bd7914e6/production_l020_s3_run8148_a1/fitcaptures",
+        "fit_windows": 16,
+        "geometry": {
+          "K": 1,
+          "L": 16,
+          "V": 2
+        },
+        "glm_source_closure_sha256": "0ffdefccb460427bbb274093598b610bcf3b6857eee6e2df87b2a65e135ab07e",
+        "hessian_layer_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/solve_l020_down_s5_run8148_a1/L020_HESSIAN_MANIFEST.json",
+        "hessian_layer_manifest_sha256": "612749ea1e0cfd773211001ef0d7c348fb6783cd63052c79611df531e7f7c0ca",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm/model.safetensors.index.json",
+            "sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05"
+          }
+        },
+        "layer": 20,
+        "layer_census": {
+          "qtip1": 1
+        },
+        "materialization": {
+          "run_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8556_z62/K1_L020_E193_down_MANIFEST.json",
+          "run_manifest_sha256": "6c66a846e42d1c38144173b5af9c0d2ca94c2d0b0a32e790dee172b21b53caf4",
+          "source_config_sha256": "605a48fff1f7c12ee77e9f5419bd31e2585b1744333363f4b0f0a3c8425667bf"
+        },
+        "model_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm",
+        "pack_counts": {
+          "qtip1": 1
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/CLEAN_t_bd7914e6/repo_77a47ad/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8556_z62/K1_L020_E193_down_REFERENCE.pt",
+        "rht_seed": 771986554654859847,
+        "rht_seed_material": "8a176597811b2bcb709cf88a44d6e46b69f274c8bd78e3827d49a6ce866950b6",
+        "rht_seed_policy": "qtip-rht-manifest-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@1.00",
+        "tlut_source": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/p851/inputs/P641_QTIP_TLUT_SOURCE.pt",
+        "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a"
+      },
+      "reference_sha256": "028e6a6609cfbe121ae0fb31cb4a0f7c2ec1fdf2d954740769f6abe2619a682a"
+    },
+    "L020/E194_down": {
+      "sha256": "0b7e06a2af63477657b1eb744191c7200d7cdd96015e70f1c6f75dd42f4e8a9b",
+      "config": {
+        "backend": "persistent-prefix-generic-aot-v1",
+        "bpw": "1.00",
+        "clean_fit_admission": true,
+        "codebook": {
+          "decode_mode": "quantlut_sym",
+          "family": "bitshift",
+          "pack_contract": {
+            "dtype": "uint16",
+            "input_tile": [
+              16,
+              16
+            ],
+            "output_rows": "input_tile_grid",
+            "packed_words_per_tile_per_k": 16
+          },
+          "td_x": 16,
+          "td_y": 16,
+          "tlut_binding": "run-manifest",
+          "tlut_bits": 9
+        },
+        "expert": 194,
+        "fit_capture_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/CLEAN_t_bd7914e6/production_l020_s3_run8148_a1/fitcaptures",
+        "fit_windows": 16,
+        "geometry": {
+          "K": 1,
+          "L": 16,
+          "V": 2
+        },
+        "glm_source_closure_sha256": "0ffdefccb460427bbb274093598b610bcf3b6857eee6e2df87b2a65e135ab07e",
+        "hessian_layer_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/solve_l020_down_s5_run8148_a1/L020_HESSIAN_MANIFEST.json",
+        "hessian_layer_manifest_sha256": "612749ea1e0cfd773211001ef0d7c348fb6783cd63052c79611df531e7f7c0ca",
+        "input_identity": {
+          "model_index": {
+            "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm/model.safetensors.index.json",
+            "sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05"
+          }
+        },
+        "layer": 20,
+        "layer_census": {
+          "qtip1": 1
+        },
+        "materialization": {
+          "run_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8556_z62/K1_L020_E194_down_MANIFEST.json",
+          "run_manifest_sha256": "5cb9eef862aa5dc409c4c6cbc9e5408d435b0ba4e08e281052e930da5204f9f2",
+          "source_config_sha256": "4920d0a5417ca2498d69a2333d812cf249c11705648cd09cddef76ababb48d57"
+        },
+        "model_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm",
+        "pack_counts": {
+          "qtip1": 1
+        },
+        "projection": "down",
+        "qtip_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical",
+        "qtip_runner": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/CLEAN_t_bd7914e6/repo_77a47ad/banana-smasher/src/banana_smasher/qtip_runner.py",
+        "reference_unit": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8556_z62/K1_L020_E194_down_REFERENCE.pt",
+        "rht_seed": 3701573066439833269,
+        "rht_seed_material": "8a176597811b2bcb709cf88a44d6e46b69f274c8bd78e3827d49a6ce866950b6",
+        "rht_seed_policy": "qtip-rht-manifest-v1",
+        "schema": "banana-smasher-qtip-profile-config-v1",
+        "tier": "qtip@1.00",
+        "tlut_source": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/p851/inputs/P641_QTIP_TLUT_SOURCE.pt",
+        "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a"
+      },
+      "reference_sha256": "028e6a6609cfbe121ae0fb31cb4a0f7c2ec1fdf2d954740769f6abe2619a682a"
+    }
+  },
+  "prepared_manifests": {
+    "L020/E193_down": {
+      "canonical_commit": "7c6d9113c5e5a26754641edaa9163bc35df3f10c",
+      "cells": [
+        "L020/E193_down"
+      ],
+      "clean_fit_admission": true,
+      "schema": "bounded-next-tier-clean-canary-v1",
+      "source_config_sha256": "605a48fff1f7c12ee77e9f5419bd31e2585b1744333363f4b0f0a3c8425667bf",
+      "tiers": [
+        {
+          "bindings": {
+            "qtip_runner": {
+              "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/CLEAN_t_bd7914e6/repo_77a47ad/banana-smasher/src/banana_smasher/qtip_runner.py",
+              "sha256": "f9da4f5cf97ffab622da3444556e281f710b8b73c5eaf8fc3c48cf857dcdf9df"
+            }
+          },
+          "name": "qtip@1.00"
+        }
+      ],
+      "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a"
+    },
+    "L020/E194_down": {
+      "canonical_commit": "7c6d9113c5e5a26754641edaa9163bc35df3f10c",
+      "cells": [
+        "L020/E194_down"
+      ],
+      "clean_fit_admission": true,
+      "schema": "bounded-next-tier-clean-canary-v1",
+      "source_config_sha256": "4920d0a5417ca2498d69a2333d812cf249c11705648cd09cddef76ababb48d57",
+      "tiers": [
+        {
+          "bindings": {
+            "qtip_runner": {
+              "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/CLEAN_t_bd7914e6/repo_77a47ad/banana-smasher/src/banana_smasher/qtip_runner.py",
+              "sha256": "f9da4f5cf97ffab622da3444556e281f710b8b73c5eaf8fc3c48cf857dcdf9df"
+            }
+          },
+          "name": "qtip@1.00"
+        }
+      ],
+      "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a"
+    }
+  },
+  "closures": {
+    "L020/E193_down": {
+      "glm_qtip_producers": {
+        "sha256": "52178ff06017aa7cacade228ef83172bdf0a742682ed47999b368c6679e894f4",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/glm_qtip_producers.py"
+      },
+      "glm_qtip_source_adapter": {
+        "sha256": "bdd830c5db5c403496c8100a33c2d4991de5e2d30bf87c63cdfb784e3a7f5ac5",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/glm_qtip_source_adapter.py"
+      },
+      "hf_moe": {
+        "sha256": "8546957dcb2b31d2868cc0bbfc6fa1a3e8519a38b70ffcf9ad34f8f31136ecc5",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/hf_moe.py"
+      },
+      "qtip1": {
+        "sha256": "0ef6e1f65ca96db9cc24783b599d0c0894fb8a8956f12a44deef37453ba92110",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip1.py"
+      },
+      "qtip_batch": {
+        "sha256": "75687550ef5692a330b5e1eab3c329bad9e0b2e57c446e7efdcecfe0497401e8",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_batch.py"
+      },
+      "qtip_batch_controller": {
+        "sha256": "29bc4b620a0a7265ce6735c86cc86a0431519362628057759baf9880c4e7992c",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_batch_controller.py"
+      },
+      "qtip_kernel_cache": {
+        "sha256": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_kernel_cache.py"
+      },
+      "qtip_rings": {
+        "sha256": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_rings.py"
+      },
+      "qtip_rings.json": {
+        "sha256": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_rings.json"
+      },
+      "qtip_runner": {
+        "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_runner.py"
+      },
+      "qtip_viterbi": {
+        "sha256": "0cf2c0687dd22e0002fedf2d772e8e6e35ab54dfac5f8c93efe784fb21d4500d",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_viterbi.py"
+      },
+      "runtime.bitshift": {
+        "sha256": "af170eabb6cd8e47409b236a2570c1c2c195f82ab298f5da49b3e3c86b11f8b2",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical/lib/codebook/bitshift.py"
+      },
+      "runtime.kernel_decompress": {
+        "sha256": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_kernel_decompress.py"
+      },
+      "runtime.ldlq": {
+        "sha256": "793e364fbe91e5b28740d0fc81a6e8618daa6a6a8ce5adbf9b877ba2e46e5bbe",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical/lib/algo/ldlq.py"
+      },
+      "runtime.math_utils": {
+        "sha256": "65d50936e87b2c266806de201dea89b2d74a2ed38e33ef462bd8c3aafb333844",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical/lib/utils/math_utils.py"
+      },
+      "selected_tensor_source": {
+        "sha256": "ba3dee71decbf862ea5200944df1e8b1061163dda0a038c7e2a896bc40136cc6",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/selected_tensor_source.py"
+      },
+      "solver_qtip_profile": {
+        "sha256": "47729dfe36474ab8806f5b6eb04364ce282b03f1424c3143c3cee12ec312d2f8",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/solver_qtip_profile.py"
+      }
+    },
+    "L020/E194_down": {
+      "glm_qtip_producers": {
+        "sha256": "52178ff06017aa7cacade228ef83172bdf0a742682ed47999b368c6679e894f4",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/glm_qtip_producers.py"
+      },
+      "glm_qtip_source_adapter": {
+        "sha256": "bdd830c5db5c403496c8100a33c2d4991de5e2d30bf87c63cdfb784e3a7f5ac5",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/glm_qtip_source_adapter.py"
+      },
+      "hf_moe": {
+        "sha256": "8546957dcb2b31d2868cc0bbfc6fa1a3e8519a38b70ffcf9ad34f8f31136ecc5",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/hf_moe.py"
+      },
+      "qtip1": {
+        "sha256": "0ef6e1f65ca96db9cc24783b599d0c0894fb8a8956f12a44deef37453ba92110",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip1.py"
+      },
+      "qtip_batch": {
+        "sha256": "75687550ef5692a330b5e1eab3c329bad9e0b2e57c446e7efdcecfe0497401e8",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_batch.py"
+      },
+      "qtip_batch_controller": {
+        "sha256": "29bc4b620a0a7265ce6735c86cc86a0431519362628057759baf9880c4e7992c",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_batch_controller.py"
+      },
+      "qtip_kernel_cache": {
+        "sha256": "468fcc98b0bf59b5c4b4774908235dadce9079b3cd8e31088d7b5d0cfb0d7066",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_kernel_cache.py"
+      },
+      "qtip_rings": {
+        "sha256": "683a4795ebda0f142ec6378036076d8a1293dda6f1e1b14f74595a22c40466d1",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_rings.py"
+      },
+      "qtip_rings.json": {
+        "sha256": "84d4e507a9625371b41f6c140d6c622db0aa120726df5f87791de0287b489a52",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_rings.json"
+      },
+      "qtip_runner": {
+        "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_runner.py"
+      },
+      "qtip_viterbi": {
+        "sha256": "0cf2c0687dd22e0002fedf2d772e8e6e35ab54dfac5f8c93efe784fb21d4500d",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_viterbi.py"
+      },
+      "runtime.bitshift": {
+        "sha256": "af170eabb6cd8e47409b236a2570c1c2c195f82ab298f5da49b3e3c86b11f8b2",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical/lib/codebook/bitshift.py"
+      },
+      "runtime.kernel_decompress": {
+        "sha256": "fd312e026e73f9eb9aaa5d89519c101d2283b4fde52140cf85f392e2937959df",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/qtip_kernel_decompress.py"
+      },
+      "runtime.ldlq": {
+        "sha256": "793e364fbe91e5b28740d0fc81a6e8618daa6a6a8ce5adbf9b877ba2e46e5bbe",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical/lib/algo/ldlq.py"
+      },
+      "runtime.math_utils": {
+        "sha256": "65d50936e87b2c266806de201dea89b2d74a2ed38e33ef462bd8c3aafb333844",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical/lib/utils/math_utils.py"
+      },
+      "selected_tensor_source": {
+        "sha256": "ba3dee71decbf862ea5200944df1e8b1061163dda0a038c7e2a896bc40136cc6",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/selected_tensor_source.py"
+      },
+      "solver_qtip_profile": {
+        "sha256": "47729dfe36474ab8806f5b6eb04364ce282b03f1424c3143c3cee12ec312d2f8",
+        "path": "/home/dnola/missions/CLEAN_t_bd7914e6/alphabet_main54244_run8554/banana-smasher/src/banana_smasher/solver_qtip_profile.py"
+      }
+    }
+  },
+  "external_identity": {
+    "calibration_ledger": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a",
+    "separation_receipt": "353b909f55ed556a6795b2a09b325bc8c6807f1c64be9fca1d913736e7ace8c0"
+  }
+}

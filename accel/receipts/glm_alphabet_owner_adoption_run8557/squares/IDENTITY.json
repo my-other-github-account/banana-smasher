@@ -1,0 +1,21 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/squares_run8557",
+  "receipt": "/dev/shm/t_1269dc5f/squares_run8557/IDENTITY.json",
+  "expiry_unix": 1788931634.4440358,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "fae26bfe9fe40fdb176f3910d6baab274e8f6128af67562def977471c2b6fd3d",
+  "stage": "unitwise_grouped",
+  "pid": 1865082,
+  "pgid": 1865082,
+  "start_ticks": 8949099,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "squares_run8557.py"
+  ]
+}

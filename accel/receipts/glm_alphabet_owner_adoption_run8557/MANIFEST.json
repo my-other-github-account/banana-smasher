@@ -1,0 +1,16 @@
+{
+  "OWNER_REMOTE_READBACK_run8557.json": "1f985d470d0979d82c88faf49c4cae8b6ab0aa898e9569daed79d33fda55adf8",
+  "PRODUCTION_ADOPTION_READBACK_run8557.json": "601a3b604d82b083f0b8fd00d4a8b8c14c6c1ad889dcca966d5d34d9c852c243",
+  "SQUARE_TIMING_run8557.json": "624f242908db38933df184eaf4cb70af6d9152f4c550ac1627419859c38e8085",
+  "squares_run8557.py": "c16e902fcc69e363180a9fff30fa68e7b99f1d503f03a766f8ec8b34d0eeb26f",
+  "OWNERSHIP_run8557.json": "4a0875bf766c296a2f9f67a5c17a47471f1edb4c7518667ba87fb8cb05d354ca",
+  "authenticate_adoption_run8557.py": "921f711e83c2d21ec806776fe61f20136beff03b593f90b468139e0660b3f4ae",
+  "squares/QUALITY.json": "ace5d769498d62bffb98fbecc5aab6a67c41ccbff8a7adea64653cf45f081811",
+  "squares/GATE.json": "f06ecf7d5c412021257d967a889382601974e7a84ab8ea5f390f2aced1621234",
+  "squares/IDENTITY.json": "fedc7655fb5de65d364faa01107b91fca44879944db6f42dfc0d63cd3c617fd7",
+  "squares/TERMINAL.json": "680536bf11bc277709a08d99db7d1dcb9e96750c7c1c441263498d3ca85b03c1",
+  "squares/gpu_tests.log": "1a52f4f4fdf58570e0c91e091ae4c49b3e3fb6a7501e8cffcc10497e6aaa8bdf",
+  "squares/PREFLIGHT.json": "c56897c9e572e613c226d46946a97ebff1353ad22246e37bc293797f68b6bcd7",
+  "squares/C1/RESULT.json": "d765a6f257c9ad3c2aac3a9b84c44c677517f790ff1c2da0972c7fb0874354af",
+  "squares/C2/RESULT.json": "3817ece6402c5ebd893ca3b983a16128805e321e1385684fd95e76a2209b809b"
+}

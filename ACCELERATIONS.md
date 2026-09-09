@@ -1,5 +1,31 @@
 # Runtime accelerations
 
+## Alphabet adoption and square-hoist rejection (run8557)
+
+The signed-distance-alphabet runtime `54244dc7aeb7c98895fd7655612f7a69b89464e3`
+is now independently authenticated on two actual new owner outputs:
+L020/E193_down and L020/E194_down, original-fit16. Read-only physical remote
+and durable verification passed all 15 file/hash/size bindings, exact prepared
+config/manifest rebinding, 17 canonical/external import hashes per cell, model
+index, calibration/separation identity, and terminal wrapper/child absence.
+This authenticates owner packed-decode/roundtrip receipts, not an independent
+production numerical rerun. The prior 12/12 clean-fit numerical gate and
+1.161171x historical/shared-cache whole-panel ratio remain separate evidence;
+there is no matched production speedup or new heldout/full-model quality claim.
+Owner continuation was notified at its existing missing-only boundary without
+mutating incumbent imports or ownership.
+
+A distinct subsequent research rung hoisted squared differences over the 1024
+signed alphabet before expansion (`bcea65ec8745799b55c802e69696a8acf507c4ea`).
+It passed 18 physical tests and 12/12 bounded clean-fit checks, but warm whole
+panels were 17.702838/17.990164s against the adopted alphabet's retained
+12.232712/12.858231s: ratio 0.702965x. Setup ratio was 0.768198x. It is rejected,
+not merged into runtime or offered for adoption. Arithmetic contraction may
+change, so passing numerical checks is not inferred from algebra. No repeated
+pointer/cache/layout trials are implied. Sealed evidence and source of the
+read-only adoption verifier: `accel/receipts/glm_alphabet_owner_adoption_run8557/`.
+Dedicated s6 reservation remains retained under the operator's explicit order.
+
 ## Signed-distance-alphabet LDLQ factoring (run8555)
 
 The optional `viterbi_distance_alphabet=true` public `main_batch` configuration
