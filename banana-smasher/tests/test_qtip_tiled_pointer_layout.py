@@ -16,22 +16,22 @@ def offset_fn():
     exec(compile(ast.fix_missing_locations(ast.Module(body=[fn], type_ignores=[])), str(SOURCE), 'exec'), ns)
     return ns[fn.name]
 
-def test_four_step_width64_mapping_is_bijective():
+def test_eight_step_width64_mapping_is_bijective():
     offset = offset_fn()
-    prefixes, steps, batch = 16384, 4, 3
+    prefixes, steps, batch = 16384, 8, 3
     seen = set()
     for t in range(steps):
         for b in range(batch):
             for j in range(prefixes):
                 got = offset(t, b, j, batch, prefixes, steps)
-                expected = (((t // 4 * batch + b) * (prefixes // 64) + j // 64) * 4 + t % 4) * 64 + j % 64
+                expected = (((t // 8 * batch + b) * (prefixes // 64) + j // 64) * 8 + t % 8) * 64 + j % 64
                 assert got == expected
                 seen.add(got)
     assert seen == set(range(steps * batch * prefixes))
 
 def test_non_k1_and_unaligned_steps_keep_original_addresses():
     offset = offset_fn()
-    for prefixes, steps in [(1, 4), (16, 4), (4096, 128), (1024, 128), (256, 128), (16384, 3)]:
+    for prefixes, steps in [(1, 4), (16, 4), (4096, 128), (1024, 128), (256, 128), (16384, 3), (16384, 4), (16384, 7)]:
         for t in range(steps):
             for b in range(3):
                 for j in [0, prefixes // 2, prefixes - 1]:

@@ -208,10 +208,10 @@ def _rematerialized_alphabet_key(state):
 
 @triton.jit
 def _tiled_pointer_offset(step, seq, j, B, PREFIXES: tl.constexpr, STEPS: tl.constexpr):
-    # K1 only: four temporal rows share full 128-byte uint16 cache lines.
+    # K1 only: eight temporal rows share full 128-byte uint16 cache lines.
     # Other geometries and nonaligned lengths retain the original layout.
-    if PREFIXES == 16384 and STEPS % 4 == 0:
-        return ((((step // 4) * B + seq) * (PREFIXES // 64) + j // 64) * 4 + step % 4) * 64 + j % 64
+    if PREFIXES == 16384 and STEPS % 8 == 0:
+        return ((((step // 8) * B + seq) * (PREFIXES // 64) + j // 64) * 8 + step % 8) * 64 + j % 64
     return (step * B + seq) * PREFIXES + j
 
 
