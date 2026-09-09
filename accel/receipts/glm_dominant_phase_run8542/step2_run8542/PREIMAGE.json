@@ -1,0 +1,22 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/traceback_run8542r3",
+  "receipt": "/dev/shm/t_1269dc5f/traceback_run8542r3/IDENTITY.json",
+  "expiry_unix": 1788921758.1009364,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "1c3652a207c74f0af30175587e548e2cd08a4e000d9cb3d7925aea904a822bed",
+  "stage": "rolled_traceback_terminal_retained",
+  "pid": 1780795,
+  "pgid": 1780795,
+  "start_ticks": 7961464,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "traceback_r3_run8542.py"
+  ],
+  "terminal_at": 1788914723.5822349
+}

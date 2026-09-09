@@ -1,0 +1,12 @@
+{
+  "pid": 1792282,
+  "pgid": 1787902,
+  "start_ticks": 7997978,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_1269dc5f/step2_run8542.py",
+    "quality",
+    "none"
+  ]
+}

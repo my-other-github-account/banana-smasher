@@ -1,0 +1,16 @@
+{
+  "candidate_pin": "6e014f42a562b1cd0b26f070d941e189898fe495",
+  "baseline_pin": "2a118a825ef00ff67dd0cbc65d07cc67a2919089",
+  "warm_seconds": {
+    "B1": 15.310650775994873,
+    "C1": 15.91983684101433,
+    "C2": 16.113624880003044,
+    "B2": 14.57864457499818
+  },
+  "warm_speed_ratio": 0.9330647936617628,
+  "independent_checks": 24,
+  "max_decoded_delta": 0.0,
+  "quality_validation_seconds": 5.072565406007925,
+  "verdict": "REJECT_SPEED_NO_PROMOTION",
+  "scope": "GLM authentic3-cell clean16 panel; no heldout/new production"
+}

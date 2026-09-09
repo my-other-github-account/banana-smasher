@@ -1,0 +1,264 @@
+.........FFFF...                                                         [100%]
+=================================== FAILURES ===================================
+________________ test_device_optin_matches_incumbent[1-2-False] ________________
+
+batch = 1, steps = 2, zero = False
+
+    @pytest.mark.parametrize('batch,steps,zero',[(1,2,False),(17,8,False),(256,128,False),(1,128,True)])
+    def test_device_optin_matches_incumbent(batch,steps,zero):
+        torch=pytest.importorskip('torch')
+        if not torch.cuda.is_available():pytest.skip('CUDA required; skip is not device evidence')
+        from types import SimpleNamespace
+        from banana_smasher.qtip_viterbi import exact_prefix_viterbi
+        torch.manual_seed(314159)
+        lut=torch.zeros((2,65536),device='cuda') if zero else torch.randn((2,65536),device='cuda')
+        cb=SimpleNamespace(L=16,K=1,V=2,lut=lut,_banana_smasher_structured_gather=True,_banana_smasher_branch_unroll=True)
+        x=torch.zeros((2*steps,batch),device='cuda') if zero else torch.randn((2*steps,batch),device='cuda')
+        for overlap in [None,torch.randint(0,16384,(batch,),device='cuda',dtype=torch.int32)]:
+>           cb._banana_smasher_lut_l1_retention=False;ref=exact_prefix_viterbi(cb,x,overlap)
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+traceback_code_run8542/banana-smasher/tests/test_qtip_lut_cache_policy.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+traceback_code_run8542/banana-smasher/src/banana_smasher/qtip_viterbi.py:629: in exact_prefix_viterbi
+    _persistent_prefix_viterbi_generic[(batch,)](
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:370: in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:720: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:849: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/compiler/compiler.py:304: in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0xeb701df67d10>
+target = GPUTarget(backend='cuda', arch=121, warp_size=32)
+options = CUDAOptions(num_warps=16, num_ctas=1, num_stages=1, warp_size=32, maxnreg=None, ptx_version=None, ptx_options=None, ir...b/libdevice.10.bc'),), debug=False, backend_name='cuda', sanitize_overflow=True, arch='sm121', instrumentation_mode='')
+codegen_fns = {'convert_custom_types': <function convert_custom_float8_sm80 at 0xeb702997a980>, 'min_dot_size': <function min_dot_size.<locals>.check_dot_compatibility at 0xeb701df6d120>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.cuda.libdevice' from '/home/dnola/humming_env/lib/python3.12/site-packages/triton/language/extra/cuda/libdevice.py'>}
+context = <triton._C.libtriton.ir.context object at 0xeb701e357330>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 120:4:
+E               if not REGISTER_COSTS:
+E                   tl.debug_barrier()
+E               step += 1
+E       
+E           # Traceback may read another lane's last backpointer.
+E           tl.debug_barrier()
+E           if HAS_OVERLAP:
+E               prefix = tl.load(overlap_ptr + seq).to(tl.int32)
+E           else:
+E               prefix = tl.argmin(best, axis=0).to(tl.int32)
+E           # Serial dependency prevents parallel traceback; keep its code size bounded.
+E           for back_step in range(STEPS - 1, -1, -1):
+E           ^
+E       AssertionError("Loop-carried variable state has initial type <['16384'], int32> but is re-assigned to int32 in loop! Please make sure that the type stays consistent.")
+
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/compiler/compiler.py:80: CompilationError
+_______________ test_device_optin_matches_incumbent[17-8-False] ________________
+
+batch = 17, steps = 8, zero = False
+
+    @pytest.mark.parametrize('batch,steps,zero',[(1,2,False),(17,8,False),(256,128,False),(1,128,True)])
+    def test_device_optin_matches_incumbent(batch,steps,zero):
+        torch=pytest.importorskip('torch')
+        if not torch.cuda.is_available():pytest.skip('CUDA required; skip is not device evidence')
+        from types import SimpleNamespace
+        from banana_smasher.qtip_viterbi import exact_prefix_viterbi
+        torch.manual_seed(314159)
+        lut=torch.zeros((2,65536),device='cuda') if zero else torch.randn((2,65536),device='cuda')
+        cb=SimpleNamespace(L=16,K=1,V=2,lut=lut,_banana_smasher_structured_gather=True,_banana_smasher_branch_unroll=True)
+        x=torch.zeros((2*steps,batch),device='cuda') if zero else torch.randn((2*steps,batch),device='cuda')
+        for overlap in [None,torch.randint(0,16384,(batch,),device='cuda',dtype=torch.int32)]:
+>           cb._banana_smasher_lut_l1_retention=False;ref=exact_prefix_viterbi(cb,x,overlap)
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+traceback_code_run8542/banana-smasher/tests/test_qtip_lut_cache_policy.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+traceback_code_run8542/banana-smasher/src/banana_smasher/qtip_viterbi.py:629: in exact_prefix_viterbi
+    _persistent_prefix_viterbi_generic[(batch,)](
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:370: in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:720: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:849: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/compiler/compiler.py:304: in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0xeb701df593d0>
+target = GPUTarget(backend='cuda', arch=121, warp_size=32)
+options = CUDAOptions(num_warps=16, num_ctas=1, num_stages=1, warp_size=32, maxnreg=None, ptx_version=None, ptx_options=None, ir...b/libdevice.10.bc'),), debug=False, backend_name='cuda', sanitize_overflow=True, arch='sm121', instrumentation_mode='')
+codegen_fns = {'convert_custom_types': <function convert_custom_float8_sm80 at 0xeb702997a980>, 'min_dot_size': <function min_dot_size.<locals>.check_dot_compatibility at 0xeb701dfd9260>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.cuda.libdevice' from '/home/dnola/humming_env/lib/python3.12/site-packages/triton/language/extra/cuda/libdevice.py'>}
+context = <triton._C.libtriton.ir.context object at 0xeb701e321b30>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 120:4:
+E               if not REGISTER_COSTS:
+E                   tl.debug_barrier()
+E               step += 1
+E       
+E           # Traceback may read another lane's last backpointer.
+E           tl.debug_barrier()
+E           if HAS_OVERLAP:
+E               prefix = tl.load(overlap_ptr + seq).to(tl.int32)
+E           else:
+E               prefix = tl.argmin(best, axis=0).to(tl.int32)
+E           # Serial dependency prevents parallel traceback; keep its code size bounded.
+E           for back_step in range(STEPS - 1, -1, -1):
+E           ^
+E       AssertionError("Loop-carried variable state has initial type <['16384'], int32> but is re-assigned to int32 in loop! Please make sure that the type stays consistent.")
+
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/compiler/compiler.py:80: CompilationError
+______________ test_device_optin_matches_incumbent[256-128-False] ______________
+
+batch = 256, steps = 128, zero = False
+
+    @pytest.mark.parametrize('batch,steps,zero',[(1,2,False),(17,8,False),(256,128,False),(1,128,True)])
+    def test_device_optin_matches_incumbent(batch,steps,zero):
+        torch=pytest.importorskip('torch')
+        if not torch.cuda.is_available():pytest.skip('CUDA required; skip is not device evidence')
+        from types import SimpleNamespace
+        from banana_smasher.qtip_viterbi import exact_prefix_viterbi
+        torch.manual_seed(314159)
+        lut=torch.zeros((2,65536),device='cuda') if zero else torch.randn((2,65536),device='cuda')
+        cb=SimpleNamespace(L=16,K=1,V=2,lut=lut,_banana_smasher_structured_gather=True,_banana_smasher_branch_unroll=True)
+        x=torch.zeros((2*steps,batch),device='cuda') if zero else torch.randn((2*steps,batch),device='cuda')
+        for overlap in [None,torch.randint(0,16384,(batch,),device='cuda',dtype=torch.int32)]:
+>           cb._banana_smasher_lut_l1_retention=False;ref=exact_prefix_viterbi(cb,x,overlap)
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+traceback_code_run8542/banana-smasher/tests/test_qtip_lut_cache_policy.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+traceback_code_run8542/banana-smasher/src/banana_smasher/qtip_viterbi.py:629: in exact_prefix_viterbi
+    _persistent_prefix_viterbi_generic[(batch,)](
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:370: in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:720: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:849: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/compiler/compiler.py:304: in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0xeb701e01b6b0>
+target = GPUTarget(backend='cuda', arch=121, warp_size=32)
+options = CUDAOptions(num_warps=16, num_ctas=1, num_stages=1, warp_size=32, maxnreg=None, ptx_version=None, ptx_options=None, ir...b/libdevice.10.bc'),), debug=False, backend_name='cuda', sanitize_overflow=True, arch='sm121', instrumentation_mode='')
+codegen_fns = {'convert_custom_types': <function convert_custom_float8_sm80 at 0xeb702997a980>, 'min_dot_size': <function min_dot_size.<locals>.check_dot_compatibility at 0xeb701df8d4e0>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.cuda.libdevice' from '/home/dnola/humming_env/lib/python3.12/site-packages/triton/language/extra/cuda/libdevice.py'>}
+context = <triton._C.libtriton.ir.context object at 0xeb701df6a8b0>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 120:4:
+E               if not REGISTER_COSTS:
+E                   tl.debug_barrier()
+E               step += 1
+E       
+E           # Traceback may read another lane's last backpointer.
+E           tl.debug_barrier()
+E           if HAS_OVERLAP:
+E               prefix = tl.load(overlap_ptr + seq).to(tl.int32)
+E           else:
+E               prefix = tl.argmin(best, axis=0).to(tl.int32)
+E           # Serial dependency prevents parallel traceback; keep its code size bounded.
+E           for back_step in range(STEPS - 1, -1, -1):
+E           ^
+E       AssertionError("Loop-carried variable state has initial type <['16384'], int32> but is re-assigned to int32 in loop! Please make sure that the type stays consistent.")
+
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/compiler/compiler.py:80: CompilationError
+_______________ test_device_optin_matches_incumbent[1-128-True] ________________
+
+batch = 1, steps = 128, zero = True
+
+    @pytest.mark.parametrize('batch,steps,zero',[(1,2,False),(17,8,False),(256,128,False),(1,128,True)])
+    def test_device_optin_matches_incumbent(batch,steps,zero):
+        torch=pytest.importorskip('torch')
+        if not torch.cuda.is_available():pytest.skip('CUDA required; skip is not device evidence')
+        from types import SimpleNamespace
+        from banana_smasher.qtip_viterbi import exact_prefix_viterbi
+        torch.manual_seed(314159)
+        lut=torch.zeros((2,65536),device='cuda') if zero else torch.randn((2,65536),device='cuda')
+        cb=SimpleNamespace(L=16,K=1,V=2,lut=lut,_banana_smasher_structured_gather=True,_banana_smasher_branch_unroll=True)
+        x=torch.zeros((2*steps,batch),device='cuda') if zero else torch.randn((2*steps,batch),device='cuda')
+        for overlap in [None,torch.randint(0,16384,(batch,),device='cuda',dtype=torch.int32)]:
+>           cb._banana_smasher_lut_l1_retention=False;ref=exact_prefix_viterbi(cb,x,overlap)
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+traceback_code_run8542/banana-smasher/tests/test_qtip_lut_cache_policy.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+traceback_code_run8542/banana-smasher/src/banana_smasher/qtip_viterbi.py:629: in exact_prefix_viterbi
+    _persistent_prefix_viterbi_generic[(batch,)](
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:370: in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:720: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/runtime/jit.py:849: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/compiler/compiler.py:304: in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0xeb701dfecb90>
+target = GPUTarget(backend='cuda', arch=121, warp_size=32)
+options = CUDAOptions(num_warps=16, num_ctas=1, num_stages=1, warp_size=32, maxnreg=None, ptx_version=None, ptx_options=None, ir...b/libdevice.10.bc'),), debug=False, backend_name='cuda', sanitize_overflow=True, arch='sm121', instrumentation_mode='')
+codegen_fns = {'convert_custom_types': <function convert_custom_float8_sm80 at 0xeb702997a980>, 'min_dot_size': <function min_dot_size.<locals>.check_dot_compatibility at 0xeb701df8de40>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.cuda.libdevice' from '/home/dnola/humming_env/lib/python3.12/site-packages/triton/language/extra/cuda/libdevice.py'>}
+context = <triton._C.libtriton.ir.context object at 0xeb701dfd2bb0>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 120:4:
+E               if not REGISTER_COSTS:
+E                   tl.debug_barrier()
+E               step += 1
+E       
+E           # Traceback may read another lane's last backpointer.
+E           tl.debug_barrier()
+E           if HAS_OVERLAP:
+E               prefix = tl.load(overlap_ptr + seq).to(tl.int32)
+E           else:
+E               prefix = tl.argmin(best, axis=0).to(tl.int32)
+E           # Serial dependency prevents parallel traceback; keep its code size bounded.
+E           for back_step in range(STEPS - 1, -1, -1):
+E           ^
+E       AssertionError("Loop-carried variable state has initial type <['16384'], int32> but is re-assigned to int32 in loop! Please make sure that the type stays consistent.")
+
+/home/dnola/humming_env/lib/python3.12/site-packages/triton/compiler/compiler.py:80: CompilationError
+=========================== short test summary info ============================
+FAILED traceback_code_run8542/banana-smasher/tests/test_qtip_lut_cache_policy.py::test_device_optin_matches_incumbent[1-2-False]
+FAILED traceback_code_run8542/banana-smasher/tests/test_qtip_lut_cache_policy.py::test_device_optin_matches_incumbent[17-8-False]
+FAILED traceback_code_run8542/banana-smasher/tests/test_qtip_lut_cache_policy.py::test_device_optin_matches_incumbent[256-128-False]
+FAILED traceback_code_run8542/banana-smasher/tests/test_qtip_lut_cache_policy.py::test_device_optin_matches_incumbent[1-128-True]
+4 failed, 12 passed in 4.76s

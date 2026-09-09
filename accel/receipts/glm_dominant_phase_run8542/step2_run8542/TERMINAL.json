@@ -1,0 +1,29 @@
+{
+  "returncode": 0,
+  "rows": [
+    {
+      "job": "gpu_tests",
+      "arm": null,
+      "returncode": 0,
+      "seconds": 18.35381394599972
+    },
+    {
+      "job": "C1",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 64.97726526699262
+    },
+    {
+      "job": "C2",
+      "arm": "candidate",
+      "returncode": 0,
+      "seconds": 59.865185125003336
+    },
+    {
+      "job": "quality",
+      "arm": null,
+      "returncode": 0,
+      "seconds": 6.774594204995083
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "job": "gpu_tests",
+    "arm": null,
+    "returncode": 0,
+    "seconds": 7.465527704000124
+  },
+  {
+    "job": "B1",
+    "arm": "baseline",
+    "returncode": 0,
+    "seconds": 36.465132399011054
+  },
+  {
+    "job": "C1",
+    "arm": "candidate",
+    "returncode": 0,
+    "seconds": 39.39283167300164
+  },
+  {
+    "job": "C2",
+    "arm": "candidate",
+    "returncode": 0,
+    "seconds": 38.403230506999535
+  },
+  {
+    "job": "B2",
+    "arm": "baseline",
+    "returncode": 0,
+    "seconds": 35.73181214299984
+  },
+  {
+    "job": "quality",
+    "arm": null,
+    "returncode": 0,
+    "seconds": 7.953382210995187
+  }
+]

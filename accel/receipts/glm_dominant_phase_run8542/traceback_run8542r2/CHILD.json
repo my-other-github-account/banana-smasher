@@ -1,0 +1,12 @@
+{
+  "pid": 1779552,
+  "pgid": 1779549,
+  "start_ticks": 7957691,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_1269dc5f/traceback_resume_run8542.py",
+    "gpu_tests",
+    "none"
+  ]
+}

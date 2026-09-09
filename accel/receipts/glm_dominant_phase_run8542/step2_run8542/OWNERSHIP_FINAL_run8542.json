@@ -1,0 +1,71 @@
+{
+  "epoch": 1788915098.7720838,
+  "claim": {
+    "host": "spark-6",
+    "owner": "t_1269dc5f",
+    "task_id": "t_1269dc5f",
+    "state": "CLAIMED",
+    "status": "CLAIMED",
+    "mission": "/dev/shm/t_1269dc5f/step2_run8542",
+    "receipt": "/dev/shm/t_1269dc5f/step2_run8542/IDENTITY.json",
+    "expiry_unix": 1788921979.9435315,
+    "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "exact_cas_from_sha256": "0b1a27ce85fbae2052e10e45f66c39e0ae22bc174b9bc753558b3c6b0e0f3d12",
+    "stage": "step_unroll2_terminal_retained",
+    "pid": 1787902,
+    "pgid": 1787902,
+    "start_ticks": 7983648,
+    "argv": [
+      "/home/dnola/humming_env/bin/python",
+      "-u",
+      "step2_run8542.py"
+    ],
+    "terminal_at": 1788914929.9640164
+  },
+  "child": {
+    "pid": 1792282,
+    "pgid": 1787902,
+    "start_ticks": 7997978,
+    "argv": [
+      "/home/dnola/humming_env/bin/python",
+      "-u",
+      "/dev/shm/t_1269dc5f/step2_run8542.py",
+      "quality",
+      "none"
+    ]
+  },
+  "supervisor_absent": true,
+  "child_absent": true,
+  "shards": {
+    "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "rows": [
+      {
+        "owner": "t_1269dc5f",
+        "layer": 4,
+        "experts": [
+          242,
+          243
+        ],
+        "projections": [
+          "down"
+        ],
+        "operation": "step_unroll2_candidate_only_terminal_rejected",
+        "receipt": "/dev/shm/t_1269dc5f/step2_run8542/QUALITY.json"
+      },
+      {
+        "owner": "t_1269dc5f",
+        "layer": 4,
+        "experts": [
+          242
+        ],
+        "projections": [
+          "fused13"
+        ],
+        "operation": "step_unroll2_candidate_only_terminal_rejected",
+        "receipt": "/dev/shm/t_1269dc5f/step2_run8542/QUALITY.json"
+      }
+    ]
+  },
+  "claim_retained_unchanged": true,
+  "correction": "Historical operation label said ABBA; step2 was candidate-only control reuse. Added explicit receipt path. No science changed."
+}

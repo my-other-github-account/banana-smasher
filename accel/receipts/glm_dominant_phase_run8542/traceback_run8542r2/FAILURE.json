@@ -1,0 +1,3 @@
+{
+  "error": "Traceback (most recent call last):\n  File \"/dev/shm/t_1269dc5f/traceback_resume_run8542.py\", line 37, in <module>\n    rows.append(dict(job=name,arm=arm,returncode=rc,seconds=time.perf_counter()-t));put(OUT/'PROGRESS.json',rows);assert rc==0,(name,rc)\n                                                                                                                         ^^^^^\nAssertionError: ('gpu_tests', 1)\n"
+}

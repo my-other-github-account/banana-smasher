@@ -1367,3 +1367,34 @@ actual new outputs are required before claiming rollout acceptance.
 Dedicated s6 remains retained, physical canary supervisor/child dead, no release.
 Receipts, hashes, source-cause binding and runnable canary:
 `accel/receipts/ds4_capacity_advice_run8539/`.
+
+
+## GLM dominant-phase rejections (run8542)
+
+Owner-authenticated handoff SHA ff46f843f7a965c9a55b79993abd0b8ac3bca8957cc00aa691909aabf59ef8b4
+identifies LDLQ as86.97% of its95-cell batch. Dedicated s6 used the resident
+authentic clean16 L004 E242/E243 down and E242 fused13 panel, with explicit
+DS4-to-GLM basis CAS to3c3f4036; no production stages or scientific inputs changed.
+
+Two distinct canonical research candidates are rejected, not promoted:
+- Rolled generic traceback,6e014f42: warm panel B1/B2 15.310651/14.578645s
+  versus C1/C2 15.919837/16.113625s (0.933065x). Separate-process ABBA shares
+  source/JIT caches; setup is not cold-storage evidence.16 focused tests pass
+  including4 CUDA cases; independent24/24 canonical decode/clean-fit gates pass.
+  Validation5.072565s is outside build timing. First test-path failure and
+  dynamic-loop vector/scalar SSA compiler failure are preserved, zero solves.
+- Two-timestep recurrence unroll,6d636c7c: candidate-only continuation reuses
+  those sealed controls without rebuilding. Warm27.068586/27.086501s
+  (0.551920x), solve26.093807/26.074946s;16 focused tests and12/12 independent
+  decode/clean-fit gates pass. Validation3.966584s is separate. This comparison
+  is recent same-input control reuse, not contemporaneous interleaving.
+
+All36 new packed outputs were physically hash-authenticated after local transfer;
+maximum decoded difference0 is diagnostic, not an equality acceptance rule.
+No new frozen output KLD, full-model quality, or successful rollout is claimed.
+The adopted residency milestone and default-off capacity helper remain intact;
+capacity adoption awaits a genuine owner boundary. Dedicated s6 remains with
+t_1269dc5f under the persistent objective, not released or retired.
+Evidence, effective configs, code/manifest bindings, timings and failures:
+`accel/receipts/glm_dominant_phase_run8542/`. Do not replay either rejected
+mechanism or claim their smaller code/changed schedule as a speed improvement.

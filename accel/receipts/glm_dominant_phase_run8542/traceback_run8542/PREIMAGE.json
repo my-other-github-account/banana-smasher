@@ -1,0 +1,22 @@
+{
+  "host": "spark-6",
+  "owner": "t_1269dc5f",
+  "task_id": "t_1269dc5f",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_1269dc5f/capacity_canary_run8539",
+  "receipt": "/dev/shm/t_1269dc5f/capacity_canary_run8539/IDENTITY.json",
+  "expiry_unix": 1788920764.717143,
+  "source_model_index_sha256": "98efab455cf08dfbbbaaba6f570e1bf10bf927d2b4c3c453a59c2f6f0e3be92b",
+  "exact_cas_from_sha256": "e4a0ce7c4fda9feab13f4b0341c3ba32db83530793276294fa06be02587c7cc9",
+  "stage": "capacity_canary_terminal_retained",
+  "pid": 1764581,
+  "pgid": 1764581,
+  "start_ticks": 7862125,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "capacity_canary_run8539.py"
+  ],
+  "terminal_at": 1788913566.0276582
+}
