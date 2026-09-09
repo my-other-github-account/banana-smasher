@@ -260,8 +260,7 @@ def _persistent_prefix_viterbi_generic(
     if not REGISTER_COSTS:
         tl.debug_barrier()
 
-    step = 1
-    while step < STEPS:
+    for step in tl.range(1, STEPS, loop_unroll_factor=2):
         # Costs belong to this CTA. Gather the preceding vector directly,
         # avoiding global scratch reloads and stores at every timestep.
         # No arithmetic, branch order, or tie-breaking changes.
@@ -305,7 +304,6 @@ def _persistent_prefix_viterbi_generic(
         )
         if not REGISTER_COSTS:
             tl.debug_barrier()
-        step += 1
 
     # Traceback may read another lane's last backpointer.
     tl.debug_barrier()
