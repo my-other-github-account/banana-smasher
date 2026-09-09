@@ -195,6 +195,16 @@ def _persistent_prefix_viterbi(
 
 
 @triton.jit
+def _select_k1_cost_row(previous_costs, q, q_factor: tl.constexpr):
+    """Extract one of four rows without a floating-point masked reduction."""
+    columns = tl.trans(tl.reshape(previous_costs, (4, q_factor)))
+    even, odd = tl.split(tl.reshape(columns, (q_factor, 2, 2)))
+    row0, row2 = tl.split(even)
+    row1, row3 = tl.split(odd)
+    return tl.where(q == 0, row0, tl.where(q == 1, row1, tl.where(q == 2, row2, row3)))
+
+
+@triton.jit
 def _persistent_prefix_viterbi_generic(
     x_ptr,
     lut_ptr,
@@ -279,10 +289,13 @@ def _persistent_prefix_viterbi_generic(
                     # Select one contiguous predecessor row, then broadcast its
                     # entries BRANCHES times (K1: 4x4096; K3: 64x16).
                     # Nonnegative costs add only exact zeros, including +inf.
-                    cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
-                    selected = tl.sum(tl.where(
-                        tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
-                    ), axis=0)
+                    if BRANCHES == 4:
+                        selected = _select_k1_cost_row(previous_costs, q, Q_FACTOR)
+                    else:
+                        cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
+                        selected = tl.sum(tl.where(
+                            tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
+                        ), axis=0)
                     predecessor_cost = tl.reshape(tl.broadcast_to(
                         selected[:, None], (Q_FACTOR, BRANCHES)
                     ), (PREFIXES,))

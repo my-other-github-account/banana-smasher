@@ -80,8 +80,10 @@ def test_execute_actual_structured_branch(with_infinity, branches, q_factor, shi
     costs=np.linspace(0,1000,prefixes,dtype=np.float32)
     if with_infinity: costs[::7]=np.inf
     tl=types.SimpleNamespace(reshape=np.reshape,sum=np.sum,where=np.where,arange=np.arange,broadcast_to=np.broadcast_to)
+    from test_qtip_k1_split_rows import helper
     for q in range(branches):
-        env=dict(tl=tl,previous_costs=costs,BRANCHES=branches,Q_FACTOR=q_factor,PREFIXES=prefixes,q=q)
+        env=dict(tl=tl,previous_costs=costs,BRANCHES=branches,Q_FACTOR=q_factor,PREFIXES=prefixes,q=q,
+                 _select_k1_cost_row=helper())
         exec(code,env)
         expected=costs[q*q_factor+(np.arange(prefixes)>>shift)]
         np.testing.assert_array_equal(env['predecessor_cost'],expected)
