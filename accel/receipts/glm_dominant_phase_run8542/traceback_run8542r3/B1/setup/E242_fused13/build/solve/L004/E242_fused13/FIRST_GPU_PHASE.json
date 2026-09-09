@@ -1,0 +1,11 @@
+{
+  "epoch": 1788914576.690115,
+  "expert": 242,
+  "layer": 4,
+  "phase": "fresh_exact_qtip_build",
+  "pid": 1780864,
+  "projection": "fused13",
+  "schema": "banana-smasher-qtip-first-gpu-phase-v1",
+  "staging_seconds": 0.23575620699557476,
+  "startticks": 7962223
+}
