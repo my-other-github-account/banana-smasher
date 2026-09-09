@@ -25,6 +25,24 @@ def test_column_bmm_preserves_reference_normalization():
         assert torch.equal(h, original)
 
 
+def test_public_column_bmm_is_strict_opt_in_and_reaches_builder():
+    import ast
+    from pathlib import Path
+    from test_qtip_reference_ldl import load
+    common = load('_common', 'qtip_batch_controller.py')
+    mode = load('_block_ldl_column_bmm', 'qtip_batch_controller.py', {'_common': common})
+    assert mode([{}, {}]) is False
+    assert mode([{'block_ldl_column_bmm': True, 'block_ldl_reference': True}]) is True
+    for configs in [[{'block_ldl_column_bmm': 1}], [{'block_ldl_column_bmm': 'true'}], [{'block_ldl_column_bmm': True}], [{'block_ldl_column_bmm': True, 'block_ldl_reference': True}, {}]]:
+        with pytest.raises(ValueError):
+            mode(configs)
+    src = Path(qb.__file__).parent
+    tree = ast.parse((src / 'qtip_batch_controller.py').read_text())
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'build_qtip_batch']
+    assert any(k.arg == 'block_ldl_column_bmm' for k in calls[0].keywords)
+    assert '\"block_ldl_column_bmm\": block_ldl_column_bmm' in (src / 'qtip_batch.py').read_text()
+
+
 def test_column_bmm_rejects_invalid_geometry():
     assert hasattr(qb, '_column_bmm_block_ldl')
     for h, block in [(torch.eye(7), 4), (torch.ones(2, 3), 1), (torch.eye(4), 0)]:
