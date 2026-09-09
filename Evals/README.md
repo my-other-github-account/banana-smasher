@@ -228,3 +228,23 @@ The aggregator rejects missing or duplicate windows, changed classes, wrong posi
 - [Pinned HumanEval container](docker/humaneval/Dockerfile)
 - [JSON schemas](schemas/)
 - [Separate internal Backpack anchor calculations](../Backpack/README.md)
+
+
+## Qualified four-tier DS4 uniform PRE measurements
+
+These existing frozen Balanced64 measurements are published with explicit runtime and byte-scope qualifications, not quality GREEN. They are separate from the historical ranking above: no historical Q3 parity, executable equivalence, or native-KL subtraction is claimed. No forward, scoring, repair, fitting, or TLUT replay was performed for this publication.
+
+| Uniform routed tier | Forward KL (equal-window mean) | Routed serialized container bytes | Indexed hybrid weight-container sum (not shipping) |
+|---|---:|---:|---:|
+| K1 | 1.3244045625016363 | 35,093,702,144 | 54,803,185,128 |
+| K2 | 0.3235340378881574 | 69,721,875,968 | 89,431,358,952 |
+| K3 | 0.1203225347792691 | 104,350,049,792 | 124,059,532,776 |
+| K4 | 0.047134897943039586 | 138,978,223,616 | 158,687,706,600 |
+
+Each tier covers 22,016 routed cells, 64 frozen windows, and 1,024 scored positions per window on the teacher's ordered top-8,192 support. The indexed native remainder contains 6,269 tensors and 19,708,797,688 tensor-payload bytes. Its separately emitted container is 19,709,482,984 bytes (SHA256 `71a01b0b358ff3a8891b43275d09ad129cb882cea6f68f439c47afee3431672f`). The sums above combine that existing container with the routed containers; they are not standalone shipping totals, exclude recipe/index/tokenizer/package metadata, and do not prove that each forward loaded this later container layout.
+
+The byte-scope limitation is resolved as indexed partial-MTP, not complete MTP: all ten names in the historical 33,843,220-byte MTP correction are absent from this indexed native inventory. Hypothetical unmaterialized correction bytes are not added to any physical total. No package rebuild is required to report these bounded scopes honestly.
+
+All four scorer hashes remain distinct. K1/K2/K3 share the inspected scalar-KL function structure; K3 reports equal-window arithmetic and also retains its ordered per-position aggregate. Q4 retains its original qualified successor scorer and extra teacher-order assertion. The ordered teacher payload descriptors match, but the teacher/support digest serialization conventions differ. This is a static semantic qualification, not a same-runtime equivalence result. K1/K2/K3 retain current clean-fitting provenance with exact32-token whole-window exclusion, not universal semantic-duplicate exclusion. Q4 current clean-fit equivalence remains unestablished.
+
+The [machine-readable four-tier publication](results/deepseek-v4-flash-0731-four-tier-pre-qualified-v1.json) preserves each original ordered metric series, reference-derived expected identity, scorer identity, and source-receipt locators. The pre-existing [qualified Q4 publication](results/deepseek-v4-flash-0731-q4-pre-qualified-v1.json) remains unchanged. All four quality decisions remain distinct from measurement verification.
