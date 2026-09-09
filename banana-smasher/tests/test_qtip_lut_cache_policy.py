@@ -25,7 +25,7 @@ def test_only_lut_loads_use_policy():
     node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_persistent_prefix_viterbi_generic')
     loads=[n for n in ast.walk(node) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='load']
     lut=[n for n in loads if 'lut_ptr' in ast.unparse(n.args[0])]
-    assert len(lut)==5
+    assert len(lut)==7  # five incumbent loads plus two default-off norm loads
     for n in lut:assert any(k.arg=='eviction_policy' and ast.unparse(k.value)=='LUT_EVICTION' for k in n.keywords)
     for n in loads:
         if n not in lut:assert not any(k.arg in ('cache_modifier','eviction_policy') for k in n.keywords)
@@ -58,6 +58,7 @@ def test_public_installer_binds_retention(monkeypatch,enabled):
     module.resolve_structured_gather=lambda *a:False
     module.resolve_branch_unroll=lambda *a:1
     module.resolve_lut_l1_retention=resolver()
+    module.resolve_distance_polynomial=lambda *a:False
     monkeypatch.setitem(sys.modules,'banana_smasher',package)
     monkeypatch.setitem(sys.modules,'banana_smasher.qtip_viterbi',module)
     env=dict(__name__='banana_smasher.solver_qtip_profile',_ExactTimers=object,Any=object,known_qtip_geometries=lambda:{(16,1,2)},backend_for_geometry=lambda g:'persistent',PERSISTENT_BACKENDS={'persistent'},_install_profiled_exact_viterbi=lambda *a,**k:{})

@@ -215,6 +215,7 @@ def _persistent_prefix_viterbi_generic(
     BRANCH_UNROLL: tl.constexpr,
     STRUCTURED_GATHER: tl.constexpr,
     BRANCH_POINTERS: tl.constexpr = False,
+    DISTANCE_POLYNOMIAL: tl.constexpr = False,
     LUT_EVICTION: tl.constexpr = "",
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
@@ -247,7 +248,11 @@ def _persistent_prefix_viterbi_generic(
             state = q * PREFIXES + j
             la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
             lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-            candidate = (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+            if DISTANCE_POLYNOMIAL:
+                norm = tl.load(lut_ptr + 2 * STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                candidate = tl.fma(-2.0 * xa, la, tl.fma(-2.0 * xb, lb, norm))
+            else:
+                candidate = (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
             chosen = tl.where(take, state, chosen)
@@ -293,7 +298,14 @@ def _persistent_prefix_viterbi_generic(
             state = q * PREFIXES + j
             la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
             lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-            candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+            if DISTANCE_POLYNOMIAL:
+                norm = tl.load(lut_ptr + 2 * STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                # Input norm is shared by every path. FP32 rounding changes;
+                # branch coverage does not. A numerical gate is mandatory.
+                distance = tl.fma(-2.0 * xa, la, tl.fma(-2.0 * xb, lb, norm))
+                candidate = predecessor_cost + distance
+            else:
+                candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
             chosen = tl.where(take, state, chosen)
@@ -386,6 +398,14 @@ def resolve_lut_l1_retention(geometry: tuple[int, int, int], requested: bool | N
     return True
 
 
+def resolve_distance_polynomial(geometry: tuple[int, int, int], requested: bool | None) -> bool:
+    if requested is None:
+        return False
+    if type(requested) is not bool or (requested and geometry != (16, 1, 2)):
+        raise ValueError("viterbi_distance_polynomial requires boolean and L16/K1/V2")
+    return requested
+
+
 def resolve_branch_unroll(geometry: tuple[int, int, int], requested: bool | None) -> int:
     """Opt-in constant-branch scheduling; no branch removal or arithmetic change."""
     if requested is None or requested is False:
@@ -417,6 +437,9 @@ def exact_prefix_viterbi(
         )
     metadata = geometry(cb, steps=int(x.shape[0]) // int(cb.V))
     L, K, V = int(cb.L), int(cb.K), int(cb.V)
+    distance_polynomial = resolve_distance_polynomial(
+        (L, K, V), getattr(cb, "_banana_smasher_distance_polynomial", None)
+    )
     launch_warps = resolve_viterbi_num_warps(
         (L, K, V), getattr(cb, "_banana_smasher_viterbi_num_warps", None)
     )
@@ -511,9 +534,9 @@ def exact_prefix_viterbi(
         batch=batch,
         prefixes=prefixes,
         x_bytes=x.numel() * x.element_size(),
-        lut_bytes=cb.lut.numel() * cb.lut.element_size(),
+        lut_bytes=cb.lut.numel() * cb.lut.element_size() * (3 if distance_polynomial else 1),
         x_requires_copy=not x.is_contiguous(),
-        lut_requires_copy=not cb.lut.is_contiguous(),
+        lut_requires_copy=distance_polynomial or not cb.lut.is_contiguous(),
         overlap_copy_bytes=overlap_copy_bytes,
         retained_state_storage_bytes=retained_state_storage_bytes,
         retained_output_bytes=retained_output_bytes,
@@ -588,6 +611,12 @@ def exact_prefix_viterbi(
         raise ValueError(
             f"codebook LUT has {lut.numel()} values, expected {V * states_count}"
         )
+    if distance_polynomial:
+        if lut.dtype != torch.float32:
+            raise ValueError("distance polynomial requires FP32 LUT")
+        # No cross-call cache. Preflight includes the derived plane and temporaries.
+        norm = lut.square().sum(dim=0, keepdim=True)
+        lut = torch.cat((lut, norm), dim=0).contiguous()
     scratch = torch.empty(
         (2, batch, prefixes), device=x.device, dtype=torch.float32
     )
@@ -645,6 +674,7 @@ def exact_prefix_viterbi(
             BRANCH_UNROLL=branch_unroll,
             STRUCTURED_GATHER=structured_gather,
             BRANCH_POINTERS=backpointer_dtype == "uint8",
+            DISTANCE_POLYNOMIAL=distance_polynomial,
             LUT_EVICTION="evict_last" if lut_l1_retention else "",
             num_warps=generic_warps,
             num_stages=1,
