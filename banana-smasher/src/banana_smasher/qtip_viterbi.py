@@ -17,7 +17,7 @@ from .qtip_rings import (
     PERSISTENT_BACKENDS,
     PERSISTENT_V32_BACKEND,
     backend_for_geometry,
-    effective_cuda_free_bytes,
+    qtip_admission_memory,
     plan_qtip_streaming_batches,
     qtip_peak_allocation_bytes,
     require_qtip_memory_capacity,
@@ -472,7 +472,7 @@ def _distance_alphabet_lut(cb):
     if cached is not None and cached[0] is source and cached[1] == version:
         return cached[2]
     # Admission for the bounded map/reconstruction temporaries precedes allocation.
-    if torch.cuda.mem_get_info(source.device)[0] < (4 << 30) + (4 << 20):
+    if qtip_admission_memory(torch, source.device)["available_bytes"] < (4 << 30) + (4 << 20):
         raise RuntimeError("distance alphabet memory admission refused")
     reps = torch.tensor(_signed_alphabet_representatives(), device=source.device, dtype=torch.int64)
     compact = source[:, reps].contiguous()
@@ -614,14 +614,8 @@ def exact_prefix_viterbi(
         retained_output_bytes=retained_output_bytes,
         final_concatenation_bytes=retained_state_storage_bytes,
     )
-    driver_free, _total = torch.cuda.mem_get_info(x.device)
-    reserved = torch.cuda.memory_reserved(x.device)
-    allocated = torch.cuda.memory_allocated(x.device)
-    effective_free = effective_cuda_free_bytes(
-        driver_free=driver_free,
-        reserved=reserved,
-        allocated=allocated,
-    )
+    memory = qtip_admission_memory(torch, x.device)
+    effective_free = memory["available_bytes"]
     reserve = (4 << 30) + ((4 << 20) if distance_alphabet else 0)
     total_peak = peak["total_bytes"]
     assert isinstance(total_peak, int)
@@ -629,7 +623,7 @@ def exact_prefix_viterbi(
         try:
             require_qtip_memory_capacity(
                 effective_free=effective_free,
-                free_source="torch.cuda.mem_get_info+native-cache",
+                free_source=memory["source"],
                 reserve=reserve,
                 peak=peak,
                 geometry=(L, K, V),

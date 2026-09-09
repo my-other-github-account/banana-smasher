@@ -686,6 +686,47 @@ def effective_cuda_free_bytes(
     return driver_free + max(0, reserved - allocated)
 
 
+def qtip_admission_memory(torch, device=None) -> dict:
+    """GB10 UMA admission; keep driver and host readings separate.
+
+    No reserve changes, cache flushing, or discrete-device overcommit.
+    The caller's owned launch must separately pass claim and basis gates.
+    """
+    import os
+    import subprocess
+
+    free, total = torch.cuda.mem_get_info(device)
+    reserved = int(torch.cuda.memory_reserved(device))
+    allocated = int(torch.cuda.memory_allocated(device))
+    if min(int(free), reserved, allocated) < 0 or reserved < allocated:
+        raise ValueError("invalid native CUDA allocator accounting")
+    memory = dict(
+        available_bytes=effective_cuda_free_bytes(
+            driver_free=int(free), reserved=reserved, allocated=allocated
+        ),
+        source="torch.cuda.mem_get_info+native-cache",
+        driver_free_bytes=int(free), device_total_bytes=int(total),
+        reserved_bytes=reserved, allocated_bytes=allocated,
+    )
+    if torch.cuda.get_device_properties(device).name != "NVIDIA GB10":
+        return memory
+    # Fail closed on foreign GPU occupancy or an unavailable occupancy witness.
+    processes = subprocess.check_output(
+        ["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"],
+        text=True, timeout=10,
+    )
+    if any(int(pid.strip()) != os.getpid() for pid in processes.splitlines() if pid.strip()):
+        raise RuntimeError("GB10 UMA admission refuses foreign GPU processes")
+    fields = dict(line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines() if ":" in line)
+    value = fields["MemAvailable"].split()
+    if len(value) != 2 or value[1] != "kB" or int(value[0]) < 0:
+        raise ValueError("invalid MemAvailable kB")
+    host = int(value[0]) * 1024
+    # Native cached allocations are not added to host-reclaimable pages.
+    memory.update(available_bytes=host, host_available_bytes=host,
+                  source="gb10:MemAvailable;foreign-GPU-gated")
+    return memory
+
 def _identity_sort_key(identity: Identity) -> bytes:
     layer, expert, projection = identity
     return hashlib.sha256(f"{layer}:{projection}:{expert}".encode()).digest()
