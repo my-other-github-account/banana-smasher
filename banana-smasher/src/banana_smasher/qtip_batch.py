@@ -68,8 +68,36 @@ class _BatchMatrixLifetime:
         }
 
 
+def _column_bmm_block_ldl(hessian: torch.Tensor, block: int) -> torch.Tensor:
+    """Normalize all column blocks in one BMM; no unused diagonal product.
+
+    Cholesky and diagonal inverses remain per-unit. This opt-in may change
+    floating-point reduction choices and requires an equivalent-quality gate.
+    """
+    if (hessian.ndim != 2 or hessian.shape[0] != hessian.shape[1]
+            or block < 1 or hessian.shape[0] < 1 or hessian.shape[0] % block):
+        raise ValueError("column BMM LDL expects square [n,n] divisible by block")
+    width = hessian.shape[0]
+    blocks = width // block
+    lower = torch.linalg.cholesky(hessian)
+    diagonal = torch.diagonal(
+        lower.reshape(blocks, block, blocks, block), dim1=0, dim2=2
+    ).permute(2, 0, 1)
+    inverse = torch.linalg.inv(diagonal)
+    normalized = torch.bmm(
+        lower.view(width, blocks, block).permute(1, 0, 2), inverse
+    ).permute(1, 0, 2).reshape(width, width).contiguous()
+    index = torch.arange(blocks, device=hessian.device)
+    normalized.view(blocks, block, blocks, block).permute(0, 2, 1, 3)[index, index] = torch.eye(
+        block, dtype=hessian.dtype, device=hessian.device
+    )
+    if not torch.isfinite(normalized).all():
+        raise RuntimeError("column BMM LDL returned an invalid factor")
+    return normalized
+
+
 def _reference_block_ldl_batch(
-    runner: Any, hessian: torch.Tensor, block: int
+    runner: Any, hessian: torch.Tensor, block: int, *, column_bmm: bool = False
 ) -> torch.Tensor:
     """Retain the authenticated singleton runtime's factorization arithmetic."""
     _, _, math_utils, _ = runner.load_official_qtip()
