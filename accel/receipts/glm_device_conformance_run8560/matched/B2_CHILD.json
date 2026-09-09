@@ -1,0 +1,12 @@
+{
+  "pid": 1880613,
+  "pgid": 1879711,
+  "start_ticks": 9160497,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+    "B2",
+    "baseline"
+  ]
+}

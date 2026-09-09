@@ -1,0 +1,22 @@
+{
+  "host": "spark-6",
+  "owner": "t_6ac2b6f5",
+  "task_id": "t_6ac2b6f5",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_6ac2b6f5/isolated_run8560",
+  "receipt": "/dev/shm/t_6ac2b6f5/isolated_run8560/IDENTITY.json",
+  "expiry_unix": 1788933877.4712684,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "9716205a601853f8b8c0ce6ac31d7e6d37b4ed0886247479e51dc6a3c5b8aeec",
+  "stage": "isolated_run8560",
+  "pid": 1882577,
+  "pgid": 1882577,
+  "start_ticks": 9173394,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "controller_r3.py",
+    "isolated_plan8560.json"
+  ]
+}

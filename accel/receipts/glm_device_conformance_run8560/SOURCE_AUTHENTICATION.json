@@ -1,0 +1,242 @@
+[
+  {
+    "closure": "isolated_evidence/C2/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C2/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C2/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C2/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C2/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C2/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B1/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B1/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B1/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B1/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B1/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B1/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C1/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C1/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C1/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C1/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C1/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/C1/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B2/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B2/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B2/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B2/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B2/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "isolated_evidence/B2/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C2/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C2/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C2/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C2/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C2/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C2/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B1/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B1/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B1/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B1/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B1/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B1/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C1/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C1/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C1/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C1/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C1/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/C1/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B2/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B2/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B2/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B2/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B2/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  },
+  {
+    "closure": "deployment_evidence/B2/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+    "pin": "7e67a48ab10e955ae6e0cbc5506dbcc9c51c1c6c",
+    "verified": true
+  }
+]

@@ -1,0 +1,64 @@
+{
+  "attempt": "matched_run8559",
+  "expected_owner": "t_6ac2b6f5",
+  "expected_pid": 1878059,
+  "expected_start_ticks": 9144425,
+  "archive": "conformance_pin.tar",
+  "archive_sha256": "6970da84f48d3550768f0b8aed99eaac25f27efe79b8f093a4c3aa1e2d0aa116",
+  "code_dir": "matched_code",
+  "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+  "jobs": [
+    {
+      "name": "B1",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+        "B1",
+        "baseline"
+      ]
+    },
+    {
+      "name": "C1",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+        "C1",
+        "candidate"
+      ]
+    },
+    {
+      "name": "C2",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+        "C2",
+        "candidate"
+      ]
+    },
+    {
+      "name": "B2",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+        "B2",
+        "baseline"
+      ]
+    },
+    {
+      "name": "quality",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+        "quality",
+        "candidate"
+      ]
+    }
+  ],
+  "hypothesis": "Eliminate reference device-to-host-to-device roundtrip inside same conformance call, retain exact independent packed decoder and CPU serialized output; no cache or kernel layout mutation",
+  "wait_for_predecessor": true
+}

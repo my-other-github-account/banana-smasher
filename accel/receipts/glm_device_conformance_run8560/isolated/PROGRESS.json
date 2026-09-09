@@ -1,0 +1,87 @@
+[
+  {
+    "name": "B1",
+    "returncode": 0,
+    "seconds": 29.68070595500467,
+    "identity": {
+      "pid": 1882581,
+      "pgid": 1882577,
+      "start_ticks": 9173415,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/isolated_run8560.py",
+        "B1",
+        "baseline"
+      ]
+    }
+  },
+  {
+    "name": "C1",
+    "returncode": 0,
+    "seconds": 29.96538692500326,
+    "identity": {
+      "pid": 1882717,
+      "pgid": 1882577,
+      "start_ticks": 9176385,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/isolated_run8560.py",
+        "C1",
+        "candidate"
+      ]
+    }
+  },
+  {
+    "name": "C2",
+    "returncode": 0,
+    "seconds": 30.04138323799998,
+    "identity": {
+      "pid": 1883151,
+      "pgid": 1882577,
+      "start_ticks": 9179383,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/isolated_run8560.py",
+        "C2",
+        "candidate"
+      ]
+    }
+  },
+  {
+    "name": "B2",
+    "returncode": 0,
+    "seconds": 29.83797370000684,
+    "identity": {
+      "pid": 1883489,
+      "pgid": 1882577,
+      "start_ticks": 9182390,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/isolated_run8560.py",
+        "B2",
+        "baseline"
+      ]
+    }
+  },
+  {
+    "name": "quality",
+    "returncode": 0,
+    "seconds": 7.221156165993307,
+    "identity": {
+      "pid": 1883787,
+      "pgid": 1882577,
+      "start_ticks": 9185377,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/isolated_run8560.py",
+        "quality",
+        "candidate"
+      ]
+    }
+  }
+]

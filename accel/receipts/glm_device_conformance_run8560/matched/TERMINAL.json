@@ -1,0 +1,90 @@
+{
+  "returncode": 0,
+  "rows": [
+    {
+      "name": "B1",
+      "returncode": 0,
+      "seconds": 30.975399718998233,
+      "identity": {
+        "pid": 1879716,
+        "pgid": 1879711,
+        "start_ticks": 9151395,
+        "argv": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+          "B1",
+          "baseline"
+        ]
+      }
+    },
+    {
+      "name": "C1",
+      "returncode": 0,
+      "seconds": 30.12553702099831,
+      "identity": {
+        "pid": 1880013,
+        "pgid": 1879711,
+        "start_ticks": 9154495,
+        "argv": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+          "C1",
+          "candidate"
+        ]
+      }
+    },
+    {
+      "name": "C2",
+      "returncode": 0,
+      "seconds": 29.84717375499895,
+      "identity": {
+        "pid": 1880478,
+        "pgid": 1879711,
+        "start_ticks": 9157510,
+        "argv": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+          "C2",
+          "candidate"
+        ]
+      }
+    },
+    {
+      "name": "B2",
+      "returncode": 0,
+      "seconds": 31.003597543996875,
+      "identity": {
+        "pid": 1880613,
+        "pgid": 1879711,
+        "start_ticks": 9160497,
+        "argv": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+          "B2",
+          "baseline"
+        ]
+      }
+    },
+    {
+      "name": "quality",
+      "returncode": 0,
+      "seconds": 6.958163538991357,
+      "identity": {
+        "pid": 1880746,
+        "pgid": 1879711,
+        "start_ticks": 9163599,
+        "argv": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/matched_run8559.py",
+          "quality",
+          "candidate"
+        ]
+      }
+    }
+  ]
+}

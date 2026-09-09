@@ -1,0 +1,12 @@
+{
+  "pid": 1883151,
+  "pgid": 1882577,
+  "start_ticks": 9179383,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_6ac2b6f5/isolated_run8560.py",
+    "C2",
+    "candidate"
+  ]
+}

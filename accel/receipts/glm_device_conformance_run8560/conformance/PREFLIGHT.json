@@ -1,0 +1,43 @@
+{
+  "mem_available": 87326609408,
+  "peak_estimate": 12884901888,
+  "reserve": 4294967296,
+  "tmpfs_free": 10026680320,
+  "durable_free": 1770938368,
+  "basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "prior_terminal": {
+    "returncode": 0,
+    "rows": [
+      {
+        "name": "red_test",
+        "returncode": 1,
+        "seconds": 0.17026640399126336,
+        "identity": {
+          "pid": 1877227,
+          "pgid": 1876420,
+          "start_ticks": 9140328,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "-m",
+            "pytest",
+            "/dev/shm/t_6ac2b6f5/conformance_red_code/banana-smasher/tests/test_qtip_deferred_conformance_copy.py",
+            "-q"
+          ]
+        }
+      }
+    ]
+  },
+  "prior_child": {
+    "pid": 1877227,
+    "pgid": 1876420,
+    "start_ticks": 9140328,
+    "argv": [
+      "/home/dnola/humming_env/bin/python",
+      "-m",
+      "pytest",
+      "/dev/shm/t_6ac2b6f5/conformance_red_code/banana-smasher/tests/test_qtip_deferred_conformance_copy.py",
+      "-q"
+    ]
+  },
+  "pgrep": "1878059 /home/dnola/humming_env/bin/python -u controller_r3.py conformance_plan.json\n"
+}

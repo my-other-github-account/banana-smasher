@@ -1,0 +1,25 @@
+banana-smasher device-conformance adoption seam
+
+Runtime pin: c769d086701769b08fdc85d5191afc2aa321e3e7
+Source-only deferred-copy change is measured neutral. The proposed production intervention is enabling device conformance, retaining both independent decodes and all exact packed roundtrip checks; speed cannot be attributed to deferred copy alone.
+
+Immutable git archive: conformance_pin.tar, 5693440 bytes
+SHA256: 6970da84f48d3550768f0b8aed99eaac25f27efe79b8f093a4c3aa1e2d0aa116
+Research-host reachable location: spark-6:/dev/shm/t_6ac2b6f5/conformance_pin.tar
+Local location: /Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_6ac2b6f5/conformance_pin.tar
+Owner may fetch this archive to its own authorized deployment location. Do not use research-host absolute import paths in production.
+
+Public API remains:
+from banana_smasher.qtip_batch_controller import main_batch
+main_batch(config_paths, root, layer, *, kernel_cache_root=None)
+
+Starting from the owner's existing canonical alphabet rebind, preserve every scientific field: original-fit16, original RHT seeds, teacher/model identity, exact prepared inputs, calibration/separation ledgers, positions/support/scorer. Preserve block_ldl_reference=True, block_ldl_unitwise=True and viterbi_distance_alphabet=True. Change only the following deployment bindings and config flag:
+1. Set canonical_commit in each rebound manifest to the runtime pin above.
+2. Bind qtip_runner and manifest tiers[0].bindings.qtip_runner to owner's newly deployed canonical runner with expected hash in EXPECTED_IMPORTS.json.
+3. Recompute physical capture_source_closure using owner-local paths and existing official QTIP runtime. Require EVERY file hash to match EXPECTED_IMPORTS.json. Rebind glm_source_closure_sha256; preserve owner dependency/interpreter identity honestly if different, rather than copying the research digest.
+4. Write cfg['packed_conformance_on_device'] = True for every member. Existing canonical default at adopted54244dc7 is False when absent; strict bool, mixed modes refused.
+5. Rebind materialization.run_manifest and its SHA256 to the newly serialized manifest using existing owner serializer. No other scientific config change.
+
+No registry mutation, production claim, serving change or replay authorized by this packet. Only missing/unarmed L021 fused13 E192+ after prior Z69a ACK/dead/release, per owner authority. Run focused canonical tests before product. Owner must return archive ACK, actual source/import/config closure, and then actual new product artifact/config/manifest/solve/batch receipts plus PID/startticks/dead/release evidence. Source ACK is not adoption.
+
+Speed and quality are separate; all timing is matched representative research-host end-to-end main_batch whole panels, setup and warm separate, shared caches; not cold JIT or matched production speed. Numerical gate is frozen bounded clean-fit, not heldout or full-model KL. Consult TIMING.json and QUALITY gates for measured results.

@@ -1,0 +1,23 @@
+{
+  "host": "spark-6",
+  "owner": "t_6ac2b6f5",
+  "task_id": "t_6ac2b6f5",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_6ac2b6f5/conformance_red_run8559",
+  "receipt": "/dev/shm/t_6ac2b6f5/conformance_red_run8559/IDENTITY.json",
+  "expiry_unix": 1788933546.608618,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "da3a91ce546486c1dc5f27848659d0e0807647b3b056d17180665fd106925655",
+  "stage": "conformance_red_run8559_terminal_retained",
+  "pid": 1876420,
+  "pgid": 1876420,
+  "start_ticks": 9131305,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "controller_r3.py",
+    "conformance_red_plan.json"
+  ],
+  "terminal_at": 1788926346.8896632
+}

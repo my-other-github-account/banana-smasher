@@ -1,0 +1,94 @@
+{
+  "mem_available": 86552780800,
+  "peak_estimate": 12884901888,
+  "reserve": 4294967296,
+  "tmpfs_free": 9999884288,
+  "durable_free": 1770819584,
+  "basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "prior_terminal": {
+    "returncode": 0,
+    "rows": [
+      {
+        "name": "gpu_tests",
+        "returncode": 0,
+        "seconds": 1.3344873979949625,
+        "identity": {
+          "pid": 1878063,
+          "pgid": 1878059,
+          "start_ticks": 9144441,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "-u",
+            "/dev/shm/t_6ac2b6f5/conformance_run8559.py",
+            "gpu_tests",
+            "candidate"
+          ]
+        }
+      },
+      {
+        "name": "C1",
+        "returncode": 0,
+        "seconds": 29.77344416300184,
+        "identity": {
+          "pid": 1878122,
+          "pgid": 1878059,
+          "start_ticks": 9144576,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "-u",
+            "/dev/shm/t_6ac2b6f5/conformance_run8559.py",
+            "C1",
+            "candidate"
+          ]
+        }
+      },
+      {
+        "name": "C2",
+        "returncode": 0,
+        "seconds": 29.81891971200821,
+        "identity": {
+          "pid": 1878942,
+          "pgid": 1878059,
+          "start_ticks": 9147556,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "-u",
+            "/dev/shm/t_6ac2b6f5/conformance_run8559.py",
+            "C2",
+            "candidate"
+          ]
+        }
+      },
+      {
+        "name": "quality",
+        "returncode": 0,
+        "seconds": 6.974397919999319,
+        "identity": {
+          "pid": 1879240,
+          "pgid": 1878059,
+          "start_ticks": 9150540,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "-u",
+            "/dev/shm/t_6ac2b6f5/conformance_run8559.py",
+            "quality",
+            "candidate"
+          ]
+        }
+      }
+    ]
+  },
+  "prior_child": {
+    "pid": 1879240,
+    "pgid": 1878059,
+    "start_ticks": 9150540,
+    "argv": [
+      "/home/dnola/humming_env/bin/python",
+      "-u",
+      "/dev/shm/t_6ac2b6f5/conformance_run8559.py",
+      "quality",
+      "candidate"
+    ]
+  },
+  "pgrep": "1879711 /home/dnola/humming_env/bin/python -u controller_r3.py matched_plan.json\n"
+}

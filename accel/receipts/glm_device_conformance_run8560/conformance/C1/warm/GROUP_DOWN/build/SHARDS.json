@@ -1,0 +1,30 @@
+{
+  "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "rows": [
+    {
+      "owner": "t_6ac2b6f5",
+      "layer": 4,
+      "experts": [
+        242,
+        243
+      ],
+      "projections": [
+        "down"
+      ],
+      "operation": "column_bmm_factorization",
+      "receipt": "/dev/shm/t_6ac2b6f5/conformance_run8559/TERMINAL.json"
+    },
+    {
+      "owner": "t_6ac2b6f5",
+      "layer": 4,
+      "experts": [
+        242
+      ],
+      "projections": [
+        "fused13"
+      ],
+      "operation": "column_bmm_factorization",
+      "receipt": "/dev/shm/t_6ac2b6f5/conformance_run8559/TERMINAL.json"
+    }
+  ]
+}

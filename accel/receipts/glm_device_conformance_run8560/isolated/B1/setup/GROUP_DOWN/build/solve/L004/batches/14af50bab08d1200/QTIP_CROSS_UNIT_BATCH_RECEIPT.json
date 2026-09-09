@@ -1,0 +1,146 @@
+{
+  "accelerations": {
+    "active": [
+      "persistent-prefix-full16",
+      "kernel-cache",
+      "shared-capture/single-process-staging",
+      "reference-singleton-block-LDL",
+      "cross-unit-LDLQ",
+      "FWHT",
+      "bounded-batch-matrix-lifetime",
+      "canonical-pack-from-states",
+      "packed-byte-reconstruction"
+    ],
+    "historical_k3_alternating_branch_pruning": false,
+    "schema": "banana-smasher-qtip-active-build-accelerations-v1"
+  },
+  "artifact_sha256": [
+    "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1",
+    "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12"
+  ],
+  "assignment_sha256": [
+    "a582b873b20e5ac44b7c222bef0ad59ab6a0c6ca34bf33e18fa42eaae8e75c58",
+    "ac228e2c0030b19a5e4e334e5c6fc0b0c1be39f6b4eb3ebfb4db277df511ba31"
+  ],
+  "basis_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "batch_id": "14af50bab08d1200",
+  "batch_units": 2,
+  "build_phase_seconds": {
+    "batched_block_ldl": 0.061362148000625893,
+    "batched_ldlq": 5.577553807001095,
+    "canonical_per_unit_pack": 0.2085209820070304,
+    "hessian_forward_fwht": 0.09185305298888125,
+    "packed_decode_conformance": 0.4622505579900462
+  },
+  "build_wall_seconds": 6.4413504249969264,
+  "canonical_pack_roundtrip_exact": [
+    true,
+    true
+  ],
+  "config_names": [
+    "CONFIG.json",
+    "CONFIG.json"
+  ],
+  "epoch_ended": 1788926687.2262099,
+  "epoch_started": 1788926679.5711105,
+  "kernel_prepare_seconds": 0.0048238150047836825,
+  "layer": 4,
+  "matrix_lifetime": {
+    "batch_units": 2,
+    "events": [
+      {
+        "live_fp32_matrices": [
+          "hessian",
+          "lower",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 4.0,
+        "phase": "batched_ldl_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [
+          "lower",
+          "quantized",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 5.0,
+        "phase": "batched_ldlq_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [],
+        "live_fp32_matrix_equivalents": 0.0,
+        "phase": "quantized_released_before_pack",
+        "unique_storage_count": 0
+      }
+    ],
+    "max_live_fp32_matrix_equivalents": 5.0,
+    "reconstruction_source": "canonical-packed-bytes",
+    "released_after_ldlq": [
+      "lower",
+      "transformed"
+    ],
+    "released_before_pack": [
+      "lower",
+      "transformed",
+      "quantized"
+    ],
+    "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+    "unit_matrix_shape": [
+      4096,
+      2048
+    ]
+  },
+  "mean_build_phase_seconds": {
+    "batched_block_ldl": 0.030681074000312947,
+    "batched_ldlq": 2.7887769035005476,
+    "canonical_per_unit_pack": 0.1042604910035152,
+    "hessian_forward_fwht": 0.04592652649444062,
+    "packed_decode_conformance": 0.2311252789950231
+  },
+  "mean_build_wall_seconds": 3.2206752124984632,
+  "mean_staging_seconds": 0.6009593189955922,
+  "mean_total_wall_seconds": 3.827192008997372,
+  "packed_decode_execution": "compiled",
+  "packed_decode_fp16_bit_exact": [
+    true,
+    true
+  ],
+  "peak_cuda_allocated_bytes": 2583105536,
+  "peak_cuda_reserved_bytes": 2764046336,
+  "process": {
+    "pid": 1882581,
+    "startticks": 9173415
+  },
+  "receipt_names": [
+    "QTIP_SOLVE_RECEIPT.json",
+    "QTIP_SOLVE_RECEIPT.json"
+  ],
+  "schema": "banana-smasher-qtip-cross-unit-controller-v1",
+  "solver": {
+    "K": 1,
+    "L": 16,
+    "V": 2,
+    "best_state_dtype": "uint16",
+    "best_state_encoding": "full-state",
+    "branch_sampling": "full",
+    "branches_per_prefix": 4,
+    "full_states": 65536,
+    "implementation": "persistent-prefix-generic-aot-v1",
+    "memory_admission": "conservative-int32-workspace",
+    "min_exact_quality": 1.0,
+    "ordering": "one persistent launch per independent sequence batch",
+    "production_default": false,
+    "retained_prefix_costs": 16384,
+    "steps": 128,
+    "viterbi_branch_unroll": 4,
+    "viterbi_distance_alphabet": true,
+    "viterbi_lut_l1_retention": true,
+    "viterbi_num_warps": 16,
+    "viterbi_structured_gather": true
+  },
+  "staging_seconds": 1.2019186379911844,
+  "status": "PASS",
+  "total_wall_seconds": 7.654384017994744
+}

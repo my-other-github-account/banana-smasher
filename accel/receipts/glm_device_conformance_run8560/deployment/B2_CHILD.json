@@ -1,0 +1,12 @@
+{
+  "pid": 1885341,
+  "pgid": 1884590,
+  "start_ticks": 9199128,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+    "B2",
+    "baseline"
+  ]
+}

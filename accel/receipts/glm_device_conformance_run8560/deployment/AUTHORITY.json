@@ -1,0 +1,71 @@
+{
+  "card": "t_6ac2b6f5",
+  "allocation": "explicit dedicated spark-6 continuation from t_1269dc5f",
+  "driver_text": "SOLE-CONTROL CURRENT AUTHORITY \u2014 2026-08-29 03:24 PDT\nP0 PHYSICAL ALLOCATIONS \u2014 live PID/claim CAS mandatory; supersedes 2026-08-28.\n1. HOST_ALLOCATION t_180334ac seat_order [spark-2 rank0, spark-1 rank1] NOW\nExact amplitude 1.0078125 / lr_scale 0.3779296875; warm roots; pin 2b06ef619511bfccdc46e046b6d13316315418be; one variable; kill nonfinite; exact release.\n2. HOST_ALLOCATION t_c5664904 seat_order [spark-4 rank0] NOW\nPin 6cbd4e4b10653dee3ac9d1b49a61095d133d6725; public source materialization L015-L042 preserving L000-L014; unchanged W28 target 0.1364830042977786/top1 880; no full64.\n3. HOST_ALLOCATION t_686041f5 seat_order [spark-5-work rank0, spark-7 rank1] NOW\nOne L000 FNN/MoE instrument split: router-input versus authentic MoE return, identical input, resident versus TRUE builder; no implementation/scorer/full64; MemoryMax<=99GiB; exact release.\n4. HOST_ALLOCATION t_569e9977 seat_order [spark-3 rank0] PRESERVE live fixed6 scorer; do not signal/restage.\n5. HOST_ALLOCATION t_3cc1fd9d seat_order [spark-6 rank0] PRESERVE live GLM producer PID2544654; observer-only to 36288/36288 then reload/admit/PRE64.\n6. HOST_ALLOCATION t_83beecd3 seat_order [spark-8 rank0] NOW\nPin 652f68480dcdd19874ae120bb54b88c9c06b3782; unchanged U20->U21 resident canary from checkpoint 2502bd03; MemoryMax<=105G; step<=10m, kill>20m; GREEN continues U24+fixed6.\nMUTEX one mutating owner/host; live PID required. U16 banned. Static sealed scorer only; no new scorer/full64 test. Deploy code by canonical pin only.\n\nHOST_ALLOCATION t_0e803ee6 spark-6 rank0 NOW (loop-control 14:58; t_3cc1fd9d build is TERMINAL 36,288/36,288 \u2014 its allocation is superseded)\n",
+  "plan": {
+    "attempt": "deployment_run8560",
+    "expected_owner": "t_6ac2b6f5",
+    "expected_pid": 1882577,
+    "expected_start_ticks": 9173394,
+    "archive": "conformance_pin.tar",
+    "archive_sha256": "6970da84f48d3550768f0b8aed99eaac25f27efe79b8f093a4c3aa1e2d0aa116",
+    "code_dir": "deployment_code8560",
+    "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+    "jobs": [
+      {
+        "name": "B1",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+          "B1",
+          "baseline"
+        ]
+      },
+      {
+        "name": "C1",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+          "C1",
+          "candidate"
+        ]
+      },
+      {
+        "name": "C2",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+          "C2",
+          "candidate"
+        ]
+      },
+      {
+        "name": "B2",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+          "B2",
+          "baseline"
+        ]
+      },
+      {
+        "name": "quality",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+          "quality",
+          "candidate"
+        ]
+      }
+    ],
+    "hypothesis": "Full deployed intervention: existing device conformance opt-in plus deferred-copy source vs actual adopted effective False; source-only neutral reported separately",
+    "wait_for_predecessor": true
+  },
+  "plan_sha256": "285528ea3364421dcc04b0e416dbe7f45c678eee13918b9e8c9d78c45e24d289",
+  "script_sha256": "0201fc8818f90e8c41cd87bb37e8d0ed3891d11fe91ec3244b5d57cb32818d20"
+}

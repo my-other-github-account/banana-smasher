@@ -1,0 +1,64 @@
+{
+  "attempt": "deployment_run8560",
+  "expected_owner": "t_6ac2b6f5",
+  "expected_pid": 1882577,
+  "expected_start_ticks": 9173394,
+  "archive": "conformance_pin.tar",
+  "archive_sha256": "6970da84f48d3550768f0b8aed99eaac25f27efe79b8f093a4c3aa1e2d0aa116",
+  "code_dir": "deployment_code8560",
+  "pin": "c769d086701769b08fdc85d5191afc2aa321e3e7",
+  "jobs": [
+    {
+      "name": "B1",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+        "B1",
+        "baseline"
+      ]
+    },
+    {
+      "name": "C1",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+        "C1",
+        "candidate"
+      ]
+    },
+    {
+      "name": "C2",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+        "C2",
+        "candidate"
+      ]
+    },
+    {
+      "name": "B2",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+        "B2",
+        "baseline"
+      ]
+    },
+    {
+      "name": "quality",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_6ac2b6f5/deployment_run8560.py",
+        "quality",
+        "candidate"
+      ]
+    }
+  ],
+  "hypothesis": "Full deployed intervention: existing device conformance opt-in plus deferred-copy source vs actual adopted effective False; source-only neutral reported separately",
+  "wait_for_predecessor": true
+}
