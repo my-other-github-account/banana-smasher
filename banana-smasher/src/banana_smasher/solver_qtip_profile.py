@@ -1323,6 +1323,10 @@ def _install_configured_viterbi(
     cb._banana_smasher_structured_gather = structured_gather
     lut_l1_retention = resolve_lut_l1_retention(sealed, config.get("viterbi_lut_l1_retention"))
     cb._banana_smasher_lut_l1_retention = lut_l1_retention
+    async_overlap_validation = config.get("viterbi_async_overlap_validation", False)
+    if type(async_overlap_validation) is not bool:
+        raise ValueError("viterbi_async_overlap_validation must be boolean")
+    cb._banana_smasher_async_overlap_validation = async_overlap_validation
     group_branches = config.get("viterbi_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
         sealed != (16, 3, 2) or structured_gather or branch_unroll != 1
@@ -1345,6 +1349,9 @@ def _install_configured_viterbi(
                             production_default=launch_warps == 16)
         if lut_l1_retention:
             identity.update(viterbi_lut_l1_retention=True, production_default=False)
+        if async_overlap_validation:
+            identity.update(viterbi_async_overlap_validation=True, production_default=False,
+                            overlap_guard="same-stream device assertion; invalid input is fatal")
         if structured_gather:
             identity.update(viterbi_structured_gather=True, production_default=False)
         if branch_unroll != 1:

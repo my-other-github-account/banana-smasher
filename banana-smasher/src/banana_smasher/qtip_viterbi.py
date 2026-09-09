@@ -59,7 +59,10 @@ def _validate_overlap_prefixes(
     x: torch.Tensor,
     batch: int,
     prefixes: int,
+    async_validation: bool = False,
 ) -> None:
+    if type(async_validation) is not bool:
+        raise ValueError("async overlap validation must be boolean")
     if (
         not overlap.is_cuda
         or overlap.device != x.device
@@ -71,7 +74,12 @@ def _validate_overlap_prefixes(
             "overlap must be an integral CUDA tensor on the input device "
             "with one prefix per sequence"
         )
-    if bool(((overlap < 0) | (overlap >= prefixes)).any()):
+    invalid = ((overlap < 0) | (overlap >= prefixes)).any()
+    if async_validation:
+        # Same predicate, same stream, ordered before pointer-consuming launch.
+        # Failure is a fatal device assertion, never a silent unchecked path.
+        torch._assert_async(~invalid, f"overlap prefixes must be in [0, {prefixes})")
+    elif bool(invalid):
         raise ValueError(f"overlap prefixes must be in [0, {prefixes})")
 
 
@@ -442,12 +450,16 @@ def exact_prefix_viterbi(
     steps = int(metadata["steps"])
     states_count = int(metadata["full_states"])
     prefixes = int(metadata["retained_prefix_costs"])
+    async_overlap_validation = getattr(cb, "_banana_smasher_async_overlap_validation", False)
+    if type(async_overlap_validation) is not bool:
+        raise ValueError("async overlap validation must be boolean")
     if overlap is not None:
         _validate_overlap_prefixes(
             overlap,
             x=x,
             batch=batch,
             prefixes=prefixes,
+            async_validation=async_overlap_validation,
         )
     branches = int(metadata["branches_per_prefix"])
     shift = K * V
