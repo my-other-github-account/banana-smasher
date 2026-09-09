@@ -1,0 +1,27 @@
+banana-smasher — additional device-conformance milestone, run8560
+
+Runtime adopted: c769d086701769b08fdc85d5191afc2aa321e3e7
+Research/source evidence main before final adoption seal: fbee80d718b48072dcb218dd40ee81107938f700
+
+Resumed predecessor's live finite queue without replay. Preserved rejected column-BMM (8/12 numerical PASS, performance RED) and temporal-unroll (12/12 numerical PASS, performance RED) experiments. Preserved prior alphabet1.161171x milestone and actual adoption. No closed square-hoist/layout/pointer/cache experiment was restarted.
+
+New useful production intervention: enable packed_conformance_on_device=True with the canonical deferred-reference-copy runtime. Both independent packed decodes and final CPU interface remain. Effective adopted54244dc7 default was independently resolved as False for absent config key; baseline7e67a48 source tree is identical to adopted54244dc7.
+
+Speed (representative same-work research host, shared caches; not production speed):
+- Same-pin flag toggle ABBA warm1.036363x; setup1.034847x.
+- Source-only predecessor/candidate, both flagTrue: warm1.000258x; setup0.991416x. Neutral; no source-only speed gain claimed.
+- Direct deployed intervention predecessorFalse to candidateTrue: baseline warm13.146264/13.356965s versus candidate12.354828/12.376181s, ratio1.071660x. Setup1.072883x.
+The measurable benefit is attributed to opting into device conformance, not the neutral source-only copy deferral.
+
+Quality separately: focused canonical suite15 PASS; bounded frozen clean-fit comparison12/12 PASS in each candidate panel, SSE ratio threshold1.0001. Not heldout/full-model KL or new end-to-end quality claims. Source, configs, seeds, model index, fitting/evaluation separation preserved.
+
+Actual new production adoption independently authenticated:
+- L021/E193_fused13, artifact beacf675c8b62b4015b9d87ab233f2656df00db009429869556b37a9b2e17b94,2120345bytes,fit16/1412rows.
+- L021/E194_fused13, artifact73b806947f862e8953e434ef096487c260e589ea8033634967ba0d759b965946,2120345bytes,fit16/106rows.
+All15 actual packet files match direct s5 bytes, own copy, and bs06 durable destination. Both configs/manifests exactly reconstructed from prepared originals via reviewed runtime rebind; all17 physical imports per member agree with canonical archive and expected external runtime. Strict device=True and independent packed decode/roundtrip PASS. Immutable owner release ACK plus direct absent wrapper1529726/start9260591 and child1530716/start9260965 verified. No replay. Actual product25.8241s is descriptive unmatched timing, not production speedup.
+
+Research evidence: source/accel/receipts/glm_device_conformance_run8560/. All600 initial manifest entries were tracked and hash-verified, including nested manifests. All72 research artifacts remote/local SHA+size matched. Canonical integration and remote main readback verified.
+
+Ownership: s6 controller1884590/start9190039 and child1885475/start9202325 physically absent; CUDA inventory empty. Dedicated s6 reservation intentionally retained under the card's explicit persistent-owner order. No foreign process changed, no production seat taken, no registry mutation. Bounded local read-only owner observer terminal0.
+
+Successor: existing bs06's authorized missing-only production continuation on c769d08 beyond the authenticated pair, with no replay or evidence-only redeploy. Future s6 experimentation must exact-CAS the retained task claim from this terminal/dead receipt and continue beyond sealed experiments. No children created.

@@ -1,0 +1,73 @@
+{
+  "backend": "persistent-prefix-generic-aot-v1",
+  "block_ldl_reference": true,
+  "block_ldl_unitwise": true,
+  "bpw": "1.00",
+  "capture_hash_workers": 4,
+  "clean_fit_admission": true,
+  "codebook": {
+    "decode_mode": "quantlut_sym",
+    "family": "bitshift",
+    "pack_contract": {
+      "dtype": "uint16",
+      "input_tile": [
+        16,
+        16
+      ],
+      "output_rows": "input_tile_grid",
+      "packed_words_per_tile_per_k": 16
+    },
+    "td_x": 16,
+    "td_y": 16,
+    "tlut_binding": "run-manifest",
+    "tlut_bits": 9
+  },
+  "expert": 194,
+  "fit_capture_root": "/home/dnola/missions/CLEAN_t_bd7914e6/production_l021_s5_run8153_a1/fitcaptures",
+  "fit_windows": 16,
+  "geometry": {
+    "K": 1,
+    "L": 16,
+    "V": 2
+  },
+  "glm_source_closure_sha256": "828e7d673630c355b8cdcbad97fc459446b0b6c09a79437be3a1e95d9b6ef701",
+  "hessian_layer_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/production_l021_s5_run8153_a1/L021_HESSIAN_MANIFEST.json",
+  "hessian_layer_manifest_sha256": "9b72978a03a767fd33d6db453acafbb5f1d835e2be610feddc12cd656c5cbbfd",
+  "input_identity": {
+    "model_index": {
+      "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l021_prefix_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm/model.safetensors.index.json",
+      "sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05"
+    }
+  },
+  "layer": 21,
+  "layer_census": {
+    "qtip1": 1
+  },
+  "materialization": {
+    "run_manifest": "/dev/shm/k1_batch_s5_run8561_z71/K1_L021_E194_fused13_MANIFEST.json",
+    "run_manifest_sha256": "2a226d513d0bf425c9389dca7cb870a6cb387e8308e2085e3aa70b622e46a8a3",
+    "source_config_sha256": "d58c8eab3301ce373371cb32626ae1a0fe0c76357ffaa6f4ccfe29ae73cd6984"
+  },
+  "model_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l021_prefix_s5_run8148_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm",
+  "pack_counts": {
+    "qtip1": 1
+  },
+  "packed_conformance_on_device": true,
+  "projection": "fused13",
+  "qtip_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical",
+  "qtip_runner": "/home/dnola/missions/CLEAN_t_bd7914e6/device_c769d08_run8561/banana-smasher/src/banana_smasher/qtip_runner.py",
+  "reference_unit": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8561_z70/K1_L021_E194_fused13_REFERENCE.pt",
+  "rht_seed": 7995182270327369800,
+  "rht_seed_material": "1ec4976726ff41a4f1a7ff281664682d3398857bbd09e9a6d44c95ad276fac12",
+  "rht_seed_policy": "qtip-rht-manifest-v1",
+  "schema": "banana-smasher-qtip-profile-config-v1",
+  "tier": "qtip@1.00",
+  "tlut_source": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l020_down_s5_run8148_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/p851/inputs/P641_QTIP_TLUT_SOURCE.pt",
+  "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a",
+  "viterbi_backpointer_dtype": "uint16",
+  "viterbi_branch_unroll": true,
+  "viterbi_distance_alphabet": true,
+  "viterbi_lut_l1_retention": true,
+  "viterbi_num_warps": 16,
+  "viterbi_structured_gather": true
+}

@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "packet_sha256": "e7efafe27bc6eef0d10948f8a3af9c473dd32419b1dac6619a91aed22b1effc0",
+  "adoption_readback_sha256": "f4bdc0e4e8620e86881bdf0178437a9a82de20a0eca4a823661e615a861bd57d",
+  "all_files_durable_remote_local_match": true,
+  "count": 15
+}
