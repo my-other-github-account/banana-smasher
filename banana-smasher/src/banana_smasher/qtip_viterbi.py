@@ -336,12 +336,19 @@ def _persistent_prefix_viterbi_generic(
                 candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
             take = candidate < best
             best = tl.where(take, candidate, best)
-            chosen = tl.where(take, state, chosen)
+            # Only q varies between candidates at a fixed prefix column.
+            chosen = tl.where(take, q if DISTANCE_ALPHABET else state, chosen)
         if not REGISTER_COSTS:
             tl.store(scratch_ptr + current_base + j, best)
+        if DISTANCE_ALPHABET:
+            encoded_chosen = chosen if BRANCH_POINTERS else chosen * PREFIXES + j
+            # Preserve the original zero sentinel for unreachable prefixes.
+            encoded_chosen = tl.where(best < float("inf"), encoded_chosen, 0)
+        else:
+            encoded_chosen = chosen // PREFIXES if BRANCH_POINTERS else chosen
         tl.store(
             best_state_ptr + step * B * PREFIXES + base + j,
-            chosen // PREFIXES if BRANCH_POINTERS else chosen,
+            encoded_chosen,
         )
         if not REGISTER_COSTS:
             tl.debug_barrier()
