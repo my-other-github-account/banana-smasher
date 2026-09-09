@@ -571,9 +571,6 @@ def exact_prefix_viterbi(
         retained_output_bytes=retained_output_bytes,
         final_concatenation_bytes=retained_state_storage_bytes,
     )
-    if distance_alphabet:
-        peak["allocations"]["distance_alphabet"] = 4 << 20
-        peak["total_bytes"] += 4 << 20
     driver_free, _total = torch.cuda.mem_get_info(x.device)
     reserved = torch.cuda.memory_reserved(x.device)
     allocated = torch.cuda.memory_allocated(x.device)
@@ -582,7 +579,7 @@ def exact_prefix_viterbi(
         reserved=reserved,
         allocated=allocated,
     )
-    reserve = 4 << 30
+    reserve = (4 << 30) + ((4 << 20) if distance_alphabet else 0)
     total_peak = peak["total_bytes"]
     assert isinstance(total_peak, int)
     if builder_scope or total_peak >= 256 << 20:
