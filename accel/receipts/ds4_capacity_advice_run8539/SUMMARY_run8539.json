@@ -1,0 +1,76 @@
+{
+  "task": "t_1269dc5f",
+  "runtime_pin": "6a40f916a6def348cb6a65bcd648006ab3242211",
+  "helper_pin": "212a5dd0be04220d218ba5e0a7dae9758f2ddb07",
+  "actual_production_cells": 46,
+  "physical_bindings": 184,
+  "artifact_bytes": 145581950,
+  "whole_wall_seconds": 247.46264147758484,
+  "child_sum_seconds": 134.38585329055786,
+  "api_sum_seconds": 106.12314486503601,
+  "phase_seconds": {
+    "artifact_fsync": 0.6212907189619727,
+    "kernel_prepare": 1.3007164880400524,
+    "packed_decode_conformance": 25.62392066998291,
+    "progress_receipt_fsync": 0.0,
+    "receipt_fsync": 0.35936112607305404,
+    "remainder": 0.0,
+    "solve": 76.86890398203104,
+    "solve_core_excluding_packed_decode_conformance": 51.24498331204813,
+    "staging": 26.299716277921107
+  },
+  "setup_receipt_interval_seconds": 100.72998642921448,
+  "advice_file_count": 15308,
+  "advice_bytes": 61743101164,
+  "s6_canary": {
+    "pin": "212a5dd0be04220d218ba5e0a7dae9758f2ddb07",
+    "module_sha256": "e66d8a7f2772ee63dfdc220ea183ab08f7214482bfefeaaa67c2b1eec7865f29",
+    "tar_sha256": "10784fbeaf3bfb01f925b7b64dcdf659a597c93d5a3180339667fc90a4241ceb",
+    "rows": [
+      {
+        "action": "unconditional_historical_advice",
+        "before_free_bytes": 30582829056,
+        "after_free_bytes": 30582829056,
+        "arm": "B1",
+        "wall_seconds": 0.009337991999927908
+      },
+      {
+        "schema": "banana-smasher-capacity-advice-v1",
+        "action": "skipped_sufficient_capacity",
+        "before_free_bytes": 30582829056,
+        "after_free_bytes": 30582829056,
+        "peak_estimate_bytes": 12884901888,
+        "reserve_bytes": 4294967296,
+        "elapsed_seconds": 1.974399492610246e-05,
+        "arm": "C1",
+        "wall_seconds": 2.5775996618904173e-05
+      },
+      {
+        "schema": "banana-smasher-capacity-advice-v1",
+        "action": "skipped_sufficient_capacity",
+        "before_free_bytes": 30582829056,
+        "after_free_bytes": 30582829056,
+        "peak_estimate_bytes": 12884901888,
+        "reserve_bytes": 4294967296,
+        "elapsed_seconds": 1.358399458695203e-05,
+        "arm": "C2",
+        "wall_seconds": 1.5247991541400552e-05
+      },
+      {
+        "action": "unconditional_historical_advice",
+        "before_free_bytes": 30582829056,
+        "after_free_bytes": 30582829056,
+        "arm": "B2",
+        "wall_seconds": 0.009120438000536524
+      }
+    ],
+    "all_three_original_artifacts_unchanged": true,
+    "scope": "capacity helper mechanical canary on three authentic retained units; no solve/no heldout/no production speed denominator; tmpfs advice not claimed as reclamation",
+    "quality": "no numerical implementation or scientific byte changed; original numerical gate retained"
+  },
+  "helper_adoption": false,
+  "same_work_production_baseline": false,
+  "quality_scope": "Producer conformance authenticated for46; no independent production decode or new heldout; optional helper changes no science.",
+  "remaining_gate": "bs09 owns live remaining247; no unclaimed missing solve range available. No replay permitted.",
+  "identity_correction": "Canary IDENTITY inherited predecessor terminal_at; process start_ticks and separate TERMINAL/current retained claim establish actual chronology. Immutable original preserved."
+}

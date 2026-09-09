@@ -1,0 +1,71 @@
+FFFFFF.
+======================================================================
+FAIL: test_invalid_capacity_values_fail_before_reclaim (__main__.CapacityAdviceTests.test_invalid_capacity_values_fail_before_reclaim) (values=(0, 4, 17))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 29, in test_invalid_capacity_values_fail_before_reclaim
+    with self.assertRaises(ValueError):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_invalid_capacity_values_fail_before_reclaim (__main__.CapacityAdviceTests.test_invalid_capacity_values_fail_before_reclaim) (values=(12, -1, 17))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 29, in test_invalid_capacity_values_fail_before_reclaim
+    with self.assertRaises(ValueError):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_invalid_capacity_values_fail_before_reclaim (__main__.CapacityAdviceTests.test_invalid_capacity_values_fail_before_reclaim) (values=(True, 4, 17))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 29, in test_invalid_capacity_values_fail_before_reclaim
+    with self.assertRaises(ValueError):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_invalid_capacity_values_fail_before_reclaim (__main__.CapacityAdviceTests.test_invalid_capacity_values_fail_before_reclaim) (values=(12, 4, nan))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 29, in test_invalid_capacity_values_fail_before_reclaim
+    with self.assertRaises(ValueError):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_invalid_capacity_values_fail_before_reclaim (__main__.CapacityAdviceTests.test_invalid_capacity_values_fail_before_reclaim) (values=(12, 4, -1))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 30, in test_invalid_capacity_values_fail_before_reclaim
+    module.capacity_advice(lambda: free, peak, reserve, lambda: self.fail('bad input advised'))
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/src/banana_smasher/capacity_advice.py", line 27, in capacity_advice
+    reclaim()
+    ~~~~~~~^^
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 30, in <lambda>
+    module.capacity_advice(lambda: free, peak, reserve, lambda: self.fail('bad input advised'))
+                                                                ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+AssertionError: bad input advised
+
+======================================================================
+FAIL: test_invalid_capacity_values_fail_before_reclaim (__main__.CapacityAdviceTests.test_invalid_capacity_values_fail_before_reclaim) (values=(12, 4, True))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 30, in test_invalid_capacity_values_fail_before_reclaim
+    module.capacity_advice(lambda: free, peak, reserve, lambda: self.fail('bad input advised'))
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/src/banana_smasher/capacity_advice.py", line 27, in capacity_advice
+    reclaim()
+    ~~~~~~~^^
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 30, in <lambda>
+    module.capacity_advice(lambda: free, peak, reserve, lambda: self.fail('bad input advised'))
+                                                                ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+AssertionError: bad input advised
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.001s
+
+FAILED (failures=6)

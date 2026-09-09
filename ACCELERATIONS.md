@@ -1316,3 +1316,54 @@ owner receipt was rewritten. Same-work speed evidence remains the separate
 panel nor adoption implies global quality or an extrapolated full-model ETA.
 Evidence: `accel/receipts/ds4_production_residency_run8535/`. Dedicated s6 remains
 retained unchanged per operator instruction, not released at milestone closure.
+
+### Distinct46 production and optional capacity-advice guard (run8539)
+
+The owner's new `s8-K3-L012DOWN46-resident-run8531` completed46 distinct
+L012 down K3 cells. Independent physical readback matched184 artifact/config/
+receipt/import SHA+size bindings,145,581,950 artifact bytes,46 producer
+conformance/science checks and55 imported modules against runtime6a40f916.
+This authenticates producer conformance, not independently rerun decoding or
+heldout/full-model quality. The prior six-cell milestone is preserved.
+
+Actual whole wall247.462641s includes9 child intervals totaling134.385853s;
+18 public batch calls total106.123145s. Prorated receipt phases sum to
+76.868904s solve (including25.623921s conformance) and26.299716s staging.
+There is NO authentic same46-work baseline; neither six-cell timings nor the
+zero-output capacity refusal supplies one. No production speed ratio or ETA.
+
+The source-to-artifact advice receipt interval is100.729986s, including probes
+and setup rather than a separately instrumented advice timer. The actual
+controller unconditionally hashes/fsyncs/advises15,308 old artifacts totaling
+61,743,101,164 bytes despite initial CUDA free48,058,642,432 bytes already
+exceeding the unchanged12GiB estimate plus4GiB reserve. This is the measured
+startup bottleneck motivating the focused helper, not a kernel experiment.
+
+Canonical helper pin `212a5dd0be04220d218ba5e0a7dae9758f2ddb07` adds
+`capacity_advice(probe_free_bytes, peak_estimate_bytes, reserve_bytes, reclaim)`.
+It skips ONLY optional historical-output advice when live capacity already
+passes; otherwise the caller's bounded original advice runs once. A second
+probe always enforces the same strict threshold. Invalid probes/estimates,
+callback errors and failed final gates do not fall back. This is not a claim,
+artifact-validation, source-validation or per-batch admission replacement.
+Preserve all such existing gates and fsynced admissions. Use the owner's
+existing probe semantics (including a subprocess if CUDA parent residency
+must remain absent); never import CUDA into a previously CUDA-free supervisor
+merely to use this pure-Python helper.
+
+Three CPU tests with invalid-value/final-gate subcases pass locally and on s6.
+The distinct finite s6 mechanical canary preserves all three authentic retained
+unit hashes; optional advice is skipped at30,582,829,056 free bytes, without
+weakening12GiB+4GiB. Its9ms versus tens-of-microseconds helper timings are NOT
+representative whole-production speed evidence. Tmpfs advice is not claimed
+to reclaim memory. No numerical implementation, fitting input or scorer changes.
+
+Helper production adoption is still PENDING: bs09 reports remaining247 cells
+already live/claimed with its original8GiB+4GiB batch gate and no unclaimed
+missing K3 solve range. Do not manufacture work, replay cells, mutate a live
+producer or carry the12GiB trial estimate into another geometry blindly.
+Existing owner may consider the helper only at a genuine authorized boundary;
+actual new outputs are required before claiming rollout acceptance.
+Dedicated s6 remains retained, physical canary supervisor/child dead, no release.
+Receipts, hashes, source-cause binding and runnable canary:
+`accel/receipts/ds4_capacity_advice_run8539/`.

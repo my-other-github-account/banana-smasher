@@ -1,0 +1,14 @@
+F
+======================================================================
+FAIL: test_sufficient_capacity_does_not_visit_historical_outputs (__main__.CapacityAdviceTests.test_sufficient_capacity_does_not_visit_historical_outputs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 10, in test_sufficient_capacity_does_not_visit_historical_outputs
+    self.assertTrue(MODULE.exists(), 'capacity-gated advice helper missing')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : capacity-gated advice helper missing
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+FAILED (failures=1)

@@ -1,0 +1,14 @@
+F..
+======================================================================
+FAIL: test_advice_once_and_final_gate_cannot_be_skipped (__main__.CapacityAdviceTests.test_advice_once_and_final_gate_cannot_be_skipped) (samples=[17, nan])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/macmini/.hermes/kanban/boards/banana-smasher/workspaces/t_1269dc5f/repo/banana-smasher/tests/test_capacity_advice.py", line 42, in test_advice_once_and_final_gate_cannot_be_skipped
+    with self.assertRaises(error):
+         ~~~~~~~~~~~~~~~~~^^^^^^^
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+FAILED (failures=1)
