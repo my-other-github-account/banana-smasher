@@ -1,0 +1,22 @@
+{
+  "host": "spark-6",
+  "owner": "t_012f1c90",
+  "task_id": "t_012f1c90",
+  "state": "CLAIMED",
+  "status": "CLAIMED",
+  "mission": "/dev/shm/t_012f1c90/down_rebase_abba_run8570",
+  "receipt": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/IDENTITY.json",
+  "expiry_unix": 1788945691.8635767,
+  "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "exact_cas_from_sha256": "d1413b6b1c3e94664ca6de1c7b472269022655df845bf170483c57993cd96b0f",
+  "stage": "down_rebase_abba_run8570",
+  "pid": 1941183,
+  "pgid": 1941183,
+  "start_ticks": 10354833,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "downabba_controller8570.py",
+    "downabba_plan8570.json"
+  ]
+}

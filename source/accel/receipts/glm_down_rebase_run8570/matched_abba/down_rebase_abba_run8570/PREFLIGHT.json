@@ -1,0 +1,114 @@
+{
+  "mem_available": 86502178816,
+  "peak_estimate": 12884901888,
+  "reserve": 4294967296,
+  "tmpfs_free": 8763703296,
+  "durable_free": 1488932864,
+  "basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "prior_terminal": {
+    "returncode": 0,
+    "rows": [
+      {
+        "name": "focused_tests",
+        "returncode": 0,
+        "seconds": 9.312113191990647,
+        "identity": {
+          "pid": 1939595,
+          "pgid": 1939591,
+          "start_ticks": 10324667,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "-m",
+            "pytest",
+            "-q",
+            "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_cost_rebase.py",
+            "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_distance_sum.py",
+            "/dev/shm/t_012f1c90/test_scope8568.py",
+            "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_final_rebase.py",
+            "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_down_sum.py",
+            "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_distance_alphabet.py"
+          ]
+        }
+      },
+      {
+        "name": "micro_filter",
+        "returncode": 0,
+        "seconds": 3.6134667830046965,
+        "identity": {
+          "pid": 1939655,
+          "pgid": 1939591,
+          "start_ticks": 10325601,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "/dev/shm/t_012f1c90/downmicro8570.py",
+            "0cf2c0687dd22e0002fedf2d772e8e6e35ab54dfac5f8c93efe784fb21d4500d"
+          ]
+        }
+      },
+      {
+        "name": "C1",
+        "returncode": 0,
+        "seconds": 31.578888156000176,
+        "identity": {
+          "pid": 1939877,
+          "pgid": 1939591,
+          "start_ticks": 10325964,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "-u",
+            "/dev/shm/t_012f1c90/downrebase_bench8570.py",
+            "C1",
+            "candidate"
+          ]
+        }
+      },
+      {
+        "name": "C2",
+        "returncode": 0,
+        "seconds": 27.05291311199835,
+        "identity": {
+          "pid": 1940041,
+          "pgid": 1939591,
+          "start_ticks": 10329125,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "-u",
+            "/dev/shm/t_012f1c90/downrebase_bench8570.py",
+            "C2",
+            "candidate"
+          ]
+        }
+      },
+      {
+        "name": "quality",
+        "returncode": 0,
+        "seconds": 6.9144109890039545,
+        "identity": {
+          "pid": 1940176,
+          "pgid": 1939591,
+          "start_ticks": 10331832,
+          "argv": [
+            "/home/dnola/humming_env/bin/python",
+            "-u",
+            "/dev/shm/t_012f1c90/downrebase_bench8570.py",
+            "quality",
+            "candidate"
+          ]
+        }
+      }
+    ]
+  },
+  "prior_child": {
+    "pid": 1940176,
+    "pgid": 1939591,
+    "start_ticks": 10331832,
+    "argv": [
+      "/home/dnola/humming_env/bin/python",
+      "-u",
+      "/dev/shm/t_012f1c90/downrebase_bench8570.py",
+      "quality",
+      "candidate"
+    ]
+  },
+  "pgrep": "1941183 /home/dnola/humming_env/bin/python -u downabba_controller8570.py downabba_plan8570.json\n"
+}

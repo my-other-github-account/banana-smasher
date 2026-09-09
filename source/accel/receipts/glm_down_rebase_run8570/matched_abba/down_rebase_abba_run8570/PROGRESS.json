@@ -1,0 +1,87 @@
+[
+  {
+    "name": "B1",
+    "returncode": 0,
+    "seconds": 29.986669442005223,
+    "identity": {
+      "pid": 1941187,
+      "pgid": 1941183,
+      "start_ticks": 10354852,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "B1",
+        "baseline"
+      ]
+    }
+  },
+  {
+    "name": "C1",
+    "returncode": 0,
+    "seconds": 27.12436863699986,
+    "identity": {
+      "pid": 1941977,
+      "pgid": 1941183,
+      "start_ticks": 10357853,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "C1",
+        "candidate"
+      ]
+    }
+  },
+  {
+    "name": "C2",
+    "returncode": 0,
+    "seconds": 27.327060102004907,
+    "identity": {
+      "pid": 1942111,
+      "pgid": 1941183,
+      "start_ticks": 10360568,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "C2",
+        "candidate"
+      ]
+    }
+  },
+  {
+    "name": "B2",
+    "returncode": 0,
+    "seconds": 29.502575144986622,
+    "identity": {
+      "pid": 1942244,
+      "pgid": 1941183,
+      "start_ticks": 10363304,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "B2",
+        "baseline"
+      ]
+    }
+  },
+  {
+    "name": "quality",
+    "returncode": 0,
+    "seconds": 7.246577574987896,
+    "identity": {
+      "pid": 1942378,
+      "pgid": 1941183,
+      "start_ticks": 10366257,
+      "argv": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "quality",
+        "candidate"
+      ]
+    }
+  }
+]

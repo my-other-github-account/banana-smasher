@@ -1,0 +1,12 @@
+{
+  "pid": 1941977,
+  "pgid": 1941183,
+  "start_ticks": 10357853,
+  "argv": [
+    "/home/dnola/humming_env/bin/python",
+    "-u",
+    "/dev/shm/t_012f1c90/downabba_bench8570.py",
+    "C1",
+    "candidate"
+  ]
+}

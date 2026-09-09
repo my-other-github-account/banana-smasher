@@ -1,0 +1,723 @@
+{
+  "files": [
+    {
+      "path": "down_rebase_run8570/CLAIM_TERMINAL.json",
+      "bytes": 765,
+      "sha256": "d1413b6b1c3e94664ca6de1c7b472269022655df845bf170483c57993cd96b0f"
+    },
+    {
+      "path": "down_rebase_run8570/TERMINAL.json",
+      "bytes": 2523,
+      "sha256": "a5b0798a67a53ed51fbcc6d4ca15fae9b57edefcd738a12068dd240cc0435f48"
+    },
+    {
+      "path": "down_rebase_run8570/quality_LOG.json",
+      "bytes": 16,
+      "sha256": "aefd190dd5cbfe036b39ddefbc318fcd7158feb4664ae87179e69bc4bea78024"
+    },
+    {
+      "path": "down_rebase_run8570/PROGRESS.json",
+      "bytes": 2312,
+      "sha256": "c035de83c6211def4d13fe93cb80666eb8caa849e04f8b1f8890b81773af5b34"
+    },
+    {
+      "path": "down_rebase_run8570/GATE.json",
+      "bytes": 72,
+      "sha256": "f06ecf7d5c412021257d967a889382601974e7a84ab8ea5f390f2aced1621234"
+    },
+    {
+      "path": "down_rebase_run8570/QUALITY.json",
+      "bytes": 84290,
+      "sha256": "a285ed573196df9173431dc63293ae3313a3be1636e36749086a31cd73fffba4"
+    },
+    {
+      "path": "down_rebase_run8570/quality_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "5e20fd2453c6a4e5e96a9a6250c6daa2068532bb675f6446fb26345f24485b19"
+    },
+    {
+      "path": "down_rebase_run8570/quality_CHILD.json",
+      "bytes": 217,
+      "sha256": "a809b00ce886391d4f670aa56d54280cd5fb549c57cf685ecb46515f5734c923"
+    },
+    {
+      "path": "down_rebase_run8570/CHILD.json",
+      "bytes": 217,
+      "sha256": "a809b00ce886391d4f670aa56d54280cd5fb549c57cf685ecb46515f5734c923"
+    },
+    {
+      "path": "down_rebase_run8570/quality.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "down_rebase_run8570/C2_LOG.json",
+      "bytes": 16,
+      "sha256": "aefd190dd5cbfe036b39ddefbc318fcd7158feb4664ae87179e69bc4bea78024"
+    },
+    {
+      "path": "down_rebase_run8570/C2_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "77f63ab4d5dd4d43b50569ceaef5cde8c48683343cc553a04ed151bb64fd5019"
+    },
+    {
+      "path": "down_rebase_run8570/C2_CHILD.json",
+      "bytes": 212,
+      "sha256": "c805b9b2e8f67d3bf354973f82e75ab78d84c3ed4617ba754fd8e7c1d45740fd"
+    },
+    {
+      "path": "down_rebase_run8570/C2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "down_rebase_run8570/C1_LOG.json",
+      "bytes": 16,
+      "sha256": "aefd190dd5cbfe036b39ddefbc318fcd7158feb4664ae87179e69bc4bea78024"
+    },
+    {
+      "path": "down_rebase_run8570/C1_CUDA_ADMISSION.json",
+      "bytes": 379,
+      "sha256": "d428b20027e4d96669ed407071f250aa3c941baa5defe063a3a9c8b651cb9e9b"
+    },
+    {
+      "path": "down_rebase_run8570/C1_CHILD.json",
+      "bytes": 212,
+      "sha256": "41266d99177f8255e989af9024a7eddec49888d91415a12b00fbce8cc89e1491"
+    },
+    {
+      "path": "down_rebase_run8570/C1.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "down_rebase_run8570/micro_filter_LOG.json",
+      "bytes": 1012,
+      "sha256": "1882ace7e41037076cbd41e1cc9e7e756742179316ae0d15b514d4338f0b5f18"
+    },
+    {
+      "path": "down_rebase_run8570/MICRO.json",
+      "bytes": 1138,
+      "sha256": "ca3d4e5fbea430c2a9711b20bf46ade74eaa2dd11cead814f802a965a7b2b4b3"
+    },
+    {
+      "path": "down_rebase_run8570/micro_filter_CHILD.json",
+      "bytes": 240,
+      "sha256": "4dca8b193ab5eb55e01090d525614c37fb7468853d5b02818cc3787fc45802d9"
+    },
+    {
+      "path": "down_rebase_run8570/micro_filter.log",
+      "bytes": 893,
+      "sha256": "9374b93a32fd2805799d90988ba50e1a1b94a495c20c26967b0b4727d82b6331"
+    },
+    {
+      "path": "down_rebase_run8570/focused_tests_LOG.json",
+      "bytes": 117,
+      "sha256": "8e904b94f5924b47afb03564b4d11e62453992fda216adc4048dfe5898d0661d"
+    },
+    {
+      "path": "down_rebase_run8570/focused_tests_CHILD.json",
+      "bytes": 673,
+      "sha256": "d630185c42099ae795ca03a96a8cf036acff28135e04ff05d10c2d1bffde2834"
+    },
+    {
+      "path": "down_rebase_run8570/focused_tests.log",
+      "bytes": 99,
+      "sha256": "ea98790d833fcf494eeb7c9f97d35611cdae9c09e340ef887574d1ee1a943636"
+    },
+    {
+      "path": "down_rebase_run8570/DEPLOY.json",
+      "bytes": 200,
+      "sha256": "e0c008246c2aa8af5debd02ab7d1da25f4760f86edcbb806ab1e8a51c9aca0e0"
+    },
+    {
+      "path": "down_rebase_run8570/IDENTITY.json",
+      "bytes": 711,
+      "sha256": "5de62d50ea62015a26bb9c235948acc66744efa1c8cd45d67b006b86f2ad4345"
+    },
+    {
+      "path": "down_rebase_run8570/PREIMAGE.json",
+      "bytes": 771,
+      "sha256": "9876ace0f5e59e93cb6db49f4d129412b64be3fa07c437ba1ff2d439760757d0"
+    },
+    {
+      "path": "down_rebase_run8570/SHARDS.json",
+      "bytes": 674,
+      "sha256": "474bce13f3e12836aacb5d9bd3c3598604c07f95719e90e8b28a11ad78b8b701"
+    },
+    {
+      "path": "down_rebase_run8570/SHARDS_PREIMAGE.json",
+      "bytes": 666,
+      "sha256": "ba36ae6354adf6663d00a05852857463bf60d7a34053353d20e5c2941900dc27"
+    },
+    {
+      "path": "down_rebase_run8570/ADMISSION.json",
+      "bytes": 404,
+      "sha256": "f7cdf72b73e6616547c86d956a58e3b00e1dd71a852c57c7c8df9452d59c2507"
+    },
+    {
+      "path": "down_rebase_run8570/AUTHORITY.json",
+      "bytes": 4994,
+      "sha256": "535b78200bd59190deda084225ea72655742febdef2aee82a2f4ef69784e3595"
+    },
+    {
+      "path": "down_rebase_run8570/PREFLIGHT.json",
+      "bytes": 3129,
+      "sha256": "76444b4f634c633f78e40351b2b899f153cf433c6d714ed4ecb193b952e88c6f"
+    },
+    {
+      "path": "down_rebase_run8570/C2/RESULT.json",
+      "bytes": 189690,
+      "sha256": "cb40344809f03998b63d83535d4da9379d450180b091bf6a69c5a1a44399e443"
+    },
+    {
+      "path": "down_rebase_run8570/C1/RESULT.json",
+      "bytes": 190336,
+      "sha256": "4687efc99db8432b63b13ff6c7654add98583807fde5a43c959da99670a37b09"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_FUSED/build/SHARDS.json",
+      "bytes": 674,
+      "sha256": "474bce13f3e12836aacb5d9bd3c3598604c07f95719e90e8b28a11ad78b8b701"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_FUSED/E242_fused13/CONFIG.json",
+      "bytes": 3354,
+      "sha256": "00aaf67f0e4bc55722ebaed643c84a6a05cb31156d407a9f55ba430cc99be896"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_FUSED/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "cc80e86ec1f5dec3534600c487febd1a32ac33f2b73644b237f615ad164b5d22"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24232,
+      "sha256": "73790de2359052bf0bfe77ff24c58a7850f055c7d7eb2626c0a20a620ed82ad7"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_FUSED/build/solve/L004/batches/65ec094d25f23c28/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4046,
+      "sha256": "6775ccb57b7453a58f0d9e2b66c51c6fe72a6238658d36d457ec81c35dc24097"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/build/SHARDS.json",
+      "bytes": 674,
+      "sha256": "474bce13f3e12836aacb5d9bd3c3598604c07f95719e90e8b28a11ad78b8b701"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/E243_down/CONFIG.json",
+      "bytes": 3346,
+      "sha256": "c3eb111ef9bb9703d77bae6249bb9fc4fd70bd159a77a0191f5029dd09534411"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "6abd90c71c8550613dc12243817abf6afba4feaf09d568ae0e0a1d4dfb758e40"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/E242_down/CONFIG.json",
+      "bytes": 3346,
+      "sha256": "3e6f20095cfd621740fe7e81445c65933a465c81fae4b29bb009ef8245691074"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "741eeb56d965f7e6655d24f084ade6ed245d5c4e3c2d99ee96f19e54d6b584b2"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 27033,
+      "sha256": "59a15e21e7f4023f9c25d641cafe4d32e6e6f69f16008cccca80b8771646fe20"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/build/solve/L004/E243_down/QTIP_UNIT.pt",
+      "bytes": 1067673,
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 27030,
+      "sha256": "1fc52648f0d0987f8d18b5bcfbb1946aa095c53d39a3810253dbda7d107f18bf"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/build/solve/L004/E242_down/QTIP_UNIT.pt",
+      "bytes": 1067673,
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1"
+    },
+    {
+      "path": "down_rebase_run8570/C2/warm/GROUP_DOWN/build/solve/L004/batches/14af50bab08d1200/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4313,
+      "sha256": "999096f62d95e7b5e7b2d29c3fef6941693a5d3385035dee43576f03d580fd9e"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_FUSED/build/SHARDS.json",
+      "bytes": 674,
+      "sha256": "474bce13f3e12836aacb5d9bd3c3598604c07f95719e90e8b28a11ad78b8b701"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_FUSED/E242_fused13/CONFIG.json",
+      "bytes": 3355,
+      "sha256": "fafaf9f6d0da8636945271b5e31240c127b7a19cd97d6fc605ab94258bfa82f7"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_FUSED/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "cc80e86ec1f5dec3534600c487febd1a32ac33f2b73644b237f615ad164b5d22"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24238,
+      "sha256": "e4988f6384218ba3ffb02f0e0212c4ff0816aab55b076febb61d147db032bba5"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_FUSED/build/solve/L004/batches/65ec094d25f23c28/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4053,
+      "sha256": "655bc4fd5d1a0130ab617033b814ec18fe97568d66c9e32b4a8aef4952c5d1da"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/build/SHARDS.json",
+      "bytes": 674,
+      "sha256": "474bce13f3e12836aacb5d9bd3c3598604c07f95719e90e8b28a11ad78b8b701"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/E243_down/CONFIG.json",
+      "bytes": 3347,
+      "sha256": "cb370d56061eb4d93429bf5e57c5e002beb745b1a2cbce739e3187730e09d3f4"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "6abd90c71c8550613dc12243817abf6afba4feaf09d568ae0e0a1d4dfb758e40"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/E242_down/CONFIG.json",
+      "bytes": 3347,
+      "sha256": "712eb2efcf2e0078704c3f2d7120b4f8b83bd6ec410b2910b996283432eb9b5a"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "741eeb56d965f7e6655d24f084ade6ed245d5c4e3c2d99ee96f19e54d6b584b2"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 27023,
+      "sha256": "278624704f934addacbdf62f65aa27c299577782fa7d6bd6fa40fbadef139e14"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/build/solve/L004/E243_down/QTIP_UNIT.pt",
+      "bytes": 1067673,
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 27024,
+      "sha256": "d4b5675b2937371bdd024153632bca481420a8766f1e440fc3f4600f123e549f"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/build/solve/L004/E242_down/QTIP_UNIT.pt",
+      "bytes": 1067673,
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1"
+    },
+    {
+      "path": "down_rebase_run8570/C2/setup/GROUP_DOWN/build/solve/L004/batches/14af50bab08d1200/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4309,
+      "sha256": "7f74689902e2ca50cc4dc6c0e0a63ad1bc1f010c20fd29e411be7a722eee932d"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_FUSED/build/SHARDS.json",
+      "bytes": 674,
+      "sha256": "474bce13f3e12836aacb5d9bd3c3598604c07f95719e90e8b28a11ad78b8b701"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_FUSED/E242_fused13/CONFIG.json",
+      "bytes": 3354,
+      "sha256": "363558ddd52a3c1e59392c409e0f919597885a2c7db9ac73776cddde27a431b2"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_FUSED/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "cc80e86ec1f5dec3534600c487febd1a32ac33f2b73644b237f615ad164b5d22"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24233,
+      "sha256": "b20a9945db47d4c8db850cd8635642278d3129f394a20a1261f697791f4a2aca"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_FUSED/build/solve/L004/batches/65ec094d25f23c28/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4049,
+      "sha256": "0bf7ef4378743be1279dc89a319a6a65f80a6af6acb28abdffdd58b5a21b9a8c"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/build/SHARDS.json",
+      "bytes": 674,
+      "sha256": "474bce13f3e12836aacb5d9bd3c3598604c07f95719e90e8b28a11ad78b8b701"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/E243_down/CONFIG.json",
+      "bytes": 3346,
+      "sha256": "fd96bd6e39572bb18917adeb89f4500db6ab41c8e9327dcbccbec27703fd8353"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "6abd90c71c8550613dc12243817abf6afba4feaf09d568ae0e0a1d4dfb758e40"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/E242_down/CONFIG.json",
+      "bytes": 3346,
+      "sha256": "81d893ce23ae0b196c91a1a48200388ff0e48d8c7f9c241e7a9ede453745c249"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "741eeb56d965f7e6655d24f084ade6ed245d5c4e3c2d99ee96f19e54d6b584b2"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 27032,
+      "sha256": "5dc6e6468969333e52bfeaa603ef949474071df9d7bb70de7e4d380fa333e491"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/build/solve/L004/E243_down/QTIP_UNIT.pt",
+      "bytes": 1067673,
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 27030,
+      "sha256": "5c3358454352c93a57d85ba0ef834a3f1179e71b5f61ec42f1e9685d287211a2"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/build/solve/L004/E242_down/QTIP_UNIT.pt",
+      "bytes": 1067673,
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1"
+    },
+    {
+      "path": "down_rebase_run8570/C1/warm/GROUP_DOWN/build/solve/L004/batches/14af50bab08d1200/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4313,
+      "sha256": "ab699e7cdecee9d00c3c486e6b1d6f534789c0b9d957d13bb684254be7e7173e"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_FUSED/build/SHARDS.json",
+      "bytes": 674,
+      "sha256": "474bce13f3e12836aacb5d9bd3c3598604c07f95719e90e8b28a11ad78b8b701"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_FUSED/E242_fused13/CONFIG.json",
+      "bytes": 3355,
+      "sha256": "1364b50f254d938456ae814193f849f2b30ff1fe568b780437c7f61fab59eca2"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_FUSED/E242_fused13/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_FUSED/E242_fused13/MANIFEST.json",
+      "bytes": 697,
+      "sha256": "cc80e86ec1f5dec3534600c487febd1a32ac33f2b73644b237f615ad164b5d22"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 24235,
+      "sha256": "39d61adbf9ae60088a1f37b8e7f354363a3ba3469eedce6e9802cac4fee0cc68"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_FUSED/build/solve/L004/E242_fused13/QTIP_UNIT.pt",
+      "bytes": 2120345,
+      "sha256": "dc9982fbad844a6226ba1b6f97067cc5b5b4437c01597c92cbfbab906f762303"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_FUSED/build/solve/L004/batches/65ec094d25f23c28/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4048,
+      "sha256": "6056c12ec36dff94fc872ec1780ab8d7c7feb334348ae2e77f24b4f1d67c1024"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/build/SHARDS.json",
+      "bytes": 674,
+      "sha256": "474bce13f3e12836aacb5d9bd3c3598604c07f95719e90e8b28a11ad78b8b701"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/E243_down/CONFIG.json",
+      "bytes": 3347,
+      "sha256": "9dfe813188cb70af6641c639465f278e2140784064c3f0ac633085fff5e819a5"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/E243_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/E243_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "6abd90c71c8550613dc12243817abf6afba4feaf09d568ae0e0a1d4dfb758e40"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/E242_down/CONFIG.json",
+      "bytes": 3347,
+      "sha256": "36532de31e99ed283c7e84a829dcb1a7d98779b7ff2ec45b6bff1d70bcae6cce"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/E242_down/IMPORT_CLOSURE.json",
+      "bytes": 6545,
+      "sha256": "84addf2e663553607977290b203af50227753c7fddd5ea9b100dd16be7bbc860"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/E242_down/MANIFEST.json",
+      "bytes": 694,
+      "sha256": "741eeb56d965f7e6655d24f084ade6ed245d5c4e3c2d99ee96f19e54d6b584b2"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/build/solve/L004/E243_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 27285,
+      "sha256": "9622470aa628ee986f37aba19f5fecbca3864f69794224bab9baed86bea6ff57"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/build/solve/L004/E243_down/QTIP_UNIT.pt",
+      "bytes": 1067673,
+      "sha256": "864f9a6f8d6649f1e7b1629dec1d42f6f07f49b170d6272fae36d60bfcce3a12"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/build/solve/L004/E242_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 27284,
+      "sha256": "02548889a9c4b4364d7fd30b4b546cb63cde79111532df9e01ed0a9d32654beb"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/build/solve/L004/E242_down/QTIP_UNIT.pt",
+      "bytes": 1067673,
+      "sha256": "d5a997eb7ea421bb81ce6e8f55b3805f161e1e5d6db4c6f2ae679ee926cbf4a1"
+    },
+    {
+      "path": "down_rebase_run8570/C1/setup/GROUP_DOWN/build/solve/L004/batches/14af50bab08d1200/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4303,
+      "sha256": "30faa8d360c4a74905da336ec9f34e0542073ee1c1fee52d98977fba51b55a15"
+    },
+    {
+      "path": "downrebase_plan8570.json",
+      "bytes": 2797,
+      "sha256": "9532005d73253592701b605dea83441c9deeb55cb7fffa34cf1cb643e183f0dd"
+    },
+    {
+      "path": "downrebase_controller8570.py",
+      "bytes": 6057,
+      "sha256": "d0b717ff1b98085bd776398ee8bf34ede4a07523286092d28be484e19493e4f9"
+    },
+    {
+      "path": "downrebase_bench8570.py",
+      "bytes": 7116,
+      "sha256": "961e3f0fd83c2263377096f58cae77eeba6a64d0a58e75f9d22ef7b130054e01"
+    },
+    {
+      "path": "downrebase8570.tar",
+      "bytes": 4567040,
+      "sha256": "f5f323e96893bb107a3b3f86aca66d698aa61bd841cbf21283b9324db4b764d0"
+    },
+    {
+      "path": "downmicro8570.py",
+      "bytes": 2878,
+      "sha256": "a2f60492fff3dd800e95cb44aee60f4f22c913e91093439a00425725e68428a2"
+    },
+    {
+      "path": "ALLOCATION.json",
+      "bytes": 1497,
+      "sha256": "3672b20dbc9c0c6a9ff917a7c8853a5893a5faac7cb60e4ec8a4dd33cb53e8d1"
+    }
+  ],
+  "count": 117,
+  "bytes": 22577476,
+  "pre_free": 1512198144,
+  "post_free": 1488982016,
+  "claim": {
+    "host": "spark-6",
+    "owner": "t_012f1c90",
+    "task_id": "t_012f1c90",
+    "state": "CLAIMED",
+    "status": "CLAIMED",
+    "mission": "/dev/shm/t_012f1c90/down_rebase_run8570",
+    "receipt": "/dev/shm/t_012f1c90/down_rebase_run8570/IDENTITY.json",
+    "expiry_unix": 1788945390.0083098,
+    "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "exact_cas_from_sha256": "9876ace0f5e59e93cb6db49f4d129412b64be3fa07c437ba1ff2d439760757d0",
+    "stage": "down_rebase_run8570_terminal_retained",
+    "pid": 1939591,
+    "pgid": 1939591,
+    "start_ticks": 10324648,
+    "argv": [
+      "/home/dnola/humming_env/bin/python",
+      "-u",
+      "downrebase_controller8570.py",
+      "downrebase_plan8570.json"
+    ],
+    "terminal_at": 1788938268.672959
+  },
+  "controller_dead": true,
+  "last_child_dead": true,
+  "cuda_compute_pids": [],
+  "results": {
+    "passed": 12,
+    "count": 12,
+    "limit": 1.0001,
+    "quality": [
+      {
+        "cell": "E242_down",
+        "arm": "C1",
+        "phase": "setup",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E242_down",
+        "arm": "C1",
+        "phase": "warm",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E242_down",
+        "arm": "C2",
+        "phase": "setup",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E242_down",
+        "arm": "C2",
+        "phase": "warm",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E243_down",
+        "arm": "C1",
+        "phase": "setup",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E243_down",
+        "arm": "C1",
+        "phase": "warm",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E243_down",
+        "arm": "C2",
+        "phase": "setup",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E243_down",
+        "arm": "C2",
+        "phase": "warm",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E242_fused13",
+        "arm": "C1",
+        "phase": "setup",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E242_fused13",
+        "arm": "C1",
+        "phase": "warm",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E242_fused13",
+        "arm": "C2",
+        "phase": "setup",
+        "ratio": 1.0
+      },
+      {
+        "cell": "E242_fused13",
+        "arm": "C2",
+        "phase": "warm",
+        "ratio": 1.0
+      }
+    ],
+    "times": {
+      "B1": {
+        "setup": 14.232041289986228,
+        "warm": 12.44353007900645
+      },
+      "B2": {
+        "setup": 14.172024184998008,
+        "warm": 12.359499006997794
+      },
+      "C1": {
+        "setup": 17.27629291001358,
+        "warm": 11.066507014998933
+      },
+      "C2": {
+        "setup": 12.81572078501631,
+        "warm": 11.111042565986281
+      }
+    },
+    "speed_ratio": {
+      "setup": 0.9439071031552653,
+      "warm": 1.1183845625248916
+    },
+    "timing_scope": "Historical/noninterleaved retained same-work16warp baseline. Not production/cold-JIT timing."
+  },
+  "completion": false,
+  "adoption": false
+}

@@ -1,0 +1,110 @@
+{
+  "status": "PASS_LOCAL_INDEPENDENT_RECEIPT_AUTHENTICATION",
+  "files_verified": 195,
+  "seal_sha256": "b28087b4db86305bc440ce7edd4d77ae1c9be2f6edd5acda986bfe37c66b114a",
+  "quality_count": 12,
+  "quality_limit": 1.0001,
+  "quality_ratios_recomputed_from_window_sse": true,
+  "speed": {
+    "setup": 1.0916190109135415,
+    "warm": 1.1108898950115822
+  },
+  "group_speed": {
+    "GROUP_DOWN": {
+      "setup": 1.1817799283334738,
+      "warm": 1.2416516531799875
+    },
+    "GROUP_FUSED": {
+      "setup": 0.9976689721198984,
+      "warm": 0.9995364482519058
+    }
+  },
+  "config_differences": {
+    "E242_down": {
+      "materialization": [
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/B1/warm/GROUP_DOWN/E242_down/MANIFEST.json",
+          "run_manifest_sha256": "124794d7e0cc11da41c25968d667fedbd988cee028862bf0d2d16402cb2196d4",
+          "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928"
+        },
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/C1/warm/GROUP_DOWN/E242_down/MANIFEST.json",
+          "run_manifest_sha256": "124794d7e0cc11da41c25968d667fedbd988cee028862bf0d2d16402cb2196d4",
+          "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928"
+        },
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/C2/warm/GROUP_DOWN/E242_down/MANIFEST.json",
+          "run_manifest_sha256": "124794d7e0cc11da41c25968d667fedbd988cee028862bf0d2d16402cb2196d4",
+          "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928"
+        },
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/B2/warm/GROUP_DOWN/E242_down/MANIFEST.json",
+          "run_manifest_sha256": "124794d7e0cc11da41c25968d667fedbd988cee028862bf0d2d16402cb2196d4",
+          "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928"
+        }
+      ],
+      "viterbi_conditioned_distance_sum": [
+        false,
+        true,
+        true,
+        false
+      ]
+    },
+    "E243_down": {
+      "materialization": [
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/B1/warm/GROUP_DOWN/E243_down/MANIFEST.json",
+          "run_manifest_sha256": "4f4342bcf327a71cc42a78523c145edc43ec8b57cdaa45147e7dd51fbe9fc7e4",
+          "source_config_sha256": "6a5aa25ad4f04a6055d883867e29c1eb93b272b01a8a43a6e6df55cb57a3d2d2"
+        },
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/C1/warm/GROUP_DOWN/E243_down/MANIFEST.json",
+          "run_manifest_sha256": "4f4342bcf327a71cc42a78523c145edc43ec8b57cdaa45147e7dd51fbe9fc7e4",
+          "source_config_sha256": "6a5aa25ad4f04a6055d883867e29c1eb93b272b01a8a43a6e6df55cb57a3d2d2"
+        },
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/C2/warm/GROUP_DOWN/E243_down/MANIFEST.json",
+          "run_manifest_sha256": "4f4342bcf327a71cc42a78523c145edc43ec8b57cdaa45147e7dd51fbe9fc7e4",
+          "source_config_sha256": "6a5aa25ad4f04a6055d883867e29c1eb93b272b01a8a43a6e6df55cb57a3d2d2"
+        },
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/B2/warm/GROUP_DOWN/E243_down/MANIFEST.json",
+          "run_manifest_sha256": "4f4342bcf327a71cc42a78523c145edc43ec8b57cdaa45147e7dd51fbe9fc7e4",
+          "source_config_sha256": "6a5aa25ad4f04a6055d883867e29c1eb93b272b01a8a43a6e6df55cb57a3d2d2"
+        }
+      ],
+      "viterbi_conditioned_distance_sum": [
+        false,
+        true,
+        true,
+        false
+      ]
+    },
+    "E242_fused13": {
+      "materialization": [
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/B1/warm/GROUP_FUSED/E242_fused13/MANIFEST.json",
+          "run_manifest_sha256": "4a36a62df957a4d75a1cfc3be5b1f380fed603da9a2484afd2d33bab6b28d8c0",
+          "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928"
+        },
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/C1/warm/GROUP_FUSED/E242_fused13/MANIFEST.json",
+          "run_manifest_sha256": "4a36a62df957a4d75a1cfc3be5b1f380fed603da9a2484afd2d33bab6b28d8c0",
+          "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928"
+        },
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/C2/warm/GROUP_FUSED/E242_fused13/MANIFEST.json",
+          "run_manifest_sha256": "4a36a62df957a4d75a1cfc3be5b1f380fed603da9a2484afd2d33bab6b28d8c0",
+          "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928"
+        },
+        {
+          "run_manifest": "/dev/shm/t_012f1c90/down_rebase_abba_run8570/B2/warm/GROUP_FUSED/E242_fused13/MANIFEST.json",
+          "run_manifest_sha256": "4a36a62df957a4d75a1cfc3be5b1f380fed603da9a2484afd2d33bab6b28d8c0",
+          "source_config_sha256": "36055e4293ecdb19f29dbba20068466d50597fdf2f55d24ec730c1556eec9928"
+        }
+      ]
+    }
+  },
+  "production_adoption": false,
+  "full_model_quality_claim": false
+}

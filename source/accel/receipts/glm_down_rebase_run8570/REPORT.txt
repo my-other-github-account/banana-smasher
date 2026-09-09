@@ -1,0 +1,17 @@
+banana-smasher: down-only conditioned recurrence acceleration
+
+Implementation pin: 8c7ca73870fdc38866bcef30956b4342cecbe4c8.
+New config: viterbi_conditioned_distance_sum=true; optional, default false.
+Admission: projection=down, geometry L16/K1/V2, viterbi_distance_alphabet=true. Mixed flags in a batch are rejected. Preserve all original source, clean-PRE capture/ledger, seeds, tier, device conformance and manifest bindings. Rebind runtime/source closure only at an owner-authorized genuinely new boundary. No replay.
+
+Mechanism: preserve original unconditioned128step seed and all final branches/context. In the enabled conditioned final pass, subtract the finite common cost minimum and gather compact pre-summed distances. FP32 association differs; exact byte equality is not the acceptance rule. Fused/default keeps original arithmetic. Projection restriction was selected on clean PRE only, not heldout; the all-projection candidates failed and are not promoted.
+
+Same-pin interleaved B1/C1/C2/B2 public whole-build measurements, shared caches, identical authentic L004/E242_down,E243_down,E242_fused13 inputs: warm1.1108898950115822x, setup1.0916190109135415x. Down alone warm1.2416516531799875x; unchanged fused0.9995364482519058x. Not cold-JIT, full-model, or production throughput.
+
+Quality separately:15focused physical tests pass; candidate-only12/12 and matched12/12 frozen clean-PRE SSE ratios1.0 at unchanged limit1.0001. Local independent verifier recomputed ratios from all raw window SSEs and authenticated all195 matched files, including actual units. No full-model KL or heldout claim.
+
+Rejected rebase-all panel4/12, final-only all-projection panel8/12 remain immutable. Packed uint64 focus0.49475x was an inadvertent closed-family repeat identified after detailed-history recovery; no authentic solve and no novelty/promotion credit.
+
+Production adoption: NOT YET DONE. Existing bs06 t_bd7914e6 must produce and independently authenticate actual new authorized down output. Cross-card read is denied to this worker; default relay needed. Source integration is not adoption.
+
+Persistent s6 reservation retained at terminal controller1941183/start10354833; lastchild1942378/start10366257 and supervisor physically absent; no CUDA process at seal. Fresh terminal-owner CAS required for any successor. No foreign work, cleanup, registry edits, children or profile edits.

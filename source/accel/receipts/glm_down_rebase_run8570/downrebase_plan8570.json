@@ -1,0 +1,94 @@
+{
+  "attempt": "down_rebase_run8570",
+  "expected_owner": "t_012f1c90",
+  "expected_pid": 1935741,
+  "expected_start_ticks": 10222308,
+  "archive": "downrebase8570.tar",
+  "archive_sha256": "f5f323e96893bb107a3b3f86aca66d698aa61bd841cbf21283b9324db4b764d0",
+  "code_dir": "downrebase_code8570",
+  "pin": "8c7ca73870fdc38866bcef30956b4342cecbe4c8",
+  "jobs": [
+    {
+      "name": "focused_tests",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_cost_rebase.py",
+        "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_distance_sum.py",
+        "/dev/shm/t_012f1c90/test_scope8568.py",
+        "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_final_rebase.py",
+        "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_down_sum.py",
+        "/dev/shm/t_012f1c90/downrebase_code8570/banana-smasher/tests/test_qtip_distance_alphabet.py"
+      ]
+    },
+    {
+      "name": "micro_filter",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "/dev/shm/t_012f1c90/downmicro8570.py",
+        "0cf2c0687dd22e0002fedf2d772e8e6e35ab54dfac5f8c93efe784fb21d4500d"
+      ]
+    },
+    {
+      "name": "C1",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downrebase_bench8570.py",
+        "C1",
+        "candidate"
+      ]
+    },
+    {
+      "name": "C2",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downrebase_bench8570.py",
+        "C2",
+        "candidate"
+      ]
+    },
+    {
+      "name": "quality",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downrebase_bench8570.py",
+        "quality",
+        "candidate"
+      ]
+    }
+  ],
+  "hypothesis": "Clean PRE-selected projection-restricted composite: down-only conditioned final rebase/sum, fused/default original arithmetic. Whole original panel frozen1.0001; no posthoc tolerance change or heldout access. Public config admission refuses unsupported enabled projection.",
+  "wait_for_predecessor": false,
+  "retained_baseline": {
+    "B1": {
+      "path": "/dev/shm/t_012f1c90/alphabet_warp8_run8564/B1/RESULT.json",
+      "sha256": "8ef94d854119ff01b545fecceee786fb0e7b232ea6626628beb9b44e2916975d"
+    },
+    "B2": {
+      "path": "/dev/shm/t_012f1c90/alphabet_warp8_run8564/B2/RESULT.json",
+      "sha256": "661aa9ba02c75bec2a218331d88a915536ce73a9b61c9cde7453f5b62c557486"
+    }
+  },
+  "requested_cells": [
+    [
+      4,
+      242,
+      "down"
+    ],
+    [
+      4,
+      243,
+      "down"
+    ],
+    [
+      4,
+      242,
+      "fused13"
+    ]
+  ]
+}

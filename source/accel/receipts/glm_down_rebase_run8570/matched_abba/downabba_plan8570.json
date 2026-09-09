@@ -1,0 +1,91 @@
+{
+  "attempt": "down_rebase_abba_run8570",
+  "expected_owner": "t_012f1c90",
+  "expected_pid": 1939591,
+  "expected_start_ticks": 10324648,
+  "archive": "downrebase8570.tar",
+  "archive_sha256": "f5f323e96893bb107a3b3f86aca66d698aa61bd841cbf21283b9324db4b764d0",
+  "code_dir": "downrebase_abba_code8570",
+  "pin": "8c7ca73870fdc38866bcef30956b4342cecbe4c8",
+  "jobs": [
+    {
+      "name": "B1",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "B1",
+        "baseline"
+      ]
+    },
+    {
+      "name": "C1",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "C1",
+        "candidate"
+      ]
+    },
+    {
+      "name": "C2",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "C2",
+        "candidate"
+      ]
+    },
+    {
+      "name": "B2",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "B2",
+        "baseline"
+      ]
+    },
+    {
+      "name": "quality",
+      "cmd": [
+        "/home/dnola/humming_env/bin/python",
+        "-u",
+        "/dev/shm/t_012f1c90/downabba_bench8570.py",
+        "quality",
+        "candidate"
+      ]
+    }
+  ],
+  "hypothesis": "Same-pin matched interleaved B1/C1/C2/B2 production intervention: flagFalse everywhere versus flagTrue only down. Shared warm caches; no cold-JIT claim. All other source/config/scientific inputs identical. Separately adjudicate clean-PRE1.0001 and representative complete public-build walls.",
+  "wait_for_predecessor": false,
+  "retained_baseline": {
+    "B1": {
+      "path": "/dev/shm/t_012f1c90/alphabet_warp8_run8564/B1/RESULT.json",
+      "sha256": "8ef94d854119ff01b545fecceee786fb0e7b232ea6626628beb9b44e2916975d"
+    },
+    "B2": {
+      "path": "/dev/shm/t_012f1c90/alphabet_warp8_run8564/B2/RESULT.json",
+      "sha256": "661aa9ba02c75bec2a218331d88a915536ce73a9b61c9cde7453f5b62c557486"
+    }
+  },
+  "requested_cells": [
+    [
+      4,
+      242,
+      "down"
+    ],
+    [
+      4,
+      243,
+      "down"
+    ],
+    [
+      4,
+      242,
+      "fused13"
+    ]
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "card": "t_012f1c90",
+  "allocation": {
+    "authority": "default sole dispatcher; direct user seat allocation supersedes historical DRIVER_GOALS.md HOST_ALLOCATION prerequisite",
+    "owners": {
+      "t_bd7914e6": {
+        "profile": "bs06",
+        "hosts": [
+          "spark-3",
+          "spark-5-work",
+          "spark-7"
+        ],
+        "authorization": "Owner may reconcile task-local DRIVER_GOALS HOST_ALLOCATION from this authoritative replacement, perform fresh HOST_CLAIM/SHARDS/live PID/startticks nonoverlap verification and CAS, then run missing-only clean PRE production. Missing historical allocation line is recoverable mechanics, not a permission gate."
+      },
+      "t_68e5892b": {
+        "profile": "bs09",
+        "hosts": [
+          "spark-1",
+          "spark-2",
+          "spark-4",
+          "spark-8"
+        ]
+      },
+      "t_012f1c90": {
+        "profile": "bs01",
+        "hosts": [
+          "spark-6"
+        ],
+        "authorization": "Default explicitly authorizes persistent successor to completed t_6ac2b6f5. This is the replacement HOST_ALLOCATION source and supersedes both historical /home/dnola/DRIVER_GOALS.md and /home/dnola/missions/DRIVER_GOALS.md. Worker may reconcile its task-local allocation from this grant. Fresh physical claim/SHARDS/PID/startticks terminal readback and exact-owner CAS remain mandatory; preserve foreign live work and completed device-conformance adoption. Default relays bs06 adoption coordination when cross-card tools deny access."
+      }
+    },
+    "constraints": [
+      "Astra only",
+      "PRE only",
+      "No cleanup",
+      "No foreign live preemption",
+      "GPU mutations by owning execution worker only",
+      "Frozen evaluation identity unchanged",
+      "No second driver; authorized lifecycle successors only"
+    ]
+  },
+  "plan": {
+    "attempt": "down_rebase_abba_run8570",
+    "expected_owner": "t_012f1c90",
+    "expected_pid": 1939591,
+    "expected_start_ticks": 10324648,
+    "archive": "downrebase8570.tar",
+    "archive_sha256": "f5f323e96893bb107a3b3f86aca66d698aa61bd841cbf21283b9324db4b764d0",
+    "code_dir": "downrebase_abba_code8570",
+    "pin": "8c7ca73870fdc38866bcef30956b4342cecbe4c8",
+    "jobs": [
+      {
+        "name": "B1",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_012f1c90/downabba_bench8570.py",
+          "B1",
+          "baseline"
+        ]
+      },
+      {
+        "name": "C1",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_012f1c90/downabba_bench8570.py",
+          "C1",
+          "candidate"
+        ]
+      },
+      {
+        "name": "C2",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_012f1c90/downabba_bench8570.py",
+          "C2",
+          "candidate"
+        ]
+      },
+      {
+        "name": "B2",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_012f1c90/downabba_bench8570.py",
+          "B2",
+          "baseline"
+        ]
+      },
+      {
+        "name": "quality",
+        "cmd": [
+          "/home/dnola/humming_env/bin/python",
+          "-u",
+          "/dev/shm/t_012f1c90/downabba_bench8570.py",
+          "quality",
+          "candidate"
+        ]
+      }
+    ],
+    "hypothesis": "Same-pin matched interleaved B1/C1/C2/B2 production intervention: flagFalse everywhere versus flagTrue only down. Shared warm caches; no cold-JIT claim. All other source/config/scientific inputs identical. Separately adjudicate clean-PRE1.0001 and representative complete public-build walls.",
+    "wait_for_predecessor": false,
+    "retained_baseline": {
+      "B1": {
+        "path": "/dev/shm/t_012f1c90/alphabet_warp8_run8564/B1/RESULT.json",
+        "sha256": "8ef94d854119ff01b545fecceee786fb0e7b232ea6626628beb9b44e2916975d"
+      },
+      "B2": {
+        "path": "/dev/shm/t_012f1c90/alphabet_warp8_run8564/B2/RESULT.json",
+        "sha256": "661aa9ba02c75bec2a218331d88a915536ce73a9b61c9cde7453f5b62c557486"
+      }
+    },
+    "requested_cells": [
+      [
+        4,
+        242,
+        "down"
+      ],
+      [
+        4,
+        243,
+        "down"
+      ],
+      [
+        4,
+        242,
+        "fused13"
+      ]
+    ]
+  },
+  "plan_sha256": "c6dcdc20e5a0cbb5860f58bebf12366b78554531f055a2f914f7a1890d67f0db",
+  "script_sha256": "d0b717ff1b98085bd776398ee8bf34ede4a07523286092d28be484e19493e4f9"
+}
