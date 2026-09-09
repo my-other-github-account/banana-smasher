@@ -647,6 +647,7 @@ def exact_prefix_viterbi(
             BRANCH_POINTERS=backpointer_dtype == "uint8",
             LUT_EVICTION="evict_last" if lut_l1_retention else "",
             num_warps=generic_warps,
+            maxnreg=64 if K == 1 and structured_gather else None,
             num_stages=1,
         )
     if builder_scope:
