@@ -219,6 +219,7 @@ def _persistent_prefix_viterbi_generic(
     BRANCH_POINTERS: tl.constexpr = False,
     LUT_EVICTION: tl.constexpr = "",
     DISTANCE_ALPHABET: tl.constexpr = False,
+    CONDITIONED_DISTANCE_SUM: tl.constexpr = False,
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -275,7 +276,7 @@ def _persistent_prefix_viterbi_generic(
         # Default arithmetic is unchanged. The opt-in rebases common cost
         # offsets before applying compact summed distances, limiting FP32 growth.
         previous_costs = best
-        if DISTANCE_ALPHABET and HAS_OVERLAP:
+        if DISTANCE_ALPHABET and HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
             minimum_cost = tl.min(previous_costs, axis=0)
             previous_costs = previous_costs - tl.where(minimum_cost < float("inf"), minimum_cost, 0.0)
         previous_base = (step & 1 ^ 1) * B * PREFIXES + base
@@ -311,7 +312,7 @@ def _persistent_prefix_viterbi_generic(
             state = q * PREFIXES + j
             if DISTANCE_ALPHABET:
                 alphabet_key = ((state * (state + 1)) >> 6) & 1023
-                if HAS_OVERLAP:
+                if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
                     candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
                 else:
                     # Preserve the original full-context heuristic seed.
@@ -464,6 +465,14 @@ def _distance_alphabet_lut(cb):
     return compact
 
 
+def resolve_conditioned_distance_sum(geometry, projection, value, alphabet):
+    if value is None:
+        return False
+    if type(value) is not bool or (value and (tuple(geometry) != (16, 1, 2) or projection != "down" or alphabet is not True)):
+        raise ValueError("viterbi_conditioned_distance_sum requires boolean, L16/K1/V2 down and distance alphabet")
+    return value
+
+
 def exact_prefix_viterbi(
     cb: Any,
     x: torch.Tensor,
@@ -492,6 +501,10 @@ def exact_prefix_viterbi(
     distance_alphabet = getattr(cb, "_banana_smasher_distance_alphabet", False)
     if type(distance_alphabet) is not bool or (distance_alphabet and (L, K, V) != (16, 1, 2)):
         raise ValueError("viterbi_distance_alphabet requires boolean and L16/K1/V2")
+    conditioned_distance_sum = resolve_conditioned_distance_sum(
+        (L, K, V), getattr(cb, "_banana_smasher_projection", None),
+        getattr(cb, "_banana_smasher_conditioned_distance_sum", False), distance_alphabet
+    )
     group_branches = getattr(cb, "_banana_smasher_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
         (L, K, V) != (16, 3, 2) or x.shape[0] != 256 or structured_gather or branch_unroll != 1
@@ -714,6 +727,7 @@ def exact_prefix_viterbi(
             BRANCH_POINTERS=backpointer_dtype == "uint8",
             LUT_EVICTION="evict_last" if lut_l1_retention else "",
             DISTANCE_ALPHABET=distance_alphabet,
+            CONDITIONED_DISTANCE_SUM=conditioned_distance_sum,
             num_warps=generic_warps,
             num_stages=1,
         )

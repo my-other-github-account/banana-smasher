@@ -4,7 +4,7 @@ import numpy as np
 SOURCE=Path(__file__).parents[1]/'src/banana_smasher/qtip_viterbi.py'
 def test_actual_rebase_keeps_unreachable_costs():
  tree=ast.parse(SOURCE.read_text());kernel=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_persistent_prefix_viterbi_generic')
- guards=[n for n in ast.walk(kernel) if isinstance(n,ast.If) and ast.unparse(n.test)=='DISTANCE_ALPHABET and HAS_OVERLAP' and any(isinstance(a,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='minimum_cost' for t in a.targets) for a in n.body)]
+ guards=[n for n in ast.walk(kernel) if isinstance(n,ast.If) and ast.unparse(n.test)=='DISTANCE_ALPHABET and HAS_OVERLAP and CONDITIONED_DISTANCE_SUM' and any(isinstance(a,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='minimum_cost' for t in a.targets) for a in n.body)]
  assert len(guards)==1
  class TL:
   min=staticmethod(np.min);where=staticmethod(np.where)

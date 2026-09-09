@@ -8,11 +8,11 @@ def test_seed_path_has_original_delta_arithmetic():
     assert len(guards)==1
     guard=guards[0]
     code=compile(ast.Expression(guard.test),str(SOURCE),'eval')
-    assert not eval(code,dict(DISTANCE_ALPHABET=True,HAS_OVERLAP=False)), 'seed cost rebase must be disabled'
-    assert eval(code,dict(DISTANCE_ALPHABET=True,HAS_OVERLAP=True))
+    assert not eval(code,dict(DISTANCE_ALPHABET=True,HAS_OVERLAP=False,CONDITIONED_DISTANCE_SUM=True)), 'seed cost rebase must be disabled'
+    assert eval(code,dict(DISTANCE_ALPHABET=True,HAS_OVERLAP=True,CONDITIONED_DISTANCE_SUM=True))
     for n in ast.walk(kernel):
         if isinstance(n,ast.If) and any(isinstance(a,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='candidate' for t in a.targets) and 'distance_sum' in ast.unparse(a.value) for a in n.body):
-            assert ast.unparse(n.test)=='HAS_OVERLAP'
+            assert ast.unparse(n.test)=='HAS_OVERLAP and CONDITIONED_DISTANCE_SUM'
             assert 'da * da + db * db' in ast.unparse(n.orelse)
             break
     else:raise AssertionError('missing conditioned-only summed candidate')

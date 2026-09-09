@@ -1327,6 +1327,14 @@ def _install_configured_viterbi(
     if type(distance_alphabet) is not bool or (distance_alphabet and sealed != (16, 1, 2)):
         raise ValueError("viterbi_distance_alphabet requires boolean and L16/K1/V2")
     cb._banana_smasher_distance_alphabet = distance_alphabet
+    conditioned_distance_sum = False
+    if "viterbi_conditioned_distance_sum" in config:
+        from .qtip_viterbi import resolve_conditioned_distance_sum
+        conditioned_distance_sum = resolve_conditioned_distance_sum(
+            sealed, config.get("projection"), config["viterbi_conditioned_distance_sum"], distance_alphabet
+        )
+    cb._banana_smasher_conditioned_distance_sum = conditioned_distance_sum
+    cb._banana_smasher_projection = config.get("projection")
     group_branches = config.get("viterbi_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
         sealed != (16, 3, 2) or structured_gather or branch_unroll != 1
@@ -1347,6 +1355,8 @@ def _install_configured_viterbi(
         if requested_warps is not None:
             identity.update(viterbi_num_warps=launch_warps,
                             production_default=launch_warps == 16)
+        if conditioned_distance_sum:
+            identity.update(viterbi_conditioned_distance_sum=True, production_default=False)
         if distance_alphabet:
             identity.update(viterbi_distance_alphabet=True, production_default=False)
         if lut_l1_retention:

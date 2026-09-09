@@ -21,8 +21,12 @@ def test_cuda_numerical_gate(steps,batch):
     cb=SimpleNamespace(L=16,K=1,V=2,decode_mode='quantlut_sym',tlut_bits=9,lut=lut.T.contiguous(),_banana_smasher_structured_gather=True,_banana_smasher_branch_unroll=True)
     x=torch.randn((steps*2,batch),device='cuda',dtype=torch.float16)
     for overlap in [None,torch.randint(0,16384,(batch,),device='cuda',dtype=torch.int32)]:
+        cb._banana_smasher_conditioned_distance_sum=False
         cb._banana_smasher_distance_alphabet=False;ref=exact_prefix_viterbi(cb,x,overlap)
-        cb._banana_smasher_distance_alphabet=True;got=exact_prefix_viterbi(cb,x,overlap)
+        cb._banana_smasher_distance_alphabet=True
+        cb._banana_smasher_conditioned_distance_sum=True
+        cb._banana_smasher_projection="down"
+        got=exact_prefix_viterbi(cb,x,overlap)
         torch.cuda.synchronize()
         if overlap is None: assert torch.equal(ref,got)
         assert got.shape==ref.shape and got.dtype==ref.dtype
