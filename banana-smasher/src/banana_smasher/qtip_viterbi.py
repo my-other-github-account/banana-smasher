@@ -280,7 +280,7 @@ def _persistent_prefix_viterbi_generic(
     if not REGISTER_COSTS:
         tl.store(scratch_ptr + base + j, best)
     # The prefix is the table column; only the winning branch is needed.
-    tl.store(best_state_ptr + _tiled_pointer_offset(0, seq, j, B, PREFIXES, STEPS), chosen // PREFIXES if BRANCH_POINTERS else chosen)
+    tl.store(best_state_ptr + _tiled_pointer_offset(0, seq, j, B, PREFIXES, STEPS), chosen // PREFIXES if BRANCH_POINTERS else chosen, cache_modifier=".cs" if PREFIXES == 16384 else "")
     if not REGISTER_COSTS:
         tl.debug_barrier()
 
@@ -359,6 +359,7 @@ def _persistent_prefix_viterbi_generic(
         tl.store(
             best_state_ptr + _tiled_pointer_offset(step, seq, j, B, PREFIXES, STEPS),
             encoded_chosen,
+            cache_modifier=".cs" if PREFIXES == 16384 else "",
         )
         if not REGISTER_COSTS:
             tl.debug_barrier()
