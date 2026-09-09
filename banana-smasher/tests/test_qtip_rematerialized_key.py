@@ -29,3 +29,11 @@ def test_physical_rematerialized_key():
     states = torch.arange(65536, device='cuda', dtype=torch.int64)
     expected = ((states * (states + 1)) >> 6) & 1023
     assert torch.equal(out.long(), expected)
+
+def test_alphabet_key_rematerialization_includes_fused():
+    tree = ast.parse(SOURCE.read_text())
+    kernel = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == '_persistent_prefix_viterbi_generic')
+    assignments = [n for n in ast.walk(kernel) if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'alphabet_key' for t in n.targets)]
+    assert len(assignments) == 1
+    assert isinstance(assignments[0].value, ast.Call)
+    assert assignments[0].value.func.id == '_rematerialized_alphabet_key'

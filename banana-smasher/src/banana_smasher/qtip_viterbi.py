@@ -322,7 +322,7 @@ def _persistent_prefix_viterbi_generic(
                 predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
             state = q * PREFIXES + j
             if DISTANCE_ALPHABET:
-                alphabet_key = _rematerialized_alphabet_key(state) if CONDITIONED_DISTANCE_SUM else ((state * (state + 1)) >> 6) & 1023
+                alphabet_key = _rematerialized_alphabet_key(state)
                 if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
                     candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
                 else:
