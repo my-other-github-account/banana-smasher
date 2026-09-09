@@ -313,7 +313,8 @@ def _persistent_prefix_viterbi_generic(
         prefix = tl.load(overlap_ptr + seq).to(tl.int32)
     else:
         prefix = tl.argmin(best, axis=0).to(tl.int32)
-    for back_step in tl.static_range(STEPS - 1, -1, -1):
+    # Serial dependency prevents parallel traceback; keep its code size bounded.
+    for back_step in range(STEPS - 1, -1, -1):
         state = tl.load(
             best_state_ptr + back_step * B * PREFIXES + base + prefix
         ).to(tl.int32)
