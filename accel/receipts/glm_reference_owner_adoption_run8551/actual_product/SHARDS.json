@@ -1,0 +1,61 @@
+{
+  "task_id": "t_bd7914e6",
+  "run_id": 8550,
+  "pid": 1361352,
+  "start_ticks": 8481259,
+  "stage": "k1_batch_s5_run8550_z51",
+  "schema": "banana-smasher.calibration-shards.v1",
+  "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "state": "RELEASED",
+  "phase": "K1_persistent_missing_batch_production",
+  "rows": [
+    {
+      "owner": "t_bd7914e6",
+      "pid": 1361352,
+      "startticks": 8481259,
+      "layer": 19,
+      "tier": 1,
+      "experts": [
+        0
+      ],
+      "range": [
+        0,
+        1
+      ],
+      "projections": [
+        "down"
+      ],
+      "window_range": [
+        0,
+        16
+      ],
+      "basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "state": "RELEASED",
+      "operation": "K1_persistent_missing_solve"
+    },
+    {
+      "owner": "t_bd7914e6",
+      "pid": 1361352,
+      "startticks": 8481259,
+      "layer": 19,
+      "tier": 1,
+      "experts": [
+        1
+      ],
+      "range": [
+        1,
+        2
+      ],
+      "projections": [
+        "down"
+      ],
+      "window_range": [
+        0,
+        16
+      ],
+      "basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "state": "RELEASED",
+      "operation": "K1_persistent_missing_solve"
+    }
+  ]
+}

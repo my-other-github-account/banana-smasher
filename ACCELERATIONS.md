@@ -1,5 +1,53 @@
 # Runtime accelerations
 
+## GLM reference-LDL actual owner adoption (run8551)
+
+The previously sealed reference-LDL grouping candidate now has actual owner
+adoption, not just a source/import ACK. The existing production owner ran
+`aa455253fa0cd8944a4148112d44c537938d40c4` through one public `main_batch`
+call on the genuinely new L019/E000,E001 down pair, K1/L16/V2, with both
+`block_ldl_unitwise=true` and `block_ldl_reference=true`. No research or
+production cells were replayed to obtain this handoff.
+
+Independent read-only authentication compared all 15 named files with the
+original s5 outputs, including both physical units, configs, manifests,
+source closures, solve receipts and shared batch receipt. Both candidate
+configs matched the exact reviewed rebinding of the original prepared pair;
+source index, clean-fit ledger/separation, fit windows, RHT seeds and source
+config hashes were preserved. All 17 canonical/external imported source
+hashes per cell matched the deployed closure; canonical files also matched
+the immutable source archive. Wrapper PID1361352/start8481259 and solver
+PID1362343/start8481633 were physically absent at readback.
+
+Speed and quality remain separate:
+
+- Actual cold two-cell product wall: 22.989703s; public batch wall:
+  22.430999s. This has no matched L019 baseline and is NOT a production
+  speedup or warmed-throughput measurement.
+- Prior same-input down-pair warm public-build ratio: 1.075624x;
+  representative down/fused panel: 1.025894x. Two-fused extension: 1.286861x.
+  Those retained controls are historical/noninterleaved, not matched
+  production timing or a model-wide ETA.
+- Original bounded canonical decode/clean-fit gates passed 12/12 for the
+  reference panel and 12/12 for the fused extension at unchanged SSE-ratio
+  limit 1.0001. These sealed experiments were not rerun.
+- Actual owner outputs passed packed fp16 decode and canonical roundtrip
+  conformance. This run authenticated those numerical receipts and artifact
+  hashes; it did not rerun the decode or obtain a new heldout/full-model KL.
+- Both cells retained 16 fit windows; their routed fit rows were 24 and 1915.
+  Rows and windows are distinct quantities. Peak allocated/reserved memory:
+  2,608,132,096 / 2,782,920,704 bytes.
+
+Evidence and reviewed owner adapters:
+`accel/receipts/glm_reference_owner_adoption_run8551/`. Physical units remain
+in the durable task artifact bundle; their exact hashes are in the manifest.
+Five host-independent owner dispatch checks passed in the authentication
+script. The prior 18-test reference/batch/unitwise suite remains the focused
+canonical implementation gate. This evidence-only commit does not request
+a runtime redeploy. Production continuation belongs to the existing owner;
+the dedicated s6 reservation remains protected under the persistent task's
+explicit operator instruction.
+
 ## GLM two-fused grouping extension (sealed run8548)
 
 Completed run8545 at canonical aa455253fa0cd8944a4148112d44c537938d40c4

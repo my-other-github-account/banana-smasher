@@ -1,0 +1,126 @@
+{
+  "scope": "Actual new owner product readback; metadata and reviewed scripts tracked; binary units retained in downloadable task bundle. No new speed or heldout quality measurement.",
+  "runtime_pin": "aa455253fa0cd8944a4148112d44c537938d40c4",
+  "files": [
+    {
+      "path": "OWNER_REMOTE_READBACK_run8551.json",
+      "bytes": 30497,
+      "sha256": "f417a80fb7d0c003e02f35f52598bf9bd8987f938eb4134b8a64fcf80a706695"
+    },
+    {
+      "path": "OWNER_REPORTED_PRODUCT_run8550.json",
+      "bytes": 4023,
+      "sha256": "dadfb29ec8aae6b3d870d8888ee98781a6197bdaa1b8aadc51037f50e0f14a62"
+    },
+    {
+      "path": "PRODUCTION_ADOPTION_READBACK_run8551.json",
+      "bytes": 4509,
+      "sha256": "7a2f23d74b3ec9a035184f347c6317af01fa93d17b2c604746785332e9e6f5de"
+    },
+    {
+      "path": "S6_RESERVATION_READBACK_run8551.json",
+      "bytes": 6652,
+      "sha256": "ac35e873b270898240f171bb5a3760859bb1e5a09aef98b9cec4628a36da71dd"
+    },
+    {
+      "path": "actual_product/K1_L019_E000_down_MANIFEST.json",
+      "bytes": 702,
+      "sha256": "2070a03f414e9aa98f3ab8f6b496189560d38c829afb484d1e4f343e2018ee1d"
+    },
+    {
+      "path": "actual_product/K1_L019_E001_down_MANIFEST.json",
+      "bytes": 702,
+      "sha256": "031adf094a4e7e9a7cefafaf2dfbe406ad74601670befb9a7c8789be75e71c7e"
+    },
+    {
+      "path": "actual_product/L019_E000_down_K1.json",
+      "bytes": 3146,
+      "sha256": "88f54f457463431625658e3b380be1fe26dbfb69e1b0549756258228781c45fa"
+    },
+    {
+      "path": "actual_product/L019_E000_down_SOURCE_CLOSURE.json",
+      "bytes": 6567,
+      "sha256": "ccbf5e0a60078b1476fe1c711616fde2cb969f0fa756c41693a19179d5de7352"
+    },
+    {
+      "path": "actual_product/L019_E001_down_K1.json",
+      "bytes": 3146,
+      "sha256": "08e52cf3e9c2a6da4d800f044487875bcbdf28d3e70a2cb919331c0b49caca40"
+    },
+    {
+      "path": "actual_product/L019_E001_down_SOURCE_CLOSURE.json",
+      "bytes": 6567,
+      "sha256": "ccbf5e0a60078b1476fe1c711616fde2cb969f0fa756c41693a19179d5de7352"
+    },
+    {
+      "path": "actual_product/PAIR_MEASUREMENT.json",
+      "bytes": 52932,
+      "sha256": "39e251e310563977f742bc709f253431c09dfff0f0610f8f6c5725e3442e0be5"
+    },
+    {
+      "path": "actual_product/PROGRESS.json",
+      "bytes": 1619,
+      "sha256": "7403f82480273013e4a48e961d2d39487ec42fdf5246e7202b0e671bc8628205"
+    },
+    {
+      "path": "actual_product/RESULT.json",
+      "bytes": 1874,
+      "sha256": "79c556957853dc55ac6bfefdc44d6d82b1d3d35ac93e8776f7e81516219434d9"
+    },
+    {
+      "path": "actual_product/SHARDS.json",
+      "bytes": 1312,
+      "sha256": "dcf993fc75a0ff8d4b847b6210490526d44864f8d309b46e5905ecc8dedc2316"
+    },
+    {
+      "path": "actual_product/solve/L019/E000_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23915,
+      "sha256": "b49a0c5fe89b7dbc97d7d76642f1b8c15d29830f2313a022fc44704b023eacc7"
+    },
+    {
+      "path": "actual_product/solve/L019/E001_down/QTIP_SOLVE_RECEIPT.json",
+      "bytes": 23918,
+      "sha256": "d36b8f045984251b99cf6b65c83974eb08cde8f62de7913a703868f76e328775"
+    },
+    {
+      "path": "actual_product/solve/L019/batches/1457e0481a3ddf73/QTIP_CROSS_UNIT_BATCH_RECEIPT.json",
+      "bytes": 4246,
+      "sha256": "9655ddd98ff469abb3ee7d0d8fa3719cf8b57ba542b692e63bc99d01cb1821ba"
+    },
+    {
+      "path": "authenticate_adoption_run8551.py",
+      "bytes": 7417,
+      "sha256": "507df184a685eecb746e84272d6683ec7c1951f33932aa9e9e5d1c11f4c83577"
+    },
+    {
+      "path": "batch_k1_reference_run8550.py",
+      "bytes": 5133,
+      "sha256": "cd25d4163e48e2b44fadd95296982ab3990a35331b28978b3e6bc5c0795243fe"
+    },
+    {
+      "path": "canonical_reference_rebind_run8550.py",
+      "bytes": 1034,
+      "sha256": "6c282b946d4894c629d9093b1ad7a3729c4d608c3780eedbc5296ad20e6161fe"
+    },
+    {
+      "path": "pair_dispatch_run8550.py",
+      "bytes": 129,
+      "sha256": "8d79dbf579f72bf15c15f1f70d5acdedb6614456869fae2f7b1511df52206afc"
+    },
+    {
+      "path": "prepare_z51_run8550.py",
+      "bytes": 3182,
+      "sha256": "eaa312d12039069bea06d89f11e8222032f0182db3b3c4b788d473106fa2c9d5"
+    }
+  ],
+  "physical_units": {
+    "solve/L019/E000_down/QTIP_UNIT.pt": {
+      "sha256": "c6281abf3589db14186c7b7df2e2fa04327a4f95b76921445410eecdd382d98e",
+      "bytes": 1067673
+    },
+    "solve/L019/E001_down/QTIP_UNIT.pt": {
+      "sha256": "ee093306cb24d02916f68a67e312e72ed465f142935c844ffaec3ac26793ccf6",
+      "bytes": 1067673
+    }
+  }
+}

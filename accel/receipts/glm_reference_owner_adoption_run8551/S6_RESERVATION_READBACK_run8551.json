@@ -1,0 +1,227 @@
+{
+  "observed": 1788920010.2748127,
+  "claim": {
+    "host": "spark-6",
+    "owner": "t_1269dc5f",
+    "task_id": "t_1269dc5f",
+    "state": "CLAIMED",
+    "status": "CLAIMED",
+    "mission": "/dev/shm/t_1269dc5f/fused_pair_run8545",
+    "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/IDENTITY.json",
+    "expiry_unix": 1788924766.5782704,
+    "source_model_index_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+    "exact_cas_from_sha256": "e23b907a59b77565fe07c96a9c6543c7976bb8f03fa2e8f82a4c6bc13f97260c",
+    "stage": "unitwise_grouped_terminal_retained",
+    "pid": 1829105,
+    "pgid": 1829105,
+    "start_ticks": 8262312,
+    "argv": [
+      "/home/dnola/humming_env/bin/python",
+      "-u",
+      "fused_pair_run8545.py"
+    ],
+    "terminal_at": 1788917682.4727736
+  },
+  "terminal": {
+    "returncode": 0,
+    "rows": [
+      {
+        "job": "B1",
+        "arm": "baseline",
+        "returncode": 0,
+        "seconds": 22.740311764006037
+      },
+      {
+        "job": "B2",
+        "arm": "baseline",
+        "returncode": 0,
+        "seconds": 22.96723975999339
+      },
+      {
+        "job": "C1",
+        "arm": "candidate",
+        "returncode": 0,
+        "seconds": 31.55205877100525
+      },
+      {
+        "job": "C2",
+        "arm": "candidate",
+        "returncode": 0,
+        "seconds": 32.0019610219897
+      },
+      {
+        "job": "quality",
+        "arm": null,
+        "returncode": 0,
+        "seconds": 6.579120601003524
+      }
+    ]
+  },
+  "shard_paths": [
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/C2/warm/GROUP_FUSED/build/SHARDS.json",
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/C2/setup/GROUP_FUSED/build/SHARDS.json",
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/C1/warm/GROUP_FUSED/build/SHARDS.json",
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/C1/setup/GROUP_FUSED/build/SHARDS.json",
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/B2/warm/NEW_FUSED/build/SHARDS.json",
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/B2/setup/NEW_FUSED/build/SHARDS.json",
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/B1/warm/NEW_FUSED/build/SHARDS.json",
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/B1/setup/NEW_FUSED/build/SHARDS.json"
+  ],
+  "processes": {
+    "1829105": {
+      "exists": false,
+      "stat": null
+    },
+    "1831466": {
+      "exists": false,
+      "stat": null
+    }
+  },
+  "mutation": false,
+  "shards": {
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/C2/warm/GROUP_FUSED/build/SHARDS.json": {
+      "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "rows": [
+        {
+          "owner": "t_1269dc5f",
+          "layer": 4,
+          "experts": [
+            242,
+            243
+          ],
+          "projections": [
+            "fused13"
+          ],
+          "operation": "unitwise_grouped",
+          "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/QUALITY.json"
+        }
+      ]
+    },
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/C2/setup/GROUP_FUSED/build/SHARDS.json": {
+      "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "rows": [
+        {
+          "owner": "t_1269dc5f",
+          "layer": 4,
+          "experts": [
+            242,
+            243
+          ],
+          "projections": [
+            "fused13"
+          ],
+          "operation": "unitwise_grouped",
+          "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/QUALITY.json"
+        }
+      ]
+    },
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/C1/warm/GROUP_FUSED/build/SHARDS.json": {
+      "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "rows": [
+        {
+          "owner": "t_1269dc5f",
+          "layer": 4,
+          "experts": [
+            242,
+            243
+          ],
+          "projections": [
+            "fused13"
+          ],
+          "operation": "unitwise_grouped",
+          "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/QUALITY.json"
+        }
+      ]
+    },
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/C1/setup/GROUP_FUSED/build/SHARDS.json": {
+      "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "rows": [
+        {
+          "owner": "t_1269dc5f",
+          "layer": 4,
+          "experts": [
+            242,
+            243
+          ],
+          "projections": [
+            "fused13"
+          ],
+          "operation": "unitwise_grouped",
+          "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/QUALITY.json"
+        }
+      ]
+    },
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/B2/warm/NEW_FUSED/build/SHARDS.json": {
+      "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "rows": [
+        {
+          "owner": "t_1269dc5f",
+          "layer": 4,
+          "experts": [
+            242,
+            243
+          ],
+          "projections": [
+            "fused13"
+          ],
+          "operation": "unitwise_grouped",
+          "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/QUALITY.json"
+        }
+      ]
+    },
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/B2/setup/NEW_FUSED/build/SHARDS.json": {
+      "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "rows": [
+        {
+          "owner": "t_1269dc5f",
+          "layer": 4,
+          "experts": [
+            242,
+            243
+          ],
+          "projections": [
+            "fused13"
+          ],
+          "operation": "unitwise_grouped",
+          "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/QUALITY.json"
+        }
+      ]
+    },
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/B1/warm/NEW_FUSED/build/SHARDS.json": {
+      "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "rows": [
+        {
+          "owner": "t_1269dc5f",
+          "layer": 4,
+          "experts": [
+            242,
+            243
+          ],
+          "projections": [
+            "fused13"
+          ],
+          "operation": "unitwise_grouped",
+          "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/QUALITY.json"
+        }
+      ]
+    },
+    "/dev/shm/t_1269dc5f/fused_pair_run8545/B1/setup/NEW_FUSED/build/SHARDS.json": {
+      "intended_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+      "rows": [
+        {
+          "owner": "t_1269dc5f",
+          "layer": 4,
+          "experts": [
+            242,
+            243
+          ],
+          "projections": [
+            "fused13"
+          ],
+          "operation": "unitwise_grouped",
+          "receipt": "/dev/shm/t_1269dc5f/fused_pair_run8545/QUALITY.json"
+        }
+      ]
+    }
+  }
+}

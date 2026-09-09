@@ -1,0 +1,44 @@
+{
+  "K": 1,
+  "accepted": 2,
+  "canonical_commit": "aa455253fa0cd8944a4148112d44c537938d40c4",
+  "elapsed": 22.989702939987183,
+  "ended": 1788919783.32989,
+  "not_uniform_pre": true,
+  "persistent_process": true,
+  "process_wall_seconds": 24.110103130340576,
+  "rows": [
+    {
+      "artifact": "/dev/shm/k1_batch_s5_run8550_z51/solve/L019/E000_down/QTIP_UNIT.pt",
+      "artifact_sha256": "c6281abf3589db14186c7b7df2e2fa04327a4f95b76921445410eecdd382d98e",
+      "cell": "L019/E000_down",
+      "phase_seconds": {
+        "batched_block_ldl": 0.06322256500425283,
+        "batched_ldlq": 5.3845647030029795,
+        "canonical_per_unit_pack": 0.0467399339977419,
+        "hessian_forward_fwht": 0.047592914997949265,
+        "packed_decode_conformance": 0.23513709800317883
+      },
+      "receipt": "/dev/shm/k1_batch_s5_run8550_z51/solve/L019/E000_down/QTIP_SOLVE_RECEIPT.json",
+      "receipt_sha256": "b49a0c5fe89b7dbc97d7d76642f1b8c15d29830f2313a022fc44704b023eacc7",
+      "wall_seconds": null
+    },
+    {
+      "artifact": "/dev/shm/k1_batch_s5_run8550_z51/solve/L019/E001_down/QTIP_UNIT.pt",
+      "artifact_sha256": "ee093306cb24d02916f68a67e312e72ed465f142935c844ffaec3ac26793ccf6",
+      "cell": "L019/E001_down",
+      "phase_seconds": {
+        "batched_block_ldl": 0.06322256500425283,
+        "batched_ldlq": 5.3845647030029795,
+        "canonical_per_unit_pack": 0.0467399339977419,
+        "hessian_forward_fwht": 0.047592914997949265,
+        "packed_decode_conformance": 0.23513709800317883
+      },
+      "receipt": "/dev/shm/k1_batch_s5_run8550_z51/solve/L019/E001_down/QTIP_SOLVE_RECEIPT.json",
+      "receipt_sha256": "d36b8f045984251b99cf6b65c83974eb08cde8f62de7913a703868f76e328775",
+      "wall_seconds": null
+    }
+  ],
+  "source_basis": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "status": "PASS_K1_BOUNDED_BATCH"
+}

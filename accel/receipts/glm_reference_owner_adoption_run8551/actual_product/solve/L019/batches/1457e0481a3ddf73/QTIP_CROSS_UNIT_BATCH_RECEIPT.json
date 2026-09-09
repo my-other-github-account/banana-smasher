@@ -1,0 +1,145 @@
+{
+  "accelerations": {
+    "active": [
+      "persistent-prefix-full16",
+      "kernel-cache",
+      "shared-capture/single-process-staging",
+      "reference-singleton-block-LDL",
+      "cross-unit-LDLQ",
+      "FWHT",
+      "bounded-batch-matrix-lifetime",
+      "canonical-pack-from-states",
+      "packed-byte-reconstruction"
+    ],
+    "historical_k3_alternating_branch_pruning": false,
+    "schema": "banana-smasher-qtip-active-build-accelerations-v1"
+  },
+  "artifact_sha256": [
+    "c6281abf3589db14186c7b7df2e2fa04327a4f95b76921445410eecdd382d98e",
+    "ee093306cb24d02916f68a67e312e72ed465f142935c844ffaec3ac26793ccf6"
+  ],
+  "assignment_sha256": [
+    "6ebd55f41bb6c9d1612a65a26d99006dae5b6f116a8464f1bd68a37d71243fe7",
+    "c96df6099bf4db72a39f5c5ccd89f576d04d103592bd14dc6a330a74d10bd0ff"
+  ],
+  "basis_sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05",
+  "batch_id": "1457e0481a3ddf73",
+  "batch_units": 2,
+  "build_phase_seconds": {
+    "batched_block_ldl": 0.12644513000850566,
+    "batched_ldlq": 10.769129406005959,
+    "canonical_per_unit_pack": 0.0934798679954838,
+    "hessian_forward_fwht": 0.09518582999589853,
+    "packed_decode_conformance": 0.47027419600635767
+  },
+  "build_wall_seconds": 11.599949313997058,
+  "canonical_pack_roundtrip_exact": [
+    true,
+    true
+  ],
+  "config_names": [
+    "L019_E000_down_K1.json",
+    "L019_E001_down_K1.json"
+  ],
+  "epoch_ended": 1788919783.3255706,
+  "epoch_started": 1788919760.8959827,
+  "kernel_prepare_seconds": 1.2728881259972695,
+  "layer": 19,
+  "matrix_lifetime": {
+    "batch_units": 2,
+    "events": [
+      {
+        "live_fp32_matrices": [
+          "hessian",
+          "lower",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 4.0,
+        "phase": "batched_ldl_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [
+          "lower",
+          "quantized",
+          "transformed"
+        ],
+        "live_fp32_matrix_equivalents": 5.0,
+        "phase": "batched_ldlq_ready",
+        "unique_storage_count": 3
+      },
+      {
+        "live_fp32_matrices": [],
+        "live_fp32_matrix_equivalents": 0.0,
+        "phase": "quantized_released_before_pack",
+        "unique_storage_count": 0
+      }
+    ],
+    "max_live_fp32_matrix_equivalents": 5.0,
+    "reconstruction_source": "canonical-packed-bytes",
+    "released_after_ldlq": [
+      "lower",
+      "transformed"
+    ],
+    "released_before_pack": [
+      "lower",
+      "transformed",
+      "quantized"
+    ],
+    "schema": "banana-smasher-qtip-batch-matrix-lifetime-v1",
+    "unit_matrix_shape": [
+      4096,
+      2048
+    ]
+  },
+  "mean_build_phase_seconds": {
+    "batched_block_ldl": 0.06322256500425283,
+    "batched_ldlq": 5.3845647030029795,
+    "canonical_per_unit_pack": 0.0467399339977419,
+    "hessian_forward_fwht": 0.047592914997949265,
+    "packed_decode_conformance": 0.23513709800317883
+  },
+  "mean_build_wall_seconds": 5.799974656998529,
+  "mean_staging_seconds": 4.774974104002467,
+  "mean_total_wall_seconds": 11.214465676996042,
+  "packed_decode_execution": "compiled",
+  "packed_decode_fp16_bit_exact": [
+    true,
+    true
+  ],
+  "peak_cuda_allocated_bytes": 2608132096,
+  "peak_cuda_reserved_bytes": 2782920704,
+  "process": {
+    "pid": 1362343,
+    "startticks": 8481633
+  },
+  "receipt_names": [
+    "QTIP_SOLVE_RECEIPT.json",
+    "QTIP_SOLVE_RECEIPT.json"
+  ],
+  "schema": "banana-smasher-qtip-cross-unit-controller-v1",
+  "solver": {
+    "K": 1,
+    "L": 16,
+    "V": 2,
+    "best_state_dtype": "uint16",
+    "best_state_encoding": "full-state",
+    "branch_sampling": "full",
+    "branches_per_prefix": 4,
+    "full_states": 65536,
+    "implementation": "persistent-prefix-generic-aot-v1",
+    "memory_admission": "conservative-int32-workspace",
+    "min_exact_quality": 1.0,
+    "ordering": "one persistent launch per independent sequence batch",
+    "production_default": false,
+    "retained_prefix_costs": 16384,
+    "steps": 128,
+    "viterbi_branch_unroll": 4,
+    "viterbi_lut_l1_retention": true,
+    "viterbi_num_warps": 16,
+    "viterbi_structured_gather": true
+  },
+  "staging_seconds": 9.549948208004935,
+  "status": "PASS",
+  "total_wall_seconds": 22.428931353992084
+}

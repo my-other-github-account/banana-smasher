@@ -1,0 +1,21 @@
+{
+  "canonical_commit": "aa455253fa0cd8944a4148112d44c537938d40c4",
+  "cells": [
+    "L019/E000_down"
+  ],
+  "clean_fit_admission": true,
+  "schema": "bounded-next-tier-clean-canary-v1",
+  "source_config_sha256": "7368aa045cbd3e15866c7883bcee46b323b79eb968577136ad569e348ac67fc3",
+  "tiers": [
+    {
+      "bindings": {
+        "qtip_runner": {
+          "path": "/dev/shm/t_bd7914e6_candidate_aa455253_run8546/banana-smasher/src/banana_smasher/qtip_runner.py",
+          "sha256": "e7b68e1f8ecdb9c917fd66d2b5f18cfd8c3a3ed3bf03576f33cfdcb286cb0e9c"
+        }
+      },
+      "name": "qtip@1.00"
+    }
+  ],
+  "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a"
+}

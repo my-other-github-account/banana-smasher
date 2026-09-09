@@ -1,0 +1,71 @@
+{
+  "backend": "persistent-prefix-generic-aot-v1",
+  "block_ldl_reference": true,
+  "block_ldl_unitwise": true,
+  "bpw": "1.00",
+  "capture_hash_workers": 4,
+  "clean_fit_admission": true,
+  "codebook": {
+    "decode_mode": "quantlut_sym",
+    "family": "bitshift",
+    "pack_contract": {
+      "dtype": "uint16",
+      "input_tile": [
+        16,
+        16
+      ],
+      "output_rows": "input_tile_grid",
+      "packed_words_per_tile_per_k": 16
+    },
+    "td_x": 16,
+    "td_y": 16,
+    "tlut_binding": "run-manifest",
+    "tlut_bits": 9
+  },
+  "expert": 1,
+  "fit_capture_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l019_down_s5_run8141_a1/home/dnola/missions/CLEAN_t_bd7914e6/production_l019_s3_run8141_a1/fitcaptures",
+  "fit_windows": 16,
+  "geometry": {
+    "K": 1,
+    "L": 16,
+    "V": 2
+  },
+  "glm_source_closure_sha256": "8273a617c031510e16ffa1d26e80434e8617911936ae6a05dc21e55a7d2f14e0",
+  "hessian_layer_manifest": "/home/dnola/missions/CLEAN_t_bd7914e6/solve_l019_down_s5_run8141_a1/L019_HESSIAN_MANIFEST.json",
+  "hessian_layer_manifest_sha256": "ac62b4737d52c2b50fd23b9eef7a654cca9c608632b7770bdfe1fe71ebb932fc",
+  "input_identity": {
+    "model_index": {
+      "path": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l019_down_s5_run8141_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm/model.safetensors.index.json",
+      "sha256": "3c3f40366a53c3fd7974b4eab7881a365a98c2a4329150befebab99fe7c18b05"
+    }
+  },
+  "layer": 19,
+  "layer_census": {
+    "qtip1": 1
+  },
+  "materialization": {
+    "run_manifest": "/dev/shm/k1_batch_s5_run8550_z51/K1_L019_E001_down_MANIFEST.json",
+    "run_manifest_sha256": "031adf094a4e7e9a7cefafaf2dfbe406ad74601670befb9a7c8789be75e71c7e",
+    "source_config_sha256": "4d9468c4e69171fcd56c91cb6994fa137c4d46a75e43644be30494c6a4bb2eec"
+  },
+  "model_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l019_down_s5_run8141_a1/home/dnola/missions/GLM_Q2_SCALE_REPAIR_t_44e9a9a7_s3/source_glm",
+  "pack_counts": {
+    "qtip1": 1
+  },
+  "projection": "down",
+  "qtip_root": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l006_down_s5_run8012_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/qtip-canonical",
+  "qtip_runner": "/dev/shm/t_bd7914e6_candidate_aa455253_run8546/banana-smasher/src/banana_smasher/qtip_runner.py",
+  "reference_unit": "/home/dnola/missions/CLEAN_t_bd7914e6/k1_prepare_s5_run8550_z50/K1_L019_E001_down_REFERENCE.pt",
+  "rht_seed": 3529715736972099719,
+  "rht_seed_material": "a953ae56ce7ac65f9d25fefa1dc9fec3738e44447767a1b0c39f73ba1301480b",
+  "rht_seed_policy": "qtip-rht-manifest-v1",
+  "schema": "banana-smasher-qtip-profile-config-v1",
+  "tier": "qtip@1.00",
+  "tlut_source": "/home/dnola/missions/CLEAN_t_bd7914e6/closure_l019_down_s5_run8141_a1/home/dnola/missions/GLM_Q2_CHAMPION_t_54d7b631_spark_3/runtime/p851/inputs/P641_QTIP_TLUT_SOURCE.pt",
+  "training_ledger_sha256": "f2fb6206d73bbbde05779dcc0b2d139babbbcfc6abb5f9ac83f08cef901a109a",
+  "viterbi_backpointer_dtype": "uint16",
+  "viterbi_branch_unroll": true,
+  "viterbi_lut_l1_retention": true,
+  "viterbi_num_warps": 16,
+  "viterbi_structured_gather": true
+}
