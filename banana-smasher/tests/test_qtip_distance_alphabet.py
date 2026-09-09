@@ -38,3 +38,43 @@ def test_cuda_alphabet_public_path(steps,batch):
     cb.lut[0,0]+=1
     with pytest.raises(ValueError,match='alphabet'):
         exact_prefix_viterbi(cb,x)
+
+from test_qtip_lut_cache_policy import resolver
+
+@pytest.mark.parametrize('enabled', [False, True])
+def test_public_installer_binds_distance_alphabet(monkeypatch, enabled):
+    import sys, types
+    source = SOURCE.with_name('solver_qtip_profile.py')
+    node = next((n for n in ast.parse(source.read_text()).body if isinstance(n, ast.FunctionDef) and n.name == '_install_configured_viterbi'))
+    package = types.ModuleType('banana_smasher')
+    package.__path__ = []
+    module = types.ModuleType('banana_smasher.qtip_viterbi')
+    module.resolve_viterbi_num_warps = lambda *a: 16
+    module.resolve_backpointer_dtype = lambda *a: 'int32'
+    module.resolve_structured_gather = lambda *a: False
+    module.resolve_branch_unroll = lambda *a: 1
+    module.resolve_lut_l1_retention = resolver()
+    monkeypatch.setitem(sys.modules, 'banana_smasher', package)
+    monkeypatch.setitem(sys.modules, 'banana_smasher.qtip_viterbi', module)
+    env = dict(__name__='banana_smasher.solver_qtip_profile', _ExactTimers=object, Any=object, known_qtip_geometries=lambda: {(16, 1, 2)}, backend_for_geometry=lambda g: 'persistent', PERSISTENT_BACKENDS={'persistent'}, _install_profiled_exact_viterbi=lambda *a, **k: {})
+    exec(compile(ast.Module(body=[node], type_ignores=[]), str(source), 'exec'), env)
+    cb = types.SimpleNamespace(L=16, K=1, V=2)
+    identity = env['_install_configured_viterbi'](cb, None, None, {'geometry': {'L': 16, 'K': 1, 'V': 2}, 'viterbi_distance_alphabet': enabled}, profile_mode=False)
+    assert cb._banana_smasher_distance_alphabet is enabled
+    assert identity.get('viterbi_distance_alphabet', False) is enabled
+    if enabled:
+        assert identity['production_default'] is False
+
+def test_batch_binds_homogeneous_alphabet_flag():
+    tree=ast.parse(SOURCE.with_name('qtip_batch_controller.py').read_text())
+    calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and ast.unparse(n.func)=='_common' and 'viterbi_distance_alphabet' in ast.unparse(n)]
+    assert len(calls)==1
+
+
+def test_extra_alphabet_workspace_increases_reserve_without_changing_peak_schema():
+    tree=ast.parse(SOURCE.read_text())
+    node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='exact_prefix_viterbi')
+    reserve=next(n.value for n in ast.walk(node) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='reserve' for t in n.targets))
+    expression=compile(ast.Expression(reserve),str(SOURCE),'eval')
+    assert eval(expression,{'distance_alphabet':False})==4<<30
+    assert eval(expression,{'distance_alphabet':True})==(4<<30)+(4<<20)

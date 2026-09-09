@@ -29,7 +29,8 @@ def test_only_lut_loads_use_policy():
     for n in lut:assert any(k.arg=='eviction_policy' and ast.unparse(k.value)=='LUT_EVICTION' for k in n.keywords)
     for n in loads:
         if n not in lut:assert not any(k.arg in ('cache_modifier','eviction_policy') for k in n.keywords)
-    assert isinstance(node.args.defaults[-1],ast.Constant) and node.args.defaults[-1].value==''
+    defaults = dict(zip([arg.arg for arg in node.args.args][-len(node.args.defaults):], node.args.defaults))
+    assert isinstance(defaults['LUT_EVICTION'], ast.Constant) and defaults['LUT_EVICTION'].value == ''
 
 @pytest.mark.parametrize('batch,steps,zero',[(1,2,False),(17,8,False),(256,128,False),(1,128,True)])
 def test_device_optin_matches_incumbent(batch,steps,zero):
