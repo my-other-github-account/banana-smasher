@@ -9,7 +9,8 @@ def test_selected_branch_defers_full_state_encoding():
     kernel = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == '_persistent_prefix_viterbi_generic')
     loop = next(n for n in ast.walk(kernel) if isinstance(n, ast.While))
     text = ast.unparse(loop)
-    assert 'chosen = tl.where(take, q if DISTANCE_ALPHABET else state, chosen)' in text
+    assert 'chosen = tl.where(take, q if DISTANCE_ALPHABET and (not CONDITIONED_DISTANCE_SUM) else state, chosen)' in text
+    assert 'if DISTANCE_ALPHABET and (not CONDITIONED_DISTANCE_SUM):' in text
     assert 'encoded_chosen = chosen if BRANCH_POINTERS else chosen * PREFIXES + j' in text
     assert 'candidate = predecessor_cost + da * da + db * db' in text
     assert 'encoded_chosen = tl.where(best < float(\'inf\'), encoded_chosen, 0)' in text

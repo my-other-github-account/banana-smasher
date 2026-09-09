@@ -337,10 +337,11 @@ def _persistent_prefix_viterbi_generic(
             take = candidate < best
             best = tl.where(take, candidate, best)
             # Only q varies between candidates at a fixed prefix column.
-            chosen = tl.where(take, q if DISTANCE_ALPHABET else state, chosen)
+            # The conditioned-sum down specialization keeps its incumbent layout.
+            chosen = tl.where(take, q if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM else state, chosen)
         if not REGISTER_COSTS:
             tl.store(scratch_ptr + current_base + j, best)
-        if DISTANCE_ALPHABET:
+        if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM:
             encoded_chosen = chosen if BRANCH_POINTERS else chosen * PREFIXES + j
             # Preserve the original zero sentinel for unreachable prefixes.
             encoded_chosen = tl.where(best < float("inf"), encoded_chosen, 0)
