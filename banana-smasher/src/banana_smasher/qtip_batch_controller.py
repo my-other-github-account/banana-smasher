@@ -575,15 +575,19 @@ def _bounded_overlap(configs):
 
 def _fused_schedule(configs):
     """Validate every option before comparing values (bool/int are aliases)."""
-    from .qtip_viterbi import resolve_fused_schedule, resolve_viterbi_num_warps
+    from .qtip_viterbi import resolve_fused_schedule, resolve_viterbi_num_warps, resolve_conditioned_distance_sum
     values = []
     for config in configs:
         geometry = config.get("geometry", {"L": 16, "K": 3, "V": 2})
         sealed = tuple(int(geometry[key]) for key in ("L", "K", "V"))
+        conditioned_sum = resolve_conditioned_distance_sum(
+            sealed, config.get("projection"), config.get("viterbi_conditioned_distance_sum"),
+            config.get("viterbi_distance_alphabet", False),
+        )
         values.append(resolve_fused_schedule(
             sealed, config.get("projection"), config.get("viterbi_fused_schedule"),
             config.get("viterbi_distance_alphabet", False),
-            config.get("viterbi_conditioned_distance_sum", False),
+            conditioned_sum,
             resolve_viterbi_num_warps(sealed, config.get("viterbi_num_warps")),
         ))
     return _common("Viterbi fused schedule", values)

@@ -13,6 +13,7 @@ def module():
  m=types.ModuleType('banana_smasher.qtip_viterbi');e={};ns=nodes('qtip_viterbi.py')
  m.resolve_fused_schedule=run(ns['resolve_fused_schedule'],e)
  m.resolve_viterbi_num_warps=run(ns['resolve_viterbi_num_warps'],e)
+ m.resolve_conditioned_distance_sum=run(ns['resolve_conditioned_distance_sum'],e)
  return m
 @pytest.mark.parametrize('values',[(True,1),(1,True),(False,0),(0,False),(True,False),(False,True)])
 def test_actual_batch_rejects_all_members(monkeypatch,values):
@@ -25,6 +26,8 @@ def test_actual_batch_homogeneous(monkeypatch):
  f=run(nodes('qtip_batch_controller.py')['_fused_schedule'],{'__package__':'banana_smasher','_common':common})
  assert f([{},{}]) is False
  c=dict(geometry=dict(L=16,K=1,V=2),projection='fused13',viterbi_distance_alphabet=True,viterbi_num_warps=8,viterbi_fused_schedule=True)
+ assert f([c,c.copy()]) is True
+ c['viterbi_conditioned_distance_sum']=None
  assert f([c,c.copy()]) is True
 
 def test_kernel_default_body_is_exact_baseline():
