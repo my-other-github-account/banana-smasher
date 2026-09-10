@@ -611,6 +611,11 @@ def _exact_prefix_viterbi_impl(
         getattr(cb, "_banana_smasher_fused_schedule", False), distance_alphabet,
         conditioned_distance_sum, launch_warps,
     )
+    stage4_schedule = resolve_stage4_schedule(
+        (L, K, V), getattr(cb, "_banana_smasher_projection", None),
+        getattr(cb, "_banana_smasher_stage4_schedule", False), distance_alphabet,
+        conditioned_distance_sum, launch_warps, fused_schedule,
+    )
     group_branches = getattr(cb, "_banana_smasher_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
         (L, K, V) != (16, 3, 2) or x.shape[0] != 256 or structured_gather or branch_unroll != 1
@@ -807,7 +812,7 @@ def _exact_prefix_viterbi_impl(
             BRANCH_UNROLL=branch_unroll,
             GROUP_BRANCHES=group_branches,
             num_warps=launch_warps,
-            num_stages=1,
+            num_stages=4 if stage4_schedule else 1,
         )
     else:
         # 512 threads for a 256-wide (K=4) or 4096-wide (K=1) prefix vector is
@@ -839,7 +844,7 @@ def _exact_prefix_viterbi_impl(
             CONDITIONED_DISTANCE_SUM=conditioned_distance_sum,
             FUSED_SCHEDULE=fused_schedule,
             num_warps=generic_warps,
-            num_stages=1,
+            num_stages=4 if stage4_schedule else 1,
         )
     if builder_scope:
         cb._banana_smasher_observed_state_elements = (
@@ -854,6 +859,7 @@ def install_exact_prefix_viterbi(
     """Install the accelerated exact methods, refusing an unavailable backend."""
     _require_triton()
     cb._banana_smasher_fused_schedule = False
+    cb._banana_smasher_stage4_schedule = False
     native_quantize = getattr(cb, "_banana_smasher_native_quantize", None)
     if native_quantize is not None:
         cb.quantize = native_quantize
@@ -933,4 +939,22 @@ def resolve_fused_schedule(geometry, projection, value, distance_alphabet, condi
         or distance_alphabet is not True or conditioned_sum is not False or warps != 8
     )):
         raise ValueError("viterbi_fused_schedule requires boolean, L16/K1/V2 fused13, distance alphabet, no conditioned sum, and 8 warps")
+    return value
+
+
+def resolve_stage4_schedule(geometry, projection, value, distance_alphabet,
+                            conditioned_sum, warps, fused_schedule):
+    """Default-off four-stage launch on the measured down16/fused8 schedule."""
+    if value is None:
+        return False
+    if type(value) is not bool:
+        raise ValueError("viterbi_stage4_schedule requires boolean or null")
+    if value and not (
+        tuple(geometry) == (16, 1, 2) and distance_alphabet is True
+        and ((projection == "down" and conditioned_sum is True
+              and warps == 16 and fused_schedule is False)
+             or (projection == "fused13" and conditioned_sum is False
+                 and warps == 8 and fused_schedule is True))
+    ):
+        raise ValueError("viterbi_stage4_schedule requires measured K1 alphabet down16/conditioned or fused8/fused-schedule composition")
     return value

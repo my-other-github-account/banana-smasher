@@ -1362,6 +1362,14 @@ def _install_configured_viterbi(
             distance_alphabet, conditioned_distance_sum, launch_warps,
         )
     cb._banana_smasher_fused_schedule = fused_schedule
+    stage4_schedule = False
+    if "viterbi_stage4_schedule" in config:
+        from .qtip_viterbi import resolve_stage4_schedule
+        stage4_schedule = resolve_stage4_schedule(
+            sealed, config.get("projection"), config["viterbi_stage4_schedule"],
+            distance_alphabet, conditioned_distance_sum, launch_warps, fused_schedule,
+        )
+    cb._banana_smasher_stage4_schedule = stage4_schedule
     bounded_overlap = False
     if "viterbi_bounded_overlap" in config:
         from .qtip_viterbi import resolve_bounded_overlap
@@ -1388,6 +1396,8 @@ def _install_configured_viterbi(
         if requested_warps is not None:
             identity.update(viterbi_num_warps=launch_warps,
                             production_default=launch_warps == 16)
+        if stage4_schedule:
+            identity.update(viterbi_stage4_schedule=True, viterbi_num_stages=4, production_default=False)
         if fused_schedule:
             identity.update(viterbi_fused_schedule=True, production_default=False)
         if bounded_overlap:
