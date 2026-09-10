@@ -91,6 +91,7 @@ def main_batch(
     if len(set(paths)) != len(paths):
         raise ValueError("QTIP cross-unit batch contains duplicate configs")
     configs = [solver_module._read_qtip_config(path) for path in paths]
+    capture_hash_workers = _capture_hash_workers(configs)
     block_ldl_unitwise = _block_ldl_unitwise(configs)
     block_ldl_reference = _block_ldl_reference(configs)
     ldlq_update_unsolved_only = _ldlq_update_unsolved_only(configs)
@@ -244,7 +245,7 @@ def main_batch(
     fit_window_count = int(capture_binding[1])
     hessian_binding = hessian_bindings[0][2]
     captures = solver_module._load_captures(
-        capture_root, layer, fit_window_count
+        capture_root, layer, fit_window_count, hash_workers=capture_hash_workers
     )
     device = torch.device("cuda")
     fit_windows_batch = []
@@ -455,6 +456,7 @@ def main_batch(
             "glm_source_closure": source_closure,
             "fit_source": fit_source,
             "fit_windows": fit_window_count,
+            "capture_hash_workers": capture_hash_workers,
             "hessian_layer_manifest": hessian_binding,
             "rht_seed": seed,
             "rht_seed_policy": seed_policy,
@@ -592,6 +594,17 @@ def _fused_schedule(configs):
             resolve_viterbi_num_warps(sealed, config.get("viterbi_num_warps")),
         ))
     return _common("Viterbi fused schedule", values)
+
+
+def _capture_hash_workers(configs):
+    """Validate every member before equality can alias booleans or floats."""
+    values = []
+    for config in configs:
+        value = config.get("capture_hash_workers", 1)
+        if type(value) is not int or value not in (1, 2, 4):
+            raise ValueError("capture hash workers must be 1, 2, or 4")
+        values.append(value)
+    return _common("capture hash workers", values)
 
 
 def _stage4_schedule(configs):
