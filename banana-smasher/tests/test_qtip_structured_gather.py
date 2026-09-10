@@ -66,14 +66,15 @@ def test_batch_refuses_mixed_branch_schedules():
     assert any('viterbi_structured_gather' in ast.unparse(n) for n in calls)
 
 
+@pytest.mark.parametrize('counter',['q','static_branch_1'])
 @pytest.mark.parametrize('with_infinity',[False,True])
 @pytest.mark.parametrize('branches,q_factor,shift', [(4,4096,2),(64,16,6)])
-def test_execute_actual_structured_branch(with_infinity, branches, q_factor, shift):
+def test_execute_actual_structured_branch(with_infinity, branches, q_factor, shift, counter):
     import numpy as np
     import types
     tree=ast.parse(SOURCE.read_text())
     kernel=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_persistent_prefix_viterbi_generic')
-    branch=next(n for n in ast.walk(kernel) if isinstance(n,ast.If) and ast.unparse(n.test)=='STRUCTURED_GATHER')
+    branch=next(n for n in ast.walk(kernel) if isinstance(n,ast.If) and ast.unparse(n.test)=='STRUCTURED_GATHER' and any(isinstance(x,ast.Name) and x.id==counter for x in ast.walk(n)))
     module=ast.Module(body=branch.body,type_ignores=[])
     code=compile(module,str(SOURCE),'exec')
     prefixes=branches*q_factor
@@ -81,7 +82,8 @@ def test_execute_actual_structured_branch(with_infinity, branches, q_factor, shi
     if with_infinity: costs[::7]=np.inf
     tl=types.SimpleNamespace(reshape=np.reshape,sum=np.sum,where=np.where,arange=np.arange,broadcast_to=np.broadcast_to)
     for q in range(branches):
-        env=dict(tl=tl,previous_costs=costs,BRANCHES=branches,Q_FACTOR=q_factor,PREFIXES=prefixes,q=q)
+        env=dict(tl=tl,previous_costs=costs,BRANCHES=branches,Q_FACTOR=q_factor,PREFIXES=prefixes)
+        env[counter]=q
         exec(code,env)
         expected=costs[q*q_factor+(np.arange(prefixes)>>shift)]
         np.testing.assert_array_equal(env['predecessor_cost'],expected)

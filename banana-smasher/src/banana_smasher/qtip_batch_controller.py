@@ -151,6 +151,7 @@ def main_batch(
     _common("Viterbi LUT L1 retention", [config.get("viterbi_lut_l1_retention", False) for config in configs])
     _common("Viterbi conditioned distance sum", [config.get("viterbi_conditioned_distance_sum", False) for config in configs])
     _bounded_overlap(configs)
+    _fused_schedule(configs)
     _common("Viterbi distance alphabet", [config.get("viterbi_distance_alphabet", False) for config in configs])
 
     runner = solver_module._load_public_qtip_runner(runner_path, runner_sha256)
@@ -570,3 +571,19 @@ def _bounded_overlap(configs):
             sealed, config.get("viterbi_bounded_overlap"), False
         ))
     return _common("Viterbi bounded overlap", values)
+
+
+def _fused_schedule(configs):
+    """Validate every option before comparing values (bool/int are aliases)."""
+    from .qtip_viterbi import resolve_fused_schedule, resolve_viterbi_num_warps
+    values = []
+    for config in configs:
+        geometry = config.get("geometry", {"L": 16, "K": 3, "V": 2})
+        sealed = tuple(int(geometry[key]) for key in ("L", "K", "V"))
+        values.append(resolve_fused_schedule(
+            sealed, config.get("projection"), config.get("viterbi_fused_schedule"),
+            config.get("viterbi_distance_alphabet", False),
+            config.get("viterbi_conditioned_distance_sum", False),
+            resolve_viterbi_num_warps(sealed, config.get("viterbi_num_warps")),
+        ))
+    return _common("Viterbi fused schedule", values)

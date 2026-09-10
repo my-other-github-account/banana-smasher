@@ -25,7 +25,8 @@ def test_only_lut_loads_use_policy():
     node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_persistent_prefix_viterbi_generic')
     loads=[n for n in ast.walk(node) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='load']
     lut=[n for n in loads if 'lut_ptr' in ast.unparse(n.args[0])]
-    assert len(lut)==5
+    # Both default and default-off fused branches retain identical LUT policy.
+    assert len(lut)==9
     for n in lut:assert any(k.arg=='eviction_policy' and ast.unparse(k.value)=='LUT_EVICTION' for k in n.keywords)
     for n in loads:
         if n not in lut:assert not any(k.arg in ('cache_modifier','eviction_policy') for k in n.keywords)

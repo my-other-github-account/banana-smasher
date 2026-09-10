@@ -240,6 +240,7 @@ def _persistent_prefix_viterbi_generic(
     LUT_EVICTION: tl.constexpr = "",
     DISTANCE_ALPHABET: tl.constexpr = False,
     CONDITIONED_DISTANCE_SUM: tl.constexpr = False,
+    FUSED_SCHEDULE: tl.constexpr = False,
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -267,14 +268,24 @@ def _persistent_prefix_viterbi_generic(
         tl.static_assert(V == 2, "ring family is V=2")
         xa = tl.load(x_ptr + seq).to(tl.float32)
         xb = tl.load(x_ptr + B + seq).to(tl.float32)
-        for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
-            state = q * PREFIXES + j
-            la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-            lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-            candidate = (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
-            take = candidate < best
-            best = tl.where(take, candidate, best)
-            chosen = tl.where(take, state, chosen)
+        if FUSED_SCHEDULE:
+            for static_branch_0 in tl.static_range(0, 4):
+                state = static_branch_0 * PREFIXES + j
+                la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                candidate = (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+                take = candidate < best
+                best = tl.where(take, candidate, best)
+                chosen = tl.where(take, state, chosen)
+        else:
+            for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
+                state = q * PREFIXES + j
+                la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                candidate = (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+                take = candidate < best
+                best = tl.where(take, candidate, best)
+                chosen = tl.where(take, state, chosen)
 
     base = seq * PREFIXES
     if not REGISTER_COSTS:
@@ -311,43 +322,82 @@ def _persistent_prefix_viterbi_generic(
             # Experimental regrouping: sum once over the compact alphabet.
             # FP32 association changes; quality, not assignment identity, gates it.
             distance_sum = delta_a * delta_a + delta_b * delta_b
-        for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
-            predecessor_prefix = q * Q_FACTOR + residue
-            if REGISTER_COSTS:
-                if STRUCTURED_GATHER:
-                    # Select one contiguous predecessor row, then broadcast its
-                    # entries BRANCHES times (K1: 4x4096; K3: 64x16).
-                    # Nonnegative costs add only exact zeros, including +inf.
-                    cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
-                    selected = tl.sum(tl.where(
-                        tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
-                    ), axis=0)
-                    predecessor_cost = tl.reshape(tl.broadcast_to(
-                        selected[:, None], (Q_FACTOR, BRANCHES)
-                    ), (PREFIXES,))
+        if FUSED_SCHEDULE:
+            for static_branch_1 in tl.static_range(0, 4):
+                predecessor_prefix = static_branch_1 * Q_FACTOR + residue
+                if REGISTER_COSTS:
+                    if STRUCTURED_GATHER:
+                        # Select one contiguous predecessor row, then broadcast its
+                        # entries BRANCHES times (K1: 4x4096; K3: 64x16).
+                        # Nonnegative costs add only exact zeros, including +inf.
+                        cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
+                        selected = tl.sum(tl.where(
+                            tl.arange(0, BRANCHES)[:, None] == static_branch_1, cost_rows, 0.0
+                        ), axis=0)
+                        predecessor_cost = tl.reshape(tl.broadcast_to(
+                            selected[:, None], (Q_FACTOR, BRANCHES)
+                        ), (PREFIXES,))
+                    else:
+                        predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
                 else:
-                    predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
-            else:
-                predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
-            state = q * PREFIXES + j
-            if DISTANCE_ALPHABET:
-                alphabet_key = _rematerialized_alphabet_key(state)
-                if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
-                    candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
+                    predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
+                state = static_branch_1 * PREFIXES + j
+                if DISTANCE_ALPHABET:
+                    alphabet_key = _rematerialized_alphabet_key(state)
+                    if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
+                        candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
+                    else:
+                        # Preserve the original full-context heuristic seed.
+                        da = tl.gather(delta_a, alphabet_key, axis=0)
+                        db = tl.gather(delta_b, alphabet_key, axis=0)
+                        candidate = predecessor_cost + da * da + db * db
                 else:
-                    # Preserve the original full-context heuristic seed.
-                    da = tl.gather(delta_a, alphabet_key, axis=0)
-                    db = tl.gather(delta_b, alphabet_key, axis=0)
-                    candidate = predecessor_cost + da * da + db * db
-            else:
-                la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-                lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-                candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
-            take = candidate < best
-            best = tl.where(take, candidate, best)
-            # Only q varies between candidates at a fixed prefix column.
-            # The conditioned-sum down specialization keeps its incumbent layout.
-            chosen = tl.where(take, q if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM else state, chosen)
+                    la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                    lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                    candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+                take = candidate < best
+                best = tl.where(take, candidate, best)
+                # Only static_branch_1 varies between candidates at a fixed prefix column.
+                # The conditioned-sum down specialization keeps its incumbent layout.
+                chosen = tl.where(take, static_branch_1 if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM else state, chosen)
+        else:
+            for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
+                predecessor_prefix = q * Q_FACTOR + residue
+                if REGISTER_COSTS:
+                    if STRUCTURED_GATHER:
+                        # Select one contiguous predecessor row, then broadcast its
+                        # entries BRANCHES times (K1: 4x4096; K3: 64x16).
+                        # Nonnegative costs add only exact zeros, including +inf.
+                        cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
+                        selected = tl.sum(tl.where(
+                            tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
+                        ), axis=0)
+                        predecessor_cost = tl.reshape(tl.broadcast_to(
+                            selected[:, None], (Q_FACTOR, BRANCHES)
+                        ), (PREFIXES,))
+                    else:
+                        predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
+                else:
+                    predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
+                state = q * PREFIXES + j
+                if DISTANCE_ALPHABET:
+                    alphabet_key = _rematerialized_alphabet_key(state)
+                    if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
+                        candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
+                    else:
+                        # Preserve the original full-context heuristic seed.
+                        da = tl.gather(delta_a, alphabet_key, axis=0)
+                        db = tl.gather(delta_b, alphabet_key, axis=0)
+                        candidate = predecessor_cost + da * da + db * db
+                else:
+                    la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                    lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                    candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+                take = candidate < best
+                best = tl.where(take, candidate, best)
+                # Only q varies between candidates at a fixed prefix column.
+                # The conditioned-sum down specialization keeps its incumbent layout.
+                chosen = tl.where(take, q if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM else state, chosen)
         if not REGISTER_COSTS:
             tl.store(scratch_ptr + current_base + j, best)
         if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM:
@@ -371,14 +421,25 @@ def _persistent_prefix_viterbi_generic(
         prefix = tl.load(overlap_ptr + seq).to(tl.int32)
     else:
         prefix = tl.argmin(best, axis=0).to(tl.int32)
-    for back_step in tl.static_range(STEPS - 1, -1, -1):
-        state = tl.load(
-            best_state_ptr + _tiled_pointer_offset(back_step, seq, prefix, B, PREFIXES, STEPS)
-        ).to(tl.int32)
-        if BRANCH_POINTERS:
-            state = state * PREFIXES + prefix
-        tl.store(states_ptr + back_step * B + seq, state)
-        prefix = state >> SHIFT
+    if FUSED_SCHEDULE:
+        for back_step in tl.range(STEPS - 1, -1, -1, loop_unroll_factor=(8 if STEPS >= 8 else 1)):
+            traceback_state = tl.load(
+                best_state_ptr + _tiled_pointer_offset(back_step, seq, prefix, B, PREFIXES, STEPS)
+            ).to(tl.int32)
+            if BRANCH_POINTERS:
+                traceback_state = traceback_state * PREFIXES + prefix
+            tl.store(states_ptr + back_step * B + seq, traceback_state)
+            prefix = traceback_state >> SHIFT
+    else:
+        for back_step in tl.static_range(STEPS - 1, -1, -1):
+            state = tl.load(
+                best_state_ptr + _tiled_pointer_offset(back_step, seq, prefix, B, PREFIXES, STEPS)
+            ).to(tl.int32)
+            if BRANCH_POINTERS:
+                state = state * PREFIXES + prefix
+            tl.store(states_ptr + back_step * B + seq, state)
+            prefix = state >> SHIFT
+
 
 
 def geometry(cb: Any, *, steps: int = 128) -> dict[str, int | str | float]:
@@ -544,6 +605,11 @@ def _exact_prefix_viterbi_impl(
     conditioned_distance_sum = resolve_conditioned_distance_sum(
         (L, K, V), getattr(cb, "_banana_smasher_projection", None),
         getattr(cb, "_banana_smasher_conditioned_distance_sum", False), distance_alphabet
+    )
+    fused_schedule = resolve_fused_schedule(
+        (L, K, V), getattr(cb, "_banana_smasher_projection", None),
+        getattr(cb, "_banana_smasher_fused_schedule", False), distance_alphabet,
+        conditioned_distance_sum, launch_warps,
     )
     group_branches = getattr(cb, "_banana_smasher_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
@@ -771,6 +837,7 @@ def _exact_prefix_viterbi_impl(
             LUT_EVICTION="evict_last" if lut_l1_retention else "",
             DISTANCE_ALPHABET=distance_alphabet,
             CONDITIONED_DISTANCE_SUM=conditioned_distance_sum,
+            FUSED_SCHEDULE=fused_schedule,
             num_warps=generic_warps,
             num_stages=1,
         )
@@ -786,6 +853,7 @@ def install_exact_prefix_viterbi(
 ) -> dict[str, int | str | float]:
     """Install the accelerated exact methods, refusing an unavailable backend."""
     _require_triton()
+    cb._banana_smasher_fused_schedule = False
     native_quantize = getattr(cb, "_banana_smasher_native_quantize", None)
     if native_quantize is not None:
         cb.quantize = native_quantize
@@ -853,4 +921,16 @@ def resolve_bounded_overlap(geometry, value, profile_mode):
         return False
     if type(value) is not bool or (value and (tuple(geometry) != (16, 1, 2) or profile_mode)):
         raise ValueError("viterbi_bounded_overlap requires boolean, L16/K1/V2 and non-profile mode")
+    return value
+
+
+def resolve_fused_schedule(geometry, projection, value, distance_alphabet, conditioned_sum, warps):
+    """Default-off measured K1 fused scheduling; no implicit warp mutation."""
+    if value is None:
+        return False
+    if type(value) is not bool or (value and (
+        tuple(geometry) != (16, 1, 2) or projection != "fused13"
+        or distance_alphabet is not True or conditioned_sum is not False or warps != 8
+    )):
+        raise ValueError("viterbi_fused_schedule requires boolean, L16/K1/V2 fused13, distance alphabet, no conditioned sum, and 8 warps")
     return value
