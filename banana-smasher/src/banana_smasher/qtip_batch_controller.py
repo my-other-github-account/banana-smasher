@@ -57,6 +57,13 @@ def _ldlq_update_unsolved_only(configs: Sequence[Mapping[str, Any]]) -> bool:
     return _common("LDLQ unsolved-prefix update mode", values)
 
 
+def _ldlq_inference_scope(configs: Sequence[Mapping[str, Any]]) -> bool:
+    values = [config.get("ldlq_inference_scope", False) for config in configs]
+    if any(type(value) is not bool for value in values):
+        raise ValueError("ldlq_inference_scope must be boolean")
+    return _common("LDLQ inference scope", values)
+
+
 def _packed_conformance_on_device(configs: Sequence[Mapping[str, Any]]) -> bool:
     values = [config.get("packed_conformance_on_device", False) for config in configs]
     if any(type(value) is not bool for value in values):
@@ -95,6 +102,7 @@ def main_batch(
     block_ldl_unitwise = _block_ldl_unitwise(configs)
     block_ldl_reference = _block_ldl_reference(configs)
     ldlq_update_unsolved_only = _ldlq_update_unsolved_only(configs)
+    ldlq_inference_scope = _ldlq_inference_scope(configs)
     packed_decode_execution = _packed_decode_execution(configs)
     packed_conformance_on_device = _packed_conformance_on_device(configs)
     if any(int(config["layer"]) != layer for config in configs):
@@ -305,7 +313,9 @@ def main_batch(
         block_ldl_reference=block_ldl_reference,
         packed_conformance_on_device=packed_conformance_on_device,
         ldlq_update_unsolved_only=ldlq_update_unsolved_only,
+        ldlq_inference_scope=ldlq_inference_scope,
     )
+    solver_identity["ldlq_inference_scope"] = batch_build["ldlq_inference_scope"]
     torch.cuda.synchronize()
     build_wall_seconds = time.perf_counter() - build_started
     if len(candidates) != len(paths):

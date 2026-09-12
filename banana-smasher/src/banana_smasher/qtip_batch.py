@@ -221,6 +221,9 @@ def ldlq_batch(
     )
 
 
+_ldlq_batch_inference = torch.inference_mode()(ldlq_batch)
+
+
 def _synchronize(device: torch.device) -> None:
     if device.type == "cuda":
         torch.cuda.synchronize(device)
@@ -303,8 +306,11 @@ def build_qtip_batch(
     block_ldl_reference: bool = False,
     packed_conformance_on_device: bool = False,
     ldlq_update_unsolved_only: bool = False,
+    ldlq_inference_scope: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Build same-shape independent L16/V2 units (K=1..4) in one GPU batch."""
+    if type(ldlq_inference_scope) is not bool:
+        raise ValueError("ldlq_inference_scope must be boolean")
     if type(ldlq_update_unsolved_only) is not bool:
         raise ValueError("ldlq_update_unsolved_only must be boolean")
     if type(block_ldl_reference) is not bool:
@@ -383,7 +389,7 @@ def build_qtip_batch(
     phase_seconds["batched_block_ldl"] = time.perf_counter() - started
 
     started = time.perf_counter()
-    quantized, states = ldlq_batch(
+    quantized, states = (_ldlq_batch_inference if ldlq_inference_scope else ldlq_batch)(
         transformed,
         lower,
         codebook,
@@ -497,6 +503,7 @@ def build_qtip_batch(
         "batch_units": units,
         "batch_wall_seconds": batch_wall_seconds,
         "ldlq_update_unsolved_only": ldlq_update_unsolved_only,
+        "ldlq_inference_scope": ldlq_inference_scope,
         "mean_build_wall_seconds": batch_wall_seconds / units,
         "phase_seconds": phase_seconds,
         "mean_phase_seconds": {
