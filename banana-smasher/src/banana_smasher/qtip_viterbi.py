@@ -295,125 +295,126 @@ def _persistent_prefix_viterbi_generic(
     if not REGISTER_COSTS:
         tl.debug_barrier()
 
-    if DISTANCE_ALPHABET:
-        alphabet_j = tl.arange(0, 1024)
-        alphabet_a = tl.load(alphabet_ptr + alphabet_j).to(tl.float32)
-        alphabet_b = tl.load(alphabet_ptr + 1024 + alphabet_j).to(tl.float32)
-
-    step = 1
-    while step < STEPS:
-        # Costs belong to this CTA. Gather the preceding vector directly,
-        # avoiding global scratch reloads and stores at every timestep.
-        # Default arithmetic is unchanged. The opt-in rebases common cost
-        # offsets before applying compact summed distances, limiting FP32 growth.
-        previous_costs = best
-        if DISTANCE_ALPHABET and HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
-            minimum_cost = tl.min(previous_costs, axis=0)
-            previous_costs = previous_costs - tl.where(minimum_cost < float("inf"), minimum_cost, 0.0)
-        previous_base = (step & 1 ^ 1) * B * PREFIXES + base
-        current_base = (step & 1) * B * PREFIXES + base
-        best = tl.full((PREFIXES,), float("inf"), tl.float32)
-        chosen = tl.zeros((PREFIXES,), tl.int32)
-        xa = tl.load(x_ptr + (step * V) * B + seq).to(tl.float32)
-        xb = tl.load(x_ptr + (step * V + 1) * B + seq).to(tl.float32)
+    if STEPS > 1:
         if DISTANCE_ALPHABET:
-            delta_a = alphabet_a - xa
-            delta_b = alphabet_b - xb
-            # Experimental regrouping: sum once over the compact alphabet.
-            # FP32 association changes; quality, not assignment identity, gates it.
-            distance_sum = delta_a * delta_a + delta_b * delta_b
-        if FUSED_SCHEDULE:
-            for static_branch_1 in tl.static_range(0, 4):
-                predecessor_prefix = static_branch_1 * Q_FACTOR + residue
-                if REGISTER_COSTS:
-                    if STRUCTURED_GATHER:
-                        # Select one contiguous predecessor row, then broadcast its
-                        # entries BRANCHES times (K1: 4x4096; K3: 64x16).
-                        # Nonnegative costs add only exact zeros, including +inf.
-                        cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
-                        selected = tl.sum(tl.where(
-                            tl.arange(0, BRANCHES)[:, None] == static_branch_1, cost_rows, 0.0
-                        ), axis=0)
-                        predecessor_cost = tl.reshape(tl.broadcast_to(
-                            selected[:, None], (Q_FACTOR, BRANCHES)
-                        ), (PREFIXES,))
+            alphabet_j = tl.arange(0, 1024)
+            alphabet_a = tl.load(alphabet_ptr + alphabet_j).to(tl.float32)
+            alphabet_b = tl.load(alphabet_ptr + 1024 + alphabet_j).to(tl.float32)
+
+        step = 1
+        while step < STEPS:
+            # Costs belong to this CTA. Gather the preceding vector directly,
+            # avoiding global scratch reloads and stores at every timestep.
+            # Default arithmetic is unchanged. The opt-in rebases common cost
+            # offsets before applying compact summed distances, limiting FP32 growth.
+            previous_costs = best
+            if DISTANCE_ALPHABET and HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
+                minimum_cost = tl.min(previous_costs, axis=0)
+                previous_costs = previous_costs - tl.where(minimum_cost < float("inf"), minimum_cost, 0.0)
+            previous_base = (step & 1 ^ 1) * B * PREFIXES + base
+            current_base = (step & 1) * B * PREFIXES + base
+            best = tl.full((PREFIXES,), float("inf"), tl.float32)
+            chosen = tl.zeros((PREFIXES,), tl.int32)
+            xa = tl.load(x_ptr + (step * V) * B + seq).to(tl.float32)
+            xb = tl.load(x_ptr + (step * V + 1) * B + seq).to(tl.float32)
+            if DISTANCE_ALPHABET:
+                delta_a = alphabet_a - xa
+                delta_b = alphabet_b - xb
+                # Experimental regrouping: sum once over the compact alphabet.
+                # FP32 association changes; quality, not assignment identity, gates it.
+                distance_sum = delta_a * delta_a + delta_b * delta_b
+            if FUSED_SCHEDULE:
+                for static_branch_1 in tl.static_range(0, 4):
+                    predecessor_prefix = static_branch_1 * Q_FACTOR + residue
+                    if REGISTER_COSTS:
+                        if STRUCTURED_GATHER:
+                            # Select one contiguous predecessor row, then broadcast its
+                            # entries BRANCHES times (K1: 4x4096; K3: 64x16).
+                            # Nonnegative costs add only exact zeros, including +inf.
+                            cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
+                            selected = tl.sum(tl.where(
+                                tl.arange(0, BRANCHES)[:, None] == static_branch_1, cost_rows, 0.0
+                            ), axis=0)
+                            predecessor_cost = tl.reshape(tl.broadcast_to(
+                                selected[:, None], (Q_FACTOR, BRANCHES)
+                            ), (PREFIXES,))
+                        else:
+                            predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
                     else:
-                        predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
-                else:
-                    predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
-                state = static_branch_1 * PREFIXES + j
-                if DISTANCE_ALPHABET:
-                    alphabet_key = _rematerialized_alphabet_key(state)
-                    if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
-                        candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
+                        predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
+                    state = static_branch_1 * PREFIXES + j
+                    if DISTANCE_ALPHABET:
+                        alphabet_key = _rematerialized_alphabet_key(state)
+                        if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
+                            candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
+                        else:
+                            # Preserve the original full-context heuristic seed.
+                            da = tl.gather(delta_a, alphabet_key, axis=0)
+                            db = tl.gather(delta_b, alphabet_key, axis=0)
+                            candidate = predecessor_cost + da * da + db * db
                     else:
-                        # Preserve the original full-context heuristic seed.
-                        da = tl.gather(delta_a, alphabet_key, axis=0)
-                        db = tl.gather(delta_b, alphabet_key, axis=0)
-                        candidate = predecessor_cost + da * da + db * db
-                else:
-                    la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-                    lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-                    candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
-                take = candidate < best
-                best = tl.where(take, candidate, best)
-                # Only static_branch_1 varies between candidates at a fixed prefix column.
-                # The conditioned-sum down specialization keeps its incumbent layout.
-                chosen = tl.where(take, static_branch_1 if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM else state, chosen)
-        else:
-            for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
-                predecessor_prefix = q * Q_FACTOR + residue
-                if REGISTER_COSTS:
-                    if STRUCTURED_GATHER:
-                        # Select one contiguous predecessor row, then broadcast its
-                        # entries BRANCHES times (K1: 4x4096; K3: 64x16).
-                        # Nonnegative costs add only exact zeros, including +inf.
-                        cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
-                        selected = tl.sum(tl.where(
-                            tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
-                        ), axis=0)
-                        predecessor_cost = tl.reshape(tl.broadcast_to(
-                            selected[:, None], (Q_FACTOR, BRANCHES)
-                        ), (PREFIXES,))
+                        la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                        lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                        candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+                    take = candidate < best
+                    best = tl.where(take, candidate, best)
+                    # Only static_branch_1 varies between candidates at a fixed prefix column.
+                    # The conditioned-sum down specialization keeps its incumbent layout.
+                    chosen = tl.where(take, static_branch_1 if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM else state, chosen)
+            else:
+                for q in tl.range(0, BRANCHES, loop_unroll_factor=BRANCH_UNROLL):
+                    predecessor_prefix = q * Q_FACTOR + residue
+                    if REGISTER_COSTS:
+                        if STRUCTURED_GATHER:
+                            # Select one contiguous predecessor row, then broadcast its
+                            # entries BRANCHES times (K1: 4x4096; K3: 64x16).
+                            # Nonnegative costs add only exact zeros, including +inf.
+                            cost_rows = tl.reshape(previous_costs, (BRANCHES, Q_FACTOR))
+                            selected = tl.sum(tl.where(
+                                tl.arange(0, BRANCHES)[:, None] == q, cost_rows, 0.0
+                            ), axis=0)
+                            predecessor_cost = tl.reshape(tl.broadcast_to(
+                                selected[:, None], (Q_FACTOR, BRANCHES)
+                            ), (PREFIXES,))
+                        else:
+                            predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
                     else:
-                        predecessor_cost = tl.gather(previous_costs, predecessor_prefix, axis=0)
-                else:
-                    predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
-                state = q * PREFIXES + j
-                if DISTANCE_ALPHABET:
-                    alphabet_key = _rematerialized_alphabet_key(state)
-                    if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
-                        candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
+                        predecessor_cost = tl.load(scratch_ptr + previous_base + predecessor_prefix)
+                    state = q * PREFIXES + j
+                    if DISTANCE_ALPHABET:
+                        alphabet_key = _rematerialized_alphabet_key(state)
+                        if HAS_OVERLAP and CONDITIONED_DISTANCE_SUM:
+                            candidate = predecessor_cost + tl.gather(distance_sum, alphabet_key, axis=0)
+                        else:
+                            # Preserve the original full-context heuristic seed.
+                            da = tl.gather(delta_a, alphabet_key, axis=0)
+                            db = tl.gather(delta_b, alphabet_key, axis=0)
+                            candidate = predecessor_cost + da * da + db * db
                     else:
-                        # Preserve the original full-context heuristic seed.
-                        da = tl.gather(delta_a, alphabet_key, axis=0)
-                        db = tl.gather(delta_b, alphabet_key, axis=0)
-                        candidate = predecessor_cost + da * da + db * db
-                else:
-                    la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-                    lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
-                    candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
-                take = candidate < best
-                best = tl.where(take, candidate, best)
-                # Only q varies between candidates at a fixed prefix column.
-                # The conditioned-sum down specialization keeps its incumbent layout.
-                chosen = tl.where(take, q if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM else state, chosen)
-        if not REGISTER_COSTS:
-            tl.store(scratch_ptr + current_base + j, best)
-        if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM:
-            encoded_chosen = chosen if BRANCH_POINTERS else chosen * PREFIXES + j
-            # Preserve the original zero sentinel for unreachable prefixes.
-            encoded_chosen = tl.where(best < float("inf"), encoded_chosen, 0)
-        else:
-            encoded_chosen = chosen // PREFIXES if BRANCH_POINTERS else chosen
-        tl.store(
-            best_state_ptr + _tiled_pointer_offset(step, seq, j, B, PREFIXES, STEPS),
-            encoded_chosen,
-            cache_modifier=".cs" if PREFIXES == 16384 else "",
-        )
-        if not REGISTER_COSTS:
-            tl.debug_barrier()
-        step += 1
+                        la = tl.load(lut_ptr + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                        lb = tl.load(lut_ptr + STATES + state, eviction_policy=LUT_EVICTION).to(tl.float32)
+                        candidate = predecessor_cost + (la - xa) * (la - xa) + (lb - xb) * (lb - xb)
+                    take = candidate < best
+                    best = tl.where(take, candidate, best)
+                    # Only q varies between candidates at a fixed prefix column.
+                    # The conditioned-sum down specialization keeps its incumbent layout.
+                    chosen = tl.where(take, q if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM else state, chosen)
+            if not REGISTER_COSTS:
+                tl.store(scratch_ptr + current_base + j, best)
+            if DISTANCE_ALPHABET and not CONDITIONED_DISTANCE_SUM:
+                encoded_chosen = chosen if BRANCH_POINTERS else chosen * PREFIXES + j
+                # Preserve the original zero sentinel for unreachable prefixes.
+                encoded_chosen = tl.where(best < float("inf"), encoded_chosen, 0)
+            else:
+                encoded_chosen = chosen // PREFIXES if BRANCH_POINTERS else chosen
+            tl.store(
+                best_state_ptr + _tiled_pointer_offset(step, seq, j, B, PREFIXES, STEPS),
+                encoded_chosen,
+                cache_modifier=".cs" if PREFIXES == 16384 else "",
+            )
+            if not REGISTER_COSTS:
+                tl.debug_barrier()
+            step += 1
 
     # Traceback may read another lane's last backpointer.
     tl.debug_barrier()
