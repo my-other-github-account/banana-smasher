@@ -88,6 +88,7 @@ def load_glm_fp8_weight(
         shard = root / shard_name
         matrix = _load_safetensors_matrix(
             shard, row, scale_source=scale_path, scale_row=scale_row,
+            fp8_decode_with_torch=True,
             **({"tensor_payload_reader": selected.read} if selected else {}),
         )
         matrices.append(torch.from_numpy(matrix.copy()))

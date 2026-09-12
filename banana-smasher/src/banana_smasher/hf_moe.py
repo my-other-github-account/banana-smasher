@@ -920,6 +920,7 @@ def _load_safetensors_matrix(
     scale_source: Path | None = None,
     scale_row: Mapping[str, Any] | None = None,
     tensor_payload_reader=None,
+    fp8_decode_with_torch: bool = False,
 ):
     import numpy as np
 
@@ -943,20 +944,28 @@ def _load_safetensors_matrix(
             raw = np.frombuffer(
                 stream.read(int(offsets[1]) - int(offsets[0])), dtype=np.uint8
             )
-    bits = np.arange(256, dtype=np.uint16)
-    exponent = (bits >> 3) & 0xF
-    mantissa = bits & 0x7
-    magnitude = np.where(
-        exponent == 0,
-        np.ldexp(mantissa.astype(np.float32) / 8.0, -6),
-        np.ldexp(
-            1.0 + mantissa.astype(np.float32) / 8.0,
-            exponent.astype(int) - 7,
-        ),
-    ).astype(np.float32)
-    magnitude[(exponent == 15) & (mantissa == 7)] = np.nan
-    lookup = np.where(bits & 0x80, -magnitude, magnitude).astype(np.float32)
-    matrix = lookup[raw].reshape(tuple(row["shape"]))
+    if fp8_decode_with_torch:
+        # Only solve-extra callers opt in; generic NumPy loading stays dependency-free.
+        import torch
+
+        matrix = (
+            torch.from_numpy(raw.copy()).view(torch.float8_e4m3fn).float().numpy()
+        ).reshape(tuple(row["shape"]))
+    else:
+        bits = np.arange(256, dtype=np.uint16)
+        exponent = (bits >> 3) & 0xF
+        mantissa = bits & 0x7
+        magnitude = np.where(
+            exponent == 0,
+            np.ldexp(mantissa.astype(np.float32) / 8.0, -6),
+            np.ldexp(
+                1.0 + mantissa.astype(np.float32) / 8.0,
+                exponent.astype(int) - 7,
+            ),
+        ).astype(np.float32)
+        magnitude[(exponent == 15) & (mantissa == 7)] = np.nan
+        lookup = np.where(bits & 0x80, -magnitude, magnitude).astype(np.float32)
+        matrix = lookup[raw].reshape(tuple(row["shape"]))
     if not np.isfinite(matrix).all():
         raise ValueError(
             f"F8_E4M3 routed tensor contains non-finite values: {row['name']}"
