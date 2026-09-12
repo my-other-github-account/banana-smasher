@@ -154,6 +154,7 @@ def main_batch(
     _bounded_overlap(configs)
     _fused_schedule(configs)
     _stage4_schedule(configs)
+    _traceback_l2(configs)
     _common("Viterbi distance alphabet", [config.get("viterbi_distance_alphabet", False) for config in configs])
 
     runner = solver_module._load_public_qtip_runner(runner_path, runner_sha256)
@@ -605,6 +606,30 @@ def _capture_hash_workers(configs):
             raise ValueError("capture hash workers must be 1, 2, or 4")
         values.append(value)
     return _common("capture hash workers", values)
+
+
+def _traceback_l2(configs):
+    """Resolve all stage-four dependencies per member before homogeneity."""
+    from .qtip_viterbi import (resolve_traceback_l2, resolve_stage4_schedule,
+                               resolve_fused_schedule, resolve_viterbi_num_warps,
+                               resolve_conditioned_distance_sum)
+    values = []
+    for config in configs:
+        geometry = config.get("geometry", {"L": 16, "K": 3, "V": 2})
+        sealed = tuple(int(geometry[key]) for key in ("L", "K", "V"))
+        projection = config.get("projection")
+        alphabet = config.get("viterbi_distance_alphabet", False)
+        conditioned = resolve_conditioned_distance_sum(
+            sealed, projection, config.get("viterbi_conditioned_distance_sum"), alphabet)
+        warps = resolve_viterbi_num_warps(sealed, config.get("viterbi_num_warps"))
+        fused = resolve_fused_schedule(sealed, projection, config.get("viterbi_fused_schedule"),
+                                       alphabet, conditioned, warps)
+        stage4 = resolve_stage4_schedule(
+            sealed, projection, config.get("viterbi_stage4_schedule"),
+            alphabet, conditioned, warps, fused)
+        values.append(resolve_traceback_l2(
+            sealed, projection, config.get("viterbi_traceback_l2"), stage4))
+    return _common("Viterbi traceback L2", values)
 
 
 def _stage4_schedule(configs):

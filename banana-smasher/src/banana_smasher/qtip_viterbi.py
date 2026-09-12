@@ -241,6 +241,7 @@ def _persistent_prefix_viterbi_generic(
     DISTANCE_ALPHABET: tl.constexpr = False,
     CONDITIONED_DISTANCE_SUM: tl.constexpr = False,
     FUSED_SCHEDULE: tl.constexpr = False,
+    TRACEBACK_L2: tl.constexpr = False,
 ):
     """One exact persistent program per sequence, specialized by AOT geometry."""
     seq = tl.program_id(0)
@@ -425,7 +426,8 @@ def _persistent_prefix_viterbi_generic(
     if FUSED_SCHEDULE:
         for back_step in tl.range(STEPS - 1, -1, -1, loop_unroll_factor=(8 if STEPS >= 8 else 1)):
             traceback_state = tl.load(
-                best_state_ptr + _tiled_pointer_offset(back_step, seq, prefix, B, PREFIXES, STEPS)
+                best_state_ptr + _tiled_pointer_offset(back_step, seq, prefix, B, PREFIXES, STEPS),
+                cache_modifier=".cg" if TRACEBACK_L2 else "",
             ).to(tl.int32)
             if BRANCH_POINTERS:
                 traceback_state = traceback_state * PREFIXES + prefix
@@ -434,7 +436,8 @@ def _persistent_prefix_viterbi_generic(
     else:
         for back_step in tl.static_range(STEPS - 1, -1, -1):
             state = tl.load(
-                best_state_ptr + _tiled_pointer_offset(back_step, seq, prefix, B, PREFIXES, STEPS)
+                best_state_ptr + _tiled_pointer_offset(back_step, seq, prefix, B, PREFIXES, STEPS),
+                cache_modifier=".cg" if TRACEBACK_L2 else "",
             ).to(tl.int32)
             if BRANCH_POINTERS:
                 state = state * PREFIXES + prefix
@@ -616,6 +619,10 @@ def _exact_prefix_viterbi_impl(
         (L, K, V), getattr(cb, "_banana_smasher_projection", None),
         getattr(cb, "_banana_smasher_stage4_schedule", False), distance_alphabet,
         conditioned_distance_sum, launch_warps, fused_schedule,
+    )
+    traceback_l2 = resolve_traceback_l2(
+        (L, K, V), getattr(cb, "_banana_smasher_projection", None),
+        getattr(cb, "_banana_smasher_traceback_l2", False), stage4_schedule,
     )
     group_branches = getattr(cb, "_banana_smasher_branch_grouped", False)
     if type(group_branches) is not bool or (group_branches and (
@@ -844,6 +851,7 @@ def _exact_prefix_viterbi_impl(
             DISTANCE_ALPHABET=distance_alphabet,
             CONDITIONED_DISTANCE_SUM=conditioned_distance_sum,
             FUSED_SCHEDULE=fused_schedule,
+            TRACEBACK_L2=traceback_l2,
             num_warps=generic_warps,
             num_stages=4 if stage4_schedule else 1,
         )
@@ -861,6 +869,7 @@ def install_exact_prefix_viterbi(
     _require_triton()
     cb._banana_smasher_fused_schedule = False
     cb._banana_smasher_stage4_schedule = False
+    cb._banana_smasher_traceback_l2 = False
     native_quantize = getattr(cb, "_banana_smasher_native_quantize", None)
     if native_quantize is not None:
         cb.quantize = native_quantize
@@ -940,6 +949,18 @@ def resolve_fused_schedule(geometry, projection, value, distance_alphabet, condi
         or distance_alphabet is not True or conditioned_sum is not False or warps != 8
     )):
         raise ValueError("viterbi_fused_schedule requires boolean, L16/K1/V2 fused13, distance alphabet, no conditioned sum, and 8 warps")
+    return value
+
+
+def resolve_traceback_l2(geometry, projection, value, stage4_schedule):
+    """Default-off traceback cache policy on the measured stage-four layout."""
+    if value is None:
+        return False
+    if type(value) is not bool or (value and not (
+        tuple(geometry) == (16, 1, 2) and projection in ("down", "fused13")
+        and stage4_schedule is True
+    )):
+        raise ValueError("viterbi_traceback_l2 requires boolean, L16/K1/V2 down/fused13 and stage4 schedule")
     return value
 
 
