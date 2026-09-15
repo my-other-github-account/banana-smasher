@@ -161,6 +161,7 @@ def main_batch(
     _common("Viterbi conditioned distance sum", [config.get("viterbi_conditioned_distance_sum", False) for config in configs])
     _bounded_overlap(configs)
     source_hash_prefetch = _source_hash_prefetch(configs)
+    selected_index_cache = _selected_index_cache(configs)
     _fused_schedule(configs)
     _stage4_schedule(configs)
     _traceback_l2(configs)
@@ -275,10 +276,12 @@ def main_batch(
                 projection=projection,
                 device=device,
                 **({"source_hash_prefetch": True} if source_hash_prefetch else {}),
+                **({"selected_index_cache": True} if selected_index_cache else {}),
             )
             source_weight, source_ref = solver_module._load_weight(
                 model_root, layer, expert, projection,
                 **({"source_hash_prefetch": True} if source_hash_prefetch else {}),
+                **({"selected_index_cache": True} if selected_index_cache else {}),
             )
             binding = solver_module._bind_public_runner_pack_contract(
                 codebook_instance, config, source_weight
@@ -572,6 +575,13 @@ def main_batch(
         aggregate_path, solver_module._public_receipt(aggregate)
     )
     return receipt_rows
+
+
+def _selected_index_cache(configs):
+    values = [config.get("selected_index_cache", False) for config in configs]
+    if any(type(value) is not bool for value in values):
+        raise ValueError("selected_index_cache requires boolean")
+    return _common("Selected index parse cache", values)
 
 
 def _source_hash_prefetch(configs):

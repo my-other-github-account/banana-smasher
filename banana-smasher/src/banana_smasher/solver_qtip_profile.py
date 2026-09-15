@@ -966,9 +966,11 @@ def _model_moe_shape(model_root: Path) -> tuple[int, int]:
     return value
 
 
-def _load_weight(model_root: Path, layer: int, expert: int, projection: str, *, source_hash_prefetch: bool = False) -> tuple[torch.Tensor, dict[str, Any]]:
+def _load_weight(model_root: Path, layer: int, expert: int, projection: str, *, source_hash_prefetch: bool = False, selected_index_cache: bool = False) -> tuple[torch.Tensor, dict[str, Any]]:
     if type(source_hash_prefetch) is not bool:
         raise ValueError("source_hash_prefetch requires boolean")
+    if type(selected_index_cache) is not bool:
+        raise ValueError("selected_index_cache requires boolean")
     projection = validate_qtip_projection(projection)
     index_path = model_root / "model.safetensors.index.json"
     resolved_index = index_path.resolve()
@@ -980,7 +982,9 @@ def _load_weight(model_root: Path, layer: int, expert: int, projection: str, *, 
            for key in mapping):
         from .glm_qtip_source_adapter import load_glm_fp8_weight
 
-        return load_glm_fp8_weight(model_root, layer, expert, projection, **({"source_hash_prefetch": True} if source_hash_prefetch else {}))
+        return load_glm_fp8_weight(model_root, layer, expert, projection, **({"source_hash_prefetch": True} if source_hash_prefetch else {}), **({"selected_index_cache": True} if selected_index_cache else {}))
+    if selected_index_cache:
+        raise ValueError("selected_index_cache requires selected GLM source weights")
     if source_hash_prefetch:
         raise ValueError("source_hash_prefetch requires GLM source weights")
     names = ("w1", "w3") if projection == "fused13" else ("w2",)
@@ -1130,9 +1134,12 @@ def _prepare_fit_windows(
     device: torch.device,
     empty_fit_policy: str = "refuse",
     source_hash_prefetch: bool = False,
+    selected_index_cache: bool = False,
 ) -> tuple[list[Any], dict[str, Any]]:
     if type(source_hash_prefetch) is not bool:
         raise ValueError("source_hash_prefetch requires boolean")
+    if type(selected_index_cache) is not bool:
+        raise ValueError("selected_index_cache requires boolean")
     if empty_fit_policy not in ("refuse", "clean-capture-unit-weight-v1"):
         raise ValueError(f"unknown empty fit policy: {empty_fit_policy}")
     routed = runner.expert_windows(captures, expert)
@@ -1160,6 +1167,7 @@ def _prepare_fit_windows(
         expert,
         "fused13",
         **({"source_hash_prefetch": True} if source_hash_prefetch else {}),
+        **({"selected_index_cache": True} if selected_index_cache else {}),
     )
     try:
         windows = runner.down_windows(routed, source_fused13, device)
@@ -1602,10 +1610,11 @@ def main(
         device=torch.device("cuda"),
         empty_fit_policy=config.get("empty_fit_policy", "refuse"),
         source_hash_prefetch=config.get("source_hash_prefetch", False),
+        selected_index_cache=config.get("selected_index_cache", False),
     )
     _release_capture_bank(capture_root, layer, fit_window_count, captures)
     del captures
-    source_weight, source_ref = _load_weight(model_root, layer, expert, projection, source_hash_prefetch=config.get("source_hash_prefetch", False))
+    source_weight, source_ref = _load_weight(model_root, layer, expert, projection, source_hash_prefetch=config.get("source_hash_prefetch", False), selected_index_cache=config.get("selected_index_cache", False))
     _bind_public_runner_pack_contract(cb, config, source_weight)
     if solver.get("implementation") in PERSISTENT_BACKENDS:
         _bind_builder_memory_contract(cb, source_weight)

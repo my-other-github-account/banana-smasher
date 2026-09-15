@@ -48,18 +48,23 @@ def _source_sha256(path: Path, *, prefetch: bool = False) -> str:
 def load_glm_fp8_weight(
     model_root: Path, layer: int, expert: int, projection: str, *,
     source_hash_prefetch: bool = False,
+    selected_index_cache: bool = False,
 ) -> tuple[Any, dict[str, Any]]:
     import torch
 
     if type(source_hash_prefetch) is not bool:
         raise ValueError("source_hash_prefetch requires boolean")
+    if type(selected_index_cache) is not bool:
+        raise ValueError("selected_index_cache requires boolean")
     root = Path(model_root)
     selected = None
     if (root / "SELECTED_TENSORS.json").is_file():
         from .selected_tensor_source import SelectedTensorSource
 
-        selected = SelectedTensorSource(root)
+        selected = SelectedTensorSource(root, **({"cache_index": True} if selected_index_cache else {}))
         root = selected.root
+    if selected_index_cache and selected is None:
+        raise ValueError("selected_index_cache requires selected tensor source")
     config_path = root / "config.json"
     config = json.loads(config_path.read_text())
     shape = config.get("text_config", config)
