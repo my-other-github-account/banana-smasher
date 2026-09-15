@@ -17,8 +17,40 @@ def _digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+_INDEX_MAPPING_CACHE = None
+_INDEX_RAW_MAX_BYTES = 16 << 20
+_INDEX_CACHE_MAX_BYTES = 64 << 20
+_INDEX_CACHE_MAX_ENTRIES = 131072
+
+
+def _index_mapping(raw, cache_index):
+    """Reuse parsing only; callers still perform every original read and hash.
+
+    Only flat string mappings are retained. A private copy in a one-entry
+    cache and a fresh dictionary on every hit preserve caller mutation.
+    """
+    global _INDEX_MAPPING_CACHE
+    if type(cache_index) is not bool:
+        raise ValueError('cache_index requires boolean')
+    cached = _INDEX_MAPPING_CACHE
+    if cache_index and cached is not None and cached[0] == raw:
+        return cached[1].copy()
+    mapping = json.loads(raw)['weight_map']
+    if (cache_index and type(raw) is bytes and len(raw) <= _INDEX_RAW_MAX_BYTES
+            and type(mapping) is dict and len(mapping) <= _INDEX_CACHE_MAX_ENTRIES
+            and all(type(k) is str and type(v) is str for k, v in mapping.items())):
+        import sys
+        cost = (sys.getsizeof(raw) + sys.getsizeof(mapping)
+                + sum(sys.getsizeof(k) + sys.getsizeof(v) for k, v in mapping.items()))
+        if cost <= _INDEX_CACHE_MAX_BYTES:
+            _INDEX_MAPPING_CACHE = (raw, mapping.copy())
+    return mapping
+
+
 class SelectedTensorSource:
-    def __init__(self, root):
+    def __init__(self, root, *, cache_index=False):
+        if type(cache_index) is not bool:
+            raise ValueError("cache_index requires boolean")
         self.root = Path(root).resolve(strict=True)
         raw = self._path('SELECTED_TENSORS.json').read_bytes()
         self.manifest = m = json.loads(raw)
@@ -27,7 +59,7 @@ class SelectedTensorSource:
         for name, field in [('model.safetensors.index.json', 'index_sha256'), ('config.json', 'config_sha256')]:
             if _digest(self._path(name).read_bytes()) != m[field]:
                 raise ValueError(f'selected source {field} mismatch')
-        self.mapping = json.loads(self._path('model.safetensors.index.json').read_bytes())['weight_map']
+        self.mapping = _index_mapping(self._path('model.safetensors.index.json').read_bytes(), cache_index)
         descriptor_bytes = self._path(m['descriptor_path']).read_bytes()
         if _digest(descriptor_bytes) != m['descriptor_sha256']:
             raise ValueError('selected source descriptor digest mismatch')
