@@ -33,17 +33,23 @@ def _index_mapping(raw, cache_index):
     if type(cache_index) is not bool:
         raise ValueError('cache_index requires boolean')
     cached = _INDEX_MAPPING_CACHE
-    if cache_index and cached is not None and cached[0] == raw:
+    if cache_index and type(raw) is bytes and cached is not None and cached[0] == raw:
         return cached[1].copy()
     mapping = json.loads(raw)['weight_map']
     if (cache_index and type(raw) is bytes and len(raw) <= _INDEX_RAW_MAX_BYTES
+            and raw.isascii() and b'\\u' not in raw
             and type(mapping) is dict and len(mapping) <= _INDEX_CACHE_MAX_ENTRIES
             and all(type(k) is str and type(v) is str for k, v in mapping.items())):
         import sys
-        cost = (sys.getsizeof(raw) + sys.getsizeof(mapping)
-                + sum(sys.getsizeof(k) + sys.getsizeof(v) for k, v in mapping.items()))
+        # ASCII JSON without Unicode escapes yields compact ASCII strings.
+        # Their total character storage cannot exceed the source JSON length.
+        # Count headers conservatively, even for shared/interned strings.
+        string_bound = len(raw) + 2 * len(mapping) * sys.getsizeof('')
+        cost = sys.getsizeof(raw) + sys.getsizeof(mapping) + string_bound
         if cost <= _INDEX_CACHE_MAX_BYTES:
-            _INDEX_MAPPING_CACHE = (raw, mapping.copy())
+            private = mapping.copy()
+            if sys.getsizeof(raw) + sys.getsizeof(private) + string_bound <= _INDEX_CACHE_MAX_BYTES:
+                _INDEX_MAPPING_CACHE = (raw, private)
     return mapping
 
 

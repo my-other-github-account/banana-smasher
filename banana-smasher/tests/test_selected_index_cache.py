@@ -39,6 +39,12 @@ def test_changed_bytes_and_invalid_json_are_not_cached_hits():
     with pytest.raises(json.JSONDecodeError):selected._index_mapping(b'{',True)
 
 
+@pytest.mark.parametrize('raw',[b'{"weight_map":{"a":"\\u1234"}}', '{"weight_map":{"a":"非ASCII"}}'.encode()])
+def test_non_ascii_mapping_falls_back_without_retention(raw):
+    assert selected._index_mapping(raw,True)==json.loads(raw)['weight_map']
+    assert selected._INDEX_MAPPING_CACHE is None
+
+
 def test_cache_budget_preserves_uncached_semantics(monkeypatch):
     monkeypatch.setattr(selected,'_INDEX_CACHE_MAX_BYTES',1,raising=False)
     assert selected._index_mapping(b'{"weight_map":{"a":"one"}}',True)=={'a':'one'}
