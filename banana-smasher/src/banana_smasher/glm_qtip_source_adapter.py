@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from .source_hash_prefetch import sha256_prefetched as _sha256_prefetched
 
 from .hf_moe import (
     _load_safetensors_matrix,
@@ -24,7 +25,9 @@ from .hf_moe import (
 _SOURCE_DIGESTS: dict[Path, tuple[tuple[int, ...], str]] = {}
 
 
-def _source_sha256(path: Path) -> str:
+def _source_sha256(path: Path, *, prefetch: bool = False) -> str:
+    if type(prefetch) is not bool:
+        raise ValueError("source_hash_prefetch requires boolean")
     path = Path(path).resolve(strict=True)
     def identity():
         s = path.stat()
@@ -35,7 +38,7 @@ def _source_sha256(path: Path) -> str:
         if cached[0] != before:
             raise ValueError(f"GLM immutable source changed: {path}")
         return cached[1]
-    digest = _sha256(path)
+    digest = _sha256_prefetched(path) if prefetch else _sha256(path)
     if identity() != before:
         raise ValueError(f"GLM immutable source changed during hashing: {path}")
     _SOURCE_DIGESTS[path] = (before, digest)
@@ -43,10 +46,13 @@ def _source_sha256(path: Path) -> str:
 
 
 def load_glm_fp8_weight(
-    model_root: Path, layer: int, expert: int, projection: str
+    model_root: Path, layer: int, expert: int, projection: str, *,
+    source_hash_prefetch: bool = False,
 ) -> tuple[Any, dict[str, Any]]:
     import torch
 
+    if type(source_hash_prefetch) is not bool:
+        raise ValueError("source_hash_prefetch requires boolean")
     root = Path(model_root)
     selected = None
     if (root / "SELECTED_TENSORS.json").is_file():
@@ -100,7 +106,7 @@ def load_glm_fp8_weight(
             {
                 "path": str(shard),
                 "bytes": shard.stat().st_size,
-                "sha256": _source_sha256(shard),
+                "sha256": _source_sha256(shard, prefetch=source_hash_prefetch),
                 "weight_key": key,
                 "dtype": row["dtype"],
                 "transform": transform,
@@ -109,7 +115,7 @@ def load_glm_fp8_weight(
                 else {
                     "path": str(scale_path),
                     "bytes": scale_path.stat().st_size,
-                    "sha256": _source_sha256(scale_path),
+                    "sha256": _source_sha256(scale_path, prefetch=source_hash_prefetch),
                     "weight_key": scale_row["name"],
                 },
             }
@@ -164,6 +170,7 @@ def capture_source_closure(runner, runtime_modules) -> dict[str, Any]:
             "qtip1",
             "hf_moe",
             "glm_qtip_source_adapter",
+            "source_hash_prefetch",
             "selected_tensor_source",
             "glm_qtip_producers",
         )

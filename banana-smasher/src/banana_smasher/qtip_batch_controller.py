@@ -160,6 +160,7 @@ def main_batch(
     _common("Viterbi LUT L1 retention", [config.get("viterbi_lut_l1_retention", False) for config in configs])
     _common("Viterbi conditioned distance sum", [config.get("viterbi_conditioned_distance_sum", False) for config in configs])
     _bounded_overlap(configs)
+    source_hash_prefetch = _source_hash_prefetch(configs)
     _fused_schedule(configs)
     _stage4_schedule(configs)
     _traceback_l2(configs)
@@ -273,9 +274,11 @@ def main_batch(
                 expert=expert,
                 projection=projection,
                 device=device,
+                **({"source_hash_prefetch": True} if source_hash_prefetch else {}),
             )
             source_weight, source_ref = solver_module._load_weight(
-                model_root, layer, expert, projection
+                model_root, layer, expert, projection,
+                **({"source_hash_prefetch": True} if source_hash_prefetch else {}),
             )
             binding = solver_module._bind_public_runner_pack_contract(
                 codebook_instance, config, source_weight
@@ -569,6 +572,13 @@ def main_batch(
         aggregate_path, solver_module._public_receipt(aggregate)
     )
     return receipt_rows
+
+
+def _source_hash_prefetch(configs):
+    values = [config.get("source_hash_prefetch", False) for config in configs]
+    if any(type(value) is not bool for value in values):
+        raise ValueError("source_hash_prefetch requires boolean")
+    return _common("GLM source hash prefetch", values)
 
 
 __all__ = ["main_batch"]
