@@ -13,6 +13,7 @@ def render(source):
     source = source.replace("assert len(prepared['rows'])==1 and", "assert len(prepared['rows'])==2 and", 1)
     source = source.replace("fresh_manifest=r/('K4_'+manifest_path.name)", "fresh_manifest=r/('K4_'+row['cell'].replace('/','_')+'_'+manifest_path.name)", 1)
     source = source.replace("for row in prepared['rows']:", "assert len(set(s['cells']))==2 and all(cell.endswith('_down') for cell in s['cells'])\nassert not set(s['cells']).intersection(s['prior_complete_k4_cells'])\nassert len({Path(row['config']).name for row in prepared['rows']})==2\nassert min(s['planned_write_bytes'],s['planned_output_bytes'])>=12582912\nfor row in prepared['rows']:", 1)
+    source = source.replace('from fleet_cap_run8805 import apply_cap', 'from resident_two_cap import apply_cap', 1)
     return source
 
 
