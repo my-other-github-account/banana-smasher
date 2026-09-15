@@ -893,8 +893,8 @@ def quantize_from_exact_states(cb: Any, X: torch.Tensor):
     Recheck geometry at entry; retain all per-solve memory and metadata gates.
     Public exact_prefix_viterbi/quantize_seq still validate arbitrary operands.
     """
-    if (int(cb.L), int(cb.K), int(cb.V)) != (16, 1, 2):
-        raise ValueError("producer-bounded quantize requires L16/K1/V2")
+    if (int(cb.L), int(cb.K), int(cb.V)) not in {(16, 1, 2), (16, 4, 2)}:
+        raise ValueError("producer-bounded quantize requires L16/K1-or-K4/V2")
     if X.ndim != 2 or not X.is_cuda or X.shape[1] != 256 or X.shape[0] < 1:
         raise ValueError("producer-bounded quantize expects CUDA [B,256]")
     geometry(cb, steps=128)
@@ -935,8 +935,8 @@ def quantize_from_exact_states(cb: Any, X: torch.Tensor):
 def resolve_bounded_overlap(geometry, value, profile_mode):
     if value is None:
         return False
-    if type(value) is not bool or (value and (tuple(geometry) != (16, 1, 2) or profile_mode)):
-        raise ValueError("viterbi_bounded_overlap requires boolean, L16/K1/V2 and non-profile mode")
+    if type(value) is not bool or (value and (tuple(geometry) not in {(16, 1, 2), (16, 4, 2)} or profile_mode)):
+        raise ValueError("viterbi_bounded_overlap requires boolean, L16/K1-or-K4/V2 and non-profile mode")
     return value
 
 
