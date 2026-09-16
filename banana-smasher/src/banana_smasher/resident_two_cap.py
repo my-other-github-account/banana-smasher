@@ -1,4 +1,4 @@
-"""Original singleton resource policy projected onto two sequential cells.
+"""Original singleton policy for two (default) or opt-in four sequential cells.
 
 Use verify for deployment admission and apply_cap for the child. Numerical
 modules, singleton resource caps and original reserves remain unchanged.
@@ -14,8 +14,11 @@ def _check(spec):
     if hashlib.sha256(Path(original.__file__).read_bytes()).hexdigest() != EXPECTED_ORIGINAL_SHA256:
         raise ValueError('original fleet cap source mismatch')
     cells = spec['cells']
-    if spec['K'] != 4 or not isinstance(cells, list) or len(cells) != 2 or len(set(cells)) != 2:
-        raise ValueError('requires exactly two distinct K4 cells')
+    count = spec.get('resident_cell_limit', 2)
+    if type(count) is not int or count not in (2, 4):
+        raise ValueError('resident_cell_limit must be 2 or explicitly authorized 4')
+    if spec['K'] != 4 or not isinstance(cells, list) or len(cells) != count or len(set(cells)) != count:
+        raise ValueError('requires exactly the admitted count of distinct K4 cells')
     values = [original.budget([cell]) for cell in cells]
     peak, output = max(v[0] for v in values), sum(v[1] for v in values)
     if spec['estimated_peak_bytes'] != peak or spec['planned_write_bytes'] < output:

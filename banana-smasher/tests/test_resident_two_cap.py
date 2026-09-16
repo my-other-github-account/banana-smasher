@@ -25,4 +25,13 @@ class Tests(unittest.TestCase):
   cap=load('resident_two_cap',R/'src/banana_smasher/resident_two_cap.py')
   s=dict(K=4,cells=['L014/E180_fused13','L014/E181_fused13'],estimated_peak_bytes=56<<30,planned_write_bytes=20<<20)
   self.assertEqual(cap.verify(s,80<<30,8<<30),(56<<30,20<<20))
+ def test_explicit_four_cell_integration_preserves_singleton_limits(self):
+  cap=load('resident_two_cap',R/'src/banana_smasher/resident_two_cap.py')
+  cells=['L040/E047_down','L020/E000_fused13','L026/E096_fused13','L026/E097_fused13']
+  s=dict(K=4,cells=cells,resident_cell_limit=4,estimated_peak_bytes=56<<30,planned_write_bytes=36<<20)
+  self.assertEqual(cap.verify(s,80<<30,8<<30),(56<<30,36<<20))
+  for change in [dict(resident_cell_limit=2),dict(resident_cell_limit=3),dict(cells=cells[:3]),dict(cells=cells[:3]+cells[:1]),dict(planned_write_bytes=35<<20)]:
+   with self.assertRaises(ValueError):cap.verify(dict(s,**change),80<<30,8<<30)
+  with self.assertRaises(AssertionError):cap.verify(s,(64<<30)+(36<<20),8<<30)
+  with self.assertRaises(AssertionError):cap.verify(s,80<<30,(4<<30)+(36<<20))
 if __name__=='__main__':unittest.main()
