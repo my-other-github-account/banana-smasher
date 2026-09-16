@@ -17,7 +17,8 @@ def _kernel():
                 width=1<<k
                 other=tl.gather(y,i^width,0)
                 y=tl.where((i&width)==0,y+other,other-y)
-            y=tl.div_rn(y,DIV)
+            # PyTorch CUDA division by a scalar uses reciprocal multiplication.
+            y=y*tl.div_rn(1.0,DIV)
             tl.store(Y+row*N+i,y)
         _KERNEL=transform
     return _KERNEL
