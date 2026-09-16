@@ -6,7 +6,9 @@ No change to mathematical kernels, dtype, shape or completion semantics.
 from contextlib import contextmanager
 
 @contextmanager
-def pinned_cpu_scope(torch, enabled=False, minimum_bytes=1048576):
+def pinned_cpu_scope(torch, enabled=False, minimum_bytes=1048576, *, event_fence=False):
+    if type(event_fence) is not bool:
+        raise ValueError('event_fence must be bool')
     if type(enabled) is not bool:
         raise ValueError('enabled must be bool')
     if type(minimum_bytes) is not int or minimum_bytes < 1:
@@ -19,7 +21,13 @@ def pinned_cpu_scope(torch, enabled=False, minimum_bytes=1048576):
                 and t.numel() * t.element_size() >= minimum_bytes):
             out = torch.empty_like(t, device='cpu', pin_memory=True)
             out.copy_(t, non_blocking=True)
-            torch.cuda.current_stream(t.device).synchronize()
+            stream = torch.cuda.current_stream(t.device)
+            if event_fence:
+                event = torch.cuda.Event()
+                event.record(stream)
+                event.synchronize()
+            else:
+                stream.synchronize()
             events.append({'bytes': t.numel() * t.element_size(),
                            'dtype': str(t.dtype), 'pinned': out.is_pinned()})
             return out
