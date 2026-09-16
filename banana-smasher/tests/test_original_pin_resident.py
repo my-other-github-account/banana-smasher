@@ -44,6 +44,26 @@ class Check(unittest.TestCase):
    with self.assertRaises(AssertionError):exec(code,dict(env,s=dict(s,**override)))
   loops=lambda text:[ast.dump(n) for n in ast.parse(text).body if isinstance(n,ast.For) and 'pair_index' in ast.unparse(n.target)]
   self.assertEqual(loops(SOURCE),loops(rendered))
+ def test_relocated_panel_preserves_science_and_singleton_loop(self):
+  rendered=adapter.render(SOURCE,cell_limit=4,relocated_panel=True)
+  self.assertIn("cfg['model_root']=row['model_root']",rendered)
+  self.assertIn("cfg['qtip_root']=row['qtip_root']",rendered)
+  self.assertIn("cfg['geometry']['K']==row['input_k']",rendered)
+  self.assertIn("assert row['input_k'] in (1,4)",rendered)
+  self.assertIn("H(Path(row['model_root'])/'model.safetensors.index.json')==s['intended_basis']",rendered)
+  loops=lambda text:[ast.dump(n) for n in ast.parse(text).body if isinstance(n,ast.For) and 'pair_index' in ast.unparse(n.target)]
+  self.assertEqual(loops(SOURCE),loops(rendered))
+  pair=adapter.render(SOURCE,cell_limit=2,relocated_panel=True)
+  self.assertNotIn("all(cell.endswith('_down')",pair)
+  self.assertIn("sum((10 if cell.endswith('fused13') else 6)",pair)
+ def test_qualification_singleton_dispatch(self):
+  rows=[pathlib.Path('/one'),pathlib.Path('/two')]
+  self.assertEqual(adapter.singleton_groups(rows),[[rows[0]],[rows[1]]])
+  calls=[]
+  result=adapter.run_singleton([rows[0]],pathlib.Path('/out'),40,lambda *args:calls.append(args) or 'result')
+  self.assertEqual(result,'result');self.assertEqual(calls,[([rows[0]],pathlib.Path('/out'),40)])
+  with self.assertRaises(ValueError):adapter.run_singleton(rows,pathlib.Path('/out'),40,lambda *args:None)
+  self.assertIn('from original_pin_resident import run_singleton as run_pair',adapter.render(SOURCE,cell_limit=4,relocated_panel=True))
  def test_cli_four_cell_option(self):
   import subprocess,sys,tempfile
   with tempfile.TemporaryDirectory() as temp:
