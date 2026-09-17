@@ -1,4 +1,4 @@
-"""Original singleton policy for two (default) or opt-in four sequential cells.
+"""Original singleton policy for two (default) or opt-in four/eight sequential cells.
 
 Use verify for deployment admission and apply_cap for the child. Default
 singleton caps stay unchanged. Explicit sequential30 qualification enforces a
@@ -39,8 +39,10 @@ def _check(spec):
         raise ValueError('original fleet cap source mismatch')
     cells = spec['cells']
     count = spec.get('resident_cell_limit', 2)
-    if type(count) is not int or count not in (2, 4):
-        raise ValueError('resident_cell_limit must be 2 or explicitly authorized 4')
+    if type(count) is not int or count not in (2, 4, 8):
+        raise ValueError('resident_cell_limit must be 2 or explicitly authorized 4/8')
+    if count == 8 and spec.get('resource_envelope') != 'sequential30':
+        raise ValueError('eight cells require the enforced sequential30 envelope')
     if spec['K'] != 4 or not isinstance(cells, list) or len(cells) != count or len(set(cells)) != count:
         raise ValueError('requires exactly the admitted count of distinct K4 cells')
     values = [original.budget([cell]) for cell in cells]

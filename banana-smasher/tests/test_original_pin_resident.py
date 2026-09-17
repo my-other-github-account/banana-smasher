@@ -64,6 +64,24 @@ class Check(unittest.TestCase):
   self.assertEqual(result,'result');self.assertEqual(calls,[([rows[0]],pathlib.Path('/out'),40)])
   with self.assertRaises(ValueError):adapter.run_singleton(rows,pathlib.Path('/out'),40,lambda *args:None)
   self.assertIn('from original_pin_resident import run_singleton as run_pair',adapter.render(SOURCE,cell_limit=4,relocated_panel=True))
+ def test_explicit_eight_cell_singleton_template(self):
+  rendered=adapter.render(SOURCE,cell_limit=8,relocated_panel=True)
+  tree=ast.parse(rendered)
+  guards=[n for n in tree.body if isinstance(n,ast.Assert) and ('len(prepared' in ast.unparse(n) or 'prior_complete_k4_cells' in ast.unparse(n) or 'planned_write_bytes' in ast.unparse(n) or 'set(s[' in ast.unparse(n) or 'Path(row[' in ast.unparse(n) or 'resident_cell_limit' in ast.unparse(n))]
+  code=compile(ast.Module(body=guards,type_ignores=[]),'admission','exec')
+  cells=['L040/E047_down','L020/E000_fused13','L026/E096_fused13','L026/E097_fused13']+[f'L043/E{i:03}_down' for i in range(8,12)]
+  s=dict(cells=cells,resident_cell_limit=8,canonical_commit=adapter.PIN,prior_complete_k4_cells=[],planned_write_bytes=60<<20,planned_output_bytes=60<<20)
+  env=dict(s=s,prepared={'rows':[dict(config=f'/in/{i}.json') for i in range(8)]},Path=pathlib.Path)
+  exec(code,env)
+  for override in [dict(resident_cell_limit=4),dict(prior_complete_k4_cells=cells[:1]),dict(planned_write_bytes=59<<20),dict(cells=cells[:-1]+cells[:1])]:
+   with self.assertRaises(AssertionError):exec(code,dict(env,s=dict(s,**override)))
+  loops=lambda text:[ast.dump(n) for n in ast.parse(text).body if isinstance(n,ast.For) and 'pair_index' in ast.unparse(n.target)]
+  self.assertEqual(loops(SOURCE),loops(rendered))
+  calls=[]
+  for group in adapter.singleton_groups(cells):adapter.run_singleton(group,'/output',43,lambda *a:calls.append(a))
+  self.assertEqual([c[0] for c in calls],[[cell] for cell in cells])
+  for count in (True,3,6,16):
+   with self.assertRaises(ValueError):adapter.render(SOURCE,cell_limit=count)
  def test_cli_four_cell_option(self):
   import subprocess,sys,tempfile
   with tempfile.TemporaryDirectory() as temp:

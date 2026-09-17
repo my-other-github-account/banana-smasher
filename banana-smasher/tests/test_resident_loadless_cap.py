@@ -22,6 +22,18 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.spec, before)
         for available, free in [((46<<30)+(36<<20), 8<<30), (47<<30, (4<<30)+(36<<20))]:
             with self.assertRaises(AssertionError): self.cap.verify(self.spec, available, free)
+    def test_eight_distinct_cells_keep_enforced_cap_and_reserves(self):
+        s=dict(self.spec,resident_cell_limit=8,cells=self.spec['cells']+[f'L043/E{i:03}_down' for i in range(8,12)],planned_write_bytes=60<<20)
+        self.assertEqual(self.cap.verify(s,47<<30,8<<30),(38<<30,60<<20))
+        for change in [dict(cells=s['cells'][:-1]+s['cells'][:1]),dict(planned_write_bytes=59<<20),dict(resident_cell_limit=16),dict(resource_envelope='original',estimated_peak_bytes=56<<30)]:
+            with self.assertRaises(ValueError):self.cap.verify(dict(s,**change),70<<30,8<<30)
+        for available,free in [((46<<30)+(60<<20),8<<30),(47<<30,(4<<30)+(60<<20))]:
+            with self.assertRaises(AssertionError):self.cap.verify(s,available,free)
+        events=[]
+        resource=types.SimpleNamespace(RLIMIT_AS=9,setrlimit=lambda *a:events.append(a))
+        cuda=types.SimpleNamespace(get_device_properties=lambda n:types.SimpleNamespace(total_memory=128<<30),set_per_process_memory_fraction=lambda *a:events.append(a))
+        self.cap.apply_cap(s,resource,cuda)
+        self.assertEqual(events,[(9,(30<<30,30<<30)),(4/128,0)])
     def test_enforcement_is_actual_not_estimate_only(self):
         events=[]
         resource=types.SimpleNamespace(RLIMIT_AS=9,setrlimit=lambda *a:events.append(a))
